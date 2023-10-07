@@ -140,6 +140,30 @@ defmodule MetamorphicWeb.Router do
     end
   end
 
+  scope "/ai", MetamorphicWeb do
+    pipe_through [
+      :browser,
+      :require_authenticated_user,
+      :require_confirmed_user,
+      :require_session_key
+    ]
+
+    live_session :ai,
+      on_mount: [
+        {MetamorphicWeb.UserAuth, :ensure_authenticated},
+        {MetamorphicWeb.UserAuth, :ensure_confirmed},
+        {MetamorphicWeb.UserAuth, :ensure_session_key}
+      ] do
+      live "/conversations", ConversationLive.Index, :index
+      live "/conversations/new", ConversationLive.Index, :new
+      live "/conversations/:id/edit", ConversationLive.Index, :edit
+
+      live "/conversations/:id", ConversationLive.Show, :show
+      live "/conversations/:id/show/edit", ConversationLive.Show, :edit
+      live "/conversations/:id/edit_message/:msg_id", ConversationLive.Show, :edit_message
+    end
+  end
+
   scope "/admin", MetamorphicWeb do
     pipe_through [
       :browser,

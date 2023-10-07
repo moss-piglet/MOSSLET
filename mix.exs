@@ -35,6 +35,7 @@ defmodule Metamorphic.MixProject do
       {:argon2_elixir, "~> 3.0"},
       {:cloak, "~> 1.1"},
       {:cloak_ecto, "~> 1.2"},
+      {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.10"},
       {:enacl, "~> 1.2"},
       {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},

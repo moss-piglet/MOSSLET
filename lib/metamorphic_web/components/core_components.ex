@@ -463,6 +463,7 @@ defmodule MetamorphicWeb.CoreComponents do
   attr :apply_classes?, :boolean, default: false
   attr :classes, :string
 
+  attr :help, :string, default: nil
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
@@ -471,7 +472,7 @@ defmodule MetamorphicWeb.CoreComponents do
 
   attr :rest, :global,
     include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
-                multiple pattern placeholder readonly required rows size step)
+                multiple pattern placeholder readonly required rows size step ticks)
 
   slot :inner_block
   slot :description_block
@@ -534,6 +535,7 @@ defmodule MetamorphicWeb.CoreComponents do
         <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
       </select>
       <.error :for={msg <- @errors}><%= msg %></.error>
+      <.help :if={@help} text={@help} class="mt-1" />
     </div>
     """
   end
@@ -562,6 +564,46 @@ defmodule MetamorphicWeb.CoreComponents do
         {@rest}
       ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
       <.error :for={msg <- @errors}><%= msg %></.error>
+      <.help :if={@help} text={@help} class="mt-2" />
+    </div>
+    """
+  end
+
+  def input(%{type: "range"} = assigns) do
+    {local, rest} = Map.split(assigns.rest, [:min, :max, :step, :ticks])
+
+    assigns =
+      assigns
+      |> assign(:min, Map.get(local, :min, 0))
+      |> assign(:max, Map.get(local, :max, 9))
+      |> assign(:step, Map.get(local, :step, 1))
+      |> assign(:ticks, Map.get(local, :ticks, false))
+      |> assign(:rest, rest)
+
+    ~H"""
+    <div phx-feedback-for={@name} class="text-sm">
+      <.label :if={@label} for={@id} required={@required}><%= @label %></.label>
+      <div class="mx-auto w-full">
+        <input
+          id={@id}
+          class="w-full cursor-pointer rounded-full accent-rose-500"
+          {@rest}
+          type="range"
+          name={@name}
+          min={@min}
+          max={@max}
+          step={@step}
+          value={@value}
+          list={"#{@id}-values"}
+        />
+        <%= if @ticks do %>
+          <datalist id={"#{@id}-values"}>
+            <option :for={tick_val <- @min..@max//@step} value={tick_val} label={tick_val}></option>
+          </datalist>
+        <% end %>
+      </div>
+      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.help :if={@help} text={@help} class="mt-2" />
     </div>
     """
   end
@@ -596,6 +638,7 @@ defmodule MetamorphicWeb.CoreComponents do
         {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
+      <.help :if={@help} text={@help} class="mt-2" />
     </div>
     """
   end
@@ -625,6 +668,18 @@ defmodule MetamorphicWeb.CoreComponents do
       <.icon name="hero-exclamation-circle-mini" class="mt-0.5 h-5 w-5 flex-none" />
       <%= render_slot(@inner_block) %>
     </p>
+    """
+  end
+
+  @doc """
+  Generates a generic input help text message.
+  """
+  attr :text, :string, required: true
+  attr :class, :string, default: nil
+
+  def help(assigns) do
+    ~H"""
+    <p class={["text-gray-500", @class]}><%= @text %></p>
     """
   end
 
@@ -965,6 +1020,120 @@ defmodule MetamorphicWeb.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  @doc """
+  Render the raw content as markdown. Returns HTML rendered text.
+  """
+  def render_markdown(nil), do: Phoenix.HTML.raw(nil)
+
+  def render_markdown(text) when is_binary(text) do
+    # NOTE: This allows explicit HTML to come through.
+    #   - Don't allow this with user input.
+    text |> Earmark.as_html!(escape: false) |> Phoenix.HTML.raw()
+  end
+
+  @doc """
+  Render a markdown containing web component.
+  """
+  attr :text, :string, required: true
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  def markdown(%{text: nil} = assigns), do: ~H""
+
+  def markdown(assigns) do
+    ~H"""
+    <div class={["prose dark:prose-invert", @class]} {@rest}><%= render_markdown(@text) %></div>
+    """
+  end
+
+  slot :title, required: true
+  slot :right
+  slot :links
+  slot :description
+  slot :inner_block, required: true
+
+  @doc """
+  Section heading with title and description.
+  """
+  def section_heading(assigns) do
+    ~H"""
+    <div class="px-4 py-5 sm:px-6">
+      <div class="flex items-center">
+        <div class="flex-grow">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">
+            <%= for title <- @title do %>
+              <%= render_slot(title) %>
+            <% end %>
+          </h3>
+          <%= for description <- @description do %>
+            <p class="text-sm text-gray-500">
+              <div class="mt-1 max-w-2xl text-sm text-gray-500">
+                <%= render_slot(description) %>
+              </div>
+            </p>
+          <% end %>
+
+          <%= for inner_block <- @inner_block do %>
+            <div class="mt-1 max-w-2xl text-sm text-gray-500">
+              <%= render_slot(inner_block) %>
+            </div>
+          <% end %>
+        </div>
+        <%= for right <- @right do %>
+          <%= render_slot(right) %>
+        <% end %>
+      </div>
+      <%= for links <- @links do %>
+        <div class="mt-2 text-sm">
+          <%= render_slot(links) %>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  Render a simple filter form input.
+  """
+  attr :rest, :global
+
+  def simple_filter_form(assigns) do
+    ~H"""
+    <form phx-change="simple-filter" phx-submit="simple-filter" {@rest}>
+      <input
+        type="text"
+        name="filter"
+        id="filter"
+        phx-debounce="500"
+        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 px-4 rounded-full"
+        placeholder="Filter"
+      />
+    </form>
+    """
+  end
+
+  @doc """
+  Apply the filtering value from Simple Filter input form. This dynamically
+  filters an in-memory list of maps. The value is partially matched with a
+  case-insensitive search against each item in the list by that specified
+  attribute.
+
+      simple_filter_apply(Conversations.all_contexts(), value, :name
+
+  """
+  def simple_filter_apply(full_list, "", _match_attribute), do: full_list
+
+  def simple_filter_apply(full_list, filter_value, match_attribute) do
+    match_value = filter_value |> String.trim() |> String.downcase()
+
+    Enum.filter(full_list, fn item ->
+      item_val = Map.get(item, match_attribute) |> String.downcase()
+      String.contains?(item_val, match_value)
+    end)
+  end
+
+  ## Private
 
   defp src_blank?(src) do
     !src || src == ""
