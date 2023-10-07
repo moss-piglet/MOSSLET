@@ -23,12 +23,15 @@ import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import { DateTime } from "../vendor/luxon"
 import Sortable from "../vendor/sortable"
+import * as CtrlEnterSubmits from "./hooks/ctrl_enter_submits"
 
 let execJS = (selector, attr) => {
   document.querySelectorAll(selector).forEach(el => liveSocket.execJS(el, el.getAttribute(attr)))
 }
 
-let Hooks = {}
+let Hooks = Object.assign({},
+  CtrlEnterSubmits.hooks,
+)
 
 Hooks.LocalTime = {
   mounted(){ this.updated() },
