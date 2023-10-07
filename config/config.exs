@@ -92,10 +92,13 @@ config :ex_aws, :s3,
   scheme: "https",
   host: {:system, "STORJ_HOST"}
 
+config :ex_aws, :retries, max_attempts: 3
+
 # Configure the time zone database
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 
-config :ex_aws, :retries, max_attempts: 3
+# Configure langchain OpenAI key
+config :langchain, :openai_key, fn -> System.fetch_env!("OPENAI_KEY") end
 
 # Configure Sentry error monitoring
 config :sentry,
