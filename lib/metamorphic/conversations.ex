@@ -8,7 +8,6 @@ defmodule Metamorphic.Conversations do
   alias Metamorphic.Repo
 
   alias Metamorphic.Conversations.Conversation
-  alias Metamorphic.Messages.Message
 
   @doc """
   Returns the list of conversations.

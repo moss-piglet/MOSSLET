@@ -25,13 +25,22 @@ defmodule MetamorphicWeb.UserDashLive do
             Metamorphic is a place for you to connect and share easily with the people in your life (and the world), free from big tech 👀 — like a tiny, little island of peace and privacy.
           </p>
           <p>
+            With our latest release we have added support to give you the ability to create conversations with some of the industry-leading artificial intelligence models (like ChatGPT). It was important to me that your data is protected, and so the models are not trained on your conversation data and your data is asymmetrically encrypted like the rest of your account (but keep in mind messages to the AI must still be sent out to whichever service is running it).
+          </p>
+          <p>
+            We've also introduced subscription based pricing and if you wish to use all of Metamorphic's features, like AI, then you need to create a subscription. Subscriptions enable us to provide these services to you, keep your data in your hands, and support any free accounts.
+          </p>
+          <p>
             There's a lot underway, so stay tuned and feel free to use the little "envelope" button in the top banner to reach out with any requests for features that you'd like to see, issues you encounter, or simply to say "hi" and express your support.
           </p>
           <p>
-            We appreciate you being here and want to hear from you!
+            We appreciate you being here and want to hear from you, thank you!
           </p>
           <div class="mt-4">
             <.list>
+              <:item title="AI">
+                Go here to have conversations with industry leading AI models.
+              </:item>
               <:item title="Connections">
                 Go here to add new connections with people and edit or remove existing connections.
               </:item>
