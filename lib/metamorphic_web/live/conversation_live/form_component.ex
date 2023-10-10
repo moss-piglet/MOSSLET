@@ -11,7 +11,7 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
     <div>
       <.header>
         <%= @title %>
-        <:subtitle>Use this form to manage conversation records in your database.</:subtitle>
+        <:subtitle>Use this form to manage and adjust the settings for your conversation.</:subtitle>
       </.header>
 
       <.simple_form
@@ -93,7 +93,7 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
            conversation_params,
            socket.assigns.current_user
          ) do
-      {:ok, {:ok, conversation}} ->
+      {:ok, conversation} ->
         notify_parent({:saved, conversation})
 
         {:noreply,
