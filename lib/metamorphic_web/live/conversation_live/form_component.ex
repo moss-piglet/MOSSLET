@@ -108,7 +108,7 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
 
   defp save_conversation(socket, :new, conversation_params) do
     case Conversations.create_conversation(conversation_params) do
-      {:ok, {:ok, conversation}} ->
+      {:ok, conversation} ->
         # create a default system message
         Messages.create_message(conversation.id, %{
           role: :system,

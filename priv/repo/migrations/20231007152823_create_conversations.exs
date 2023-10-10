@@ -7,8 +7,8 @@ defmodule Metamorphic.Repo.Local.Migrations.CreateConversations do
 
       add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
 
-      add :name, :string
-      add :model, :string
+      add :name, :binary
+      add :model, :binary
       add :temperature, :float, default: 1.0
       add :frequency_penalty, :float, default: 0.0
 
@@ -24,7 +24,7 @@ defmodule Metamorphic.Repo.Local.Migrations.CreateConversations do
         null: false
 
       add :role, :string
-      add :content, :string
+      add :content, :binary
       add :edited, :boolean, default: false, null: false
       add :status, :string
 

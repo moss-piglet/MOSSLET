@@ -2,11 +2,12 @@ defmodule Metamorphic.Messages.Message do
   use Ecto.Schema
   import Ecto.Changeset
   alias __MODULE__
+  alias Metamorphic.Encrypted
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "messages" do
-    field :content, :string
+    field :content, Encrypted.Binary
     field :edited, :boolean, default: false
 
     field :role, Ecto.Enum,

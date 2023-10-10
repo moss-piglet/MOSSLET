@@ -66,11 +66,14 @@ defmodule Metamorphic.Messages do
 
   """
   def create_message(conversation_id, attrs \\ %{}) do
-    Repo.transaction_on_primary(fn ->
-      conversation_id
-      |> Message.create_changeset(attrs)
-      |> Repo.insert()
-    end)
+    {:ok, {:ok, message}} =
+      Repo.transaction_on_primary(fn ->
+        conversation_id
+        |> Message.create_changeset(attrs)
+        |> Repo.insert()
+      end)
+
+    {:ok, message}
   end
 
   @doc """
@@ -86,11 +89,14 @@ defmodule Metamorphic.Messages do
 
   """
   def update_message(%Message{} = message, attrs) do
-    Repo.transaction_on_primary(fn ->
-      message
-      |> Message.changeset(attrs)
-      |> Repo.update()
-    end)
+    {:ok, {:ok, message}} =
+      Repo.transaction_on_primary(fn ->
+        message
+        |> Message.changeset(attrs)
+        |> Repo.update()
+      end)
+
+    {:ok, message}
   end
 
   @doc """
@@ -106,9 +112,12 @@ defmodule Metamorphic.Messages do
 
   """
   def delete_message(%Message{} = message) do
-    Repo.transaction_on_primary(fn ->
-      Repo.delete(message)
-    end)
+    {:ok, {:ok, message}} =
+      Repo.transaction_on_primary(fn ->
+        Repo.delete(message)
+      end)
+
+    {:ok, message}
   end
 
   @doc """

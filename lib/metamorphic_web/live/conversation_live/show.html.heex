@@ -3,7 +3,8 @@
 <.header>
   <%= @conversation.name %>
   <:subtitle>
-    <%= @conversation.model %> - Started <%= display_date(@conversation.inserted_at) %>
+    <%= @conversation.model %> - Started
+    <.local_time_full id={@conversation.id} at={@conversation.inserted_at} />
   </:subtitle>
   <:actions>
     <.link patch={~p"/ai/conversations/#{@conversation}/show/edit"} phx-click={JS.push_focus()}>
@@ -23,7 +24,7 @@
         <div class="text-center">
           <.icon name={role_icon(message.role)} class="mx-auto w-8 h-8 text-gray-400 block" />
           <p class="mt-1 text-xs text-gray-400 leading-none select-none">
-            <%= display_date(message.updated_at) %>
+            <.local_time_full id={message.id} at={message.updated_at} />
           </p>
           <p class="mt-1 text-xs text-gray-400 leading-none select-none"><%= message.status %></p>
         </div>

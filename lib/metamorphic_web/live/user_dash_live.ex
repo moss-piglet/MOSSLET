@@ -76,7 +76,7 @@ defmodule MetamorphicWeb.UserDashLive do
           <span class="absolute inset-0 rounded-2xl bg-zinc-50 transition group-hover:bg-zinc-100 sm:group-hover:scale-105">
           </span>
           <span class="relative flex items-center gap-4 sm:flex-col">
-            <.icon name="hero-fa-code-branch" class="h-6 w-6" /> AI
+            <.icon name="hero-cpu-chip" class="h-6 w-6" /> AI
           </span>
         </.link>
         <.link

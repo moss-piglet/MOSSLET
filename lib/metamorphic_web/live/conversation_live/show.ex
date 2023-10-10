@@ -214,7 +214,7 @@ defmodule MetamorphicWeb.ConversationLive.Show do
 
   defp role_icon(:system), do: "hero-cloud-solid"
   defp role_icon(:user), do: "hero-user-solid"
-  defp role_icon(:assistant), do: "fa-user-robot"
+  defp role_icon(:assistant), do: "hero-cpu-chip"
   defp role_icon(:function_call), do: "fa-function"
   defp role_icon(:function), do: "fa-function"
 
@@ -241,13 +241,6 @@ defmodule MetamorphicWeb.ConversationLive.Show do
 
   defp edited_color(%Message{edited: true}), do: "text-orange-600"
   defp edited_color(%Message{edited: false}), do: "text-gray-600"
-
-  defp display_date(%NaiveDateTime{} = datetime) do
-    datetime
-    |> DateTime.from_naive!("Etc/UTC")
-    |> DateTime.shift_zone!("America/Denver")
-    |> Calendar.strftime("%m/%d/%Y %H:%M:%S")
-  end
 
   defp assign_conversation(socket, conversation) do
     socket

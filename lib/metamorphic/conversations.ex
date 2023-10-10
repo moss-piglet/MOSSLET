@@ -18,24 +18,6 @@ defmodule Metamorphic.Conversations do
     |> Repo.all()
   end
 
-  def where_a_message_contains(query, value) do
-    # NOTE: The right way to do this isn't working. I return a single field
-    # value but it's returning a map SQLite can't understand in the subquery.
-    # Doing it the ugly, terrible, two-stage way that works
-    ids =
-      from(m in Message,
-        where: like(m.content, ^value),
-        select: m.conversation_id
-        # distinct: m.conversation_id
-      )
-      |> Repo.all()
-      |> Enum.uniq()
-
-    from(q in query,
-      where: q.id in ^ids
-    )
-  end
-
   @doc """
   Gets a single conversation.
 
@@ -68,11 +50,14 @@ defmodule Metamorphic.Conversations do
 
   """
   def create_conversation(attrs \\ %{}) do
-    Repo.transaction_on_primary(fn ->
-      %Conversation{}
-      |> Conversation.changeset(attrs)
-      |> Repo.insert()
-    end)
+    {:ok, {:ok, conversation}} =
+      Repo.transaction_on_primary(fn ->
+        %Conversation{}
+        |> Conversation.changeset(attrs)
+        |> Repo.insert()
+      end)
+
+    {:ok, conversation}
   end
 
   @doc """
@@ -89,11 +74,14 @@ defmodule Metamorphic.Conversations do
   """
   def update_conversation(%Conversation{} = conversation, attrs, user) do
     if conversation.user_id == user.id do
-      Repo.transaction_on_primary(fn ->
-        conversation
-        |> Conversation.changeset(attrs)
-        |> Repo.update()
-      end)
+      {:ok, {:ok, conversation}} =
+        Repo.transaction_on_primary(fn ->
+          conversation
+          |> Conversation.changeset(attrs)
+          |> Repo.update()
+        end)
+
+      {:ok, conversation}
     end
   end
 
@@ -111,9 +99,12 @@ defmodule Metamorphic.Conversations do
   """
   def delete_conversation(%Conversation{} = conversation, user) do
     if conversation.user_id == user.id do
-      Repo.transaction_on_primary(fn ->
-        Repo.delete(conversation)
-      end)
+      {:ok, {:ok, conversation}} =
+        Repo.transaction_on_primary(fn ->
+          Repo.delete(conversation)
+        end)
+
+      {:ok, conversation}
     end
   end
 

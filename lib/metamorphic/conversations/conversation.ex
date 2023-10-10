@@ -1,12 +1,13 @@
 defmodule Metamorphic.Conversations.Conversation do
   use Ecto.Schema
   import Ecto.Changeset
+  alias Metamorphic.Encrypted
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "conversations" do
-    field :name, :string
-    field :model, :string
+    field :name, Encrypted.Binary
+    field :model, Encrypted.Binary
 
     field :temperature, :float, default: 1.0
     field :frequency_penalty, :float, default: 0.0
