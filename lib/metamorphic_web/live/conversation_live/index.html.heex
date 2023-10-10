@@ -39,10 +39,11 @@
   on_cancel={JS.patch(~p"/ai/conversations")}
 >
   <.live_component
-    module={LangchainDemoWeb.ConversationLive.FormComponent}
+    module={MetamorphicWeb.ConversationLive.FormComponent}
     id={@conversation.id || :new}
     title={@page_title}
     action={@live_action}
+    current_user={@current_user}
     conversation={@conversation}
     patch={~p"/ai/conversations"}
   />

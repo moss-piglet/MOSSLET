@@ -14,7 +14,7 @@ defmodule Metamorphic.Conversations do
   Returns the list of conversations.
   """
   def load_conversations(user) do
-    from(c in Conversation, where: c.user_id == ^user.id, order_by: [desc: c.id])
+    from(c in Conversation, where: c.user_id == ^user.id, order_by: [desc: c.inserted_at])
     |> Repo.all()
   end
 

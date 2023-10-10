@@ -76,10 +76,24 @@ defmodule MetamorphicWeb.CoreComponents do
   """
   attr :id, :string, required: true
   attr :show, :boolean, default: false
+
+  attr :on_click_away, :atom,
+    default: :close,
+    doc:
+      "The behavior to perform when a mouse click happens outside the modal. Defaults to close. Set to `:none` to keep open"
+
   attr :on_cancel, JS, default: %JS{}
   slot :inner_block, required: true
 
   def modal(assigns) do
+    click_away =
+      case assigns.on_click_away do
+        :close -> JS.exec("data-cancel", to: "##{assigns.id}")
+        _other_or_none -> %JS{}
+      end
+
+    assigns = assign(assigns, :click_away, click_away)
+
     ~H"""
     <div
       id={@id}
@@ -465,6 +479,7 @@ defmodule MetamorphicWeb.CoreComponents do
 
   attr :help, :string, default: nil
   attr :errors, :list, default: []
+  attr :required, :boolean, default: false
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
@@ -647,12 +662,14 @@ defmodule MetamorphicWeb.CoreComponents do
   Renders a label.
   """
   attr :for, :string, default: nil
+  attr :required, :boolean, default: false
   slot :inner_block, required: true
 
   def label(assigns) do
     ~H"""
     <label for={@for} class="block text-sm font-semibold leading-6 text-zinc-800">
       <%= render_slot(@inner_block) %>
+      <%= if @required, do: " *", else: "" %>
     </label>
     """
   end
@@ -822,11 +839,12 @@ defmodule MetamorphicWeb.CoreComponents do
       <.back navigate={~p"/posts"}>Back to posts</.back>
   """
   attr :navigate, :any, required: true
+  attr :class, :string, default: "mt-16"
   slot :inner_block, required: true
 
   def back(assigns) do
     ~H"""
-    <div class="mt-16">
+    <div class={@class}>
       <.link
         navigate={@navigate}
         class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700"

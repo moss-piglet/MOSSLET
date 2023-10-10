@@ -98,7 +98,7 @@ config :ex_aws, :retries, max_attempts: 3
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 
 # Configure langchain OpenAI key
-config :langchain, :openai_key, fn -> System.fetch_env!("OPENAI_KEY") end
+config :langchain, openai_key: System.get_env("OPENAI_KEY")
 
 # Configure Sentry error monitoring
 config :sentry,

@@ -27,6 +27,8 @@ defmodule Metamorphic.Application do
       {Phoenix.PubSub, name: Metamorphic.PubSub},
       # Start Finch
       {Finch, name: Metamorphic.Finch},
+      # Start OpenAI Finch
+      {Finch, name: Metamorphic.OpenAIFinch},
       # Start libcluster for clustering
       {Cluster.Supervisor, [topologies, [name: Metamorphic.ClusterSupervisor]]},
       # Start ExMarcel's mime type dictionary storage

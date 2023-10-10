@@ -32,6 +32,7 @@ defmodule Metamorphic.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:abacus, "~> 2.0.0"},
       {:argon2_elixir, "~> 3.0"},
       {:cloak, "~> 1.1"},
       {:cloak_ecto, "~> 1.2"},
@@ -50,8 +51,8 @@ defmodule Metamorphic.MixProject do
       {:gettext, "~> 0.20"},
       {:hackney, "~> 1.18"},
       {:image, "~> 0.36.2"},
-      {:jason, "~> 1.2"},
-      {:langchain, "~> 0.1.0"},
+      {:jason, "~> 1.4"},
+      {:langchain, github: "brainlid/langchain", override: true},
       {:libcluster, "~> 3.3"},
       {:nimble_totp, "~> 1.0"},
       {:oban, "~> 2.15"},
@@ -64,6 +65,7 @@ defmodule Metamorphic.MixProject do
       {:plug_canonical_host, "~> 2.0"},
       {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
+      {:req, "<= 0.3.10"},
       {:sentry, "~> 8.0"},
       {:slugify, "~> 1.3"},
       {:stripity_stripe, "~> 3.0"},
@@ -73,6 +75,7 @@ defmodule Metamorphic.MixProject do
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:tzdata, "~> 1.1"},
+      {:yaml_elixir, "~> 2.9.0"},
       {:zxcvbn, "~> 0.1.3"}
     ]
   end

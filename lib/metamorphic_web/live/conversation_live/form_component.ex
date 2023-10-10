@@ -28,6 +28,7 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
           label="Model"
           options={Conversation.model_options()}
         />
+        <.input field={@form[:user_id]} type="hidden" value={@current_user.id} />
 
         <.input
           type="range"
@@ -64,6 +65,7 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
   @impl true
   def update(%{conversation: conversation} = assigns, socket) do
     changeset = Conversations.change_conversation(conversation)
+    IO.inspect(assigns, label: "ASSIGNS")
 
     {:ok,
      socket
@@ -91,12 +93,12 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
            conversation_params,
            socket.assigns.current_user
          ) do
-      {:ok, conversation} ->
+      {:ok, {:ok, conversation}} ->
         notify_parent({:saved, conversation})
 
         {:noreply,
          socket
-         |> put_flash(:info, "Conversation updated successfully")
+         |> put_flash(:success, "Conversation updated successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -106,7 +108,7 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
 
   defp save_conversation(socket, :new, conversation_params) do
     case Conversations.create_conversation(conversation_params) do
-      {:ok, conversation} ->
+      {:ok, {:ok, conversation}} ->
         # create a default system message
         Messages.create_message(conversation.id, %{
           role: :system,
@@ -117,8 +119,8 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Conversation created successfully")
-         |> push_navigate(to: ~p"/conversations/#{conversation.id}")}
+         |> put_flash(:success, "Conversation created successfully")
+         |> push_navigate(to: ~p"/ai/conversations/#{conversation.id}")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}

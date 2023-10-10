@@ -64,12 +64,12 @@ defmodule MetamorphicWeb.ConversationLive.MessageFormComponent do
 
   defp save_message(socket, :edit_message, message_params) do
     case Messages.update_message(socket.assigns.message, message_params) do
-      {:ok, message} ->
+      {:ok, {:ok, message}} ->
         notify_parent({:saved, message})
 
         {:noreply,
          socket
-         |> put_flash(:info, "Message updated successfully")
+         |> put_flash(:success, "Message updated successfully")
          |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->

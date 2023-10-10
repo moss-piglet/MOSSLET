@@ -1,4 +1,4 @@
-<.back class="mb-8" navigate={~p"/conversations"}>Back to conversations</.back>
+<.back class="mb-8" navigate={~p"/ai/conversations"}>Back to conversations</.back>
 
 <.header>
   <%= @conversation.name %>
@@ -6,7 +6,7 @@
     <%= @conversation.model %> - Started <%= display_date(@conversation.inserted_at) %>
   </:subtitle>
   <:actions>
-    <.link patch={~p"/conversations/#{@conversation}/show/edit"} phx-click={JS.push_focus()}>
+    <.link patch={~p"/ai/conversations/#{@conversation}/show/edit"} phx-click={JS.push_focus()}>
       <.button>Edit</.button>
     </.link>
   </:actions>
@@ -39,7 +39,7 @@
       <div class="flex items-center space-x-2">
         <.link
           title="Edit"
-          patch={~p"/conversations/#{@conversation}/edit_message/#{message.id}"}
+          patch={~p"/ai/conversations/#{@conversation}/edit_message/#{message.id}"}
           phx-click={JS.push_focus()}
         >
           <.icon name="hero-pencil" class={edited_color(message)} />
@@ -117,11 +117,12 @@
   on_cancel={JS.patch(~p"/ai/conversations/#{@conversation}")}
 >
   <.live_component
-    module={LangchainDemoWeb.ConversationLive.FormComponent}
+    module={MetamorphicWeb.ConversationLive.FormComponent}
     id={@conversation.id}
     title={@page_title}
     action={@live_action}
     conversation={@conversation}
+    current_user={@current_user}
     patch={~p"/ai/conversations/#{@conversation}"}
   />
 </.modal>
@@ -134,12 +135,13 @@
   on_click_away={:none}
 >
   <.live_component
-    module={LangchainDemoWeb.ConversationLive.MessageFormComponent}
+    module={MetamorphicWeb.ConversationLive.MessageFormComponent}
     id={"msg-modal-#{@message.id}"}
     title={@page_title}
     action={@live_action}
     conversation={@conversation}
     message={@message}
+    current_user={@current_user}
     patch={~p"/ai/conversations/#{@conversation}"}
   />
 </.modal>
