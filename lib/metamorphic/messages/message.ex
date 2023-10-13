@@ -9,6 +9,7 @@ defmodule Metamorphic.Messages.Message do
   schema "messages" do
     field :content, Encrypted.Binary
     field :edited, :boolean, default: false
+    field :tokens, :decimal
 
     field :role, Ecto.Enum,
       values: [:system, :user, :assistant, :function, :function_call],
@@ -34,7 +35,7 @@ defmodule Metamorphic.Messages.Message do
   @doc false
   def create_changeset(conversation_id, attrs) do
     %Message{}
-    |> cast(attrs, [:role, :content, :status])
+    |> cast(attrs, [:role, :content, :status, :tokens])
     |> put_change(:conversation_id, conversation_id)
     |> common_validations()
   end

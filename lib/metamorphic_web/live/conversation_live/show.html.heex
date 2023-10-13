@@ -2,9 +2,36 @@
 
 <.header>
   <%= @conversation.name %>
+
   <:subtitle>
-    <%= @conversation.model %> - Started
+    <%= @conversation.model %> - Started on
     <.local_time_full id={@conversation.id} at={@conversation.inserted_at} />
+    <div id="token-used-count">
+      <span
+        :if={
+          @current_user.ai_tokens_used && @current_user.ai_tokens_used < @current_user.ai_tokens
+        }
+        class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700"
+      >
+        Tokens used: <%= @ai_tokens_used %>
+      </span>
+      <span
+        :if={
+          @current_user.ai_tokens_used && @current_user.ai_tokens_used > @current_user.ai_tokens
+        }
+        class="inline-flex items-center rounded-md bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700"
+      >
+        Tokens used: <%= @ai_tokens_used %>
+      </span>
+      <span
+        :if={
+          @current_user.ai_tokens_used && @current_user.ai_tokens_used == @current_user.ai_tokens
+        }
+        class="inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700"
+      >
+        Tokens used: <%= @ai_tokens_used %>
+      </span>
+    </div>
   </:subtitle>
   <:actions>
     <.link patch={~p"/ai/conversations/#{@conversation}/show/edit"} phx-click={JS.push_focus()}>
@@ -26,10 +53,17 @@
           <p class="mt-1 text-xs text-gray-400 leading-none select-none">
             <.local_time_full id={message.id} at={message.updated_at} />
           </p>
+
           <p class="mt-1 text-xs text-gray-400 leading-none select-none"><%= message.status %></p>
         </div>
       </div>
       <div class="min-w-0 flex-auto">
+        <span
+          :if={not is_nil(message.tokens)}
+          class="inline-flex items-center rounded-md bg-brand-100 px-2 py-1 text-xs font-medium text-brand-700"
+        >
+          <%= message.tokens %> tokens
+        </span>
         <.markdown :if={message.role == "assistant"} text={message.content} />
         <span :if={message.role != "assistant"} class="whitespace-pre-wrap">
           <%= message.content %>

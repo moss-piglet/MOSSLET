@@ -8,6 +8,7 @@ defmodule Metamorphic.Conversations do
   alias Metamorphic.Repo
 
   alias Metamorphic.Conversations.Conversation
+  alias Metamorphic.Messages.Message
 
   @doc """
   Returns the list of conversations.
@@ -36,6 +37,15 @@ defmodule Metamorphic.Conversations do
     |> Repo.one!()
   end
 
+  def total_conversation_tokens(conversation, user) do
+    from(m in Message,
+      where: m.conversation_id == ^conversation.id,
+      join: c in Conversation,
+      on: c.user_id == ^user.id
+    )
+    |> Repo.aggregate(:sum, :tokens)
+  end
+
   @doc """
   Creates a conversation.
 
@@ -49,14 +59,17 @@ defmodule Metamorphic.Conversations do
 
   """
   def create_conversation(attrs \\ %{}) do
-    {:ok, {:ok, conversation}} =
-      Repo.transaction_on_primary(fn ->
-        %Conversation{}
-        |> Conversation.changeset(attrs)
-        |> Repo.insert()
-      end)
+    case Repo.transaction_on_primary(fn ->
+           %Conversation{}
+           |> Conversation.changeset(attrs)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, conversation}} ->
+        {:ok, conversation}
 
-    {:ok, conversation}
+      {:error, {:error, conversation}} ->
+        {:error, conversation}
+    end
   end
 
   @doc """
@@ -73,14 +86,17 @@ defmodule Metamorphic.Conversations do
   """
   def update_conversation(%Conversation{} = conversation, attrs, user) do
     if conversation.user_id == user.id do
-      {:ok, {:ok, conversation}} =
-        Repo.transaction_on_primary(fn ->
-          conversation
-          |> Conversation.changeset(attrs)
-          |> Repo.update()
-        end)
+      case Repo.transaction_on_primary(fn ->
+             conversation
+             |> Conversation.changeset(attrs)
+             |> Repo.update()
+           end) do
+        {:ok, {:ok, conversation}} ->
+          {:ok, conversation}
 
-      {:ok, conversation}
+        {:error, {:error, changeset}} ->
+          {:error, changeset}
+      end
     end
   end
 
@@ -98,12 +114,15 @@ defmodule Metamorphic.Conversations do
   """
   def delete_conversation(%Conversation{} = conversation, user) do
     if conversation.user_id == user.id do
-      {:ok, {:ok, conversation}} =
-        Repo.transaction_on_primary(fn ->
-          Repo.delete(conversation)
-        end)
+      case Repo.transaction_on_primary(fn ->
+             Repo.delete(conversation)
+           end) do
+        {:ok, {:ok, conversation}} ->
+          {:ok, conversation}
 
-      {:ok, conversation}
+        {:erorr, {:error, changeset}} ->
+          {:error, changeset}
+      end
     end
   end
 

@@ -1,5 +1,8 @@
 defmodule MetamorphicWeb.ConversationLive.Show do
   use MetamorphicWeb, :live_view
+
+  alias Metamorphic.Accounts
+  alias Metamorphic.Accounts.User
   alias MetamorphicWeb.ConversationLive.FormComponent
   alias MetamorphicWeb.ConversationLive.MessageFormComponent
   alias Metamorphic.Conversations
@@ -20,6 +23,7 @@ defmodule MetamorphicWeb.ConversationLive.Show do
       |> assign_messages()
       |> assign_llm_chain()
       |> assign(:async_result, %AsyncResult{})
+      |> assign(:ai_tokens_used, socket.assigns.current_user.ai_tokens_used)
 
     {:ok, socket}
   end
@@ -175,6 +179,15 @@ defmodule MetamorphicWeb.ConversationLive.Show do
   end
 
   @impl true
+  def handle_info({:token_update, %User{} = user}, socket) do
+    socket =
+      socket
+      |> assign(:ai_tokens_used, user.ai_tokens_used)
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({:chat_response, %LangChain.MessageDelta{} = delta}, socket) do
     updated_chain = LLMChain.apply_delta(socket.assigns.llm_chain, delta)
 
@@ -182,11 +195,21 @@ defmodule MetamorphicWeb.ConversationLive.Show do
       cond do
         # if this completed the delta and it's not a message, create the message
         updated_chain.delta == nil ->
-          {:ok, _message} =
+          {:ok, message} =
             Messages.create_message(
               socket.assigns.conversation.id,
-              Map.from_struct(updated_chain.last_message)
+              Map.merge(Map.from_struct(updated_chain.last_message), %{
+                tokens: calculate_message_tokens(updated_chain)
+              })
             )
+
+          {:ok, user} =
+            Accounts.update_user_tokens(socket.assigns.current_user, %{
+              ai_tokens_used:
+                calculate_total_ai_tokens_used(socket.assigns.current_user, message.tokens)
+            })
+
+          send(self(), {:token_update, user})
 
           socket
           |> assign_messages()
@@ -217,6 +240,33 @@ defmodule MetamorphicWeb.ConversationLive.Show do
   defp role_icon(:assistant), do: "hero-cpu-chip"
   defp role_icon(:function_call), do: "fa-function"
   defp role_icon(:function), do: "fa-function"
+
+  # We have to account for all the tokens of the chain.
+  # Can update once the langchain library returns usage data.
+  defp calculate_message_tokens(updated_chain) do
+    Enum.map(updated_chain.messages, fn message ->
+      char_count(message.content)
+      |> Decimal.div(Decimal.from_float(3.75))
+      |> Decimal.round()
+      |> Decimal.to_integer()
+    end)
+    |> Enum.sum()
+  end
+
+  defp char_count(content) do
+    content
+    |> String.length()
+  end
+
+  defp calculate_total_ai_tokens_used(user, tokens) do
+    case user.ai_tokens_used do
+      nil ->
+        Decimal.add(0, tokens)
+
+      _rest ->
+        Decimal.add(user.ai_tokens_used, tokens)
+    end
+  end
 
   # Support both %Message{} and %MessageDelta{}
   defp message_block_classes(%{role: :system} = _message) do

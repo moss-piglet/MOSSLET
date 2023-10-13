@@ -27,6 +27,7 @@ defmodule Metamorphic.Repo.Local.Migrations.CreateConversations do
       add :content, :binary
       add :edited, :boolean, default: false, null: false
       add :status, :string
+      add :tokens, :decimal
 
       timestamps()
     end

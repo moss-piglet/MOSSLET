@@ -712,6 +712,19 @@ defmodule Metamorphic.Accounts do
   end
 
   @doc """
+  Returns an `%Ecto.Changeset{}` for changing the user tokens.
+
+  ## Examples
+
+      iex> change_user_tokens(user)
+      %Ecto.Changeset{data: %User{}}
+
+  """
+  def change_user_tokens(user, attrs \\ %{}) do
+    User.tokens_changeset(user, attrs)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user avatar changes.
 
   ## Examples
@@ -831,6 +844,23 @@ defmodule Metamorphic.Accounts do
       :ok
     else
       _rest -> :error
+    end
+  end
+
+  @doc """
+  Updates the user ai tokens.
+  """
+  def update_user_tokens(user, attrs) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.tokens_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, user}} ->
+        {:ok, user}
+
+      {:error, {:error, changeset}} ->
+        {:error, changeset}
     end
   end
 

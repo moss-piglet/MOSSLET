@@ -9,6 +9,7 @@ defmodule MetamorphicWeb.ConversationLive.Index do
   def mount(_params, _session, socket) do
     socket =
       socket
+      |> assign(:ai_tokens_used, socket.assigns.current_user.ai_tokens_used)
       |> assign(:conversations, Conversations.load_conversations(socket.assigns.current_user))
 
     {:ok, socket}

@@ -9,6 +9,16 @@ defmodule MetamorphicWeb.Helpers do
   alias Metamorphic.Memories.{Memory, Remark}
   alias Metamorphic.Timeline.Post
 
+  ## Conversations
+
+  def total_ai_tokens(user) do
+    user.ai_tokens
+  end
+
+  def total_ai_tokens_used(user) do
+    user.ai_tokens_used
+  end
+
   ## Encryption
 
   def decr(_payload, _user, _key)

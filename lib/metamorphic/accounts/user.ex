@@ -34,6 +34,8 @@ defmodule Metamorphic.Accounts.User do
     field :key_pair, {:map, Encrypted.Binary}
     field :user_key, Encrypted.Binary, redact: true
     field :conn_key, Encrypted.Binary, redact: true
+    field :ai_tokens, :decimal
+    field :ai_tokens_used, :decimal
     field :visibility, Ecto.Enum, values: [:public, :private, :connections], default: :connections
     field :confirmed_at, :naive_datetime
 
@@ -80,6 +82,15 @@ defmodule Metamorphic.Accounts.User do
     |> validate_email(opts)
     |> validate_username(opts)
     |> validate_password(opts)
+  end
+
+  @doc """
+  A changeset for updating a user's tokens for using
+  AI services, e.g. chatting with OpenAI.
+  """
+  def tokens_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:ai_tokens, :ai_tokens_used])
   end
 
   defp validate_email(changeset, opts) do

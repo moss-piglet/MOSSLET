@@ -65,7 +65,6 @@ defmodule MetamorphicWeb.ConversationLive.FormComponent do
   @impl true
   def update(%{conversation: conversation} = assigns, socket) do
     changeset = Conversations.change_conversation(conversation)
-    IO.inspect(assigns, label: "ASSIGNS")
 
     {:ok,
      socket

@@ -52,7 +52,7 @@ defmodule Metamorphic.MixProject do
       {:hackney, "~> 1.18"},
       {:image, "~> 0.36.2"},
       {:jason, "~> 1.4"},
-      {:langchain, github: "brainlid/langchain", override: true},
+      {:langchain, "~> 0.1.1"},
       {:libcluster, "~> 3.3"},
       {:nimble_totp, "~> 1.0"},
       {:oban, "~> 2.15"},

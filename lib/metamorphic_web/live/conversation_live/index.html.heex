@@ -1,5 +1,33 @@
 <.header>
   Conversations
+  <:subtitle>
+    <div id="token-used-count">
+      <span
+        :if={
+          @current_user.ai_tokens_used && @current_user.ai_tokens_used < @current_user.ai_tokens
+        }
+        class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700"
+      >
+        Tokens used: <%= @ai_tokens_used %>
+      </span>
+      <span
+        :if={
+          @current_user.ai_tokens_used && @current_user.ai_tokens_used > @current_user.ai_tokens
+        }
+        class="inline-flex items-center rounded-md bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700"
+      >
+        Tokens used: <%= @ai_tokens_used %>
+      </span>
+      <span
+        :if={
+          @current_user.ai_tokens_used && @current_user.ai_tokens_used == @current_user.ai_tokens
+        }
+        class="inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700"
+      >
+        Tokens used: <%= @ai_tokens_used %>
+      </span>
+    </div>
+  </:subtitle>
   <:actions>
     <.link patch={~p"/ai/conversations/new"}>
       <.button>New Conversation</.button>
@@ -7,11 +35,11 @@
   </:actions>
 </.header>
 
-<ul id="conversations" role="list" class="text-sm divide-y divide-gray-100">
+<ul id="conversations" role="list" class="pt-4 text-sm divide-y divide-brand-100">
   <li
     :for={conversation <- @conversations}
     id={"row-#{conversation.id}"}
-    class="relative flex justify-between gap-x-6 py-5 hover:bg-zinc-50 sm:rounded"
+    class="relative flex justify-between group gap-x-4 py-5 px-2 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 focus-within:ring-offset-gray-100  hover:cursor-pointer hover:bg-brand-50 sm:hover:rounded-lg sm:hover:scale-105"
   >
     <div class="font-semibold text-zinc-900">
       <.link navigate={~p"/ai/conversations/#{conversation}"}>
