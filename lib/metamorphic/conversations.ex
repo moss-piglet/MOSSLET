@@ -67,8 +67,8 @@ defmodule Metamorphic.Conversations do
       {:ok, {:ok, conversation}} ->
         {:ok, conversation}
 
-      {:error, {:error, conversation}} ->
-        {:error, conversation}
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
     end
   end
 
@@ -94,7 +94,7 @@ defmodule Metamorphic.Conversations do
         {:ok, {:ok, conversation}} ->
           {:ok, conversation}
 
-        {:error, {:error, changeset}} ->
+        {:ok, {:error, changeset}} ->
           {:error, changeset}
       end
     end
@@ -120,7 +120,7 @@ defmodule Metamorphic.Conversations do
         {:ok, {:ok, conversation}} ->
           {:ok, conversation}
 
-        {:erorr, {:error, changeset}} ->
+        {:ok, {:error, changeset}} ->
           {:error, changeset}
       end
     end

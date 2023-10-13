@@ -74,7 +74,7 @@ defmodule Metamorphic.Messages do
       {:ok, {:ok, message}} ->
         {:ok, message}
 
-      {:error, {:error, changeset}} ->
+      {:ok, {:error, changeset}} ->
         {:error, changeset}
     end
   end
@@ -100,7 +100,7 @@ defmodule Metamorphic.Messages do
       {:ok, {:ok, message}} ->
         {:ok, message}
 
-      {:error, {:error, changeset}} ->
+      {:ok, {:error, changeset}} ->
         {:error, changeset}
     end
   end
@@ -124,7 +124,7 @@ defmodule Metamorphic.Messages do
       {:ok, {:ok, message}} ->
         {:ok, message}
 
-      {:error, {:error, changeset}} ->
+      {:ok, {:error, changeset}} ->
         {:error, changeset}
     end
   end
