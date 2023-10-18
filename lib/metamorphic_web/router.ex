@@ -29,8 +29,6 @@ defmodule MetamorphicWeb.Router do
   scope "/", MetamorphicWeb do
     pipe_through [:browser]
 
-    get "/", PageController, :home
-
     live_session :public,
       on_mount: [
         {MetamorphicWeb.UserAuth, :mount_current_user},
