@@ -9,6 +9,10 @@
 </.header>
 
 <div class="space-y-12 divide-y">
+  <!-- Billing -->
+  <.info_banner navigate={~p"/billing/user/#{@current_user.id}"} nav_title="Billing">
+    Visit your billing portal to manage your subscription.
+  </.info_banner>
   <!-- avatar -->
   <div>
     <.simple_form
@@ -553,7 +557,7 @@
           <h2 class="ml-2 text-lg font-semibold leading-6 text-brand-700">Delete your account</h2>
         </span>
         <p class="mt-1 text-sm text-zinc-500">
-          Enter your current password below to delete your account and its data. All of your posts (private, connections, and public) and connections will be deleted in real-time. This cannot be undone.
+          Enter your current password below to delete your account and its data. All of your posts (private, connections, and public) and connections will be deleted in real-time and any active subscriptions will be canceled. This cannot be undone.
         </p>
       </div>
 

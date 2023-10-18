@@ -35,6 +35,22 @@ defmodule Metamorphic.Memories do
   end
 
   @doc """
+  Gets the total count of a user's Memories.
+  """
+  def get_count(user) do
+    query = from m in Memory, where: m.user_id == ^user.id
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil ->
+        0
+
+      count ->
+        count
+    end
+  end
+
+  @doc """
   Returns the sum of the size of a user's memories.
   """
   def get_total_storage(user) do

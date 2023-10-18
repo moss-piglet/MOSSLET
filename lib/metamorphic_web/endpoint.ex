@@ -47,6 +47,12 @@ defmodule MetamorphicWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # configures Stripe webhook handler
+  plug Stripe.WebhookPlug,
+    at: "/webhooks/stripe",
+    handler: Bling.StripeWebhookHandler,
+    secret: {Application, :get_env, [:stripity_stripe, :webhook_secret]}
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],

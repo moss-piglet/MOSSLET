@@ -248,12 +248,6 @@ defmodule MetamorphicWeb.PublicLive.Privacy do
             <p>
               Your account password, and any password used for securing your content, is protected with an industry leading hashing algorithm that makes it virtually impossible to ever know your password. You may see this concept being referred to as an "irreversible password hash".
             </p>
-            <p>
-              You can read more about the encryption we use and how we protect your account by visiting our <.link
-                navigate="/security"
-                class="text-brand-600 "
-              >security policy</.link>.
-            </p>
 
             <h2 class="font-bold">
               You are not a guinea pig. <span class="opacity-25 line-through">lab experiments</span>
@@ -309,24 +303,7 @@ defmodule MetamorphicWeb.PublicLive.Privacy do
               </strong>
             </p>
             <h4 class="underline inline-flex">Why Stripe?</h4>
-            <span class="inline-flex items-center rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-700">
-              Future
-            </span>
-            <div class="border-l-4 border-pink-400 bg-pink-50 p-4">
-              <div class="flex">
-                <div class="flex-shrink-0">
-                  <.icon name="hero-information-circle-solid" class="h-5 w-5 text-pink-400" />
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm text-pink-700">
-                    Metamorphic is currently free.
-                    <a href="#" class="font-medium text-pink-700 underline hover:text-pink-600">
-                      We are considering subscriptions for the future.
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
+
             <p>
               We have chosen
               <a href="https://stripe.com" class="text-brand-600 " target="_blank" rel="_noopener">

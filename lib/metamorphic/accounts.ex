@@ -654,6 +654,23 @@ defmodule Metamorphic.Accounts do
     {:ok, user}
   end
 
+  def update_user_oban_reset_token_id(user, attrs \\ %{}, opts \\ []) do
+    {:ok, return} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.oban_reset_token_id_changeset(attrs, opts)
+        |> Repo.update()
+      end)
+
+    case return do
+      {:ok, user} ->
+        {:ok, user}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
   def update_user_visibility(user, attrs \\ %{}, opts \\ []) do
     {:ok, return} =
       Repo.transaction_on_primary(fn ->

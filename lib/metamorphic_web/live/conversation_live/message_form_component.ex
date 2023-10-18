@@ -27,11 +27,12 @@ defmodule MetamorphicWeb.ConversationLive.MessageFormComponent do
           rows={6}
           label="Content"
           phx-update="ignore"
-          phx-hook="CtrlEnterSubmits"
         />
         <.input field={@form[:edited]} type="checkbox" label="Edited" />
         <:actions>
-          <.button phx-disable-with="Saving...">Save Message</.button>
+          <.button phx-disable-with="Saving...">
+            Save Message
+          </.button>
         </:actions>
       </.simple_form>
     </div>

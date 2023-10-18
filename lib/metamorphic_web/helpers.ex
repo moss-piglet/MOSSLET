@@ -9,7 +9,79 @@ defmodule MetamorphicWeb.Helpers do
   alias Metamorphic.Memories.{Memory, Remark}
   alias Metamorphic.Timeline.Post
 
+  ## Numbers
+
+  def number_to_string(number) do
+    case Metamorphic.Cldr.Number.to_string(number) do
+      {:ok, string} ->
+        string
+
+      _rest ->
+        nil
+    end
+  end
+
+  ## Subscriptions
+
+  def get_subscription(user) do
+    subscription =
+      Bling.Customers.subscription(user) |> Metamorphic.Repo.preload(:subscription_items)
+
+    subscription
+  end
+
+  def get_plan(subscription) do
+    subscription_items = Bling.Subscriptions.subscription_items(subscription)
+
+    case Enum.count(subscription_items) do
+      1 ->
+        Bankroll.plan_from_price_id(List.first(subscription_items).stripe_price_id)
+
+      _rest ->
+        nil
+    end
+  end
+
   ## Conversations
+
+  def assign_ai_tokens(user) do
+    subscription = get_subscription(user)
+    plan = get_plan(subscription)
+
+    case plan.title do
+      "Starter" ->
+        maybe_update_user_ai_tokens(user, 0)
+        0
+
+      "Lite" ->
+        maybe_update_user_ai_tokens(user, 2_500)
+        2_500
+
+      "Plus" ->
+        maybe_update_user_ai_tokens(user, 25_000)
+        25_000
+
+      "Pro" ->
+        maybe_update_user_ai_tokens(user, 50_000)
+        50_000
+
+      "Pro AI" ->
+        maybe_update_user_ai_tokens(user, 100_000)
+        100_000
+
+      _rest ->
+        maybe_update_user_ai_tokens(user, 0)
+        0
+    end
+  end
+
+  def maybe_update_user_ai_tokens(user, tokens) do
+    if(user.ai_tokens == tokens) do
+      :ok
+    else
+      Accounts.update_user_tokens(user, %{ai_tokens: tokens})
+    end
+  end
 
   def total_ai_tokens(user) do
     user.ai_tokens
@@ -17,6 +89,16 @@ defmodule MetamorphicWeb.Helpers do
 
   def total_ai_tokens_used(user) do
     user.ai_tokens_used
+  end
+
+  def monthly_tokens(ai_tokens, user) do
+    case user.ai_tokens_used do
+      nil ->
+        ai_tokens - 0
+
+      _rest ->
+        Decimal.sub(ai_tokens, user.ai_tokens_used)
+    end
   end
 
   ## Encryption
@@ -702,6 +784,31 @@ defmodule MetamorphicWeb.Helpers do
   end
 
   ## Memories
+
+  def assign_plan_memories(user) do
+    subscription = get_subscription(user)
+    plan = get_plan(subscription)
+
+    case plan.title do
+      "Starter" ->
+        50
+
+      "Lite" ->
+        500
+
+      "Plus" ->
+        5_000
+
+      "Pro" ->
+        10_000
+
+      "Pro AI" ->
+        50_000
+
+      _rest ->
+        0
+    end
+  end
 
   def get_user_memory(user, key, memory \\ nil, current_user \\ nil)
 

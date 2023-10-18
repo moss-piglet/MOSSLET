@@ -23,7 +23,12 @@ defmodule MetamorphicWeb.ConversationLive.Show do
       |> assign_messages()
       |> assign_llm_chain()
       |> assign(:async_result, %AsyncResult{})
+      |> assign(:ai_tokens, socket.assigns.current_user.ai_tokens)
       |> assign(:ai_tokens_used, socket.assigns.current_user.ai_tokens_used)
+      |> assign(
+        :tokens_available,
+        monthly_tokens(socket.assigns.current_user.ai_tokens, socket.assigns.current_user)
+      )
 
     {:ok, socket}
   end
@@ -73,20 +78,31 @@ defmodule MetamorphicWeb.ConversationLive.Show do
       message_params
       |> Map.put("role", "user")
 
-    case Messages.create_message(conversation.id, params) do
-      {:ok, _message} ->
-        {:noreply,
-         socket
-         |> assign_messages()
-         # re-build the chain based on the current messages
-         |> assign_llm_chain()
-         |> run_chain()
-         |> put_flash(:info, "Message sent successfully")
-         # reset the changeset
-         |> assign_form(Message.changeset(%Message{}, %{}))}
+    if Decimal.to_integer(socket.assigns.tokens_available) > 0 do
+      case Messages.create_message(conversation.id, params) do
+        {:ok, _message} ->
+          {:noreply,
+           socket
+           |> assign_messages()
+           # re-build the chain based on the current messages
+           |> assign_llm_chain()
+           |> run_chain()
+           |> put_flash(:info, "Message sent successfully")
+           # reset the changeset
+           |> assign_form(Message.changeset(%Message{}, %{}))}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply, assign_form(socket, changeset)}
+      end
+    else
+      socket =
+        socket
+        |> put_flash(
+          :warning,
+          "Woops, looks like you have run out of monthly AI tokens. Please upgrade your subscription or wait for the start of your next billing cycle."
+        )
+
+      {:noreply, socket}
     end
   end
 
@@ -180,11 +196,29 @@ defmodule MetamorphicWeb.ConversationLive.Show do
 
   @impl true
   def handle_info({:token_update, %User{} = user}, socket) do
-    socket =
-      socket
-      |> assign(:ai_tokens_used, user.ai_tokens_used)
+    tokens_available = monthly_tokens(user.ai_tokens, user)
 
-    {:noreply, socket}
+    if Decimal.to_integer(tokens_available) <= 0 do
+      socket =
+        socket
+        |> assign(:ai_tokens_used, user.ai_tokens_used)
+        |> assign(:ai_tokens, user.ai_tokens)
+        |> assign(:tokens_available, monthly_tokens(user.ai_tokens, user))
+        |> cancel_async(:running_llm)
+        |> assign(:async_result, %AsyncResult{})
+        |> put_flash(:info, "Cancelled")
+        |> close_pending_as_cancelled()
+
+      {:noreply, socket}
+    else
+      socket =
+        socket
+        |> assign(:ai_tokens_used, user.ai_tokens_used)
+        |> assign(:ai_tokens, user.ai_tokens)
+        |> assign(:tokens_available, monthly_tokens(user.ai_tokens, user))
+
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -216,6 +250,20 @@ defmodule MetamorphicWeb.ConversationLive.Show do
           |> assign(:llm_chain, updated_chain)
           |> flash_error_if_stopped_for_limit()
 
+        updated_chain ->
+          {:ok, user} =
+            Accounts.update_user_tokens(socket.assigns.current_user, %{
+              ai_tokens: assign_ai_tokens(socket.assigns.current_user),
+              ai_tokens_used:
+                calculate_total_ai_tokens_used(
+                  socket.assigns.current_user,
+                  calculate_message_tokens(updated_chain)
+                )
+            })
+
+          send(self(), {:token_update, user})
+          socket
+
         true ->
           socket
       end
@@ -244,13 +292,20 @@ defmodule MetamorphicWeb.ConversationLive.Show do
   # We have to account for all the tokens of the chain.
   # Can update once the langchain library returns usage data.
   defp calculate_message_tokens(updated_chain) do
-    Enum.map(updated_chain.messages, fn message ->
-      char_count(message.content)
+    if updated_chain.delta != nil do
+      char_count(updated_chain.delta.content)
       |> Decimal.div(Decimal.from_float(3.75))
       |> Decimal.round()
       |> Decimal.to_integer()
-    end)
-    |> Enum.sum()
+    else
+      Enum.map(updated_chain.messages, fn message ->
+        char_count(message.content)
+        |> Decimal.div(Decimal.from_float(3.75))
+        |> Decimal.round()
+        |> Decimal.to_integer()
+      end)
+      |> Enum.sum()
+    end
   end
 
   defp char_count(content) do

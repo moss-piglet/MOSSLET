@@ -34,6 +34,8 @@ defmodule Metamorphic.MixProject do
     [
       {:abacus, "~> 2.0.0"},
       {:argon2_elixir, "~> 3.0"},
+      {:bling, "~> 0.4.0"},
+      {:bankroll, path: "./bankroll"},
       {:cloak, "~> 1.1"},
       {:cloak_ecto, "~> 1.2"},
       {:earmark, "~> 1.4"},
@@ -68,7 +70,7 @@ defmodule Metamorphic.MixProject do
       {:req, "<= 0.3.10"},
       {:sentry, "~> 8.0"},
       {:slugify, "~> 1.3"},
-      {:stripity_stripe, "~> 3.0"},
+      {:stripity_stripe, "~> 2.17"},
       {:sweet_xml, "~> 0.6"},
       {:swoosh, "~> 1.3"},
       {:tailwind, "~> 0.2.0", runtime: Mix.env() == :dev},

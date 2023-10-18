@@ -25,34 +25,48 @@ defmodule MetamorphicWeb.UserDashLive do
             Metamorphic is a place for you to connect and share easily with the people in your life (and the world), free from big tech 👀 — like a tiny, little island of peace and privacy.
           </p>
           <p>
-            With our latest release we have added support to give you the ability to create conversations with some of the industry-leading artificial intelligence models (like ChatGPT). It was important to me that your data is protected, and so the models are not trained on your conversation data and your data is encrypted at-rest and in-transit. This is different from the rest of your account (think Connections, Memories,  and Posts) which is asymmetrically encrypted to your account password.
+            <div :if={is_nil(@current_user.confirmed_at)}>
+              To get started, you'll first need to confirm your account. We've sent a confirmation email with a link to confirm your account to the email address you signed up with.
+            </div>
           </p>
           <p>
-            We've also introduced subscription based pricing and if you wish to use all of Metamorphic's features, like AI, then you need to create a subscription. Subscriptions enable us to provide these services to you, keep your data in your hands, and support any free accounts.
-          </p>
-          <p>
-            There's a lot underway, so stay tuned and feel free to use the little "envelope" button in the top banner to reach out with any requests for features that you'd like to see, issues you encounter, or simply to say "hi" and express your support.
-          </p>
-          <p>
-            We appreciate you being here and want to hear from you, thank you!
-          </p>
-          <div class="mt-4">
+            <span class="font-semibold">
+              Overview
+            </span>
             <.list>
               <:item title="AI">
-                Go here to have conversations with industry leading AI models.
+                Go here to have conversations with industry-leading AI models.
               </:item>
               <:item title="Connections">
-                Go here to add new connections with people and edit or remove existing connections.
+                Go here to manage all of your people Connections.
               </:item>
               <:item title="Memories">Go here to upload and share Memories.</:item>
               <:item title="Posts">
                 Go here to read, write, and share Posts with your self, your connections, or the world.
               </:item>
               <:item title="Settings">
-                Go here to update your avatar, email, username (default is your email), password, visibility, profile, and enable/disable the forgot password ability.
+                Go here to update your avatar, billing, email, username (default is your email), password, visibility, profile, and enable/disable the forgot password ability.
               </:item>
             </.list>
-          </div>
+          </p>
+          <p class="font-semibold">
+            Latest Updates
+          </p>
+          <p>
+            With our latest release we have added support to give you the ability to create conversations with some of the industry-leading artificial intelligence models (like ChatGPT). It was important to me that your data is protected, and so the models are not trained on your conversation data and your data is encrypted at-rest and in-transit. This is different from the rest of your account (think Connections, Memories,  and Posts) which is asymmetrically encrypted to your account password.
+          </p>
+          <p>
+            We've also introduced subscription based pricing, with a free account tier, to support all of this and to keep your data in your hands. If you wish to use all of Metamorphic's features, like AI, then you'll need an active subscription.
+          </p>
+          <p class="font-semibold">
+            Stay Tuned
+          </p>
+          <p>
+            There's a lot underway, and we're so excited to hear from you, so feel free to use the little "envelope" button in the top banner to reach out with any feature requests, issues you encounter, or simply to say "hi" and express your support.
+          </p>
+          <p>
+            We appreciate you being here, thank you!
+          </p>
         </blockquote>
         <figcaption class="flex items-center gap-x-4 border-t border-gray-900/10 px-6 py-4">
           <img

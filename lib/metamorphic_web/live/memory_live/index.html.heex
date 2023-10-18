@@ -1,17 +1,36 @@
 <.header>
   Memories
   <div class="flex items-center align-middle space-x-4">
-      <span class="text-sm font-light">
-      Total storage
-      </span>
-      <span class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700"><%= Decimal.div(@memory_storage_total, 1_000_000) %> MB</span>
-    </div>
+    <span class="text-sm font-light">
+      Total Memories
+    </span>
+    <span
+      :if={Memories.get_count(@current_user) < @plan_memories}
+      class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700"
+    >
+      <%= number_to_string(Memories.get_count(@current_user)) %>
+    </span>
+    <span
+      :if={Memories.get_count(@current_user) >= @plan_memories}
+      class="inline-flex items-center rounded-md bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700"
+    >
+      <%= number_to_string(Memories.get_count(@current_user)) %>
+    </span>
+  </div>
   <:actions>
     <.link patch={~p"/memories/new"}>
       <.button>New Memory</.button>
     </.link>
   </:actions>
 </.header>
+
+<.info_banner
+  :if={Memories.get_count(@current_user) >= @plan_memories}
+  navigate={~p"/billing/user/#{@current_user.id}"}
+  nav_title="Billing"
+>
+  Upgrade your subscription plan to get more Memories.
+</.info_banner>
 
 <div class="py-2"></div>
 <Components.cards
@@ -35,6 +54,7 @@
     id={@memory.id || :new}
     title={@page_title}
     action={@live_action}
+    plan_memories={@plan_memories}
     memory={@memory}
     user={@current_user}
     key={@key}

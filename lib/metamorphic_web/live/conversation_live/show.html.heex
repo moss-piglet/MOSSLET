@@ -6,30 +6,38 @@
   <:subtitle>
     <%= @conversation.model %> - Started on
     <.local_time_full id={@conversation.id} at={@conversation.inserted_at} />
-    <div id="token-used-count">
+    <div id="tokens-available">
       <span
         :if={
-          @current_user.ai_tokens_used && @current_user.ai_tokens_used < @current_user.ai_tokens
+          Decimal.to_integer(@tokens_available) >
+            Decimal.to_integer(
+              Decimal.round(
+                Decimal.mult(Decimal.from_float(0.25), Decimal.to_integer(@ai_tokens))
+              )
+            )
         }
         class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700"
       >
-        Tokens used: <%= @ai_tokens_used %>
+        Tokens available: <%= number_to_string(@tokens_available) %>
       </span>
       <span
         :if={
-          @current_user.ai_tokens_used && @current_user.ai_tokens_used > @current_user.ai_tokens
-        }
-        class="inline-flex items-center rounded-md bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700"
-      >
-        Tokens used: <%= @ai_tokens_used %>
-      </span>
-      <span
-        :if={
-          @current_user.ai_tokens_used && @current_user.ai_tokens_used == @current_user.ai_tokens
+          Decimal.to_integer(@tokens_available) <=
+            Decimal.to_integer(
+              Decimal.round(
+                Decimal.mult(Decimal.from_float(0.25), Decimal.to_integer(@ai_tokens))
+              )
+            ) && Decimal.to_integer(@tokens_available) > 0
         }
         class="inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700"
       >
-        Tokens used: <%= @ai_tokens_used %>
+        Tokens available: <%= number_to_string(@tokens_available) %>
+      </span>
+      <span
+        :if={Decimal.to_integer(@tokens_available) <= 0}
+        class="inline-flex items-center rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700"
+      >
+        Tokens available: <%= number_to_string(@tokens_available) %>
       </span>
     </div>
   </:subtitle>
@@ -122,7 +130,19 @@
 </ul>
 
 <div class="my-4 text-center">
-  <.button :if={!@async_result.loading} phx-click="resubmit">Resubmit</.button>
+  <.button
+    :if={!@async_result.loading && Decimal.to_integer(@tokens_available) > 0}
+    phx-click="resubmit"
+  >
+    Resubmit
+  </.button>
+  <.button
+    :if={!@async_result.loading && Decimal.to_integer(@tokens_available) <= 0}
+    disabled
+    class="opacity-25"
+  >
+    Out of tokens
+  </.button>
   <.button :if={@async_result.loading} phx-click="cancel">Cancel</.button>
 </div>
 
@@ -134,11 +154,20 @@
       type="textarea"
       rows={8}
       label="Send Message"
-      phx-hook="CtrlEnterSubmits"
       phx-debounce="500"
     />
     <:actions>
-      <.button phx-disable-with="Submiting...">Submit</.button>
+      <.button :if={Decimal.to_integer(@tokens_available) > 0} phx-disable-with="Submiting...">
+        Submit
+      </.button>
+      <.button
+        :if={Decimal.to_integer(@tokens_available) <= 0}
+        phx-disable-with="Submiting..."
+        disabled
+        class="opacity-25"
+      >
+        Out of tokens
+      </.button>
     </:actions>
   </.simple_form>
 </div>

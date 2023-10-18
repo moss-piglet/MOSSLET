@@ -686,6 +686,12 @@ defmodule MetamorphicWeb.UserSettingsLive do
     user = socket.assigns.current_user
     key = socket.assigns.key
 
+    # Cancel Stripe subscription.
+    if Bling.Customers.subscribed?(user) do
+      subscription = Bling.Customers.subscription(user)
+      Bling.Subscriptions.cancel_now(subscription)
+    end
+
     case Accounts.delete_user_account(user, password, user_params) do
       {:ok, user} ->
         if Map.get(user, :avatar_url) do

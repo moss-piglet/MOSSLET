@@ -16,13 +16,6 @@
         <.icon name="hero-envelope" class="h-4 w-4" />
       </a>
       <a
-        :if={@current_user}
-        href={~p"/users/dash"}
-        class="rounded-lg bg-zinc-100 px-2 py-1 hover:bg-zinc-200/80"
-      >
-        Dashboard <span aria-hidden="true">&rarr;</span>
-      </a>
-      <a
         :if={!@current_user}
         href={~p"/users/register"}
         class="rounded-lg bg-zinc-100 px-2 py-1 hover:bg-zinc-200/80"

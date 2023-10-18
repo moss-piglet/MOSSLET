@@ -1,30 +1,38 @@
 <.header>
   Conversations
   <:subtitle>
-    <div id="token-used-count">
+    <div id="tokens-available">
       <span
         :if={
-          @current_user.ai_tokens_used && @current_user.ai_tokens_used < @current_user.ai_tokens
+          Decimal.to_integer(@tokens_available) >
+            Decimal.to_integer(
+              Decimal.round(
+                Decimal.mult(Decimal.from_float(0.25), Decimal.to_integer(@ai_tokens))
+              )
+            )
         }
         class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700"
       >
-        Tokens used: <%= @ai_tokens_used %>
+        Tokens available: <%= number_to_string(@tokens_available) %>
       </span>
       <span
         :if={
-          @current_user.ai_tokens_used && @current_user.ai_tokens_used > @current_user.ai_tokens
-        }
-        class="inline-flex items-center rounded-md bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700"
-      >
-        Tokens used: <%= @ai_tokens_used %>
-      </span>
-      <span
-        :if={
-          @current_user.ai_tokens_used && @current_user.ai_tokens_used == @current_user.ai_tokens
+          Decimal.to_integer(@tokens_available) <=
+            Decimal.to_integer(
+              Decimal.round(
+                Decimal.mult(Decimal.from_float(0.25), Decimal.to_integer(@ai_tokens))
+              )
+            ) && Decimal.to_integer(@tokens_available) > 0
         }
         class="inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700"
       >
-        Tokens used: <%= @ai_tokens_used %>
+        Tokens available: <%= number_to_string(@tokens_available) %>
+      </span>
+      <span
+        :if={Decimal.to_integer(@tokens_available) <= 0}
+        class="inline-flex items-center rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700"
+      >
+        Tokens available: <%= number_to_string(@tokens_available) %>
       </span>
     </div>
   </:subtitle>
@@ -34,6 +42,26 @@
     </.link>
   </:actions>
 </.header>
+
+<.info_banner
+  :if={Decimal.to_integer(@tokens_available) <= 0}
+  navigate={~p"/billing/user/#{@current_user.id}"}
+  nav_title="Billing"
+>
+  Upgrade your subscription plan to get more monthly tokens.
+</.info_banner>
+<!-- Tip -->
+<div class="bg-brand-50 shadow sm:rounded-lg my-4">
+  <div class="px-4 py-5 sm:p-6">
+    <h3 class="text-base font-semibold leading-6 text-gray-900">Token usage</h3>
+    <div class="mt-2 max-w-xl text-sm font-light text-gray-500">
+      <p>
+        The entire message chain of your conversation is submitted to the chatbot with each request. To conserve your token usage, consider keeping conversations short and creating multiple conversations for each new question you have.
+      </p>
+    </div>
+    <div class="mt-3 text-sm leading-6"></div>
+  </div>
+</div>
 
 <ul id="conversations" role="list" class="pt-4 text-sm divide-y divide-brand-100">
   <li

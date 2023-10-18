@@ -41,6 +41,14 @@ defmodule Metamorphic.Accounts.User do
 
     field :connection_map, :map, virtual: true
 
+    field :stripe_id, :string
+    field :trial_ends_at, :utc_datetime
+    field :payment_type, :string
+    field :payment_id, :string
+    field :payment_last_four, :string
+
+    field :oban_reset_token_id, :integer
+
     has_one :connection, Connection
 
     has_many :posts, Post
@@ -49,6 +57,11 @@ defmodule Metamorphic.Accounts.User do
     has_many :user_posts, UserPost
     has_many :user_memories, UserMemory
     has_many :remarks, Remark
+
+    has_many :subscriptions, Metamorphic.Subscriptions.Subscription,
+      foreign_key: :customer_id,
+      where: [customer_type: "user"],
+      defaults: [customer_type: "user"]
 
     timestamps()
   end
@@ -643,6 +656,21 @@ defmodule Metamorphic.Accounts.User do
     |> case do
       %{changes: %{visibility: _}} = changeset -> changeset
       %{} = changeset -> add_error(changeset, :visibility, "did not change")
+    end
+  end
+
+  @doc """
+  A user changeset for changing the oban_reset_token_id.
+
+  It requires the oban_reset_token_id to change otherwise an error is added.
+  """
+  def oban_reset_token_id_changeset(user, attrs, _opts \\ []) do
+    user
+    |> cast(attrs, [:oban_reset_token_id])
+    |> validate_required([:oban_reset_token_id])
+    |> case do
+      %{changes: %{oban_reset_token_id: _}} = changeset -> changeset
+      %{} = changeset -> add_error(changeset, :oban_reset_token_id, "did not change")
     end
   end
 

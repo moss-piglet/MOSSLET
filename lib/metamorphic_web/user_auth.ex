@@ -456,6 +456,27 @@ defmodule MetamorphicWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_paid_subscription, _params, session, socket) do
+    socket =
+      socket
+      |> mount_current_user(session)
+      |> mount_current_user_session_key(session)
+
+    if paid_plan?(socket.assigns.current_user) do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(
+          :info,
+          "Woops, looks like you need a paid subscription first."
+        )
+        |> Phoenix.LiveView.redirect(to: ~p"/users/settings")
+
+      {:halt, socket}
+    end
+  end
+
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket =
       socket
@@ -626,6 +647,55 @@ defmodule MetamorphicWeb.UserAuth do
       |> maybe_store_return_to()
       |> redirect(to: ~p"/users/dash")
       |> halt()
+    end
+  end
+
+  def require_paid_subscription(conn, _opts) do
+    if paid_plan?(conn.assigns[:current_user]) do
+      conn
+    else
+      conn
+      |> put_flash(
+        :info,
+        "Woops, looks like you need a paid subscription first."
+      )
+      |> maybe_store_return_to()
+      |> redirect(to: ~p"/users/settings")
+      |> halt()
+    end
+  end
+
+  defp paid_plan?(current_user) do
+    case Bling.Customers.subscribed?(current_user) do
+      true ->
+        subscription =
+          Bling.Customers.subscription(current_user)
+          |> Metamorphic.Repo.preload(:subscription_items)
+
+        plan = get_plan_map(subscription)
+
+        cond do
+          plan.title == "Starter" ->
+            false
+
+          true ->
+            true
+        end
+
+      false ->
+        false
+    end
+  end
+
+  defp get_plan_map(subscription) do
+    subscription_items = Bling.Subscriptions.subscription_items(subscription)
+
+    case Enum.count(subscription_items) do
+      1 ->
+        Bankroll.plan_from_price_id(List.first(subscription_items).stripe_price_id)
+
+      _rest ->
+        nil
     end
   end
 

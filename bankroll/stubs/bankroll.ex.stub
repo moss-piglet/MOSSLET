@@ -1,0 +1,13 @@
+defmodule <%= @module_name %>.Bankroll do
+  @behaviour Bankroll
+
+  @impl Bankroll
+  def customer_display_name(customer) do
+    customer.email
+  end
+
+  @impl Bankroll
+  def can_subscribe_to_plan?(_customer, _plan) do
+    :ok
+  end
+end

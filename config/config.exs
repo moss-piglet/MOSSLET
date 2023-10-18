@@ -72,9 +72,9 @@ config :phoenix, :json_library, Jason
 
 # Configures Oban
 config :metamorphic, Oban,
-  repo: Metamorphic.Repo,
+  repo: Metamorphic.Repo.Local,
   plugins: [Oban.Plugins.Pruner],
-  queues: [default: 10]
+  queues: [default: 10, tokens: 10]
 
 # Configures cldr
 config :ex_cldr,
@@ -107,6 +107,99 @@ config :sentry,
   dsn: System.get_env("SENTRY_DSN"),
   included_environments: ~w(production staging),
   environment_name: System.get_env("RELEASE_LEVEL") || "development"
+
+# Configure Stripe for Bling
+config :stripity_stripe,
+  api_key: System.get_env("STRIPE_API_KEY"),
+  public_key: System.get_env("STRIPE_PUBLIC_KEY"),
+  webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
+
+# Configure Bling for Bankroll and Stripe
+config :bling,
+  bling: Metamorphic.Bling,
+  repo: Metamorphic.Repo.Local,
+  customers: [user: Metamorphic.Accounts.User],
+  subscription: Metamorphic.Subscriptions.Subscription,
+  subscription_item: Metamorphic.Subscriptions.SubscriptionItem
+
+# Configure Bankroll for Stripe
+config :bankroll,
+  bling: Metamorphic.Bling,
+  bankroll: Metamorphic.Bankroll,
+  company_name: "Metamorphic",
+  plans: [
+    %{
+      title: "Starter",
+      description: "Our free plan. Connect and share online for free, privacy included.",
+      features: [
+        "50 Memories",
+        "Unlimited Connections",
+        "Unlimited Posts"
+      ],
+      prices: %{
+        monthly: %{id: "price_1O0mvfJhDwcSIdONuQrqTL5T", price: "$0"},
+        yearly: %{id: "price_1O0mvfJhDwcSIdONuQrqTL5T", price: "$0"}
+      }
+    },
+    %{
+      title: "Lite",
+      description: "Our lite plan. Everything in Starter plus 10x more Memories and AI.",
+      features: [
+        "2,500 tokens per month",
+        "500 Memories",
+        "Unlimited Connections",
+        "Unlimited Posts"
+      ],
+      prices: %{
+        monthly: %{id: "price_1O1rQ2JhDwcSIdONrVDfHOJE", price: "$5"},
+        yearly: %{id: "price_1O1rQ2JhDwcSIdONMqY2HbBR", price: "$50"}
+      }
+    },
+    %{
+      title: "Plus",
+      description:
+        "Our most popular plan. Everything in Lite with 10x more Memories and AI tokens.",
+      features: [
+        "25,000 tokens per month",
+        "5,000 Memories",
+        "Unlimited Connections",
+        "Unlimited Posts"
+      ],
+      prices: %{
+        monthly: %{id: "price_1O1rTKJhDwcSIdONiT9TuJj8", price: "$15"},
+        yearly: %{id: "price_1O1rTKJhDwcSIdONOfy8K9V1", price: "$150"}
+      }
+    },
+    %{
+      title: "Pro",
+      description: "Our Pro plan. Everything in Plus with 10k Memories and 50k AI tokens.",
+      features: [
+        "50,000 tokens per month",
+        "10,000 Memories",
+        "Unlimited Connections",
+        "Unlimited Posts"
+      ],
+      prices: %{
+        monthly: %{id: "price_1O1s0pJhDwcSIdON4Zp3JW50", price: "$25"},
+        yearly: %{id: "price_1O1s0pJhDwcSIdON6OhArMSs", price: "$250"}
+      }
+    },
+    %{
+      title: "Pro AI",
+      description:
+        "Our Pro AI plan. Everything in Pro with 100k AI tokens and a lifetime of Memories.",
+      features: [
+        "100,000 tokens per month",
+        "50,000 Memories",
+        "Unlimited Connections",
+        "Unlimited Posts"
+      ],
+      prices: %{
+        monthly: %{id: "price_1O1tWLJhDwcSIdONE4IvNK7z", price: "$50"},
+        yearly: %{id: "price_1O1tWLJhDwcSIdON0vHW9UAZ", price: "$500"}
+      }
+    }
+  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

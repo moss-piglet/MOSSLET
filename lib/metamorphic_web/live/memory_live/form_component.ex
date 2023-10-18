@@ -236,78 +236,91 @@ defmodule MetamorphicWeb.MemoryLive.FormComponent do
   end
 
   defp save_memory(socket, :new, memory_params) do
-    user = socket.assigns.user
-    key = socket.assigns.key
-    memories_bucket = Encrypted.Session.memories_bucket()
+    if Memories.get_count(socket.assigns.user) < socket.assigns.plan_memories do
+      user = socket.assigns.user
+      key = socket.assigns.key
+      memories_bucket = Encrypted.Session.memories_bucket()
 
-    memory_url_tuple_list =
-      consume_uploaded_entries(
-        socket,
-        :memory,
-        fn %{path: path} = _meta, entry ->
-          # Check the mime_type to avoid malicious file naming
-          mime_type = ExMarcel.MimeType.for({:path, path})
+      memory_url_tuple_list =
+        consume_uploaded_entries(
+          socket,
+          :memory,
+          fn %{path: path} = _meta, entry ->
+            # Check the mime_type to avoid malicious file naming
+            mime_type = ExMarcel.MimeType.for({:path, path})
 
-          cond do
-            mime_type in ["image/jpeg", "image/jpg", "image/png"] ->
-              with {:ok, blob} <-
-                     Image.open!(path)
-                     |> Image.write(:memory,
-                       suffix: ".#{file_ext(entry)}"
-                     ),
-                   {:ok, e_blob} <- prepare_encrypted_blob(blob, user, key),
-                   {:ok, file_path} <- prepare_file_path(entry, user.id) do
-                make_aws_requests(entry, memories_bucket, file_path, e_blob, user, key)
-              end
+            cond do
+              mime_type in ["image/jpeg", "image/jpg", "image/png"] ->
+                with {:ok, blob} <-
+                       Image.open!(path)
+                       |> Image.write(:memory,
+                         suffix: ".#{file_ext(entry)}"
+                       ),
+                     {:ok, e_blob} <- prepare_encrypted_blob(blob, user, key),
+                     {:ok, file_path} <- prepare_file_path(entry, user.id) do
+                  make_aws_requests(entry, memories_bucket, file_path, e_blob, user, key)
+                end
 
-            true ->
-              {:postpone, :error}
+              true ->
+                {:postpone, :error}
+            end
           end
-        end
-      )
+        )
 
-    cond do
-      :error in memory_url_tuple_list ->
-        err_msg = "Incorrect file type."
-        {:noreply, put_flash(socket, :error, err_msg)}
+      cond do
+        :error in memory_url_tuple_list ->
+          err_msg = "Incorrect file type."
+          {:noreply, put_flash(socket, :error, err_msg)}
 
-      :error not in memory_url_tuple_list ->
-        # Get the file path & e_blob from the tuple.
-        [{entry, file_path, e_blob}] = memory_url_tuple_list
+        :error not in memory_url_tuple_list ->
+          # Get the file path & e_blob from the tuple.
+          [{entry, file_path, e_blob}] = memory_url_tuple_list
 
-        memory_params =
-          memory_params
-          |> Map.put("memory_url", file_path)
-          |> Map.put("size", entry.client_size)
-          |> Map.put("type", entry.client_type)
+          memory_params =
+            memory_params
+            |> Map.put("memory_url", file_path)
+            |> Map.put("size", entry.client_size)
+            |> Map.put("type", entry.client_type)
 
-        case Memories.create_memory(memory_params, user: user, key: key) do
-          {:ok, conn, memory} ->
-            # Put the encrypted memory blob in ets under the
-            # user's connection id.
-            MemoryProcessor.put_ets_memory(
-              "user:#{memory_params["user_id"]}-memory:#{memory_params["id"]}-key:#{conn.id}",
-              e_blob
-            )
+          case Memories.create_memory(memory_params, user: user, key: key) do
+            {:ok, conn, memory} ->
+              # Put the encrypted memory blob in ets under the
+              # user's connection id.
+              MemoryProcessor.put_ets_memory(
+                "user:#{memory_params["user_id"]}-memory:#{memory_params["id"]}-key:#{conn.id}",
+                e_blob
+              )
 
-            notify_parent({:saved, memory})
+              notify_parent({:saved, memory})
 
-            info = "Your memory has been created successfully."
+              info = "Your memory has been created successfully."
 
-            memory_form =
-              memory
-              |> Memories.change_memory(memory_params)
-              |> to_form()
+              memory_form =
+                memory
+                |> Memories.change_memory(memory_params)
+                |> to_form()
 
-            {:noreply,
-             socket
-             |> put_flash(:success, info)
-             |> assign(memory_form: memory_form)
-             |> push_navigate(to: ~p"/memories")}
+              {:noreply,
+               socket
+               |> put_flash(:success, info)
+               |> assign(memory_form: memory_form)
+               |> push_navigate(to: ~p"/memories")}
 
-          _rest ->
-            {:noreply, socket}
-        end
+            _rest ->
+              {:noreply, socket}
+          end
+      end
+    else
+      info =
+        "You have uploaded your maximum number of Memories for your current subscription plan. Please upgrade your subscription or delete some Memories to upload more."
+
+      {:noreply,
+       socket
+       |> put_flash(
+         :info,
+         info
+       )
+       |> push_navigate(to: ~p"/memories")}
     end
   end
 

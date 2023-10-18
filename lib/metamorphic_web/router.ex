@@ -3,6 +3,8 @@ defmodule MetamorphicWeb.Router do
 
   import MetamorphicWeb.UserAuth
   import Phoenix.LiveDashboard.Router
+  import Bling.Router
+  import Bankroll.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -16,6 +18,12 @@ defmodule MetamorphicWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  scope "/", MetamorphicWeb do
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
+
+    get "/", PageController, :home
   end
 
   scope "/", MetamorphicWeb do
@@ -145,14 +153,16 @@ defmodule MetamorphicWeb.Router do
       :browser,
       :require_authenticated_user,
       :require_confirmed_user,
-      :require_session_key
+      :require_session_key,
+      :require_paid_subscription
     ]
 
     live_session :ai,
       on_mount: [
         {MetamorphicWeb.UserAuth, :ensure_authenticated},
         {MetamorphicWeb.UserAuth, :ensure_confirmed},
-        {MetamorphicWeb.UserAuth, :ensure_session_key}
+        {MetamorphicWeb.UserAuth, :ensure_session_key},
+        {MetamorphicWeb.UserAuth, :ensure_paid_subscription}
       ] do
       live "/conversations", ConversationLive.Index, :index
       live "/conversations/new", ConversationLive.Index, :new
@@ -196,5 +206,19 @@ defmodule MetamorphicWeb.Router do
       live "/users/confirm/:token", UserConfirmationLive, :edit
       live "/users/confirm", UserConfirmationInstructionsLive, :new
     end
+  end
+
+  # Bling and Bankroll routes for Stripe
+  scope "/" do
+    # make sure to authenticate your users for this route
+    pipe_through [
+      :browser,
+      :require_authenticated_user,
+      :require_confirmed_user,
+      :require_session_key
+    ]
+
+    bling_routes()
+    bankroll_routes()
   end
 end

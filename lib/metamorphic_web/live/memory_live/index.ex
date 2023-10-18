@@ -19,6 +19,7 @@ defmodule MetamorphicWeb.MemoryLive.Index do
     {:ok,
      socket
      |> assign(page: 1, per_page: 20)
+     |> assign(plan_memories: assign_plan_memories(socket.assigns.current_user))
      |> assign(memory_storage_total: Memories.get_total_storage(socket.assigns.current_user))
      |> paginate_memories(1)}
   end

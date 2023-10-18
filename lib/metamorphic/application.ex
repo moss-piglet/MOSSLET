@@ -8,6 +8,7 @@ defmodule Metamorphic.Application do
   @impl true
   def start(_type, _args) do
     Logger.add_backend(Sentry.LoggerBackend)
+    :ok = Oban.Telemetry.attach_default_logger()
     topologies = Application.get_env(:libcluster, :topologies) || []
 
     children = [
