@@ -41,6 +41,9 @@ npm-debug.log
 
 # OS specific files
 .DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
 
 # dialyzer plt files to ignore
 /priv/plts/*.plt
