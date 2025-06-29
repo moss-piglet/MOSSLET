@@ -1,0 +1,89 @@
+<.layout current_page={:timeline} current_user={@current_user} key={@key} type="sidebar">
+  <.container class="py-16">
+    <.page_header title="Viewing Post" class="ml-2 sm:ml-6">
+      <div class="inline-flex space-x-2">
+        <%!--
+        <.button
+          :if={@current_user && can_edit?(@current_user, @post)}
+          link_type="live_patch"
+          class="rounded-full inline-flex"
+          label="Edit Post"
+          to={~p"/app/posts/#{@post}/show/edit"}
+          phx-click={JS.push_focus()}
+        />
+        --%>
+        <.button
+          icon="hero-arrow-long-left"
+          link_type="live_redirect"
+          class="rounded-full"
+          label="Back to Timeline"
+          to={~p"/app/timeline"}
+        />
+      </div>
+    </.page_header>
+  </.container>
+  <.container class="-mt-10 pb-10 max-w-prose">
+    <.p>This is a
+      post from <.local_time_full id={@post.id} at={@post.updated_at} />.</.p>
+
+    <Components.single_post
+      :if={@post}
+      stream={@streams.replies}
+      post={@post}
+      current_user={@current_user}
+      key={@key}
+      color={get_uconn_color_for_shared_item(@post, @current_user) || :purple}
+      id={"post-card-#{@post.id}"}
+      options={@options}
+      group={@group}
+      reply_count={@reply_count}
+      reply_index={@post.id}
+      reply_loading_count={@reply_loading_count}
+      reply_loading={@reply_loading}
+      loading_list={@loading_list}
+      finished_loading_list={@finished_loading_list}
+    />
+
+    <.phx_modal
+      :if={@live_action == :edit && can_edit?(@current_user, @post)}
+      id="post-modal"
+      show
+      on_cancel={JS.patch(@return_url)}
+    >
+      <.live_component
+        module={MossletWeb.PostLive.FormComponent}
+        id={@post.id}
+        title={@page_title}
+        action={@live_action}
+        post={@post}
+        user={@current_user}
+        shared_users={@shared_users}
+        image_urls={@image_urls}
+        uploads_in_progress={@uploads_in_progress}
+        key={@key}
+        patch={@return_url}
+      />
+    </.phx_modal>
+
+    <.phx_modal
+      :if={@live_action in [:reply, :reply_edit]}
+      id="reply-modal"
+      show
+      on_cancel={JS.patch(@return_url)}
+    >
+      <.live_component
+        module={MossletWeb.PostLive.Replies.FormComponent}
+        id={@reply.id || :reply}
+        title={@page_title}
+        action={@live_action}
+        post={@post}
+        reply={@reply}
+        user={@current_user}
+        key={@key}
+        image_urls={@image_urls}
+        uploads_in_progress={@uploads_in_progress}
+        patch={@return_url}
+      />
+    </.phx_modal>
+  </.container>
+</.layout>

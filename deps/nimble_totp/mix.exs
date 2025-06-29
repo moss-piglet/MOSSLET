@@ -1,0 +1,51 @@
+defmodule NimbleTOTP.MixProject do
+  use Mix.Project
+
+  @version "1.0.0"
+  @repo_url "https://github.com/dashbitco/nimble_totp"
+
+  def project do
+    [
+      app: :nimble_totp,
+      version: @version,
+      elixir: "~> 1.12",
+      start_permanent: Mix.env() == :prod,
+      deps: deps(),
+
+      # Hex
+      package: package(),
+      description: "A tiny library for time-based one time passwords (TOTP)",
+
+      # Docs
+      name: "NimbleTOTP",
+      docs: docs()
+    ]
+  end
+
+  def application do
+    [
+      extra_applications: [:crypto]
+    ]
+  end
+
+  defp deps do
+    [
+      {:ex_doc, ">= 0.19.0", only: :docs}
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => @repo_url}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "NimbleTOTP",
+      source_ref: "v#{@version}",
+      source_url: @repo_url
+    ]
+  end
+end

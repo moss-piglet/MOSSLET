@@ -1,0 +1,373 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source "../../deps/petal_components/**/*.*ex";
+@import "../../deps/petal_components/assets/default.css";
+
+@import "./colors.css";
+@import "./fonts.css";
+
+@plugin "@tailwindcss/typography";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/aspect-ratio";
+
+@plugin "./tailwind_heroicons.js";
+
+/* This file is for your main application CSS */
+
+@layer base {
+  /* Use the pointer for buttons */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* This makes scrollbars look better in dark mode */
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Tips */
+
+  .tips h1 {
+    @apply text-xl font-extrabold;
+  }
+
+  .tips p {
+    @apply mt-4;
+  }
+
+  .tips ol {
+    @apply list-decimal list-inside space-y-2 mt-4;
+  }
+
+  .tips ol li a {
+    @apply hover:text-sky-600 transition ease-in-out duration-150;
+  }
+
+  /* EffortLive */
+
+  .effort h1 {
+    @apply text-4xl font-extrabold text-center mb-8;
+  }
+
+  .effort button {
+    @apply py-2 px-4 bg-sky-500 text-white rounded-xl hover:bg-sky-700 active:bg-sky-900 text-2xl;
+  }
+
+  .effort section {
+    @apply flex justify-center items-center gap-x-10 text-3xl tabular-nums;
+  }
+
+  .effort form {
+    @apply mt-8 text-center text-2xl;
+  }
+
+  .effort form label {
+    @apply text-xl text-gray-600;
+  }
+
+  .effort form input {
+    @apply text-xl w-20 rounded-lg text-gray-900 focus:ring-1 focus:border-sky-600;
+  }
+
+  /* UserConnectionLive.Index */
+
+  .user-connection-index .user-connections {
+    @apply mt-6 px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6;
+  }
+
+  .user-connection-index .user-connections .card {
+    @apply bg-white dark:bg-gray-950 rounded-2xl shadow-md dark:shadow-emerald-500/50 overflow-hidden border border-gray-200 dark:border-gray-800 pb-4;
+  }
+
+  .user-connection-index .user-connections .card .name {
+    @apply py-3 text-center bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-bold text-sm;
+  }
+
+  .user-connection-index .user-connections .card img {
+    @apply p-4 pb-0 w-4/6 rounded-t-3xl mx-auto object-cover hover:scale-105 transition duration-300;
+  }
+
+  .user-connection-index .user-connections .card h2 {
+    @apply px-4 mt-2 text-center text-gray-600 dark:text-gray-400 font-semibold truncate;
+  }
+
+  .user-connection-index .user-connections .card .label {
+    @apply flex justify-center truncate;
+  }
+
+  .user-connection-index .user-connections .card .details {
+    @apply px-6 mt-4 flex items-center justify-between;
+  }
+
+  .user-connection-index .user-connections .card .details .edit {
+    @apply text-xs text-white font-medium bg-gray-500 dark:bg-gray-400 rounded-full px-3 py-1.5;
+  }
+
+  .user-connection-index .user-connections .card .details .delete {
+    @apply text-xs text-white font-medium bg-rose-500 dark:bg-rose-400 rounded-full px-3 py-1.5;
+  }
+
+  .user-connection-index form {
+    @apply sm:flex justify-center gap-4 items-center;
+  }
+
+  .user-connection-index form a {
+    @apply text-sm underline;
+  }
+
+  .user-connection-index .no-results {
+    @apply p-8 border-2 border-dashed border-gray-400 rounded-lg text-center text-lg font-semibold text-gray-600 dark:text-gray-400 col-span-2 md:col-span-3;
+  }
+
+  .user-connection-index .failed {
+    @apply mx-auto max-w-2xl mt-6 px-4 py-3 bg-red-50 dark:bg-red-950 border border-red-400 rounded-lg text-center text-red-700;
+  }
+
+  /* Components and Utilities */
+
+  .badge {
+    @apply rounded-md px-2 py-1 text-xs font-medium uppercase inline-block border text-lime-600 border-lime-600;
+  }
+
+  .button {
+    @apply inline-block rounded-lg bg-zinc-900 hover:bg-zinc-700 hover:text-white py-2 px-3 text-sm font-semibold leading-6 text-white active:text-white/80 focus:no-underline;
+  }
+
+  .spinner {
+    @apply border-gray-200 dark:border-gray-700 h-10 w-10 animate-spin rounded-full border-8 border-t-emerald-600 dark:border-t-emerald-400;
+  }
+
+  .loading {
+    @apply flex justify-center my-6;
+  }
+
+  .failed {
+    @apply flex justify-center my-6 text-sm rounded-md p-3 font-medium text-red-800 border-2 border-dashed border-red-200;
+  }
+
+  header :not(button) > a {
+    @apply text-gray-600 font-medium hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:underline transition ease-in-out duration-150;
+  }
+
+  /* Headline Component */
+
+  .headline {
+    @apply mx-auto text-center mb-6 p-4 bg-gradient-to-r from-cyan-500 to-sky-600;
+  }
+
+  .headline h1 {
+    @apply font-extrabold text-gray-50 text-xl flex items-center justify-center gap-2;
+  }
+
+  .headline .tagline {
+    @apply mt-1 text-sm font-medium text-gray-50 flex items-center justify-center gap-1;
+  }
+
+  .headline svg {
+    @apply inline-flex w-6 h-6;
+  }
+
+  /* Connection List */
+
+  ul.user-connections {
+    @apply mt-4 space-y-3 ml-2;
+  }
+
+  ul.user-connections li {
+    @apply flex items-center gap-x-2 text-sm;
+  }
+
+  ul.user-connections li img {
+    @apply w-10;
+  }
+
+  ul.user-connections li a {
+    @apply flex items-center gap-x-2 text-sky-600 font-medium hover:text-sky-800 transition ease-in-out duration-150;
+  }
+
+  /* Presences List */
+
+  ul.presences {
+    @apply mt-4 space-y-2.5 ml-4;
+  }
+
+  ul.presences li {
+    @apply flex items-center gap-x-2 text-gray-600;
+  }
+
+  ul.presences li .status {
+    @apply text-xl;
+  }
+}
+
+/* Core Components */
+.phx-modal {
+  @apply flex max-w-3xl;
+}
+
+.phx-modal-content {
+  @apply m-4;
+}
+
+/* Timeline / Posts */
+.timeline-post {
+  @apply flex space-x-3 pt-4 pb-1.5 px-4 mb-4 bg-white border-2 rounded-md border-gray-200 dark:border-gray-700 shadow-md dark:shadow-emerald-500/50 dark:bg-gray-800;
+}
+
+.timeline-post-body {
+  @apply p-2 my-1;
+}
+
+.post-body {
+  @apply mt-2 mb-4;
+}
+
+figcaption {
+  color: #9ca3af !important;
+}
+
+/* Trix-Editor Content */
+
+.trix-content {
+  @apply leading-6 dark:text-gray-200;
+}
+.trix-content strong {
+  @apply text-gray-900 dark:text-white;
+}
+
+.trix-content h1 {
+  @apply text-2xl font-bold my-4 dark:text-white;
+}
+
+.trix-content ol {
+  list-style-type: decimal;
+}
+
+.trix-content ul {
+  list-style-type: disc;
+}
+
+.trix-content a {
+  @apply text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300 underline decoration-wavy;
+}
+
+.trix-content pre {
+  @apply rounded-md dark:bg-gray-950 dark:text-gray-400;
+}
+
+.trix-content mark {
+  margin: 0 -0.1em;
+  padding: 0.1em 0.4em;
+  border-radius: 0.8em 0.3em;
+  background: transparent;
+  background-image: linear-gradient(-100deg, rgba(255, 213, 0, 1));
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Trix-Editor */
+
+.trix-button-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+}
+
+.trix-button-group {
+  @apply dark:bg-white;
+}
+
+trix-editor {
+  @apply ring-0 focus:ring-2 focus:border-0 border-0 focus:ring-emerald-600;
+}
+
+.trix-button.trix-button--icon.trix-button--icon-emojis {
+  @apply flex align-middle items-center justify-center;
+}
+
+/* Animations */
+
+.fade-in-scale {
+  animation: 0.2s ease-in 0s normal forwards 1 fade-in-scale-keys;
+}
+
+.fade-out-scale {
+  animation: 0.2s ease-out 0s normal forwards 1 fade-out-scale-keys;
+}
+
+.fade-in {
+  animation: 0.2s ease-out 0s normal forwards 1 fade-in-keys;
+}
+
+.fade-out {
+  animation: 0.2s ease-out 0s normal forwards 1 fade-out-keys;
+}
+
+.shake {
+  animation: shake 0.25s ease-in-out infinite;
+}
+
+@keyframes fade-in-scale-keys {
+  0% {
+    scale: 0.95;
+    opacity: 0;
+  }
+
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out-scale-keys {
+  0% {
+    scale: 1;
+    opacity: 1;
+  }
+
+  100% {
+    scale: 0.95;
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in-keys {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out-keys {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shake {
+  25% {
+    transform: translateX(-6px);
+  }
+
+  50% {
+    transform: translateX(0px);
+  }
+
+  75% {
+    transform: translateX(6px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}

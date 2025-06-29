@@ -1,0 +1,36 @@
+<header class="px-4 sm:px-6 lg:px-8">
+  <div class="flex items-center justify-between border-b border-zinc-100 py-3 text-sm">
+    <div class="flex items-center gap-4">
+      <a href="/">
+        <img src={~p"/images/logo.svg"} width="36" />
+      </a>
+      <p
+        :if={Application.get_env(:mosslet, :env) != :prod}
+        class="bg-emerald/5 text-emerald-500 rounded-full px-2 font-medium leading-6"
+      >
+        v{Application.spec(:mosslet, :vsn)}
+      </p>
+    </div>
+    <div class="flex items-center gap-4 font-semibold leading-6 text-zinc-900">
+      <a href="https://podcast.mosslet.com" class="hover:text-zinc-700">
+        @podcast
+      </a>
+      <a href="mailto:support@mosslet.com" title="Email support" class="hover:text-zinc-700">
+        <.icon name="hero-envelope" class="h-4 w-4" />
+      </a>
+      <a
+        :if={!@current_user}
+        href={~p"/auth/register"}
+        class="rounded-lg bg-zinc-100 px-2 py-1 hover:bg-zinc-200/80"
+      >
+        Get Started <span aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main class="px-4 py-20 sm:px-6 lg:px-8">
+  <div class="px-4 sm:px-6 lg:px-8">
+    <.flash_group :if={@live_action not in [:greet]} flash={@flash} />
+    {@inner_content}
+  </div>
+</main>

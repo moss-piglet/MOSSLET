@@ -1,0 +1,114 @@
+<h1>👋 Hi, {@invitation.name}!</h1>
+
+<p>
+  You have been invited by {@user.name} to join them on Mosslet, a privacy-first social network. 🌿
+</p>
+
+<%= if @invitation.message not in ["", nil]  do %>
+  <h1>Message from {@user.name}</h1>
+  <EmailComponents.dotted_gray_box>
+    <p class="align-center">
+      {@invitation.message}
+    </p>
+  </EmailComponents.dotted_gray_box>
+<% end %>
+
+<EmailComponents.gap />
+
+<p>Register and join {@user.name} by using the button below:</p>
+
+<EmailComponents.button_centered to={@url}>
+  Register and join {@user.name}
+</EmailComponents.button_centered>
+
+<EmailComponents.gap />
+
+<EmailComponents.gap />
+
+<EmailComponents.gap />
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border />
+
+<EmailComponents.gray_box>
+  <h2>Steps to Connect with {@user.name}:</h2>
+
+  <ol>
+    <li>Register your new account using the button above</li>
+    <li>Confirm your account using the confirmation link sent to your account email</li>
+    <li>Pay once to create your lifetime subscription</li>
+    <li>Go to your <b>Connections</b> page</li>
+    <li>Click the <b>New Connection</b> button</li>
+    <li>Enter their username or email to connect:</li>
+    <ul>
+      <li><strong>Email:</strong> {@user.email}</li>
+      <li><strong>Username:</strong> {@user.username}</li>
+    </ul>
+    <li>If you can't connect, check with {@user.name} that their visibility is not private.</li>
+  </ol>
+</EmailComponents.gray_box>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border />
+
+<h2>🌿 Discover Mosslet: Your Privacy-First Social Network! 🌿</h2>
+
+<p>
+  Are you feeling overwhelmed by traditional social media and concerned about your privacy? It's time to detox and take control of your online experience with Mosslet!
+</p>
+<p>
+  Mosslet is a privacy-first social network designed to help you connect with others while protecting your personal information from surveillance. With a focus on meaningful interactions and a safe online environment, Mosslet empowers you to engage without the fear of being tracked or exploited.
+</p>
+
+<h2>✨ Why Choose Mosslet?</h2>
+
+<ul>
+  <li>
+    <strong>Privacy Protection:</strong>
+    Your data is yours. Mosslet prioritizes your privacy and ensures that your information is not sold or misused.
+  </li>
+  <li>
+    <strong>Detox from Social Media:</strong>
+    Step away from the noise and distractions of traditional platforms and enjoy a more serene online experience.
+  </li>
+  <li>
+    <strong>Community Focused:</strong>
+    Connect with like-minded individuals who value privacy and meaningful connections.
+  </li>
+</ul>
+
+<p>
+  Join the movement towards a more private and fulfilling social experience! Visit
+  <a href="https://mosslet.com" rel="noopener" target="_blank">Mosslet</a>
+  to learn more and sign up today!
+</p>
+<p>
+  Spread the word and help others reclaim their online privacy! 🌍💚
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border />
+
+<h2>🌟 Why Mosslet Uses a Pay-Once Pricing Model 🌟</h2>
+
+<p>
+  Mosslet offers a one-time payment for a lifetime subscription to ensure that our service is designed with the needs of our users in mind, rather than being driven by advertisements or data monetization. 💡 This model allows us to provide an affordable and sustainable service while prioritizing user privacy and experience. 🔒
+</p>
+<p>
+  By eliminating recurring fees, we foster a community focused on meaningful connections 🤝, free from the distractions and surveillance common in traditional social media platforms. 📵 Your support directly contributes to a privacy-first environment where you can engage without compromise. 🌿
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <h3>Safely Ignore or Register</h3>
+  <EmailComponents.small_text>
+    Do you know {@user.name}? If not, you can safely ignore this email.
+  </EmailComponents.small_text>
+  <EmailComponents.small_text>
+    You can also register safely using the button above without notifying {@user.name} or connecting with them.
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

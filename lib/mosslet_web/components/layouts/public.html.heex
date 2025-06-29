@@ -1,0 +1,198 @@
+<%!-- This should match max_width in `landing_page.html.heex`. Options: ["sm", "md", "lg", "xl", "full"] --%>
+<% max_width = "xl" %>
+
+<script>
+  // When you scroll down, you will notice the navbar becomes translucent.
+  function makeHeaderTranslucentOnScroll() {
+    const header = document.querySelector("header");
+    if (header) {
+      const distanceFromTop = window.scrollY;
+      distanceFromTop > 0
+        ? header.classList.add("is-active")
+        : header.classList.remove("is-active");
+    }
+  }
+</script>
+
+<style>
+  /* Hover effects for the top menu */
+  header .menu-item {
+    position: relative;
+  }
+
+  header .menu-item:before {
+    content: '';
+    position: absolute;
+    right: 0;
+    width: 0;
+    bottom: 0;
+    height: 2px;
+    background: #4b5563;
+    transition: 0.3s all ease;
+  }
+
+  .dark header .menu-item:before {
+    background: #ccc;
+  }
+
+  header .menu-item:hover:before {
+    left: 0;
+    width: 100%;
+  }
+
+  header .menu-item.is-active:before {
+    left: 0;
+    width: 100%;
+  }
+
+  /* Translucent effects for the the navbar when you scroll down the page */
+  header.is-active {
+    background: rgba(255, 255, 255, .55);
+    @apply shadow;
+  }
+
+  .dark header.is-active {
+    background: rgba(0,0,0,.45);
+    @apply shadow;
+  }
+
+  header.is-active.semi-translucent {
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
+    -moz-backdrop-filter: saturate(180%) blur(10px);
+  }
+</style>
+
+<header
+  x-data="{mobile: false}"
+  x-init="window.addEventListener('scroll', makeHeaderTranslucentOnScroll)"
+  class="fixed top-0 left-0 z-30 w-full transition duration-500 ease-in-out bg-white md:sticky semi-translucent dark:bg-gray-950"
+>
+  <.container max_width={max_width}>
+    <div class="flex flex-wrap items-center h-16 md:h-18">
+      <div class="lg:w-3/12">
+        <div class="flex items-center">
+          <.link class="inline-block ml-1 text-2xl font-bold leading-none" href="/">
+            <.logo class="h-10" />
+          </.link>
+
+          <.link class="hidden ml-3 lg:block" href="/"></.link>
+        </div>
+      </div>
+
+      <div class="hidden lg:w-6/12 md:block">
+        <ul class="justify-center md:flex">
+          <.list_menu_items
+            li_class="ml-8 lg:mx-4 xl:mx-6"
+            a_class="block font-medium leading-7 capitalize dark:text-gray-100 menu-item"
+            menu_items={public_menu_items(@current_user)}
+          />
+        </ul>
+      </div>
+
+      <div class="flex items-center justify-end ml-auto lg:w-3/12">
+        <div class="flex items-center gap-3 mr-4">
+          <MossletWeb.LanguageSelect.language_select
+            current_locale={Gettext.get_locale(MossletWeb.Gettext)}
+            language_options={Mosslet.config(:language_options)}
+          />
+          <MossletWeb.ColorSchemeSwitch.color_scheme_switch />
+        </div>
+
+        <div class="hidden md:block">
+          <MossletWeb.UserDropdownMenu.user_menu_dropdown
+            user_menu_items={user_menu_items(@current_user)}
+            avatar_src={user_avatar_url(@current_user)}
+            current_user_name={user_name(@current_user)}
+          />
+        </div>
+
+        <div
+          x-data="{ mobile: false }"
+          @click="mobile = !mobile"
+          class="relative inline-block w-5 h-5 cursor-pointer md:hidden"
+        >
+          <svg
+            x-bind:class="{ 'opacity-1' : !mobile, 'opacity-0' : mobile }"
+            width="24"
+            height="24"
+            fill="none"
+            class="absolute -mt-3 -ml-3 transform top-1/2 left-1/2"
+          >
+            <path
+              d="M4 8h16M4 16h16"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+
+          <svg
+            x-bind:class="{ 'opacity-0' : !mobile }"
+            width="24"
+            height="24"
+            fill="none"
+            class="absolute -mt-3 -ml-3 transform opacity-0 top-1/2 left-1/2 scale-80"
+          >
+            <path
+              d="M6 18L18 6M6 6l12 12"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div x-bind:class="{ 'block' : mobile, 'hidden' : !mobile }" class="md:hidden">
+      <hr class="border-primary-900 border-primary/10 dark:border-gray-700" />
+      <ul class="py-6">
+        <.list_menu_items
+          li_class="mb-2 last:mb-0 dark:text-gray-400"
+          a_class="inline-block font-medium capitalize menu-item"
+          menu_items={public_menu_items(@current_user)}
+        />
+
+        <%= if user_name(@current_user) do %>
+          <div class="pt-4 pb-3">
+            <div class="flex items-center">
+              <div class="shrink-0">
+                <%= if user_name(@current_user) || user_avatar_url(@current_user) do %>
+                  <.phx_avatar
+                    name={user_name(@current_user)}
+                    src={user_avatar_url(@current_user)}
+                    size="sm"
+                  />
+                <% else %>
+                  <.phx_avatar size="sm" />
+                <% end %>
+              </div>
+              <div class="ml-3">
+                <div class="text-base font-medium text-gray-800 dark:text-gray-300">
+                  {user_name(@current_user)}
+                </div>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <.list_menu_items
+          li_class="mb-2 last:mb-0"
+          a_class="inline-block font-medium capitalize menu-item dark:text-gray-400"
+          menu_items={user_menu_items(@current_user)}
+        />
+      </ul>
+    </div>
+  </.container>
+</header>
+
+<div class="pt-[64px] md:pt-0">
+  {@inner_content}
+
+  <MossletWeb.CoreComponents.footer max_width={max_width} current_user={@current_user} />
+
+  <LandingPageComponents.load_js_animations />
+</div>

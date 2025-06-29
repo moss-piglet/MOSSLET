@@ -1,0 +1,58 @@
+{
+  "_from": "@emoji-mart/react",
+  "_id": "@emoji-mart/react@1.1.1",
+  "_inBundle": false,
+  "_integrity": "sha512-NMlFNeWgv1//uPsvLxvGQoIerPuVdXwK/EUek8OOkJ6wVOWPUizRBJU0hDqWZCOROVpfBgCemaC3m6jDOXi03g==",
+  "_location": "/@emoji-mart/react",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@emoji-mart/react",
+    "name": "@emoji-mart/react",
+    "escapedName": "@emoji-mart%2freact",
+    "scope": "@emoji-mart",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@emoji-mart/react/-/react-1.1.1.tgz",
+  "_shasum": "ddad52f93a25baf31c5383c3e7e4c6e05554312a",
+  "_spec": "@emoji-mart/react",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "bugs": {
+    "url": "https://github.com/missive/emoji-mart/issues"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "React wrapper for Emoji Mart; the emoji picker for the web.",
+  "files": [
+    "/dist",
+    "LICENSE"
+  ],
+  "homepage": "https://missiveapp.com/open/emoji-mart",
+  "license": "MIT",
+  "main": "dist/main.js",
+  "module": "dist/module.js",
+  "name": "@emoji-mart/react",
+  "peerDependencies": {
+    "emoji-mart": "^5.2",
+    "react": "^16.8 || ^17 || ^18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/missive/emoji-mart.git",
+    "directory": "packages/emoji-mart-react"
+  },
+  "scripts": {
+    "build": "parcel build --no-autoinstall",
+    "prepublishOnly": "yarn build"
+  },
+  "source": "react.tsx",
+  "types": "dist/index.d.ts",
+  "version": "1.1.1"
+}

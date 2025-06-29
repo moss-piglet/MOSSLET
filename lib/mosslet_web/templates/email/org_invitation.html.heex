@@ -1,0 +1,15 @@
+<h1>Invitation to join {@org.name}</h1>
+
+<%= if @invitation.user_id do %>
+  <p>You can join the organization by using the button below:</p>
+<% else %>
+  <p>You can join the organization by registering an account using the button below:</p>
+<% end %>
+
+<EmailComponents.button_centered to={@url}>
+  <%= if @invitation.user_id do %>
+    Join {@org.name}
+  <% else %>
+    Register and join {@org.name}
+  <% end %>
+</EmailComponents.button_centered>

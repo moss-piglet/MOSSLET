@@ -1,0 +1,577 @@
+<.header class="text-center">
+  Account Settings
+  <:subtitle>Manage your account email address and password settings</:subtitle>
+  <:actions :if={!@current_user.confirmed_at}>
+    <.button type="button" class="bg-emerald-600" phx-click={JS.patch(~p"/auth/confirm")}>
+      Confirm my account
+    </.button>
+  </:actions>
+</.header>
+
+<div class="space-y-12 divide-y">
+  <!-- Billing -->
+  <.info_banner navigate={~p"/billing/user/#{@current_user.id}"} nav_title="Billing">
+    Visit your billing portal to manage your subscription.
+  </.info_banner>
+  <!-- avatar -->
+  <div>
+    <.simple_form
+      for={@avatar_form}
+      id="avatar_form"
+      phx-change="validate_avatar"
+      phx-submit="update_avatar"
+    >
+      <div class="col-span-full">
+        <label for={@uploads.avatar.ref}>Avatar</label>
+        <.avatar
+          :if={@current_user.connection.avatar_url}
+          src={maybe_get_user_avatar(@current_user, @key)}
+          user={@current_user}
+          key={@key}
+        />
+        <div
+          class="mt-2 flex justify-center rounded-lg border border-dashed border-zinc-900/25 px-6 py-10"
+          phx-drop-target={@uploads.avatar.ref}
+        >
+          <div :if={Enum.empty?(@uploads.avatar.entries)} class="text-center">
+            <svg
+              class="mx-auto h-12 w-12 text-zinc-300"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <div class="mt-4 flex text-sm leading-6 text-zinc-600">
+              <label
+                for={@uploads.avatar.ref}
+                class="relative cursor-pointer rounded-md bg-white font-semibold text-emerald-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-600 focus-within:ring-offset-2 hover:text-emerald-500"
+              >
+                <span>Upload an avatar</span>
+              </label>
+              <p class="pl-1">or drag and drop</p>
+            </div>
+            <p class="text-xs leading-5 text-zinc-600">
+              PNG, JPEG, JPG up to {@uploads.avatar.max_file_size / 1_000_000}MB
+            </p>
+          </div>
+          <div
+            :for={entry <- @uploads.avatar.entries}
+            :if={!Enum.empty?(@uploads.avatar.entries)}
+            class="text-center text-emerald-600"
+          >
+            <.live_img_preview entry={entry} width={100} />
+            <div class="w-full">
+              <div class="text-left mb-2 text-xs font-semibold inline-block text-emerald-600">
+                {entry.progress}%
+              </div>
+              <div class="flex h-2 overflow-hidden text-base bg-emerald-200 rounded-lg mb-4">
+                <span
+                  style={"width: #{entry.progress}%"}
+                  class="shadow-md bg-emerald-500 transition-transform"
+                >
+                </span>
+              </div>
+            </div>
+
+            <.link phx-click="cancel" phx-value-ref={entry.ref}>
+              <.icon name="hero-x-circle" class="h-6 w-6" />
+            </.link>
+          </div>
+        </div>
+        <.error :for={err <- upload_errors(@uploads.avatar)}>
+          {error_to_string(err)}
+        </.error>
+      </div>
+      <.live_file_input upload={@uploads.avatar} />
+      <:actions>
+        <.button :if={!Enum.empty?(@uploads.avatar.entries)} phx-disable-with="Uploading...">
+          Upload avatar
+        </.button>
+        <.button
+          :if={Enum.empty?(@uploads.avatar.entries)}
+          phx-disable-with="Uploading..."
+          disabled
+          class="opacity-25"
+        >
+          Upload avatar
+        </.button>
+        <.link
+          :if={@current_user.connection.avatar_url}
+          phx-click="delete_avatar"
+          phx-value-url={
+            decr_avatar(
+              @current_user.connection.avatar_url,
+              @current_user,
+              @current_user.conn_key,
+              @key
+            )
+          }
+          phx-disable-with="Deleting avatar..."
+          class="rounded-full bg-pink-600 p-2 text-white shadow-sm hover:bg-pink-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+          title="Delete avatar"
+        >
+          <.icon name="hero-trash" class="h-6 w-6" />
+        </.link>
+      </:actions>
+    </.simple_form>
+  </div>
+  <div>
+    <.simple_form for={@email_form} id="email_form" phx-submit="update_email">
+      <.input
+        field={@email_form[:email]}
+        type="email"
+        label="Email"
+        value={decr(@current_user.email, @current_user, @key)}
+        required
+      />
+      <.input
+        field={@email_form[:current_password]}
+        name="current_password"
+        id="current_password_for_email"
+        type="password"
+        label="Current password"
+        value={@email_form_current_password}
+        required
+      />
+      <:actions>
+        <.button phx-disable-with="Changing...">Change Email</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+  <div>
+    <.simple_form
+      for={@password_form}
+      id="password_form"
+      action={~p"/auth/sign_in?_action=password_updated"}
+      method="post"
+      phx-change="validate_password"
+      phx-submit="update_password"
+      phx-trigger-action={@trigger_submit}
+    >
+      <.input
+        field={@password_form[:email]}
+        type="hidden"
+        id="hidden_user_email"
+        value={decr(@current_email, @current_user, @key)}
+      />
+      <.input field={@password_form[:password]} type="password" label="New password" required />
+      <.input
+        field={@password_form[:password_confirmation]}
+        type="password"
+        label="Confirm new password"
+      />
+      <.input
+        field={@password_form[:current_password]}
+        name="current_password"
+        type="password"
+        label="Current password"
+        id="current_password_for_password"
+        value={@current_password}
+        required
+      />
+      <:actions>
+        <.button phx-disable-with="Changing...">Change Password</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+  <div id="name-change-form">
+    <.simple_form for={@name_form} id="name_form" phx-submit="update_name">
+      <.input
+        field={@name_form[:name]}
+        type="text"
+        label="Name"
+        value={decr(@current_user.name, @current_user, @key)}
+        required
+      />
+      <:actions>
+        <.button phx-disable-with="Changing...">Change Name</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+  <div>
+    <.simple_form for={@username_form} id="username_form" phx-submit="update_username">
+      <.input
+        field={@username_form[:username]}
+        type="text"
+        label="Username"
+        value={decr(@current_user.username, @current_user, @key)}
+        required
+      />
+      <:actions>
+        <.button phx-disable-with="Changing...">Change Username</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+  <div>
+    <.simple_form for={@visibility_form} id="visibility_form" phx-submit="update_visibility">
+      <.input
+        field={@username_form[:visibility]}
+        type="select"
+        options={Ecto.Enum.values(Accounts.User, :visibility)}
+        label="Visibility"
+        required
+        description?={true}
+      >
+        <:description_block>
+          <div class="space-y-4">
+            <dl class="divide-y divide-gray-100">
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-zinc-500">Public</dt>
+                <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                  Mosslet users can send you connection requests and anyone can view your profile.
+                </dd>
+              </div>
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-zinc-500">Private</dt>
+                <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                  Nobody can send you connection requests and only you can view your profile. You can still send connection requests and make new connections.
+                </dd>
+              </div>
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-zinc-500">Connections</dt>
+                <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
+                  Mosslet users can send you connection requests and only you and your connections can view your profile.
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </:description_block>
+      </.input>
+      <:actions>
+        <.button phx-disable-with="Changing...">Change Visibility</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+
+  <div :if={@current_user.confirmed_at}>
+    <.simple_form
+      :if={@current_user.confirmed_at}
+      for={@profile_form}
+      id="profile_form"
+      phx-change="validate_profile"
+      phx-submit={
+        if Map.get(@current_user.connection, :profile),
+          do: "update_profile",
+          else: "create_profile"
+      }
+      apply_classes?={true}
+      class="rounded-md my-12 p-10 bg-yellow-50"
+    >
+      <.input field={@profile_form[:id]} type="hidden" value={@current_user.connection.id} />
+      <.inputs_for :let={f_nested} field={@profile_form[:profile]}>
+        <div class="pb-12">
+          <h2 class="text-base font-semibold leading-7 text-gray-900">
+            Profile
+            <span
+              :if={Map.get(@current_user.connection, :profile)}
+              class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 ml-2 text-xs font-medium text-emerald-800"
+            >
+              {String.capitalize(Atom.to_string(@current_user.connection.profile.visibility))}
+            </span>
+            <span
+              :if={!Map.get(@current_user.connection, :profile)}
+              class="inline-flex items-center rounded-md bg-pink-100 px-2 py-1 ml-2 text-xs font-medium text-pink-800"
+            >
+              {String.capitalize(Atom.to_string(@current_user.visibility))}
+            </span>
+          </h2>
+          <p class="mt-1 text-sm leading-6 text-gray-600">
+            This information will be displayed based on your visibility setting. It is possible to have a different profile visibility than your account visibility setting. Always check the badge next to "Profile" in this section to know what your profile's current visibility is, and hit "Update Profile" if you wish to realign it with your account visibility setting.
+          </p>
+
+          <.input
+            :if={@current_user.connection.avatar_url}
+            field={f_nested[:avatar_url]}
+            type="hidden"
+            value={
+              decr_avatar(
+                @current_user.connection.avatar_url,
+                @current_user,
+                @current_user.conn_key,
+                @key
+              )
+            }
+          />
+          <.input
+            field={f_nested[:email]}
+            type="hidden"
+            value={decr(@current_user.email, @current_user, @key)}
+          />
+          <.input
+            :if={@current_user.name}
+            field={f_nested[:name]}
+            type="hidden"
+            value={decr(@current_user.name, @current_user, @key)}
+          />
+
+          <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+              <label for="username" class="block text-sm font-medium leading-6 text-gray-900">
+                Username
+              </label>
+              <div class="mt-2">
+                <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-yellow-600 sm:max-w-md">
+                  <span class="flex select-none items-center pl-3 text-gray-500 sm:text-sm">
+                    mosslet.com/profile/
+                  </span>
+                  <.input
+                    type="text"
+                    field={f_nested[:username]}
+                    apply_classes?={true}
+                    value={decr(@current_user.username, @current_user, @key)}
+                    classes="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6"
+                    placeholder="janesmith"
+                    disabled
+                  />
+                  <.input
+                    field={f_nested[:username]}
+                    type="hidden"
+                    value={decr(@current_user.username, @current_user, @key)}
+                  />
+                  <.input
+                    field={f_nested[:temp_username]}
+                    type="hidden"
+                    value={decr(@current_user.username, @current_user, @key)}
+                  />
+                  <.input
+                    field={f_nested[:visibility]}
+                    type="hidden"
+                    value={@current_user.visibility}
+                  />
+                  <.input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
+                </div>
+              </div>
+              <div class="divide-y divide-yellow-900/25">
+                <div :if={@current_user.connection.avatar_url} class="mt-2">
+                  <.input
+                    field={f_nested[:show_avatar?]}
+                    type="checkbox"
+                    label="Show your avatar?"
+                    description?={true}
+                  >
+                    <:description_block>
+                      <p>Show your avatar on your profile page.</p>
+                    </:description_block>
+                  </.input>
+                </div>
+                <div class="mt-2">
+                  <.input
+                    field={f_nested[:show_email?]}
+                    type="checkbox"
+                    label="Show your email?"
+                    description?={true}
+                  >
+                    <:description_block>
+                      <p>Show your email on your profile page.</p>
+                    </:description_block>
+                  </.input>
+                </div>
+                <div :if={@current_user.name} class="mt-2">
+                  <.input
+                    field={f_nested[:show_name?]}
+                    type="checkbox"
+                    label="Show your name?"
+                    description?={true}
+                  >
+                    <:description_block>
+                      <p>Show your name on your profile page.</p>
+                    </:description_block>
+                  </.input>
+                </div>
+                <div class="mt-2">
+                  <.input
+                    field={f_nested[:show_public_memories?]}
+                    type="checkbox"
+                    label="Show your public Memories?"
+                    description?={true}
+                  >
+                    <:description_block>
+                      <p>Show your public Memories on your profile page.</p>
+                    </:description_block>
+                  </.input>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-span-full">
+              <label
+                for="connection[about]"
+                class="block text-sm font-medium leading-6 text-zinc-900"
+              >
+                About
+              </label>
+              <div class="mt-2">
+                <.input
+                  field={f_nested[:about]}
+                  value={@profile_about}
+                  type="textarea"
+                  rows="3"
+                  apply_classes?={true}
+                  classes="block w-full rounded-md border-0 py-1.5 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-yellow-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+              <p class="mt-3 text-sm leading-6 text-zinc-600">
+                Write a few sentences about yourself.
+              </p>
+            </div>
+          </div>
+        </div>
+      </.inputs_for>
+      <:actions>
+        <.button
+          :if={@current_user.connection.profile}
+          phx-disable-with="Updating..."
+          class="bg-yellow-600 hover:bg-yellow-500"
+        >
+          Update Profile
+        </.button>
+        <.link
+          :if={@current_user.connection.profile}
+          phx-disable-with="Deleting..."
+          data-confirm="Are you sure you want to delete your profile?"
+          class="rounded-md bg-rose-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-rose-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+          phx-click="delete_profile"
+          phx-value-id={@current_user.connection.id}
+        >
+          Delete Profile
+        </.link>
+        <.button
+          :if={is_nil(@current_user.connection.profile)}
+          phx-disable-with="Creating..."
+          class="bg-yellow-600 hover:bg-yellow-500"
+        >
+          Create Profile
+        </.button>
+      </:actions>
+    </.simple_form>
+  </div>
+
+  <div :if={!@current_user.confirmed_at}>
+    <.info_banner
+      :if={!@current_user.confirmed_at}
+      navigate={~p"/auth/confirm"}
+      nav_title="Confirm"
+    >
+      Confirm your account to enable the "forgot password" feature.
+    </.info_banner>
+
+    <.simple_form
+      :if={@current_user.confirmed_at}
+      for={@forgot_password_form}
+      id="forgot_password_form"
+      phx-submit="update_forgot_password"
+    >
+      <.input
+        field={@forgot_password_form[:is_forgot_pwd?]}
+        type="checkbox"
+        label={
+          if @current_user.is_forgot_pwd?,
+            do: "Disable forgot password?",
+            else: "Enable forgot password?"
+        }
+        description?={true}
+      >
+        <:description_block>
+          <div class="space-y-4">
+            <dl class="divide-y divide-gray-100">
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-zinc-500">Action</dt>
+                <dd
+                  :if={!@current_user.is_forgot_pwd?}
+                  class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0"
+                >
+                  Enable the forgot password feature.
+                </dd>
+                <dd
+                  :if={@current_user.is_forgot_pwd?}
+                  class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0"
+                >
+                  Disable the forgot password feature.
+                </dd>
+              </div>
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-zinc-500">Details</dt>
+                <dd
+                  :if={!@current_user.is_forgot_pwd?}
+                  class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0"
+                >
+                  More convenience! Regain access to your account if you forget your password.
+                  The key to your data will be stored encrypted at-rest in the database.
+                </dd>
+                <dd
+                  :if={@current_user.is_forgot_pwd?}
+                  class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0"
+                >
+                  More privacy! Only you can access your account (provided you don't share your password with anyone 👀).
+                  The key to your data will be deleted from the database (currently being stored encrypted at-rest) and your account will be returned to its original asymmetric encryption.
+                </dd>
+              </div>
+              <div class="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
+                <dt class="text-sm font-medium leading-6 text-zinc-500">Note</dt>
+                <dd
+                  :if={!@current_user.is_forgot_pwd?}
+                  class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0"
+                >
+                  When enabled it's possible for an authorized authority to gain access to your data. This is rare, and unlikely to happen, so we recommend enabling this feature to prevent the chance of getting locked out of your account.
+                </dd>
+                <dd
+                  :if={@current_user.is_forgot_pwd?}
+                  class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0"
+                >
+                  When disabled it's impossible for an authorized authority to gain access to your data. But, if you forget your password there's no way we can get you back into your account.
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </:description_block>
+      </.input>
+      <:actions>
+        <.button phx-disable-with="Changing...">Change Forgot Password</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+
+  <div>
+    <.simple_form
+      for={@delete_account_form}
+      id="delete_account_form"
+      phx-submit="delete_account"
+      apply_classes?={true}
+      class="rounded-md my-12 p-10 bg-rose-50"
+    >
+      <div class="mx-auto pb-6">
+        <span class="inline-flex">
+          <.icon name="hero-exclamation-triangle" class="text-rose-700 h-6 w-6" />
+          <h2 class="ml-2 text-lg font-semibold leading-6 text-rose-700">Delete your account</h2>
+        </span>
+        <p class="mt-1 text-sm text-gray-700">
+          Enter your current password below to delete your account and its data. All of your data will be deleted in real-time and any subscription will be canceled. This cannot be undone.
+        </p>
+      </div>
+
+      <.input field={@delete_account_form[:id]} type="hidden" value={@current_user.id} required />
+      <.input
+        field={@delete_account_form[:current_password]}
+        name="current_password"
+        type="password"
+        label="Current password"
+        id="current_password_for_delete_account"
+        value={@current_password}
+        required
+      />
+      <:actions>
+        <.button
+          class="bg-rose-700 hover:bg-rose-600 text-white active:text-white/80"
+          phx-disable-with="Deleting..."
+        >
+          Delete Account
+        </.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</div>

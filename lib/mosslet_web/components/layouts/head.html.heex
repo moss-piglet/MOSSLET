@@ -1,0 +1,65 @@
+<head>
+  <.live_title suffix={" 👉 " <> app_name()}>{title(@conn)}</.live_title>
+  <meta name="csrf-token" content={get_csrf_token()} />
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description(@conn)} />
+
+  <.favicon_link_meta />
+  <%!-- Open Graph (used by Facebook/Twitter/LinkedIn et al). See layout_view.ex for relevant function --%>
+  <meta prefix="og: http://ogp.me/ns#" property="og:type" content="website" />
+  <meta prefix="og: http://ogp.me/ns#" property="og:url" content={current_page_url(@conn)} />
+  <meta prefix="og: http://ogp.me/ns#" property="og:title" content={title(@conn)} />
+  <meta prefix="og: http://ogp.me/ns#" property="og:description" content={description(@conn)} />
+  <meta prefix="og: http://ogp.me/ns#" property="og:image" content={og_image(@conn)} />
+  <meta prefix="og: http://ogp.me/ns#" property="og:image:width" content={og_image_width(@conn)} />
+  <meta
+    prefix="og: http://ogp.me/ns#"
+    property="og:image:height"
+    content={og_image_height(@conn)}
+  />
+  <meta prefix="og: http://ogp.me/ns#" property="og:image:type" content={og_image_type(@conn)} />
+  <%!-- Twitter only --%>
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content={twitter_site(@conn)} />
+  <meta name="twitter:creator" content={twitter_creator(@conn)} />
+  <%!-- Helps keep 80% of duplicate content errors on Google away by default --%>
+  <link rel="canonical" href={@conn.request_path} />
+
+  <link async defer phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+
+  <%!-- Alpine Beta/Plugins --%>
+  <script defer src="https://unpkg.com/@alpinejs/ui@3.13.7-beta.0/dist/cdn.min.js">
+  </script>
+  <script defer src="https://unpkg.com/@alpinejs/collapse@3.13.7/dist/cdn.min.js">
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.13.7/dist/cdn.min.js">
+  </script>
+  <script defer src="https://unpkg.com/@alpinejs/focus@3.13.7/dist/cdn.min.js">
+  </script>
+  <%!-- Alpine Core --%>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.7/dist/cdn.min.js">
+  </script>
+
+  <%!-- tippy --%>
+  <script src="https://unpkg.com/@popperjs/core@2">
+  </script>
+  <script src="https://unpkg.com/tippy.js@6">
+  </script>
+
+  <%!-- Trix --%>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.1.13/dist/trix.css" />
+  <script type="text/javascript" src="https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js">
+  </script>
+
+  <%!-- Fathom --%>
+  <script src="https://cdn.usefathom.com/script.js" data-site="OKXLBFRS" defer>
+  </script>
+
+  <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+  </script>
+
+  <.color_scheme_switch_js />
+</head>

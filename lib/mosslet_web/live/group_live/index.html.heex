@@ -1,0 +1,158 @@
+<.layout current_user={@current_user} current_page={@current_page} key={@key} type="sidebar">
+  <.container class="py-16">
+    <.page_header title="Groups">
+      <div class="inline-flex space-x-2">
+        <.button
+          :if={!Enum.empty?(@streams.pending_groups.inserts) || @any_pending_groups?}
+          icon="hero-gift"
+          id="new-group-invites-button"
+          data-tippy-content="People have invited you to join a group. Privately greet them to see whether you wish to join or decline."
+          phx-hook="TippyHook"
+          link_type="live_patch"
+          class="inline-flex rounded-full"
+          label="You've got Invites"
+          color="success"
+          to={~p"/app/groups/greet"}
+        />
+        <.button
+          link_type="live_patch"
+          class="rounded-full"
+          label="New Group"
+          to={Routes.group_index_path(@socket, :new)}
+        />
+      </div>
+    </.page_header>
+
+    <.sticky_table
+      :if={@live_action != :joining_group}
+      id="groups"
+      rows={@streams.groups}
+      row_click={fn {_id, group} -> JS.navigate(~p"/app/groups/#{group}") end}
+    >
+      <:col :let={{_id, group}} label="Name">
+        {decr_item(
+          group.name,
+          @current_user,
+          get_user_group(group, @current_user).key,
+          @key,
+          group
+        )}
+      </:col>
+      <:col :let={{_id, group}} label="Description">
+        {decr_item(
+          group.description,
+          @current_user,
+          get_user_group(group, @current_user).key,
+          @key,
+          group
+        )}
+      </:col>
+      <:col :let={{_id, group}} label="Members">
+        <div class="isolate flex -space-x-2 py-1 px-1 overflow-hidden">
+          <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
+            <% uconn =
+              get_uconn_for_users(
+                get_user_from_user_group_id(user_group.id),
+                @current_user
+              ) %>
+
+            <.group_avatar
+              :if={user_group.user_id != @current_user.id && uconn}
+              src={
+                maybe_get_avatar_src(
+                  user_group,
+                  @current_user,
+                  @key,
+                  Enum.with_index(group.user_groups, fn element, index -> {index, element} end)
+                )
+              }
+              alt="group member connection avatar"
+              class={group_avatar_role_style(user_group.role)}
+            />
+
+            <.group_avatar
+              :if={user_group.user_id != @current_user.id && !uconn}
+              src={
+                ~p"/images/groups/#{decr_item(user_group.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}"
+              }
+              alt="unknown group member avatar"
+              class={group_avatar_role_style(user_group.role)}
+            />
+
+            <.group_avatar
+              :if={user_group.user_id == @current_user.id}
+              src={maybe_get_user_avatar(@current_user, @key)}
+              alt="your group avatar"
+              class={group_avatar_role_style(user_group.role)}
+            />
+          <% end %>
+        </div>
+      </:col>
+      <:action :let={{_id, group}}>
+        <div class="sr-only">
+          <.link navigate={~p"/app/groups/#{group}"}>Show</.link>
+        </div>
+        <.link
+          :if={can_edit_group?(get_user_group(group, @current_user), @current_user)}
+          patch={~p"/app/groups/#{group}/edit"}
+          class="text-emerald-600 hover:text-emerald-500 active:text-emerald-700"
+        >
+          Edit
+        </.link>
+      </:action>
+      <:action :let={{id, group}}>
+        <.link
+          :if={can_delete_group?(group, @current_user)}
+          phx-click={JS.push("delete", value: %{id: group.id}) |> hide("##{id}")}
+          data-confirm="Are you sure?"
+          class="text-red-500 hover:text-red-400 active:text-red-600 dark:text-red-400 dark:hover:text-red-300 dark:active:text-red-500"
+        >
+          Delete
+        </.link>
+      </:action>
+    </.sticky_table>
+    <%!-- pagination --%>
+    <.group_pagination group_count={@group_count} options={@options} />
+
+    <.phx_modal
+      :if={@live_action in [:new, :edit]}
+      id="group-modal"
+      show
+      on_cancel={JS.patch(@return_url)}
+    >
+      <.live_component
+        module={MossletWeb.GroupLive.FormComponent}
+        id={@group.id || :new}
+        title={@page_title}
+        action={@live_action}
+        group={@group}
+        patch={@return_url}
+        current_user={@current_user}
+        key={@key}
+        user_connections={@user_connections}
+      />
+    </.phx_modal>
+
+    <.phx_modal
+      :if={@live_action in [:greet]}
+      id="pending-group-modal"
+      show
+      on_cancel={JS.patch(~p"/app/groups")}
+    >
+      <.live_component
+        module={MossletWeb.GroupLive.PendingComponent}
+        id={:greet}
+        title={@page_title}
+        action={@live_action}
+        patch={~p"/app/groups"}
+        current_user={@current_user}
+        key={@key}
+        user_connections={@user_connections}
+        stream={@streams.pending_groups}
+        row_click={fn _any -> nil end}
+        any_pending_groups?={@any_pending_groups?}
+        live_flash={@flash}
+      />
+    </.phx_modal>
+  </.container>
+</.layout>

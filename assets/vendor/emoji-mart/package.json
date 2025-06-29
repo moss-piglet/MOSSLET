@@ -1,0 +1,84 @@
+{
+  "_from": "emoji-mart",
+  "_id": "emoji-mart@5.6.0",
+  "_inBundle": false,
+  "_integrity": "sha512-eJp3QRe79pjwa+duv+n7+5YsNhRcMl812EcFVwrnRvYKoNPoQb5qxU8DG6Bgwji0akHdp6D4Ln6tYLG58MFSow==",
+  "_location": "/emoji-mart",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "emoji-mart",
+    "name": "emoji-mart",
+    "escapedName": "emoji-mart",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/emoji-mart/-/emoji-mart-5.6.0.tgz",
+  "_shasum": "71b3ed0091d3e8c68487b240d9d6d9a73c27f023",
+  "_spec": "emoji-mart",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "alias": {
+    "react": "preact/compat",
+    "react-dom/test-utils": "preact/test-utils",
+    "react-dom": "preact/compat",
+    "react/jsx-runtime": "preact/jsx-runtime",
+    "preact/jsx-dev-runtime": "preact/jsx-runtime"
+  },
+  "browserslist": "defaults",
+  "bugs": {
+    "url": "https://github.com/missive/emoji-mart/issues"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "Emoji picker for the web",
+  "devDependencies": {
+    "preact": "10.6.4"
+  },
+  "files": [
+    "/dist",
+    "LICENSE"
+  ],
+  "global": "dist/browser.js",
+  "homepage": "https://missiveapp.com/open/emoji-mart",
+  "keywords": [
+    "emoji",
+    "emoticons",
+    "emoji-picker",
+    "web-component",
+    "twemoji"
+  ],
+  "license": "MIT",
+  "main": "dist/main.js",
+  "module": "dist/module.js",
+  "name": "emoji-mart",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/missive/emoji-mart.git",
+    "directory": "packages/emoji-mart"
+  },
+  "scripts": {
+    "build": "parcel build --no-autoinstall",
+    "prepublishOnly": "yarn build"
+  },
+  "source": "src/index.ts",
+  "targets": {
+    "main": {
+      "includeNodeModules": true
+    },
+    "module": {
+      "includeNodeModules": true
+    },
+    "global": {
+      "source": "src/browser.js",
+      "includeNodeModules": true
+    }
+  },
+  "types": "dist/index.d.ts",
+  "version": "5.6.0"
+}

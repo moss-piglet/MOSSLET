@@ -1,0 +1,113 @@
+<.layout current_page={:connections} current_user={@current_user} key={@key} type="sidebar">
+  <div class="user-connection-index">
+    <.page_header title="Connections" class="pt-4 mx-4">
+      <div class="inline-flex space-x-2">
+        <.phx_button
+          :if={!Enum.empty?(@streams.arrivals.inserts) || @any_pending_arrivals?}
+          id="pending-connections-button"
+          data-tippy-content="You have pending Connection requests. Privately view them and decide if you'd like to accept or decline."
+          phx-hook="TippyHook"
+          type="button"
+          class="inline-flex items-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+        >
+          <.link
+            navigate={~p"/app/users/connections/greet"}
+            class="inline-flex items-center text-center"
+          >
+            <.phx_icon name="hero-users" class="size-5 mr-1" /> You've got Connections
+          </.link>
+        </.phx_button>
+
+        <.phx_button
+          type="button"
+          class="inline-flex items-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+        >
+          <.link
+            navigate={Routes.user_connection_index_path(@socket, :new)}
+            class="inline-flex items-center text-center"
+          >
+            <.phx_icon name="hero-user-plus" class="size-5 mr-1" /> New Connection
+          </.link>
+        </.phx_button>
+      </div>
+    </.page_header>
+    <div class="relative">
+      <.private_banner :if={show_private_banner?(@current_user)} />
+    </div>
+    <div class="user-connections" id="user_connections" phx-update="stream">
+      <div
+        id="user-connections-empty"
+        class="no-results only:block hidden mx-auto dark:text-gray-400 text-center"
+      >
+        <.phx_icon name="hero-users" class="mx-auto size-12 text-gray-400" />
+        <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          No Connections
+        </h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Get started by creating a new connection.
+        </p>
+        <div class="mt-6">
+          <.phx_button
+            type="button"
+            class="inline-flex items-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+          >
+            <.link
+              navigate={Routes.user_connection_index_path(@socket, :new)}
+              class="inline-flex items-center text-center"
+            >
+              <.phx_icon name="hero-user-plus" class="size-5 mr-1" /> New Connection
+            </.link>
+          </.phx_button>
+        </div>
+      </div>
+
+      <.user_connection_card
+        :for={{dom_id, user_connection} <- @streams.user_connections}
+        user_connection={user_connection}
+        user_connections={@streams.user_connections}
+        current_user={@current_user}
+        key={@key}
+        id={dom_id}
+      />
+    </div>
+  </div>
+
+  <.phx_modal
+    :if={@live_action in [:new]}
+    id="new-uc-modal"
+    show
+    on_cancel={JS.patch(~p"/app/users/connections")}
+  >
+    <.live_component
+      module={MossletWeb.UserConnectionLive.FormComponent}
+      id={@uconn.id || :new}
+      title={@page_title}
+      action={@live_action}
+      uconn={@uconn}
+      user={@current_user}
+      key={@key}
+      patch={~p"/app/users/connections"}
+    />
+  </.phx_modal>
+
+  <.phx_modal
+    :if={@live_action in [:greet]}
+    id="screen-uc-modal"
+    show
+    on_cancel={JS.patch(~p"/app/users/connections")}
+  >
+    <.live_component
+      module={MossletWeb.UserConnectionLive.ArrivalComponent}
+      id={:greet}
+      title={@page_title}
+      action={@live_action}
+      stream={@streams.arrivals}
+      user={@current_user}
+      arrivals_count={@arrivals_count}
+      loading_list={@loading_list}
+      key={@key}
+      options={@arrivals_options}
+      patch={~p"/app/users/connections"}
+    />
+  </.phx_modal>
+</.layout>

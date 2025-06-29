@@ -1,0 +1,177 @@
+<.layout current_page={:groups} current_user={@current_user} key={@key} type="sidebar">
+  <.container class="py-16">
+    <.page_header title={
+      decr_item(
+        @group.name,
+        @current_user,
+        @current_user_group.key,
+        @key,
+        @group
+      )
+    }>
+      <div class="inline-flex space-x-2">
+        <.icon_button
+          :if={@current_user_group.role in [:owner, :admin]}
+          id="group-settings-button"
+          link_type="live_patch"
+          class="rounded-full"
+          data-tippy-content="Group settings"
+          phx-hook="TippyHook"
+          to={~p"/app/groups/#{@group}/edit-group-members"}
+        >
+          <.icon name="hero-cog" />
+        </.icon_button>
+        <.button
+          icon="hero-arrow-long-left"
+          link_type="live_patch"
+          class="rounded-full"
+          label="Back to Groups"
+          to={Routes.group_index_path(@socket, :index)}
+        />
+      </div>
+    </.page_header>
+
+    <div class="mx-auto max-w-7xl py-4">
+      <div class="mx-auto grid max-w-2xl grid-cols-1 grid-rows-1 items-start gap-x-8 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+        <!-- Member summary -->
+        <div class="lg:col-start-3 lg:row-end-1">
+          <h2 class="sr-only">Member Summary</h2>
+          <div class="rounded-lg bg-white dark:bg-gray-800 shadow-sm dark:shadow-emerald-500/50 ring-1 ring-gray-900/5">
+            <dl class="flex flex-wrap">
+              <div class="flex-auto pl-6 pt-6">
+                <dt class="text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100">
+                  Group
+                </dt>
+                <dd class="mt-1 text-base font-semibold leading-6 text-emerald-600 dark:text-emerald-500">
+                  {decr_item(
+                    @group.name,
+                    @current_user,
+                    @current_user_group.key,
+                    @key,
+                    @group
+                  )}
+                </dd>
+              </div>
+              <div class="flex-none self-end px-6 pt-4">
+                <dt class="sr-only">Role</dt>
+                <dd class={"#{role_badge_color_ring(@current_user_group.role)}"}>
+                  {String.capitalize(Atom.to_string(@current_user_group.role))}
+                </dd>
+              </div>
+              <div class="mt-6 flex w-full flex-none gap-x-4 border-t border-gray-900/5 px-6 pt-6">
+                <dt class="flex-none text-gray-900 dark:text-gray-100">
+                  <span class="sr-only">My name or username</span>
+                  <.phx_icon name="hero-user-circle" class="size-5" />
+                </dt>
+                <dd
+                  :if={@current_user.name}
+                  class="text-sm font-medium leading-6 text-gray-600 dark:text-gray-400"
+                >
+                  {decr(@current_user.name, @current_user, @key)}
+                </dd>
+                <dd
+                  :if={!@current_user.name}
+                  class="text-sm font-medium leading-6 text-gray-600 dark:text-gray-400"
+                >
+                  {decr(@current_user.username, @current_user, @key)}
+                </dd>
+              </div>
+              <div class="mt-4 flex w-full flex-none gap-x-4 px-6">
+                <dt class="flex-none text-gray-900 dark:text-gray-100">
+                  <span class="sr-only">Joined date</span>
+                  <.phx_icon name="hero-calendar-days" class="size-5" />
+                </dt>
+                <dd
+                  id={"date-joined-#{@current_user_group.id}"}
+                  phx-hook="TippyHook"
+                  data-tippy-content="Date you joined this group."
+                  class="text-sm leading-6 text-gray-600 dark:text-gray-400"
+                >
+                  <time datetime={@current_user_group.confirmed_at}>
+                    <.local_time_med
+                      id={@current_user_group.id}
+                      at={@current_user_group.confirmed_at}
+                    />
+                  </time>
+                </dd>
+              </div>
+              <div class="mt-4 flex w-full flex-none gap-x-4 px-6">
+                <dt class="flex-none text-gray-900 dark:text-gray-100">
+                  <span class="sr-only">My user group Moniker</span>
+                  <.icon name="hero-finger-print" class="size-5" />
+                </dt>
+                <dd class="text-sm leading-6 text-gray-600 dark:text-gray-400">
+                  {decr_item(
+                    @current_user_group.moniker,
+                    @current_user,
+                    @current_user_group.key,
+                    @key,
+                    @group
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <div class="mt-6 border-t border-gray-900/5 px-6 py-6">
+              <.link
+                :if={@current_user_group.role == :owner}
+                phx-click="delete_group"
+                phx-value-id={@group.id}
+                class="text-sm font-semibold leading-6 text-red-500"
+                data-confirm="Are you sure you want to delete this group? This cannot be undone."
+              >
+                Delete group <span aria-hidden="true">&rarr;</span>
+              </.link>
+              <.link
+                :if={@current_user_group.role in [:member, :admin, :moderator]}
+                href="#"
+                class="text-sm font-semibold leading-6 text-red-500"
+                data-confirm={"Are you sure you want to leave this group? This will remove you as a #{String.capitalize(Atom.to_string(@current_user_group.role))} from this group."}
+                phx-click="leave_group"
+                phx-value-id={@current_user_group.id}
+              >
+                Leave group <span aria-hidden="true">&rarr;</span>
+              </.link>
+            </div>
+          </div>
+        </div>
+        <!-- Group Chat -->
+        <div class="bg-white dark:bg-gray-800 -mx-4 px-4 py-8 shadow-sm dark:shadow-emerald-500/50 ring-1 ring-primary-900/5 sm:mx-0 sm:rounded-lg sm:px-8 sm:pb-8 lg:col-span-2 lg:row-span-2 lg:row-end-2 xl:px-16 xl:pb-14 xl:pt-8">
+          <h2 class="pb-2 text-base font-semibold leading-6 text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-emerald-500">
+            Live Chat
+          </h2>
+          <Group.show
+            :if={@live_action == :show}
+            messages={@streams.messages}
+            messages_list={@messages_list}
+            current_user={@current_user}
+            key={@key}
+            group={@group}
+            user_group={@current_user_group}
+            scrolled_to_top={@scrolled_to_top}
+          />
+
+          <.live_component module={EditForm} message={@message} id="message-edit-form" />
+        </div>
+      </div>
+    </div>
+
+    <.phx_modal
+      :if={@live_action in [:edit]}
+      id="group-modal"
+      show
+      on_cancel={JS.patch(~p"/app/groups/#{@group}")}
+    >
+      <.live_component
+        module={MossletWeb.GroupLive.FormComponent}
+        id={@group.id}
+        title={@page_title}
+        action={@live_action}
+        group={@group}
+        patch={~p"/app/groups/#{@group}"}
+        current_user={@current_user}
+        key={@key}
+        user_connections={@user_connections}
+      />
+    </.phx_modal>
+  </.container>
+</.layout>
