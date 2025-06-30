@@ -7,6 +7,7 @@
 
 # The directory Mix downloads your dependencies sources to.
 /deps/
+deps/tzdata/priv/latest_remote_poll.txt
 
 # Where 3rd-party dependencies like ExDoc output generated docs.
 /doc/
@@ -40,10 +41,9 @@ npm-debug.log
 .env
 
 # OS specific files
-.DS_Store
-._.DS_Store
+*.DS_Store
 **/.DS_Store
-**/._.DS_Store
+priv/static/images/about/.DS_Store
 
 # dialyzer plt files to ignore
 /priv/plts/*.plt
