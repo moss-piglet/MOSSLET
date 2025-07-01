@@ -104,34 +104,6 @@ document.addEventListener("trix-initialize", function (event) {
   );
 });
 
-// Handle rejected Alpinejs promises
-window.addEventListener("unhandledrejection", function (event) {
-  // Check for specific Alpine transition cancellation
-  if (event.reason && event.reason.isFromCancelledTransition === true) {
-    event.preventDefault();
-
-    // Completely nullify the error
-    Object.defineProperty(event, "reason", {
-      configurable: true,
-      get() {
-        return undefined;
-      },
-    });
-
-    // Attempt to silence the promise
-    if (event.promise) {
-      Object.defineProperty(event.promise, "reason", {
-        configurable: true,
-        get() {
-          return undefined;
-        },
-      });
-    }
-
-    return false;
-  }
-});
-
 window.addEventListener("phx:show-el", (e) =>
   document.getElementById(e.detail.id).removeAttribute("style")
 );
