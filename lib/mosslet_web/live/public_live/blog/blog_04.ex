@@ -123,8 +123,8 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                     </p>
 
                     <hr class="dark:border-gray-700" />
-                    <h2 id="who-is-the-arc">
-                      <a href="#who-is-the-arc" class="anchor dark:text-gray-200">
+                    <h2 id="attention-freeing">
+                      <a href="#attention-freeing" class="anchor dark:text-gray-200">
                         Attention freeing
                       </a>
                     </h2>
@@ -166,8 +166,8 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                     </div>
 
                     <hr class="dark:border-gray-700" />
-                    <h2 id="loophole-for-surveillance">
-                      <a href="#loophole-for-surveillance" class="anchor dark:text-gray-200">
+                    <h2 id="comprehensive-control">
+                      <a href="#comprehensive-control" class="anchor dark:text-gray-200">
                         Comprehensive control
                       </a>
                     </h2>
@@ -188,8 +188,8 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                     </p>
 
                     <hr class="dark:border-gray-700" />
-                    <h2 id="what-you-can-do">
-                      <a href="#what-you-can-do" class="anchor dark:text-gray-200">
+                    <h2 id="intimate-privacy-protection">
+                      <a href="#intimate-privacy-protection" class="anchor dark:text-gray-200">
                         Intimate privacy protection
                       </a>
                     </h2>
@@ -238,8 +238,8 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                     <p></p>
 
                     <hr class="dark:border-gray-700" />
-                    <h2 id="what-you-can-do">
-                      <a href="#what-you-can-do" class="anchor dark:text-gray-200">
+                    <h2 id="triple-layer-encryption">
+                      <a href="#triple-layer-encryption" class="anchor dark:text-gray-200">
                         Triple layer encryption
                       </a>
                     </h2>
@@ -268,8 +268,8 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                     </p>
 
                     <hr class="dark:border-gray-700" />
-                    <h2 id="what-you-can-do">
-                      <a href="#what-you-can-do" class="anchor dark:text-gray-200">
+                    <h2 id="zero-dark-patterns">
+                      <a href="#zero-dark-patterns" class="anchor dark:text-gray-200">
                         Zero dark patterns
                       </a>
                     </h2>
