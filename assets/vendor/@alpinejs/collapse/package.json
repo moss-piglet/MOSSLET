@@ -1,0 +1,49 @@
+{
+  "_from": "@alpinejs/collapse",
+  "_id": "@alpinejs/collapse@3.14.9",
+  "_inBundle": false,
+  "_integrity": "sha512-cUjbBVo4KR/CfFg0cLB+Q7a8SnjmD4MdxmtZvFjh25Dlf/ZWYPSPx/28b+aAykuX/SUoDPQRmdFiVVvq+iILHw==",
+  "_location": "/@alpinejs/collapse",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@alpinejs/collapse",
+    "name": "@alpinejs/collapse",
+    "escapedName": "@alpinejs%2fcollapse",
+    "scope": "@alpinejs",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@alpinejs/collapse/-/collapse-3.14.9.tgz",
+  "_shasum": "90b3b0c35543ce2cc8380a8d941dfed4536def4a",
+  "_spec": "@alpinejs/collapse",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "author": {
+    "name": "Caleb Porzio"
+  },
+  "bugs": {
+    "url": "https://github.com/alpinejs/alpine/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {},
+  "deprecated": false,
+  "description": "Collapse and expand elements with robust animations",
+  "homepage": "https://alpinejs.dev/plugins/collapse",
+  "license": "MIT",
+  "main": "dist/module.cjs.js",
+  "module": "dist/module.esm.js",
+  "name": "@alpinejs/collapse",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpinejs/alpine.git",
+    "directory": "packages/collapse"
+  },
+  "unpkg": "dist/cdn.min.js",
+  "version": "3.14.9"
+}

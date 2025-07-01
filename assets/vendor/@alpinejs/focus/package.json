@@ -1,0 +1,52 @@
+{
+  "_from": "@alpinejs/focus",
+  "_id": "@alpinejs/focus@3.14.9",
+  "_inBundle": false,
+  "_integrity": "sha512-+OMOcdkyEUr3gYWD0ZVqojLotI9D67F5BxGesDfZcPaGtNifXMoq0vt0UVDivGnXQXosOfNpO++GF4NzGrWE9Q==",
+  "_location": "/@alpinejs/focus",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@alpinejs/focus",
+    "name": "@alpinejs/focus",
+    "escapedName": "@alpinejs%2ffocus",
+    "scope": "@alpinejs",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@alpinejs/focus/-/focus-3.14.9.tgz",
+  "_shasum": "a2ac6d8b20c1104aaf4103e3056f83d4e306bfa5",
+  "_spec": "@alpinejs/focus",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "author": {
+    "name": "Caleb Porzio"
+  },
+  "bugs": {
+    "url": "https://github.com/alpinejs/alpine/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "focus-trap": "^6.9.4",
+    "tabbable": "^5.3.3"
+  },
+  "deprecated": false,
+  "description": "Manage focus within a page",
+  "homepage": "https://alpinejs.dev/plugins/focus",
+  "license": "MIT",
+  "main": "dist/module.cjs.js",
+  "module": "dist/module.esm.js",
+  "name": "@alpinejs/focus",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpinejs/alpine.git",
+    "directory": "packages/focus"
+  },
+  "unpkg": "dist/cdn.min.js",
+  "version": "3.14.9"
+}

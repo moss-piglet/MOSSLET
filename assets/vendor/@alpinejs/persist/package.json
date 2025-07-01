@@ -1,0 +1,49 @@
+{
+  "_from": "@alpinejs/persist",
+  "_id": "@alpinejs/persist@3.14.9",
+  "_inBundle": false,
+  "_integrity": "sha512-Td9hWEUtFFguYCRjXhq06sDultW21wXUnVro7YWJm+vjGu/nV/v3hepOXyYVjkGvH/F+zjx5UkzWXXzr3UiQ/w==",
+  "_location": "/@alpinejs/persist",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@alpinejs/persist",
+    "name": "@alpinejs/persist",
+    "escapedName": "@alpinejs%2fpersist",
+    "scope": "@alpinejs",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@alpinejs/persist/-/persist-3.14.9.tgz",
+  "_shasum": "12df7449b727b6f20469c40ac908265580cfef6f",
+  "_spec": "@alpinejs/persist",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "author": {
+    "name": "Caleb Porzio"
+  },
+  "bugs": {
+    "url": "https://github.com/alpinejs/alpine/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {},
+  "deprecated": false,
+  "description": "Persist Alpine data across page loads",
+  "homepage": "https://alpinejs.dev/plugins/persist",
+  "license": "MIT",
+  "main": "dist/module.cjs.js",
+  "module": "dist/module.esm.js",
+  "name": "@alpinejs/persist",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpinejs/alpine.git",
+    "directory": "packages/persist"
+  },
+  "unpkg": "dist/cdn.min.js",
+  "version": "3.14.9"
+}

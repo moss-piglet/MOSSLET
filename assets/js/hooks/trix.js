@@ -1,3 +1,5 @@
+import Alpine from "../../vendor/alpinejs";
+
 import data from "../../vendor/@emoji-mart/data";
 import { Picker } from "../../vendor/emoji-mart";
 
@@ -33,21 +35,47 @@ const TrixEditor = {
         );
 
         if (!this.pickerInstance) {
-          this.pickerInstance = new Picker({
-            data: data,
-            parent: pickerElement,
-            theme: localStorage.scheme,
-            emojiButtonColors: ["oklch(69.6% 0.17 162.48)"],
-            onEmojiSelect: (emoji) => {
-              // We insert the emoji at the current cursor position
-              var currentPosition = element.editor.getSelectedRange()[0];
-              element.editor.setSelectedRange([
-                currentPosition,
-                currentPosition,
-              ]);
-              element.editor.insertString(emoji.native);
-            },
+          // Ensure Alpine is fully loaded before manipulating
+          Alpine.nextTick(() => {
+            this.pickerInstance = new Picker({
+              data: data,
+              parent: pickerElement,
+              theme: localStorage.scheme,
+              emojiButtonColors: ["oklch(69.6% 0.17 162.48)"],
+              onEmojiSelect: (emoji) => {
+                // We insert the emoji at the current cursor position
+                var currentPosition = element.editor.getSelectedRange()[0];
+                element.editor.setSelectedRange([
+                  currentPosition,
+                  currentPosition,
+                ]);
+                element.editor.insertString(emoji.native);
+
+                // Dispatch a custom event to close the dropdown
+                const closeDropdownEvent = new CustomEvent(
+                  "close-emoji-dropdown",
+                  {
+                    bubbles: true,
+                    detail: { toolbarId: element.toolbarElement.id },
+                  }
+                );
+                element.dispatchEvent(closeDropdownEvent);
+              },
+            });
           });
+        }
+      }
+    });
+
+    // Add a global event listener to handle closing the dropdown
+    document.addEventListener("close-emoji-dropdown", (event) => {
+      const dropdown = document.querySelector(
+        `[data-emoji="${event.detail.toolbarId}"]`
+      );
+      if (dropdown) {
+        const alpineComponent = dropdown.closest("[x-data]");
+        if (alpineComponent) {
+          Alpine.store("dropdownOpen", false);
         }
       }
     });
