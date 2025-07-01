@@ -38,10 +38,9 @@ Alpine.plugin(collapse);
 Alpine.plugin(focus);
 Alpine.plugin(ui);
 
-// Only set global if not already defined
-if (typeof window.Alpine === "undefined") {
-  window.Alpine = Alpine;
-}
+window.Alpine = Alpine;
+
+Alpine.start();
 
 // Trix-Editor
 
