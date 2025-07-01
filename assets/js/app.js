@@ -17,6 +17,13 @@
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
+
+import Alpine from "../vendor/alpinejs";
+import collapse from "../vendor/@alpinejs/collapse";
+import focus from "../vendor/@alpinejs/focus";
+import "../vendor/@alpinejs/persist";
+import ui from "../vendor/@alpinejs/ui";
+
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
@@ -26,6 +33,15 @@ import live_select from "live_select";
 
 // Add your custom hooks to the hooks folder - then import them in hooks/index.js
 import mossletHooks from "./hooks/index";
+
+Alpine.plugin(collapse);
+Alpine.plugin(focus);
+Alpine.plugin(ui);
+
+// Only set global if not already defined
+if (typeof window.Alpine === "undefined") {
+  window.Alpine = Alpine;
+}
 
 // Trix-Editor
 
@@ -48,27 +64,43 @@ document.addEventListener("trix-initialize", function (event) {
   groupElement.insertAdjacentHTML(
     "beforeend",
     `<div x-data="{
-            open: false,
-            toggle() {
-                if (this.open) {
-                    return this.close()
-                }
- 
-                this.$refs.button.focus()
- 
-                this.open = true
-            },
-            close(focusAfter) {
-                if (! this.open) return
- 
-                this.open = false
- 
-                focusAfter && focusAfter.focus()
-            }
-        }"
-        x-on:keydown.escape.prevent.stop="close($refs.button)"
-        x-on:focusin.window="! $refs.panel.contains($event.target) && close()"
-        x-id="['dropdown-button']" class="border-l-1 border-gray-300"><button type="button" class="trix-button trix-button--icon trix-button--icon-emojis" data-trix-attribute="emoji" title="Emoji" data-trix-action="x-emoji" x-ref="button" x-on:click="toggle()" :aria-expanded="open" :aria-controls="$id('dropdown-button')" type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm2.023 6.828a.75.75 0 1 0-1.06-1.06 3.75 3.75 0 0 1-5.304 0 .75.75 0 0 0-1.06 1.06 5.25 5.25 0 0 0 7.424 0Z" clip-rule="evenodd" /></svg></button><div x-ref="panel" x-show="open" x-transition.origin.top.left x-on:click.outside="close($refs.button)" data-emoji="${event.target.toolbarElement.id}" :id="$id('dropdown-button')" x-cloak class="absolute top-6 left-0 origin-top-left p-1.5 outline-none border-none picker-container z-50"></div></div>`
+          open: false,
+          toggle() {
+              this.open = !this.open
+          },
+          close(focusAfter) {
+              this.open = false
+              focusAfter && focusAfter.focus()
+          }
+      }"
+      x-on:keydown.escape.prevent.stop="close($refs.button)"
+      x-on:click.outside="open = false"
+      x-on:close-emoji-dropdown.window="open = false"
+      x-id="['dropdown-button']" 
+      class="border-l-1 border-gray-300">
+      <button 
+          type="button" 
+          class="trix-button trix-button--icon trix-button--icon-emojis" 
+          data-trix-attribute="emoji" 
+          title="Emoji" 
+          data-trix-action="x-emoji" 
+          x-ref="button" 
+          x-on:click="toggle()" 
+          :aria-expanded="open" 
+          :aria-controls="$id('dropdown-button')"
+      >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm2.023 6.828a.75.75 0 1 0-1.06-1.06 3.75 3.75 0 0 1-5.304 0 .75.75 0 0 0-1.06 1.06 5.25 5.25 0 0 0 7.424 0Z" clip-rule="evenodd" /></svg>
+      </button>
+      <div 
+          x-ref="panel" 
+          x-show="open" 
+          x-transition.origin.top.left 
+          :id="$id('dropdown-button')" 
+          data-emoji="${event.target.toolbarElement.id}" 
+          x-cloak 
+          class="absolute top-6 left-0 origin-top-left p-1.5 outline-none border-none picker-container z-50">
+      </div>
+    </div>`
   );
 });
 
@@ -106,16 +138,18 @@ let liveSocket = new LiveSocket("/live", Socket, {
   ),
   params: { _csrf_token: csrfToken },
   dom: {
+    onNodeAdded(el) {
+      if (el.nodeType == 1 && el._x_marker) {
+        el._x_marker = undefined;
+        window.Alpine.initTree(el);
+      } else if (el instanceof HTMLElement && el.autofocus) {
+        el.focus(); // This allows you to auto focus with <input autofocus />
+      }
+    },
     onBeforeElUpdated(from, to) {
       // AlpineJS v3
       if (from._x_dataStack) {
         window.Alpine.clone(from, to);
-      }
-    },
-    // This allows you to auto focus with <input autofocus />
-    onNodeAdded(node) {
-      if (node instanceof HTMLElement && node.autofocus) {
-        node.focus();
       }
     },
   },

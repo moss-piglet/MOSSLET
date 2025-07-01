@@ -534,7 +534,7 @@ defmodule MossletWeb.Helpers do
   # <input {alpine_autofocus()} />
   def alpine_autofocus do
     %{
-      "x-data": "",
+      "x-data": "{}",
       "x-init": "$nextTick(() => { $el.focus() });"
     }
   end

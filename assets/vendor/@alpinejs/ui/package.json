@@ -1,0 +1,49 @@
+{
+  "_from": "@alpinejs/ui",
+  "_id": "@alpinejs/ui@3.14.9",
+  "_inBundle": false,
+  "_integrity": "sha512-lpgMQ/ivxQScS6gbvQKuZL4iOWFjuvM88THqFJEb4MaCtc0cRVfa7i0qLoovpB4kOLRdOIiAV778sh3RixVxVg==",
+  "_location": "/@alpinejs/ui",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@alpinejs/ui",
+    "name": "@alpinejs/ui",
+    "escapedName": "@alpinejs%2fui",
+    "scope": "@alpinejs",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@alpinejs/ui/-/ui-3.14.9.tgz",
+  "_shasum": "0c81e8f6aa3f103311d84c1060ee54cec9154bb5",
+  "_spec": "@alpinejs/ui",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "author": {
+    "name": "Caleb Porzio"
+  },
+  "bugs": {
+    "url": "https://github.com/alpinejs/alpine/issues"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "Headless UI components for Alpine",
+  "devDependencies": {},
+  "homepage": "https://alpinejs.dev/components#headless",
+  "license": "MIT",
+  "main": "dist/module.cjs.js",
+  "module": "dist/module.esm.js",
+  "name": "@alpinejs/ui",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpinejs/alpine.git",
+    "directory": "packages/ui"
+  },
+  "unpkg": "dist/cdn.min.js",
+  "version": "3.14.9"
+}

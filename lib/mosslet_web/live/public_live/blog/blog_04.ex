@@ -85,8 +85,12 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                           Zero dark patterns
                         </li>
                       </ol>
-
-                      Perhaps most importantly, you don't have to simply take our word for it, you can check everything yourself with our <.link target="_blank" rel="noopener noreferrer" href="https://github.com/moss-piglet/MOSSLET" class="dark:text-gray-200">open source code base</.link>. ✌️
+                      Perhaps most importantly, you don't have to simply take our word for it, you can check everything yourself with our <.link
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href="https://github.com/moss-piglet/MOSSLET"
+                        class="dark:text-gray-200"
+                      >open source code base</.link>. ✌️
                     </p>
 
                     <p>
