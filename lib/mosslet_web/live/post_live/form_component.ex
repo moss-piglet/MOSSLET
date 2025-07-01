@@ -127,6 +127,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           clear_button_class="pl-1 text-red-600 hover:text-red-500"
           placeholder="Click to select people or leave blank..."
           dropdown_extra_class="max-h-60 overflow-y-scroll"
+          tags_container_extra_class="dark:text-white"
         >
           <:option :let={option}>
             <div class="flex">
