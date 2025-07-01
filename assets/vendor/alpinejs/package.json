@@ -1,0 +1,50 @@
+{
+  "_from": "alpinejs",
+  "_id": "alpinejs@3.14.9",
+  "_inBundle": false,
+  "_integrity": "sha512-gqSOhTEyryU9FhviNqiHBHzgjkvtukq9tevew29fTj+ofZtfsYriw4zPirHHOAy9bw8QoL3WGhyk7QqCh5AYlw==",
+  "_location": "/alpinejs",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "alpinejs",
+    "name": "alpinejs",
+    "escapedName": "alpinejs",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/alpinejs/-/alpinejs-3.14.9.tgz",
+  "_shasum": "381a050152acb221b2209d9398935d5cd4c18afc",
+  "_spec": "alpinejs",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "author": {
+    "name": "Caleb Porzio"
+  },
+  "bugs": {
+    "url": "https://github.com/alpinejs/alpine/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "@vue/reactivity": "~3.1.1"
+  },
+  "deprecated": false,
+  "description": "The rugged, minimal JavaScript framework",
+  "homepage": "https://alpinejs.dev",
+  "license": "MIT",
+  "main": "dist/module.cjs.js",
+  "module": "dist/module.esm.js",
+  "name": "alpinejs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpinejs/alpine.git",
+    "directory": "packages/alpinejs"
+  },
+  "unpkg": "dist/cdn.min.js",
+  "version": "3.14.9"
+}
