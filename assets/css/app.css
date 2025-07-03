@@ -7,6 +7,7 @@
 
 @import "./colors.css";
 @import "./fonts.css";
+@import "../vendor/tippy.js/dist/tippy.css";
 
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/forms";
