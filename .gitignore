@@ -41,6 +41,7 @@ npm-debug.log
 .env
 
 # OS specific files
+.DS_Store
 *.DS_Store
 **/.DS_Store
 priv/static/images/about/.DS_Store
