@@ -28,6 +28,7 @@ erl_crash.dump
 Mosslet-*.tar
 
 # Ignore assets that are produced by build tools.
+/priv/static/
 /priv/static/assets/
 
 # Ignore digested assets cache.
