@@ -24,6 +24,9 @@ import focus from "../vendor/@alpinejs/focus";
 import "../vendor/@alpinejs/persist";
 import ui from "../vendor/@alpinejs/ui";
 
+// Import tippy.js from vendor (includes popper.js)
+import tippy from "../vendor/tippy.js";
+
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
@@ -40,6 +43,9 @@ Alpine.plugin(ui);
 
 window.Alpine = Alpine;
 
+// Make tippy globally available
+window.tippy = tippy;
+
 Alpine.start();
 
 // Trix-Editor
@@ -52,12 +58,12 @@ document.addEventListener("trix-before-initialize", function (event) {
 
 document.addEventListener("trix-initialize", function (event) {
   var groupElement = event.target.toolbarElement.querySelector(
-    ".trix-button-group.trix-button-group--text-tools"
+    ".trix-button-group.trix-button-group--text-tools",
   );
 
   groupElement.insertAdjacentHTML(
     "beforeend",
-    '<button type="button" class="trix-button trix-button--icon trix-button--icon-highlight" data-trix-attribute="highlight" data-trix-key="y" title="Highlight" tabindex="-1"><span class="align-middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5"><path fill-rule="evenodd" d="M20.599 1.5c-.376 0-.743.111-1.055.32l-5.08 3.385a18.747 18.747 0 0 0-3.471 2.987 10.04 10.04 0 0 1 4.815 4.815 18.748 18.748 0 0 0 2.987-3.472l3.386-5.079A1.902 1.902 0 0 0 20.599 1.5Zm-8.3 14.025a18.76 18.76 0 0 0 1.896-1.207 8.026 8.026 0 0 0-4.513-4.513A18.75 18.75 0 0 0 8.475 11.7l-.278.5a5.26 5.26 0 0 1 3.601 3.602l.502-.278ZM6.75 13.5A3.75 3.75 0 0 0 3 17.25a1.5 1.5 0 0 1-1.601 1.497.75.75 0 0 0-.7 1.123 5.25 5.25 0 0 0 9.8-2.62 3.75 3.75 0 0 0-3.75-3.75Z" clip-rule="evenodd" /></svg></span></button>'
+    '<button type="button" class="trix-button trix-button--icon trix-button--icon-highlight" data-trix-attribute="highlight" data-trix-key="y" title="Highlight" tabindex="-1"><span class="align-middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5"><path fill-rule="evenodd" d="M20.599 1.5c-.376 0-.743.111-1.055.32l-5.08 3.385a18.747 18.747 0 0 0-3.471 2.987 10.04 10.04 0 0 1 4.815 4.815 18.748 18.748 0 0 0 2.987-3.472l3.386-5.079A1.902 1.902 0 0 0 20.599 1.5Zm-8.3 14.025a18.76 18.76 0 0 0 1.896-1.207 8.026 8.026 0 0 0-4.513-4.513A18.75 18.75 0 0 0 8.475 11.7l-.278.5a5.26 5.26 0 0 1 3.601 3.602l.502-.278ZM6.75 13.5A3.75 3.75 0 0 0 3 17.25a1.5 1.5 0 0 1-1.601 1.497.75.75 0 0 0-.7 1.123 5.25 5.25 0 0 0 9.8-2.62 3.75 3.75 0 0 0-3.75-3.75Z" clip-rule="evenodd" /></svg></span></button>',
   );
 
   groupElement.insertAdjacentHTML(
@@ -99,16 +105,16 @@ document.addEventListener("trix-initialize", function (event) {
           x-cloak 
           class="absolute top-6 left-0 origin-top-left p-1.5 outline-none border-none picker-container z-50">
       </div>
-    </div>`
+    </div>`,
   );
 });
 
 window.addEventListener("phx:show-el", (e) =>
-  document.getElementById(e.detail.id).removeAttribute("style")
+  document.getElementById(e.detail.id).removeAttribute("style"),
 );
 
 window.addEventListener("phx:remove-el", (e) =>
-  document.getElementById(e.detail.id).remove()
+  document.getElementById(e.detail.id).remove(),
 );
 
 let execJS = (selector, attr) => {
@@ -133,7 +139,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
       LocalTimeNow: mossletHooks.LocalTimeNow,
       LocalTimeNowMed: mossletHooks.LocalTimeNowMed,
     },
-    live_select
+    live_select,
   ),
   params: { _csrf_token: csrfToken },
   dom: {
