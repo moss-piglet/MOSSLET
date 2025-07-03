@@ -24,8 +24,8 @@ import focus from "../vendor/@alpinejs/focus";
 import "../vendor/@alpinejs/persist";
 import ui from "../vendor/@alpinejs/ui";
 
-// Import tippy.js from vendor (includes popper.js)
-import tippy from "../vendor/tippy.js";
+// Import tippy.js from npm package
+import tippy from "tippy.js";
 
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
