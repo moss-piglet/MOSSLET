@@ -1,10 +1,8 @@
-// import tippy from 'tippy.js'
-
 const TippyHook = {
   mounted() {
     this.run("mounted", this.el);
   },
-  
+
   updated() {
     this.run("updated", this.el);
   },
@@ -15,12 +13,13 @@ const TippyHook = {
 
   run(lifecycleMethod, el) {
     const tippyInstance = tippy(el);
+
     const disableOnMount = el.dataset.disableTippyOnMount === "true";
 
     if (lifecycleMethod === "mounted" && disableOnMount) {
       tippyInstance.disable();
     } else if (lifecycleMethod === "destroyed") {
-      tippyInstance.destroy()
+      tippyInstance.destroy();
     }
   },
 };

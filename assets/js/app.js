@@ -24,6 +24,10 @@ import focus from "../vendor/@alpinejs/focus";
 import "../vendor/@alpinejs/persist";
 import ui from "../vendor/@alpinejs/ui";
 
+// Import tippy.js from npm package
+import tippy from "../vendor/tippy.js";
+import "../vendor/tippy.js/dist/tippy.css"; // add styles
+
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
@@ -39,6 +43,9 @@ Alpine.plugin(focus);
 Alpine.plugin(ui);
 
 window.Alpine = Alpine;
+
+// Make tippy globally available
+window.tippy = tippy;
 
 Alpine.start();
 
