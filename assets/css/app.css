@@ -2,6 +2,22 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@variant phx-click-loading (&.phx-click-loading, .phx-click-loading &);
+@variant phx-submit-loading (&.phx-submit-loading, .phx-submit-loading &);
+@variant phx-change-loading (&.phx-change-loading, .phx-change-loading &);
+@variant phx-page-loading (&.phx-page-loading, .phx-page-loading &);
+@variant phx-connected (&.phx-connected, .phx-connected &);
+@variant phx-loading (&.phx-loading, .phx-loading &);
+@variant phx-error (&.phx-error, .phx-error &);
+@variant phx-client-error (&.phx-client-error, .phx-client-error &);
+@variant phx-server-error (&.phx-server-error, .phx-server-error &);
+@variant phx-disconnected (&.phx-disconnected, .phx-disconnected &);
+@variant phx-no-feedback (.phx-no-feedback&, .phx-no-feedback &);
+@variant drag (&.drag, .drag &);
+@variant drop (&.drop, .drop &);
+@variant dragover (&.dragover, .dragover &);
+@variant dragleave (&.dragleave, .dragleave &);
+
 @source "../../deps/petal_components/**/*.*ex";
 @import "../../deps/petal_components/assets/default.css";
 
