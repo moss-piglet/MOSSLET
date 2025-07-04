@@ -13,18 +13,18 @@ swap_size_mb = 512
   release_command = '/app/bin/migrate'
 
 [env]
-  BUMBLEBEE_CACHE_DIR = "${BUMBLEBEE_CACHE_DIR}"
-  DNS_CLUSTER_QUERY = "${FLY_APP_NAME}.internal"
-  PHX_HOST = "${PHX_HOST}"
-  PORT = "${PORT}"
-  PRIMARY_REGION = "${PRIMARY_REGION}"
-  RELEASE_COOKIE = "${RELEASE_COOKIE}"
+  BUMBLEBEE_CACHE_DIR = '${BUMBLEBEE_CACHE_DIR}'
+  DNS_CLUSTER_QUERY = '${FLY_APP_NAME}.internal'
+  PHX_HOST = '${PHX_HOST}'
+  PORT = '${PORT}'
+  PRIMARY_REGION ='${PRIMARY_REGION}'
+  RELEASE_COOKIE = '${RELEASE_COOKIE}'
   
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "suspend"
+  auto_stop_machines = 'suspend'
   auto_start_machines = true
   min_machines_running = 2
   processes = ['app']
