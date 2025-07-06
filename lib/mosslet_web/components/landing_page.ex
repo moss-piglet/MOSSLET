@@ -873,7 +873,7 @@ defmodule MossletWeb.Components.LandingPage do
 
   def landing_features(assigns) do
     ~H"""
-    <div id="features" class="bg-white dark:bg-gray-900 py-24 sm:py-32">
+    <div id="features" class="bg-white dark:bg-gray-950 py-24 sm:py-32">
       <div class="mx-auto max-w-7xl px-6 lg:px-8">
         <div class="mx-auto max-w-2xl text-center">
           <h2 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -883,6 +883,7 @@ defmodule MossletWeb.Components.LandingPage do
             Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you.
           </p>
         </div>
+
         <div class="relative overflow-hidden pt-16">
           <div class="mx-auto max-w-7xl px-6 lg:px-4">
             <img
@@ -905,6 +906,11 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
         </div>
+        <div class="z-20 relative" aria-hidden="true">
+          <div class="absolute -inset-x-20 bottom-0 bg-gradient-to-t from-white dark:from-gray-950 pt-[7%]">
+          </div>
+        </div>
+
         <div class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
           <dl class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
             <div class="relative ">
