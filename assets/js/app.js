@@ -21,6 +21,7 @@ import "phoenix_html";
 import Alpine from "../vendor/alpinejs";
 import collapse from "../vendor/@alpinejs/collapse";
 import focus from "../vendor/@alpinejs/focus";
+import intersect from "../vendor/@alpinejs/intersect";
 import "../vendor/@alpinejs/persist";
 import ui from "../vendor/@alpinejs/ui";
 
@@ -36,6 +37,7 @@ import mossletHooks from "./hooks/index";
 
 Alpine.plugin(collapse);
 Alpine.plugin(focus);
+Alpine.plugin(intersect);
 Alpine.plugin(ui);
 
 window.Alpine = Alpine;

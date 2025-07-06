@@ -1,0 +1,49 @@
+{
+  "_from": "@alpinejs/intersect",
+  "_id": "@alpinejs/intersect@3.14.9",
+  "_inBundle": false,
+  "_integrity": "sha512-6LLIqrESA5kxuTbDJshtItfHmZoiiDOpf8lOeRrNtYjSj/FkggDpnjD+ZFGF5btEOVSpWic2VmG2BejR/aMxDw==",
+  "_location": "/@alpinejs/intersect",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@alpinejs/intersect",
+    "name": "@alpinejs/intersect",
+    "escapedName": "@alpinejs%2fintersect",
+    "scope": "@alpinejs",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@alpinejs/intersect/-/intersect-3.14.9.tgz",
+  "_shasum": "2a0b3c56e660f3c939c30d0d0b92479fea61d41b",
+  "_spec": "@alpinejs/intersect",
+  "_where": "/Users/mark/github/mosslet/assets",
+  "author": {
+    "name": "Caleb Porzio"
+  },
+  "bugs": {
+    "url": "https://github.com/alpinejs/alpine/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {},
+  "deprecated": false,
+  "description": "Trigger JavaScript when an element enters the viewport",
+  "homepage": "https://alpinejs.dev/plugins/intersect",
+  "license": "MIT",
+  "main": "dist/module.cjs.js",
+  "module": "dist/module.esm.js",
+  "name": "@alpinejs/intersect",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpinejs/alpine.git",
+    "directory": "packages/intersect"
+  },
+  "unpkg": "dist/cdn.min.js",
+  "version": "3.14.9"
+}

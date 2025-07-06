@@ -1,7 +1,15 @@
 @import "tailwindcss";
 
+@config "../tailwind.config.js";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
+@source "../js/**/*.js";
+@source "../../lib/mosslet_web.ex";
+@source "../../lib/mosslet_web/*.*ex";
+@source "../../lib/mosslet_web/**/*.*ex";
+@source "../../deps/live_select/lib/live_select/component.*ex";
+@source "../../deps/petal_components/**/*.*ex";
 @source "../../deps/petal_components/**/*.*ex";
 @import "../../deps/petal_components/assets/default.css";
 

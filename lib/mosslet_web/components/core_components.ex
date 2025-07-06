@@ -186,6 +186,227 @@ defmodule MossletWeb.CoreComponents do
     """
   end
 
+  def carousel(assigns) do
+    ~H"""
+    <script src="https://unpkg.com/smoothscroll-polyfill@0.4.4/dist/smoothscroll.js">
+    </script>
+
+    <div
+      x-data="{
+        skip: 1,
+        atBeginning: false,
+        atEnd: false,
+        next() {
+            this.to((current, offset) => current + (offset * this.skip))
+        },
+        prev() {
+            this.to((current, offset) => current - (offset * this.skip))
+        },
+        to(strategy) {
+            let slider = this.$refs.slider
+            let current = slider.scrollLeft
+            let offset = slider.firstElementChild.getBoundingClientRect().width
+            slider.scrollTo({ left: strategy(current, offset), behavior: 'smooth' })
+        },
+        focusableWhenVisible: {
+            'x-intersect:enter'() {
+                this.$el.removeAttribute('tabindex')
+            },
+            'x-intersect:leave'() {
+                this.$el.setAttribute('tabindex', '-1')
+            },
+        },
+        disableNextAndPreviousButtons: {
+            'x-intersect:enter.threshold.05'() {
+                let slideEls = this.$el.parentElement.children
+
+                // If this is the first slide.
+                if (slideEls[0] === this.$el) {
+                    this.atBeginning = true
+                // If this is the last slide.
+                } else if (slideEls[slideEls.length-1] === this.$el) {
+                    this.atEnd = true
+                }
+            },
+            'x-intersect:leave.threshold.05'() {
+                let slideEls = this.$el.parentElement.children
+
+                // If this is the first slide.
+                if (slideEls[0] === this.$el) {
+                    this.atBeginning = false
+                // If this is the last slide.
+                } else if (slideEls[slideEls.length-1] === this.$el) {
+                    this.atEnd = false
+                }
+            },
+        },
+    }"
+      class="flex flex-col pt-16 mx-auto max-w-7xl px-6 lg:px-4"
+    >
+      <div
+        x-on:keydown.right="next"
+        x-on:keydown.left="prev"
+        tabindex="0"
+        role="region"
+        aria-labelledby="carousel-label"
+        class="flex"
+      >
+        <h2 id="carousel-label" class="sr-only" hidden>Carousel</h2>
+        
+    <!-- Prev Button -->
+        <button
+          x-on:click="prev"
+          class="text-6xl"
+          x-bind:aria-disabled="atBeginning"
+          x-bind:tabindex="atEnd ? -1 : 0"
+          x-bind:class="{ 'opacity-50 cursor-not-allowed': atBeginning }"
+        >
+          <span aria-hidden="true">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-6 text-gray-800 dark:text-gray-200"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="m11.25 9-3 3m0 0 3 3m-3-3h7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+              />
+            </svg>
+          </span>
+          <span class="sr-only">Skip to previous slide page</span>
+        </button>
+
+        <span id="carousel-content-label" class="sr-only" hidden>Carousel</span>
+
+        <ul
+          x-ref="slider"
+          tabindex="0"
+          role="listbox"
+          aria-labelledby="carousel-content-label"
+          class="flex w-full snap-x snap-mandatory overflow-hidden bg-transparent rounded-2xl"
+        >
+          <li
+            x-bind="disableNextAndPreviousButtons"
+            class="flex w-3/3 shrink-0 snap-start flex-col items-center justify-center px-2"
+            role="option"
+          >
+            <img
+              src={~p"/images/landing_page/light-timeline-preview.png"}
+              alt="App screenshot light"
+              class="mb-[-12%] rounded-xl shadow-2xl shadow-background-500/50 ring-1 ring-background-900/10 color-scheme-light-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+
+            <img
+              src={~p"/images/landing_page/dark-timeline-preview.png"}
+              alt="App screenshot dark"
+              class="mb-[-12%] rounded-xl shadow-2xl dark:shadow-emerald-500/50 ring-1 ring-emerald-900/10 color-scheme-dark-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+          </li>
+
+          <li
+            x-bind="disableNextAndPreviousButtons"
+            class="flex w-3/3 shrink-0 snap-start flex-col items-center justify-center p-2"
+            role="option"
+          >
+            <img
+              src={~p"/images/landing_page/light-profile-preview.png"}
+              alt="App screenshot light"
+              class="mb-[-12%] rounded-xl shadow-2xl shadow-background-500/50 ring-1 ring-background-900/10 color-scheme-light-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+
+            <img
+              src={~p"/images/landing_page/dark-profile-preview.png"}
+              alt="App screenshot dark"
+              class="mb-[-12%] rounded-xl shadow-2xl dark:shadow-emerald-500/50 ring-1 ring-emerald-900/10 color-scheme-dark-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+          </li>
+
+          <li
+            x-bind="disableNextAndPreviousButtons"
+            class="flex w-3/3 shrink-0 snap-start flex-col items-center justify-center p-2"
+            role="option"
+          >
+            <img
+              src={~p"/images/landing_page/light-timeline-preview.png"}
+              alt="App screenshot light"
+              class="mb-[-12%] rounded-xl shadow-2xl shadow-background-500/50 ring-1 ring-background-900/10 color-scheme-light-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+            <img
+              src={~p"/images/landing_page/dark-timeline-preview.png"}
+              alt="App screenshot dark"
+              class="mb-[-12%] rounded-xl shadow-2xl dark:shadow-emerald-500/50 ring-1 ring-emerald-900/10 color-scheme-dark-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+          </li>
+
+          <li
+            x-bind="disableNextAndPreviousButtons"
+            class="flex w-3/3 shrink-0 snap-start flex-col items-center justify-center p-2"
+            role="option"
+          >
+            <img
+              src={~p"/images/landing_page/light-timeline-preview.png"}
+              alt="App screenshot light"
+              class="mb-[-12%] rounded-xl shadow-2xl shadow-background-500/50 ring-1 ring-background-900/10 color-scheme-light-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+            <img
+              src={~p"/images/landing_page/dark-timeline-preview.png"}
+              alt="App screenshot dark"
+              class="mb-[-12%] rounded-xl shadow-2xl dark:shadow-emerald-500/50 ring-1 ring-emerald-900/10 color-scheme-dark-timeline-preview"
+              width="2432"
+              height="1442"
+            />
+          </li>
+        </ul>
+        
+    <!-- Next Button -->
+        <button
+          x-on:click="next"
+          class="text-6xl"
+          x-bind:aria-disabled="atEnd"
+          x-bind:tabindex="atEnd ? -1 : 0"
+          x-bind:class="{ 'opacity-50 cursor-not-allowed': atEnd }"
+        >
+          <span aria-hidden="true">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-6 text-gray-800 dark:text-gray-200"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="m12.75 15 3-3m0 0-3-3m3 3h-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+              />
+            </svg>
+          </span>
+          <span class="sr-only">Skip to next slide page</span>
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   @doc """
   Returns a button triggered dropdown with aria keyboard and focus supporrt.
 
