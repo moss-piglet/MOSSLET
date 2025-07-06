@@ -3,11 +3,10 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = "mosslet"
+app = 'mosslet'
 kill_signal = 'SIGTERM'
 swap_size_mb = 512
-
-[build]
+primary_region = 'bos'
 
 [deploy]
   release_command = '/app/bin/migrate'
