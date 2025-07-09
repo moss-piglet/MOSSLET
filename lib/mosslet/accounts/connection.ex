@@ -286,7 +286,7 @@ defmodule Mosslet.Accounts.Connection do
           )
 
         ets_profile_id = "profile-#{opts_map.user.connection.id}"
-        avatar_url = get_field(changeset, :avatar_url) |> String.replace("uploads/", "profile/")
+        avatar_url = get_field(changeset, :avatar_url)
         e_avatar_url = prepare_encrypted_file_path(avatar_url, profile_key)
         e_avatar_blob = prepare_encrypted_avatar_blob(d_avatar_blob, profile_key)
         avatars_bucket = Encrypted.Session.avatars_bucket()

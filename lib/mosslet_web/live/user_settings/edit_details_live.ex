@@ -237,6 +237,7 @@ defmodule MossletWeb.EditDetailsLive do
             # Put the encrypted avatar blob in ets under the
             # user's connection id.
             Accounts.user_lifecycle_action("after_update_profile", user)
+            AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
             AvatarProcessor.put_ets_avatar("profile-#{conn.id}", e_blob)
             info = "Your avatar has been updated successfully."
 
