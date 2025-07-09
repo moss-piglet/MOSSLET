@@ -303,7 +303,8 @@ defmodule MossletWeb.EditDetailsLive do
     else
       with {:ok, _user, conn} <-
              Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true),
-           true <- AvatarProcessor.delete_ets_avatar(conn.id) do
+           true <- AvatarProcessor.delete_ets_avatar(conn.id),
+           true <- AvatarProcessor.delete_ets_avatar("profile-#{conn.id}") do
         Storj.make_async_aws_requests(avatars_bucket, url, user, key)
 
         Accounts.user_lifecycle_action("after_update_profile", user)

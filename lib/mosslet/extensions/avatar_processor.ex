@@ -29,7 +29,7 @@ defmodule Mosslet.Extensions.AvatarProcessor do
   ## Server
   def init(_) do
     :ets.new(__MODULE__, [
-      :set,
+      :ordered_set,
       :named_table,
       :public,
       read_concurrency: true,
