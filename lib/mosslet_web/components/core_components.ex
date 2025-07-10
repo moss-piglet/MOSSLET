@@ -252,8 +252,8 @@ defmodule MossletWeb.CoreComponents do
         class="flex"
       >
         <h2 id="carousel-label" class="sr-only" hidden>Carousel</h2>
-        
-    <!-- Prev Button -->
+
+        <%!-- Prev Button --%>
         <button
           x-on:click="prev"
           class="text-6xl"
@@ -375,8 +375,8 @@ defmodule MossletWeb.CoreComponents do
             />
           </li>
         </ul>
-        
-    <!-- Next Button -->
+
+        <%!-- Next Button --%>
         <button
           x-on:click="next"
           class="text-6xl"
