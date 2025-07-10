@@ -458,7 +458,7 @@ defmodule MossletWeb.CoreComponents do
 
   def dropdown(assigns) do
     ~H"""
-    <!-- User account dropdown -->
+    <%!-- User account dropdown --%>
     <div class={if !@connection?, do: "px-3 mt-6 relative inline-block text-left"}>
       <div>
         <button
