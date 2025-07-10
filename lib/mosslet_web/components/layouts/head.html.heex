@@ -49,4 +49,7 @@
   </script>
 
   <.color_scheme_switch_js />
+
+  <%!-- live debugger dev only --%>
+  <%= Application.get_env(:live_debugger, :live_debugger_tags) %>
 </head>
