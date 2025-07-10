@@ -18,9 +18,9 @@ defmodule Mosslet.Extensions.PasswordGenerator.WordGenerator do
     # :random.seed(a, b, c)
     # Enum.reduce(1..5, 0, fn _, sum -> :random.uniform(6) + sum * 10 end)
     # Use the new :rand.seed/2
-    # Currently using the [exro928ss](https://erlang.org/doc/man/rand.html#algorithms) algorithm
-    # we also swap :enacl.randombytes(12) for :crypto.strong_rand_bytes(12)
-    :rand.seed(:exro928ss, {a, b, c})
+    # Currently using the [exs1024s](https://erlang.org/doc/man/rand.html#algorithms) algorithm
+    # we also swap :crypto.strong_rand_bytes(12) in favor of :enacl.randombytes(12)
+    :rand.seed(:exs1024s, {a, b, c})
     Enum.reduce(1..5, 0, fn _, sum -> :rand.uniform(6) + sum * 10 end)
   end
 end
