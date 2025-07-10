@@ -13,7 +13,7 @@ defmodule MossletWeb.UserRegistrationLive do
      socket
      |> assign(:page_title, "Register")
      |> assign(:current_step, 1)
-     |> assign(:generated_password, false)
+     |> assign(:generated_password?, false)
      |> assign(:changeset, changeset)
      |> assign(:temp_email, nil)
      |> assign(:error_message, nil)
@@ -47,8 +47,8 @@ defmodule MossletWeb.UserRegistrationLive do
             </h2>
 
             <div class="space-y-4">
-              <div class="mt-2 text-sm text-gray-700 dark:text-gray-400">
-                <p class="mt-2 text-sm text-gray-700 dark:text-gray-400">
+              <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                   Enter your email to get started. People can send you requests to connect by knowing your email and it will be used when signing into your account.
                 </p>
               </div>
@@ -59,8 +59,8 @@ defmodule MossletWeb.UserRegistrationLive do
             </h2>
 
             <div class="space-y-4">
-              <div class="mt-2 text-sm text-gray-700 dark:text-gray-400">
-                <p class="mt-2 text-sm text-gray-700 dark:text-gray-400">
+              <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                   People can also send you requests to connect by knowing your username and it will be used when sharing items.
                 </p>
               </div>
@@ -69,25 +69,52 @@ defmodule MossletWeb.UserRegistrationLive do
             <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
               Create a password.
             </h2>
-            <p class="mt-2 text-sm text-gray-700 dark:text-gray-400">
-              Your password is used to generate a secure key that keeps your account encrypted and private. You can change it at any time from within your account settings.
+            <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
+              Your password is used to create a secure key that keeps your account encrypted and private. You can change it at any time from within your account settings.
             </p>
+
+            <div class="mt-4 rounded-md bg-background-50 dark:bg-emerald-50 p-4 shadow-md dark:shadow-emerald-500/50">
+              <div class="flex">
+                <div class="shrink-0">
+                  <.phx_icon
+                    name="hero-information-circle"
+                    class="size-5 text-background-700 dark:text-emerald-700"
+                  />
+                </div>
+                <div class="ml-3 flex-1 md:flex md:justify-between">
+                  <p class="text-sm text-background-700 dark:text-emerald-700">
+                    Generate a strong, memorable password with the
+                    <.phx_icon name="hero-sparkles" class="size-3 mr-1" /> button.
+                  </p>
+                  <p class="mt-3 text-sm md:mt-0 md:ml-6">
+                    <.link
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      href="https://www.eff.org/dice"
+                      class="font-medium whitespace-nowrap text-background-700 hover:text-background-600 dark:text-emerald-700 dark:hover:text-emerald-600"
+                    >
+                      Details <span aria-hidden="true"> &rarr;</span>
+                    </.link>
+                  </p>
+                </div>
+              </div>
+            </div>
           <% 4 -> %>
             <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
               Why still a password?
             </h2>
             <div class="space-y-4">
-              <div class="mt-2 text-sm text-gray-700 dark:text-gray-400">
+              <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
                   Only your password can be used to unlock your data thanks to strong asymmetric encryption. So, it's super important to keep your password safe (we recommend a password manager).
                 </p>
               </div>
-              <div class="mt-2 text-sm text-gray-700 dark:text-gray-400">
+              <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
                   Once you confirm your account you will be able to go into your settings and set the "Forgot Password?" option. This option enables you to reset your password in the event that you forget it.
                 </p>
               </div>
-              <div class="mt-2 text-sm text-gray-700 dark:text-gray-400">
+              <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
                   If you are in a very security conscious environment, then you can choose not to set that option. If you do not set that option, and forget your password, we can not help you get back into your account.
                 </p>
@@ -140,6 +167,16 @@ defmodule MossletWeb.UserRegistrationLive do
               <div id="passwordField" class="relative">
                 <div id="pw-label-container" class="flex justify-between">
                   <div id="pw-actions" class="absolute top-0 right-0">
+                    <button
+                      type="button"
+                      id="pw-generator-button"
+                      phx-hook="TippyHook"
+                      data-tippy-content="Generate password"
+                      phx-click={JS.push("generate-password")}
+                      class="mr-2"
+                    >
+                      <.phx_icon name="hero-sparkles" class="h-5 w-5 dark:text-white cursor-pointer" />
+                    </button>
                     <button
                       type="button"
                       id="eye"
@@ -287,18 +324,27 @@ defmodule MossletWeb.UserRegistrationLive do
     {:noreply, socket}
   end
 
+  @doc """
+  Generates a strong, memorable passphrase.
+  We optionally pass random words and separators.
+  """
   def handle_event("generate-password", _params, socket) do
     changeset = socket.assigns.changeset
-    generated_passphrase = PassphraseGenerator.generate_passphrase()
+
+    words = Enum.random([5, 6, 7])
+    separator = Enum.random([" ", "-", "."])
+    generated_passphrase = PassphraseGenerator.generate_passphrase(words, separator)
 
     changeset =
       changeset
       |> put_change(:password, generated_passphrase)
 
+    changeset = Accounts.change_user_registration(%User{}, changeset.changes)
+
     {:noreply,
      socket
-     |> assign(:generated_password, true)
-     |> assign(:changeset, changeset)}
+     |> assign(:generated_password?, true)
+     |> assign_form(changeset)}
   end
 
   def handle_event("validate", %{"user" => user_params}, socket) do
@@ -318,8 +364,7 @@ defmodule MossletWeb.UserRegistrationLive do
           &url(~p"/auth/confirm/#{&1}")
         )
 
-      changeset = Accounts.change_user_registration(user)
-      {:noreply, socket |> assign(trigger_submit: true) |> assign_form(changeset)}
+      {:noreply, socket |> assign(trigger_submit: true)}
     else
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}

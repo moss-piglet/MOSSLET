@@ -133,20 +133,146 @@ defmodule MossletWeb.DeleteAccountLive do
     user = socket.assigns.current_user
     key = socket.assigns.key
 
+    # if a stripe account hasn't been created yet
     stripe_customer_id =
-      Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-        user.customer.provider_customer_id,
-        user,
-        key
-      )
+      if user.customer[:provider_customer_id] do
+        Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+          user.customer[:provider_customer_id],
+          user,
+          key
+        )
+      else
+        nil
+      end
 
     # Cancel Stripe subscription.
     case Accounts.delete_user_account(user, user_params["current_password"], user_params) do
       {:ok, user} ->
         case cancel_subscription(user, socket) do
           :canceled ->
-            with {:ok, _deleted_stripe_customer} <-
-                   Stripe.Customer.delete(stripe_customer_id) do
+            if stripe_customer_id do
+              with {:ok, _deleted_stripe_customer} <-
+                     Stripe.Customer.delete(stripe_customer_id) do
+                if Map.get(user, :avatar_url) do
+                  avatars_bucket = Encrypted.Session.avatars_bucket()
+                  memories_bucket = Encrypted.Session.memories_bucket()
+                  d_url = decr_avatar(user.connection.avatar_url, user, user.conn_key, key)
+                  profile = Map.get(user.connection, :profile)
+
+                  # Handle deleting the object storage avatar and memories async.
+                  if profile do
+                    profile_avatar_url =
+                      decr_avatar(profile.avatar_url, user, profile.profile_key, key)
+
+                    with {:ok, _resp} <-
+                           ex_aws_delete_request(
+                             memories_bucket,
+                             "uploads/user/#{user.id}/memories/**"
+                           ),
+                         {:ok, _resp} <-
+                           ex_aws_delete_request(avatars_bucket, d_url),
+                         {:ok, _resp} <- ex_aws_delete_request(avatars_bucket, profile_avatar_url) do
+                      socket =
+                        socket
+                        |> put_flash(
+                          :success,
+                          "Your account and data were deleted successfully, it's all gone (even from Stripe). Thank you for trusting us with your attention, data, and time — come back whenever you want. ✌️"
+                        )
+                        |> redirect(to: ~p"/")
+
+                      {:noreply, socket}
+                    else
+                      _rest ->
+                        ex_aws_delete_request(
+                          memories_bucket,
+                          "uploads/user/#{user.id}/memories/**"
+                        )
+
+                        ex_aws_delete_request(avatars_bucket, d_url)
+                        ex_aws_delete_request(avatars_bucket, profile_avatar_url)
+
+                        socket =
+                          socket
+                          |> put_flash(
+                            :success,
+                            "Your account and data were deleted successfully, it's all gone (even from Stripe). Thank you for trusting us with your attention, data, and time — come back whenever you want. ✌️"
+                          )
+                          |> redirect(to: ~p"/")
+
+                        {:noreply, socket}
+                    end
+                  else
+                    with {:ok, _resp} <-
+                           ex_aws_delete_request(
+                             memories_bucket,
+                             "uploads/user/#{user.id}/memories/**"
+                           ),
+                         {:ok, _resp} <-
+                           ex_aws_delete_request(avatars_bucket, d_url) do
+                      socket =
+                        socket
+                        |> put_flash(
+                          :success,
+                          "Your account and data were deleted successfully, it's all gone (even from Stripe). Thank you for trusting us with your attention, data, and time — come back whenever you want. ✌️"
+                        )
+                        |> redirect(to: ~p"/")
+
+                      {:noreply, socket}
+                    else
+                      _rest ->
+                        ex_aws_delete_request(
+                          memories_bucket,
+                          "uploads/user/#{user.id}/memories/**"
+                        )
+
+                        ex_aws_delete_request(avatars_bucket, d_url)
+
+                        socket =
+                          socket
+                          |> put_flash(
+                            :success,
+                            "Your account and data were deleted successfully, it's all gone (even from Stripe). Thank you for trusting us with your attention, data, and time — come back whenever you want. ✌️"
+                          )
+                          |> redirect(to: ~p"/")
+
+                        {:noreply, socket}
+                    end
+                  end
+                else
+                  # No user avatar
+
+                  socket =
+                    socket
+                    |> put_flash(
+                      :success,
+                      "Your account and data were deleted successfully, it's all gone (even from Stripe). Thank you for trusting us with your attention, data, and time — come back whenever you want. ✌️"
+                    )
+                    |> redirect(to: ~p"/")
+
+                  {:noreply, socket}
+                end
+              else
+                error ->
+                  Logger.error(
+                    "Error deleting Stripe Customer upon account deletion #{inspect(error)}"
+                  )
+
+                  Logger.debug(
+                    "Error deleting Stripe Customer upon account deletion #{inspect(error)}"
+                  )
+
+                  socket =
+                    socket
+                    |> put_flash(
+                      :info,
+                      "Account deleted successfully but there was an error deleting your Stripe account. Please reach out to support@mosslet.com to ensure your Stripe account is deleted. We're sorry for any inconvenience."
+                    )
+                    |> redirect(to: ~p"/")
+
+                  {:noreply, socket}
+              end
+            else
+              # there is no stripe account
               if Map.get(user, :avatar_url) do
                 avatars_bucket = Encrypted.Session.avatars_bucket()
                 memories_bucket = Encrypted.Session.memories_bucket()
@@ -245,25 +371,6 @@ defmodule MossletWeb.DeleteAccountLive do
 
                 {:noreply, socket}
               end
-            else
-              error ->
-                Logger.error(
-                  "Error deleting Stripe Customer upon account deletion #{inspect(error)}"
-                )
-
-                Logger.debug(
-                  "Error deleting Stripe Customer upon account deletion #{inspect(error)}"
-                )
-
-                socket =
-                  socket
-                  |> put_flash(
-                    :info,
-                    "Account deleted successfully but there was an error deleting your Stripe account. Please reach out to support@mosslet.com to ensure your Stripe account is deleted. We're sorry for any inconvenience."
-                  )
-                  |> redirect(to: ~p"/")
-
-                {:noreply, socket}
             end
 
           _error ->
