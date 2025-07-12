@@ -90,14 +90,12 @@
                 </div>
 
                 <div class="flex border-l border-gray-200 dark:border-gray-700">
-                  <button
-                    type="button"
+                  <.link
+                    navigate={~p"/app/timeline#timeline-card-#{unread_post.id}"}
                     class="flex w-full items-center justify-center rounded-none rounded-r-lg border border-transparent p-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-300 focus:outline-hidden"
                   >
-                    <.link href={~p"/app/timeline#timeline-card-#{unread_post.id}"}>
-                      View
-                    </.link>
-                  </button>
+                    View
+                  </.link>
                 </div>
               </div>
             </div>

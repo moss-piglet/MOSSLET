@@ -372,7 +372,6 @@ defmodule Mosslet.Timeline do
   def unread_posts(current_user) do
     Post
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-    |> where([p, up], p.user_id != ^current_user.id)
     |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up, upr], upr.user_id == ^current_user.id)
     |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))

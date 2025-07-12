@@ -757,7 +757,7 @@ defmodule MossletWeb.TimelineLive.Components do
 
   def timeline_post_read_icon(assigns) do
     ~H"""
-    <div
+    <button
       id={"post-#{@user_post_receipt.id}-read-#{@current_user.id}"}
       class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
       phx-click="toggle-unread"
@@ -766,13 +766,13 @@ defmodule MossletWeb.TimelineLive.Components do
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-envelope" class="h-4 w-4" />
-    </div>
+    </button>
     """
   end
 
   def timeline_post_unread_icon(assigns) do
     ~H"""
-    <div
+    <button
       id={"post-#{@user_post_receipt.id}-unread-#{@current_user.id}"}
       class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
       phx-click="toggle-read"
@@ -781,13 +781,13 @@ defmodule MossletWeb.TimelineLive.Components do
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-envelope-open" class="h-4 w-4" />
-    </div>
+    </button>
     """
   end
 
   def timeline_post_favorite_icon(assigns) do
     ~H"""
-    <div
+    <button
       id={"post-#{@post.id}-fav-#{@current_user.id}"}
       class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
       phx-click="fav"
@@ -797,13 +797,13 @@ defmodule MossletWeb.TimelineLive.Components do
     >
       <.phx_icon name="hero-star" class="h-4 w-4" />
       <span class="ml-1 text-xs">{@post.favs_count}</span>
-    </div>
+    </button>
     """
   end
 
   def timeline_post_unfavorite_icon(assigns) do
     ~H"""
-    <div
+    <button
       id={"post-#{@post.id}-unfav-#{@current_user.id}"}
       class="inline-flex align-middle text-emerald-600 dark:text-emerald-400 hover:cursor-pointer"
       phx-click="unfav"
@@ -813,13 +813,13 @@ defmodule MossletWeb.TimelineLive.Components do
     >
       <.phx_icon name="hero-star-solid" class="h-4 w-4" />
       <span class="ml-1 text-xs">{@post.favs_count}</span>
-    </div>
+    </button>
     """
   end
 
   def timeline_new_post_reply_icon(assigns) do
     ~H"""
-    <div
+    <button
       :if={@current_user}
       id={"post-#{@post.id}-reply-#{@current_user.id}"}
       class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
@@ -830,7 +830,7 @@ defmodule MossletWeb.TimelineLive.Components do
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-chat-bubble-left-right" class="h-4 w-4" />
-    </div>
+    </button>
     """
   end
 
