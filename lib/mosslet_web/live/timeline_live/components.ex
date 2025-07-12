@@ -349,12 +349,12 @@ defmodule MossletWeb.TimelineLive.Components do
           <div class="inline-flex space-x-2 py-2 align-middle">
             <%!-- favorite post icon --%>
             <.timeline_post_read_icon
-              :if={@current_user && is_read?(user_post_receipt)}
+              :if={@current_user && read?(user_post_receipt)}
               current_user={@current_user}
               user_post_receipt={user_post_receipt}
             />
             <.timeline_post_unread_icon
-              :if={@current_user && user_post_receipt && !is_read?(user_post_receipt)}
+              :if={@current_user && user_post_receipt && !read?(user_post_receipt)}
               current_user={@current_user}
               user_post_receipt={user_post_receipt}
             />
@@ -433,7 +433,7 @@ defmodule MossletWeb.TimelineLive.Components do
       </div>
     </div>
 
-    <div :if={is_last_unread_post?(@post, @current_user)} class="relative mb-4">
+    <div :if={last_unread_post?(@post, @current_user)} class="relative mb-4">
       <div class="absolute inset-0 flex items-center" aria-hidden="true">
         <div class="w-full">
           <div class="absolute inset-0">

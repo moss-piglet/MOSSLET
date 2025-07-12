@@ -94,6 +94,19 @@ defmodule MossletWeb.UserDashLive do
                           }
                           alt="avatar for unread post"
                         />
+
+                        <.phx_avatar
+                          :if={!user_connection && unread_post.user_id == @current_user.id}
+                          class="size-10 rounded-full"
+                          src={
+                            if !show_avatar?(@current_user) ||
+                                 maybe_get_user_avatar(@current_user, @key) ==
+                                   "",
+                               do: ~p"/images/logo.svg",
+                               else: maybe_get_user_avatar(@current_user, @key)
+                          }
+                          alt="Your avatar"
+                        />
                       </div>
                       <div class="ml-3 w-0 flex-1">
                         <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -107,7 +120,16 @@ defmodule MossletWeb.UserDashLive do
                           )}
                         </p>
 
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <p
+                          :if={unread_post.user_id == @current_user.id}
+                          class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                        >
+                          This Post from you is unread.
+                        </p>
+                        <p
+                          :if={unread_post.user_id != @current_user.id}
+                          class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                        >
                           Shared a new Post with you.
                         </p>
                       </div>
