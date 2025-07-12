@@ -608,7 +608,6 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("toggle-read", %{"id" => user_post_receipt_id}, socket) do
-    IO.inspect(user_post_receipt_id, label: "TOGGLE READ PARAMS")
     Timeline.update_user_post_receipt_read(user_post_receipt_id)
     {:noreply, socket}
   end
