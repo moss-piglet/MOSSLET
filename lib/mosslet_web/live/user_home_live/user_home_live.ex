@@ -50,7 +50,10 @@ defmodule MossletWeb.UserHomeLive do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    unread_posts = Timeline.unread_posts(current_user)
+    unread_posts =
+      if current_user.is_subscribed_to_marketing_notifications,
+        do: Timeline.unread_posts(current_user),
+        else: []
 
     socket =
       socket

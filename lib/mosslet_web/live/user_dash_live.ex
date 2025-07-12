@@ -173,7 +173,11 @@ defmodule MossletWeb.UserDashLive do
 
   def handle_params(_params, _url, socket) do
     current_user = socket.assigns.current_user
-    unread_posts = Timeline.unread_posts(current_user)
+
+    unread_posts =
+      if current_user.is_subscribed_to_marketing_notifications,
+        do: Timeline.unread_posts(current_user),
+        else: []
 
     {:noreply, socket |> stream(:unread_posts, unread_posts, reset: true)}
   end
