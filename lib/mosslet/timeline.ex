@@ -10,7 +10,7 @@ defmodule Mosslet.Timeline do
   alias Mosslet.Accounts.{Connection, User, UserConnection}
   alias Mosslet.Groups
   alias Mosslet.Repo
-  alias Mosslet.Timeline.{Post, Reply, UserPost}
+  alias Mosslet.Timeline.{Post, Reply, UserPost, UserPostReceipt}
 
   @doc """
   Counts all posts.
@@ -349,11 +349,43 @@ defmodule Mosslet.Timeline do
     Post
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> where([p, up], up.user_id == ^current_user.id)
+    |> join(:left, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> with_any_visibility([:private, :connections])
     |> filter_by_user_id(options)
-    |> preload([:user_posts, :user, :replies, :group, :user_group])
-    |> sort(options)
+    |> preload([:user_posts, :user, :replies, :user_post_receipts])
+    |> order_by([p, up, upr],
+      # Unread posts first (fals comes before true)
+      asc: upr.is_read?,
+      # Most recent posts first within each group
+      desc: p.inserted_at,
+      # Secondary sort on read_at
+      asc: upr.read_at
+    )
     |> paginate(options)
+    |> Repo.all()
+  end
+
+  @doc """
+  Returns a list of posts for the current_user that
+  have not been read yet.
+  """
+  def unread_posts(current_user) do
+    Post
+    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+    |> where([p, up], p.user_id != ^current_user.id)
+    |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
+    |> where([p, up, upr], upr.user_id == ^current_user.id)
+    |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
+    |> with_any_visibility([:private, :connections])
+    # Unread posts first (false comes before true)
+    |> order_by([p, up, upr],
+      asc: upr.is_read?,
+      # Most recent posts first within each group
+      desc: p.inserted_at,
+      # Secondary sort on read_at
+      asc: upr.read_at
+    )
+    |> preload([:user_posts, :user, :replies])
     |> Repo.all()
   end
 
@@ -434,7 +466,7 @@ defmodule Mosslet.Timeline do
 
   defp filter_by_user_id(query, %{filter: %{user_id: user_id}}) do
     query
-    |> where([p], p.user_id == ^user_id)
+    |> where([p, up, upr], p.user_id == ^user_id)
   end
 
   defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
@@ -605,7 +637,9 @@ defmodule Mosslet.Timeline do
 
   """
   def get_post!(id),
-    do: Repo.get!(Post, id) |> Repo.preload([:user_posts, :user, :group, :user_group, :replies])
+    do:
+      Repo.get!(Post, id)
+      |> Repo.preload([:user_posts, :user, :group, :user_group, :replies])
 
   def get_reply!(id),
     do: Repo.get!(Reply, id) |> Repo.preload([:user, :post])
@@ -615,18 +649,30 @@ defmodule Mosslet.Timeline do
       nil
     else
       Repo.get(Post, id)
-      |> Repo.preload([:user_posts, :replies, :group, :user, :replies, :user_group])
+      |> Repo.preload([
+        :user_posts,
+        :replies,
+        :group,
+        :user,
+        :replies,
+        :user_group,
+        :user_post_receipts
+      ])
     end
   end
 
-  def get_user_post!(id), do: Repo.get!(UserPost, id) |> Repo.preload([:user, :post])
+  def get_user_post!(id),
+    do: Repo.get!(UserPost, id) |> Repo.preload([:user, :post, :user_post_receipt])
+
+  def get_user_post_receipt!(id),
+    do: Repo.get!(UserPostReceipt, id) |> Repo.preload([:user, :user_post])
 
   def get_user_post_by_post_id_and_user_id!(post_id, user_id) do
     Repo.one!(
       from up in UserPost,
         where: up.post_id == ^post_id,
         where: up.user_id == ^user_id,
-        preload: [:post, :user]
+        preload: [:post, :user, :user_post_receipt]
     )
   end
 
@@ -646,7 +692,7 @@ defmodule Mosslet.Timeline do
         on: up.post_id == p.id,
         where: up.post_id == p.id,
         where: p.visibility == :public,
-        preload: [:user, post: :user_posts]
+        preload: [:user, :user_post_receipt, post: :user_posts]
     )
   end
 
@@ -657,8 +703,37 @@ defmodule Mosslet.Timeline do
         on: up.post_id == p.id,
         where: up.post_id == p.id,
         where: p.user_id == ^user.id,
-        preload: [:user, post: [:user_posts, :replies, :group, :user_group]]
+        preload: [:user, :user_post_receipt, post: [:user_posts, :replies, :group, :user_group]]
     )
+  end
+
+  @doc """
+  Gets the UserPostReceipt for a post and user.
+  """
+  def get_user_post_receipt(post, current_user) do
+    UserPostReceipt
+    |> where([upr], upr.user_id == ^current_user.id)
+    |> join(:inner, [upr], up in UserPost, on: up.id == upr.user_post_id)
+    |> where([upr, up], up.post_id == ^post.id)
+    |> where([upr, up], up.user_id == ^current_user.id)
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets the unread post for the user based on the
+  associated post through the user_post.
+  """
+  def get_unread_post_for_user_and_post(post, current_user) do
+    Post
+    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+    |> where([p, up], p.id == ^post.id)
+    |> where([p, up], up.user_id == ^current_user.id)
+    |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
+    |> where([p, up, upr], upr.user_id == ^current_user.id)
+    |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
+    |> with_any_visibility([:private, :connections])
+    |> preload([:user_posts, :user, :replies, :group, :user_group])
+    |> Repo.one()
   end
 
   @doc """
@@ -818,6 +893,22 @@ defmodule Mosslet.Timeline do
       |> Ecto.Changeset.put_assoc(:post, post)
       |> Ecto.Changeset.put_assoc(:user, user)
     end)
+    |> Ecto.Multi.insert(:inser_user_post_receipt, fn %{insert_user_post: user_post} ->
+      # since this is the user who created the post, we mark it as read
+      {:ok, dt} = DateTime.now("Etc/UTC")
+
+      UserPostReceipt.changeset(
+        %UserPostReceipt{},
+        %{
+          user_id: user.id,
+          user_post_id: user_post.id,
+          is_read?: true,
+          read_at: DateTime.to_naive(dt)
+        }
+      )
+      |> Ecto.Changeset.put_assoc(:user, user)
+      |> Ecto.Changeset.put_assoc(:user_post, user_post)
+    end)
     |> Repo.transaction_on_primary()
   end
 
@@ -839,9 +930,24 @@ defmodule Mosslet.Timeline do
           )
 
         # p_attrs.temp_key is not encrypted yet
+        # we also add a user_post_receipt to each person a post is shared with
+        # (we don't worry about a receipt for someone who created the post)
         {:ok, %{insert_user_post: _user_post}} =
           Ecto.Multi.new()
           |> Ecto.Multi.insert(:insert_user_post, user_post)
+          |> Ecto.Multi.insert(:inser_user_post_receipt, fn %{insert_user_post: user_post} ->
+            UserPostReceipt.changeset(
+              %UserPostReceipt{},
+              %{
+                user_id: user.id,
+                user_post_id: user_post.id,
+                is_read?: false,
+                read_at: nil
+              }
+            )
+            |> Ecto.Changeset.put_assoc(:user, user)
+            |> Ecto.Changeset.put_assoc(:user_post, user_post)
+          end)
           |> Repo.transaction_on_primary()
       end
 
@@ -1161,6 +1267,54 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  def update_user_post_receipt_read(id) do
+    user_post_receipt = get_user_post_receipt!(id)
+    {:ok, dt} = DateTime.now("Etc/UTC")
+    today = DateTime.to_naive(dt)
+
+    case Repo.transaction_on_primary(fn ->
+           UserPostReceipt.changeset(user_post_receipt, %{is_read?: true, read_at: today})
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, user_post_receipt}} ->
+        user_post_receipt = Repo.preload(user_post_receipt, [:user_post])
+        post = get_post!(user_post_receipt.user_post.post_id)
+
+        conn = Accounts.get_connection_from_item(post, user_post_receipt.user)
+
+        {:ok, conn, post}
+        |> broadcast(:post_updated)
+
+      rest ->
+        Logger.warning("Error updating post read user_post_receipt")
+        Logger.debug("Error updating post read user_post_receipt: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
+  def update_user_post_receipt_unread(id) do
+    user_post_receipt = get_user_post_receipt!(id)
+
+    case Repo.transaction_on_primary(fn ->
+           UserPostReceipt.changeset(user_post_receipt, %{is_read?: false, read_at: nil})
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, user_post_receipt}} ->
+        user_post_receipt = Repo.preload(user_post_receipt, [:user_post])
+        post = get_post!(user_post_receipt.user_post.post_id)
+
+        conn = Accounts.get_connection_from_item(post, user_post_receipt.user)
+
+        {:ok, conn, post}
+        |> broadcast(:post_updated)
+
+      rest ->
+        Logger.warning("Error updating post unread user_post_receipt")
+        Logger.debug("Error updating post unread user_post_receipt: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
   def update_post_fav(%Post{} = post, attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 
@@ -1288,12 +1442,12 @@ defmodule Mosslet.Timeline do
   # and is the first in the list
   def get_public_user_post(post) do
     Enum.at(post.user_posts, 0)
-    |> Repo.preload([:post, :user])
+    |> Repo.preload([:post, :user, :user_post_receipt])
   end
 
   def get_user_post(post, user) do
     Repo.one(from up in UserPost, where: up.post_id == ^post.id and up.user_id == ^user.id)
-    |> Repo.preload([:post, :user])
+    |> Repo.preload([:post, :user, :user_post_receipt])
   end
 
   @doc """
@@ -1315,7 +1469,8 @@ defmodule Mosslet.Timeline do
 
       query = from(p in Post, where: p.id == ^post.id or p.original_post_id == ^post.id)
 
-      post = Repo.preload(post, [:user_posts, :group, :user_group, :original_post])
+      post =
+        Repo.preload(post, [:user_posts, :group, :user_group, :original_post])
 
       case Repo.transaction_on_primary(fn ->
              Repo.delete_all(query)
@@ -1399,7 +1554,8 @@ defmodule Mosslet.Timeline do
 
       query = from(p in Post, where: p.id == ^post.id or p.original_post_id == ^post.id)
 
-      post = Repo.preload(post, [:user_posts, :group, :user_group, :original_post])
+      post =
+        Repo.preload(post, [:user_posts, :group, :user_group, :original_post])
 
       {:ok, {count, _posts}} =
         Repo.transaction_on_primary(fn ->

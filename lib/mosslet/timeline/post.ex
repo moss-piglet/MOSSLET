@@ -43,6 +43,7 @@ defmodule Mosslet.Timeline.Post do
     belongs_to :user, User
 
     has_many :user_posts, UserPost
+    has_many :user_post_receipts, through: [:user_posts, :user_post_receipt]
     has_many :replies, Reply, preload_order: [desc: :inserted_at]
 
     timestamps()

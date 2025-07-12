@@ -1,4 +1,4 @@
-defmodule MossletWeb.UserProfileLive.PublicMemoryShowComponent do
+defmodule MossletWeb.UserHomeLive.PublicMemoryShowComponent do
   @moduledoc false
   use MossletWeb, :live_component
 
@@ -318,7 +318,7 @@ defmodule MossletWeb.UserProfileLive.PublicMemoryShowComponent do
                 remark={@remark}
                 current_user={@current_user}
                 key={@key}
-                patch={~p"/profile/#{@slug}/memory/#{@memory.id}"}
+                patch={~p"/app/profile/#{@slug}/memory/#{@memory.id}"}
               />
               <.button
                 :if={!@current_user}
@@ -518,7 +518,7 @@ defmodule MossletWeb.UserProfileLive.PublicMemoryShowComponent do
                 <.link
                   :if={@options.page > 1}
                   patch={
-                    ~p"/profile/#{@slug}/memory/#{@memory.id}?#{%{@options | page: @options.page - 1}}"
+                    ~p"/app/profile/#{@slug}/memory/#{@memory.id}?#{%{@options | page: @options.page - 1}}"
                   }
                   class="inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
                 >
@@ -548,7 +548,7 @@ defmodule MossletWeb.UserProfileLive.PublicMemoryShowComponent do
                         "inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
                   }
                   patch={
-                    ~p"/profile/#{@slug}/memory/#{@memory.id}?#{%{@options | page: page_number}}"
+                    ~p"/app/profile/#{@slug}/memory/#{@memory.id}?#{%{@options | page: page_number}}"
                   }
                   aria-current="page"
                 >
@@ -559,7 +559,7 @@ defmodule MossletWeb.UserProfileLive.PublicMemoryShowComponent do
                 <.link
                   :if={more_pages?(@options, @remark_count)}
                   patch={
-                    ~p"/profile/#{@slug}/memory/#{@memory.id}?#{%{@options | page: @options.page + 1}}"
+                    ~p"/app/profile/#{@slug}/memory/#{@memory.id}?#{%{@options | page: @options.page + 1}}"
                   }
                   class="inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
                 >

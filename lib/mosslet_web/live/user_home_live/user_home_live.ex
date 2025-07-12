@@ -1,12 +1,13 @@
-defmodule MossletWeb.UserProfileLive do
+defmodule MossletWeb.UserHomeLive do
   use MossletWeb, :live_view
 
   require Logger
 
   alias Mosslet.Accounts
+  alias Mosslet.Timeline
   alias Mosslet.Timeline.Post
 
-  import MossletWeb.UserProfileLive.Components
+  import MossletWeb.UserHomeLive.Components
 
   @folder "uploads/trix"
 
@@ -16,6 +17,8 @@ defmodule MossletWeb.UserProfileLive do
     if connected?(socket) do
       if current_user do
         Accounts.private_subscribe(current_user)
+        Timeline.private_subscribe(current_user)
+        Timeline.connections_subscribe(current_user)
       else
         Accounts.subscribe()
       end
@@ -27,7 +30,7 @@ defmodule MossletWeb.UserProfileLive do
      socket
      |> assign(:post_shared_users_result, Phoenix.LiveView.AsyncResult.loading())
      |> assign(:slug, slug)
-     |> assign(:page_title, "Profile")
+     |> assign(:page_title, "Home")
      |> assign(:image_urls, [])
      |> assign(:delete_post_from_cloud_message, nil)
      |> assign(:delete_reply_from_cloud_message, nil)
@@ -47,8 +50,11 @@ defmodule MossletWeb.UserProfileLive do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
+    unread_posts = Timeline.unread_posts(current_user)
+
     socket =
       socket
+      |> stream(:unread_posts, unread_posts, reset: true)
       |> start_async(:assign_post_shared_users, fn ->
         decrypt_shared_user_connections(
           Accounts.get_all_confirmed_user_connections(current_user.id),
@@ -64,6 +70,18 @@ defmodule MossletWeb.UserProfileLive do
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
     {:noreply, assign(socket, :current_user, user)}
+  end
+
+  def handle_info({:post_created, post}, socket) do
+    current_user = socket.assigns.current_user
+
+    if current_user.is_subscribed_to_marketing_notifications do
+      unread_post = Timeline.get_unread_post_for_user_and_post(post, current_user)
+
+      {:noreply, stream_insert(socket, :unread_posts, unread_post, at: 0)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info(_message, socket) do
@@ -123,9 +141,9 @@ defmodule MossletWeb.UserProfileLive do
         %{"message" => message, "url" => url, "flag" => flag},
         socket
       ) do
-    Logger.error("Error removing Trix image in UserProfileLive")
+    Logger.error("Error removing Trix image in UserHomeLive")
     Logger.debug(inspect(url))
-    Logger.error("Error removing Trix image in UserProfileLive: #{url}")
+    Logger.error("Error removing Trix image in UserHomeLive: #{url}")
     socket = assign(socket, :uploads_in_progress, flag)
 
     {:noreply, put_flash(socket, :warning, message)}
@@ -190,7 +208,7 @@ defmodule MossletWeb.UserProfileLive do
   end
 
   def handle_event("log_error", %{"error" => error} = error_message, socket) do
-    Logger.warning("Trix Error in UserProfileLive")
+    Logger.warning("Trix Error in UserHomeLive")
     Logger.debug(inspect(error_message))
     Logger.error(error)
 
@@ -226,7 +244,7 @@ defmodule MossletWeb.UserProfileLive do
 
   defp apply_action(socket, :show, _params) do
     socket
-    |> assign(:page_title, "Profile")
+    |> assign(:page_title, "Home")
   end
 
   defp get_file_key(url) do

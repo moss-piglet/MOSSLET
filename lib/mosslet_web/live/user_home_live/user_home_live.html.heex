@@ -1,0 +1,139 @@
+<.layout current_page={:home} current_user={@current_user} key={@key} type="sidebar">
+  <main class={
+    if get_banner_image_for_connection(@current_user.connection) == "",
+      do: "py-10",
+      else: "pb-10"
+  }>
+    <%!-- Page header --%>
+    <.user_profile_header
+      current_user={@current_user}
+      key={@key}
+      return_url={~p"/app/profile/#{@slug}"}
+      post_shared_users_result={@post_shared_users_result}
+    />
+
+    <div class="mx-auto mt-8 grid max-w-3xl grid-cols-1 gap-6 sm:px-6 lg:max-w-7xl lg:grid-flow-col-dense lg:grid-cols-4">
+      <div
+        :if={
+          @current_user.is_subscribed_to_marketing_notifications &&
+            !Enum.empty?(@streams.unread_posts.inserts)
+        }
+        class="space-y-6 lg:col-span-2 lg:col-start-3"
+      >
+        <%!-- Notifications --%>
+        <section aria-labelledby="home-notifications-title">
+          <div
+            aria-live="assertive"
+            class="bg-white dark:bg-gray-800 px-4 py-5 shadow dark:shadow-emerald-500/50 sm:rounded-lg sm:px-6"
+          >
+            <h2
+              id="notifications-title-heading"
+              class="text-lg font-medium text-gray-900 dark:text-gray-100"
+            >
+              Notifications
+            </h2>
+            <div
+              id="unread-posts"
+              class="flex border-t border-gray-200 w-full flex-col items-center py-4 space-y-2 sm:items-center overflow-y-auto h-48"
+              phx-update="stream"
+            >
+              <div id="unread_posts-empty" class="only:block only:col-span-4 hidden">
+                😌
+              </div>
+              <div
+                :for={{dom_id, unread_post} <- @streams.unread_posts}
+                id={dom_id}
+                class="bg-background-50 dark:bg-gray-900 dark:shadow-emerald-500/50 pointer-events-auto flex w-full max-w-md rounded-lg shadow-lg ring-1 ring-black/5 mb-2"
+              >
+                <div class="w-0 flex-1 p-4">
+                  <div class="flex items-start">
+                    <div class="shrink-0 pt-0.5">
+                      <% user_connection =
+                        Accounts.get_user_connection_for_reply_shared_users(
+                          unread_post.user_id,
+                          @current_user.id
+                        ) %>
+                      <.phx_avatar
+                        :if={user_connection}
+                        class="size-10 rounded-full"
+                        src={
+                          if !show_avatar?(user_connection),
+                            do: "",
+                            else:
+                              maybe_get_avatar_src(
+                                unread_post,
+                                @current_user,
+                                @key,
+                                @streams.unread_posts
+                              )
+                        }
+                        alt="avatar for unread post"
+                      />
+                    </div>
+                    <div class="ml-3 w-0 flex-1">
+                      <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {decr_item(
+                          unread_post.username,
+                          @current_user,
+                          get_post_key(unread_post, @current_user),
+                          @key,
+                          unread_post,
+                          "username"
+                        )}
+                      </p>
+
+                      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Shared a new Post with you.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex border-l border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-center rounded-none rounded-r-lg border border-transparent p-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-300 focus:outline-hidden"
+                  >
+                    <.link href={~p"/app/timeline#timeline-card-#{unread_post.id}"}>
+                      View
+                    </.link>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <%!-- Profile --%>
+      <div class="space-y-6 lg:col-span-2 lg:col-start-1">
+        <section aria-labelledby="home-title">
+          <.user_profile current_user={@current_user} key={@key} />
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <.phx_modal
+    :if={@live_action in [:new_post]}
+    id="post-modal"
+    show
+    on_cancel={JS.patch(~p"/app/profile/#{@slug}")}
+  >
+    <.live_component
+      module={MossletWeb.PostLive.FormComponent}
+      id={@post.id || :new}
+      title="New Post"
+      action={:new}
+      post={@post}
+      groups={[]}
+      user={@current_user}
+      shared_users={@post_shared_users}
+      image_urls={@image_urls}
+      uploads_in_progress={@uploads_in_progress}
+      key={@key}
+      trix_key={@trix_key}
+      patch={~p"/app/profile/#{@slug}"}
+    />
+  </.phx_modal>
+</.layout>

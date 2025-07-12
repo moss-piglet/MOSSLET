@@ -108,7 +108,7 @@ defmodule MossletWeb.EditProfileLive do
                 <div class="mt-2 pb-4">
                   <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus-within:ring-2 focus-within:ring-inset focus-within:ring-emerald-600 sm:max-w-md">
                     <span class="flex-1 border-0 bg-transparent py-1.5 ml-3 text-gray-800 dark:text-gray-200 placeholder:text-gray-500 dark:placeholder:text-gray-300 focus:ring-0 sm:text-sm sm:leading-6">
-                      mosslet.com/profile/{decr(@current_user.username, @current_user, @key)}
+                      mosslet.com/app/{decr(@current_user.username, @current_user, @key)}
                     </span>
 
                     <.input
@@ -168,11 +168,13 @@ defmodule MossletWeb.EditProfileLive do
                     field={f_nested[:show_public_memories?]}
                     type="checkbox"
                     label="Show your public Memories?"
+                    help_text="Public Memories are a potential feature in the future (TBD)."
                   />
                   <.field
                     field={f_nested[:show_public_posts?]}
                     type="checkbox"
                     label="Show your public Posts?"
+                    help_text="Public Posts are a potential feature in the future (TBD)."
                   />
                 </div>
               </div>

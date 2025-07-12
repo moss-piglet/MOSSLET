@@ -13,7 +13,7 @@ defmodule MossletWeb.TimelineLive.Index do
   alias Mosslet.Timeline.{Post, Reply}
 
   @post_page_default 1
-  @post_per_page_default 5
+  @post_per_page_default 25
   @folder "uploads/trix"
 
   def mount(_params, _session, socket) do
@@ -604,6 +604,17 @@ defmodule MossletWeb.TimelineLive.Index do
         update_reply_body(reply, body, current_user, key)
       end)
 
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle-read", %{"id" => user_post_receipt_id}, socket) do
+    IO.inspect(user_post_receipt_id, label: "TOGGLE READ PARAMS")
+    Timeline.update_user_post_receipt_read(user_post_receipt_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle-unread", %{"id" => user_post_receipt_id}, socket) do
+    Timeline.update_user_post_receipt_unread(user_post_receipt_id)
     {:noreply, socket}
   end
 

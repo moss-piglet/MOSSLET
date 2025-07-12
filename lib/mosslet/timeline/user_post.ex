@@ -5,7 +5,7 @@ defmodule Mosslet.Timeline.UserPost do
 
   alias Mosslet.Accounts.User
   alias Mosslet.Encrypted
-  alias Mosslet.Timeline.Post
+  alias Mosslet.Timeline.{Post, UserPostReceipt}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -14,6 +14,8 @@ defmodule Mosslet.Timeline.UserPost do
 
     belongs_to :post, Post
     belongs_to :user, User
+
+    has_one :user_post_receipt, UserPostReceipt
 
     timestamps()
   end

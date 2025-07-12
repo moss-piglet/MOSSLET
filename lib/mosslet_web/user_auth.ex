@@ -28,7 +28,7 @@ defmodule MossletWeb.UserAuth do
     "HomeLive",
     "Public",
     "PublicShow",
-    "UserProfileLive",
+    "UserHomeLive",
     "Ai",
     "About",
     "Blog",
@@ -253,7 +253,7 @@ defmodule MossletWeb.UserAuth do
   Or use the `live_session` of your router to invoke the on_mount callback:
 
       live_session :authenticated, on_mount: [{MossletWeb.UserAuth, :ensure_authenticated}] do
-        live "/profile", ProfileLive, :index
+        live "/home", HomeLive, :index
       end
   """
   def on_mount(:mount_current_user, _params, session, socket) do
@@ -504,7 +504,7 @@ defmodule MossletWeb.UserAuth do
 
     current_user = socket.assigns.current_user
 
-    if String.to_atom("Elixir.MossletWeb.UserProfileLive") == socket.view do
+    if String.to_atom("Elixir.MossletWeb.UserHomeLive") == socket.view do
       with %Accounts.User{} = user <- Accounts.get_user_from_profile_slug(params["slug"]),
            %Accounts.Connection.ConnectionProfile{} = profile <-
              Map.get(user.connection, :profile) do

@@ -40,7 +40,7 @@ defmodule MossletWeb.Menus do
   def main_menu_items(current_user) do
     if current_user.connection.profile do
       build_menu(
-        [:profile, :connections, :groups, :timeline, :faq, :subscribe],
+        [:home, :connections, :groups, :timeline, :faq, :subscribe],
         current_user
       )
     else
@@ -57,9 +57,9 @@ defmodule MossletWeb.Menus do
   # Signed in user menu
   def user_menu_items(current_user) do
     if current_user.connection.profile do
-      build_menu([:profile, :settings, :admin, :dev, :sign_out], current_user)
+      build_menu([:home, :settings, :admin, :dev, :sign_out], current_user)
     else
-      build_menu([:profile, :settings, :admin, :dev, :sign_out], current_user)
+      build_menu([:dashboard, :settings, :admin, :dev, :sign_out], current_user)
     end
   end
 
@@ -238,19 +238,19 @@ defmodule MossletWeb.Menus do
   def get_link(:dashboard = name, _current_user) do
     %{
       name: name,
-      label: gettext("Dashboard"),
+      label: gettext("Home"),
       path: ~p"/app",
-      icon: "hero-identification"
+      icon: "hero-home"
     }
   end
 
-  def get_link(:profile = name, current_user) do
+  def get_link(:home = name, current_user) do
     if current_user.connection.profile do
       %{
         name: name,
-        label: gettext("Profile"),
-        path: ~p"/profile/#{current_user.connection.profile.slug}",
-        icon: "hero-identification"
+        label: gettext("Home"),
+        path: ~p"/app/profile/#{current_user.connection.profile.slug}",
+        icon: "hero-home"
       }
     end
   end

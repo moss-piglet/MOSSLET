@@ -253,7 +253,7 @@ defmodule MossletWeb.TimelineLive.Components do
 
           <li :for={{dom_id, post} <- @posts} id={dom_id}>
             <.timeline_post
-              id={"timeline-card-#{dom_id}"}
+              id={"timeline-card-#{post.id}"}
               current_user={@current_user}
               post_shared_users={@post_shared_users}
               key={@key}
@@ -277,7 +277,8 @@ defmodule MossletWeb.TimelineLive.Components do
 
   def timeline_post(assigns) do
     ~H"""
-    <div id={@id} class="relative timeline-post">
+    <% user_post_receipt = get_user_post_receipt(@post, @current_user) %>
+    <div id={@id} class="relative timeline-post anchor">
       <div :if={@post.user_id == @current_user.id} class="shrink-0">
         <.phx_avatar
           :if={@post.user_id == @current_user.id}
@@ -346,6 +347,17 @@ defmodule MossletWeb.TimelineLive.Components do
 
         <div class="mt-2 space-x-2 text-sm">
           <div class="inline-flex space-x-2 py-2 align-middle">
+            <%!-- favorite post icon --%>
+            <.timeline_post_read_icon
+              :if={@current_user && is_read?(user_post_receipt)}
+              current_user={@current_user}
+              user_post_receipt={user_post_receipt}
+            />
+            <.timeline_post_unread_icon
+              :if={@current_user && user_post_receipt && !is_read?(user_post_receipt)}
+              current_user={@current_user}
+              user_post_receipt={user_post_receipt}
+            />
             <%!-- favorite post icon --%>
             <.timeline_post_favorite_icon
               :if={@current_user && can_fav?(@current_user, @post)}
@@ -418,6 +430,39 @@ defmodule MossletWeb.TimelineLive.Components do
           options={@options}
           return_url={@return_url}
         />
+      </div>
+    </div>
+
+    <div :if={is_last_unread_post?(@post, @current_user)} class="relative mb-4">
+      <div class="absolute inset-0 flex items-center" aria-hidden="true">
+        <div class="w-full">
+          <div class="absolute inset-0">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 1440 320"
+              preserveAspectRatio="none"
+              class="w-full h-3 rounded-full"
+            >
+              <defs>
+                <linearGradient id="wavyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" class="text-teal-500" stop-color="currentColor" />
+                  <stop offset="100%" class="text-emerald-500" stop-color="currentColor" />
+                </linearGradient>
+              </defs>
+              <path
+                fill="url(#wavyGradient)"
+                d="M0,160L48,176C96,192,192,224,288,229.3C384,235,480,213,576,186.7C672,160,768,128,864,133.3C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320L192,320L96,320L0,320Z"
+              >
+              </path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative flex justify-center">
+        <span class="inline-flex align-middle px-2 text-sm bg-background-50 dark:bg-gray-950 text-background-600 dark:text-white rounded-md">
+          Unread <.phx_icon name="hero-arrow-up" class="size-4 ml-1" />
+        </span>
       </div>
     </div>
     """
@@ -706,6 +751,36 @@ defmodule MossletWeb.TimelineLive.Components do
           </div>
         </div>
       </div>
+    </div>
+    """
+  end
+
+  def timeline_post_read_icon(assigns) do
+    ~H"""
+    <div
+      id={"post-#{@user_post_receipt.id}-read-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click="toggle-unread"
+      phx-value-id={@user_post_receipt.id}
+      data-tippy-content="Mark Post as unread"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-envelope" class="h-4 w-4" />
+    </div>
+    """
+  end
+
+  def timeline_post_unread_icon(assigns) do
+    ~H"""
+    <div
+      id={"post-#{@user_post_receipt.id}-unread-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click="toggle-read"
+      phx-value-id={@user_post_receipt.id}
+      data-tippy-content="Mark Post as read"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-envelope-open" class="h-4 w-4" />
     </div>
     """
   end

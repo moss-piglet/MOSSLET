@@ -425,7 +425,7 @@ defmodule MossletWeb.CoreComponents do
         <:subtitle>@<%= @current_user.username %></:subtitle>
 
         <:link navigate={profile_path(@current_user)}>View Profile</:link>
-        <:link navigate={~p"/profile/settings"}Settings</:link>
+        <:link navigate={~p"/app/settings"}Settings</:link>
       </.dropdown>
   """
   attr :id, :string, required: true

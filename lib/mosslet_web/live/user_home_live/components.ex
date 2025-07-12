@@ -1,6 +1,6 @@
-defmodule MossletWeb.UserProfileLive.Components do
+defmodule MossletWeb.UserHomeLive.Components do
   @moduledoc """
-  Components for user profile.
+  Components for user home profile.
   """
   use Phoenix.Component
   use MossletWeb, :verified_routes
@@ -118,7 +118,9 @@ defmodule MossletWeb.UserProfileLive.Components do
   def user_profile(assigns) do
     ~H"""
     <div class="bg-white dark:bg-gray-800 px-4 py-5 shadow dark:shadow-emerald-500/50 sm:rounded-lg sm:px-6">
-      <h2 id="profile-title" class="text-lg font-medium text-gray-900 dark:text-gray-100">Profile</h2>
+      <h2 id="profile-title" class="text-lg font-medium text-gray-900 dark:text-gray-100">
+        Your profile
+      </h2>
       <div class="border-t border-gray-200 py-5">
         <dl class="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-3">
           <div class="sm:col-span-1">

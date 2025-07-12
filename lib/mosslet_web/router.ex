@@ -85,7 +85,7 @@ defmodule MossletWeb.Router do
     # potenitally public routes
     # currently not public
 
-    live_session :profile,
+    live_session :app_profile,
       on_mount: [
         {MossletWeb.UserAuth, :mount_current_user},
         {MossletWeb.UserAuth, :mount_current_user_session_key},
@@ -94,21 +94,22 @@ defmodule MossletWeb.Router do
         {MossletWeb.UserAuth, :maybe_ensure_connection},
         {MossletWeb.UserAuth, :maybe_ensure_private_profile}
       ] do
-      live "/profile/:slug", UserProfileLive, :show
-      live "/profile/:slug/memory/:id", UserProfileLive, :show_memory
+      # Home / Profile
+      live "/app/profile/:slug", UserHomeLive, :show
+      live "/app/profile/:slug/memory/:id", UserHomeLive, :show_memory
 
-      get "/profile/:slug/memory/:id/public/shared-download",
+      get "/app/profile/:slug/memory/:id/public/shared-download",
           MemoryDownloadController,
           :download_shared_public_memory,
           as: :memory_download
 
-      get "/profile/:slug/memory/:id/public/download",
+      get "/app/profile/:slug/memory/:id/public/download",
           MemoryDownloadController,
           :download_public_memory,
           as: :memory_download
 
-      live "/profile/:slug/:id/reply", UserProfileLive, :reply
-      live "/profile/:slug/:id/:reply_id/edit", UserProfileLive, :reply_edit
+      live "/app/profile/:slug/:id/reply", UserHomeLive, :reply
+      live "/app/profile/:slug/:id/:reply_id/edit", UserHomeLive, :reply_edit
     end
   end
 
@@ -143,6 +144,7 @@ defmodule MossletWeb.Router do
         {MossletWeb.SubscriptionPlugs, :subscribed_entity}
       ] do
       use MossletWeb.BillingRoutes
+
       # Onboarding
       live "/users/onboarding", UserOnboardingLive
 

@@ -19,33 +19,33 @@ defmodule MossletWeb.EditPasswordLive do
   def render(assigns) do
     ~H"""
     <.settings_layout current_page={:edit_password} current_user={@current_user} key={@key}>
-    <div class="flex justify-center">
-      <div class="max-w-md mb-4 rounded-md bg-background-50 dark:bg-emerald-50 p-4 shadow-md dark:shadow-emerald-500/50">
-        <div class="flex">
-          <div class="shrink-0">
-            <.phx_icon
-              name="hero-information-circle"
-              class="size-5 text-background-700 dark:text-emerald-700"
-            />
-          </div>
-          <div class="ml-3 flex-1 md:flex md:justify-between">
-            <p class="text-sm text-background-700 dark:text-emerald-700">
-              Generate a strong, memorable password with the
-              <.phx_icon name="hero-sparkles" class="size-4 mr-1" /> button.
-            </p>
-            <p class="mt-3 text-sm md:mt-0 md:ml-6">
-              <.link
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://www.eff.org/dice"
-                class="font-medium whitespace-nowrap text-background-700 hover:text-background-600 dark:text-emerald-700 dark:hover:text-emerald-600"
-              >
-                Details <span aria-hidden="true"> &rarr;</span>
-              </.link>
-            </p>
+      <div class="flex justify-center">
+        <div class="max-w-md mb-4 rounded-md bg-background-50 dark:bg-emerald-50 p-4 shadow-md dark:shadow-emerald-500/50">
+          <div class="flex">
+            <div class="shrink-0">
+              <.phx_icon
+                name="hero-information-circle"
+                class="size-5 text-background-700 dark:text-emerald-700"
+              />
+            </div>
+            <div class="ml-3 flex-1 md:flex md:justify-between">
+              <p class="text-sm text-background-700 dark:text-emerald-700">
+                Generate a strong, memorable password with the
+                <.phx_icon name="hero-sparkles" class="size-4 mr-1" /> button.
+              </p>
+              <p class="mt-3 text-sm md:mt-0 md:ml-6">
+                <.link
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href="https://www.eff.org/dice"
+                  class="font-medium whitespace-nowrap text-background-700 hover:text-background-600 dark:text-emerald-700 dark:hover:text-emerald-600"
+                >
+                  Details <span aria-hidden="true"> &rarr;</span>
+                </.link>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       <.form

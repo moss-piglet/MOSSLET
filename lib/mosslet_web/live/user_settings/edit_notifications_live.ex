@@ -19,7 +19,11 @@ defmodule MossletWeb.EditNotificationsLive do
           type="checkbox"
           field={@form[:is_subscribed_to_marketing_notifications]}
           label={gettext("Allow in-app notifications")}
-          help_text="This is a pending future feature. Let us know what you'd like to be notified about at support@mosslet.com."
+          help_text={
+            if @current_user.is_subscribed_to_marketing_notifications,
+              do: "Disable to no longer receive notifications on your home page.",
+              else: "Enable to recieve calm notifications on your home page."
+          }
           {alpine_autofocus()}
         />
       </.form>

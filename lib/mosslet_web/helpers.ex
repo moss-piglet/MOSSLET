@@ -708,6 +708,26 @@ defmodule MossletWeb.Helpers do
 
   ## Posts (and Replies)
 
+  def is_read?(user_post_receipt) do
+    user_post_receipt && user_post_receipt.is_read?
+  end
+
+  def get_user_post_receipt(post, current_user) do
+    Enum.find(post.user_post_receipts, nil, fn user_post_receipt ->
+      user_post_receipt.user_id === current_user.id
+    end)
+  end
+
+  def is_last_unread_post?(post, current_user) do
+    unread_posts = Timeline.unread_posts(current_user)
+
+    # Check if this post is the first (oldest) in the unread posts list
+    case Enum.reverse(unread_posts) do
+      [oldest_unread_post | _] -> oldest_unread_post.id == post.id
+      _ -> false
+    end
+  end
+
   def get_user_from_post(post) do
     Accounts.get_user_from_post(post)
   end

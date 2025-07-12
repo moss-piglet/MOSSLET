@@ -698,7 +698,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
             </div>
             <li :for={{dom_id, post} <- @posts} id={dom_id}>
               <.user_connection_post
-                id={"user-connection-card-#{dom_id}"}
+                id={"user-connection-card-#{post.id}"}
                 current_user={@current_user}
                 user_connection={@user_connection}
                 key={@key}
@@ -1563,7 +1563,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           }
           title="View profile"
           class="hover:text-emerald-600"
-          navigate={~p"/profile/#{uconn_user.connection.profile.slug}"}
+          navigate={~p"/app/profile/#{uconn_user.connection.profile.slug}"}
         >
           <.phx_icon name="hero-user-circle" class="h-5 w-5" />
         </.link>
