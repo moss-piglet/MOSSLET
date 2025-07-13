@@ -224,6 +224,10 @@ defmodule MossletWeb.PostLive.Show do
     end
   end
 
+  def handle_info({:post_updated_fav, post}, socket) do
+    {:noreply, socket |> assign(:post, post)}
+  end
+
   def handle_info({:post_deleted, post}, socket) do
     current_user = socket.assigns.current_user
 
@@ -453,7 +457,7 @@ defmodule MossletWeb.PostLive.Show do
         user: user
       )
 
-      {:noreply, push_patch(socket, to: socket.assigns.return_url)}
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -470,7 +474,7 @@ defmodule MossletWeb.PostLive.Show do
         user: user
       )
 
-      {:noreply, push_patch(socket, to: socket.assigns.return_url)}
+      {:noreply, socket}
     else
       {:noreply, socket}
     end

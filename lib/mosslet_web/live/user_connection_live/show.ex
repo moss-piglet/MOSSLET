@@ -307,6 +307,10 @@ defmodule MossletWeb.UserConnectionLive.Show do
     {:noreply, stream_insert(socket, :posts, post)}
   end
 
+  def handle_info({:post_updated_fav, post}, socket) do
+    {:noreply, socket |> stream_insert(:posts, post, at: -1)}
+  end
+
   def handle_info({:post_deleted, post}, socket) do
     {:noreply,
      socket
@@ -694,7 +698,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
   def handle_event("fav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user
-    return_url = socket.assigns.return_url
 
     if current_user.id not in post.favs_list do
       {:ok, post} = Timeline.inc_favs(post)
@@ -705,12 +708,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
              user: current_user
            ) do
         {:ok, _post} ->
-          socket =
-            socket
-            |> clear_flash()
-            |> put_flash(:success, "Post favorited successfully.")
-            |> push_patch(to: return_url)
-
           {:noreply, socket}
 
         {:error, changeset} ->
@@ -724,7 +721,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
   def handle_event("unfav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user
-    return_url = socket.assigns.return_url
 
     if current_user.id in post.favs_list do
       {:ok, post} = Timeline.decr_favs(post)
@@ -735,12 +731,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
              user: current_user
            ) do
         {:ok, _post} ->
-          socket =
-            socket
-            |> clear_flash()
-            |> put_flash(:success, "Post unfavorited successfully.")
-            |> push_patch(to: return_url)
-
           {:noreply, socket}
 
         {:error, changeset} ->
