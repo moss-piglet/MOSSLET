@@ -414,12 +414,9 @@ defmodule MossletWeb.UserConnectionLive.Components do
               )}
             </dd>
           </div>
-          <div class="sm:col-span-1">
+          <div :if={show_email?(@user_connection)} class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email address</dt>
-            <dd
-              :if={show_email?(@user_connection)}
-              class="mt-1 text-sm text-gray-900 dark:text-gray-100"
-            >
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {decr_uconn(
                 @user_connection.connection.email,
                 @current_user,
@@ -427,13 +424,8 @@ defmodule MossletWeb.UserConnectionLive.Components do
                 @key
               )}
             </dd>
-            <dd
-              :if={!show_email?(@user_connection)}
-              class="mt-1 text-sm text-gray-900 dark:text-gray-100"
-            >
-              I'm a mystery. 😊
-            </dd>
           </div>
+          <%!-- Memory and Zen mode TBD (maybe future features)
           <div class="sm:col-span-1">
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Memory mode</dt>
             <dd
@@ -464,24 +456,19 @@ defmodule MossletWeb.UserConnectionLive.Components do
               {@user_connection.zen? || "coming soon"}
             </dd>
           </div>
-          <div class="sm:col-span-2">
+          --%>
+          <div
+            :if={@user_connection.connection.profile && @user_connection.connection.profile.about}
+            class="sm:col-span-2"
+          >
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">About</dt>
-            <dd
-              :if={@user_connection.connection.profile && @user_connection.connection.profile.about}
-              class="mt-1 text-sm text-gray-900 dark:text-gray-100"
-            >
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {decr_uconn(
                 @user_connection.connection.profile.about,
                 @current_user,
                 @user_connection.key,
                 @key
               )}
-            </dd>
-            <dd
-              :if={!@user_connection.connection.profile || !@user_connection.connection.profile.about}
-              class="mt-1 text-sm text-gray-900 dark:text-gray-100"
-            >
-              I'm a mystery. 😊
             </dd>
           </div>
         </dl>

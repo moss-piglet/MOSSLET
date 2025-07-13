@@ -211,7 +211,12 @@ defmodule MossletWeb.PostLive.FormComponent do
         </div>
 
         <div :if={@action == :new} id="ignore-trix-editor_new" phx-update="ignore">
-          <trix-editor input="trix-editor_new" class="trix-content max-h-64 overflow-y-auto" phx-debounce="blur" required>
+          <trix-editor
+            input="trix-editor_new"
+            class="trix-content max-h-64 overflow-y-auto"
+            phx-debounce="blur"
+            required
+          >
           </trix-editor>
         </div>
 
@@ -239,7 +244,12 @@ defmodule MossletWeb.PostLive.FormComponent do
           id="ignore-trix-editor_edit"
           phx-update="ignore"
         >
-          <trix-editor input="trix-editor_edit" class="trix-content max-h-64 overflow-y-auto" phx-debounce="blur" required>
+          <trix-editor
+            input="trix-editor_edit"
+            class="trix-content max-h-64 overflow-y-auto"
+            phx-debounce="blur"
+            required
+          >
           </trix-editor>
         </div>
 
