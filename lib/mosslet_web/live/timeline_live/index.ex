@@ -209,6 +209,10 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket |> push_patch(to: return_url)}
   end
 
+  def handle_info({:post_updated_fav, post}, socket) do
+    {:noreply, socket |> stream_insert(:posts, post, at: -1)}
+  end
+
   def handle_info({:post_deleted, post}, socket) do
     return_url = socket.assigns.return_url
     current_user = socket.assigns.current_user

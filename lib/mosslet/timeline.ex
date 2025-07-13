@@ -1324,8 +1324,8 @@ defmodule Mosslet.Timeline do
       {:ok, {:ok, post}} ->
         conn = Accounts.get_connection_from_item(post, user)
 
-        {:ok, conn, post |> Repo.preload([:user_posts, :group, :user_group, :replies])}
-        |> broadcast(:post_updated)
+        {:ok, conn, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
+        |> broadcast(:post_updated_fav)
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -1348,7 +1348,7 @@ defmodule Mosslet.Timeline do
 
     conn = Accounts.get_connection_from_item(post, user)
 
-    {:ok, conn, post |> Repo.preload([:user_posts, :replies])}
+    {:ok, conn, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
     |> broadcast(:post_updated)
   end
 
@@ -1360,7 +1360,7 @@ defmodule Mosslet.Timeline do
       {:ok, {:ok, post}} ->
         conn = Accounts.get_connection_from_item(post, opts[:user])
 
-        {:ok, conn, post |> Repo.preload([:user_posts, :replies])}
+        {:ok, conn, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
         |> broadcast(:post_updated)
 
       {:ok, {:error, changeset}} ->
