@@ -1285,11 +1285,11 @@ defmodule MossletWeb.CoreComponents do
 
   def info_banner(assigns) do
     ~H"""
-    <div class="rounded-md bg-emerald-50 p-4 mt-8">
+    <div class="rounded-lg bg-background-200 dark:bg-gray-800 p-4 mt-8 shadow-lg dark:shadow-emerald-500/50">
       <div class="flex">
         <div class="flex-shrink-0">
           <svg
-            class="h-5 w-5 text-emerald-400"
+            class="h-5 w-5 text-background-500 dark:text-gray-400"
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
@@ -1302,11 +1302,11 @@ defmodule MossletWeb.CoreComponents do
           </svg>
         </div>
         <div class="ml-3 flex-1 md:flex md:justify-between">
-          <p class="text-sm text-emerald-700">{render_slot(@inner_block)}</p>
+          <p class="text-sm text-background-800 dark:text-gray-200">{render_slot(@inner_block)}</p>
           <p class="mt-3 text-sm md:ml-6 md:mt-0">
             <.link
               navigate={@navigate}
-              class="whitespace-nowrap font-medium text-emerald-700 hover:text-emerald-600"
+              class="whitespace-nowrap font-medium text-background-800 hover:text-background-700 dark:text-gray-200 dark:hover:text-gray-100"
             >
               {@nav_title}
               <span aria-hidden="true"> &rarr;</span>

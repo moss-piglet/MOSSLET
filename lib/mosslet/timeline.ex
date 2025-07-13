@@ -638,7 +638,7 @@ defmodule Mosslet.Timeline do
   def get_post!(id),
     do:
       Repo.get!(Post, id)
-      |> Repo.preload([:user_posts, :user, :group, :user_group, :replies])
+      |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
 
   def get_reply!(id),
     do: Repo.get!(Reply, id) |> Repo.preload([:user, :post])
@@ -859,7 +859,7 @@ defmodule Mosslet.Timeline do
           {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} ->
             create_shared_user_posts(post, attrs, p_attrs, user)
 
-            {:ok, post |> Repo.preload([:user_posts, :replies])}
+            {:ok, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
             |> broadcast_admin(:post_created)
 
           {:error, insert_post: changeset, insert_user_post: _user_post_changeset} ->

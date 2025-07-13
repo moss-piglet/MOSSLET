@@ -23,6 +23,13 @@
       </div>
     </.page_header>
 
+    <%!-- info banner --%>
+    <div class="flex justify-center mx-auto max-w-xl">
+      <.info_banner navigate="mailto:support@mosslet.com" nav_title="Reach out">
+        Groups are actively under construction 🚧. If you have any feedback or suggestions, we would love to hear from you.
+      </.info_banner>
+    </div>
+
     <.sticky_table
       :if={@live_action != :joining_group}
       id="groups"
