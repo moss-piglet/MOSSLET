@@ -1062,11 +1062,6 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_async(:delete_post_from_cloud, {:ok, message}, socket) do
     %{delete_post_from_cloud_message: del_message} = socket.assigns
 
-    socket =
-      socket
-      |> clear_flash(:info)
-      |> put_flash(:info, "Post image(s) deleted from cloud successfully.")
-
     {:noreply,
      assign(socket, :delete_post_from_cloud_message, AsyncResult.ok(del_message, message))}
   end
@@ -1088,11 +1083,6 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_async(:delete_reply_from_cloud, {:ok, message}, socket) do
-    socket =
-      socket
-      |> clear_flash(:info)
-      |> put_flash(:info, "Reply image(s) deleted from cloud successfully.")
-
     {:noreply, assign(socket, :delete_reply_from_cloud_message, AsyncResult.ok(message))}
   end
 

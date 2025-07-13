@@ -66,6 +66,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
             input="trix-editor_reply"
             placeholder="Reply to this Post"
             class="trix-content max-h-64 overflow-y-auto"
+            phx-debounce="blur"
             required
           >
           </trix-editor>
@@ -84,6 +85,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
           id="trix-editor_reply"
           field={@form[:body]}
           name={@form[:body].name}
+          phx-debounce="blur"
           phx-hook="TrixEditor"
           type="hidden"
         />
@@ -96,6 +98,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
           <trix-editor
             input="trix-editor_reply_edit"
             class="trix-content max-h-64 overflow-y-auto"
+            phx-debounce="blur"
             required
           >
           </trix-editor>
@@ -116,6 +119,7 @@ defmodule MossletWeb.PostLive.Replies.FormComponent do
           value={
             @body || decr_item(@reply.body, @user, get_post_key(@post, @user), @key, @post, "body")
           }
+          phx-debounce="blur"
           phx-hook="TrixEditor"
           type="hidden"
         />

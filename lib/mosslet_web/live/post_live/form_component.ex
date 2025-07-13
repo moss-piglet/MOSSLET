@@ -211,7 +211,7 @@ defmodule MossletWeb.PostLive.FormComponent do
         </div>
 
         <div :if={@action == :new} id="ignore-trix-editor_new" phx-update="ignore">
-          <trix-editor input="trix-editor_new" class="trix-content max-h-64 overflow-y-auto" required>
+          <trix-editor input="trix-editor_new" class="trix-content max-h-64 overflow-y-auto" phx-debounce="blur" required>
           </trix-editor>
         </div>
 
@@ -229,6 +229,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           field={@form[:body]}
           name={@form[:body].name}
           value={@form[:body].value}
+          phx-debounce="blur"
           phx-hook="TrixEditor"
           type="hidden"
         />
@@ -238,7 +239,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           id="ignore-trix-editor_edit"
           phx-update="ignore"
         >
-          <trix-editor input="trix-editor_edit" class="trix-content max-h-64 overflow-y-auto" required>
+          <trix-editor input="trix-editor_edit" class="trix-content max-h-64 overflow-y-auto" phx-debounce="blur" required>
           </trix-editor>
         </div>
 
@@ -258,6 +259,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           value={
             @body || decr_item(@post.body, @user, get_post_key(@post, @user), @key, @post, "body")
           }
+          phx-debounce="blur"
           phx-hook="TrixEditor"
           type="hidden"
         />

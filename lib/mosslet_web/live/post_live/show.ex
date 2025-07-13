@@ -904,8 +904,6 @@ defmodule MossletWeb.PostLive.Show do
 
     socket =
       socket
-      |> clear_flash(:info)
-      |> put_flash(:info, "Post image(s) deleted from cloud successfully.")
       |> assign(:delete_post_from_cloud_message, AsyncResult.ok(del_message, message))
 
     # we navigate away after replies have finished deleting.
@@ -945,8 +943,6 @@ defmodule MossletWeb.PostLive.Show do
       # the replies from the cloud.
       socket =
         socket
-        |> clear_flash(:info)
-        |> put_flash(:info, "Reply image(s) deleted from cloud successfully.")
         |> assign(:delete_reply_from_cloud_message, AsyncResult.ok(message))
 
       {:noreply, push_navigate(socket, to: ~p"/app/timeline")}

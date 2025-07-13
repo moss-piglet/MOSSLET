@@ -910,6 +910,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
                     @key
                   )}"}
                   class="trix-content"
+                  phx-debounce="blur"
                   required
                 >
                 </trix-editor>
@@ -927,6 +928,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
                 field={post_form[:body]}
                 name={post_form[:body].name}
                 value={post_form[:body].value}
+                phx-debounce="blur"
                 phx-hook="TrixEditor"
                 type="hidden"
               />
