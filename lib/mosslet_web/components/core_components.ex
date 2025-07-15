@@ -1730,10 +1730,26 @@ defmodule MossletWeb.CoreComponents do
               </svg>
             </.link>
           </div>
-          <p class="mt-6 text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
-            Copyright &copy; 2023 Moss Piglet Corporation. A Public Benefit company. All rights
-            reserved.
-          </p>
+          <div>
+            <p class="mt-6 text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
+              Copyright &copy; 2023 Moss Piglet Corporation. A Public Benefit company. All rights
+              reserved.
+            </p>
+            <div class="inline-flex items-center align-middle">
+              <.link
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://climate.stripe.com/hazRSK"
+                class="mt-2 text-sm text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 sm:mt-0"
+              >
+                1% of purchases contributed to Stripe Climate
+                <img
+                  src={~p"/images/landing_page/Stripe Climate Badge.svg"}
+                  class="size-6 inline-flex"
+                />
+              </.link>
+            </div>
+          </div>
         </div>
       </container>
     </section>
