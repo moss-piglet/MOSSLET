@@ -1739,7 +1739,7 @@ defmodule MossletWeb.CoreComponents do
               <.link
                 target="_blank"
                 rel="noopener noreferrer"
-                href="https://climate.stripe.com/hazRSK"
+                href="https://climate.stripe.com/0YsHsR"
                 class="mt-2 text-sm text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 sm:mt-0"
               >
                 1% of purchases contributed to Stripe Climate
