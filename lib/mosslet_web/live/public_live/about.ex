@@ -366,7 +366,7 @@ defmodule MossletWeb.PublicLive.About do
               </p>
 
               <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
-                MOSSLET is our small step forward this future. We hope you'll join us.
+                MOSSLET is our small step toward this future. We hope you'll join us.
               </p>
               <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
                 — Isabella & Mark<br />
