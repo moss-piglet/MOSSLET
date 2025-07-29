@@ -407,17 +407,21 @@ defmodule MossletWeb.TimelineLive.Components do
               <.local_time_ago id={"#{@post.id}-updated"} at={@post.image_urls_updated_at} />
             </time>
           </span>
-          <div
-            :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) > 1}
-            class="absolute bottom-2 right-0"
-          >
-            <.display_post_shared_users post={@post} user_connections={@post_shared_users} />
+          <div class="flex sm:inline-flex my-3">
+            <div
+              :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) > 1}
+              class="absolute bottom-2 right-0"
+            >
+              <.display_post_shared_users post={@post} user_connections={@post_shared_users} />
+            </div>
           </div>
-          <div
-            :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) === 1}
-            class="absolute bottom-2 right-0"
-          >
-            <.display_stale_post_shared_users post={@post} user_connections={@post_shared_users} />
+          <div class="flex sm:inline-flex my-3">
+            <div
+              :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) === 1}
+              class="absolute bottom-2 right-0"
+            >
+              <.display_stale_post_shared_users post={@post} user_connections={@post_shared_users} />
+            </div>
           </div>
         </div>
 
