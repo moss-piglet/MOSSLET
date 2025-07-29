@@ -694,7 +694,7 @@ defmodule MossletWeb.TimelineLive.Components do
                     placeholder="Share with all of your connections"
                     class="trix-content"
                     required
-                    phx-debounce="blur"
+                    phx-debounce={750}
                   >
                   </trix-editor>
                 </div>
@@ -711,7 +711,7 @@ defmodule MossletWeb.TimelineLive.Components do
                   field={post_form[:body]}
                   name={post_form[:body].name}
                   value={post_form[:body].value}
-                  phx-debounce="blur"
+                  phx-debounce={750}
                   phx-hook="TrixEditor"
                   type="hidden"
                 />

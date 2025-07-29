@@ -214,7 +214,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           <trix-editor
             input="trix-editor_new"
             class="trix-content max-h-64 overflow-y-auto"
-            phx-debounce="blur"
+            phx-debounce={750}
             required
           >
           </trix-editor>
@@ -234,7 +234,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           field={@form[:body]}
           name={@form[:body].name}
           value={@form[:body].value}
-          phx-debounce="blur"
+          phx-debounce={750}
           phx-hook="TrixEditor"
           type="hidden"
         />
@@ -247,7 +247,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           <trix-editor
             input="trix-editor_edit"
             class="trix-content max-h-64 overflow-y-auto"
-            phx-debounce="blur"
+            phx-debounce={750}
             required
           >
           </trix-editor>
@@ -269,7 +269,7 @@ defmodule MossletWeb.PostLive.FormComponent do
           value={
             @body || decr_item(@post.body, @user, get_post_key(@post, @user), @key, @post, "body")
           }
-          phx-debounce="blur"
+          phx-debounce={750}
           phx-hook="TrixEditor"
           type="hidden"
         />
