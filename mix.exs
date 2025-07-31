@@ -125,6 +125,7 @@ defmodule Mosslet.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:tesla, "~> 1.7.0"},
       {:timex, "~> 3.7", override: true},
+      {:toast, "~> 0.2.0"},
       {:typed_ecto_schema, "~> 0.4.1"},
       {:tzdata, "~> 1.1"},
       {:ueberauth, "<= 0.10.5 or ~> 0.10.7"},

@@ -13,6 +13,7 @@
 
 @import "./colors.css";
 @import "./fonts.css";
+@import "../../deps/toast/assets/css/toast.css";
 
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/forms";

@@ -142,13 +142,10 @@ defmodule MossletWeb.GroupLive.Join do
   end
 
   @impl true
-  def mount(%{"id" => id} = _params, _session, socket) do
+  def mount(_params, _session, socket) do
     if connected?(socket) do
       Groups.private_subscribe(socket.assigns.current_user)
     end
-
-    return_to = ~p"/app/groups/#{id}/join-password"
-    socket = assign(socket, :return_to, return_to)
 
     {:ok, assign(socket, :current_page, "Joining Group"), layout: {MossletWeb.Layouts, :app}}
   end
@@ -224,7 +221,6 @@ defmodule MossletWeb.GroupLive.Join do
 
         {:error, %Ecto.Changeset{} = changeset} ->
           join_attempts = socket.assigns.join_attempts + 1
-          return_to = socket.assigns.return_to
           socket = assign(socket, join_attempts: join_attempts)
 
           case join_attempts do
@@ -232,44 +228,46 @@ defmodule MossletWeb.GroupLive.Join do
               {:noreply, assign_form(socket, changeset)}
 
             1 ->
-              {:noreply, assign_form(socket, changeset)}
+              {:noreply,
+               socket
+               |> assign_form(changeset)
+               |> Toast.put_toast(
+                 :info,
+                 "Incorrect password, #{5 - join_attempts} attempts left, please try again."
+               )}
 
             2 ->
-              socket =
-                put_flash(
-                  socket,
-                  :info,
-                  "Incorrect password, please try again. You have #{5 - join_attempts} attempts left."
-                )
-
-              {:noreply, assign_form(socket, changeset)}
+              {:noreply,
+               socket
+               |> assign_form(changeset)
+               |> Toast.put_toast(
+                 :info,
+                 "Incorrect password, #{5 - join_attempts} attempts left, please try again."
+               )}
 
             3 ->
-              socket =
-                put_flash(
-                  socket,
-                  :info,
-                  "Incorrect password, please try again. You have #{5 - join_attempts} attempts left."
-                )
-
-              {:noreply, assign_form(socket, changeset)}
+              {:noreply,
+               socket
+               |> assign_form(changeset)
+               |> Toast.put_toast(
+                 :info,
+                 "Incorrect password, #{5 - join_attempts} attempts left, please try again."
+               )}
 
             4 ->
-              socket =
-                put_flash(
-                  socket,
-                  :warning,
-                  "Incorrect password, please try again. You have #{5 - join_attempts} attempts left."
-                )
-
-              {:noreply, assign_form(socket, changeset)}
+              {:noreply,
+               socket
+               |> assign_form(changeset)
+               |> Toast.put_toast(
+                 :warning,
+                 "Incorrect password, #{5 - join_attempts} attempt left, please try again."
+               )}
 
             5 ->
-              socket =
-                {:noreply,
-                 socket
-                 |> put_flash(:error, "Too many failed attempts. Please try again later.")
-                 |> push_navigate(to: ~p"/app/groups/greet")}
+              {:noreply,
+               socket
+               |> put_flash(:error, "Too many failed attempts. Please try again later.")
+               |> push_navigate(to: ~p"/app/groups/greet")}
 
             _rest ->
               {:noreply,

@@ -35,6 +35,9 @@ import live_select from "live_select";
 // Add your custom hooks to the hooks folder - then import them in hooks/index.js
 import mossletHooks from "./hooks/index";
 
+// Toast flash messages
+import Toast from "../../deps/toast/assets/js/toast.js";
+
 Alpine.plugin(collapse);
 Alpine.plugin(focus);
 Alpine.plugin(intersect);
@@ -128,7 +131,7 @@ let csrfToken = document
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   hooks: Object.assign(
-    {},
+    { Toast }, // Custom hook for toast notifications
     mossletHooks,
     {
       LocalTime: mossletHooks.LocalTime,
