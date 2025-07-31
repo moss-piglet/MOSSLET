@@ -184,7 +184,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       data-tippy-content="Show password"
                       phx-hook="TippyHook"
                       phx-click={
-                        JS.remove_class("password-mask", to: "#password")
+                        JS.set_attribute({"type", "text"}, to: "#password")
                         |> JS.remove_class("hidden", to: "#eye-slash")
                         |> JS.add_class("hidden", to: "#eye")
                       }
@@ -198,7 +198,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       phx-hook="TippyHook"
                       class="hidden"
                       phx-click={
-                        JS.add_class("password-mask", to: "#password")
+                        JS.set_attribute({"type", "password"}, to: "#password")
                         |> JS.add_class("hidden", to: "#eye-slash")
                         |> JS.remove_class("hidden", to: "#eye")
                       }
@@ -207,9 +207,8 @@ defmodule MossletWeb.UserRegistrationLive do
                     </button>
                   </div>
                 </div>
-                <.field
-                  class="password-mask"
-                  type="text"
+                <.phx_input
+                  type="password"
                   id="password"
                   label="Password"
                   field={@form[:password]}
@@ -217,14 +216,14 @@ defmodule MossletWeb.UserRegistrationLive do
                   autocomplete="password"
                   required
                 />
-                <div id="pw-errors" class="absolute"></div>
+                <%!-- <div id="pw-errors" class="absolute"></div> --%>
               </div>
 
               <div id="passwordConfirmationField" class="relative mt-4">
-                <.field
-                  class="password-mask"
-                  type="text"
+                <.phx_input
+                  type="password"
                   id="password-confirmation"
+                  label="Confirm Password"
                   field={@form[:password_confirmation]}
                   placeholder="Confirm password"
                   phx-debounce="500"
