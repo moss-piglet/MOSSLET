@@ -207,27 +207,28 @@ defmodule MossletWeb.UserRegistrationLive do
                     </button>
                   </div>
                 </div>
-                <.phx_input
+                <.field
                   type="password"
                   id="password"
                   label="Password"
                   field={@form[:password]}
                   phx-debounce="500"
-                  autocomplete="password"
+                  autocomplete="current-password"
                   required
                 />
-                <%!-- <div id="pw-errors" class="absolute"></div> --%>
+                <div id="pw-errors" class="absolute"></div>
               </div>
 
               <div id="passwordConfirmationField" class="relative mt-4">
-                <.phx_input
-                  type="password"
+                <.field
+                  type="text"
+                  class="password-mask"
                   id="password-confirmation"
                   label="Confirm Password"
                   field={@form[:password_confirmation]}
                   placeholder="Confirm password"
                   phx-debounce="500"
-                  autocomplete="password-confirmation"
+                  autocomplete="current-password-confirmation"
                   required
                 />
               </div>
