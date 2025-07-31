@@ -9,12 +9,13 @@ defmodule MossletWeb.Plugs.PlugAttack do
   # hash_ip(@alg, convert_ip(conn.remote_ip)
   # ban_for:  3_600_000 (in milliseconds - 1 hour)
 
+  @minute 60_000
   @week 60_000 * 60 * 24 * 7
 
   rule "throttle login requests", conn do
     if conn.method == "GET" and conn.path_info == ["auth", "log_in"] and conn.remote_ip do
       throttle("login:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
-        period: 60_000,
+        period: @minute,
         limit: 10,
         storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
       )
@@ -24,8 +25,19 @@ defmodule MossletWeb.Plugs.PlugAttack do
   rule "throttle register page GETs", conn do
     if conn.method == "GET" and conn.path_info == ["auth", "register"] do
       throttle("register:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
-        period: 60_000,
+        period: @minute,
         limit: 20,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "throttle join-group password requests", conn do
+    if conn.method == "GET" and "join-password" in conn.path_info and
+         conn.remote_ip do
+      throttle("login:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 10,
         storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
       )
     end
@@ -34,7 +46,7 @@ defmodule MossletWeb.Plugs.PlugAttack do
   rule "fail2ban on login by email", conn do
     if conn.method == "POST" and conn.path_info == ["auth", "log_in"] and conn.remote_ip do
       fail2ban(hash_ip(@alg, convert_email(conn.params["user"]["email"])),
-        period: 60_000,
+        period: @minute,
         limit: 50,
         ban_for: @week,
         storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
@@ -45,7 +57,7 @@ defmodule MossletWeb.Plugs.PlugAttack do
   rule "fail2ban on 2fa by ip", conn do
     if conn.method == "POST" and conn.path_info == ["app", "users", "totp"] and conn.remote_ip do
       fail2ban("2fa:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
-        period: 60_000,
+        period: @minute,
         limit: 20,
         ban_for: @week,
         storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}

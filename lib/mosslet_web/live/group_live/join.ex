@@ -16,7 +16,7 @@ defmodule MossletWeb.GroupLive.Join do
 
             <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
               <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-950 px-4 pb-4 pt-5 text-left shadow-xl dark:shadow-emerald-400/50  transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl dark:shadow-emerald-500/50  transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
                   <div>
                     <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-800">
                       <svg
@@ -106,6 +106,7 @@ defmodule MossletWeb.GroupLive.Join do
                       phx-debounce="blur"
                       type="password"
                       label="Password"
+                      autocomplete="off"
                       required
                       {alpine_autofocus()}
                     />
@@ -141,16 +142,23 @@ defmodule MossletWeb.GroupLive.Join do
   end
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(%{"id" => id} = _params, _session, socket) do
     if connected?(socket) do
       Groups.private_subscribe(socket.assigns.current_user)
     end
+
+    return_to = ~p"/app/groups/#{id}/join-password"
+    socket = assign(socket, :return_to, return_to)
 
     {:ok, assign(socket, :current_page, "Joining Group"), layout: {MossletWeb.Layouts, :app}}
   end
 
   @impl true
   def handle_params(params, _url, socket) do
+    socket =
+      socket
+      |> assign(:join_attempts, Map.get(socket.assigns, "join_attempts", 0))
+
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
@@ -215,7 +223,60 @@ defmodule MossletWeb.GroupLive.Join do
            |> push_navigate(to: ~p"/app/groups/#{group}")}
 
         {:error, %Ecto.Changeset{} = changeset} ->
-          {:noreply, assign_form(socket, changeset)}
+          join_attempts = socket.assigns.join_attempts + 1
+          return_to = socket.assigns.return_to
+          socket = assign(socket, join_attempts: join_attempts)
+
+          case join_attempts do
+            0 ->
+              {:noreply, assign_form(socket, changeset)}
+
+            1 ->
+              {:noreply, assign_form(socket, changeset)}
+
+            2 ->
+              socket =
+                put_flash(
+                  socket,
+                  :info,
+                  "Incorrect password, please try again. You have #{5 - join_attempts} attempts left."
+                )
+
+              {:noreply, assign_form(socket, changeset)}
+
+            3 ->
+              socket =
+                put_flash(
+                  socket,
+                  :info,
+                  "Incorrect password, please try again. You have #{5 - join_attempts} attempts left."
+                )
+
+              {:noreply, assign_form(socket, changeset)}
+
+            4 ->
+              socket =
+                put_flash(
+                  socket,
+                  :warning,
+                  "Incorrect password, please try again. You have #{5 - join_attempts} attempts left."
+                )
+
+              {:noreply, assign_form(socket, changeset)}
+
+            5 ->
+              socket =
+                {:noreply,
+                 socket
+                 |> put_flash(:error, "Too many failed attempts. Please try again later.")
+                 |> push_navigate(to: ~p"/app/groups/greet")}
+
+            _rest ->
+              {:noreply,
+               socket
+               |> put_flash(:error, "Too many failed attempts. Please try again later.")
+               |> push_navigate(to: ~p"/app/groups/greet")}
+          end
       end
     else
       {:noreply, socket}

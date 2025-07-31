@@ -45,8 +45,8 @@ defmodule Mosslet.Application do
         Mosslet.Extensions.MemoryProcessor,
         # Start the Storj Task Supervisor,
         {Task.Supervisor, name: Mosslet.StorjTask},
-        # Start PlugAttack storage
-        {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 60_000},
+        # Start PlugAttack storage (1 hour = 3_600_000 milliseconds)
+        {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
         # Start the Endpoint (http/https)
         # Start Oban supervision.
         {Oban, oban_config()},
