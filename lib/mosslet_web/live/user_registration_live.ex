@@ -211,6 +211,7 @@ defmodule MossletWeb.UserRegistrationLive do
                   id="password"
                   label="Password"
                   field={@form[:password]}
+                  autocomplete="off"
                   phx-debounce="500"
                   required
                 />
@@ -225,6 +226,7 @@ defmodule MossletWeb.UserRegistrationLive do
                   phx-debounce="500"
                   field={@form[:password_confirmation]}
                   placeholder="Confirm password"
+                  autocomplete="off"
                   required
                 />
               </div>
