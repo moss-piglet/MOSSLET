@@ -136,6 +136,7 @@ defmodule MossletWeb.UserRegistrationLive do
             phx-trigger-action={@trigger_submit}
             action={~p"/auth/sign_in?_action=registered"}
             method="post"
+            autocomplete="off"
           >
             <div class={unless @current_step === 1, do: "hidden"}>
               <.field
@@ -183,7 +184,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       data-tippy-content="Show password"
                       phx-hook="TippyHook"
                       phx-click={
-                        JS.set_attribute({"type", "text"}, to: "#password")
+                        JS.remove_class("password-mask", to: "#password")
                         |> JS.remove_class("hidden", to: "#eye-slash")
                         |> JS.add_class("hidden", to: "#eye")
                       }
@@ -197,7 +198,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       phx-hook="TippyHook"
                       class="hidden"
                       phx-click={
-                        JS.set_attribute({"type", "password"}, to: "#password")
+                        JS.add_class("password-mask", to: "#password")
                         |> JS.add_class("hidden", to: "#eye-slash")
                         |> JS.remove_class("hidden", to: "#eye")
                       }
@@ -207,12 +208,13 @@ defmodule MossletWeb.UserRegistrationLive do
                   </div>
                 </div>
                 <.field
-                  type="password"
+                  class="password-mask"
+                  type="text"
                   id="password"
                   label="Password"
                   field={@form[:password]}
-                  autocomplete="off"
                   phx-debounce="500"
+                  autocomplete="password"
                   required
                 />
                 <div id="pw-errors" class="absolute"></div>
@@ -220,13 +222,13 @@ defmodule MossletWeb.UserRegistrationLive do
 
               <div id="passwordConfirmationField" class="relative mt-4">
                 <.field
-                  type="password"
+                  class="password-mask"
+                  type="text"
                   id="password-confirmation"
-                  label="Password Confirmation"
-                  phx-debounce="500"
                   field={@form[:password_confirmation]}
                   placeholder="Confirm password"
-                  autocomplete="off"
+                  phx-debounce="500"
+                  autocomplete="password-confirmation"
                   required
                 />
               </div>
