@@ -83,8 +83,8 @@ defmodule MossletWeb.UserRegistrationLive do
                 </div>
                 <div class="ml-3 flex-1 md:flex md:justify-between">
                   <p class="text-sm text-background-700 dark:text-emerald-700">
-                    Generate a strong, memorable password with the
-                    <.phx_icon name="hero-sparkles" class="size-3 mr-1" /> button.
+                    Generate a strong, memorable password with the sparkles
+                    (<.phx_icon name="hero-sparkles" class="size-3" />) button.
                   </p>
                   <p class="mt-3 text-sm md:mt-0 md:ml-6">
                     <.link
@@ -184,7 +184,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       data-tippy-content="Show password"
                       phx-hook="TippyHook"
                       phx-click={
-                        JS.set_attribute({"type", "text"}, to: "#password")
+                        JS.set_attribute({"type", "text"}, to: "#password-text")
                         |> JS.remove_class("hidden", to: "#eye-slash")
                         |> JS.add_class("hidden", to: "#eye")
                       }
@@ -198,7 +198,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       phx-hook="TippyHook"
                       class="hidden"
                       phx-click={
-                        JS.set_attribute({"type", "password"}, to: "#password")
+                        JS.set_attribute({"type", "password"}, to: "#password-text")
                         |> JS.add_class("hidden", to: "#eye-slash")
                         |> JS.remove_class("hidden", to: "#eye")
                       }
@@ -209,11 +209,10 @@ defmodule MossletWeb.UserRegistrationLive do
                 </div>
                 <.field
                   type="password"
-                  id="password"
+                  id="password-text"
                   label="Password"
                   field={@form[:password]}
                   phx-debounce="500"
-                  autocomplete="current-password"
                   required
                 />
                 <div id="pw-errors" class="absolute"></div>
@@ -221,14 +220,12 @@ defmodule MossletWeb.UserRegistrationLive do
 
               <div id="passwordConfirmationField" class="relative mt-4">
                 <.field
-                  type="text"
-                  class="password-mask"
-                  id="password-confirmation"
-                  label="Confirm Password"
+                  type="password"
+                  id="password-text-confirmation"
+                  label="Password Confirmation"
                   field={@form[:password_confirmation]}
                   placeholder="Confirm password"
                   phx-debounce="500"
-                  autocomplete="current-password-confirmation"
                   required
                 />
               </div>
