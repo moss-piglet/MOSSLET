@@ -74,7 +74,7 @@ config :esbuild,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "4.0.9",
+  version: "4.1.10",
   default: [
     args: ~w(
       --input=assets/css/app.css

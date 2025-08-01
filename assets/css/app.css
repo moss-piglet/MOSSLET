@@ -8,11 +8,12 @@
 @source "../../lib/mosslet_web/**/*.*ex";
 @source "../../deps/live_select/lib/live_select/component.*ex";
 @source "../../deps/petal_components/**/*.*ex";
-@source "../../deps/petal_components/**/*.*ex";
+
 @import "../../deps/petal_components/assets/default.css";
 
 @import "./colors.css";
 @import "./fonts.css";
+
 @import "../../deps/toast/assets/css/toast.css";
 
 @plugin "@tailwindcss/typography";

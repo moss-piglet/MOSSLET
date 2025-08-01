@@ -32,8 +32,7 @@ defmodule MossletWeb.UserSessionController do
     else
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       conn
-      |> put_flash(:error, gettext("Invalid email or password"))
-      |> put_flash(:email, String.slice(email, 0, 160))
+      |> put_flash(:error, gettext("Invalid email or password, please try again."))
       |> redirect(to: ~p"/auth/sign_in")
     end
   end
