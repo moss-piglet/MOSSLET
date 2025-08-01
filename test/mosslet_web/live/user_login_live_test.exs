@@ -70,7 +70,8 @@ defmodule MossletWeb.UserLoginLiveTest do
 
       conn = submit_form(form, conn)
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "Invalid email or password, please try again."
 
       assert redirected_to(conn) == "/auth/sign_in"
     end

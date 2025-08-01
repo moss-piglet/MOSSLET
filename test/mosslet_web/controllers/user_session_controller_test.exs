@@ -103,7 +103,9 @@ defmodule MossletWeb.UserSessionControllerTest do
           "user" => %{"email" => "invalid@email.com", "password" => "invalid_password"}
         })
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "Invalid email or password, please try again."
+
       assert redirected_to(conn) == ~p"/auth/sign_in"
     end
   end
