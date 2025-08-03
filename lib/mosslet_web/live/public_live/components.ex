@@ -42,7 +42,7 @@ defmodule MossletWeb.PublicLive.Components do
       <h2 class="text-center font-black text-balance text-5xl font-black tracking-tight text-black dark:text-white sm:text-6xl lg:text-7xl ">
         Big Tech controls who knows and who decides who knows.
         <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-          Don't let them decide for you.
+          Don't let them control you.
         </span>
       </h2>
     </div>
