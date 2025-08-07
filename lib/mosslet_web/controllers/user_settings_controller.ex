@@ -7,6 +7,7 @@ defmodule MossletWeb.UserSettingsController do
   alias MossletWeb.UserAuth
 
   plug :assign_email_and_password_changesets
+  plug :put_layout, html: {MossletWeb.Layouts, :app_controller}
 
   def edit(conn, _params) do
     render(conn, "edit.html")

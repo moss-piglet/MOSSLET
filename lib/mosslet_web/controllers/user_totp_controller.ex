@@ -5,11 +5,16 @@ defmodule MossletWeb.UserTOTPController do
   alias MossletWeb.UserAuth
 
   plug :redirect_if_totp_is_not_pending
+  plug :put_layout, html: {MossletWeb.Layouts, :app_controller}
 
   @pending :user_totp_pending
 
   def new(conn, %{"user" => user_params} = _params) do
     render(conn, "new.html", error_message: nil, form: to_form(user_params, as: :user))
+  end
+
+  def new(conn, params) do
+    render(conn, "new.html", error_message: nil, form: to_form(params, as: :user))
   end
 
   def create(conn, %{"user" => user_params}) do
