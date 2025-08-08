@@ -157,7 +157,7 @@ defmodule MossletWeb.PublicLive.About do
                         Protected every 24 hours
                       </dt>
                       <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        465 mb
+                        775 mb
                       </dd>
                     </div>
                     <div class="flex flex-col-reverse gap-y-4">
