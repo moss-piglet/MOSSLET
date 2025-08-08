@@ -23,6 +23,19 @@ config :mosslet, MossletWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
+  live_reload: [
+    notify: [
+      live_view: [
+        ~r"lib/mosslet_web/core_components.ex$",
+        ~r"lib/mosslet_web/(live|components)/.*(ex|heex)$"
+      ]
+    ],
+    patterns: [
+      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/gettext/.*(po)$",
+      ~r"lib/mosslet_web/(controllers|live|components)/.*(ex|heex)$"
+    ]
+  ],
   secret_key_base: System.get_env("SECRET_KEY_BASE"),
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
