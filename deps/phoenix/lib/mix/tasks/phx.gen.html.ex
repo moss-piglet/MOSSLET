@@ -4,20 +4,42 @@ defmodule Mix.Tasks.Phx.Gen.Html do
   @moduledoc """
   Generates controller with view, templates, schema and context for an HTML resource.
 
-      mix phx.gen.html Accounts User users name:string age:integer
+  The format is:
 
-  The first argument, `Accounts`, is the resource's context.
-  A context is an Elixir module that serves as an API boundary for closely related resources.
+  ```console
+  $ mix phx.gen.html [<context>] <schema> <table> <attr:type> [<attr:type>...]
+  ```
 
-  The second argument, `User`, is the resource's schema.
-  A schema is an Elixir module responsible for mapping database fields into an Elixir struct.
-  The `User` schema above specifies two fields with their respective colon-delimited data types:
-  `name:string` and `age:integer`. See `mix phx.gen.schema` for more information on attributes.
+  For example:
 
-  > Note: A resource may also be split
-  > over distinct contexts (such as `Accounts.User` and `Payments.User`).
+  ```console
+  $ mix phx.gen.html User users name:string age:integer
+  ```
 
-  This generator adds the following files to `lib/`:
+  Will generate a `User` schema for the `users` table within the `Users` context,
+  with the attributes `name` (as a string) and `age` (as an integer).
+
+  You can also explicitly pass the context name as argument, whenever the context
+  is well defined:
+
+    ```console
+  $ mix phx.gen.html Accounts User users name:string age:integer
+  ```
+
+  The first argument is the context module (`Accounts`) followed by
+  the schema module (`User`), table name (`users`), and attributes.
+
+  The context is an Elixir module that serves as an API boundary for
+  the given resource. A context often holds many related resources.
+  Therefore, if the context already exists, it will be augmented with
+  functions for the given resource.
+
+  The schema is responsible for mapping the database fields into an
+  Elixir struct. It is followed by a list of attributes with their
+  respective names and types. See `mix phx.gen.schema` for more
+  information on attributes.
+
+  Overall, this generator will add the following files to `lib/`:
 
     * a controller in `lib/my_app_web/controllers/user_controller.ex`
     * default CRUD HTML templates in `lib/my_app_web/controllers/user_html`
@@ -35,6 +57,12 @@ defmodule Mix.Tasks.Phx.Gen.Html do
   If the context already exists, this generator injects functions for the given resource into
   the context, context test, and context test helper modules.
 
+  ## Scopes
+
+  If your application configures its own default [scope](scopes.md), then this generator
+  will automatically make sure all of your context operations are correctly scoped.
+  You can pass the `--no-scope` flag to disable the scoping.
+
   ## Umbrella app configuration
 
   By default, Phoenix injects both web and domain specific functionality into the same
@@ -51,33 +79,34 @@ defmodule Mix.Tasks.Phx.Gen.Html do
 
   Alternatively, the `--context-app` option may be supplied to the generator:
 
-      mix phx.gen.html Sales User users --context-app my_app
-
-  If you delete the `:context_app` configuration option, Phoenix will automatically put generated web files in
-  `my_app_umbrella/apps/my_app_web_web`.
-
-  If you change the value of `:context_app` to `:new_value`, `my_app_umbrella/apps/new_value_web`
-  must already exist or you will get the following error:
-
-     ** (Mix) no directory for context_app :new_value found in my_app_web's deps.
+  ```console
+  $ mix phx.gen.html Accounts User users --context-app my_app
+  ```
 
   ## Web namespace
 
-  By default, the controller and HTML view will be namespaced by the schema name.
-  You can customize the web module namespace by passing the `--web` flag with a
-  module name, for example:
+  By default, the controller and HTML views are not namespaced but you can add
+  a namespace by passing the `--web` flag with a module name, for example:
 
-      mix phx.gen.html Sales User users --web Sales
+  ```console
+  $ mix phx.gen.html Accounts User users --web Accounts
+  ```
 
-  Which would generate a `lib/app_web/controllers/sales/user_controller.ex` and
-  `lib/app_web/controllers/sales/user_html.ex`.
+  Which would generate a `lib/app_web/controllers/accounts/user_controller.ex` and
+  `lib/app_web/controllers/accounts/user_html.ex`.
 
   ## Customizing the context, schema, tables and migrations
 
   In some cases, you may wish to bootstrap HTML templates, controllers,
   and controller tests, but leave internal implementation of the context
   or schema to yourself. You can use the `--no-context` and `--no-schema`
-  flags for file generation control.
+  flags for file generation control. Note `--no-context` implies `--no-schema`:
+
+  ```console
+  $ mix phx.gen.live Accounts User users --no-context name:string
+  ```
+
+  In the cases above, tests are still generated, but they will all fail.
 
   You can also change the table name or configure the migrations to
   use binary ids for primary keys, see `mix phx.gen.schema` for more
@@ -85,7 +114,7 @@ defmodule Mix.Tasks.Phx.Gen.Html do
   """
   use Mix.Task
 
-  alias Mix.Phoenix.{Context, Schema}
+  alias Mix.Phoenix.{Context, Schema, Scope}
   alias Mix.Tasks.Phx.Gen
 
   @doc false
@@ -98,10 +127,42 @@ defmodule Mix.Tasks.Phx.Gen.Html do
 
     Mix.Phoenix.ensure_live_view_compat!(__MODULE__)
 
-    {context, schema} = Gen.Context.build(args)
+    {context, schema} = Gen.Context.build(args, name_optional: true)
+
+    if schema.attrs == [] do
+      Mix.raise("""
+      No attributes provided. The phx.gen.html generator requires at least one attribute. For example:
+
+        mix phx.gen.html Accounts User users name:string
+
+      """)
+    end
+
     Gen.Context.prompt_for_code_injection(context)
 
-    binding = [context: context, schema: schema, inputs: inputs(schema)]
+    {conn_scope, context_scope_prefix} =
+      if schema.scope do
+        base = "conn.assigns.#{schema.scope.assign_key}"
+        {base, "#{base}, "}
+      else
+        {"", ""}
+      end
+
+    binding = [
+      context: context,
+      schema: schema,
+      primary_key: schema.opts[:primary_key] || :id,
+      scope: schema.scope,
+      inputs: inputs(schema),
+      conn_scope: conn_scope,
+      context_scope_prefix: context_scope_prefix,
+      scope_conn_route_prefix: Scope.route_prefix(conn_scope, schema),
+      scope_param_route_prefix: Scope.route_prefix("scope", schema),
+      scope_assign_route_prefix: scope_assign_route_prefix(schema),
+      test_context_scope:
+        if(schema.scope && schema.scope.route_prefix, do: ", scope: scope", else: "")
+    ]
+
     paths = Mix.Phoenix.generator_paths()
 
     prompt_for_conflicts(context)
@@ -159,15 +220,22 @@ defmodule Mix.Tasks.Phx.Gen.Html do
 
   @doc false
   def print_shell_instructions(%Context{schema: schema, context_app: ctx_app} = context) do
+    resource_path =
+      if schema.scope && schema.scope.route_prefix do
+        "#{schema.scope.route_prefix}/#{schema.plural}"
+      else
+        "/#{schema.plural}"
+      end
+
     if schema.web_namespace do
       Mix.shell().info("""
 
       Add the resource to your #{schema.web_namespace} :browser scope in #{Mix.Phoenix.web_path(ctx_app)}/router.ex:
 
-          scope "/#{schema.web_path}", #{inspect(Module.concat(context.web_module, schema.web_namespace))}, as: :#{schema.web_path} do
+          scope "/#{schema.web_path}", #{inspect(Module.concat(context.web_module, schema.web_namespace))} do
             pipe_through :browser
             ...
-            resources "/#{schema.plural}", #{inspect(schema.alias)}Controller
+            resources "#{resource_path}", #{inspect(schema.alias)}Controller#{if schema.opts[:primary_key], do: ~s[, param: "#{schema.opts[:primary_key]}"]}
           end
       """)
     else
@@ -175,8 +243,14 @@ defmodule Mix.Tasks.Phx.Gen.Html do
 
       Add the resource to your browser scope in #{Mix.Phoenix.web_path(ctx_app)}/router.ex:
 
-          resources "/#{schema.plural}", #{inspect(schema.alias)}Controller
+          resources "#{resource_path}", #{inspect(schema.alias)}Controller#{if schema.opts[:primary_key], do: ~s[, param: "#{schema.opts[:primary_key]}"]}
       """)
+    end
+
+    if schema.scope do
+      Mix.shell().info(
+        "Ensure the routes are defined in a block that sets the `#{inspect(context.scope.assign_key)}` assign."
+      )
     end
 
     if context.generate?, do: Gen.Context.print_shell_instructions(context)
@@ -200,7 +274,7 @@ defmodule Mix.Tasks.Phx.Gen.Html do
         ~s(<.input field={f[#{inspect(key)}]} type="checkbox" label="#{label(key)}" />)
 
       {key, :text} ->
-        ~s(<.input field={f[#{inspect(key)}]} type="text" label="#{label(key)}" />)
+        ~s(<.input field={f[#{inspect(key)}]} type="textarea" label="#{label(key)}" />)
 
       {key, :date} ->
         ~s(<.input field={f[#{inspect(key)}]} type="date" label="#{label(key)}" />)
@@ -250,6 +324,15 @@ defmodule Mix.Tasks.Phx.Gen.Html do
   defp default_options({:array, _}), do: []
 
   defp label(key), do: Phoenix.Naming.humanize(to_string(key))
+
+  defp scope_assign_route_prefix(
+         %{scope: %{route_prefix: route_prefix, assign_key: assign_key}} = schema
+       )
+       when not is_nil(route_prefix) do
+    Scope.route_prefix("@#{assign_key}", schema)
+  end
+
+  defp scope_assign_route_prefix(_), do: ""
 
   @doc false
   def indent_inputs(inputs, column_padding) do

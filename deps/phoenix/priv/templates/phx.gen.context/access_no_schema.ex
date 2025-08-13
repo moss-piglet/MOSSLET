@@ -25,7 +25,7 @@
       %<%= inspect schema.alias %>{}
 
   """
-  def get_<%= schema.singular %>!(id), do: raise "TODO"
+  def get_<%= schema.singular %>!(<%= primary_key %>), do: raise "TODO"
 
   @doc """
   Creates a <%= schema.singular %>.
@@ -39,7 +39,7 @@
       {:error, ...}
 
   """
-  def create_<%= schema.singular %>(attrs \\ %{}) do
+  def create_<%= schema.singular %>(attrs) do
     raise "TODO"
   end
 

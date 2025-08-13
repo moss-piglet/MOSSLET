@@ -49,7 +49,7 @@ defmodule Phoenix.CodeReloader.Server do
             Mix.Project.build_structure()
           else
             Logger.warning(
-              "Phoenix is unable to create symlinks. Phoenix' code reloader will run " <>
+              "Phoenix is unable to create symlinks. Phoenix's code reloader will run " <>
                 "considerably faster if symlinks are allowed." <> os_symlink(:os.type())
             )
           end
@@ -64,23 +64,39 @@ defmodule Phoenix.CodeReloader.Server do
     apps = endpoint.config(:reloadable_apps) || default_reloadable_apps()
     args = Keyword.get(opts, :reloadable_args, ["--no-all-warnings"])
 
-    # We do a backup of the endpoint in case compilation fails.
-    # If so we can bring it back to finish the request handling.
-    backup = load_backup(endpoint)
     froms = all_waiting([from], endpoint)
 
-    {res, out} =
-      proxy_io(fn ->
-        try do
-          mix_compile(Code.ensure_loaded(Mix.Task), compilers, apps, args, state.timestamp)
-        catch
-          :exit, {:shutdown, 1} ->
-            :error
+    {backup, res, out} =
+      with_build_lock(fn ->
+        purge_fallback? =
+          if Phoenix.CodeReloader.MixListener.started?() do
+            Phoenix.CodeReloader.MixListener.purge(apps)
+            false
+          else
+            warn_missing_mix_listener()
+            true
+          end
 
-          kind, reason ->
-            IO.puts(Exception.format(kind, reason, __STACKTRACE__))
-            :error
-        end
+        # We do a backup of the endpoint in case compilation fails.
+        # If so we can bring it back to finish the request handling.
+        backup = load_backup(endpoint)
+
+        {res, out} =
+          proxy_io(fn ->
+            try do
+              task_loaded = Code.ensure_loaded(Mix.Task)
+              mix_compile(task_loaded, compilers, apps, args, state.timestamp, purge_fallback?)
+            catch
+              :exit, {:shutdown, 1} ->
+                :error
+
+              kind, reason ->
+                IO.puts(Exception.format(kind, reason, __STACKTRACE__))
+                :error
+            end
+          end)
+
+        {backup, res, out}
       end)
 
     reply =
@@ -167,58 +183,112 @@ defmodule Phoenix.CodeReloader.Server do
     end
   end
 
-  if Version.match?(System.version(), "< 1.15.0-dev") do
-    defp purge_protocols(path) do
-      purge_modules(path)
-      Code.delete_path(path)
+  if Version.match?(System.version(), ">= 1.18.0-dev") do
+    defp warn_missing_mix_listener do
+      if Mix.Project.get() != Phoenix.MixProject do
+        IO.warn("""
+        a Mix listener expected by Phoenix.CodeReloader is missing.
+
+        Please add the listener to your mix.exs configuration, like so:
+
+            def project do
+              [
+                ...,
+                listeners: [Phoenix.CodeReloader]
+              ]
+            end
+
+        """)
+      end
     end
   else
-    defp purge_protocols(_path), do: :ok
+    defp warn_missing_mix_listener do
+      :ok
+    end
   end
 
-  defp mix_compile({:module, Mix.Task}, compilers, apps_to_reload, compile_args, timestamp) do
+  defp mix_compile(
+         {:module, Mix.Task},
+         compilers,
+         apps_to_reload,
+         compile_args,
+         timestamp,
+         purge_fallback?
+       ) do
     config = Mix.Project.config()
     path = Mix.Project.consolidation_path(config)
 
-    # TODO: Remove this conditional when requiring Elixir v1.15+
-    if config[:consolidate_protocols] do
-      purge_protocols(path)
-    end
+    mix_compile_deps(
+      Mix.Dep.cached(),
+      apps_to_reload,
+      compile_args,
+      compilers,
+      timestamp,
+      path,
+      purge_fallback?
+    )
 
-    mix_compile_deps(Mix.Dep.cached(), apps_to_reload, compile_args, compilers, timestamp, path)
-    mix_compile_project(config[:app], apps_to_reload, compile_args, compilers, timestamp, path)
+    mix_compile_project(
+      config[:app],
+      apps_to_reload,
+      compile_args,
+      compilers,
+      timestamp,
+      path,
+      purge_fallback?
+    )
 
     if config[:consolidate_protocols] do
+      # If we are consolidating protocols, we need to purge all of its modules
+      # to ensure the consolidated versions are loaded. "mix compile" performs
+      # a similar task.
       Code.prepend_path(path)
+      purge_modules(path)
     end
 
     :ok
   end
 
-  defp mix_compile({:error, _reason}, _, _, _, _) do
+  defp mix_compile({:error, _reason}, _, _, _, _, _) do
     raise "the Code Reloader is enabled but Mix is not available. If you want to " <>
             "use the Code Reloader in production or inside an escript, you must add " <>
             ":mix to your applications list. Otherwise, you must disable code reloading " <>
             "in such environments"
   end
 
-  defp mix_compile_deps(deps, apps_to_reload, compile_args, compilers, timestamp, path) do
+  defp mix_compile_deps(
+         deps,
+         apps_to_reload,
+         compile_args,
+         compilers,
+         timestamp,
+         path,
+         purge_fallback?
+       ) do
     for dep <- deps, dep.app in apps_to_reload do
       Mix.Dep.in_dependency(dep, fn _ ->
-        mix_compile_unless_stale_config(compilers, compile_args, timestamp, path)
+        mix_compile_unless_stale_config(compilers, compile_args, timestamp, path, purge_fallback?)
       end)
     end
   end
 
-  defp mix_compile_project(nil, _, _, _, _, _), do: :ok
+  defp mix_compile_project(nil, _, _, _, _, _, _), do: :ok
 
-  defp mix_compile_project(app, apps_to_reload, compile_args, compilers, timestamp, path) do
+  defp mix_compile_project(
+         app,
+         apps_to_reload,
+         compile_args,
+         compilers,
+         timestamp,
+         path,
+         purge_fallback?
+       ) do
     if app in apps_to_reload do
-      mix_compile_unless_stale_config(compilers, compile_args, timestamp, path)
+      mix_compile_unless_stale_config(compilers, compile_args, timestamp, path, purge_fallback?)
     end
   end
 
-  defp mix_compile_unless_stale_config(compilers, compile_args, timestamp, path) do
+  defp mix_compile_unless_stale_config(compilers, compile_args, timestamp, path, purge_fallback?) do
     manifests = Mix.Tasks.Compile.Elixir.manifests()
     configs = Mix.Project.config_files()
     config = Mix.Project.config()
@@ -227,7 +297,8 @@ defmodule Phoenix.CodeReloader.Server do
       [] ->
         # If the manifests are more recent than the timestamp,
         # someone updated this app behind the scenes, so purge all beams.
-        if Mix.Utils.stale?(manifests, [timestamp]) do
+        # TODO: remove once we depend on Elixir 1.18
+        if purge_fallback? and Mix.Utils.stale?(manifests, [timestamp]) do
           purge_modules(Path.join(Mix.Project.app_path(config), "ebin"))
         end
 
@@ -258,18 +329,25 @@ defmodule Phoenix.CodeReloader.Server do
     # We call build_structure mostly for Windows so new
     # assets in priv are copied to the build directory.
     Mix.Project.build_structure(config)
+
+    # TODO: The purge option may no longer be required from Elixir v1.18
     args = ["--purge-consolidation-path-if-stale", consolidation_path | compile_args]
 
-    result =
+    {status, diagnostics} =
       with_logger_app(config, fn ->
-        run_compilers(compilers, args, [])
+        run_compilers(compilers, args, :noop, [])
       end)
 
-    cond do
-      result == :error ->
-        exit({:shutdown, 1})
+    Proxy.diagnostics(Process.group_leader(), diagnostics)
 
-      result == :ok && config[:consolidate_protocols] ->
+    cond do
+      status == :error ->
+        if "--return-errors" not in args do
+          exit({:shutdown, 1})
+        end
+
+      status == :ok && config[:consolidate_protocols] ->
+        # TODO: Calling compile.protocols is no longer be required from Elixir v1.19
         Mix.Task.reenable("compile.protocols")
         Mix.Task.run("compile.protocols", [])
         :ok
@@ -283,7 +361,14 @@ defmodule Phoenix.CodeReloader.Server do
 
   defp purge_modules(path) do
     with {:ok, beams} <- File.ls(path) do
-      Enum.map(beams, &(&1 |> Path.rootname(".beam") |> String.to_atom() |> purge_module()))
+      for beam <- beams do
+        case :binary.split(beam, ".beam") do
+          [module, ""] -> module |> String.to_atom() |> purge_module()
+          _ -> :ok
+        end
+      end
+
+      :ok
     end
   end
 
@@ -305,25 +390,45 @@ defmodule Phoenix.CodeReloader.Server do
     end
   end
 
-  defp run_compilers([compiler | compilers], args, acc) do
-    with {status, diagnostics} <- Mix.Task.run("compile.#{compiler}", args) do
-      # Diagnostics are written to stderr and therefore not captured,
-      # so we send them to the group leader here
-      Proxy.diagnostics(Process.group_leader(), diagnostics)
-      {status, diagnostics}
-    end
-    |> case do
-      :error -> :error
-      {:error, _} -> :error
-      result -> run_compilers(compilers, args, [result | acc])
+  ## TODO: Replace this by Mix.Task.Compiler.run/2 on Elixir v1.19+
+
+  defp run_compilers([], _, status, diagnostics) do
+    {status, diagnostics}
+  end
+
+  defp run_compilers([compiler | rest], args, status, diagnostics) do
+    {new_status, new_diagnostics} = run_compiler(compiler, args)
+    diagnostics = diagnostics ++ new_diagnostics
+
+    case new_status do
+      :error -> {:error, diagnostics}
+      :ok -> run_compilers(rest, args, :ok, diagnostics)
+      :noop -> run_compilers(rest, args, status, diagnostics)
     end
   end
 
-  defp run_compilers([], _args, results) do
-    if :proplists.get_value(:ok, results, false) do
-      :ok
-    else
-      :noop
+  defp run_compiler(compiler, args) do
+    result = normalize(Mix.Task.run("compile.#{compiler}", args), compiler)
+    Enum.reduce(Mix.ProjectStack.pop_after_compiler(compiler), result, & &1.(&2))
+  end
+
+  defp normalize(result, name) do
+    case result do
+      {status, diagnostics} when status in [:ok, :noop, :error] and is_list(diagnostics) ->
+        {status, diagnostics}
+
+      # ok/noop can come from tasks that have already run
+      _ when result in [:ok, :noop] ->
+        {result, []}
+
+      _ ->
+        # TODO: Convert this to an error on v2.0
+        Mix.shell().error(
+          "warning: Mix compiler #{inspect(name)} was supposed to return " <>
+            "{:ok | :noop | :error, [diagnostic]} but it returned #{inspect(result)}"
+        )
+
+        {:noop, []}
     end
   end
 
@@ -338,5 +443,12 @@ defmodule Phoenix.CodeReloader.Server do
     after
       Logger.configure(compile_time_application: logger_config_app)
     end
+  end
+
+  # TODO: remove once we depend on Elixir 1.18
+  if Code.ensure_loaded?(Mix.Project) and function_exported?(Mix.Project, :with_build_lock, 1) do
+    defp with_build_lock(fun), do: Mix.Project.with_build_lock(fun)
+  else
+    defp with_build_lock(fun), do: fun.()
   end
 end

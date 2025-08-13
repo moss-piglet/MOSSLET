@@ -19,7 +19,7 @@ defmodule Mix.Tasks.Phx.Gen.Release do
   running `mix release`.
 
   To skip generating the migration-related files, use the `--no-ecto` flag. To
-  force these migration-related files to be generated, the use `--ecto` flag.
+  force these migration-related files to be generated, use the `--ecto` flag.
 
   ## Docker
 
@@ -29,8 +29,47 @@ defmodule Mix.Tasks.Phx.Gen.Release do
 
     * `.dockerignore` - A docker ignore file with standard elixir defaults
 
+  By default, the build uses whatever base image matches your development system’s
+  active versions at generation time. To override those defaults, specify:
+
+  * `otp` — the OTP version to use
+
+  * `elixir` — the Elixir version to use
+
   For extended release configuration, the `mix release.init` task can be used
   in addition to this task. See the `Mix.Release` docs for more details.
+
+  If you are using third party JS package managers like `npm` or `yarn`, you will
+  need to update the generated Dockerfile with an extra step to fetch those packages.
+  This might look like this:
+
+  ```dockerfile
+  ...
+  ARG RUNNER_IMAGE="debian:..."
+
+  FROM node:20 as node
+  COPY assets assets
+  RUN cd assets && npm install
+
+  FROM ${BUILDER_IMAGE} as builder
+
+  ...
+
+  COPY assets assets
+  COPY --from=node assets/node_modules assets/node_modules
+  ...
+  ```
+
+  If you are using esbuild through Node.js or other JavaScript build tools, the approach
+  above can also be modified to invoke those in the node stage, for example:
+
+  ```dockerfile
+  FROM node:20 as node
+  COPY assets assets
+  RUN cd assets && npm install && node build.js --deploy
+  ```
+
+  Note that you may need to adjust the `assets.deploy` task to not invoke Node.js again.
   """
 
   use Mix.Task
@@ -73,7 +112,7 @@ defmodule Mix.Tasks.Phx.Gen.Release do
     end
 
     if opts.docker do
-      gen_docker(binding)
+      gen_docker(binding, opts)
     end
 
     File.chmod!("rel/overlays/bin/server", 0o755)
@@ -146,11 +185,13 @@ defmodule Mix.Tasks.Phx.Gen.Release do
 
   defp parse_args(args) do
     args
-    |> OptionParser.parse!(strict: [ecto: :boolean, docker: :boolean])
+    |> OptionParser.parse(strict: [ecto: :boolean, docker: :boolean, elixir: :string, otp: :string])
     |> elem(0)
     |> Keyword.put_new_lazy(:ecto, &ecto_sql_installed?/0)
     |> Keyword.put_new_lazy(:socket_db_adaptor_installed, &socket_db_adaptor_installed?/0)
     |> Keyword.put_new(:docker, false)
+    |> Keyword.put_new(:elixir, false)
+    |> Keyword.put_new(:otp, false)
     |> Map.new()
   end
 
@@ -195,7 +236,7 @@ defmodule Mix.Tasks.Phx.Gen.Release do
     |> map_size() > 0
   end
 
-  @debian "bullseye"
+  @debian "bookworm"
   defp elixir_and_debian_vsn(elixir_vsn, otp_vsn) do
     url =
       "https://hub.docker.com/v2/namespaces/hexpm/repositories/elixir/tags?name=#{elixir_vsn}-erlang-#{otp_vsn}-debian-#{@debian}-"
@@ -212,14 +253,14 @@ defmodule Mix.Tasks.Phx.Gen.Release do
     end)
   end
 
-  defp gen_docker(binding) do
-    wanted_elixir_vsn =
+  defp gen_docker(binding, opts) do
+    wanted_elixir_vsn = opts[:elixir] ||
       case Version.parse!(System.version()) do
         %{major: major, minor: minor, pre: ["dev"]} -> "#{major}.#{minor - 1}.0"
         _ -> System.version()
       end
 
-    otp_vsn = otp_vsn()
+    otp_vsn =  opts[:otp] || otp_vsn()
 
     vsns =
       case elixir_and_debian_vsn(wanted_elixir_vsn, otp_vsn) do
@@ -258,7 +299,7 @@ defmodule Mix.Tasks.Phx.Gen.Release do
       :error ->
         raise """
         unable to fetch supported Docker image for Elixir #{wanted_elixir_vsn} and Erlang #{otp_vsn}.
-        Please check https://hub.docker.com/r/hexpm/elixir/tags?page=1&name=#{otp_vsn}\
+        Please check https://hub.docker.com/r/hexpm/elixir/tags?page=1&name=#{otp_vsn} \
         for a suitable Elixir version
         """
     end
@@ -290,11 +331,11 @@ defmodule Mix.Tasks.Phx.Gen.Release do
       :httpc.set_options([{:https_proxy, {{String.to_charlist(host), port}, []}}])
     end
 
-    # https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/inets
+    # https://security.erlef.org/secure_coding_and_deployment_hardening/inets
     http_options = [
       ssl: [
         verify: :verify_peer,
-        cacertfile: String.to_charlist(CAStore.file_path()),
+        cacerts: :public_key.cacerts_get(),
         depth: 3,
         customize_hostname_check: [
           match_fun: :public_key.pkix_verify_hostname_match_fun(:https)

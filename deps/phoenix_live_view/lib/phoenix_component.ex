@@ -505,11 +505,12 @@ defmodule Phoenix.Component do
   See `embed_templates/1` for more information, including declarative
   assigns support for embedded templates.
 
-  ## Debug Annotations
+  ## Debug information
 
-  HEEx templates support debug annotations, which are special HTML comments
-  that wrap around rendered components to help you identify where markup
-  in your HTML document is rendered within your function component tree.
+  HEEx templates support adding annotations and locations to the rendered
+  page, which are special HTML comments and attributes that help you identify
+  where markup in your HTML document is rendered within your function component
+  tree.
 
   For example, imagine the following HEEx template:
 
@@ -519,8 +520,8 @@ defmodule Phoenix.Component do
   </.header>
   ```
 
-  The HTML document would receive the following comments when debug annotations
-  are enabled:
+  By turning on `debug_heex_annotations`, the HTML document would receive the
+  following comments when debug annotations are enabled:
 
   ```html
   <!-- @caller lib/app_web/home_live.ex:20 -->
@@ -534,11 +535,22 @@ defmodule Phoenix.Component do
   <!-- </AppWeb.CoreComponents.header> -->
   ```
 
-  Debug annotations work across any `~H` or `.html.heex` template.
-  They can be enabled globally with the following configuration in your
-  `config/dev.exs` file:
+  Similarly, you can also turn on `:debug_attributes`, which adds a
+  `data-phx-loc` attribute with the line of where each HTML tag is defined
+  (as well as `data-phx-pid` to the LiveView container):
 
-      config :phoenix_live_view, debug_heex_annotations: true
+  ```html
+  <header data-phx-loc="125" class="p-5">
+    <button data-phx-loc="458" class="px-2 bg-indigo-500 text-white">Click</button>
+  </header>
+  ```
+
+  These features work on any `~H` or `.html.heex` template. They can be enabled
+  globally with the following configuration in your `config/dev.exs` file:
+
+      config :phoenix_live_view,
+        debug_heex_annotations: true,
+        debug_attributes: true
 
   Changing this configuration will require `mix clean` and a full recompile.
 
@@ -694,7 +706,8 @@ defmodule Phoenix.Component do
     allows for rendering optimizations.
 
   * `list` (only for the `class` attribute) - each element of the list is processed
-    as a different class. `nil` and `false` elements are discarded.
+    as a different class. `nil` and `false` elements are discarded. Nested lists
+    are supported and flattened.
 
   For multiple dynamic attributes, you can use the same notation but without
   assigning the expression to any specific attribute:
@@ -808,7 +821,7 @@ defmodule Phoenix.Component do
     <:col :for={header <- @headers} :let={user}>
       <td>{user[header]}</td>
     </:col>
-  <table>
+  <.table>
   ```
 
   You can also combine `:for` and `:if` for tags, components, and slot to act as a filter:
@@ -819,6 +832,35 @@ defmodule Phoenix.Component do
 
   Note that unlike Elixir's regular `for`, HEEx' `:for` does not support multiple
   generators in one expression. In such cases, you must use `EEx`'s blocks.
+
+  > #### Change tracking `:for` on slots {: .warning}
+  >
+  > Compared to regular HTML tags and components, LiveView does not
+  > optimize comprehensions on slots.
+  > This means that if `@headers` changes in the example above, all
+  > headers are sent over the wire again.
+  >
+  > Furthermore, `:key` (see below) is also not supported on slots
+  > right now.
+
+  #### `:key`ed comprehensions
+
+  When using `:for`, you can optionally provide a `:key` expression to perform
+  better change tracking inside the comprehension:
+
+  ```heex
+  <ul>
+    <li :for={%{id: id, name: name} <- @items} :key={id}>
+      Count: <span>{@count}</span>,
+      item: {name}
+    </li>
+  </ul>
+  ```
+
+  By default, the index is used as a key, which means that appending an entry leads to
+  all items being considered changed. Therefore, we recommend to use a `:key` whenever possible.
+
+  Note that the `:key` has no effect when using [streams](`Phoenix.LiveView.stream/4`).
 
   ### Function components
 
@@ -1109,7 +1151,10 @@ defmodule Phoenix.Component do
   end
 
   def __render_slot__(changed, entry, argument) when is_map(entry) do
-    entry.inner_block.(changed, argument)
+    case entry.inner_block do
+      %Phoenix.LiveView.Rendered{} = rendered -> rendered
+      fun -> fun.(changed, argument)
+    end
   end
 
   defp call_inner_block!(entry, changed, argument) do
@@ -1118,7 +1163,10 @@ defmodule Phoenix.Component do
       raise RuntimeError, message
     end
 
-    entry.inner_block.(changed, argument)
+    case entry.inner_block do
+      %Phoenix.LiveView.Rendered{} = rendered -> rendered
+      fun -> fun.(changed, argument)
+    end
   end
 
   @doc """
@@ -3114,9 +3162,9 @@ defmodule Phoenix.Component do
   def focus_wrap(assigns) do
     ~H"""
     <div id={@id} phx-hook="Phoenix.FocusWrap" {@rest}>
-      <span id={"#{@id}-start"} tabindex="0" aria-hidden="true"></span>
+      <div id={"#{@id}-start"} tabindex="0" aria-hidden="true"></div>
       {render_slot(@inner_block)}
-      <span id={"#{@id}-end"} tabindex="0" aria-hidden="true"></span>
+      <div id={"#{@id}-end"} tabindex="0" aria-hidden="true"></div>
     </div>
     """
   end
@@ -3387,7 +3435,7 @@ defmodule Phoenix.Component do
   end
 
   @doc """
-  Renders a `Phoenix.LiveView.AsyncResult` struct (e.g. from `Phoenix.LiveView.assign_async/4`) 
+  Renders a `Phoenix.LiveView.AsyncResult` struct (e.g. from `Phoenix.LiveView.assign_async/4`)
   with slots for the different loading states.
   The result state takes precedence over subsequent loading and failed
   states.
@@ -3457,5 +3505,56 @@ defmodule Phoenix.Component do
       async_assign.failed ->
         ~H|{render_slot(@failed, @assign.failed)}|
     end
+  end
+
+  @doc """
+  Renders a portal.
+
+  A portal is a component that teleports its content to another place in the DOM.
+  It is useful in cases where you need to render some content in another place, for
+  example due to overflow or [stacking context](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Stacking_context).
+
+  A portal consists of two parts:
+
+  1. The portal source: the component that should be teleported.
+  2. The portal target: the DOM element that will render the content of the portal source.
+
+  Any element can be a portal target. In most cases, the target would be rendered inside
+  the layout of your application. Portal sources must be defined with the `.portal` component.
+
+  ## Examples
+
+  ```heex
+  <.portal id="modal" target="body">
+    ...
+  </.portal>
+  ```
+  """
+
+  attr.(:id, :string, required: true)
+
+  attr.(:target, :string,
+    required: true,
+    doc: "A CSS selector that identifies the target. The target must be unique."
+  )
+
+  attr.(:class, :string, default: nil, doc: "The class to apply to the portal wrapper.")
+  attr.(:container, :string, default: "div", doc: "The HTML tag to use as the portal wrapper.")
+  slot.(:inner_block, required: true)
+
+  def portal(assigns) do
+    ~H"""
+    <template id={@id} data-phx-portal={@target}>
+      <%!--
+        For correct DOM patching, each portal source (template) must have a single root element,
+        which we enforce by wrapping the slot in a div. In the generated CSS for
+        new projects, we include a display: contents rule for data-phx-teleported-src,
+        which is set by the LiveView JS when an element is teleported.
+      --%>
+      <.dynamic_tag tag_name={@container} id={"_lv_portal_wrap_" <> @id} class={@class}>
+        {render_slot(@inner_block)}
+      </.dynamic_tag>
+    </template>
+    """
   end
 end

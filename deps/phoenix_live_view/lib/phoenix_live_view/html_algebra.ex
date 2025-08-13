@@ -12,13 +12,19 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
   #
   def build(tree, opts) when is_list(tree) do
     {migrate, opts} = Keyword.pop(opts, :migrate_eex_to_curly_interpolation, true)
+    {attr_formatters, opts} = Keyword.pop!(opts, :attribute_formatters)
 
     tree
-    |> block_to_algebra(%{mode: :normal, migrate: migrate, opts: opts})
+    |> block_to_algebra(%{
+      mode: :normal,
+      migrate: migrate,
+      attr_formatters: attr_formatters,
+      opts: opts
+    })
     |> group()
   end
 
-  defp block_to_algebra([], _opts), do: empty()
+  defp block_to_algebra([], _context), do: empty()
 
   defp block_to_algebra(block, %{mode: :preserve} = context) do
     concat =
@@ -229,13 +235,7 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
       end
 
     group =
-      concat([
-        "<#{name}",
-        build_attrs(attrs, "", context.opts),
-        ">",
-        doc,
-        "</#{name}>"
-      ])
+      concat([format_tag_open(name, attrs, context), doc, "</#{name}>"])
       |> group()
 
     {:block, group}
@@ -278,13 +278,11 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
 
   defp to_algebra({:tag_self_close, name, attrs}, context) do
     doc =
-      case attrs do
-        [attr] ->
-          concat(["<#{name} ", render_attribute(attr, context.opts), " />"])
-
-        attrs ->
-          concat(["<#{name}", build_attrs(attrs, " ", context.opts), "/>"])
-      end
+      concat([
+        "<#{name}",
+        build_attrs(attrs, " ", context.attr_formatters, context.opts),
+        "/>"
+      ])
 
     {:inline, group(doc)}
   end
@@ -416,16 +414,33 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
   defp text_to_algebra([], _, acc),
     do: acc |> Enum.reverse() |> tl() |> concat()
 
-  defp build_attrs([], on_break, _opts), do: on_break
+  defp build_attrs([], on_break, _formatters, _opts), do: on_break
 
-  defp build_attrs(attrs, on_break, opts) do
-    attrs
-    |> Enum.sort_by(&attrs_sorter/1)
-    |> Enum.reduce(empty(), &concat([&2, break(" "), render_attribute(&1, opts)]))
-    |> nest(2)
-    |> concat(break(on_break))
-    |> group()
+  defp build_attrs([attr], on_break, formatters, opts) do
+    concat([" ", render_attribute(attr, formatters, opts), on_break])
   end
+
+  defp build_attrs(attrs, on_break, formatters, opts) do
+    doc =
+      attrs
+      |> Enum.sort_by(&attrs_sorter/1)
+      |> Enum.reduce(
+        empty(),
+        &concat([&2, break(" "), render_attribute(&1, formatters, opts)])
+      )
+      |> nest(2)
+      |> concat(break(on_break))
+
+    if distinct_lines?(attrs, -1) do
+      doc |> force_unfit() |> group()
+    else
+      group(doc)
+    end
+  end
+
+  defp distinct_lines?([{_, _, %{line: line}} | _], line), do: false
+  defp distinct_lines?([{_, _, %{line: line}} | tail], _line), do: distinct_lines?(tail, line)
+  defp distinct_lines?([], _line), do: true
 
   @attrs_order %{
     ":let" => 1,
@@ -443,15 +458,19 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     end
   end
 
-  defp format_tag_open(name, [attr], context),
-    do: concat(["<#{name} ", render_attribute(attr, context.opts), ">"])
-
   defp format_tag_open(name, attrs, context),
-    do: concat(["<#{name}", build_attrs(attrs, "", context.opts), ">"])
+    do: concat(["<#{name}", build_attrs(attrs, "", context.attr_formatters, context.opts), ">"])
 
-  defp render_attribute({:root, {:expr, expr, _}, _}, _opts), do: ~s({#{expr}})
+  defp render_attribute({:root, {:expr, expr, _}, _}, _formatters, _opts), do: ~s({#{expr}})
 
-  defp render_attribute({attr, {:string, value, %{delimiter: ?'}}, _}, _opts) do
+  defp render_attribute({name, _, _} = attr, formatters, opts)
+       when is_map_key(formatters, name) do
+    attr
+    |> formatters[name].render_attribute(opts)
+    |> render_attribute(%{}, opts)
+  end
+
+  defp render_attribute({attr, {:string, value, %{delimiter: ?'}}, _}, _formatters, _opts) do
     if String.contains?(value, ["\"", "'"]) do
       ~s(#{attr}='#{value}')
     else
@@ -459,9 +478,10 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     end
   end
 
-  defp render_attribute({attr, {:string, value, _meta}, _}, _opts), do: ~s(#{attr}="#{value}")
+  defp render_attribute({attr, {:string, value, _meta}, _}, _formatters, _opts),
+    do: ~s(#{attr}="#{value}")
 
-  defp render_attribute({attr, {:expr, value, meta}, _}, opts) do
+  defp render_attribute({attr, {:expr, value, meta}, _}, _formatters, opts) do
     case expr_to_quoted(value, meta, opts) do
       {{:__block__, meta, [string]} = block, []} when is_binary(string) ->
         has_quotes? = String.contains?(string, "\"")
@@ -492,8 +512,10 @@ defmodule Phoenix.LiveView.HTMLAlgebra do
     end
   end
 
-  defp render_attribute({attr, {_, value, _meta}, _}, _opts), do: ~s(#{attr}=#{value})
-  defp render_attribute({attr, nil, _}, _opts), do: ~s(#{attr})
+  defp render_attribute({attr, {_, value, _meta}, _}, _formatters, _opts),
+    do: ~s(#{attr}=#{value})
+
+  defp render_attribute({attr, nil, _}, _formatters, _opts), do: ~s(#{attr})
 
   # Handle EEx clauses
   #

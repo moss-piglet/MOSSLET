@@ -1,18 +1,18 @@
 defmodule Phoenix.LiveView.MixProject do
   use Mix.Project
 
-  @version "1.0.17"
+  @version "1.1.3"
 
   def project do
     [
       app: :phoenix_live_view,
       version: @version,
-      elixir: "~> 1.14.1 or ~> 1.15",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       test_options: [docs: true],
       test_coverage: [summary: [threshold: 85], ignore_modules: coverage_ignore_modules()],
-      xref: [exclude: [Floki]],
+      xref: [exclude: [LazyHTML, LazyHTML.Tree]],
       package: package(),
       deps: deps(),
       aliases: aliases(),
@@ -22,6 +22,7 @@ defmodule Phoenix.LiveView.MixProject do
       description: """
       Rich, real-time user experiences with server-rendered HTML
       """,
+      listeners: [Phoenix.CodeReloader],
       # ignore misnamed test file warnings for e2e support files
       test_ignore_filters: [&String.starts_with?(&1, "test/e2e/support")]
     ]
@@ -44,6 +45,7 @@ defmodule Phoenix.LiveView.MixProject do
 
   defp deps do
     [
+      {:igniter, "~> 0.6 and >= 0.6.16", optional: true},
       {:phoenix, "~> 1.6.15 or ~> 1.7.0 or ~> 1.8.0-rc"},
       {:plug, "~> 1.15"},
       {:phoenix_template, "~> 1.0"},
@@ -52,11 +54,11 @@ defmodule Phoenix.LiveView.MixProject do
       {:esbuild, "~> 0.2", only: :dev},
       {:phoenix_view, "~> 2.0", optional: true},
       {:jason, "~> 1.0", optional: true},
-      {:floki, "~> 0.36", optional: true},
+      {:lazy_html, "~> 0.1.0", optional: true},
       {:ex_doc, "~> 0.29", only: :docs},
-      {:makeup_elixir, "~> 1.0.1 or ~> 1.1", only: :docs},
-      {:makeup_eex, "~> 2.0", only: :docs},
-      {:makeup_syntect, "~> 0.1.0", only: :docs},
+      {:makeup_elixir, "~> 1.0.1 or ~> 1.1", only: [:docs, :e2e]},
+      {:makeup_eex, "~> 2.0", only: [:docs, :e2e]},
+      {:makeup_syntect, "~> 0.1.0", only: [:docs, :e2e]},
       {:html_entities, ">= 0.0.0", only: :test},
       {:phoenix_live_reload, "~> 1.4", only: :test},
       {:phoenix_html_helpers, "~> 1.0", only: :test},
@@ -185,8 +187,14 @@ defmodule Phoenix.LiveView.MixProject do
 
   defp aliases do
     [
-      "assets.build": ["esbuild module", "esbuild cdn", "esbuild cdn_min", "esbuild main"],
-      "assets.watch": ["esbuild module --watch"]
+      "assets.build": [
+        "cmd npm run build",
+        "esbuild module",
+        "esbuild cdn",
+        "esbuild cdn_min",
+        "esbuild main"
+      ],
+      "assets.watch": ["cmd npm run build -- --watch", "esbuild module --watch"]
     ]
   end
 

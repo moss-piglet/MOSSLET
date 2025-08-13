@@ -4,7 +4,7 @@ defmodule Mosslet.MixProject do
   def project do
     [
       app: :mosslet,
-      version: "0.9.2",
+      version: "0.9.3",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -98,12 +98,12 @@ defmodule Mosslet.MixProject do
       {:oban_web, "~> 2.11"},
       {:oban_met, "~> 1.0"},
       {:petal_components, "~> 3.0"},
-      {:phoenix, "~> 1.7.7"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.6"},
       {:phoenix_html, "~> 4.0"},
       {:phoenix_live_dashboard, "~> 0.8.0"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_live_view, "~> 1.1"},
       {:phoenix_swoosh, "~> 1.0"},
       {:plug_attack, "~> 0.4.3"},
       {:plug_canonical_host, "~> 2.0"},

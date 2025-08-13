@@ -45,7 +45,6 @@ defmodule Phoenix.Socket.PoolSupervisor do
 
   @impl true
   def init({endpoint, name, partitions}) do
-    # TODO: Use persisent term on Elixir v1.12+
     ref = :ets.new(name, [:public, read_concurrency: true])
     :ets.insert(ref, {:partitions, partitions})
     Phoenix.Config.permanent(endpoint, {:socket, name}, ref)

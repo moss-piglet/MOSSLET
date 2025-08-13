@@ -408,6 +408,25 @@ defmodule Phoenix.LiveView.Channel do
     {:noreply, register_entry_upload(state, from, info)}
   end
 
+  # Phoenix.LiveView.Debug.socket/1
+  def handle_call({@prefix, :debug_get_socket}, _from, state) do
+    {:reply, {:ok, state.socket}, state}
+  end
+
+  # Phoenix.LiveView.Debug.live_components/1
+  def handle_call(
+        {@prefix, :debug_live_components},
+        _from,
+        %{components: {components, _, _}} = state
+      ) do
+    component_info =
+      Enum.map(components, fn {cid, {mod, id, assigns, private, _prints}} ->
+        %{id: id, cid: cid, module: mod, assigns: assigns, children_cids: private.children_cids}
+      end)
+
+    {:reply, {:ok, component_info}, state}
+  end
+
   def handle_call(msg, from, %{socket: socket} = state) do
     case socket.view.handle_call(msg, from, socket) do
       {:reply, reply, %Socket{} = new_socket} ->
@@ -984,14 +1003,16 @@ defmodule Phoenix.LiveView.Channel do
   defp render_diff(state, socket, force?) do
     changed? = Utils.changed?(socket)
 
-    {socket, diff, components} =
+    {socket, diff, fingerprints, components} =
       if force? or changed? do
         :telemetry.span(
           [:phoenix, :live_view, :render],
           %{socket: socket, force?: force?, changed?: changed?},
           fn ->
             rendered = Phoenix.LiveView.Renderer.to_rendered(socket, socket.view)
-            {socket, diff, components} = Diff.render(socket, rendered, state.components)
+
+            {diff, fingerprints, components} =
+              Diff.render(socket, rendered, state.fingerprints, state.components)
 
             socket =
               socket
@@ -999,19 +1020,20 @@ defmodule Phoenix.LiveView.Channel do
               |> Utils.clear_changed()
 
             {
-              {socket, diff, components},
+              {socket, diff, fingerprints, components},
               %{socket: socket, force?: force?, changed?: changed?}
             }
           end
         )
       else
-        {socket, %{}, state.components}
+        {socket, %{}, state.fingerprints, state.components}
       end
 
     diff = Diff.render_private(socket, diff)
     new_socket = Utils.clear_temp(socket)
 
-    {:diff, diff, %{state | socket: new_socket, components: components}}
+    {:diff, diff,
+     %{state | socket: new_socket, fingerprints: fingerprints, components: components}}
   end
 
   defp reply(state, {ref, extra}, status, payload) do
@@ -1086,6 +1108,10 @@ defmodule Phoenix.LiveView.Channel do
             with {:ok, %Session{view: view} = new_verified, route, url} <-
                    authorize_session(verified, endpoint, params),
                  {:ok, config} <- load_live_view(view) do
+              # TODO: replace with Process.put_label/2 when we require Elixir 1.17
+              Process.put(:"$process_label", {Phoenix.LiveView, view, phx_socket.topic})
+              Process.put(:"$phx_transport_pid", phx_socket.transport_pid)
+
               verified_mount(
                 new_verified,
                 config,
@@ -1372,7 +1398,8 @@ defmodule Phoenix.LiveView.Channel do
 
     case result do
       {:ok, diff, :mount, new_state} ->
-        reply = put_container(session, route, %{rendered: diff, liveview_version: lv_vsn})
+        diff = maybe_put_debug_pid(%{rendered: diff, liveview_version: lv_vsn})
+        reply = put_container(session, route, diff)
         GenServer.reply(from, {:ok, reply})
         {:noreply, post_verified_mount(new_state)}
 
@@ -1397,6 +1424,14 @@ defmodule Phoenix.LiveView.Channel do
     end
   end
 
+  defp maybe_put_debug_pid(diff) do
+    if Application.get_env(:phoenix_live_view, :debug_attributes, false) do
+      Map.put(diff, :pid, inspect(self()))
+    else
+      diff
+    end
+  end
+
   defp build_state(%Socket{} = lv_socket, %Phoenix.Socket{} = phx_socket) do
     %{
       join_ref: phx_socket.join_ref,
@@ -1404,6 +1439,7 @@ defmodule Phoenix.LiveView.Channel do
       socket: lv_socket,
       topic: phx_socket.topic,
       components: Diff.new_components(),
+      fingerprints: Diff.new_fingerprints(),
       redirect_count: 0,
       upload_names: %{},
       upload_pids: %{}
@@ -1524,12 +1560,21 @@ defmodule Phoenix.LiveView.Channel do
       {deleted_cids, new_components} = Diff.delete_component(cid, acc.components)
 
       canceled_confs =
-        deleted_cids
-        |> Enum.filter(fn deleted_cid -> deleted_cid in upload_cids end)
-        |> Enum.flat_map(fn deleted_cid ->
-          read_socket(acc, deleted_cid, fn c_socket, _ ->
-            {_new_c_socket, canceled_confs} = Upload.maybe_cancel_uploads(c_socket)
-            canceled_confs
+        Enum.flat_map(deleted_cids, fn deleted_cid ->
+          read_socket(acc, deleted_cid, fn c_socket, component ->
+            :telemetry.execute([:phoenix, :live_component, :destroyed], %{}, %{
+              socket: c_socket,
+              component: component,
+              cid: deleted_cid,
+              live_view_socket: acc.socket
+            })
+
+            if deleted_cid in upload_cids do
+              {_new_c_socket, canceled_confs} = Upload.maybe_cancel_uploads(c_socket)
+              canceled_confs
+            else
+              []
+            end
           end)
         end)
 

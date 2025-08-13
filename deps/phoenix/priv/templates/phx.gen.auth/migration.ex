@@ -7,7 +7,7 @@ defmodule <%= inspect schema.repo %>.Migrations.Create<%= Macro.camelize(schema.
     create table(:<%= schema.table %><%= if schema.binary_id do %>, primary_key: false<% end %>) do
 <%= if schema.binary_id do %>      add :id, :binary_id, primary_key: true
 <% end %>      <%= migration.column_definitions[:email] %>
-      add :hashed_password, :string, null: false
+      add :hashed_password, :string
       add :confirmed_at, <%= inspect schema.timestamp_type %>
 
       timestamps(<%= if schema.timestamp_type != :naive_datetime, do: "type: #{inspect schema.timestamp_type}" %>)
@@ -21,6 +21,7 @@ defmodule <%= inspect schema.repo %>.Migrations.Create<%= Macro.camelize(schema.
       <%= migration.column_definitions[:token] %>
       add :context, :string, null: false
       add :sent_to, :string
+      add :authenticated_at, <%= inspect schema.timestamp_type %>
 
       timestamps(<%= if schema.timestamp_type != :naive_datetime, do: "type: #{inspect schema.timestamp_type}, " %>updated_at: false)
     end

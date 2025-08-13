@@ -4,6 +4,7 @@ defmodule Phoenix.Transports.LongPoll do
 
   # 10MB
   @max_base64_size 10_000_000
+  @connect_info_opts [:check_csrf]
 
   import Plug.Conn
   alias Phoenix.Socket.{V1, V2, Transport}
@@ -136,7 +137,12 @@ defmodule Phoenix.Transports.LongPoll do
         (System.system_time(:millisecond) |> Integer.to_string())
 
     keys = Keyword.get(opts, :connect_info, [])
-    connect_info = Transport.connect_info(conn, endpoint, keys)
+
+    conn = maybe_auth_token_from_header(conn, opts[:auth_token])
+
+    connect_info =
+      Transport.connect_info(conn, endpoint, keys, Keyword.take(opts, @connect_info_opts))
+
     arg = {endpoint, handler, opts, conn.params, priv_topic, connect_info}
     spec = {Phoenix.Transports.LongPoll.Server, arg}
 
@@ -226,7 +232,7 @@ defmodule Phoenix.Transports.LongPoll do
   defp client_ref(pid) when is_pid(pid), do: self()
 
   defp subscribe(endpoint, topic) when is_binary(topic),
-    do: Phoenix.PubSub.subscribe(endpoint.config(:pubsub_server), topic, link: true)
+    do: Phoenix.PubSub.subscribe(endpoint.config(:pubsub_server), topic)
 
   defp subscribe(_endpoint, pid) when is_pid(pid),
     do: :ok
@@ -260,6 +266,18 @@ defmodule Phoenix.Transports.LongPoll do
       opts[:crypto]
     )
   end
+
+  defp maybe_auth_token_from_header(conn, true) do
+    case Plug.Conn.get_req_header(conn, "x-phoenix-authtoken") do
+      [] ->
+        conn
+
+      [token | _] ->
+        Plug.Conn.put_private(conn, :phoenix_transport_auth_token, token)
+    end
+  end
+
+  defp maybe_auth_token_from_header(conn, _), do: conn
 
   defp status_json(conn) do
     send_json(conn, %{"status" => conn.status || 200})

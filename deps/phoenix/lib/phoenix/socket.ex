@@ -332,24 +332,32 @@ defmodule Phoenix.Socket do
   ## USER API
 
   @doc """
-  Adds key-value pairs to socket assigns.
+  Adds a `key`/`value` pair to `socket` assigns.
 
-  A single key-value pair may be passed, a keyword list or map
-  of assigns may be provided to be merged into existing socket
-  assigns.
+  See also `assign/2` to add multiple key/value pairs.
 
   ## Examples
 
       iex> assign(socket, :name, "Elixir")
-      iex> assign(socket, name: "Elixir", logo: "💧")
   """
   def assign(%Socket{} = socket, key, value) do
     assign(socket, [{key, value}])
   end
 
-  def assign(%Socket{} = socket, attrs)
-      when is_map(attrs) or is_list(attrs) do
-    %{socket | assigns: Map.merge(socket.assigns, Map.new(attrs))}
+  @doc """
+  Adds key/value pairs to socket assigns.
+
+  A keyword list or a map of assigns must be given as argument to be merged into existing assigns.
+
+  ## Examples
+
+      iex> assign(socket, name: "Elixir", logo: "💧")
+      iex> assign(socket, %{name: "Elixir"})
+
+  """
+  def assign(%Socket{} = socket, keyword_or_map)
+      when is_map(keyword_or_map) or is_list(keyword_or_map) do
+    %{socket | assigns: Map.merge(socket.assigns, Map.new(keyword_or_map))}
   end
 
   @doc """
@@ -512,8 +520,14 @@ defmodule Phoenix.Socket do
   defp result(:error), do: :error
   defp result({:error, _}), do: :error
 
+  defp set_label(socket) do
+    # TODO: replace with Process.put_label/2 when we require Elixir 1.17
+    Process.put(:"$process_label", {Phoenix.Socket, socket.handler, socket.id})
+  end
+
   def __init__({state, %{id: id, endpoint: endpoint} = socket}) do
-    _ = id && endpoint.subscribe(id, link: true)
+    set_label(socket)
+    _ = id && endpoint.subscribe(id)
     {:ok, {state, %{socket | transport_pid: self()}}}
   end
 
@@ -553,6 +567,16 @@ defmodule Phoenix.Socket do
   def __info__(:garbage_collect, state) do
     :erlang.garbage_collect(self())
     {:ok, state}
+  end
+
+  def __info__({:debug_channels, ref, reply_to}, {state, socket}) do
+    channels =
+      Enum.map(state.channels, fn {topic, {pid, _monitor_ref, status}} ->
+        %{topic: topic, pid: pid, status: status}
+      end)
+
+    send(reply_to, {:debug_channels, ref, channels})
+    {:ok, {state, socket}}
   end
 
   def __info__(_, state) do
@@ -617,6 +641,8 @@ defmodule Phoenix.Socket do
             {:ok, {state, socket}}
 
           id when is_binary(id) ->
+            # update the process label
+            set_label(socket)
             {:ok, {state, %{socket | id: id}}}
 
           invalid ->

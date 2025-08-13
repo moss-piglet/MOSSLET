@@ -16,7 +16,8 @@ defmodule Mix.Phoenix.Context do
             dir: nil,
             generate?: true,
             context_app: nil,
-            opts: []
+            opts: [],
+            scope: nil
 
   def valid?(context) do
     context =~ ~r/^[A-Z]\w*(\.[A-Z]\w*)*$/
@@ -27,15 +28,15 @@ defmodule Mix.Phoenix.Context do
   end
 
   def new(context_name, %Schema{} = schema, opts) do
-    ctx_app   = opts[:context_app] || Mix.Phoenix.context_app()
-    base      = Module.concat([Mix.Phoenix.context_base(ctx_app)])
-    module    = Module.concat(base, context_name)
-    alias     = Module.concat([module |> Module.split() |> List.last()])
-    basedir   = Phoenix.Naming.underscore(context_name)
-    basename  = Path.basename(basedir)
-    dir       = Mix.Phoenix.context_lib_path(ctx_app, basedir)
-    file      = dir <> ".ex"
-    test_dir  = Mix.Phoenix.context_test_path(ctx_app, basedir)
+    ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
+    base = Module.concat([Mix.Phoenix.context_base(ctx_app)])
+    module = Module.concat(base, context_name)
+    alias = Module.concat([module |> Module.split() |> List.last()])
+    basedir = Phoenix.Naming.underscore(context_name)
+    basename = Path.basename(basedir)
+    dir = Mix.Phoenix.context_lib_path(ctx_app, basedir)
+    file = dir <> ".ex"
+    test_dir = Mix.Phoenix.context_test_path(ctx_app, basedir)
     test_file = test_dir <> "_test.exs"
     test_fixtures_dir = Mix.Phoenix.context_app_path(ctx_app, "test/support/fixtures")
     test_fixtures_file = Path.join([test_fixtures_dir, basedir <> "_fixtures.ex"])
@@ -55,7 +56,9 @@ defmodule Mix.Phoenix.Context do
       dir: dir,
       generate?: generate?,
       context_app: ctx_app,
-      opts: opts}
+      opts: opts,
+      scope: schema.scope
+    }
   end
 
   def pre_existing?(%Context{file: file}), do: File.exists?(file)

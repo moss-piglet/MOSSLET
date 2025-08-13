@@ -6,7 +6,8 @@ import {
   DEFAULT_VSN,
   SOCKET_STATES,
   TRANSPORTS,
-  WS_CLOSE_NORMAL
+  WS_CLOSE_NORMAL,
+  AUTH_TOKEN_PREFIX
 } from "./constants"
 
 import {
@@ -32,10 +33,10 @@ import Timer from "./timer"
  * Defaults to WebSocket with automatic LongPoll fallback if WebSocket is not defined.
  * To fallback to LongPoll when WebSocket attempts fail, use `longPollFallbackMs: 2500`.
  *
- * @param {Function} [opts.longPollFallbackMs] - The millisecond time to attempt the primary transport
+ * @param {number} [opts.longPollFallbackMs] - The millisecond time to attempt the primary transport
  * before falling back to the LongPoll transport. Disabled by default.
  *
- * @param {Function} [opts.debug] - When true, enables debug logging. Default false.
+ * @param {boolean} [opts.debug] - When true, enables debug logging. Default false.
  *
  * @param {Function} [opts.encode] - The function to encode outgoing messages.
  *
@@ -53,8 +54,8 @@ import Timer from "./timer"
  *
  * Defaults `DEFAULT_TIMEOUT`
  * @param {number} [opts.heartbeatIntervalMs] - The millisec interval to send a heartbeat message
- * @param {number} [opts.reconnectAfterMs] - The optional function that returns the millisec
- * socket reconnect interval.
+ * @param {Function} [opts.reconnectAfterMs] - The optional function that returns the
+ * socket reconnect interval, in milliseconds.
  *
  * Defaults to stepped backoff of:
  *
@@ -64,7 +65,7 @@ import Timer from "./timer"
  * }
  * ````
  *
- * @param {number} [opts.rejoinAfterMs] - The optional function that returns the millisec
+ * @param {Function} [opts.rejoinAfterMs] - The optional function that returns the millisec
  * rejoin interval for individual channels.
  *
  * ```javascript
@@ -86,6 +87,8 @@ import Timer from "./timer"
  * Defaults to 20s (double the server long poll timer).
  *
  * @param {(Object|function)} [opts.params] - The optional params to pass when connecting
+ * @param {string} [opts.authToken] - the optional authentication token to be exposed on the server
+ * under the `:auth_token` connect_info key.
  * @param {string} [opts.binaryType] - The binary type to use for binary WebSocket frames.
  *
  * Defaults to "arraybuffer"
@@ -177,6 +180,7 @@ export default class Socket {
     this.reconnectTimer = new Timer(() => {
       this.teardown(() => this.connect())
     }, this.reconnectAfterMs)
+    this.authToken = opts.authToken
   }
 
   /**
@@ -350,7 +354,13 @@ export default class Socket {
   transportConnect(){
     this.connectClock++
     this.closeWasClean = false
-    this.conn = new this.transport(this.endPointURL())
+    let protocols = undefined
+    // Sec-WebSocket-Protocol based token
+    // (longpoll uses Authorization header instead)
+    if(this.authToken){
+      protocols = ["phoenix", `${AUTH_TOKEN_PREFIX}${btoa(this.authToken).replace(/=/g, "")}`]
+    }
+    this.conn = new this.transport(this.endPointURL(), protocols)
     this.conn.binaryType = this.binaryType
     this.conn.timeout = this.longpollerTimeout
     this.conn.onopen = () => this.onConnOpen()

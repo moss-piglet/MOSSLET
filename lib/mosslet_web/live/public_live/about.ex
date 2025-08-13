@@ -392,6 +392,16 @@ defmodule MossletWeb.PublicLive.About do
               </p>
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+            <.article_preview
+                id="blogPostHMKYS"
+                img_source={~p"/images/blog/aug_13_2025_augp.jpg"}
+                date="August 13, 2025"
+                title="Companies Selling AI to Geolocate Your Social Media Photos"
+                author_mark?={true}
+                author_isabella?={false}
+                link={nil}
+              />
+
               <.article_preview
                 id="blogPostHMKYS"
                 img_source={~p"/images/blog/june_26_2025_mkys.jpg"}

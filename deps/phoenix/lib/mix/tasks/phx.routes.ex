@@ -97,10 +97,9 @@ defmodule Mix.Tasks.Phx.Routes do
     %{plug: plug, plug_opts: plug_opts} = meta
 
     {module, func_name} =
-      if log_mod = meta[:log_module] do
-        {log_mod, meta[:log_function]}
-      else
-        {plug, plug_opts}
+      case meta[:mfa] do
+        {mod, fun, _} -> {mod, fun}
+        _ -> {plug, plug_opts}
       end
 
     Mix.shell().info("Module: #{inspect(module)}")
@@ -170,7 +169,7 @@ defmodule Mix.Tasks.Phx.Routes do
   defp get_file_path(module_name) do
     [compile_infos] = Keyword.get_values(module_name.module_info(), :compile)
     [source] = Keyword.get_values(compile_infos, :source)
-    source
+    Path.relative_to_cwd(source)
   end
 
   defp get_line_number(_, nil), do: nil

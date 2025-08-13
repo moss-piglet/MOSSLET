@@ -39,7 +39,7 @@ defmodule Phoenix.Router.Scope do
     assigns = Keyword.get(opts, :assigns, %{})
     as = Keyword.get_lazy(opts, :as, fn -> Phoenix.Naming.resource_name(plug, "Controller") end)
     alias? = Keyword.get(opts, :alias, true)
-    trailing_slash? = Keyword.get(opts, :trailing_slash, top.trailing_slash?) == true
+    trailing_slash? = deprecated_trailing_slash(opts, top)
     warn_on_verify? = Keyword.get(opts, :warn_on_verify, false)
 
     if to_string(as) == "static" do
@@ -54,9 +54,12 @@ defmodule Phoenix.Router.Scope do
       |> Keyword.get(:metadata, %{})
       |> Map.put(:log, Keyword.get(opts, :log, top.log))
 
-    if kind == :forward do
-      register_forwards(module, path, plug)
-    end
+    metadata =
+      if kind == :forward do
+        Map.put(metadata, :forward, validate_forward!(path, plug))
+      else
+        metadata
+      end
 
     Phoenix.Router.Route.build(
       line,
@@ -76,31 +79,18 @@ defmodule Phoenix.Router.Scope do
     )
   end
 
-  defp register_forwards(module, path, plug) when is_atom(plug) do
-    plug = expand_alias(module, plug)
-    phoenix_forwards = Module.get_attribute(module, :phoenix_forwards)
+  defp validate_forward!(path, plug) when is_atom(plug) do
+    case Plug.Router.Utils.build_path_match(path) do
+      {[], path_segments} ->
+        path_segments
 
-    path_segments =
-      case Plug.Router.Utils.build_path_match(path) do
-        {[], path_segments} ->
-          if phoenix_forwards[plug] do
-            raise ArgumentError,
-                  "#{inspect(plug)} has already been forwarded to. A module can only be forwarded a single time"
-          end
-
-          path_segments
-
-        _ ->
-          raise ArgumentError,
-                "dynamic segment \"#{path}\" not allowed when forwarding. Use a static path instead"
-      end
-
-    phoenix_forwards = Map.put(phoenix_forwards, plug, path_segments)
-    Module.put_attribute(module, :phoenix_forwards, phoenix_forwards)
-    plug
+      _ ->
+        raise ArgumentError,
+              "dynamic segment \"#{path}\" not allowed when forwarding. Use a static path instead"
+    end
   end
 
-  defp register_forwards(_, _, plug) do
+  defp validate_forward!(_, plug) do
     raise ArgumentError, "forward expects a module as the second argument, #{inspect(plug)} given"
   end
 
@@ -181,8 +171,24 @@ defmodule Phoenix.Router.Scope do
       private: Map.merge(top.private, private),
       assigns: Map.merge(top.assigns, assigns),
       log: Keyword.get(opts, :log, top.log),
-      trailing_slash?: Keyword.get(opts, :trailing_slash, top.trailing_slash?) == true
+      trailing_slash?: deprecated_trailing_slash(opts, top)
     })
+  end
+
+  defp deprecated_trailing_slash(opts, top) do
+    case Keyword.fetch(opts, :trailing_slash) do
+      {:ok, value} ->
+        IO.warn(
+          "the :trailing_slash option in the router is deprecated. " <>
+            "If you are using Phoenix.VerifiedRoutes, it has no effect. " <>
+            "If you are using the generated helpers, migrate to Phoenix.VerifiedRoutes"
+        )
+
+        value == true
+
+      :error ->
+        top.trailing_slash?
+    end
   end
 
   defp validate_hosts!(nil), do: []
