@@ -24,7 +24,7 @@ defmodule MossletWeb.PublicLive.Blog.Index do
               <.blog_newsletter_signup />
               --%>
               <div class="mt-12 mb-46 grid grid-cols-1 lg:grid-cols-[24rem_2.5rem_minmax(0,1fr)]">
-              <.blog_entry
+                <.blog_entry
                   id="blog_05"
                   date="August 13, 2025"
                   title="Companies Selling AI to Geolocate Your Social Media Photos"
