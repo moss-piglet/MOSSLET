@@ -15,8 +15,8 @@ defmodule MossletWeb.DevRoutes do
           scope "/dev", MossletWeb do
             pipe_through :browser
 
-            live "/", DevDashboardLive
-            live "/resources", DevResourcesLive
+            # live "/", DevDashboardLive
+            # live "/resources", DevResourcesLive
 
             # Show a list of all your apps emails - use this when designing your transactional emails
             scope "/emails" do

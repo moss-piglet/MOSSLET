@@ -7,7 +7,6 @@ defmodule MossletWeb.Menus do
   use Gettext, backend: MossletWeb.Gettext
 
   alias Mosslet.Billing.Customers
-  alias MossletWeb.Helpers
 
   # Public menu (marketing related pages)
   def public_menu_items(_user \\ nil),
@@ -332,72 +331,6 @@ defmodule MossletWeb.Menus do
     end
   end
 
-  def get_link(:admin_users = name, current_user) do
-    if Helpers.admin?(current_user) do
-      %{
-        name: name,
-        label: gettext("Users"),
-        path: ~p"/admin/users",
-        icon: "hero-users"
-      }
-    end
-  end
-
-  def get_link(:admin_orgs = name, current_user) do
-    if Helpers.admin?(current_user) do
-      %{
-        name: name,
-        label: gettext("Orgs"),
-        path: ~p"/admin/orgs",
-        icon: "hero-building-office-2"
-      }
-    end
-  end
-
-  def get_link(:admin_logs = name, current_user) do
-    if Helpers.admin?(current_user) do
-      %{
-        name: name,
-        label: gettext("Logs"),
-        path: ~p"/admin/logs",
-        icon: "hero-eye"
-      }
-    end
-  end
-
-  def get_link(:admin_jobs = name, current_user) do
-    if Helpers.admin?(current_user) do
-      %{
-        name: name,
-        label: gettext("Jobs"),
-        path: ~p"/admin/jobs",
-        icon: "hero-server"
-      }
-    end
-  end
-
-  def get_link(:admin_subscriptions = name, current_user) do
-    if Helpers.admin?(current_user) do
-      %{
-        name: name,
-        label: gettext("Subscriptions"),
-        path: ~p"/admin/subscriptions",
-        icon: "hero-wallet"
-      }
-    end
-  end
-
-  def get_link(:dev = name, _current_user) do
-    if Mosslet.config(:env) == :dev do
-      %{
-        name: name,
-        label: gettext("Dev"),
-        path: "/dev",
-        icon: "hero-code-bracket"
-      }
-    end
-  end
-
   def get_link(:dev_email_templates = name, _current_user) do
     if Mosslet.config(:env) == :dev do
       %{
@@ -416,17 +349,6 @@ defmodule MossletWeb.Menus do
         label: gettext("Sent emails"),
         path: "/dev/emails/sent",
         icon: "hero-at-symbol"
-      }
-    end
-  end
-
-  def get_link(:dev_resources = name, _current_user) do
-    if Mosslet.config(:env) == :dev do
-      %{
-        name: name,
-        label: gettext("Resources"),
-        path: ~p"/dev/resources",
-        icon: "hero-clipboard-document-list"
       }
     end
   end

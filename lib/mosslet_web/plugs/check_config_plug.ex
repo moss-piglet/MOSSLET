@@ -1,6 +1,6 @@
 defmodule MossletWeb.CheckConfigPlug do
   @moduledoc false
-  use Phoenix.Controller
+  use Phoenix.Controller, formats: [:html, :json]
 
   import Plug.Conn
 

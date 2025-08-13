@@ -19,12 +19,6 @@ defmodule MossletWeb.AdminRoutes do
             {MossletWeb.UserOnMountHooks, :require_admin_user}
           ] do
           live "/dash", AdminDashLive, :index
-          live "/users", AdminUsersLive, :index
-          live "/users/:user_id", AdminUsersLive, :edit
-          live "/orgs", AdminOrgsLive, :index
-          live "/logs", LogsLive, :index
-          live "/jobs", AdminJobsLive
-          live "/subscriptions", AdminSubscriptionsLive
         end
       end
     end

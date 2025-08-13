@@ -51,7 +51,10 @@ config :mosslet, MossletWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Mosslet.PubSub,
-  live_view: [signing_salt: "QZW2G8XF", encryption_salt: "NbUPFFBa"]
+  live_view: [
+    signing_salt: System.get_env("LIVE_VIEW_SIGNING_SALT"),
+    encryption_salt: System.get_env("LIVE_VIEW_ENCRYPTION_SALT")
+  ]
 
 # Configures the mailer
 #

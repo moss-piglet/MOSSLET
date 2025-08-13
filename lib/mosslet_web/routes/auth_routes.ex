@@ -22,11 +22,6 @@ defmodule MossletWeb.AuthRoutes do
           on_mount: [{MossletWeb.UserOnMountHooks, :redirect_if_user_is_authenticated}] do
           live "/register", UserRegistrationLive, :new
           live "/sign_in", UserLoginLive, :new
-          live "/sign-in/passwordless", PasswordlessAuthLive, :sign_in
-
-          live "/sign-in/passwordless/enter-pin/:hashed_user_id",
-               PasswordlessAuthLive,
-               :sign_in_code
 
           live "/reset-password", UserForgotPasswordLive, :new
         end

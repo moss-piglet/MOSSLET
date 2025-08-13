@@ -2543,7 +2543,7 @@ defmodule Mosslet.Accounts do
     :bust_in_silhouette: *A new user joined!*
     *Name*: #{MossletWeb.Helpers.user_name(user, key)}
 
-    #{MossletWeb.Router.Helpers.admin_users_url(MossletWeb.Endpoint, :edit, user)}
+    #{MossletWeb.Router.Helpers.admin_dash_url(MossletWeb.Endpoint, :index)}
     """)
   end
 

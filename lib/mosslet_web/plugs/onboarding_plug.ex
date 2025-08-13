@@ -6,7 +6,7 @@ defmodule MossletWeb.OnboardingPlug do
     1. Search router.ex for "OnboardingPlug" and delete them
     2. Now users won't have to onboard. However, if a user registers via passwordless auth, they won't have a name.
   """
-  use Phoenix.Controller
+  use Phoenix.Controller, formats: [:html]
   use MossletWeb, :verified_routes
 
   import Plug.Conn
