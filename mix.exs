@@ -10,6 +10,8 @@ defmodule Mosslet.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      compilers: [:phoenix_live_view] ++ Mix.compilers(),
+      listeners: [Phoenix.CodeReloader],
       dialyzer: [
         plt_core_path: "priv/plts/core.plt",
         plt_file: {:no_warn, "priv/plts/project.plt"},
@@ -56,7 +58,7 @@ defmodule Mosslet.MixProject do
       {:email_checker, "~> 0.2.4"},
       {:enacl, github: "aeternity/enacl"},
       {:eqrcode, "~> 0.1.10"},
-      {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:ex_aws, "~> 2.4"},
       {:ex_aws_s3, "~> 2.4"},
       {:ex_cldr, "~> 2.37"},
