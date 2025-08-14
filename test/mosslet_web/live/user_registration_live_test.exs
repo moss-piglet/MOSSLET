@@ -45,7 +45,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       _result =
         lv
-        |> element(~s|main button:fl-contains("Continue")|)
+        |> element("button", "Continue")
         |> render_click()
 
       result =
@@ -68,7 +68,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       _result =
         lv
-        |> element(~s|main button:fl-contains("Continue")|)
+        |> element("button", "Continue")
         |> render_click()
 
       _result =
@@ -78,7 +78,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       _result =
         lv
-        |> element(~s|main button:fl-contains("Continue")|)
+        |> element("button", "Continue")
         |> render_click()
 
       result =
@@ -103,7 +103,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       _result =
         lv
-        |> element(~s|main button:fl-contains("Continue")|)
+        |> element("button", "Continue")
         |> render_click()
 
       _result =
@@ -113,7 +113,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       _result =
         lv
-        |> element(~s|main button:fl-contains("Continue")|)
+        |> element("button", "Continue")
         |> render_click()
 
       _result =
@@ -128,7 +128,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       _result =
         lv
-        |> element(~s|main button:fl-contains("Continue")|)
+        |> element("button", "Continue")
         |> render_click()
 
       result =
@@ -213,7 +213,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
 
       {:ok, _login_live, login_html} =
         lv
-        |> element(~s|main a:fl-contains("Sign in")|)
+        |> element("a", "Sign in")
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/sign_in")
 

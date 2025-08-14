@@ -21,6 +21,7 @@ config :mosslet, Mosslet.Repo.Local,
 config :mosslet, MossletWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "DPRAIDzuG28QXK2U5i9dSOqY3jXHXn+K1OluX+1QvplETYNIw5b9pAd1og9CAo4N",
+  live_view: [signing_salt: "GFtryJYFK3ow0glC"],
   server: true
 
 # Configure driver for wallaby

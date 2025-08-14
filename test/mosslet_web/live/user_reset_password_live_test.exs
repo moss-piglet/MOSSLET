@@ -120,12 +120,6 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
          } do
       {:ok, _lv, html} = live(conn, ~p"/auth/reset-password/#{token}")
 
-      # {:ok, _lv, html} =
-      #  lv
-      #  |> element(~s|main a:fl-contains("Sign in")|)
-      #  |> render_click()
-      #  |> follow_redirect(conn, ~p"/auth/sign_in")
-
       assert html =~ "cannot reset your password using this method"
     end
 
@@ -137,7 +131,7 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
 
       {:ok, _lv, html} =
         lv
-        |> element(~s|main a:fl-contains("Register")|)
+        |> element("a", "Register")
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/register")
 

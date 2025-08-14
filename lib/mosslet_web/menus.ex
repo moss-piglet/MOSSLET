@@ -56,9 +56,9 @@ defmodule MossletWeb.Menus do
   # Signed in user menu
   def user_menu_items(current_user) do
     if current_user.connection.profile do
-      build_menu([:home, :settings, :admin, :dev, :sign_out], current_user)
+      build_menu([:home, :settings, :sign_out], current_user)
     else
-      build_menu([:dashboard, :settings, :admin, :dev, :sign_out], current_user)
+      build_menu([:dashboard, :settings, :sign_out], current_user)
     end
   end
 
@@ -318,16 +318,6 @@ defmodule MossletWeb.Menus do
         path: ~p"/app/billing",
         icon: "hero-credit-card"
       }
-    end
-  end
-
-  def get_link(:admin, current_user) do
-    link = get_link(:admin_users, current_user)
-
-    if link do
-      link
-      |> Map.put(:label, gettext("Admin"))
-      |> Map.put(:icon, :lock_closed)
     end
   end
 

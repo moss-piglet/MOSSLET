@@ -83,7 +83,7 @@ defmodule MossletWeb.UserLoginLiveTest do
 
       {:ok, _login_live, html} =
         lv
-        |> element(~s|main a:fl-contains("Register")|)
+        |> element("a", "Register")
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/register")
 
@@ -97,7 +97,7 @@ defmodule MossletWeb.UserLoginLiveTest do
 
       {:ok, _lv, html} =
         lv
-        |> element(~s|main a:fl-contains("Forgot your password?")|)
+        |> element("a", "Forgot your password?")
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/reset-password")
 
