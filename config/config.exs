@@ -51,10 +51,7 @@ config :mosslet, MossletWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Mosslet.PubSub,
-  live_view: [
-    signing_salt: System.get_env("LIVE_VIEW_SIGNING_SALT"),
-    encryption_salt: System.get_env("LIVE_VIEW_ENCRYPTION_SALT")
-  ]
+  live_view: [signing_salt: "U4JLNoF5"]
 
 # Configures the mailer
 #
@@ -67,7 +64,7 @@ config :mosslet, Mosslet.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.17.11",
+  version: "0.25.4",
   default: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/* --external:@emoji-mart/react --external:emoji-mart --alias:@=.),

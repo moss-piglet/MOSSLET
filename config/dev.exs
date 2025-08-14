@@ -33,7 +33,7 @@ config :mosslet, MossletWeb.Endpoint,
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/mosslet_web/(controllers|live|components)/.*(ex|heex)$"
+      ~r"lib/Mosslet_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ],
   secret_key_base: System.get_env("SECRET_KEY_BASE"),
@@ -64,16 +64,6 @@ config :mosslet, MossletWeb.Endpoint,
 # If desired, both `http:` and `https:` keys can be
 # configured to run both http and https servers on
 # different ports.
-
-# Watch static and templates for browser reloading.
-config :mosslet, MossletWeb.Endpoint,
-  live_reload: [
-    patterns: [
-      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"priv/gettext/.*(po)$",
-      ~r"lib/Mosslet_web/(controllers|live|components)/.*(ex|heex)$"
-    ]
-  ]
 
 # Configures the upload adapter for Trix uploads in dev
 config :mosslet, :uploader, adapter: Mosslet.FileUploads.Tigris

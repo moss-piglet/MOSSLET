@@ -63,11 +63,12 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
+  host = System.get_env("PHX_HOST") || "mosslet.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
   # Configure the canonical host for redirects.
-  config :mosslet, canonical_host: host
+  config :mosslet,
+    canonical_host: host
 
   config :mosslet, MossletWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
