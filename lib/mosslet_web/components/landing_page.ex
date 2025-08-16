@@ -927,7 +927,7 @@ defmodule MossletWeb.Components.LandingPage do
             <div class="relative ">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
-                  <.phx_icon name="hero-arrow-path-rounded-square" class="size-6 text-white" />
+                  <.phx_icon name="hero-chart-pie" class="size-6 text-white" />
                 </div>
                 Goodbye identity graphs
               </dt>
