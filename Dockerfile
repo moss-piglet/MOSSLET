@@ -90,6 +90,8 @@ RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
+ENV ECTO_IPV6 true
+ENV ERL_AFLAGS "-proto_dist inet6_tcp"
 
 WORKDIR "/app"
 RUN chown nobody /app
@@ -99,6 +101,7 @@ ENV BUMBLEBEE_CACHE_DIR="/app/.bumblebee"
 # set runner ENV
 ENV MIX_ENV="prod"
 ENV BUMBLEBEE_OFFLINE=true
+
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/mosslet ./

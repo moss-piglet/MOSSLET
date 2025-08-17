@@ -13,10 +13,9 @@ primary_region = 'bos'
 
 [env]
   BUMBLEBEE_CACHE_DIR = '${BUMBLEBEE_CACHE_DIR}'
-  DNS_CLUSTER_QUERY = '${FLY_APP_NAME}.internal'
+  DNS_CLUSTER_QUERY = 'mosslet.internal'
   PHX_HOST = '${PHX_HOST}'
   PORT = '${PORT}'
-  RELEASE_NODE = '${FLY_APP_NAME}-${FLY_IMAGE_REF}@sha256:*@${FLY_PRIVATE_IP}'
   PRIMARY_REGION ='${PRIMARY_REGION}'
   RELEASE_COOKIE = '${RELEASE_COOKIE}'
   
