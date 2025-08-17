@@ -337,7 +337,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, push_patch(socket, to: ~p"/app/timeline?#{params}")}
   end
 
-  def handle_event("validate_post", %{"post_params" => post_params} = _params, socket) do
+  def handle_event("validate_post", %{"post" => post_params} = _params, socket) do
     post_shared_users = socket.assigns.post_shared_users
     current_user = socket.assigns.current_user
 
@@ -629,7 +629,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("save_post", %{"post_params" => post_params}, socket) do
+  def handle_event("save_post", %{"post" => post_params}, socket) do
     if connected?(socket) do
       post_shared_users = socket.assigns.post_shared_users
 

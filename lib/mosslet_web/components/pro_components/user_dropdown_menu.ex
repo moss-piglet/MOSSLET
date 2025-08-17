@@ -22,6 +22,7 @@ defmodule MossletWeb.UserDropdownMenu do
     <.dropdown
       menu_items_wrapper_class="bg-background-50 dark:bg-gray-800 shadow-md dark:shadow-emerald-500/50"
       class="relative"
+      js_lib="live_view_js"
     >
       <:trigger_element>
         <div class="inline-flex items-center justify-center w-full align-middle focus:outline-none cursor-pointer">

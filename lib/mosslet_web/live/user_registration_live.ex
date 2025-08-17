@@ -350,7 +350,7 @@ defmodule MossletWeb.UserRegistrationLive do
 
   def handle_event("validate", %{"user" => user_params}, socket) do
     changeset = Accounts.change_user_registration(%User{}, user_params)
-    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("save", %{"user" => %{"email" => email} = user_params}, socket) do

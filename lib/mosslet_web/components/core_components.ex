@@ -459,7 +459,7 @@ defmodule MossletWeb.CoreComponents do
   def dropdown(assigns) do
     ~H"""
     <%!-- User account dropdown --%>
-    <div class={if !@connection?, do: "px-3 mt-6 relative inline-block text-left"}>
+    <div class={if !@connection?, do: "relative inline-block text-left mt-6"}>
       <div>
         <button
           id={@id}
@@ -513,18 +513,18 @@ defmodule MossletWeb.CoreComponents do
       <div
         id={"#{@id}-dropdown"}
         phx-click-away={hide_dropdown("##{@id}-dropdown")}
-        class="hidden z-10 mx-3 origin-top absolute right-0 left-0 mt-1 rounded-md shadow-lg dark:shadow-emerald-500/50 bg-background-50 dark:bg-gray-950 ring-1 ring-background-100 dark:ring-gray-950 ring-opacity-5 divide-y divide-background-200 dark:divide-gray-900"
+        class="hidden z-40 origin-top absolute right-0 left-0 mt-1 size-fit whitespace-nowrap rounded-md shadow-lg dark:shadow-emerald-500/50 bg-background-50 dark:bg-gray-950 ring-1 ring-background-100 dark:ring-gray-950 ring-opacity-5 divide-y divide-background-200 dark:divide-gray-900"
         role="menu"
         aria-labelledby={@id}
       >
-        <div class="py-1" role="none">
+        <div class="flex flex-col" role="none">
           <%= for link <- @link do %>
             <.link
               :if={link}
               id={link.link_id}
               tabindex="-1"
               role="menuitem"
-              class="block px-4 py-2 text-sm text-background-700 dark:text-gray-200 hover:bg-background-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background-100 focus:ring-background-500"
+              class="py-2 px-3 text-sm text-background-700 dark:text-gray-200 hover:bg-background-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background-100 focus:ring-background-500"
               phx-click={link.phx_click}
               phx-value-post-id={link.phx_value_post_id}
               phx-value-user-id={link.phx_value_user_id}

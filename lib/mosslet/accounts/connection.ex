@@ -185,8 +185,10 @@ defmodule Mosslet.Accounts.Connection do
   # from the user changeset.
   defp add_username_hash(changeset) do
     if Map.has_key?(changeset.changes, :username_hash) do
+      slug = Slug.slugify(get_field(changeset, :username_hash), ignore: ["_"])
+
       changeset
-      |> put_change(:username_hash, String.downcase(get_field(changeset, :username_hash)))
+      |> put_change(:username_hash, String.downcase(slug))
     else
       changeset
     end

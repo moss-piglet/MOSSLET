@@ -16,17 +16,13 @@ defmodule MossletWeb.UserOnboardingLive do
 
   def render(assigns) do
     ~H"""
-    <div class="fixed inset-0 z-10 overflow-y-auto">
+    <div class="fixed inset-0 z-10 overflow-y-auto bg-background-100 dark:bg-gray-900">
       <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div class="absolute inset-0 bg-background-50 opacity-75 dark:bg-gray-800" />
-        </div>
-
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
           &#8203;
         </span>
         <div
-          class="inline-block px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-emerald-500/50 sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6"
+          class="inline-block px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-background-50 dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-emerald-500/50 sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-headline"
@@ -43,7 +39,7 @@ defmodule MossletWeb.UserOnboardingLive do
                 {gettext("Welcome to Mosslet")}
               </h3>
 
-              <div class="bg-white dark:bg-gray-800">
+              <div class="bg-background-50 dark:bg-gray-800">
                 <div class="mx-auto max-w-7xl px-6 lg:px-8">
                   <div class="mx-auto max-w-5xl lg:max-w-none">
                     <div class="text-center">

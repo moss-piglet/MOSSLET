@@ -296,6 +296,22 @@ defmodule MossletWeb.TimelineLive.Components do
         >
           repost
         </span>
+        <div class="flex sm:inline-flex my-3">
+          <div
+            :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) > 1}
+            class=""
+          >
+            <.display_post_shared_users post={@post} user_connections={@post_shared_users} />
+          </div>
+        </div>
+        <div class="flex sm:inline-flex my-3">
+          <div
+            :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) === 1}
+            class=""
+          >
+            <.display_stale_post_shared_users post={@post} user_connections={@post_shared_users} />
+          </div>
+        </div>
       </div>
       <div :if={@post.user_id != @current_user.id} class="shrink-0">
         <% user_connection =
@@ -407,22 +423,6 @@ defmodule MossletWeb.TimelineLive.Components do
               <.local_time_ago id={"#{@post.id}-updated"} at={@post.image_urls_updated_at} />
             </time>
           </span>
-          <div class="flex sm:inline-flex my-3">
-            <div
-              :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) > 1}
-              class="absolute bottom-2 right-0"
-            >
-              <.display_post_shared_users post={@post} user_connections={@post_shared_users} />
-            </div>
-          </div>
-          <div class="flex sm:inline-flex my-3">
-            <div
-              :if={@post.user_id === @current_user.id && Enum.count(@post.user_posts) === 1}
-              class="absolute bottom-2 right-0"
-            >
-              <.display_stale_post_shared_users post={@post} user_connections={@post_shared_users} />
-            </div>
-          </div>
         </div>
 
         <%!-- first reply --%>
@@ -477,10 +477,15 @@ defmodule MossletWeb.TimelineLive.Components do
   # that is dynamically built with the live view
   def display_post_shared_users(assigns) do
     ~H"""
-    <div class="inline-flex justify-end z-40">
-      <.dropdown id={"shared-with-dropdown-#{@post.id}"}>
+    <div
+      class="z-40"
+      id={"container-#{@post.id}-shared-with-dropdown"}
+      phx-hook="TippyHook"
+      data-tippy-content="View who you shared this post with."
+    >
+      <.dropdown id={"shared-with-dropdown-#{@post.id}"} svg_arrows={false}>
         <:title>
-          Shared with
+          <.phx_icon name="hero-users" />
         </:title>
         <%!-- don't use for now
         <:link
@@ -666,7 +671,6 @@ defmodule MossletWeb.TimelineLive.Components do
           --%>
           <div id="user-timeline-new-post-container" class="min-w-0 flex-1">
             <.form
-              :let={post_form}
               for={@post_form}
               as={:post_params}
               id="timeline-post-form"
@@ -675,18 +679,18 @@ defmodule MossletWeb.TimelineLive.Components do
             >
               <div>
                 <.phx_input
-                  field={post_form[:user_id]}
+                  field={@post_form[:user_id]}
                   type="hidden"
-                  name={post_form[:user_id].name}
+                  name={@post_form[:user_id].name}
                   value={@current_user.id}
                 />
                 <.phx_input
-                  field={post_form[:username]}
+                  field={@post_form[:username]}
                   type="hidden"
-                  name={post_form[:username].name}
+                  name={@post_form[:username].name}
                   value={decr(@current_user.username, @current_user, @key)}
                 />
-                <.phx_input field={post_form[:visibility]} type="hidden" value="connections" />
+                <.phx_input field={@post_form[:visibility]} type="hidden" value="connections" />
 
                 <div id="ignore-trix-editor" phx-update="ignore">
                   <trix-editor
@@ -700,17 +704,17 @@ defmodule MossletWeb.TimelineLive.Components do
                 </div>
 
                 <.phx_input
-                  field={post_form[:image_urls]}
-                  name={post_form[:image_urls].name}
-                  value={post_form[:image_urls].value}
+                  field={@post_form[:image_urls]}
+                  name={@post_form[:image_urls].name}
+                  value={@post_form[:image_urls].value}
                   type="hidden"
                 />
 
                 <.phx_input
                   id="trix-editor"
-                  field={post_form[:body]}
-                  name={post_form[:body].name}
-                  value={post_form[:body].value}
+                  field={@post_form[:body]}
+                  name={@post_form[:body].name}
+                  value={@post_form[:body].value}
                   phx-debounce={750}
                   phx-hook="TrixEditor"
                   type="hidden"
@@ -727,7 +731,7 @@ defmodule MossletWeb.TimelineLive.Components do
                 </div>
 
                 <button
-                  :if={post_form.source.valid? && !@uploads_in_progress}
+                  :if={@post_form.source.valid? && !@uploads_in_progress}
                   type="submit"
                   class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                 >
@@ -735,7 +739,7 @@ defmodule MossletWeb.TimelineLive.Components do
                   Share Post
                 </button>
                 <button
-                  :if={!post_form.source.valid? && !@uploads_in_progress}
+                  :if={!@post_form.source.valid? && !@uploads_in_progress}
                   type="submit"
                   class="inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm opacity-20"
                   disabled

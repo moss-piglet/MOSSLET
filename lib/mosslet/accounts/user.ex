@@ -235,7 +235,9 @@ defmodule Mosslet.Accounts.User do
     end
   end
 
-  defp encrypt_username_change(changeset, opts, username) do
+  defp encrypt_username_change(changeset, opts) do
+    username = get_field(changeset, :username)
+
     changeset
     |> encrypt_connection_map_username_change(opts, username)
     |> put_change(:username, encrypt_user_data(username, opts[:user], opts[:key]))
@@ -358,8 +360,6 @@ defmodule Mosslet.Accounts.User do
   # create the username.
   defp validate_username(changeset, opts) do
     if opts[:key] && !is_nil(get_field(changeset, :username)) do
-      username = get_change(changeset, :username)
-
       changeset
       |> validate_required([:username])
       |> validate_length(:username, min: 2, max: 160)
@@ -368,7 +368,7 @@ defmodule Mosslet.Accounts.User do
       |> validate_allowed_username()
       |> add_username_hash()
       |> maybe_validate_unique_username_hash(opts)
-      |> encrypt_username_change(opts, username)
+      |> encrypt_username_change(opts)
     else
       changeset
       |> validate_required([:username])
@@ -494,8 +494,10 @@ defmodule Mosslet.Accounts.User do
     if is_nil(username) do
       changeset
     else
+      slug = Slug.slugify(username, ignore: ["_"])
+
       changeset
-      |> put_change(:username, Slug.slugify(username, ignore: ["_"]))
+      |> put_change(:username, slug)
     end
   end
 

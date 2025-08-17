@@ -76,7 +76,7 @@ defmodule Mosslet.Accounts do
   confirmed UserConnection.
   """
   def get_shared_user_by_username(user_id, username)
-      when is_binary(username) and is_binary(user_id) do
+      when is_binary(username) do
     new_user =
       from(u in User,
         where: u.id != ^user_id
@@ -923,7 +923,9 @@ defmodule Mosslet.Accounts do
   def update_user_username(user, attrs \\ %{}, opts \\ []) do
     changeset = User.username_changeset(user, attrs, opts)
     conn = get_connection!(user.connection.id)
-    c_attrs = changeset.changes.connection_map
+
+    c_attrs =
+      changeset.changes.connection_map
 
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_user, fn _ ->
