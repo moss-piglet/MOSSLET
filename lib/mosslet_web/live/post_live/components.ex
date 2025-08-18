@@ -945,6 +945,10 @@ defmodule MossletWeb.PostLive.Components do
             </div>
             <%!-- actions --%>
             <div class="inline-flex mt-6 space-x-2 align-middle">
+              <.post_show_photos_icon
+                post={@post}
+                current_user={@current_user}
+              />
               <%!-- favorite --%>
               <div
                 :if={@current_user && can_fav?(@current_user, @post)}
@@ -1319,9 +1323,15 @@ defmodule MossletWeb.PostLive.Components do
                         </.link>
                       </span>
                     </div>
-                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                      Replied <.local_time_ago at={@reply.inserted_at} id={@reply.id} />
-                    </p>
+                    <div class="flex space-x-2">
+                      <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        Replied <.local_time_ago at={@reply.inserted_at} id={@reply.id} />
+                      </p>
+                      <.post_reply_show_photos_icon
+                        current_user={@current_user}
+                        reply={@reply}
+                      />
+                    </div>
 
                     <span
                       :if={@reply.image_urls_updated_at}
@@ -1359,6 +1369,44 @@ defmodule MossletWeb.PostLive.Components do
         </div>
       </div>
     </div>
+    """
+  end
+
+  def post_show_photos_icon(assigns) do
+    ~H"""
+    <button
+      id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click={
+        JS.dispatch("mosslet:show-post-photos-#{@post.id}",
+          to: "#post-card-#{@post.id}",
+          detail: %{post_id: @post.id, user_id: @current_user.id}
+        )
+      }
+      data-tippy-content="Show photos"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-photo" class="h-4 w-4" />
+    </button>
+    """
+  end
+
+  def post_reply_show_photos_icon(assigns) do
+    ~H"""
+    <button
+      id={"reply-#{@reply.id}-show-photos-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click={
+        JS.dispatch("mosslet:show-reply-photos-#{@reply.id}",
+          to: "#reply-#{@reply.id}",
+          detail: %{reply_id: @reply.id, user_id: @current_user.id}
+        )
+      }
+      data-tippy-content="Show photos"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-photo" class="h-4 w-4" />
+    </button>
     """
   end
 

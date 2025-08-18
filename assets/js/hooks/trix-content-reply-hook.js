@@ -1,12 +1,37 @@
 const TrixContentReplyHook = {
   mounted() {
     this.init_links();
-    this.init_images();
+    this.image_placeholder();
+
+    var replyId = null;
+    var userId = null;
+    var checkLinks = this.el.querySelectorAll("img");
+    if (checkLinks && checkLinks.length) {
+      // Get the reply's id (leave this independent of our replyBody variable)
+      replyId = this.el.getAttribute("id").split("reply-body-")[1];
+
+      window.addEventListener(
+        `mosslet:show-reply-photos-${replyId}`,
+        (event) => {
+          if (event && event.detail.reply_id === replyId) {
+            userId = event.detail.user_id;
+            this.init_images(checkLinks, replyId, userId);
+          }
+        }
+      );
+    }
   },
 
   updated() {
     this.init_links();
-    this.init_images();
+    this.image_placeholder();
+
+    var replyId = null;
+    var checkLinks = this.el.querySelectorAll("img");
+    if (checkLinks && checkLinks.length) {
+      // Get the reply's id (leave this independent of our replyBody variable)
+      replyId = this.el.getAttribute("id").split("reply-body-")[1];
+    }
   },
 
   init_links() {
@@ -18,14 +43,11 @@ const TrixContentReplyHook = {
     });
   },
 
-  init_images() {
-    var checkLinks = this.el.querySelectorAll("img");
-
+  init_images(checkLinks, replyId, userId) {
     // Check to first see if there are any images present in the reply
     if (checkLinks && checkLinks.length) {
       this.originalLinks = [];
       this.newLinks = [];
-      this.spinners = [];
       this.newPresignedUrls = [];
       this.oldPresignedUrls = [];
 
@@ -38,16 +60,13 @@ const TrixContentReplyHook = {
       var updatePromises = [];
       var dbPromises = [];
       var replaceLinkPromises = [];
-      var replyId = null;
+      var photoButton = null;
       var timestampElement = null;
       var replyUpdatedAt = null;
       var imageCounter = 0;
 
       // Set an initial count of all images
       imageCounter = checkLinks.length;
-
-      // Get the reply's id (leave this independent of our replyBody variable)
-      replyId = this.el.getAttribute("id").split("reply-body-")[1];
 
       // First update promise is to check if the urls are expired
       let updatePromise = new Promise((resolve, reject) => {
@@ -222,7 +241,13 @@ const TrixContentReplyHook = {
                   });
 
                 Promise.all(dbPromises)
-                  .then(() => {})
+                  .then(() => {
+                    // hide show photos button
+                    photoButton = document.querySelector(
+                      `#reply-${replyId}-show-photos-${userId}`
+                    );
+                    photoButton.style.display = "none";
+                  })
                   .catch((error) => {
                     this.pushEvent("log_error", {
                       error:
@@ -263,6 +288,12 @@ const TrixContentReplyHook = {
         })
         .catch((_error) => {
           // images don't need updating, just decrypt
+
+          // hide show photos button
+          photoButton = document.querySelector(
+            `#reply-${replyId}-show-photos-${userId}`
+          );
+          photoButton.style.display = "none";
 
           // replace images with spinners while decrypting
           this.el.querySelectorAll("a").forEach((link) => {
@@ -336,6 +367,75 @@ const TrixContentReplyHook = {
           }
         });
     }
+  },
+
+  image_placeholder() {
+    var checkLinks = this.el.querySelectorAll("img");
+
+    if (checkLinks && checkLinks.length) {
+      this.originalLinks = [];
+      this.newLinks = [];
+      this.spinners = [];
+
+      // Get the reply's id (leave this independent of our replyBody variable)
+      replyId = this.el.getAttribute("id").split("reply-body-")[1];
+
+      // replace images with spinners while decrypting
+      this.el.querySelectorAll("a").forEach((link) => {
+        // This link has an innerHTML which will contain the image
+        if (link.children.length > 0 && replyId) {
+          if (link.querySelector("img")) {
+            // Store the original link in the list
+            this.originalLinks.push(link);
+
+            // Create a spinner for the link
+            let spinner = this.createPlaceholderImage();
+
+            // Insert the spinner before the link
+            link.parentNode.insertBefore(spinner, link);
+            this.spinners.push(spinner);
+
+            // Remove the old link element from the document
+            link.classList.add("hidden");
+          }
+        }
+      });
+    }
+  },
+
+  createPlaceholderImage() {
+    const placeholderContainer = document.createElement("div");
+    placeholderContainer.classList.add(
+      "flex",
+      "justify-center",
+      "items-center",
+      "h-64",
+      "text-background-600",
+      "dark:text-gray-400"
+    );
+
+    const placeholderSvg = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    );
+    placeholderSvg.setAttribute("fill", "none");
+    placeholderSvg.setAttribute("viewBox", "0 0 24 24");
+    placeholderSvg.setAttribute("stroke-width", "1.5");
+    placeholderSvg.setAttribute("stroke", "currentColor");
+    placeholderSvg.classList.add("size-6");
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute(
+      "d",
+      "m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+    );
+
+    placeholderSvg.appendChild(path);
+    placeholderContainer.appendChild(placeholderSvg);
+
+    return placeholderContainer;
   },
 
   createSpinner() {

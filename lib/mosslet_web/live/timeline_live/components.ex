@@ -818,6 +818,25 @@ defmodule MossletWeb.TimelineLive.Components do
     """
   end
 
+  def timeline_reply_show_photos_icon(assigns) do
+    ~H"""
+    <button
+      id={"reply-#{@reply.id}-show-photos-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click={
+        JS.dispatch("mosslet:show-reply-photos-#{@reply.id}",
+          to: "#container-reply-#{@reply.id}",
+          detail: %{reply_id: @reply.id, user_id: @current_user.id}
+        )
+      }
+      data-tippy-content="Show photos"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-photo" class="h-4 w-4" />
+    </button>
+    """
+  end
+
   def timeline_post_favorite_icon(assigns) do
     ~H"""
     <button
@@ -1077,6 +1096,10 @@ defmodule MossletWeb.TimelineLive.Components do
                           Updated
                         </span>
                       </span>
+                      <.timeline_reply_show_photos_icon
+                        current_user={@current_user}
+                        reply={reply}
+                      />
                     </div>
                   </div>
 

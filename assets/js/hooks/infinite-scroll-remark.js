@@ -1,7 +1,6 @@
 export default InfiniteScrollRemark = {
   loadMore(entries) {
     const target = entries[0];
-    console.log(entries);
     if (target.isIntersecting) {
       this.pushEvent("load_more", {});
     }

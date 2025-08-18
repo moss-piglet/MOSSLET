@@ -11,8 +11,6 @@ const TrixContentPostHook = {
       postId = this.el.getAttribute("id").split("post-body-")[1];
 
       window.addEventListener(`mosslet:show-post-photos-${postId}`, (event) => {
-        console.log("event", event.detail);
-        console.log("postId", postId);
         if (event && event.detail.post_id === postId) {
           userId = event.detail.user_id;
           this.init_images(checkLinks, postId, userId);
