@@ -374,6 +374,10 @@ defmodule MossletWeb.TimelineLive.Components do
               current_user={@current_user}
               user_post_receipt={user_post_receipt}
             />
+            <.timeline_post_show_photos_icon
+              current_user={@current_user}
+              post={@post}
+            />
             <%!-- favorite post icon --%>
             <.timeline_post_favorite_icon
               :if={@current_user && can_fav?(@current_user, @post)}
@@ -791,6 +795,25 @@ defmodule MossletWeb.TimelineLive.Components do
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-envelope-open" class="h-4 w-4" />
+    </button>
+    """
+  end
+
+  def timeline_post_show_photos_icon(assigns) do
+    ~H"""
+    <button
+      id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click={
+        JS.dispatch("mosslet:show-post-photos-#{@post.id}",
+          to: "#timeline-card-#{@post.id}",
+          detail: %{post_id: @post.id, user_id: @current_user.id}
+        )
+      }
+      data-tippy-content="Show photos"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-photo" class="h-4 w-4" />
     </button>
     """
   end
