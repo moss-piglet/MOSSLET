@@ -708,6 +708,12 @@ defmodule MossletWeb.Helpers do
 
   ## Posts (and Replies)
 
+  def photos?(nil), do: false
+
+  def photos?(image_urls) do
+    Enum.empty?(image_urls) === false
+  end
+
   def read?(user_post_receipt) do
     user_post_receipt && user_post_receipt.is_read?
   end

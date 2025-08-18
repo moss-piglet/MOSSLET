@@ -946,6 +946,7 @@ defmodule MossletWeb.PostLive.Components do
             <%!-- actions --%>
             <div class="inline-flex mt-6 space-x-2 align-middle">
               <.post_show_photos_icon
+                :if={photos?(@post.image_urls)}
                 post={@post}
                 current_user={@current_user}
               />
@@ -1328,6 +1329,7 @@ defmodule MossletWeb.PostLive.Components do
                         Replied <.local_time_ago at={@reply.inserted_at} id={@reply.id} />
                       </p>
                       <.post_reply_show_photos_icon
+                        :if={photos?(@reply.image_urls)}
                         current_user={@current_user}
                         reply={@reply}
                       />

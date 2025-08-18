@@ -759,6 +759,11 @@ defmodule MossletWeb.UserConnectionLive.Components do
         </div>
         <div class="mt-2 space-x-2 text-sm">
           <div class="inline-flex space-x-2 align-middle">
+            <.post_show_photos_icon
+              :if={photos?(@post.image_urls)}
+              post={@post}
+              current_user={@current_user}
+            />
             <%!-- favorite post icon --%>
             <.post_favorite_icon
               :if={@current_user && can_fav?(@current_user, @post)}
@@ -1062,12 +1067,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
     ~H"""
     <div class="inline-flex space-x-2 ml-1 text-xs align-middle">
       <span :if={@current_user && @post.user_id == @current_user.id}>
-        <div class="sr-only">
-          <.link navigate={~p"/app/posts/#{@post}"}>
-            Show
-          </.link>
-        </div>
-
         <%!--
         <.link
           class="dark:hover:text-green-400 hover:text-green-600"
@@ -1099,7 +1098,11 @@ defmodule MossletWeb.UserConnectionLive.Components do
 
   def post_first_reply(assigns) do
     ~H"""
-    <div :if={!Enum.empty?(@post.replies)} id={"first-reply-#{@post.id}"} class="pt-4">
+    <div
+      :if={!Enum.empty?(@post.replies)}
+      id={"first-reply-#{@post.id}"}
+      class="my-2 pt-4 pb-2 pl-2 pr-4 bg-background-50 dark:bg-gray-900 border border-2 border-background-100 dark:border-emerald-500 rounded-lg shadow-md shadow-background-500/50 dark:shadow-emerald-500/50"
+    >
       <% reply = Timeline.first_reply(@post, @options) %>
       <% user_connection =
         if reply,
@@ -1213,6 +1216,11 @@ defmodule MossletWeb.UserConnectionLive.Components do
 
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                       Replied <.local_time_ago at={reply.inserted_at} id={reply.id} />
+                      <.reply_show_photos_icon
+                        :if={photos?(reply.image_urls)}
+                        current_user={@current_user}
+                        reply={reply}
+                      />
                     </p>
                     <span
                       :if={reply.image_urls_updated_at}
@@ -1254,6 +1262,44 @@ defmodule MossletWeb.UserConnectionLive.Components do
         </ul>
       </div>
     </div>
+    """
+  end
+
+  def post_show_photos_icon(assigns) do
+    ~H"""
+    <button
+      id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click={
+        JS.dispatch("mosslet:show-post-photos-#{@post.id}",
+          to: "#posts-#{@post.id}",
+          detail: %{post_id: @post.id, user_id: @current_user.id}
+        )
+      }
+      data-tippy-content="Show photos"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-photo" class="h-4 w-4" />
+    </button>
+    """
+  end
+
+  def reply_show_photos_icon(assigns) do
+    ~H"""
+    <button
+      id={"reply-#{@reply.id}-show-photos-#{@current_user.id}"}
+      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      phx-click={
+        JS.dispatch("mosslet:show-reply-photos-#{@reply.id}",
+          to: "#reply-#{@reply.id}",
+          detail: %{reply_id: @reply.id, user_id: @current_user.id}
+        )
+      }
+      data-tippy-content="Show photos"
+      phx-hook="TippyHook"
+    >
+      <.phx_icon name="hero-photo" class="h-4 w-4" />
+    </button>
     """
   end
 

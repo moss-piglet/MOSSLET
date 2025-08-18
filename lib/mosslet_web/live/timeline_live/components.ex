@@ -375,6 +375,7 @@ defmodule MossletWeb.TimelineLive.Components do
               user_post_receipt={user_post_receipt}
             />
             <.timeline_post_show_photos_icon
+              :if={photos?(@post.image_urls)}
               current_user={@current_user}
               post={@post}
             />
@@ -965,7 +966,11 @@ defmodule MossletWeb.TimelineLive.Components do
 
   def timeline_post_first_reply(assigns) do
     ~H"""
-    <div :if={!Enum.empty?(@post.replies)} id={"first-reply-#{@post.id}"} class="pt-4">
+    <div
+      :if={!Enum.empty?(@post.replies)}
+      id={"first-reply-#{@post.id}"}
+      class="my-2 pt-4 pb-2 pl-2 pr-4 bg-background-50 dark:bg-gray-900 border border-2 border-background-100 dark:border-emerald-500 rounded-lg shadow-md shadow-background-500/50 dark:shadow-emerald-500/50"
+    >
       <% reply = Timeline.first_reply(@post, @options) %>
       <% user_connection =
         if reply,
@@ -1097,6 +1102,7 @@ defmodule MossletWeb.TimelineLive.Components do
                         </span>
                       </span>
                       <.timeline_reply_show_photos_icon
+                        :if={photos?(reply.image_urls)}
                         current_user={@current_user}
                         reply={reply}
                       />
