@@ -1408,7 +1408,7 @@ defmodule MossletWeb.Components.LandingPage do
               <span class="text-base text-gray-500">/once</span>
             </p>
             <p class="mt-6 text-base leading-7 text-gray-600 dark:text-gray-400">
-              Pay once to start sharing what you want with the privacy you need — forever. We also support lowering your upfront payment with Affirm.
+              Pay once to start sharing what you want with the privacy you deserve, <em>forever</em>. We also support lowering your upfront payment with Affirm.
             </p>
             <ul
               role="list"
@@ -1547,7 +1547,7 @@ defmodule MossletWeb.Components.LandingPage do
               <span class="text-base text-gray-500">/once</span>
             </p>
             <p class="mt-6 text-base leading-7 text-gray-600 dark:text-gray-400">
-              Coming soon — a plan that supports your whole family.
+              In the works, a plan that supports your whole family with privacy and peace of mind.
             </p>
             <ul
               role="list"
@@ -1599,13 +1599,13 @@ defmodule MossletWeb.Components.LandingPage do
                 Admin dashboard
               </li>
             </ul>
-            <a
-              href="#pricing"
+            <button
               aria-describedby="tier-team"
-              class="mt-8 block rounded-full py-2.5 px-3.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400 sm:mt-10 text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-200 hover:ring-emerald-300 dark:ring-emerald-800 dark:hover:ring-emerald-700 cursor-none"
+              class="mt-8 block rounded-full py-2.5 px-3.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400 sm:mt-10 text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-200 hover:ring-emerald-300 dark:ring-emerald-800 dark:hover:ring-emerald-700 cursor-not-allowed"
+              disabled
             >
               Coming soon
-            </a>
+            </button>
           </div>
         </div>
       </div>
