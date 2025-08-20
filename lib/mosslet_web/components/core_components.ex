@@ -1732,7 +1732,7 @@ defmodule MossletWeb.CoreComponents do
           </div>
           <div>
             <p class="mt-6 text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
-              Copyright &copy; <%= DateTime.utc_now.year %> Moss Piglet Corporation. A Public Benefit company. All rights
+              Copyright &copy; {DateTime.utc_now().year} Moss Piglet Corporation. A Public Benefit company. All rights
               reserved.
             </p>
             <div class="inline-flex items-center align-middle">
