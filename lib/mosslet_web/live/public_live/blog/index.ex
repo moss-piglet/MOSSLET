@@ -26,6 +26,14 @@ defmodule MossletWeb.PublicLive.Blog.Index do
               <div class="mt-12 mb-46 grid grid-cols-1 lg:grid-cols-[24rem_2.5rem_minmax(0,1fr)]">
                 <.blog_entry
                   id="blog_05"
+                  date="August 19, 2025"
+                  title="Disappearing Keyboard on Apple iOS Safari"
+                  preview="This is great if you want Apple to create a password for you, and not so great if you want to create your own password with the onscreen keyboard. We have encountered this annoyance when trying to create a new account, so we thought we'd share some options for a quick workaround:"
+                  link={~p"/blog/articles/06"}
+                />
+
+                <.blog_entry
+                  id="blog_05"
                   date="August 13, 2025"
                   title="Companies Selling AI to Geolocate Your Social Media Photos"
                   preview={nil}
