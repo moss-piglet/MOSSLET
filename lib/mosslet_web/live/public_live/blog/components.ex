@@ -140,7 +140,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
               src={~p"/images/about/mark_photo.jpg"}
               alt="mark photo"
               class="size-6 flex-none rounded-full bg-white/10"
-            /> Mark Thayer
+            /> Mark
           </div>
           <div :if={@author_isabella?} class="flex gap-x-2.5">
             <img

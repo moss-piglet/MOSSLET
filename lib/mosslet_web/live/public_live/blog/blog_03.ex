@@ -45,7 +45,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog03 do
                         style="color: transparent;"
                       />
                       <div class="flex flex-col justify-center gap-1 text-sm font-semibold">
-                        <div class="text-gray-950 dark:text-white">Mark Thayer</div>
+                        <div class="text-gray-950 dark:text-white">Mark</div>
                         <div>
                           <.link
                             navigate={~p"/"}

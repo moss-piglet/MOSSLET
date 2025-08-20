@@ -23,7 +23,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     Privacy
                   </.h2>
                   <.p class="mt-4 leading-7 text-gray-600 dark:text-gray-400">
-                    Privacy is the standard on Mosslet.
+                    Privacy is the standard on MOSSLET.
                   </.p>
                 </div>
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:col-span-2 lg:gap-8">
@@ -110,6 +110,9 @@ defmodule MossletWeb.PublicLive.Privacy do
                   <span class="mt-2 block text-3xl text-center leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-50  sm:text-4xl">
                     November 9, 2021
                   </span>
+                  <span class="block text-center text-rose-600 dark:text-rose-400">
+                    (updated August 20, 2025)
+                  </span>
                 </h1>
                 <.p class="mt-8 text-xl text-gray-500 dark:text-gray-400  leading-8">
                   We do not log or share personal information. That is our privacy policy in a nutshell. The rest of this policy tries to explain what information we may have, why we have it, how we protect it, and why you should care.
@@ -137,7 +140,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                   from Cambridge Analytica whistleblower Christopher Wylie, reveals how the systems of surveillance capitalism are being weaponized against an unsuspecting public. It is a disturbing and insidious reality, where individuals and entire societies are living laboratory experiments, and the results of those experiments are the denigration of our ability to act, think, and believe for ourselves.
                 </.p>
                 <.p>
-                  Mosslet is an alternative destination for social connection online, free of surveillance capitalism and psychometric profiling:
+                  MOSSLET is an alternative destination for social connection online, free of surveillance capitalism and psychometric profiling:
                 </.p>
                 <ul class="space-y-1.5">
                   <div>
@@ -175,14 +178,14 @@ defmodule MossletWeb.PublicLive.Privacy do
                   </div>
                 </ul>
                 <.p>
-                  Mosslet is designed so that you can connect and share with the people in your life, on your terms. At Mosslet, being human doesn't come at the expense of your humanity.
+                  MOSSLET is designed so that you can connect and share with the people in your life, on your terms. At MOSSLET, being human doesn't come at the expense of your humanity.
                 </.p>
                 <.p>
-                  When you create an account at Mosslet, you can rest assured that what you see is what you get. We take this responsibility seriously.
+                  When you create an account at MOSSLET, you can rest assured that what you see is what you get. We take this responsibility seriously.
                 </.p>
 
                 <.h2 class="font-bold">What is your data?</.h2>
-                <.p>Your data on Mosslet is information specific to your account.</.p>
+                <.p>Your data on MOSSLET is information specific to your account.</.p>
                 <.p>
                   This information includes sign up or registration information: name, pseudonym, email, and password
                   (<.link
@@ -194,7 +197,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                   This information may also include data from: Connections and Posts.
                 </.p>
                 <.p>
-                  When we add new features to Mosslet, then your list of data may expand to include any new features you use.
+                  When we add new features to MOSSLET, then your list of data may expand to include any new features you use.
                 </.p>
                 <.p>
                   <span class="font-bold text-gray-900 dark:text-gray-50 ">
@@ -243,7 +246,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                   <span class="opacity-25 line-through">data harvesting</span>
                 </.h2>
                 <.p>
-                  This means that you are in full control of your account information on Mosslet and can even delete your account, and all of its information, at any time from within your account settings.
+                  This means that you are in full control of your account information on MOSSLET and can even delete your account, and all of its information, at any time from within your account settings.
                 </.p>
                 <.p>
                   <span class="font-bold text-gray-900 dark:text-gray-50 ">
@@ -328,14 +331,20 @@ defmodule MossletWeb.PublicLive.Privacy do
                 </.p>
 
                 <div id="privacy_policy_metadata"></div>
-                <.h2 class="font-bold">Metadata</.h2>
+                <.h2 class="font-bold">
+                  Metadata <span class="text-rose-600 dark:text-rose-400">(updated)</span>
+                </.h2>
                 <.p>
                   To the best of our knowledge, the extent of the possible information that could leak about your account (metadata) is all related to paying for your account. And in this regard, the information provided is your email address, name, card information, and device IP address.
                 </.p>
                 <.p>
-                  This information is handled and stored by Stripe, an industry leader in payments and security. The only information kept in our database is related to the Stripe payment plans we offer, Stripe products, a Stripe ID for the customer and subscription to synchronize with Stripe (symmetrically encrypted at rest and deterministically hashed for lookups on our end), and subscription information (like dates and status).
+                  This information is handled and stored by Stripe, an industry leader in payments and security. The only information kept in our database is related to the Stripe payment plans we offer, Stripe products, a Stripe ID for the customer and
+                  <span class="rounded bg-rose-200 dark:bg-rose-300 text-rose-900">
+                    subscription or payment
+                  </span>
+                  to synchronize with Stripe (<span class="rounded bg-rose-200 dark:bg-rose-300 text-rose-900">asymmetrically encrypted</span> and deterministically hashed for lookups on our end), and subscription information (like dates and status).
                   <strong class="">
-                    This metadata does not provide access to your Mosslet account nor its content, though it may be used to leak metadata about your account.
+                    This metadata does not provide access to your MOSSLET account nor its content, though it may be used to leak metadata about your account.
                   </strong>
                 </.p>
                 <.h4 class="underline inline-flex">Why Stripe?</.h4>
@@ -367,22 +376,25 @@ defmodule MossletWeb.PublicLive.Privacy do
                 </.p>
                 <.h4 class="underline ">Ways to minimize metadata</.h4>
                 <.p>
-                  It's important to understand what information might be able to be gleaned about your Mosslet account through this Stripe metadata:
+                  It's important to understand what information might be able to be gleaned about your MOSSLET account through this Stripe metadata:
                 </.p>
                 <ol>
                   <li>
                     <.p>
-                      It may be possible, with legal court orders, to sift through our database records, in conjunction with Stripe's, and determine who you are and who you are connected to on Mosslet. This may be able to be done by linking the Stripe IDs with the customer on Stripe's end with the Stripe IDs on our end, and then linking the account IDs in corresponding relationships (or similarly using the subscription dates). When combined with the payment information that Stripe may have about you, and/or your credit card company, this method could be used to identify who you are, who you are connected to, and who you are communicating with on Mosslet.
+                      It may be possible, with legal court orders, to sift through our database records, in conjunction with Stripe's, and determine if you are using MOSSLET.
+                      <span class="rounded bg-rose-200 dark:bg-rose-300 text-rose-900">
+                        However, we have made this even more difficult by asymmetrically encrypting any Stripe IDs in our database, meaning that even we cannot see what your Stripe ID is in our MOSSLET database.
+                      </span>
                     </.p>
                     <.p class="px-4">
                       <strong class="">
-                        This can be minimized by using an anonymous email address for your Mosslet account, although you will still have to enter a payment card which could be used to identify you.
+                        This can be minimized by using an anonymous email address for your MOSSLET account, although you will still have to enter a payment card which could be used to identify you.
                       </strong>
                     </.p>
                   </li>
                   <li>
                     <.p>
-                      When you pay to use Mosslet, you must input a payment card to be processed via Stripe. Upon doing so, Stripe will receive the email associated with your Mosslet account (decrypted by your current session). They will also receive the name you input when you enter your payment, card details, and device IP address.
+                      When you pay to use MOSSLET, you must input a payment card to be processed via Stripe. Upon doing so, Stripe will receive the email associated with your MOSSLET account (decrypted by your current session). They will also receive the name you input when you enter your payment, card details, and device IP address.
                     </.p>
                     <.p>
                       This information is used by Stripe for risk assessment and fraud prevention.
@@ -404,7 +416,10 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <.p class="px-4">
                       We cannot offer any guidance on protecting your privacy from the transaction of your payment card, and for this reason alone,
                       <strong class="">
-                        if you are a high-risk person without the relevant expertise, then we recommend you not use our service at this time.
+                        if you are a high-risk person without the relevant expertise, then we recommend you not use
+                        <span class="rounded bg-rose-200 dark:bg-rose-300 text-rose-900">
+                          the internet.
+                        </span>
                       </strong>
                     </.p>
                   </li>
@@ -467,7 +482,7 @@ defmodule MossletWeb.PublicLive.Privacy do
 
                 <.h2 class="font-bold">Feedback</.h2>
                 <.p>
-                  I (Mark Thayer) am the creator of Mosslet, and personally wrote this privacy policy. If you have any questions or concerns, please <a
+                  I (Mark) am the creator of MOSSLET, and personally wrote this privacy policy. If you have any questions or concerns, please <a
                     class="text-emerald-600 dark:text-emerald-400 "
                     href="mailto:support@mosslet.com"
                   >send feedback</a>.
