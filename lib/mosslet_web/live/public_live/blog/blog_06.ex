@@ -157,7 +157,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog06 do
                       <.link navigate={~p"/auth/register"} class="dark:text-gray-200">
                         switch to MOSSLET
                       </.link>
-                      today to start getting the protection you deserve.
+                      today to start getting the privacy and protection you deserve.
                     </p>
                   </article>
                 </div>

@@ -409,7 +409,7 @@ defmodule MossletWeb.PublicLive.About do
                 title="Companies Selling AI to Geolocate Your Social Media Photos"
                 author_mark?={true}
                 author_isabella?={false}
-                link={nil}
+                link={~p"/blog/articles/05"}
               />
 
               <.article_preview

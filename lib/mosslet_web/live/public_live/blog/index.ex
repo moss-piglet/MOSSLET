@@ -36,8 +36,8 @@ defmodule MossletWeb.PublicLive.Blog.Index do
                   id="blog_05"
                   date="August 13, 2025"
                   title="Companies Selling AI to Geolocate Your Social Media Photos"
-                  preview={nil}
-                  link={nil}
+                  preview="To get a better idea of what this means, imagine you share a photo on Instagram, Facebook, X, Bluesky, Mastodon, or other social media surveillance platform (even a video on TikTok or YouTube), and in that photo is a harmless object (like a car or a building). But to this company's surveillance algorithm, that harmless object is a clue that can be used to determine your location at the time the photo was taken."
+                  link={~p"/blog/articles/05"}
                 />
 
                 <.blog_entry
