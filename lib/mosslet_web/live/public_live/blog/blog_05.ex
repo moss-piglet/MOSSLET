@@ -134,7 +134,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog05 do
                       The accuracy of digital spy services, and their AI algorithms, is only possible thanks to surveillance capitalism, which provides the data necessary for them to work (the food) as well as the market in which to sell them (the appetite).
                     </p>
                     <p>
-                      We are all living witness to the total consumption (annihilation) of our privacy.
+                      We are all living witnesses to the total consumption (annihilation) of our privacy.
                     </p>
                     <p>
                       It reminds me, <em>yet again</em>, of why we're making <.link
