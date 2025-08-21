@@ -140,7 +140,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog05 do
                       It reminds me, <em>yet again</em>, of why we're making <.link
                         navigate={~p"/"}
                         class="dark:text-gray-200"
-                      >MOSSLET</.link>: everyone deserves to be able to connect and share online without sacrificing their safety.
+                      >MOSSLET</.link>: everyone deserves to be able to connect and share online without sacrificing their privacy and safety.
                     </p>
 
                     <p>
