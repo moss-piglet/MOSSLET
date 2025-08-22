@@ -63,7 +63,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog06 do
                 <div class="px-4 py-2 lg:px-2 relative before:absolute before:top-0 before:h-px before:w-[200vw]  before:-left-[100vw] after:absolute after:bottom-0 after:h-px after:w-[200vw] after:-left-[100vw]">
                   <article class="prose prose-blog max-w-(--breakpoint-md) dark:text-gray-400">
                     <p>
-                      For anyone using Apple's iOS Safari browser, you may have noticed that when you tap into a password input field you get an iOS suggestion to create a password for you but then the keyboard never appears. This is a known issue from a security update that was released during iOS 13.
+                      For anyone using Apple's iOS Safari browser, you may have noticed that when you tap into a password input field you get an iOS popup to create a password but the onscreen keyboard never appears. This is a known issue from a security update that was released during iOS 13.
                     </p>
 
                     <p>
