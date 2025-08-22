@@ -107,8 +107,25 @@ defmodule MossletWeb.EditProfileLive do
                 </label>
                 <div class="mt-2 pb-4">
                   <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus-within:ring-2 focus-within:ring-inset focus-within:ring-emerald-600 sm:max-w-md">
-                    <span class="flex-1 border-0 bg-transparent py-1.5 ml-3 text-gray-800 dark:text-gray-200 placeholder:text-gray-500 dark:placeholder:text-gray-300 focus:ring-0 sm:text-sm sm:leading-6">
-                      mosslet.com/app/{decr(@current_user.username, @current_user, @key)}
+                    <span
+                      id="mosslet-profile-url"
+                      class="flex-1 border-0 bg-transparent py-1.5 ml-3 text-gray-800 dark:text-gray-200 placeholder:text-gray-500 dark:placeholder:text-gray-300 focus:ring-0 sm:text-sm sm:leading-6"
+                    >
+                      https://mosslet.com/app/profile/{decr(
+                        @current_user.username,
+                        @current_user,
+                        @key
+                      )}
+                    </span>
+                    <span
+                      id="mossle-profile-url-copy"
+                      class="inline-flex py-1.5 mr-1 cursor-pointer"
+                      phx-hook="TippyHook"
+                      data-clipboard-copy={JS.push("clipcopy")}
+                      data-tippy-content="Copy to cliboard"
+                      phx-click={JS.dispatch("phx:clipcopy", to: "#mosslet-profile-url")}
+                    >
+                      <.phx_icon name="hero-clipboard" />
                     </span>
 
                     <.input
@@ -248,6 +265,10 @@ defmodule MossletWeb.EditProfileLive do
       </.alert>
     </.settings_layout>
     """
+  end
+
+  def handle_event("clipcopy", _params, socket) do
+    {:noreply, Toast.put_toast(socket, :success, "Profile URL copied to clipboard successfully.")}
   end
 
   def handle_event("validate_profile", params, socket) do

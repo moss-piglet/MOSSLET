@@ -119,6 +119,23 @@ window.addEventListener("phx:remove-el", (e) =>
   document.getElementById(e.detail.id).remove()
 );
 
+window.addEventListener("phx:clipcopy", (event) => {
+  if ("clipboard" in navigator) {
+    var text = event.target.textContent.trim();
+    console.log(text, "copied text");
+
+    document.querySelectorAll(`[data-clipboard-copy]`).forEach((el) => {
+      if (el.id == event.detail.dispatcher.id) {
+        liveSocket.execJS(el, el.getAttribute("data-clipboard-copy"));
+      }
+    });
+
+    navigator.clipboard.writeText(text);
+  } else {
+    alert("Sorry, your browser does not support clipboard copy.");
+  }
+});
+
 let execJS = (selector, attr) => {
   document
     .querySelectorAll(selector)
