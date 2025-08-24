@@ -15,7 +15,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       <div
         :for={{dom_id, message} <- @messages}
         id={dom_id}
-        class="px-2 mt-2 hover:bg-background-200 dark:hover:bg-gray-900 hover:rounded-md messages"
+        class="mt-2 pb-1.5"
         phx-hook="HoverGroupMessage"
         data-toggle={JS.toggle(to: "#message-#{message.id}-buttons")}
       >
@@ -35,76 +35,32 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
   def message_details(assigns) do
     ~H"""
-    <.message_meta
-      message={@message}
-      current_user={@current_user}
-      user_group={@user_group}
-      group={@group}
-      key={@key}
-      messages_list={@messages_list}
-    />
+    <div class="space-y-2 bg-background-200 dark:bg-gray-900 rounded-md">
+      <.message_meta
+        message={@message}
+        current_user={@current_user}
+        user_group={@user_group}
+        group={@group}
+        key={@key}
+        messages_list={@messages_list}
+      />
 
-    <.message_content
-      message={@message}
-      current_user={@current_user}
-      user_group={@user_group}
-      user_group_key={@user_group_key}
-      group={@group}
-      key={@key}
-    />
+      <.message_content
+        message={@message}
+        current_user={@current_user}
+        user_group={@user_group}
+        user_group_key={@user_group_key}
+        group={@group}
+        key={@key}
+      />
+    </div>
     """
   end
 
   def message_meta(assigns) do
     ~H"""
-    <%!-- show current_user message on right side of screen --%>
-    <div
-      :if={@user_group.id == @message.sender_id}
-      class="relative mt-6 flex flex-row-reverse justify-between text-sm leading-6"
-    >
-      <div class="py-2 inline-flex">
-        <div class="pr-2 inline-flex text-[0.9rem] text-gray-900 dark:text-gray-100 font-medium">
-          <span :if={@message.sender.name} class="truncate w-1/4 sm:w-3/4 md:w-full">
-            {initials(decr_item(@message.sender.name, @current_user, @user_group.key, @key, @group))}
-
-            <span class={group_fingerprint_role_style(@message.sender.role)}>
-              <.icon name="hero-finger-print" class="h-4 w-4" />{decr_item(
-                @message.sender.moniker,
-                @current_user,
-                @user_group.key,
-                @key,
-                @group
-              )}
-            </span>
-          </span>
-          <span :if={!@message.sender.name} class="truncate w-1/4 sm:w-3/4 md:w-full">
-            {maybe_decr_username_for_user_group(@message.sender.user_id, @current_user, @key)}
-          </span>
-          <div class="absolute left-4 top-3 text-xs font-light text-gray-500 dark:text-gray-400">
-            <.local_time_ago id={@message.id <> "-created"} at={@message.inserted_at} />
-          </div>
-          <.delete_icon
-            :if={@user_group.role in [:owner, :admin, :moderator]}
-            id={"message-#{@message.id}-buttons"}
-            phx_click="delete_message"
-            value={@message.id}
-          />
-        </div>
-        <.phx_avatar
-          :if={@user_group.id == @message.sender_id}
-          src={maybe_get_user_avatar(@current_user, @key)}
-          alt="your avatar"
-          class={group_avatar_role_style(@user_group.role)}
-        />
-      </div>
-    </div>
-
-    <%!-- show other messages on left side of screen --%>
-    <div
-      :if={@user_group.id != @message.sender_id}
-      class="relative mt-6 flex flex-col justify-between text-sm leading-6"
-    >
-      <div class="py-2 inline-flex">
+    <div class="relative mt-6 flex flex-col text-sm leading-6">
+      <div class="inline-flex py-2 ml-2">
         <% uconn =
           get_uconn_for_users(
             get_user_from_user_group_id(@message.sender_id),
@@ -133,8 +89,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
           class={group_avatar_role_style(@message.sender.role)}
         />
 
+        <.phx_avatar
+          :if={@user_group.id == @message.sender_id}
+          src={maybe_get_user_avatar(@current_user, @key)}
+          alt="your group member avatar"
+          class={group_avatar_role_style(@message.sender.role)}
+        />
+
         <div class="pl-2 inline-flex text-[0.9rem] text-gray-900 dark:text-gray-100 font-medium">
-          <span :if={@message.sender.name} class="truncate w-1/4 sm:w-3/4 md:w-full">
+          <span :if={@message.sender.name} class="md:w-full">
             {initials(decr_item(@message.sender.name, @current_user, @user_group.key, @key, @group))}
 
             <span class={group_fingerprint_role_style(@message.sender.role)}>
@@ -147,11 +110,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
               )}
             </span>
           </span>
-          <span :if={!@message.sender.name} class="truncate w-1/4 sm:w-3/4 md:w-full">
+          <span :if={!@message.sender.name} class="md:w-full">
             {maybe_decr_username_for_user_group(@message.sender.user_id, @current_user, @key)}
           </span>
-          <div class="absolute right-4 top-3 text-xs font-light text-gray-500 dark:text-gray-400">
-            <.local_time_ago id={@message.id <> "-created"} at={@message.inserted_at} />
+          <div class="inline-flex ml-2 mt-1 text-nowrap text-xs text-gray-600 dark:text-gray-400">
+            <.local_time
+              id={@message.id <> "-created"}
+              for={@message.inserted_at}
+              preset="DATETIME_SHORT"
+            />
           </div>
           <.delete_icon
             :if={@user_group.role in [:owner, :admin, :moderator]}
@@ -167,27 +134,11 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
   def message_content(assigns) do
     ~H"""
-    <%!-- show current_user message on right side of screen --%>
-    <div
-      :if={@user_group.id == @message.sender_id && @user_group.user_id == @current_user.id}
-      class="-my-4 divide-y divide-zinc-100"
-    >
-      <div class="flex flex-row-reverse gap-4 py-4 sm:gap-2">
-        <div
-          class="text-sm text-gray-500 dark:text-gray-400"
-          style="margin-right: 6%; margin-top: -2.75%;"
-        >
-          {decr_item(@message.content, @current_user, @user_group_key, @key, @group)}
-        </div>
-      </div>
-    </div>
-
-    <%!-- show other messages on left side of screen --%>
-    <div :if={@user_group.id != @message.sender_id} class="-my-4 divide-y divide-zinc-100">
+    <div class="-my-4">
       <div class="flex gap-4 py-4 sm:gap-2">
         <div
-          class="text-sm text-gray-500 dark:text-gray-400"
-          style="margin-left: 6%; margin-top: -2.75%;"
+          class="text-md text-gray-600 dark:text-gray-400"
+          style="margin-left: 7%; margin-top: -2.75%;"
         >
           {decr_item(@message.content, @current_user, @user_group_key, @key, @group)}
         </div>

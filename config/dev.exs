@@ -33,7 +33,7 @@ config :mosslet, MossletWeb.Endpoint,
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/Mosslet_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
+      ~r"lib/mosslet_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ],
   secret_key_base: System.get_env("SECRET_KEY_BASE"),
