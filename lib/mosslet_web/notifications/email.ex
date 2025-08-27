@@ -68,7 +68,7 @@ defmodule Mosslet.Email do
   def new_user_invitation(user, invitation, url) do
     base_email()
     |> to(invitation.email)
-    |> subject(gettext("Invitation to join %{name} on Mosslet", name: user.name))
+    |> subject(gettext("Invitation to join %{name} on MOSSLET 🌿", name: user.name))
     |> render_body("new_user_invite.html", %{user: user, invitation: invitation, url: url})
     |> premail()
   end
