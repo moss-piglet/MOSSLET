@@ -23,7 +23,6 @@ defmodule MossletWeb.PublicLayout do
 
   def mosslet_public_layout(assigns) do
     ~H"""
-
     <style>
       /* Hover effects for the top menu */
       header .menu-item {

@@ -152,7 +152,13 @@ defmodule MossletWeb.EditTotpLive do
 
   def enable_form(assigns) do
     ~H"""
-    <.form id="form-submit-totp" for={@user_form} phx-submit="submit_totp" phx-change="change_totp" class="max-w-lg">
+    <.form
+      id="form-submit-totp"
+      for={@user_form}
+      phx-submit="submit_totp"
+      phx-change="change_totp"
+      class="max-w-lg"
+    >
       <div class="pb-4">
         <.p :if={@current_totp}>
           Enter your current password to change 2FA or view your backup codes

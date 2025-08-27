@@ -30,7 +30,7 @@ defmodule Mosslet.AccountsFixtures do
     user_changeset =
       Mosslet.Accounts.User.registration_changeset(%Mosslet.Accounts.User{}, attrs)
 
-    c_attrs = user_changeset.changes.connection_map
+    c_attrs = Map.get(user_changeset.changes, :connection_map, %{})
 
     {:ok, user} = Mosslet.Accounts.register_user(user_changeset, c_attrs)
 

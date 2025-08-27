@@ -46,7 +46,7 @@ defmodule MossletWeb.UserSessionControllerTest do
           }
         })
 
-      assert conn.resp_cookies["_Mosslet_web_user_remember_me"]
+      assert conn.resp_cookies["_mosslet_web_user_remember_me"]
       assert redirected_to(conn) == ~p"/app/users/onboarding"
     end
 

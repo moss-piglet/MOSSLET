@@ -57,7 +57,6 @@ defmodule MossletWeb.ColorSchemeSwitch do
   """
   def color_scheme_switch_js(assigns) do
     ~H"""
-
     """
   end
 end

@@ -40,7 +40,16 @@ config :logger, level: :warning
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 
-config :email_checker, validations: [EmailChecker.Check.Format]
+config :mosslet, MossletWeb.Plugs.ContentSecurityPolicy,
+  csp:
+    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'"
+
+config :email_checker,
+  default_dns: :system,
+  also_dns: [],
+  validations: [EmailChecker.Check.Format],
+  smtp_retries: 2,
+  timeout_milliseconds: :infinity
 
 # Speed up tests for argon2
 config :argon2_elixir,

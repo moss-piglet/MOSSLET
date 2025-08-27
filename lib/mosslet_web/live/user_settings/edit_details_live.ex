@@ -126,14 +126,13 @@ defmodule MossletWeb.EditDetailsLive do
             value={@current_name}
           />
 
-            <.button
-              class="rounded-full"
-              phx-disable-with="Updating..."
-              disabled={!@name_change_valid?}
-            >
-              {gettext("Update name")}
-            </.button>
-
+          <.button
+            class="rounded-full"
+            phx-disable-with="Updating..."
+            disabled={!@name_change_valid?}
+          >
+            {gettext("Update name")}
+          </.button>
         </.form>
       </div>
 
@@ -152,14 +151,13 @@ defmodule MossletWeb.EditDetailsLive do
             value={@current_username}
           />
 
-            <.button
-              class="rounded-full"
-              phx-disable-with="Updating..."
-              disabled={!@username_change_valid?}
-            >
-              {gettext("Update username")}
-            </.button>
-
+          <.button
+            class="rounded-full"
+            phx-disable-with="Updating..."
+            disabled={!@username_change_valid?}
+          >
+            {gettext("Update username")}
+          </.button>
         </.form>
       </div>
     </.settings_layout>

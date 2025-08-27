@@ -219,7 +219,7 @@ defmodule MossletWeb.EditProfileLive do
             </div>
           </div>
         </.inputs_for>
-          <div class="flex justify-between">
+        <div class="flex justify-between">
           <.link
             :if={@current_user.connection.profile}
             phx-disable-with="Deleting..."
@@ -244,7 +244,7 @@ defmodule MossletWeb.EditProfileLive do
           >
             Create Profile
           </.button>
-          </div>
+        </div>
       </.form>
       <.alert
         :if={!@current_user.confirmed_at}

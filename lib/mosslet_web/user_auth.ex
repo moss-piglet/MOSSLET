@@ -18,9 +18,12 @@ defmodule MossletWeb.UserAuth do
   # If you want bump or reduce this value, also change
   # the token expiry itself in UserToken.
   @max_age 60 * 60 * 24 * 60
-  @remember_me_cookie "_Mosslet_web_user_remember_me"
-  @mosslet_key_cookie "__Host-_mosslet_key"
-  @remember_me_options [encrypt: true, max_age: @max_age, secure: true, same_site: "Lax"]
+  @remember_me_cookie "_mosslet_web_user_remember_me"
+  @remember_me_options (if(Mix.env() === :dev) do
+                          [encrypt: true, max_age: @max_age, same_site: "Lax"]
+                        else
+                          [encrypt: true, max_age: @max_age, secure: true, same_site: "Lax"]
+                        end)
 
   # Checking the route for public routes for the
   # ensure_session_key live_session mount
@@ -203,8 +206,6 @@ defmodule MossletWeb.UserAuth do
   """
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    # Prevent user assignment if TOTP is pending
-    user_token = get_session(conn, :user_token)
     user = if user_token, do: Accounts.get_user_by_session_token(user_token), else: nil
     assign(conn, :current_user, user)
   end
@@ -213,12 +214,27 @@ defmodule MossletWeb.UserAuth do
     if token = get_session(conn, :user_token) do
       {token, conn}
     else
-      conn = fetch_cookies(conn, encrypted: [@remember_me_cookie, @mosslet_key_cookie])
+      # Only fetch the remember_me_cookie since that's all we need here
+      conn = fetch_cookies(conn, encrypted: [@remember_me_cookie])
 
-      if token = conn.cookies[@remember_me_cookie] do
-        {token, put_token_in_session(conn, token)}
-      else
-        {nil, conn}
+      try do
+        if token = conn.cookies[@remember_me_cookie] do
+          # Validate that the token corresponds to a valid user session before adding it to the session
+          if _user = Accounts.get_user_by_session_token(token) do
+            # Token is valid and corresponds to an existing user
+            {token, put_token_in_session(conn, token)}
+          else
+            # Token is invalid or has been revoked, clear the cookie
+            {nil, delete_resp_cookie(conn, @remember_me_cookie)}
+          end
+        else
+          {nil, conn}
+        end
+      rescue
+        # Handle any errors from corrupted cookies or other issues
+        _ ->
+          Logger.error("Error processing remember me cookie")
+          {nil, delete_resp_cookie(conn, @remember_me_cookie)}
       end
     end
   end

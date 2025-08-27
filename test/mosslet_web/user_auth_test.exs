@@ -6,7 +6,7 @@ defmodule MossletWeb.UserAuthTest do
   alias MossletWeb.UserAuth
   import Mosslet.AccountsFixtures
 
-  @remember_me_cookie "_Mosslet_web_user_remember_me"
+  @remember_me_cookie "_mosslet_web_user_remember_me"
   @valid_email "validtest@example.com"
   @valid_password "hello world hello world!"
 
