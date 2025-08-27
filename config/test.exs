@@ -42,7 +42,7 @@ config :phoenix, :plug_init_mode, :runtime
 
 config :mosslet, MossletWeb.Plugs.ContentSecurityPolicy,
   csp:
-    "default-src 'self'; form-action 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; object-src 'self';"
+    "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; object-src 'self';  base-uri 'self'; frame-src 'self';"
 
 config :email_checker,
   default_dns: :system,
