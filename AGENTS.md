@@ -5,7 +5,7 @@ This is a web application written using the Phoenix web framework.
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
-### Phoenix v1.8 guidelines
+### MOSSLET Phoenix v1.8 guidelines
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
 - The `MyAppWeb.Layouts` module is aliased in the `my_app_web.ex` file, so you can use it without needing to alias it again
@@ -13,9 +13,9 @@ This is a web application written using the Phoenix web framework.
   - You failed to follow the Authenticated Routes guidelines, or you failed to pass `current_scope` to `<Layouts.app>`
   - **Always** fix the `current_scope` error by moving your routes to the proper `live_session` and ensure you pass `current_scope` as needed
 - Phoenix v1.8 moved the `<.flash_group>` component to the `Layouts` module. You are **forbidden** from calling `<.flash_group>` outside of the `layouts.ex` module
-- Out of the box, `core_components.ex` imports an `<.icon name="hero-x-mark" class="w-5 h-5"/>` component for for hero icons. **Always** use the `<.icon>` component for icons, **never** use `Heroicons` modules or similar
-- **Always** use the imported `<.input>` component for form inputs from `core_components.ex` when available. `<.input>` is imported and using it will will save steps and prevent errors
-- If you override the default input classes (`<.input class="myclass px-2 py-1 rounded-lg">)`) class with your own values, no default classes are inherited, so your
+- Out of the box, `core_components.ex` imports an `<.phx_icon name="hero-x-mark" class="w-5 h-5"/>` component for for hero icons. **Always** use the `<.phx_icon>` component for icons, **never** use `Heroicons` modules or similar
+- **Always** use the imported `<.phx_input>` component for form inputs from `core_components.ex` when available. `<.phx_input>` is imported and using it will will save steps and prevent errors
+- If you override the default input classes (`<.phx_input class="myclass px-2 py-1 rounded-lg">)`) class with your own values, no default classes are inherited, so your
   custom classes must fully style the input
 
 <!-- usage-rules-start -->
@@ -282,25 +282,25 @@ Once the form is submitted, the params will be available under `%{"user" => user
 In the template, the form form assign can be passed to the `<.form>` function component:
 
     <.form for={@form} id="todo-form" phx-change="validate" phx-submit="save">
-      <.input field={@form[:field]} type="text" />
+      <.phx_input field={@form[:field]} type="text" />
     </.form>
 
 Always give the form an explicit, unique DOM ID, like `id="todo-form"`.
 
 #### Avoiding form errors
 
-**Always** use a form assigned via `to_form/2` in the LiveView, and the `<.input>` component in the template. In the template **always access forms this**:
+**Always** use a form assigned via `to_form/2` in the LiveView, and the `<.phx_input>` component in the template. In the template **always access forms this**:
 
     <%!-- ALWAYS do this (valid) --%>
     <.form for={@form} id="my-form">
-      <.input field={@form[:field]} type="text" />
+      <.phx_input field={@form[:field]} type="text" />
     </.form>
 
 And **never** do this:
 
     <%!-- NEVER do this (invalid) --%>
     <.form for={@changeset} id="my-form">
-      <.input field={@changeset[:field]} type="text" />
+      <.phx_input field={@changeset[:field]} type="text" />
     </.form>
 
 - You are FORBIDDEN from accessing the changeset in the template as it will cause errors
