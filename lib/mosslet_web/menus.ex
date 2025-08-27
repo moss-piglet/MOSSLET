@@ -51,15 +51,22 @@ defmodule MossletWeb.Menus do
   end
 
   # Signed out user menu
-  def user_menu_items(nil), do: build_menu([:sign_in, :register], nil)
+  def user_menu_items(%{current_user: nil}), do: build_menu([:sign_in, :register], nil)
+  def user_menu_items(%{totp_pending: true}), do: build_menu([:sign_in, :register], nil)
 
-  # Signed in user menu
-  def user_menu_items(current_user) do
+  def user_menu_items(%{current_user: current_user}) do
     if current_user.connection.profile do
       build_menu([:home, :settings, :sign_out], current_user)
     else
       build_menu([:dashboard, :settings, :sign_out], current_user)
     end
+  end
+
+  # Fallback for legacy direct calls with just a user
+  def user_menu_items(nil), do: build_menu([:sign_in, :register], nil)
+
+  def user_menu_items(current_user) when is_map(current_user) do
+    user_menu_items(%{current_user: current_user})
   end
 
   def build_menu(menu_items, current_user \\ nil) do

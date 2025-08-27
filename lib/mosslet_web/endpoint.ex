@@ -37,6 +37,11 @@ defmodule MossletWeb.Endpoint do
     gzip: not code_reloading?,
     only: MossletWeb.static_paths()
 
+  # Tidewave ai support
+  if Code.ensure_loaded?(Tidewave) do
+    plug Tidewave
+  end
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
@@ -66,6 +71,8 @@ defmodule MossletWeb.Endpoint do
     length: 8_388_608
 
   plug Sentry.PlugContext
+
+  plug MossletWeb.Plugs.ContentSecurityPolicy
 
   plug Plug.MethodOverride
   plug Plug.Head

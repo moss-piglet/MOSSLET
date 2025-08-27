@@ -30,7 +30,7 @@ defmodule MossletWeb.EditProfileLive do
   def render(assigns) do
     ~H"""
     <.settings_layout current_page={:edit_profile} current_user={@current_user} key={@key}>
-      <.simple_form
+      <.form
         :if={@current_user.confirmed_at}
         for={@profile_form}
         id="profile_form"
@@ -40,6 +40,7 @@ defmodule MossletWeb.EditProfileLive do
             do: "update_profile",
             else: "create_profile"
         }
+        class="max-w-lg"
       >
         <.input field={@profile_form[:id]} type="hidden" value={@current_user.connection.id} />
         <.inputs_for :let={f_nested} field={@profile_form[:profile]}>
@@ -218,7 +219,7 @@ defmodule MossletWeb.EditProfileLive do
             </div>
           </div>
         </.inputs_for>
-        <:actions>
+          <div class="flex justify-between">
           <.link
             :if={@current_user.connection.profile}
             phx-disable-with="Deleting..."
@@ -243,8 +244,8 @@ defmodule MossletWeb.EditProfileLive do
           >
             Create Profile
           </.button>
-        </:actions>
-      </.simple_form>
+          </div>
+      </.form>
       <.alert
         :if={!@current_user.confirmed_at}
         color="warning"

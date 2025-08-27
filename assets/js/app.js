@@ -38,6 +38,17 @@ import mossletHooks from "./hooks/index";
 // Import Toast JS for toast notifications (flash)
 import Toast from "../../deps/toast/assets/js/toast.js";
 
+// Color Scheme Switch
+import {
+  applyScheme,
+  toggleScheme,
+  initScheme,
+} from "./hooks/color_scheme_switch";
+
+// Translucent header on scroll for public layout
+import { bindHeaderTranslucency } from "./hooks/make_header_translucent";
+bindHeaderTranslucency();
+
 Alpine.plugin(collapse);
 Alpine.plugin(focus);
 Alpine.plugin(intersect);
@@ -122,7 +133,6 @@ window.addEventListener("phx:remove-el", (e) =>
 window.addEventListener("phx:clipcopy", (event) => {
   if ("clipboard" in navigator) {
     var text = event.target.textContent.trim();
-    console.log(text, "copied text");
 
     document.querySelectorAll(`[data-clipboard-copy]`).forEach((el) => {
       if (el.id == event.detail.dispatcher.id) {

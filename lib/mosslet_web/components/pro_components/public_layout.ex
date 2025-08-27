@@ -23,18 +23,6 @@ defmodule MossletWeb.PublicLayout do
 
   def mosslet_public_layout(assigns) do
     ~H"""
-    <script>
-      // When you scroll down, you will notice the navbar becomes translucent.
-      function makeHeaderTranslucentOnScroll() {
-        const header = document.querySelector("header");
-        if (header) {
-          const distanceFromTop = window.scrollY;
-          distanceFromTop > 0
-            ? header.classList.add("is-active")
-            : header.classList.remove("is-active");
-        }
-      }
-    </script>
 
     <style>
       /* Hover effects for the top menu */
@@ -87,7 +75,7 @@ defmodule MossletWeb.PublicLayout do
 
     <header
       x-data="{ isOpen: false}"
-      x-init="window.addEventListener('scroll', makeHeaderTranslucentOnScroll)"
+      x-init="window.makeHeaderTranslucentOnScroll()"
       class={[
         "fixed top-0 left-0 z-30 w-full transition duration-500 ease-in-out lg:sticky semi-translucent bg-white dark:bg-[#0B1120]",
         @header_class

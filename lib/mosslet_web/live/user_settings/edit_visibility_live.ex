@@ -23,6 +23,7 @@ defmodule MossletWeb.EditVisibilityLive do
         for={@form}
         phx-submit="update_visibility"
         phx-change="validate_visibility"
+        class="max-w-lg"
       >
         <.field
           type="select"

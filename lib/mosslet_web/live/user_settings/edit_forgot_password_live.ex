@@ -17,7 +17,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
   def render(assigns) do
     ~H"""
     <.settings_layout current_page={:edit_forgot_password} current_user={@current_user} key={@key}>
-      <div class="max-w-prose">
+      <div class="max-w-lg text-pretty">
         <.h3>{gettext("Forgot password")}</.h3>
         <div :if={!@current_user.is_forgot_pwd?} class="flex items-center gap-2 mb-6">
           <.icon solid name="hero-lock-closed" class="w-10 h-10 text-green-600 dark:text-green-400" />

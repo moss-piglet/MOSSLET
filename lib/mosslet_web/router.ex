@@ -51,16 +51,14 @@ defmodule MossletWeb.Router do
   end
 
   scope "/", MossletWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
+    pipe_through [:browser]
 
     live_session :home,
       on_mount: [
-        # allows wallaby testing
         MossletWeb.AllowEctoSandboxHook,
         {MossletWeb.UserAuth, :mount_current_user},
         {MossletWeb.UserAuth, :mount_current_user_session_key},
-        {MossletWeb.UserAuth, :ensure_session_key},
-        {MossletWeb.UserAuth, :redirect_if_user_is_authenticated}
+        {MossletWeb.UserAuth, :ensure_session_key}
       ] do
       live "/", HomeLive, :home
       live "/about", PublicLive.About, :about

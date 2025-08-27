@@ -22,7 +22,7 @@ defmodule MossletWeb.DeleteAccountLive do
         id="delete_account_form"
         phx-change="validate_delete_account"
         phx-submit="delete_account"
-        class="max-w-prose"
+        class="max-w-lg"
       >
         <div class="mx-auto pb-6">
           <span class="inline-flex">

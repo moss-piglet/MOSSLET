@@ -19,7 +19,7 @@ defmodule MossletWeb.EditPasswordLive do
   def render(assigns) do
     ~H"""
     <.settings_layout current_page={:edit_password} current_user={@current_user} key={@key}>
-      <div class="flex justify-center">
+      <div class="flex justify-center max-w-lg pb-4">
         <div class="max-w-md mb-4 rounded-md bg-background-50 dark:bg-emerald-50 p-4 shadow-md dark:shadow-emerald-500/50">
           <div class="flex">
             <div class="shrink-0">
@@ -54,6 +54,7 @@ defmodule MossletWeb.EditPasswordLive do
         phx-change="validate_password"
         phx-submit="update_password"
         phx-trigger-action={@trigger_submit}
+        class="max-w-lg"
       >
         <.field
           field={@form[:email]}

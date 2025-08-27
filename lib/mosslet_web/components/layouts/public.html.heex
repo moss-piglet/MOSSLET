@@ -1,19 +1,6 @@
 <%!-- This should match max_width in `landing_page.html.heex`. Options: ["sm", "md", "lg", "xl", "full"] --%>
 <% max_width = "xl" %>
 
-<script>
-  // When you scroll down, you will notice the navbar becomes translucent.
-  function makeHeaderTranslucentOnScroll() {
-    const header = document.querySelector("header");
-    if (header) {
-      const distanceFromTop = window.scrollY;
-      distanceFromTop > 0
-        ? header.classList.add("is-active")
-        : header.classList.remove("is-active");
-    }
-  }
-</script>
-
 <style>
   /* Hover effects for the top menu */
   header .menu-item {
@@ -65,7 +52,7 @@
 
 <header
   x-data="{mobile: false}"
-  x-init="window.addEventListener('scroll', makeHeaderTranslucentOnScroll)"
+  x-init="window.makeHeaderTranslucentOnScroll()"
   class="fixed top-0 left-0 z-30 w-full transition duration-500 ease-in-out bg-white md:sticky semi-translucent dark:bg-gray-950"
 >
   <.container max_width={max_width}>

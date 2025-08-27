@@ -41,7 +41,7 @@ defmodule MossletWeb.EditEmailLive do
       >
         <.button phx-click="update_admin" class="rounded-full" color="danger">Revoke Admin</.button>
       </div>
-      <.form id="change_email_form" for={@form} phx-submit="update_email">
+      <.form id="change_email_form" for={@form} phx-submit="update_email" class="max-w-lg">
         <.field
           type="email"
           field={@form[:email]}

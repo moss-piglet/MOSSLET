@@ -22,7 +22,7 @@ defmodule MossletWeb.EditTotpLive do
   def render(assigns) do
     ~H"""
     <.settings_layout current_page={:edit_totp} current_user={@current_user} key={@key}>
-      <div class="max-w-prose">
+      <div class="max-w-lg">
         <.h3>{gettext("Two-factor authentication")}</.h3>
 
         <%= if @current_totp do %>
@@ -103,7 +103,7 @@ defmodule MossletWeb.EditTotpLive do
       <% end %>
     </div>
 
-    <.form for={@totp_form} id="form-update-totp" phx-submit="update_totp">
+    <.form for={@totp_form} id="form-update-totp" phx-submit="update_totp" class="max-w-lg">
       <.field
         field={@totp_form[:code]}
         label="Authentication code"
@@ -152,7 +152,7 @@ defmodule MossletWeb.EditTotpLive do
 
   def enable_form(assigns) do
     ~H"""
-    <.form id="form-submit-totp" for={@user_form} phx-submit="submit_totp" phx-change="change_totp">
+    <.form id="form-submit-totp" for={@user_form} phx-submit="submit_totp" phx-change="change_totp" class="max-w-lg">
       <div class="pb-4">
         <.p :if={@current_totp}>
           Enter your current password to change 2FA or view your backup codes

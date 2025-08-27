@@ -145,6 +145,12 @@ if config_env() == :prod do
     api_key: System.get_env("STRIPE_API_KEY"),
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
+  csp =
+    System.get_env("CSP_HEADER") ||
+      "default-src 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com/@popperjs/core@2 https://unpkg.com/tippy.js@6 https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-dev.fly.storage.tigris.dev/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com; frame-ancestors 'self';"
+
+  config :mosslet, MossletWeb.Plugs.ContentSecurityPolicy, csp: csp
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

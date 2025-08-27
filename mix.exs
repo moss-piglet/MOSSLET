@@ -127,6 +127,7 @@ defmodule Mosslet.MixProject do
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:tesla, "~> 1.7.0"},
+      {:tidewave, "~> 0.4", only: :dev},
       {:timex, "~> 3.7", override: true},
       {:toast, "~> 0.2.0"},
       {:typed_ecto_schema, "~> 0.4.1"},

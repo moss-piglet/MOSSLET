@@ -29,7 +29,7 @@ defmodule MossletWeb.ManageDataLive do
     <.settings_layout current_page={:manage_data} current_user={@current_user} key={@key}>
       <div class="max-w-prose">
         <.h3>{gettext("Manage your data")}</.h3>
-        <.form for={@form} phx-change="validate_password" phx-submit="delete_data">
+        <.form for={@form} phx-change="validate_password" phx-submit="delete_data" class="max-w-lg">
           <.field
             field={@form[:email]}
             type="hidden"

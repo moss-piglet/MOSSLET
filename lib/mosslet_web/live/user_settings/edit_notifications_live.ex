@@ -14,7 +14,7 @@ defmodule MossletWeb.EditNotificationsLive do
   def render(assigns) do
     ~H"""
     <.settings_layout current_page={:edit_notifications} current_user={@current_user} key={@key}>
-      <.form id="update_profile_form" for={@form} phx-change="update_profile">
+      <.form id="update_profile_form" for={@form} phx-change="update_profile" class="max-w-lg">
         <.field
           type="checkbox"
           field={@form[:is_subscribed_to_marketing_notifications]}

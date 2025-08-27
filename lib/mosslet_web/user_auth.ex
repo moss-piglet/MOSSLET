@@ -203,7 +203,9 @@ defmodule MossletWeb.UserAuth do
   """
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    user = user_token && Accounts.get_user_by_session_token(user_token)
+    # Prevent user assignment if TOTP is pending
+    user_token = get_session(conn, :user_token)
+    user = if user_token, do: Accounts.get_user_by_session_token(user_token), else: nil
     assign(conn, :current_user, user)
   end
 
@@ -270,15 +272,22 @@ defmodule MossletWeb.UserAuth do
       |> mount_current_user(session)
       |> mount_current_user_session_key(session)
 
-    if socket.assigns.current_user do
-      {:cont, socket}
-    else
+    if session["user_totp_pending"] do
       socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
+        Phoenix.LiveView.redirect(socket, to: ~p"/app/users/totp")
 
       {:halt, socket}
+    else
+      if socket.assigns.current_user do
+        {:cont, socket}
+      else
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
+
+        {:halt, socket}
+      end
     end
   end
 
@@ -562,12 +571,14 @@ defmodule MossletWeb.UserAuth do
   end
 
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
+    totp_pending = session["user_totp_pending"]
+
     socket =
       socket
       |> mount_current_user(session)
       |> mount_current_user_session_key(session)
 
-    if socket.assigns.current_user do
+    if socket.assigns.current_user && !totp_pending do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket.assigns.current_user))}
     else
       {:cont, socket}
@@ -578,6 +589,8 @@ defmodule MossletWeb.UserAuth do
     Phoenix.Component.assign_new(socket, :current_user, fn ->
       if user_token = session["user_token"] do
         Accounts.get_user_by_session_token(user_token)
+      else
+        nil
       end
     end)
   end
@@ -609,14 +622,22 @@ defmodule MossletWeb.UserAuth do
   Requires that the user email is confirmed.
   """
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns[:current_user] do
+    if get_session(conn, :user_totp_pending) && conn.request_path != "/app/users/totp" do
       conn
-    else
-      conn
-      |> put_flash(:error, "You must log in to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: ~p"/auth/sign_in")
+      |> redirect(to: "/app/users/totp")
       |> halt()
+    else
+      case conn.assigns[:current_user] do
+        nil ->
+          conn
+          |> put_flash(:error, "You must log in to access this page.")
+          |> maybe_store_return_to()
+          |> redirect(to: ~p"/auth/sign_in")
+          |> halt()
+
+        _ ->
+          conn
+      end
     end
   end
 

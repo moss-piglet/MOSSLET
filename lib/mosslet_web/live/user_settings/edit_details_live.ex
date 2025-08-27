@@ -68,6 +68,7 @@ defmodule MossletWeb.EditDetailsLive do
         for={@avatar_form}
         phx-submit="update_avatar"
         phx-change="validate"
+        class="max-w-lg"
       >
         <FileUploadComponents.image_input
           upload={@uploads.avatar}
@@ -110,12 +111,13 @@ defmodule MossletWeb.EditDetailsLive do
         </div>
       </.form>
 
-      <div id="name-change-form">
-        <.simple_form
+      <div id="name-change-form" class="py-2">
+        <.form
           for={@name_form}
           id="update_name_form"
           phx-submit="update_name"
           phx-change="validate_name"
+          class="max-w-lg"
         >
           <.field
             field={@name_form[:name]}
@@ -123,7 +125,7 @@ defmodule MossletWeb.EditDetailsLive do
             placeholder={gettext("eg. Isabella")}
             value={@current_name}
           />
-          <:actions>
+
             <.button
               class="rounded-full"
               phx-disable-with="Updating..."
@@ -131,16 +133,17 @@ defmodule MossletWeb.EditDetailsLive do
             >
               {gettext("Update name")}
             </.button>
-          </:actions>
-        </.simple_form>
+
+        </.form>
       </div>
 
-      <div id="username-change-form">
-        <.simple_form
+      <div id="username-change-form" class="py-2 mt-4">
+        <.form
           for={@username_form}
           id="update_username_form"
           phx-submit="update_username"
           phx-change="validate_username"
+          class="max-w-lg"
         >
           <.field
             field={@username_form[:username]}
@@ -148,7 +151,7 @@ defmodule MossletWeb.EditDetailsLive do
             placeholder={gettext("eg. isabella")}
             value={@current_username}
           />
-          <:actions>
+
             <.button
               class="rounded-full"
               phx-disable-with="Updating..."
@@ -156,8 +159,8 @@ defmodule MossletWeb.EditDetailsLive do
             >
               {gettext("Update username")}
             </.button>
-          </:actions>
-        </.simple_form>
+
+        </.form>
       </div>
     </.settings_layout>
     """

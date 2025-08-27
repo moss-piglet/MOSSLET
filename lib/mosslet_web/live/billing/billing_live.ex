@@ -204,6 +204,8 @@ defmodule MossletWeb.BillingLive do
           class="rounded-full"
           label={gettext("View receipt")}
           link_type="live_redirect"
+          target="_blank"
+          rel="noopener noreferrer"
           to={@provider_charge_async.result.receipt_url}
           color="primary"
         />
