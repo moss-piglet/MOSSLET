@@ -398,3 +398,78 @@ trix-editor {
     transform: translateX(0);
   }
 }
+
+/* Header Menu Hover Effects */
+header .menu-item {
+  position: relative;
+}
+
+header .menu-item:before {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 0;
+  bottom: 0;
+  height: 2px;
+  background: #4b5563;
+  transition: 0.3s all ease;
+}
+
+.dark header .menu-item:before {
+  background: #ccc;
+}
+
+header .menu-item:hover:before {
+  left: 0;
+  width: 100%;
+}
+
+header .menu-item.is-active:before {
+  left: 0;
+  width: 100%;
+}
+
+/* Translucent effects for the navbar when you scroll down the page */
+header.is-active {
+  background: rgba(255, 255, 255, 0.55);
+  @apply shadow;
+}
+
+.dark header.is-active {
+  background: rgba(0, 0, 0, 0.45);
+  @apply shadow;
+}
+
+header.is-active.semi-translucent {
+  backdrop-filter: saturate(180%) blur(10px);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  -moz-backdrop-filter: saturate(180%) blur(10px);
+}
+
+/* Flickity Carousel Testimonials */
+#testimonials .flickity-viewport {
+  overflow: unset;
+}
+
+#testimonials .flickity-page-dots {
+  position: relative;
+  bottom: unset;
+  margin-top: 40px;
+  text-align: center;
+}
+
+#testimonials .flickity-page-dots .dot {
+  background: #3b82f6;
+  transition: 0.3s all ease;
+  opacity: 0.2;
+  margin: 0;
+  margin-right: 10px;
+}
+
+#testimonials .flickity-page-dots .dot.is-selected {
+  opacity: 0.8;
+}
+
+.dark #testimonials .flickity-page-dots .dot {
+  background: white;
+}

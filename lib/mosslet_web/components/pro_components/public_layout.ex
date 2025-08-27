@@ -23,55 +23,6 @@ defmodule MossletWeb.PublicLayout do
 
   def mosslet_public_layout(assigns) do
     ~H"""
-    <style>
-      /* Hover effects for the top menu */
-      header .menu-item {
-        position: relative;
-      }
-
-      header .menu-item:before {
-        content: '';
-        position: absolute;
-        right: 0;
-        width: 0;
-        bottom: 0;
-        height: 2px;
-        background: #4b5563;
-        transition: 0.3s all ease;
-      }
-
-      .dark header .menu-item:before {
-        background: #ccc;
-      }
-
-      header .menu-item:hover:before {
-        left: 0;
-        width: 100%;
-      }
-
-      header .menu-item.is-active:before {
-        left: 0;
-        width: 100%;
-      }
-
-      /* Translucent effects for the the navbar when you scroll down the page */
-      header.is-active {
-        background: rgba(255, 255, 255, .55);
-        @apply shadow;
-      }
-
-      .dark header.is-active {
-        background: rgba(0,0,0,.45);
-        @apply shadow;
-      }
-
-      header.is-active.semi-translucent {
-        backdrop-filter: saturate(180%) blur(10px);
-        -webkit-backdrop-filter: saturate(180%) blur(10px);
-        -moz-backdrop-filter: saturate(180%) blur(10px);
-      }
-    </style>
-
     <header
       x-data="{ isOpen: false}"
       x-init="window.makeHeaderTranslucentOnScroll()"

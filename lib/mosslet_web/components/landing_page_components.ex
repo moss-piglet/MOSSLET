@@ -328,35 +328,6 @@ defmodule MossletWeb.LandingPageComponents do
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <style>
-      /* Modify the testimonial slider to go off the page */
-      #testimonials .flickity-viewport {
-        overflow: unset;
-      }
-
-      #testimonials .flickity-page-dots {
-        position: relative;
-        bottom: unset;
-        margin-top: 40px;
-        text-align: center;
-      }
-
-      #testimonials .flickity-page-dots .dot {
-        background: #3b82f6;
-        transition: 0.3s all ease;
-        opacity: 0.2;
-        margin: 0;
-        margin-right: 10px;
-      }
-
-      #testimonials .flickity-page-dots .dot.is-selected {
-        opacity: 0.8;
-      }
-
-      .dark #testimonials .flickity-page-dots .dot {
-        background: white;
-      }
-    </style>
     """
   end
 

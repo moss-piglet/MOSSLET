@@ -448,35 +448,6 @@ defmodule MossletWeb.Components.LandingPage do
     </script>
 
     <link rel="stylesheet" href="https://unpkg.com/flickity@2/dist/flickity.min.css" />
-    <style>
-      /* Modify the testimonial slider to go off the page */
-      #testimonials .flickity-viewport {
-        overflow: unset;
-      }
-
-      #testimonials .flickity-page-dots {
-        position: relative;
-        bottom: unset;
-        margin-top: 40px;
-        text-align: center;
-      }
-
-      #testimonials .flickity-page-dots .dot {
-        background: #3b82f6;
-        transition: 0.3s all ease;
-        opacity: 0.35;
-        margin: 0;
-        margin-right: 10px;
-      }
-
-      #testimonials .flickity-page-dots .dot.is-selected {
-        opacity: 1;
-      }
-
-      .dark #testimonials .flickity-page-dots .dot {
-        background: white;
-      }
-    </style>
     """
   end
 
