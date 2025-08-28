@@ -336,22 +336,23 @@ defmodule MossletWeb.UserAuth do
 
     view_list = Atom.to_string(socket.view) |> String.split(".")
 
-    if socket.assigns.current_user && socket.assigns.key do
+    # Check if this is a public route first
+    if Enum.any?(@public_list, fn view -> view in view_list end) do
       {:cont, socket}
     else
-      if socket.assigns.current_user do
-        socket =
-          socket
-          |> Phoenix.LiveView.put_flash(
-            :info,
-            "Your session key has expired, please log in again."
-          )
-          |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
-
-        {:halt, socket}
+      if socket.assigns.current_user && socket.assigns.key do
+        {:cont, socket}
       else
-        if Enum.any?(@public_list, fn view -> view in view_list end) do
-          {:cont, socket}
+        if socket.assigns.current_user do
+          socket =
+            socket
+            |> Phoenix.LiveView.put_flash(
+              :info,
+              "Your session key has expired, please log in again."
+            )
+            |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
+
+          {:halt, socket}
         else
           socket =
             socket
@@ -594,10 +595,14 @@ defmodule MossletWeb.UserAuth do
       |> mount_current_user(session)
       |> mount_current_user_session_key(session)
 
-    if socket.assigns.current_user && !totp_pending do
+    if socket.assigns.current_user && socket.assigns.key && !totp_pending do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket.assigns.current_user))}
     else
-      {:cont, socket}
+      if socket.assigns.current_user && socket.assigns.key && totp_pending do
+        {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/app/users/totp")}
+      else
+        {:cont, socket}
+      end
     end
   end
 
@@ -623,12 +628,20 @@ defmodule MossletWeb.UserAuth do
   Used for routes that require the user to not be authenticated.
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns[:current_user] do
+    totp_pending = get_session(conn, :user_totp_pending)
+
+    if conn.assigns[:current_user] && conn.assigns[:key] && !totp_pending do
       conn
       |> redirect(to: signed_in_path(conn.assigns[:current_user]))
       |> halt()
     else
-      conn
+      if conn.assigns[:current_user] && conn.assigns[:key] && totp_pending do
+        conn
+        |> redirect(to: ~p"/app/users/totp")
+        |> halt()
+      else
+        conn
+      end
     end
   end
 

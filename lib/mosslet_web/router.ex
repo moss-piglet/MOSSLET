@@ -143,8 +143,6 @@ defmodule MossletWeb.Router do
         {MossletWeb.UserAuth, :maybe_ensure_connection},
         {MossletWeb.SubscriptionPlugs, :subscribed_entity}
       ] do
-      use MossletWeb.BillingRoutes
-
       # Onboarding
       live "/users/onboarding", UserOnboardingLive
 
@@ -168,6 +166,27 @@ defmodule MossletWeb.Router do
       live "/faq", FaqLive.Index
 
       # moved to subscription routes
+    end
+  end
+
+  # Billing routes - accessible to authenticated users without subscription
+  scope "/app", MossletWeb do
+    pipe_through [
+      :browser,
+      :authenticated,
+      :require_confirmed_user,
+      :require_session_key,
+      :maybe_require_connection
+    ]
+
+    live_session :billing_authenticated_user,
+      on_mount: [
+        {MossletWeb.UserAuth, :ensure_authenticated},
+        {MossletWeb.UserAuth, :ensure_confirmed},
+        {MossletWeb.UserAuth, :ensure_session_key},
+        {MossletWeb.UserAuth, :maybe_ensure_connection}
+      ] do
+      use MossletWeb.BillingRoutes
     end
   end
 

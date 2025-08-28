@@ -60,5 +60,6 @@ defmodule MossletWeb.ConnCase do
     conn
     |> Phoenix.ConnTest.init_test_session(%{})
     |> Plug.Conn.put_session(:user_token, token)
+    |> Plug.Conn.put_session(:key, "test_session_key")
   end
 end

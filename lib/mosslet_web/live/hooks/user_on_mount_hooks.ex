@@ -76,10 +76,31 @@ defmodule MossletWeb.UserOnMountHooks do
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = maybe_assign_user(socket, session)
 
-    if socket.assigns.current_user do
-      {:halt, redirect(socket, to: "/")}
+    # Also assign the session key like in UserAuth
+    socket =
+      assign_new(socket, :key, fn ->
+        if key = session["key"] do
+          key
+        end
+      end)
+
+    totp_pending = session["user_totp_pending"]
+
+    if socket.assigns.current_user && socket.assigns.key && !totp_pending do
+      signed_in_path =
+        if socket.assigns.current_user.is_onboarded? do
+          ~p"/app"
+        else
+          ~p"/app/users/onboarding"
+        end
+
+      {:halt, redirect(socket, to: signed_in_path)}
     else
-      {:cont, socket}
+      if socket.assigns.current_user && socket.assigns.key && totp_pending do
+        {:halt, redirect(socket, to: ~p"/app/users/totp")}
+      else
+        {:cont, socket}
+      end
     end
   end
 

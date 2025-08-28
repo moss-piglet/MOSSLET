@@ -214,7 +214,12 @@ defmodule MossletWeb.UserAuthTest do
   describe "on_mount: :redirect_if_user_is_authenticated" do
     test "redirects if there is an authenticated  user ", %{conn: conn, user: user} do
       user_token = Accounts.generate_user_session_token(user)
-      session = conn |> put_session(:user_token, user_token) |> get_session()
+
+      session =
+        conn
+        |> put_session(:user_token, user_token)
+        |> put_session(:key, "test_key")
+        |> get_session()
 
       assert {:halt, _updated_socket} =
                UserAuth.on_mount(
@@ -240,14 +245,25 @@ defmodule MossletWeb.UserAuthTest do
 
   describe "redirect_if_user_is_authenticated/2" do
     test "redirects if user is authenticated and not onboarded", %{conn: conn, user: user} do
-      conn = conn |> assign(:current_user, user) |> UserAuth.redirect_if_user_is_authenticated([])
+      conn =
+        conn
+        |> assign(:current_user, user)
+        |> assign(:key, "test_key")
+        |> UserAuth.redirect_if_user_is_authenticated([])
+
       assert conn.halted
       assert redirected_to(conn) == ~p"/app/users/onboarding"
     end
 
     test "redirects if user is authenticated and onboarded", %{conn: conn, user: user} do
       {:ok, user} = Accounts.update_user_onboarding(user, %{is_onboarded?: true})
-      conn = conn |> assign(:current_user, user) |> UserAuth.redirect_if_user_is_authenticated([])
+
+      conn =
+        conn
+        |> assign(:current_user, user)
+        |> assign(:key, "test_key")
+        |> UserAuth.redirect_if_user_is_authenticated([])
+
       assert conn.halted
       assert redirected_to(conn) == ~p"/app"
     end
