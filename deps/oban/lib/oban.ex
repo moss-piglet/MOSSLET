@@ -16,7 +16,7 @@ defmodule Oban do
   use Supervisor
 
   alias Ecto.{Changeset, Multi}
-  alias Oban.{Config, Engine, Job, Notifier, Nursery, Peer, Registry, Sonar, Stager}
+  alias Oban.{Config, Engine, Harbor, Job, Notifier, Nursery, Peer, Registry, Repo, Sonar}
   alias Oban.Queue.{Drainer, Producer}
 
   @typedoc """
@@ -25,17 +25,37 @@ defmodule Oban do
   """
   @type name :: term()
 
+  @typedoc """
+  A job identifier that can be either a Job struct or the job's integer id.
+  """
+  @type job_or_id :: Job.t() | integer()
+
+  @typedoc """
+  A string identifier for an Oban node.
+  """
   @type oban_node :: String.t()
 
+  @typedoc """
+  The name of a queue, which can be either an atom or a binary string.
+  """
   @type queue_name :: atom() | binary()
 
+  @typedoc """
+  Shared options for queue configuration operations.
+  """
   @type queue_option ::
           {:local_only, boolean()}
           | {:node, oban_node()}
           | {:queue, queue_name()}
 
+  @typedoc """
+  Shared options for configuration operations that affect all queues.
+  """
   @type queue_all_option :: {:local_only, boolean()} | {:node, oban_node()}
 
+  @typedoc """
+  The current state of a queue, containing information about its configuration and runtime status.
+  """
   @type queue_state :: %{
           :limit => pos_integer(),
           :node => oban_node(),
@@ -47,6 +67,11 @@ defmodule Oban do
           optional(atom()) => any()
         }
 
+  @typedoc """
+  Configuration options for starting an Oban instance.
+
+  See `start_link1/` for more information on individual options.
+  """
   @type option ::
           {:dispatch_cooldown, pos_integer()}
           | {:engine, module()}
@@ -64,6 +89,9 @@ defmodule Oban do
           | {:stage_interval, timeout()}
           | {:testing, :disabled | :inline | :manual}
 
+  @typedoc """
+  Options for draining jobs from a queue.
+  """
   @type drain_option ::
           {:queue, queue_name()}
           | {:with_limit, pos_integer()}
@@ -71,6 +99,9 @@ defmodule Oban do
           | {:with_safety, boolean()}
           | {:with_scheduled, boolean() | DateTime.t()}
 
+  @typedoc """
+  The result of a queue drain operation, containing counts of jobs by their final state.
+  """
   @type drain_result :: %{
           cancelled: non_neg_integer(),
           discard: non_neg_integer(),
@@ -79,11 +110,29 @@ defmodule Oban do
           success: non_neg_integer()
         }
 
+  @typedoc """
+  A job changeset or a function that generates a job changeset.
+  """
   @type changeset_or_fun :: Job.changeset() | Job.changeset_fun()
+
+  @typedoc """
+  A list of job changesets or a wrapper containing changesets.
+  """
   @type changesets_or_wrapper :: Job.changeset_list() | changeset_wrapper()
+
+  @typedoc """
+  A list of job changesets, a wrapper containing changesets, or a function that generates them.
+  """
   @type changesets_or_wrapper_or_fun :: changesets_or_wrapper() | Job.changeset_list_fun()
+
+  @typedoc """
+  A wrapper map containing a list of job changesets and optional additional metadata.
+  """
   @type changeset_wrapper :: %{:changesets => Job.changeset_list(), optional(atom()) => term()}
-  @type multi :: Multi.t()
+
+  @typedoc """
+  A name for an operation within an Ecto.Multi.
+  """
   @type multi_name :: Multi.name()
 
   defguardp is_changeset_or_fun(cf)
@@ -215,11 +264,11 @@ defmodule Oban do
         Oban.insert!(__MODULE__, changeset, opts)
       end
 
-      def insert_all(changesets, opts) do
+      def insert_all(changesets, opts \\ []) do
         Oban.insert_all(__MODULE__, changesets, opts)
       end
 
-      def insert_all(multi, multi_name, changesets, opts) do
+      def insert_all(multi, multi_name, changesets, opts \\ []) do
         Oban.insert_all(__MODULE__, multi, multi_name, changesets, opts)
       end
 
@@ -259,6 +308,10 @@ defmodule Oban do
         Oban.retry_all_jobs(__MODULE__, queryable)
       end
 
+      def update_job(job_or_id, changes_or_fun) do
+        Oban.update_job(__MODULE__, job_or_id, changes_or_fun)
+      end
+
       defoverridable cancel_all_jobs: 1,
                      cancel_job: 1,
                      check_queue: 1,
@@ -273,7 +326,9 @@ defmodule Oban do
                      insert: 4,
                      insert!: 1,
                      insert!: 2,
+                     insert_all: 1,
                      insert_all: 2,
+                     insert_all: 3,
                      insert_all: 4,
                      start_queue: 1,
                      pause_queue: 1,
@@ -283,7 +338,8 @@ defmodule Oban do
                      scale_queue: 1,
                      stop_queue: 1,
                      retry_job: 1,
-                     retry_all_jobs: 1
+                     retry_all_jobs: 1,
+                     update_job: 2
     end
   end
 
@@ -481,16 +537,15 @@ defmodule Oban do
   def whereis(name), do: Registry.whereis(name)
 
   @impl Supervisor
-  def init(%Config{name: name, plugins: plugins} = conf) do
+  def init(%Config{name: name} = conf) do
     children = [
       {Notifier, conf: conf, name: Registry.via(name, Notifier)},
       {Nursery, conf: conf, name: Registry.via(name, Nursery)},
       {Peer, conf: conf, name: Registry.via(name, Peer)},
       {Sonar, conf: conf, name: Registry.via(name, Sonar)},
-      {Stager, conf: conf, name: Registry.via(name, Stager)}
+      {Harbor, conf: conf, name: Registry.via(name, Harbor)}
     ]
 
-    children = children ++ Enum.map(plugins, &plugin_child_spec(&1, conf))
     children = children ++ event_child_spec(conf)
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -555,7 +610,7 @@ defmodule Oban do
     |> Engine.insert_job(changeset, opts)
   end
 
-  @spec insert(multi(), multi_name(), changeset_or_fun()) :: multi()
+  @spec insert(Multi.t(), multi_name(), changeset_or_fun()) :: Multi.t()
   def insert(%Multi{} = multi, multi_name, changeset) when is_changeset_or_fun(changeset) do
     insert(__MODULE__, multi, multi_name, changeset, [])
   end
@@ -586,7 +641,7 @@ defmodule Oban do
       |> MyApp.Repo.transaction()
   """
   @doc since: "0.7.0"
-  @spec insert(name, multi(), multi_name(), changeset_or_fun(), Keyword.t()) :: multi()
+  @spec insert(name, Multi.t(), multi_name(), changeset_or_fun(), Keyword.t()) :: Multi.t()
   def insert(name, multi, multi_name, changeset, opts)
       when is_changeset_or_fun(changeset) and is_list(opts) do
     name
@@ -701,10 +756,10 @@ defmodule Oban do
   """
   @doc since: "0.9.0"
   @spec insert_all(
-          name() | multi(),
+          name() | Multi.t(),
           changesets_or_wrapper() | multi_name(),
           Keyword.t() | changesets_or_wrapper_or_fun()
-        ) :: [Job.t()] | multi()
+        ) :: [Job.t()] | Multi.t()
   def insert_all(name \\ __MODULE__, changesets, opts \\ [])
 
   def insert_all(name, changesets, opts) when is_list_or_wrapper(changesets) and is_list(opts) do
@@ -755,8 +810,8 @@ defmodule Oban do
       |> MyApp.Repo.transaction()
   """
   @doc since: "0.9.0"
-  @spec insert_all(name(), multi(), multi_name(), changesets_or_wrapper_or_fun(), Keyword.t()) ::
-          multi()
+  @spec insert_all(name(), Multi.t(), multi_name(), changesets_or_wrapper_or_fun(), Keyword.t()) ::
+          Multi.t()
   def insert_all(name, multi, multi_name, changesets, opts)
       when is_list_or_wrapper(changesets) and is_list(opts) do
     name
@@ -1265,7 +1320,7 @@ defmodule Oban do
       :ok
   """
   @doc since: "2.2.0"
-  @spec retry_job(name(), job_or_id :: Job.t() | integer()) :: :ok
+  @spec retry_job(name(), job_or_id()) :: :ok
   def retry_job(name \\ __MODULE__, job_or_id) do
     conf = config(name)
 
@@ -1335,7 +1390,7 @@ defmodule Oban do
       :ok
   """
   @doc since: "1.3.0"
-  @spec cancel_job(name(), job_or_id :: Job.t() | integer()) :: :ok
+  @spec cancel_job(name(), job_or_id()) :: :ok
   def cancel_job(name \\ __MODULE__, job_or_id)
 
   def cancel_job(name, %Job{id: job_id}), do: cancel_job(name, job_id)
@@ -1402,7 +1457,7 @@ defmodule Oban do
       :ok
   """
   @doc since: "1.19.0"
-  @spec delete_job(name(), job_or_id :: Job.t() | integer()) :: :ok
+  @spec delete_job(name(), job_or_id()) :: :ok
   def delete_job(name \\ __MODULE__, job_or_id) do
     conf = config(name)
 
@@ -1437,14 +1492,90 @@ defmodule Oban do
     {:ok, length(deleted_jobs)}
   end
 
-  ## Child Spec Helpers
+  @doc """
+  Update a job with the given changes.
 
-  defp plugin_child_spec({module, opts}, conf) do
-    name = Registry.via(conf.name, {:plugin, module})
-    opts = Keyword.merge(opts, conf: conf, name: name)
+  This function accepts either a job struct or id, along with either a map of changes or a
+  function that receives the job and returns a map of changes.
 
-    Supervisor.child_spec({module, opts}, id: {:plugin, module})
+  The update operation is wrapped in a transaction with a locking clause (when available) to
+  prevent concurrent modifications.
+
+  ### Fields and Validations
+
+  All changes are validated using the same validations as `insert/2`. Only the following subset of
+  fields can be updated:
+
+  * `:args`
+  * `:max_attempts`
+  * `:meta`
+  * `:priority`
+  * `:queue`
+  * `:scheduled_at`
+  * `:tags`
+  * `:worker`
+
+  > #### Updating Executing Jobs {: .warning}
+  >
+  > Use caution when updating jobs that are currently `executing`. Modifying fields like `:args`,
+  > `:queue`, or `:worker` while a job is running may lead to unexpected behavior or inconsistent
+  > state. Consider whether the job should be cancelled first, or if the update should be deferred
+  > until after execution completes.
+
+  ## Examples
+
+  Update a job with a map of changes:
+
+      Oban.update_job(job, %{tags: ["urgent"], priority: 0})
+
+  Update a job by id:
+
+      Oban.update_job(123, %{tags: ["processed"], meta: %{batch_id: 456}})
+
+  Update a job using a function:
+
+      Oban.update_job(job, fn job -> %{tags: ["retry" | job.tags]} end)
+
+  Using a named Oban instance:
+
+      Oban.update_job(MyApp.Oban, job, fn job ->
+        %{meta: Map.put(job.meta, "processed_at", DateTime.utc_now())}
+      end)
+  """
+  @doc since: "2.20.0"
+  @spec update_job(name(), job_or_id(), map() | (Job.t() -> map())) ::
+          {:ok, Job.t()} | {:error, term()}
+  def update_job(name \\ __MODULE__, job_or_id, changes_or_fun) do
+    conf = config(name)
+
+    with {:ok, job} <- resolve_job(conf, job_or_id),
+         {:ok, changes} <- resolve_changes(job, changes_or_fun) do
+      Engine.update_job(conf, job, changes)
+    end
   end
+
+  defp resolve_job(_conf, %Job{} = job), do: {:ok, job}
+
+  defp resolve_job(conf, job_id) when is_integer(job_id) do
+    case Repo.get(conf, Job, job_id) do
+      nil -> {:error, :not_found}
+      job -> {:ok, job}
+    end
+  end
+
+  defp resolve_changes(_job, changes) when is_map(changes), do: {:ok, changes}
+
+  defp resolve_changes(job, fun) when is_function(fun, 1) do
+    case fun.(job) do
+      changes when is_map(changes) ->
+        {:ok, changes}
+
+      other ->
+        {:error, "function must return a map, got: #{inspect(other)}"}
+    end
+  end
+
+  ## Child Spec Helpers
 
   defp event_child_spec(conf) do
     time = %{system_time: System.system_time()}

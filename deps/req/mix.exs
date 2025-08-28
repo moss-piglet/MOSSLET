@@ -1,7 +1,7 @@
 defmodule Req.MixProject do
   use Mix.Project
 
-  @version "0.5.12"
+  @version "0.5.15"
   @source_url "https://github.com/wojtekmach/req"
 
   def project do
@@ -19,8 +19,9 @@ defmodule Req.MixProject do
       xref: [
         exclude: [
           NimbleCSV.RFC4180,
-          Plug.Test,
           Plug.Conn,
+          Plug.HTML,
+          Plug.Test,
           :brotli,
           :ezstd
         ]

@@ -5,10 +5,12 @@
 When updating from LiveView 1.0, you can also use [igniter](https://hexdocs.pm/igniter) to perform the following changes for you:
 
 ```bash
+# Prior to / without running `mix deps.update`
 mix igniter.upgrade phoenix_live_view
-```
 
-Note: before the final release, you need to run `mix igniter.apply_upgrades phoenix_live_view:1.0.0:1.1.0` after upgrading to the latest release candidate instead.
+# Or if you have previously run `mix deps.update phoenix_live_view` or are upgrading from a release candidate.
+mix igniter.apply_upgrades phoenix_live_view:1.0.0:1.1.0
+```
 
 Here is a quick summary of the changes necessary to upgrade to LiveView v1.1:
 
@@ -265,13 +267,49 @@ When `:debug_heex_annotations` is enabled, LiveView will now annotate the beginn
 
 To enable this, a new callback called `annotate_slot/4` was added. Custom implementations of `Phoenix.LiveView.TagEngine` must implement it accordingly.
 
+## v1.1.8 (2025-08-20)
+
+### Bug fixes
+
+* Fix race condition where patches were discarded when a join was still pending ([#3957](https://github.com/phoenixframework/phoenix_live_view/issues/3957))
+
+## v1.1.7 (2025-08-18)
+
+### Bug fixes
+
+* Fix regression introduced in v1.1.6
+
+## v1.1.6 (2025-08-18)
+
+### Bug fixes
+
+* Fix live components in nested views accidentally destroying live components in parent views ([#3953](https://github.com/phoenixframework/phoenix_live_view/issues/3953))
+
+## v1.1.5 (2025-08-18)
+
+### Bug fixes
+
+* Fix hooks not working when used inside of `Phoenix.Component.portal/1` ([#3950](https://github.com/phoenixframework/phoenix_live_view/issues/3950))
+* Fix form participating custom elements not being reset to empty in some cases ([#3946](https://github.com/phoenixframework/phoenix_live_view/pull/3946))
+
+### Enhancements
+
+* Allow `assign_async` to return a keyword list
+* Add `Phoenix.LiveView.stream_async/4` to asynchronously insert items into a stream
+
+## v1.1.4 (2025-08-13)
+
+### Bug fixes
+
+* Fix LiveComponent updates being inadvertently discarded in rare circumstances when locked DOM trees are restored ([#3941](https://github.com/phoenixframework/phoenix_live_view/issues/3941))
+
 ## v1.1.3 (2025-08-05)
 
 ### Bug fixes
 
 * Fix warning when importing LiveView JS ([#3926](https://github.com/phoenixframework/phoenix_live_view/pull/3926))
 * Ensure form recovery respects fieldsets ([#3921](https://github.com/phoenixframework/phoenix_live_view/pull/3921))
-* LiveViewTest: Fix crasj when submitting a form with custom submitter, but without ID ([#3927](https://github.com/phoenixframework/phoenix_live_view/issues/3927))
+* LiveViewTest: Fix crash when submitting a form with custom submitter, but without ID ([#3927](https://github.com/phoenixframework/phoenix_live_view/issues/3927))
 * LiveViewTest: Ensure whitespace in textarea content is preserved when submitting a form ([#3928](https://github.com/phoenixframework/phoenix_live_view/pull/3928))
 * Make hook types less strict ([#3913](https://github.com/phoenixframework/phoenix_live_view/issues/3913))
 

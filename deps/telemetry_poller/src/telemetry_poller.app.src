@@ -1,6 +1,6 @@
 {application,telemetry_poller,
              [{description,"Periodically collect measurements and dispatch them as Telemetry events."},
-              {vsn,"1.2.0"},
+              {vsn,"1.3.0"},
               {registered,[]},
               {mod,{telemetry_poller_app,[]}},
               {applications,[kernel,stdlib,telemetry]},

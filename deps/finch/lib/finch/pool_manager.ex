@@ -14,6 +14,7 @@ defmodule Finch.PoolManager do
     :server_name_indication,
     :signature_algs,
     :signature_algs_cert,
+    :supported_groups,
     :verify,
     :verify_fun,
     :versions
@@ -47,7 +48,7 @@ defmodule Finch.PoolManager do
   end
 
   def lookup_pool(registry, key) do
-    case Registry.lookup(registry, key) do
+    case all_pool_instances(registry, key) do
       [] ->
         :none
 
@@ -59,6 +60,8 @@ defmodule Finch.PoolManager do
         Enum.random(pools)
     end
   end
+
+  def all_pool_instances(registry, key), do: Registry.lookup(registry, key)
 
   def start_pools(registry_name, shp) do
     {:ok, config} = Registry.meta(registry_name, :config)

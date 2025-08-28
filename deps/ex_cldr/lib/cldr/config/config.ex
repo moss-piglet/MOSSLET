@@ -1509,6 +1509,121 @@ defmodule Cldr.Config do
   end
 
   @doc """
+  Get the canonical timezone data
+
+  """
+  @timezones_file "timezones.json"
+  def timezones do
+    Path.join(cldr_data_dir(), @timezones_file)
+    |> File.read!()
+    |> Cldr.Config.json_library().decode!
+    |> Cldr.Map.atomize_keys(level: 2)
+    |> Cldr.Map.atomize_values(only: :territory)
+    |> Map.new()
+  end
+
+  @doc """
+  Returns a mapping of valid long timezone names
+  to their canonical equivalent.
+
+  """
+  def canonical_timezones do
+    timezones()
+    |> Enum.map(fn {_short_name, zone} ->
+      if aliases = zone.aliases do
+        [canonical | _others] = aliases
+        Enum.map(aliases, fn other -> {other, canonical} end)
+      else
+        nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> List.flatten()
+    |> Map.new()
+  end
+
+  @doc """
+  Return the metazone mapping data.
+
+  """
+  @metazone_mapping_file "metazone_mapping.json"
+  def metazone_mapping do
+    Path.join(cldr_data_dir(), @metazone_mapping_file)
+    |> File.read!()
+    |> json_library().decode!()
+    |> Cldr.Map.atomize_keys(level: 2)
+  end
+
+  @doc """
+  Return the metazone data.
+
+  """
+  @metazone_file "metazones.json"
+  def metazones do
+    Path.join(cldr_data_dir(), @metazone_file)
+    |> File.read!()
+    |> json_library().decode!()
+    |> Cldr.Map.deep_map(fn
+      s when is_binary(s) ->
+        maybe_datetime(s)
+
+      other ->
+        other
+    end)
+    |> Enum.map(&reverse_date_list/1)
+    |> Map.new()
+  end
+
+  defp maybe_datetime(string) do
+    maybe_datetime =
+      string
+      |> String.replace(" ", "T")
+      |> Kernel.<>(":00Z")
+      |> DateTime.from_iso8601()
+
+    case maybe_datetime do
+      {:ok, datetime, _} -> datetime
+      _error -> string
+    end
+  end
+
+  defp reverse_date_list({k, v}) when is_list(v) do
+    {k, Enum.reverse(v)}
+  end
+
+  defp reverse_date_list({k, v}) when is_map(v) do
+    {k, reverse_date_list(v)}
+  end
+
+  defp reverse_date_list(map) when is_map(map) do
+    Enum.map(map, fn m -> reverse_date_list(m) end)
+    |> Map.new()
+  end
+
+  @doc """
+  Return the mapping from short zone to metazone.
+
+  """
+  @metazone_id_file "metazone_ids.json"
+  def metazone_ids do
+    Path.join(cldr_data_dir(), @metazone_id_file)
+    |> File.read!()
+    |> json_library().decode!()
+  end
+
+  @doc """
+  Return the primary zones for territories.
+
+  """
+  @primary_zone_file "primary_zones.json"
+  def primary_zones do
+    Path.join(cldr_data_dir(), @primary_zone_file)
+    |> File.read!()
+    |> json_library().decode!()
+    |> Cldr.Map.atomize_values()
+  end
+
+  @doc """
   Returns true if a `Gettext` module is configured in Cldr and
   the `Gettext` module is available.
 

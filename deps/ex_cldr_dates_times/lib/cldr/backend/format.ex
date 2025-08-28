@@ -384,7 +384,7 @@ defmodule Cldr.DateTime.Format.Backend do
 
         """
         @spec date_time_available_formats(Locale.locale_reference(), calendar) ::
-            {:ok, formats} | {:error, {module, String.t()}}
+                {:ok, formats} | {:error, {module, String.t()}}
 
         def date_time_available_formats(
               locale \\ unquote(backend).get_locale(),
@@ -422,7 +422,7 @@ defmodule Cldr.DateTime.Format.Backend do
 
         """
         @spec date_available_formats(Locale.locale_reference(), calendar) ::
-            {:ok, formats} | {:error, {module, String.t()}}
+                {:ok, formats} | {:error, {module, String.t()}}
 
         def date_available_formats(
               locale \\ unquote(backend).get_locale(),
@@ -460,7 +460,7 @@ defmodule Cldr.DateTime.Format.Backend do
 
         """
         @spec time_available_formats(Locale.locale_reference(), calendar) ::
-            {:ok, formats} | {:error, {module, String.t()}}
+                {:ok, formats} | {:error, {module, String.t()}}
 
         def time_available_formats(
               locale \\ unquote(backend).get_locale(),
@@ -707,7 +707,7 @@ defmodule Cldr.DateTime.Format.Backend do
 
         """
         @spec hour_format(Locale.locale_reference()) ::
-            {:ok, {String.t(), String.t()}} | {:error, {module, String.t()}}
+                {:ok, {String.t(), String.t()}} | {:error, {module, String.t()}}
 
         def hour_format(locale \\ unquote(backend).get_locale())
 
@@ -737,7 +737,7 @@ defmodule Cldr.DateTime.Format.Backend do
 
         """
         @spec gmt_format(Locale.locale_reference()) ::
-            {:ok, [non_neg_integer | String.t(), ...]} | {:error, {module, String.t()}}
+                {:ok, [non_neg_integer | String.t(), ...]} | {:error, {module, String.t()}}
 
         def gmt_format(locale \\ unquote(backend).get_locale())
 
@@ -785,9 +785,191 @@ defmodule Cldr.DateTime.Format.Backend do
           end
         end
 
+        @doc """
+        Returns the time zone region format map for
+        a given locale.
+
+        ## Arguments
+
+        * `locale` is any locale returned by `Cldr.known_locale_names/0`
+          or a `t:Cldr.LanguageTag.t/0`. The default is `Cldr.get_locale/0`.
+
+        ## Example
+
+            iex> #{inspect(__MODULE__)}.zone_region_format(:en)
+            {:ok,
+              %{
+                standard: [0, " Standard Time"],
+                generic: [0, " Time"],
+                daylight: [0, " Daylight Time"]
+              }
+            }
+
+        """
+        @spec zone_region_format(Locale.locale_reference()) ::
+                {:ok, map()} | {:error, {module(), String.t()}}
+
+        def zone_region_format(locale \\ unquote(backend).get_locale())
+
+        def zone_region_format(%LanguageTag{cldr_locale_name: cldr_locale_name}) do
+          zone_region_format(cldr_locale_name)
+        end
+
+        def zone_region_format(locale_name) when is_binary(locale_name) do
+          with {:ok, locale} <- unquote(backend).validate_locale(locale_name) do
+            zone_region_format(locale)
+          end
+        end
+
+        @doc """
+        Returns the time zone fallback format map for
+        a given locale.
+
+        ## Arguments
+
+        * `locale` is any locale returned by `Cldr.known_locale_names/0`
+          or a `t:Cldr.LanguageTag.t/0`. The default is `Cldr.get_locale/0`.
+
+        ## Example
+
+            iex> #{inspect(__MODULE__)}.zone_fallback_format(:en)
+            {:ok, [1, " (", 0, ")"]}
+
+        """
+        @spec zone_fallback_format(Locale.locale_reference()) ::
+                {:ok, list()} | {:error, {module(), String.t()}}
+
+        def zone_fallback_format(locale \\ unquote(backend).get_locale())
+
+        def zone_fallback_format(%LanguageTag{cldr_locale_name: cldr_locale_name}) do
+          zone_fallback_format(cldr_locale_name)
+        end
+
+        def zone_fallback_format(locale_name) when is_binary(locale_name) do
+          with {:ok, locale} <- unquote(backend).validate_locale(locale_name) do
+            zone_fallback_format(locale)
+          end
+        end
+
+        @doc """
+        Returns the localized territory names.
+
+        ## Arguments
+
+        * `locale` is any locale returned by `Cldr.known_locale_names/0`
+          or a `t:Cldr.LanguageTag.t/0`. The default is `Cldr.get_locale/0`.
+
+        ## Example
+
+            iex> {:ok, territories} = #{inspect(__MODULE__)}.territories(:en)
+            iex> Map.get(territories, :AU)
+            %{standard: "Australia"}
+
+            iex> {:ok, territories} = #{inspect(__MODULE__)}.territories(:en)
+            iex> Map.get(territories, :NZ)
+            %{standard: "New Zealand", variant: "Aotearoa New Zealand"}
+
+            iex> {:ok, territories} = #{inspect(__MODULE__)}.territories(:en)
+            iex> Map.get(territories, :US)
+            %{short: "US", standard: "United States"}
+
+        """
+        @spec territories(Locale.locale_reference()) ::
+                {:ok, map()} | {:error, {module(), String.t()}}
+
+        def territories(locale \\ unquote(backend).get_locale())
+
+        def territories(%LanguageTag{cldr_locale_name: cldr_locale_name}) do
+          territories(cldr_locale_name)
+        end
+
+        def territories(locale_name) when is_binary(locale_name) do
+          with {:ok, locale} <- unquote(backend).validate_locale(locale_name) do
+            territories(locale)
+          end
+        end
+
+        @doc """
+        Returns the timezone data for a locale.
+
+        ### Arguments
+
+        * `locale` is any locale returned by `Cldr.known_locale_names/0`
+          or a `t:Cldr.LanguageTag.t/0`. The default is `Cldr.get_locale/0`.
+
+        ### Returns
+
+        * a map of localized timezone display data.
+
+        """
+        @doc since: "2.33.0"
+        @spec time_zones(Locale.locale_reference()) ::
+                {:ok, map()} | {:error, {module(), String.t()}}
+
+        def time_zones(locale \\ unquote(backend).get_locale())
+
+        def time_zones(%LanguageTag{cldr_locale_name: cldr_locale_name}) do
+          time_zones(cldr_locale_name)
+        end
+
+        def time_zones(locale_name) when is_binary(locale_name) do
+          with {:ok, locale} <- unquote(backend).validate_locale(locale_name) do
+            time_zones(locale)
+          end
+        end
+
+        @doc """
+        Returns the metazone data for a locale.
+
+        ### Arguments
+
+        * `locale` is any locale returned by `Cldr.known_locale_names/0`
+          or a `t:Cldr.LanguageTag.t/0`. The default is `Cldr.get_locale/0`.
+
+        ### Returns
+
+        * a map of localized metazone display data.
+
+        """
+        @doc since: "2.33.0"
+        @spec meta_zones(Locale.locale_reference()) ::
+                {:ok, map()} | {:error, {module(), String.t()}}
+
+        def meta_zones(locale \\ unquote(backend).get_locale())
+
+        def meta_zones(%LanguageTag{cldr_locale_name: cldr_locale_name}) do
+          meta_zones(cldr_locale_name)
+        end
+
+        def meta_zones(locale_name) when is_binary(locale_name) do
+          with {:ok, locale} <- unquote(backend).validate_locale(locale_name) do
+            meta_zones(locale)
+          end
+        end
+
         for locale <- Cldr.Locale.Loader.known_locale_names(config) do
           locale_data = Cldr.Locale.Loader.get_locale(locale, config)
           calendars = Cldr.Config.calendars_for_locale(locale, config)
+
+          time_zones =
+            get_in(locale_data, [:dates, :time_zone_names, :zone])
+            |> Macro.escape()
+
+          meta_zones =
+            get_in(locale_data, [:dates, :time_zone_names, :metazone])
+            |> Macro.escape()
+
+          zone_fallback_format =
+            get_in(locale_data, [:dates, :time_zone_names, :fallback_format])
+            |> Macro.escape()
+
+          zone_region_format =
+            get_in(locale_data, [:dates, :time_zone_names, :region_format])
+            |> Macro.escape()
+
+          territories =
+            get_in(locale_data, [:territories])
+            |> Macro.escape()
 
           def calendars_for(unquote(locale)), do: {:ok, unquote(calendars)}
 
@@ -796,6 +978,21 @@ defmodule Cldr.DateTime.Format.Backend do
 
           def gmt_zero_format(unquote(locale)),
             do: {:ok, unquote(get_in(locale_data, [:dates, :time_zone_names, :gmt_zero_format]))}
+
+          def time_zones(unquote(locale)),
+            do: {:ok, unquote(time_zones)}
+
+          def meta_zones(unquote(locale)),
+            do: {:ok, unquote(meta_zones)}
+
+          def zone_fallback_format(unquote(locale)),
+            do: {:ok, unquote(zone_fallback_format)}
+
+          def zone_region_format(unquote(locale)),
+            do: {:ok, unquote(zone_region_format)}
+
+          def territories(unquote(locale)),
+            do: {:ok, unquote(territories)}
 
           hour_formats =
             locale_data
@@ -968,6 +1165,11 @@ defmodule Cldr.DateTime.Format.Backend do
         def calendars_for(locale), do: {:error, Locale.locale_error(locale)}
         def gmt_format(locale), do: {:error, Locale.locale_error(locale)}
         def gmt_zero_format(locale), do: {:error, Locale.locale_error(locale)}
+        def time_zones(locale), do: {:error, Locale.locale_error(locale)}
+        def meta_zones(locale), do: {:error, Locale.locale_error(locale)}
+        def zone_region_format(locale), do: {:error, Locale.locale_error(locale)}
+        def zone_fallback_format(locale), do: {:error, Locale.locale_error(locale)}
+        def territories(locale), do: {:error, Locale.locale_error(locale)}
         def hour_format(locale), do: {:error, Locale.locale_error(locale)}
         def date_formats(locale, _calendar), do: {:error, Locale.locale_error(locale)}
         def time_formats(locale, _calendar), do: {:error, Locale.locale_error(locale)}
@@ -1001,16 +1203,16 @@ defmodule Cldr.DateTime.Format.Backend do
 
         ## Examples
 
-            iex> #{inspect(__MODULE__)}.day_period_for ~T[06:05:54.515228], :en
+            iex> #{inspect(__MODULE__)}.day_period_for(~T[06:05:54.515228], :en)
             :morning1
 
-            iex> #{inspect(__MODULE__)}.day_period_for ~T[13:05:54.515228], :en
+            iex> #{inspect(__MODULE__)}.day_period_for(~T[13:05:54.515228], :en)
             :afternoon1
 
-            iex> #{inspect(__MODULE__)}.day_period_for ~T[21:05:54.515228], :en
+            iex> #{inspect(__MODULE__)}.day_period_for(~T[21:05:54.515228], :en)
             :night1
 
-            iex> #{inspect(__MODULE__)}.day_period_for ~T[21:05:54.515228], :fr
+            iex> #{inspect(__MODULE__)}.day_period_for(~T[21:05:54.515228], :fr)
             :evening1
 
         """

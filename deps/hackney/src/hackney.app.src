@@ -1,6 +1,6 @@
 {application,hackney,
              [{description,"simple HTTP client"},
-              {vsn,"1.24.1"},
+              {vsn,"1.25.0"},
               {registered,[hackney_pool]},
               {applications,[kernel,stdlib,crypto,asn1,public_key,ssl,idna,
                              mimerl,certifi,parse_trans,ssl_verify_fun,

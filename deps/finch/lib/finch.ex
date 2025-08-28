@@ -18,7 +18,7 @@ defmodule Finch do
   @pool_config_schema [
     protocol: [
       type: {:in, [:http2, :http1]},
-      deprecated: "Use :protocols instead."
+      deprecated: "Use `:protocols` instead."
     ],
     protocols: [
       type: {:list, {:in, [:http1, :http2]}},
@@ -90,7 +90,7 @@ defmodule Finch do
     ],
     start_pool_metrics?: [
       type: :boolean,
-      doc: "When true, pool metrics will be collected and available through Finch.pool_status/2",
+      doc: "When true, pool metrics will be collected and available through `get_pool_status/2`",
       default: false
     ]
   ]
@@ -151,7 +151,8 @@ defmodule Finch do
     * `:pools` - A map specifying the configuration for your pools. The keys should be URLs
     provided as binaries, a tuple `{scheme, {:local, unix_socket}}` where `unix_socket` is the path for
     the socket, or the atom `:default` to provide a catch-all configuration to be used for any
-    unspecified URLs. See "Pool Configuration Options" below for details on the possible map
+    unspecified URLs - meaning that new pools for unspecified URLs will be started using the `:default`
+    configuration. See "Pool Configuration Options" below for details on the possible map
     values. Default value is `%{default: [size: #{@default_pool_size}, count: #{@default_pool_count}]}`.
 
   ### Pool Configuration Options
@@ -369,7 +370,7 @@ defmodule Finch do
       File.close(file)
   """
   @spec stream(Request.t(), name(), acc, stream(acc), request_opts()) ::
-          {:ok, acc} | {:error, Exception.t()}
+          {:ok, acc} | {:error, Exception.t(), acc}
         when acc: term()
   def stream(%Request{} = req, name, acc, fun, opts \\ []) when is_function(fun, 2) do
     fun = fn entry, acc ->
@@ -437,7 +438,7 @@ defmodule Finch do
       File.close(file)
   """
   @spec stream_while(Request.t(), name(), acc, stream_while(acc), request_opts()) ::
-          {:ok, acc} | {:error, Exception.t()}
+          {:ok, acc} | {:error, Exception.t(), acc}
         when acc: term()
   def stream_while(%Request{} = req, name, acc, fun, opts \\ []) when is_function(fun, 2) do
     request_span req, name do
@@ -490,14 +491,18 @@ defmodule Finch do
           {:cont, {status, headers, body, trailers ++ value}}
       end
 
-      with {:ok, {status, headers, body, trailers}} <- __stream__(req, name, acc, fun, opts) do
-        {:ok,
-         %Response{
-           status: status,
-           headers: headers,
-           body: IO.iodata_to_binary(body),
-           trailers: trailers
-         }}
+      case __stream__(req, name, acc, fun, opts) do
+        {:ok, {status, headers, body, trailers}} ->
+          {:ok,
+           %Response{
+             status: status,
+             headers: headers,
+             body: IO.iodata_to_binary(body),
+             trailers: trailers
+           }}
+
+        {:error, error, _acc} ->
+          {:error, error}
       end
     end
   end
@@ -650,6 +655,38 @@ defmodule Finch do
 
       :not_found ->
         {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Stops the pool of processes associated with the given scheme, host, port (aka SHP).
+
+  This function can be invoked to manually stop the pool to the given SHP when you know it's not
+  going to be used anymore.
+
+  Note that this function is not safe with respect to concurrent requests. Invoking it while
+  another request to the same SHP is taking place might result in the failure of that request. It
+  is the responsibility of the client to ensure that no request to the same SHP is taking place
+  while this function is being invoked.
+  """
+  @spec stop_pool(name(), url :: String.t() | scheme_host_port()) :: :ok | {:error, :not_found}
+  def stop_pool(finch_name, url) when is_binary(url) do
+    {s, h, p, _, _} = Request.parse_url(url)
+    stop_pool(finch_name, {s, h, p})
+  end
+
+  def stop_pool(finch_name, shp) when is_tuple(shp) do
+    case PoolManager.all_pool_instances(finch_name, shp) do
+      [] ->
+        {:error, :not_found}
+
+      children ->
+        Enum.each(
+          children,
+          fn {pid, _module} ->
+            DynamicSupervisor.terminate_child(pool_supervisor_name(finch_name), pid)
+          end
+        )
     end
   end
 end

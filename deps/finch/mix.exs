@@ -2,14 +2,14 @@ defmodule Finch.MixProject do
   use Mix.Project
 
   @name "Finch"
-  @version "0.19.0"
+  @version "0.20.0"
   @repo_url "https://github.com/sneako/finch"
 
   def project do
     [
       app: :finch,
       version: @version,
-      elixir: "~> 1.11",
+      elixir: "~> 1.13",
       description: "An HTTP client focused on performance.",
       package: package(),
       docs: docs(),

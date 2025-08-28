@@ -2,6 +2,41 @@
 
 **Note that `ex_cldr` version 2.39.0 and later are supported on Elixir 1.12 and later only.**
 
+## Cldr v2.43.1
+
+This is the changelog for Cldr v2.43.1 released on August 26th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Bug Fixes
+
+* Fix `Cldr.Locale.timezone_from_locale/1` when the territory has one zone and the zone short code is not instantiated as part of the language tag.
+
+## Cldr v2.43.0
+
+This is the changelog for Cldr v2.43.0 released on August 25th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Deprecations
+
+* Deprecate `Cldr.Timezone.fetch/1` in favor of `Cldr.Timezone.fetch_short_zone/1`
+
+* Deprecate `Cldr.Timezone.get/1` in favor of `Cldr.Timezone.get_short_zone/1`
+
+* Deprecate `Cldr.Timezone.timezones_for_territory/0` in favor of `Cldr.Timezone.timezones_by_territory/0`
+
+* Deprecate `Cldr.Timezone.validate_timezone/1` in favor of `Cldr.Timezone.validate_short_zone/1`
+
+### Enhancements
+
+* Adds metazone, metazone mapping and primary zone data to the build process. This data supports timezone name localisation for a future release of [ex_cldr_dates_times](https://github.com/elixir-cldr/cldr_dates_times). See the [github discussion](https://github.com/orgs/elixir-cldr/discussions/258) for more background.
+
+  * Adds `Cldr.Config.metazones/0`
+  * Adds `Cldr.Config.metazone_mapping/0`
+  * Adds `Cldr.Config.metazone_ids/0`
+  * Adds `Cldr.Config.primary_zones/0`
+
+* Adds `Cldr.Timezone.canonical_timezones/0` to return the mapping of IANA long timezone names to their canonical equivalent.
+
+* Adds `Cldr.Timezone.canonical_timezone/1` to return the canonical timezone name for a given IANA long timezone name, or `{:error, "Etc/Unknown"}`.
+
 ## Cldr v2.42.0
 
 This is the changelog for Cldr v2.42.0 released on March 26th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)

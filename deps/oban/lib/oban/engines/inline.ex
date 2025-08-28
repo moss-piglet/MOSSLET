@@ -71,6 +71,13 @@ defmodule Oban.Engines.Inline do
   @impl Engine
   def retry_all_jobs(_conf, _queryable), do: {:ok, []}
 
+  @impl Engine
+  def update_job(_conf, %Job{} = job, changes) when is_map(changes) do
+    job
+    |> Job.update(changes)
+    |> Ecto.Changeset.apply_action(:update)
+  end
+
   # Changeset Helpers
 
   defp expand(value), do: expand(value, %{})
@@ -91,11 +98,14 @@ defmodule Oban.Engines.Inline do
       |> Changeset.update_change(:meta, &json_recode/1)
 
     case Changeset.apply_action(changeset, :insert) do
-      {:ok, job} ->
+      {:ok, job} when job.state in ["scheduled", "available"] ->
         conf
         |> Executor.new(job, safe: false)
         |> Executor.call()
         |> complete_job()
+
+      {:ok, job} ->
+        job
 
       {:error, changeset} ->
         raise Ecto.InvalidChangesetError, action: :insert, changeset: changeset

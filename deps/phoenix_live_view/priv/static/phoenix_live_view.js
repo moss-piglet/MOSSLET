@@ -757,6 +757,7 @@ var LiveView = (() => {
     // if an element is ignored, we only merge data attributes
     // including removing data attributes that are no longer in the source
     mergeAttrs(target, source, opts = {}) {
+      var _a;
       const exclude = new Set(opts.exclude || []);
       const isIgnored = opts.isIgnored;
       const sourceAttrs = source.attributes;
@@ -768,8 +769,11 @@ var LiveView = (() => {
             target.setAttribute(name, sourceValue);
           }
         } else {
-          if (name === "value" && target.value === source.value) {
-            target.setAttribute("value", source.getAttribute(name));
+          if (name === "value") {
+            const sourceValue = (_a = source.value) != null ? _a : source.getAttribute(name);
+            if (target.value === sourceValue) {
+              target.setAttribute("value", source.getAttribute(name));
+            }
           }
         }
       }
@@ -2258,9 +2262,21 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       );
     }
     perform(isJoinPatch) {
-      const { view, liveSocket, html, container, targetContainer } = this;
-      if (this.isCIDPatch() && !targetContainer) {
+      const { view, liveSocket, html, container } = this;
+      let targetContainer = this.targetContainer;
+      if (this.isCIDPatch() && !this.targetContainer) {
         return;
+      }
+      if (this.isCIDPatch()) {
+        const closestLock = targetContainer.closest(`[${PHX_REF_LOCK}]`);
+        if (closestLock) {
+          const clonedTree = dom_default.private(closestLock, PHX_REF_LOCK);
+          if (clonedTree) {
+            targetContainer = clonedTree.querySelector(
+              `[data-phx-component="${this.targetCID}"]`
+            );
+          }
+        }
       }
       const focused = liveSocket.getActiveElement();
       const { selectionStart, selectionEnd } = focused && dom_default.hasSelectionRange(focused) ? focused : {};
@@ -4503,14 +4519,17 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
     afterElementsRemoved(elements, pruneCids) {
       const destroyedCIDs = [];
       elements.forEach((parent) => {
-        const components = dom_default.all(parent, `[${PHX_COMPONENT}]`);
+        const components = dom_default.all(
+          parent,
+          `[${PHX_VIEW_REF}="${this.id}"][${PHX_COMPONENT}]`
+        );
         const hooks = dom_default.all(
           parent,
           `[${this.binding(PHX_HOOK)}], [data-phx-hook]`
         );
         components.concat(parent).forEach((el) => {
           const cid = this.componentID(el);
-          if (isCid(cid) && destroyedCIDs.indexOf(cid) === -1) {
+          if (isCid(cid) && destroyedCIDs.indexOf(cid) === -1 && el.getAttribute(PHX_VIEW_REF) === this.id) {
             destroyedCIDs.push(cid);
           }
         });
@@ -4619,9 +4638,12 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
         this.pendingJoinOps = [];
       });
     }
-    update(diff, events) {
+    update(diff, events, isPending = false) {
       if (this.isJoinPending() || this.liveSocket.hasPendingLink() && this.root.isMain()) {
-        return this.pendingDiffs.push({ diff, events });
+        if (!isPending) {
+          this.pendingDiffs.push({ diff, events });
+        }
+        return false;
       }
       this.rendered.mergeDiff(diff);
       let phxChildrenAdded = false;
@@ -4651,6 +4673,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       if (phxChildrenAdded) {
         this.joinNewChildren();
       }
+      return true;
     }
     renderContainer(diff, kind) {
       return this.liveSocket.time(`toString diff (${kind})`, () => {
@@ -4729,11 +4752,9 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       delete this.viewHooks[hookId];
     }
     applyPendingUpdates() {
-      if (this.liveSocket.hasPendingLink() && this.root.isMain()) {
-        return;
-      }
-      this.pendingDiffs.forEach(({ diff, events }) => this.update(diff, events));
-      this.pendingDiffs = [];
+      this.pendingDiffs = this.pendingDiffs.filter(
+        ({ diff, events }) => !this.update(diff, events, true)
+      );
       this.eachChild((child) => child.applyPendingUpdates());
     }
     eachChild(callback) {
@@ -5684,7 +5705,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       }
     }
     ownsElement(el) {
-      let parentViewEl = el.closest(PHX_VIEW_SELECTOR);
+      let parentViewEl = dom_default.closestViewEl(el);
       return el.getAttribute(PHX_PARENT_ID) === this.id || parentViewEl && parentViewEl.id === this.id || !parentViewEl && this.isDead;
     }
     submitForm(form, targetCtx, phxEvent, submitter, opts = {}) {
@@ -5785,7 +5806,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
     }
     // public
     version() {
-      return "1.1.3";
+      return "1.1.8";
     }
     isProfileEnabled() {
       return this.sessionStorage.getItem(PHX_LV_PROFILE) === "true";

@@ -751,8 +751,11 @@ var DOM = {
           target.setAttribute(name, sourceValue);
         }
       } else {
-        if (name === "value" && target.value === source.value) {
-          target.setAttribute("value", source.getAttribute(name));
+        if (name === "value") {
+          const sourceValue = source.value ?? source.getAttribute(name);
+          if (target.value === sourceValue) {
+            target.setAttribute("value", source.getAttribute(name));
+          }
         }
       }
     }
@@ -2241,9 +2244,21 @@ var DOMPatch = class {
     );
   }
   perform(isJoinPatch) {
-    const { view, liveSocket, html, container, targetContainer } = this;
-    if (this.isCIDPatch() && !targetContainer) {
+    const { view, liveSocket, html, container } = this;
+    let targetContainer = this.targetContainer;
+    if (this.isCIDPatch() && !this.targetContainer) {
       return;
+    }
+    if (this.isCIDPatch()) {
+      const closestLock = targetContainer.closest(`[${PHX_REF_LOCK}]`);
+      if (closestLock) {
+        const clonedTree = dom_default.private(closestLock, PHX_REF_LOCK);
+        if (clonedTree) {
+          targetContainer = clonedTree.querySelector(
+            `[data-phx-component="${this.targetCID}"]`
+          );
+        }
+      }
     }
     const focused = liveSocket.getActiveElement();
     const { selectionStart, selectionEnd } = focused && dom_default.hasSelectionRange(focused) ? focused : {};
@@ -4486,14 +4501,17 @@ var View = class _View {
   afterElementsRemoved(elements, pruneCids) {
     const destroyedCIDs = [];
     elements.forEach((parent) => {
-      const components = dom_default.all(parent, `[${PHX_COMPONENT}]`);
+      const components = dom_default.all(
+        parent,
+        `[${PHX_VIEW_REF}="${this.id}"][${PHX_COMPONENT}]`
+      );
       const hooks = dom_default.all(
         parent,
         `[${this.binding(PHX_HOOK)}], [data-phx-hook]`
       );
       components.concat(parent).forEach((el) => {
         const cid = this.componentID(el);
-        if (isCid(cid) && destroyedCIDs.indexOf(cid) === -1) {
+        if (isCid(cid) && destroyedCIDs.indexOf(cid) === -1 && el.getAttribute(PHX_VIEW_REF) === this.id) {
           destroyedCIDs.push(cid);
         }
       });
@@ -4601,9 +4619,12 @@ var View = class _View {
       this.pendingJoinOps = [];
     });
   }
-  update(diff, events) {
+  update(diff, events, isPending = false) {
     if (this.isJoinPending() || this.liveSocket.hasPendingLink() && this.root.isMain()) {
-      return this.pendingDiffs.push({ diff, events });
+      if (!isPending) {
+        this.pendingDiffs.push({ diff, events });
+      }
+      return false;
     }
     this.rendered.mergeDiff(diff);
     let phxChildrenAdded = false;
@@ -4633,6 +4654,7 @@ var View = class _View {
     if (phxChildrenAdded) {
       this.joinNewChildren();
     }
+    return true;
   }
   renderContainer(diff, kind) {
     return this.liveSocket.time(`toString diff (${kind})`, () => {
@@ -4711,11 +4733,9 @@ var View = class _View {
     delete this.viewHooks[hookId];
   }
   applyPendingUpdates() {
-    if (this.liveSocket.hasPendingLink() && this.root.isMain()) {
-      return;
-    }
-    this.pendingDiffs.forEach(({ diff, events }) => this.update(diff, events));
-    this.pendingDiffs = [];
+    this.pendingDiffs = this.pendingDiffs.filter(
+      ({ diff, events }) => !this.update(diff, events, true)
+    );
     this.eachChild((child) => child.applyPendingUpdates());
   }
   eachChild(callback) {
@@ -5669,7 +5689,7 @@ var View = class _View {
     }
   }
   ownsElement(el) {
-    let parentViewEl = el.closest(PHX_VIEW_SELECTOR);
+    let parentViewEl = dom_default.closestViewEl(el);
     return el.getAttribute(PHX_PARENT_ID) === this.id || parentViewEl && parentViewEl.id === this.id || !parentViewEl && this.isDead;
   }
   submitForm(form, targetCtx, phxEvent, submitter, opts = {}) {
@@ -5770,7 +5790,7 @@ var LiveSocket = class {
   }
   // public
   version() {
-    return "1.1.3";
+    return "1.1.8";
   }
   isProfileEnabled() {
     return this.sessionStorage.getItem(PHX_LV_PROFILE) === "true";

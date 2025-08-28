@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## v0.5.15 (2025-07-14)
+
+  * [`Req.Response`]: Add [`Req.Response.to_map/1`].
+
+## v0.5.14 (2025-07-02)
+
+  * [`run_plug`]: Remove warning about `into: fun` with `{:halt, acc}` result.
+
+    The warning never been particularly useful because it's not like users
+    can do anything about it.
+
+## v0.5.13 (2025-07-02)
+
+  * [`run_plug`]: Ease transition to automatically parsing request body.
+
+    Since v0.5.11, this code:
+
+        plug = fn conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          assert JSON.decode!(body) == %{"x" => 1}
+          Plug.Conn.send_resp(conn, 200, "ok")
+        end
+
+        Req.put!(plug: plug, json: %{x: 1})
+
+     Needed to be updated to:
+
+        plug = fn conn ->
+          assert conn.body_params == %{"x" => 1}
+          Plug.Conn.send_resp(conn, 200, "ok")
+        end
+
+        Req.put!(plug: plug, json: %{x: 1})
+
+    This change makes it so both work. The latter will be required, however.
+
 ## v0.5.12 (2025-06-24)
 
   * [`run_plug`]: Do not raise on unknown content types.
@@ -1299,6 +1335,7 @@ See "Adapter" section in `Req.Request` module documentation for more information
 [`Req.Response.get_header/2`]:     https://hexdocs.pm/req/Req.Response.html#get_response/2
 [`Req.Response.delete_header/2`]:  https://hexdocs.pm/req/Req.Response.html#delete_header/2
 [`Req.Response.update_private/4`]: https://hexdocs.pm/req/Req.Response.html#update_private/4
+[`Req.Response.to_map/1`]:         https://hexdocs.pm/req/Req.Response.html#to_map/1
 [`Req.Response.Async`]:            https://hexdocs.pm/req/Req.Response.Async.html
 
 [`Req.Test`]: https://hexdocs.pm/req/Req.Test.html

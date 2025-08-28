@@ -1,7 +1,7 @@
 defmodule Cldr.DatesTimes.Mixfile do
   use Mix.Project
 
-  @version "2.22.0"
+  @version "2.23.0"
 
   def project do
     [
@@ -18,7 +18,6 @@ defmodule Cldr.DatesTimes.Mixfile do
       compilers: [:leex, :yecc] ++ Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
-        ignore_warnings: ".dialyzer_ignore_warnings",
         plt_add_apps: ~w(calendar_interval)a,
         flags: [
           :error_handling,
@@ -76,17 +75,19 @@ defmodule Cldr.DatesTimes.Mixfile do
 
   defp deps do
     [
-      {:ex_cldr_numbers, "~> 2.34"},
+      {:ex_cldr, "~> 2.43"},
+
+      {:ex_cldr_numbers, "~> 2.35"},
       {:ex_cldr_calendars, "~> 2.1"},
       {:ex_cldr_units, "~> 3.18", optional: true},
-
       {:calendar_interval, "~> 0.2", optional: true},
       {:ex_doc, "~> 0.25", optional: true, only: [:dev, :release], runtime: false},
       {:jason, "~> 1.0", optional: true},
       {:tz, "~> 0.26", optional: true},
       {:benchee, "~> 1.0", optional: true, only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", optional: true, only: [:dev, :test], runtime: false},
-      {:exprof, "~> 0.2", optional: true, only: :dev, runtime: false}
+      {:exprof, "~> 0.2", optional: true, only: :dev, runtime: false},
+      {:mint, "~> 1.7", optional: true, only: [:dev, :test]}
     ]
   end
 

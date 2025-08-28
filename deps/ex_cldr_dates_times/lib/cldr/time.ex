@@ -29,6 +29,7 @@ defmodule Cldr.Time do
   @format_types [:short, :medium, :long, :full]
   @default_format_type :medium
   @default_prefer :unicode
+  @default_separators :standard
 
   @field_map %{
     hour: "h",
@@ -86,8 +87,15 @@ defmodule Cldr.Time do
   * `:locale` any locale returned by `Cldr.known_locale_names/1`.  The default is
     `Cldr.get_locale/0`.
 
-  * `:number_system` a number system into which the formatted date digits should
-    be transliterated.
+  * `:number_system` a number system into which the formatted datetime digits should
+    be transliterated. See `Cldr.known_number_systems/0`. The default is
+    the number system associated with the `:locale`.
+
+  * `:separators` selects which of the available symbol
+    sets should be used when formatting fractional seconds (format
+    character `S`).  The default is `:standard`. Some limited locales have an alternative `:us`
+    variant that can be used. See `Cldr.Number.Symbol.number_symbols_for/3`
+    for the symbols supported for a given locale and number system.
 
   * `:prefer` expresses the preference for one of the possible alternative
     sub-formats. See the variant preference notes below.
@@ -196,7 +204,8 @@ defmodule Cldr.Time do
   end
 
   def to_string(time, value, []) when is_map(time) do
-    {:error, {ArgumentError, "Unexpected option value #{inspect value}. Options must be a keyword list"}}
+    {:error,
+     {ArgumentError, "Unexpected option value #{inspect(value)}. Options must be a keyword list"}}
   end
 
   def to_string(time, _backend, _options) do
@@ -326,9 +335,12 @@ defmodule Cldr.Time do
 
   defp normalize_options(time, backend, options) do
     {locale, _backend} = Cldr.locale_and_backend_from(options[:locale], backend)
+
     locale_number_system = Cldr.Number.System.number_system_from_locale(locale, backend)
     number_system = Keyword.get(options, :number_system, locale_number_system)
     prefer = Keyword.get(options, :prefer, @default_prefer) |> List.wrap()
+    separators = Keyword.get(options, :separators, @default_separators)
+
     format_option = options[:time_format] || options[:format] || options[:style]
     format = format_from_options(time, format_option, @default_format_type, prefer)
 
@@ -339,6 +351,7 @@ defmodule Cldr.Time do
     |> Map.put(:prefer, prefer)
     |> Map.delete(:style)
     |> Map.put_new(:number_system, number_system)
+    |> Map.put(:separators, separators)
   end
 
   # Full date, no option, use the default format

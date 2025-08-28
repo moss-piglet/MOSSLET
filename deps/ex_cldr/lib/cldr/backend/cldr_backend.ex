@@ -489,6 +489,10 @@ defmodule Cldr.Backend do
 
         with {:ok, %LanguageTag{cldr_locale_name: locale_name}} <- validate_locale(locale) do
           marks = quote_marks_for(locale_name)
+
+          # IO.inspect marks.quotation_start, label: "Quote start for #{locale_name}"
+          # IO.inspect marks.quotation_end, label: "Quote end for #{locale_name}"
+
           quote_start = quote_preference(marks.quotation_start, preference)
           quote_end = quote_preference(marks.quotation_end, preference)
 
@@ -515,7 +519,7 @@ defmodule Cldr.Backend do
         no `:default_backend` is configured under the `:ex_cldr` key in
         `config.exs`.
 
-      * `options` is a keyword list of options
+      * `options` is a keyword list of options.
 
       ## Options
 
@@ -555,7 +559,7 @@ defmodule Cldr.Backend do
         location = options[:location] || :between
 
         with {:ok, %LanguageTag{cldr_locale_name: locale_name}} <- validate_locale(locale) do
-          ellipsis(string, ellipsis_chars(locale_name), location, format)
+          ellipsis(string, ellipsis_chars_for(locale_name), location, format)
         end
       end
 
@@ -815,7 +819,7 @@ defmodule Cldr.Backend do
           |> Map.get(:ellipsis)
 
         @doc false
-        def ellipsis_chars(unquote(locale_name)) do
+        def ellipsis_chars_for(unquote(locale_name)) do
           unquote(Macro.escape(ellipsis))
         end
       end

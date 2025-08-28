@@ -4,6 +4,7 @@ import {
   CONSECUTIVE_RELOADS,
   PHX_AUTO_RECOVER,
   PHX_COMPONENT,
+  PHX_VIEW_REF,
   PHX_CONNECTED_CLASS,
   PHX_DISABLE_WITH,
   PHX_DISABLE_WITH_RESTORE,
@@ -664,14 +665,21 @@ export default class View {
   afterElementsRemoved(elements, pruneCids) {
     const destroyedCIDs = [];
     elements.forEach((parent) => {
-      const components = DOM.all(parent, `[${PHX_COMPONENT}]`);
+      const components = DOM.all(
+        parent,
+        `[${PHX_VIEW_REF}="${this.id}"][${PHX_COMPONENT}]`,
+      );
       const hooks = DOM.all(
         parent,
         `[${this.binding(PHX_HOOK)}], [data-phx-hook]`,
       );
       components.concat(parent).forEach((el) => {
         const cid = this.componentID(el);
-        if (isCid(cid) && destroyedCIDs.indexOf(cid) === -1) {
+        if (
+          isCid(cid) &&
+          destroyedCIDs.indexOf(cid) === -1 &&
+          el.getAttribute(PHX_VIEW_REF) === this.id
+        ) {
           destroyedCIDs.push(cid);
         }
       });
@@ -824,12 +832,16 @@ export default class View {
     });
   }
 
-  update(diff, events) {
+  update(diff, events, isPending = false) {
     if (
       this.isJoinPending() ||
       (this.liveSocket.hasPendingLink() && this.root.isMain())
     ) {
-      return this.pendingDiffs.push({ diff, events });
+      // don't mutate if this is already a pending diff
+      if (!isPending) {
+        this.pendingDiffs.push({ diff, events });
+      }
+      return false;
     }
 
     this.rendered.mergeDiff(diff);
@@ -867,6 +879,8 @@ export default class View {
     if (phxChildrenAdded) {
       this.joinNewChildren();
     }
+
+    return true;
   }
 
   renderContainer(diff, kind) {
@@ -977,16 +991,12 @@ export default class View {
   }
 
   applyPendingUpdates() {
-    // prevent race conditions where we might still be pending a new
-    // navigation after applying the current one;
-    // if we call update and a pendingDiff is not applied, it would
-    // be silently dropped otherwise, as update would push it back to
-    // pendingDiffs, but we clear it immediately after
-    if (this.liveSocket.hasPendingLink() && this.root.isMain()) {
-      return;
-    }
-    this.pendingDiffs.forEach(({ diff, events }) => this.update(diff, events));
-    this.pendingDiffs = [];
+    // To prevent race conditions where we might still be pending a new
+    // navigation or the join is still pending, `this.update` returns false
+    // if the diff was not applied.
+    this.pendingDiffs = this.pendingDiffs.filter(
+      ({ diff, events }) => !this.update(diff, events, true),
+    );
     this.eachChild((child) => child.applyPendingUpdates());
   }
 
@@ -2156,7 +2166,7 @@ export default class View {
   }
 
   ownsElement(el) {
-    let parentViewEl = el.closest(PHX_VIEW_SELECTOR);
+    let parentViewEl = DOM.closestViewEl(el);
     return (
       el.getAttribute(PHX_PARENT_ID) === this.id ||
       (parentViewEl && parentViewEl.id === this.id) ||

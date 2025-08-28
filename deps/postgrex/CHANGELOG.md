@@ -1,6 +1,22 @@
 # Changelog
 
-## v0.20.0 (2024-11-12)
+## v0.21.1 (2025-08-03)
+
+* Bug fixes
+  * Fix `ssl: true` with missing ssl_opts handling
+
+## v0.21.0 (2025-07-31)
+
+This release requires Erlang/OTP 25+
+
+* Enhancements
+  * Add query timeout option on ReplicationConnection
+
+* Bug fixes
+  * PGHOST option does not override explicitly given endpoint configuration
+  * Add ltxtquery support
+
+## v0.20.0 (2025-02-05)
 
 * Deprecations
   * Deprecate `:search_path` and use `:parameters` option instead

@@ -1,7 +1,7 @@
 defmodule Cldr.Mixfile do
   use Mix.Project
 
-  @version "2.42.0"
+  @version "2.43.1"
 
   def project do
     [
@@ -108,6 +108,10 @@ defmodule Cldr.Mixfile do
         "priv/cldr/territory_subdivision_containment.json",
         "priv/cldr/plural_ranges.json",
         "priv/cldr/timezones.json",
+        "priv/cldr/metazones.json",
+        "priv/cldr/metazone_mapping.json",
+        "priv/cldr/metazone_ids.json",
+        "priv/cldr/primary_zones.json",
         "priv/cldr/units.json",
         "priv/cldr/grammatical_features.json",
         "priv/cldr/grammatical_gender.json",

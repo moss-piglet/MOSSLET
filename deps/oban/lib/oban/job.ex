@@ -35,7 +35,9 @@ defmodule Oban.Job do
 
   @type unique_period :: pos_integer() | {pos_integer(), time_unit()} | :infinity
 
-  @type unique_state :: [
+  @type unique_state_group :: :all | :incomplete | :scheduled | :successful
+
+  @type unique_state ::
           :available
           | :cancelled
           | :completed
@@ -43,7 +45,6 @@ defmodule Oban.Job do
           | :executing
           | :retryable
           | :scheduled
-        ]
 
   @type unique_timestamp :: :inserted_at | :scheduled_at
 
@@ -117,7 +118,7 @@ defmodule Oban.Job do
               fields: [unique_field()],
               keys: [atom()],
               period: unique_period(),
-              states: [unique_state()],
+              states: unique_state_group() | [unique_state()],
               timestamp: unique_timestamp()
             }
             | nil,
@@ -182,6 +183,17 @@ defmodule Oban.Job do
     worker
   )a
 
+  @updatable_params ~w(
+    args
+    max_attempts
+    meta
+    priority
+    queue
+    scheduled_at
+    tags
+    worker
+  )a
+
   @required_params ~w(worker args)a
   @replace_options ~w(args max_attempts meta priority queue scheduled_at tags worker)a
   @virtual_params ~w(replace replace_args schedule_in unique)a
@@ -201,6 +213,7 @@ defmodule Oban.Job do
 
   @unique_fields ~w(args meta queue worker)a
   @unique_timestamps ~w(inserted_at scheduled_at)a
+  @keyable_fields ~w(args meta)a
 
   @unique_defaults %{
     fields: ~w(args queue worker)a,
@@ -311,7 +324,6 @@ defmodule Oban.Job do
     |> validate_required(@required_params)
     |> put_replace(params[:replace], params[:replace_args])
     |> put_scheduling(params[:schedule_in])
-    |> put_state()
     |> put_unique(params[:unique])
     |> validate_length(:queue, min: 1, max: 128)
     |> validate_length(:worker, min: 1, max: 128)
@@ -319,7 +331,33 @@ defmodule Oban.Job do
     |> validate_number(:priority, greater_than: -1, less_than: 10)
     |> validate_replace()
     |> validate_unique()
+    |> normalize_state()
     |> check_constraint(:attempt, name: :attempt_range)
+    |> check_constraint(:max_attempts, name: :positive_max_attempts)
+    |> check_constraint(:priority, name: :priority_range)
+  end
+
+  @doc """
+  Construct a changeset for updating an existing job with the given changes.
+
+  Only a subset of fields are allowed to be updated, and all validations from `new/2`
+  are applied to ensure data integrity.
+
+  ## Examples
+
+  Update the tags and priority of a job:
+
+      Oban.Job.update(job, %{tags: ["urgent"], priority: 5})
+  """
+  @doc since: "2.20.0"
+  @spec update(t(), map()) :: Ecto.Changeset.t()
+  def update(%__MODULE__{} = job, changes) when is_map(changes) do
+    job
+    |> cast(changes, @updatable_params)
+    |> validate_length(:queue, min: 1, max: 128)
+    |> validate_length(:worker, min: 1, max: 128)
+    |> validate_number(:max_attempts, greater_than: 0)
+    |> validate_number(:priority, greater_than: -1, less_than: 10)
     |> check_constraint(:max_attempts, name: :positive_max_attempts)
     |> check_constraint(:priority, name: :priority_range)
   end
@@ -332,12 +370,12 @@ defmodule Oban.Job do
   ## Examples
 
       iex> Oban.Job.states() -- [:completed, :discarded]
-      [:scheduled, :available, :executing, :retryable, :cancelled]
+      ~w(scheduled available executing retryable cancelled)a
 
   ## Job State Transitions
 
   * `:scheduled`—Jobs inserted with `scheduled_at` in the future are `:scheduled`. After the
-    `scheduled_at` time has elapsed the `Oban.Plugins.Stager` will transition them to `:available`
+    `scheduled_at` time has elapsed Oban's job staging will transition them to `:available`
 
   * `:available`—Jobs without a future `scheduled_at` timestamp are inserted as `:available` and may
     execute immediately
@@ -345,21 +383,46 @@ defmodule Oban.Job do
   * `:executing`—Available jobs may be ran, at which point they are `:executing`
 
   * `:retryable`—Jobs that fail and haven't exceeded their max attempts are transitioned to
-    `:retryable` and rescheduled until after a backoff period. Once the backoff has elapsed the
-    `Oban.Plugins.Stager` will transition them back to `:available`
+    `:retryable` and rescheduled until after a backoff period. Once the backoff has elapsed
+    Oban's job staging will transition them back to `:available`
 
   * `:completed`—Jobs that finish executing succesfully are marked `:completed`
 
+  * `:cancelled`—Jobs that are cancelled intentionally
+
   * `:discarded`—Jobs that fail and exhaust their max attempts, or return a `:discard` tuple during
     execution, are marked `:discarded`
-
-  * `:cancelled`—Jobs that are cancelled intentionally
 
   """
   @doc since: "2.1.0"
   def states do
     ~w(scheduled available executing retryable completed discarded cancelled)a
   end
+
+  @doc """
+  A list of job states tailored to uniqueness constraints.
+
+  ## Named Groups
+
+  * `:all` - All possible job states
+  * `:incomplete` - States for jobs that haven't completed processing
+  * `:scheduled` - Only scheduled jobs
+  * `:successful` - Jobs that aren't cancelled or discarded (default)
+
+  ## Examples
+
+      iex> Oban.Job.unique_states(:incomplete)
+      ~w(available scheduled executing retryable)a
+
+      iex> Oban.Job.unique_states(:scheduled)
+      ~w(scheduled)a
+
+  """
+  @doc since: "2.20.0"
+  def unique_states(:all), do: states()
+  def unique_states(:incomplete), do: ~w(available scheduled executing retryable)a
+  def unique_states(:scheduled), do: ~w(scheduled)a
+  def unique_states(:successful), do: ~w(available scheduled executing retryable completed)a
 
   @doc """
   Convert a Job changeset into a map suitable for database insertion.
@@ -433,6 +496,10 @@ defmodule Oban.Job do
 
   def cast_period(period), do: period
 
+  @doc false
+  def cast_unique_group(group) when is_atom(group), do: unique_states(group)
+  def cast_unique_group(states), do: states
+
   defp put_replace(changeset, replace, replace_args) do
     with_states = fn fields ->
       for state <- states(), do: {state, fields}
@@ -471,13 +538,6 @@ defmodule Oban.Job do
     end
   end
 
-  defp put_state(changeset) do
-    case {get_change(changeset, :state), get_change(changeset, :scheduled_at)} do
-      {nil, %_{}} -> put_change(changeset, :state, "scheduled")
-      _ -> changeset
-    end
-  end
-
   defp put_unique(changeset, value) do
     case value do
       [_ | _] = opts ->
@@ -485,6 +545,7 @@ defmodule Oban.Job do
           @unique_defaults
           |> Map.merge(Map.new(opts))
           |> Map.update!(:period, &cast_period/1)
+          |> Map.update!(:states, &cast_unique_group/1)
 
         put_change(changeset, :unique, unique)
 
@@ -496,6 +557,13 @@ defmodule Oban.Job do
 
       _ ->
         add_error(changeset, :unique, "invalid unique options")
+    end
+  end
+
+  defp normalize_state(changeset) do
+    case {get_change(changeset, :state), get_change(changeset, :scheduled_at)} do
+      {nil, %_{}} -> put_change(changeset, :state, "scheduled")
+      _ -> changeset
     end
   end
 
@@ -612,9 +680,7 @@ defmodule Oban.Job do
         end
 
       {:keys, keys} ->
-        if not (is_list(keys) and Enum.all?(keys, &is_atom/1)) do
-          {:error, "expected :keys to be a list of atoms"}
-        end
+        validate_keys(keys, unique)
 
       {:period, :infinity} ->
         :ok
@@ -627,6 +693,13 @@ defmodule Oban.Job do
       {:period, period} ->
         if not (is_integer(period) and period > 0) do
           {:error, "expected :period to be a positive integer"}
+        end
+
+      {:states, group} when is_atom(group) ->
+        unique_groups = ~w(all incomplete scheduled successful)a
+
+        if group not in unique_groups do
+          {:error, "expected :states #{inspect(group)} to be one of #{inspect(unique_groups)}"}
         end
 
       {:states, [_ | _] = states} ->
@@ -642,5 +715,24 @@ defmodule Oban.Job do
       option ->
         {:error, "unknown option, #{inspect(option)}"}
     end)
+  end
+
+  defp validate_keys(keys, unique) do
+    fields = Keyword.get(unique, :fields, [])
+
+    cond do
+      keys == [] or fields == [] ->
+        :ok
+
+      not (is_list(keys) and Enum.all?(keys, &is_atom/1)) ->
+        {:error, "expected :keys to be a list of atoms"}
+
+      not (is_list(keys) and Enum.any?(@keyable_fields, &(&1 in fields))) ->
+        {:error,
+         "using :keys expects :fields to contain at least one of #{inspect(@keyable_fields)}"}
+
+      true ->
+        :ok
+    end
   end
 end
