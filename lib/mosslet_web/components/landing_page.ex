@@ -977,10 +977,10 @@ defmodule MossletWeb.Components.LandingPage do
                 <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-bell-snooze" class="size-6 text-white" />
                 </div>
-                No notifications
+                In-app notifications
               </dt>
               <dd class="mt-2">
-                Drop the pressure of feeling like you have to respond or interact with someone or something online. With no notifications designed to trigger you to action, you are free to make your own decisions on MOSSLET.
+                Drop the pressure of feeling like you have to respond or interact with someone or something online. Our calm, in-app notifications are designed to NOT trigger you to action — freeing you from anxiety and giving you back the ability to make your own decisions.
               </dd>
             </div>
             <div class="relative ">
