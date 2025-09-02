@@ -88,6 +88,23 @@ defmodule MossletWeb.PublicLive.Components do
             <.link
               target="_blank"
               rel="noopener noreferer"
+              href="https://perfectunion.us/"
+              class="dark:text-gray-300"
+            >
+              More Perfect Union — building power for the working class
+            </.link>
+          </li>
+        </ul>
+
+        <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
+          An Emmy award-winning advocacy journalism nonprofit organization, More Perfect Union reports on the abuses and wrongdoing of corporate power. They report in both written and video format so you can stay informed in your chosen medium.
+        </p>
+
+        <ul class="font-regular mt-6 text-xl/8 underline">
+          <li>
+            <.link
+              target="_blank"
+              rel="noopener noreferer"
               href="https://www.propublica.org/"
               class="dark:text-gray-300"
             >
@@ -98,6 +115,23 @@ defmodule MossletWeb.PublicLive.Components do
 
         <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
           From privacy to healthcare, ProPublica investigates issues that matter to all of us — no matter who you are or what you believe. Winner of the Pullitzer Prize for Public Service, ProPublica is an important, non-profit news source that you can trust.
+        </p>
+
+        <ul class="font-regular mt-6 text-xl/8 underline">
+          <li>
+            <.link
+              target="_blank"
+              rel="noopener noreferer"
+              href="https://www.citizen.org/"
+              class="dark:text-gray-300"
+            >
+              Public Citizen — the people's advocate
+            </.link>
+          </li>
+        </ul>
+
+        <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
+          As a nonprofit consumer advocacy organization, Public Citizen represents the people in the face of power regardless of your political affiliation. On their website you can find current and ongoing events that affect us all, as well as resources for taking action.
         </p>
       </p>
 
