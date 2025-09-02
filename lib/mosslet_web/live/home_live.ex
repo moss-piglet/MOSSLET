@@ -80,6 +80,6 @@ defmodule MossletWeb.HomeLive do
       |> assign(:page_title, "Welcome")
 
     # ... all other assigns preserved
-    {:ok, socket, layout: {MossletWeb.Layouts, :app}}
+    {:ok, socket}
   end
 end

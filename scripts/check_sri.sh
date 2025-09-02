@@ -12,7 +12,7 @@ CURRENT_POPPER="TPh2Oxlg1zp+kz3nFA0C5vVC6leG/6mm1z9+mA81MI5eaUVqasPLO8Cuk4gMF4gU
 CURRENT_TIPPY="gbruucq/Opx9jlHfqqZeAg2LNK3Y4BbpXHKDhRC88/tARL/izPOE4Zt2w6X9Sn1UeWaGbL38zW7nkL2jdn5JIw=="
 CURRENT_TRIX_JS="2n5wEfDzQHss3krOoRqiF4Ogxc4Ktpa6y10JryWQMaUnZqbM8vUEAe6UDd0A21M7ad6ApLunCoT6s1sFmoriAg=="
 CURRENT_TRIX_CSS="gO3Vi20RkuOMtPkY1eGHl9GA8upW48FIwrCYRabko2Sr8Zk7F5P6WVd3iPvSX3qo0F0ICfYdXYLPO6wQTk18FA=="
-CURRENT_FATHOM="z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg=="
+CURRENT_FATHOM="mwTWQRQd3HI0KKuUD9u+aVQRhZlOlv5ZbjGPDG3544cbqBM9j9SegCOCwxu/z2Gm7vio4OCDhHWg0WNawqfrJg=="
 
 # Generate new hashes
 NEW_POPPER=$(curl -s "https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js" | openssl dgst -sha512 -binary | openssl base64 -A)
