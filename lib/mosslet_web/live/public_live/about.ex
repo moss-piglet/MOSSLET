@@ -393,7 +393,7 @@ defmodule MossletWeb.PublicLive.About do
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
-                id="blogPostHMKYS"
+                id="blogPostDKAIS"
                 img_source={~p"/images/blog/aug_19_2025_dkais.jpg"}
                 date="August 19, 2025"
                 title="Disappearing Keyboard on Apple iOS Safari"
@@ -403,7 +403,7 @@ defmodule MossletWeb.PublicLive.About do
               />
 
               <.article_preview
-                id="blogPostHMKYS"
+                id="blogPostAUGP"
                 img_source={~p"/images/blog/aug_13_2025_augp.jpg"}
                 date="August 13, 2025"
                 title="Companies Selling AI to Geolocate Your Social Media Photos"
