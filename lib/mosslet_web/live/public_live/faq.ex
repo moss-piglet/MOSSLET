@@ -23,6 +23,12 @@ defmodule MossletWeb.PublicLive.Faq do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign_new(:max_width, fn -> "full" end) |> assign(:page_title, "FAQ")}
+    {:ok,
+     socket
+     |> assign_new(:max_width, fn -> "full" end)
+     |> assign(:page_title, "FAQ")
+     |> assign_new(:meta_description, fn ->
+       "Frequently asked questions on MOSSLET. Can't find the answer you're looking for? Reach out to our customer support team. What is MOSSLET? MOSSLET is a privacy-first social network designed to protect users' privacy and human dignity from surveillance and the attention economy. We prioritize privacy, data protection, and creating a safe space for meaningful social interactions."
+     end)}
   end
 end

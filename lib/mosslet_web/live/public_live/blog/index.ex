@@ -88,6 +88,9 @@ defmodule MossletWeb.PublicLive.Blog.Index do
      |> assign(
        :page_title,
        "Blog"
-     )}
+     )
+     |> assign_new(:meta_description, fn ->
+       "MOSSLET updates from our blog. Learn about privacy, our company, and our opinions on the latest privacy news."
+     end)}
   end
 end

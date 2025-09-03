@@ -28,6 +28,9 @@ defmodule MossletWeb.PublicLive.Myob do
     {:ok,
      socket
      |> assign_new(:max_width, fn -> "full" end)
-     |> assign(:page_title, "Mind Your Own Business")}
+     |> assign(:page_title, "Mind Your Own Business")
+     |> assign_new(:meta_description, fn ->
+       "At MOSSLET, our business model is as basic as it is boring: We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never track you, spy on you, or enable others to either. It's absolutely none of their business, and it's none of ours either."
+     end)}
   end
 end

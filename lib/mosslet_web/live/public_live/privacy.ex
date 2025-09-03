@@ -498,6 +498,12 @@ defmodule MossletWeb.PublicLive.Privacy do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign_new(:max_width, fn -> "full" end) |> assign(:page_title, "Privacy")}
+    {:ok,
+     socket
+     |> assign_new(:max_width, fn -> "full" end)
+     |> assign(:page_title, "Privacy")
+     |> assign_new(:meta_description, fn ->
+       "Privacy is the standard on MOSSLET. We do not log or share personal information. That is our privacy policy in a nutshell. The rest of this policy tries to explain what information we may have, why we have it, how we protect it, and why you should care."
+     end)}
   end
 end

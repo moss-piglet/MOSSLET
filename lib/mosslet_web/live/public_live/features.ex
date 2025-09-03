@@ -25,6 +25,12 @@ defmodule MossletWeb.PublicLive.Features do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign_new(:max_width, fn -> "full" end) |> assign(:page_title, "Features")}
+    {:ok,
+     socket
+     |> assign_new(:max_width, fn -> "full" end)
+     |> assign(:page_title, "Features")
+     |> assign_new(:meta_description, fn ->
+       "Social media, unexpected. Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you."
+     end)}
   end
 end

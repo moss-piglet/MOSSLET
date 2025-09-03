@@ -18,7 +18,7 @@ defmodule MossletWeb.PublicLive.Terms do
               <div class="grid grid-cols-1 gap-x-8 gap-y-10">
                 <div>
                   <.h2 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
-                    Terms and Conditions for Mosslet
+                    Terms and Conditions for MOSSLET
                   </.h2>
                   <.p class="mt-4 leading-7 text-gray-600 dark:text-gray-400">
                     Effective Date: March 24, 2025
@@ -43,18 +43,18 @@ defmodule MossletWeb.PublicLive.Terms do
                   </span>
                 </h1>
                 <.p class="mt-8 text-xl text-gray-600 dark:text-gray-400  leading-8">
-                  Welcome to Mosslet, a privacy-first social networking web application operated by Moss Piglet Corporation, a family-owned and operated public benefit company. Our mission is to create a platform that prioritizes user privacy and human dignity. By using our services, you agree to comply with and be bound by the following terms and conditions. Please read them carefully.
+                  Welcome to MOSSLET, a privacy-first social networking web application operated by Moss Piglet Corporation, a family-owned and operated public benefit company. Our mission is to create a platform that prioritizes user privacy and human dignity. By using our services, you agree to comply with and be bound by the following terms and conditions. Please read them carefully.
                 </.p>
               </div>
               <div class="space-y-4 mt-6 text-gray-600 dark:text-gray-400  mx-auto">
                 <.h2 class="font-bold">1. Acceptance of Terms</.h2>
                 <.p>
-                  By accessing or using Mosslet, you agree to these Terms and Conditions. If you do not agree, please do not use our services.
+                  By accessing or using MOSSLET, you agree to these Terms and Conditions. If you do not agree, please do not use our services.
                 </.p>
 
                 <.h2 class="font-bold">2. User Conduct</.h2>
                 <.p>
-                  Users of Mosslet are expected to engage in a respectful and safe manner. You agree not to upload, create, or share any content that is harmful, abusive, threatening, harassing, defamatory, obscene, or otherwise objectionable. This includes, but is not limited to:
+                  Users of MOSSLET are expected to engage in a respectful and safe manner. You agree not to upload, create, or share any content that is harmful, abusive, threatening, harassing, defamatory, obscene, or otherwise objectionable. This includes, but is not limited to:
                   <.ul class="list-disc">
                     <li>Hate speech or discriminatory remarks</li>
                     <li>Harassment or bullying of any kind</li>
@@ -109,14 +109,14 @@ defmodule MossletWeb.PublicLive.Terms do
                   6. Changes to Terms
                 </.h2>
                 <.p>
-                  Moss Piglet Corporation may update these Terms and Conditions from time to time. We will notify users of any significant changes. Your continued use of Mosslet after any changes indicates your acceptance of the new terms.
+                  Moss Piglet Corporation may update these Terms and Conditions from time to time. We will notify users of any significant changes. Your continued use of MOSSLET after any changes indicates your acceptance of the new terms.
                 </.p>
 
                 <.h2 class="font-bold">
                   7. Limitation of Liability
                 </.h2>
                 <.p>
-                  Moss Piglet Corporation is not liable for any direct, indirect, incidental, or consequential damages arising from your use of Mosslet or any content shared on the platform.
+                  Moss Piglet Corporation is not liable for any direct, indirect, incidental, or consequential damages arising from your use of MOSSLET or any content shared on the platform.
                 </.p>
 
                 <.h2 class="font-bold">
@@ -132,7 +132,7 @@ defmodule MossletWeb.PublicLive.Terms do
                     class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 "
                     href="mailto:support@mosslet.com"
                   >support</a>.
-                  By using Mosslet, you acknowledge that you have read, understood, and agree to these Terms and Conditions.
+                  By using MOSSLET, you acknowledge that you have read, understood, and agree to these Terms and Conditions.
                 </.p>
               </div>
             </div>
@@ -144,6 +144,12 @@ defmodule MossletWeb.PublicLive.Terms do
   end
 
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign_new(:max_width, fn -> "full" end) |> assign(:page_title, "Terms")}
+    {:ok,
+     socket
+     |> assign_new(:max_width, fn -> "full" end)
+     |> assign(:page_title, "Terms")
+     |> assign_new(:meta_description, fn ->
+       "Terms and conditions for MOSSLET. Welcome to MOSSLET, a privacy-first social networking web application operated by Moss Piglet Corporation, a family-owned and operated public benefit company. Our mission is to create a platform that prioritizes user privacy and human dignity. By using our services, you agree to comply with and be bound by the following terms and conditions. Please read them carefully."
+     end)}
   end
 end

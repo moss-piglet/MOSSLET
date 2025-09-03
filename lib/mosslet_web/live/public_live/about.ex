@@ -463,6 +463,12 @@ defmodule MossletWeb.PublicLive.About do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign_new(:max_width, fn -> "full" end) |> assign(:page_title, "About")}
+    {:ok,
+     socket
+     |> assign_new(:max_width, fn -> "full" end)
+     |> assign(:page_title, "About")
+     |> assign_new(:meta_description, fn ->
+       "We are part of the growing movement for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media."
+     end)}
   end
 end
