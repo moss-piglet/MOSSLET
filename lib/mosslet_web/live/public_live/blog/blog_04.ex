@@ -67,7 +67,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
                     </p>
 
                     <p>
-                      We're going to fly around and take a peak at some of the ways we keep you safe online. Essentially this is what we do on MOSSLET to keep you (and your data) safe:
+                      We're going to fly around and take a peek at some of the ways we keep you safe online. Essentially this is what we do on MOSSLET to keep you (and your data) safe:
                       <ol>
                         <li>
                           Attention freeing
@@ -317,6 +317,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
      |> assign(
        :page_title,
        "Blog | How MOSSLET Keeps You Safe"
-     )}
+     )
+     |> assign_new(:meta_description, fn ->
+       "We're going to fly around and take a peek at some of the ways we keep you safe online. Essentially this is what we do on MOSSLET to keep you (and your data) safe: attention freeing, comprehensive control, intimate privacy protection, triple layer encryption, and zero dark patterns. Perhaps most importantly, you don't have to simply take our word for it, you can check everything yourself with our open source code base. ✌️"
+     end)}
   end
 end

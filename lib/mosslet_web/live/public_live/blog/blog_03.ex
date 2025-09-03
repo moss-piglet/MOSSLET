@@ -225,6 +225,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog03 do
      |> assign(
        :page_title,
        "Blog | Major Airlines Sold Your Data to Homeland Security"
-     )}
+     )
+     |> assign_new(:meta_description, fn ->
+       "If flying on a major airline wasn't trouble enough, with increasing prices and crashes (due to faulty Boeing airplanes and understaffed and outdated air traffic control systems), the airlines have also been secretly selling passenger data to the Department of Homeland Security."
+     end)}
   end
 end

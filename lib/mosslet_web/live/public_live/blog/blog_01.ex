@@ -305,6 +305,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog01 do
      |> assign(
        :page_title,
        "Blog | U.S. Government Abandons Rule to Shield Consumers from Data Brokers"
-     )}
+     )
+     |> assign_new(:meta_description, fn ->
+       "Today, I learned that the Consumer Financial Protection Bureau (CFPB) quietly withdrew its own proposal to protect Americans from the data broker industry. Its original rule was proposed last December under former director Rohit Chopra and would have gone a long way in shielding us from the indiscriminate sharing of our personal information — like social security numbers, addresses, phone numbers, you name it."
+     end)}
   end
 end
