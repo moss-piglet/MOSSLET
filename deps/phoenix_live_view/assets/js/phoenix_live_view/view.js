@@ -213,7 +213,11 @@ export default class View {
       onDone && onDone();
     };
     this.stopCallback = function () {};
-    this.pendingJoinOps = this.parent ? null : [];
+    // usually, only the root LiveView stores pending
+    // join operations for all children (and itself),
+    // but in case of rejoins (joinCount > 1) each child
+    // stores its own events instead
+    this.pendingJoinOps = [];
     this.viewHooks = {};
     this.formSubmits = [];
     this.children = this.parent ? null : {};
@@ -553,6 +557,14 @@ export default class View {
   }
 
   applyJoinPatch(live_patch, html, streams, events) {
+    // in case of rejoins, we need to manually perform all
+    // pending ops
+    if (this.joinCount > 1) {
+      if (this.pendingJoinOps.length) {
+        this.pendingJoinOps.forEach((cb) => typeof cb === "function" && cb());
+        this.pendingJoinOps = [];
+      }
+    }
     this.attachTrueDocEl();
     const patch = new DOMPatch(this, this.el, this.id, html, streams, null);
     patch.markPrunableContentForRemoval();
@@ -1010,7 +1022,12 @@ export default class View {
   onChannel(event, cb) {
     this.liveSocket.onChannel(this.channel, event, (resp) => {
       if (this.isJoinPending()) {
-        this.root.pendingJoinOps.push([this, () => cb(resp)]);
+        // in case this is a rejoin (joinCount > 1) we store our own join ops
+        if (this.joinCount > 1) {
+          this.pendingJoinOps.push(() => cb(resp));
+        } else {
+          this.root.pendingJoinOps.push([this, () => cb(resp)]);
+        }
       } else {
         this.liveSocket.requestDOMUpdate(() => cb(resp));
       }
@@ -1130,22 +1147,20 @@ export default class View {
     }
     this.log("error", () => ["unable to join", resp]);
     if (this.isMain()) {
-      this.displayError([
-        PHX_LOADING_CLASS,
-        PHX_ERROR_CLASS,
-        PHX_SERVER_ERROR_CLASS,
-      ]);
+      this.displayError(
+        [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_SERVER_ERROR_CLASS],
+        { unstructuredError: resp, errorKind: "server" },
+      );
       if (this.liveSocket.isConnected()) {
         this.liveSocket.reloadWithJitter(this);
       }
     } else {
       if (this.joinAttempts >= MAX_CHILD_JOIN_ATTEMPTS) {
         // put the root review into permanent error state, but don't destroy it as it can remain active
-        this.root.displayError([
-          PHX_LOADING_CLASS,
-          PHX_ERROR_CLASS,
-          PHX_SERVER_ERROR_CLASS,
-        ]);
+        this.root.displayError(
+          [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_SERVER_ERROR_CLASS],
+          { unstructuredError: resp, errorKind: "server" },
+        );
         this.log("error", () => [
           `giving up trying to mount after ${MAX_CHILD_JOIN_ATTEMPTS} tries`,
           resp,
@@ -1155,11 +1170,10 @@ export default class View {
       const trueChildEl = DOM.byId(this.el.id);
       if (trueChildEl) {
         DOM.mergeAttrs(trueChildEl, this.el);
-        this.displayError([
-          PHX_LOADING_CLASS,
-          PHX_ERROR_CLASS,
-          PHX_SERVER_ERROR_CLASS,
-        ]);
+        this.displayError(
+          [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_SERVER_ERROR_CLASS],
+          { unstructuredError: resp, errorKind: "server" },
+        );
         this.el = trueChildEl;
       } else {
         this.destroy();
@@ -1192,25 +1206,23 @@ export default class View {
     }
     if (!this.liveSocket.isUnloaded()) {
       if (this.liveSocket.isConnected()) {
-        this.displayError([
-          PHX_LOADING_CLASS,
-          PHX_ERROR_CLASS,
-          PHX_SERVER_ERROR_CLASS,
-        ]);
+        this.displayError(
+          [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_SERVER_ERROR_CLASS],
+          { unstructuredError: reason, errorKind: "server" },
+        );
       } else {
-        this.displayError([
-          PHX_LOADING_CLASS,
-          PHX_ERROR_CLASS,
-          PHX_CLIENT_ERROR_CLASS,
-        ]);
+        this.displayError(
+          [PHX_LOADING_CLASS, PHX_ERROR_CLASS, PHX_CLIENT_ERROR_CLASS],
+          { unstructuredError: reason, errorKind: "client" },
+        );
       }
     }
   }
 
-  displayError(classes) {
+  displayError(classes, details = {}) {
     if (this.isMain()) {
       DOM.dispatchEvent(window, "phx:page-loading-start", {
-        detail: { to: this.href, kind: "error" },
+        detail: { to: this.href, kind: "error", ...details },
       });
     }
     this.showLoader();
@@ -2125,7 +2137,7 @@ export default class View {
 
   maybePushComponentsDestroyed(destroyedCIDs) {
     let willDestroyCIDs = destroyedCIDs.filter((cid) => {
-      return DOM.findComponentNodeList(this.el, cid).length === 0;
+      return DOM.findComponentNodeList(this.id, cid).length === 0;
     });
 
     const onError = (error) => {
@@ -2147,7 +2159,7 @@ export default class View {
             // See if any of the cids we wanted to destroy were added back,
             // if they were added back, we don't actually destroy them.
             let completelyDestroyCIDs = willDestroyCIDs.filter((cid) => {
-              return DOM.findComponentNodeList(this.el, cid).length === 0;
+              return DOM.findComponentNodeList(this.id, cid).length === 0;
             });
 
             if (completelyDestroyCIDs.length > 0) {
