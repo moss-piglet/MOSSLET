@@ -107,4 +107,9 @@ defmodule Mosslet.GroupMessages do
       |> Repo.preload(:sender)
     end
   end
+
+  def get_message_count_for_group(group_id) do
+    from(m in GroupMessage, where: m.group_id == ^group_id)
+    |> Repo.aggregate(:count, :id)
+  end
 end

@@ -5,7 +5,6 @@ defmodule MossletWeb.GroupLive.Show do
   alias Mosslet.Groups
   alias Mosslet.GroupMessages
   alias MossletWeb.GroupLive.{Group, GroupMessage.EditForm}
-  alias MossletWeb.Endpoint
   alias Mosslet.Memories
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Reply
@@ -39,7 +38,6 @@ defmodule MossletWeb.GroupLive.Show do
 
     if connected?(socket) do
       Accounts.subscribe_account_deleted()
-      Endpoint.subscribe("group:#{id}")
       Groups.private_subscribe(current_user)
       Groups.public_subscribe()
       Groups.group_subscribe(group)
@@ -94,14 +92,25 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_info(%{event: "new_message", payload: %{message: message}}, socket) do
-    {:noreply,
-     socket
-     |> insert_new_message(message)
-     |> assign_last_user_message(message)}
+    # Check if this message is from the current user to avoid double counting
+    if message.sender_id == socket.assigns.current_user_group.id do
+      # For own messages: add to stream but don't increment (already counted locally)
+      {:noreply,
+       socket
+       |> stream_insert(:messages, GroupMessages.preload_message_sender(message))
+       |> assign_last_user_message(message)}
+    else
+      # For others' messages: add to stream and increment count
+      {:noreply,
+       socket
+       |> insert_new_message(message)
+       |> assign_last_user_message(message)}
+    end
   end
 
   @impl true
   def handle_info(%{event: "updated_message", payload: %{message: message}}, socket) do
+    # For message updates, don't increment count - just update the stream
     {:noreply,
      socket
      |> insert_updated_message(message)
@@ -110,9 +119,11 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_info(%{event: "deleted_message", payload: %{message: message}}, socket) do
+    # Someone else's message - remove from stream AND decrement count
     {:noreply,
      socket
-     |> insert_deleted_message(message)
+     |> stream_delete(:messages, message)
+     |> update(:total_messages_count, &max(&1 - 1, 0))
      |> assign_last_user_message(message)}
   end
 
@@ -160,6 +171,14 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
+  def handle_info({:message_sent, _message}, socket) do
+    # Local increment for own messages
+    {:noreply,
+     socket
+     |> update(:total_messages_count, &(&1 + 1))}
+  end
+
+  @impl true
   def handle_info({:groups_deleted, _struct}, socket) do
     {:noreply, socket |> push_patch(to: socket.assigns.return_url)}
   end
@@ -180,20 +199,31 @@ defmodule MossletWeb.GroupLive.Show do
     oldest_message_id = socket.assigns.oldest_message_id
 
     if not is_nil(oldest_message_id) do
-      oldest_message = Mosslet.GroupMessages.get_message!(oldest_message_id)
+      case Mosslet.GroupMessages.get_message!(oldest_message_id) do
+        nil ->
+          # Message was deleted, reset to load from beginning
+          messages = GroupMessages.get_previous_n_messages(nil, socket.assigns.group.id, 5)
 
-      messages =
-        GroupMessages.get_previous_n_messages(
-          oldest_message.inserted_at,
-          socket.assigns.group.id,
-          5
-        )
+          {:noreply,
+           socket
+           |> stream_batch_insert(:messages, messages, at: 0)
+           |> assign_oldest_message_id(List.first(messages))
+           |> assign_scrolled_to_top("true")}
 
-      {:noreply,
-       socket
-       |> stream_batch_insert(:messages, messages, at: 0)
-       |> assign_oldest_message_id(List.first(messages))
-       |> assign_scrolled_to_top("true")}
+        oldest_message ->
+          messages =
+            GroupMessages.get_previous_n_messages(
+              oldest_message.inserted_at,
+              socket.assigns.group.id,
+              5
+            )
+
+          {:noreply,
+           socket
+           |> stream_batch_insert(:messages, messages, at: 0)
+           |> assign_oldest_message_id(List.first(messages))
+           |> assign_scrolled_to_top("true")}
+      end
     else
       messages = GroupMessages.get_previous_n_messages(nil, socket.assigns.group.id, 5)
 
@@ -439,9 +469,11 @@ defmodule MossletWeb.GroupLive.Show do
   def insert_new_message(socket, message) do
     socket
     |> stream_insert(:messages, GroupMessages.preload_message_sender(message))
+    |> update(:total_messages_count, &(&1 + 1))
   end
 
   def insert_updated_message(socket, message) do
+    # For updated messages, don't change the count - just update the stream
     socket
     |> stream_insert(:messages, GroupMessages.preload_message_sender(message), at: -1)
   end
@@ -449,6 +481,7 @@ defmodule MossletWeb.GroupLive.Show do
   def insert_deleted_message(socket, message) do
     socket
     |> stream_delete(:messages, message)
+    |> update(:total_messages_count, &max(&1 - 1, 0))
   end
 
   def assign_active_group_messages(socket) do
@@ -458,11 +491,16 @@ defmodule MossletWeb.GroupLive.Show do
     if Enum.empty?(messages) do
       socket
       |> assign(:messages_list, messages_list)
+      |> assign(:total_messages_count, 0)
       |> stream(:messages, messages)
       |> assign(:oldest_message_id, nil)
     else
       socket
       |> assign(:messages_list, messages_list)
+      |> assign(
+        :total_messages_count,
+        GroupMessages.get_message_count_for_group(socket.assigns.group.id)
+      )
       |> stream(:messages, messages)
       |> assign(:oldest_message_id, List.first(messages).id)
     end
@@ -508,7 +546,8 @@ defmodule MossletWeb.GroupLive.Show do
   def delete_message(socket, message_id) do
     message = GroupMessages.get_message!(message_id)
     GroupMessages.delete_message(message)
-    stream_delete(socket, :messages, message)
+    # Don't delete from stream or update count here - wait for broadcast
+    socket
   end
 
   def get_last_user_message_for_group(group_id, current_user_id) do

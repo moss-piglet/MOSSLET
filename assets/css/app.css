@@ -156,7 +156,7 @@
   }
 
   .button {
-    @apply inline-block rounded-lg bg-zinc-900 hover:bg-zinc-700 hover:text-white py-2 px-3 text-sm font-semibold leading-6 text-white active:text-white/80 focus:no-underline;
+    @apply inline-block rounded-lg bg-zinc-900 hover:bg-zinc-700 hover:text-white py-2 px-3 text-sm font-semibold leading-6 text-white active:text-white/80 focus:no-underline transition-all duration-200 hover:scale-105 active:scale-95;
   }
 
   .spinner {
@@ -318,11 +318,19 @@ trix-editor {
 /* Animations */
 
 .fade-in-scale {
-  animation: 0.2s ease-in 0s normal forwards 1 fade-in-scale-keys;
+  animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0s normal forwards 1 fade-in-scale-keys;
 }
 
 .fade-out-scale {
-  animation: 0.2s ease-out 0s normal forwards 1 fade-out-scale-keys;
+  animation: 0.2s ease-in 0s normal forwards 1 fade-out-scale-keys;
+}
+
+.slide-in-right {
+  animation: 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0s normal forwards 1 slide-in-right-keys;
+}
+
+.slide-out-right {
+  animation: 0.3s cubic-bezier(0.7, 0, 0.84, 0) 0s normal forwards 1 slide-out-right-keys;
 }
 
 .fade-in {
@@ -337,9 +345,52 @@ trix-editor {
   animation: shake 0.25s ease-in-out infinite;
 }
 
+/* Panel Content Animations */
+.animate-fade-in {
+  animation: 0.4s ease-out 0.1s both fade-in-keys;
+}
+
+.animate-fade-in-delay-1 {
+  animation: 0.4s ease-out 0.2s both fade-in-up-keys;
+}
+
+.animate-fade-in-delay-2 {
+  animation: 0.4s ease-out 0.3s both fade-in-up-keys;
+}
+
+.animate-fade-in-delay-3 {
+  animation: 0.4s ease-out 0.4s both fade-in-up-keys;
+}
+
+.animate-fade-in-delay-4 {
+  animation: 0.4s ease-out 0.5s both fade-in-up-keys;
+}
+
+.animate-fade-in-delay-5 {
+  animation: 0.4s ease-out 0.6s both fade-in-up-keys;
+}
+
+.animate-bounce-in {
+  animation: 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.1s both bounce-in-keys;
+}
+
+.animate-pulse-slow {
+  animation: 3s ease-in-out infinite pulse-slow-keys;
+}
+
+.animate-slide-up-stagger > * {
+  animation: 0.4s ease-out both slide-up-keys;
+}
+
+.animate-slide-up-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+.animate-slide-up-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+.animate-slide-up-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+.animate-slide-up-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+.animate-slide-up-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+
 @keyframes fade-in-scale-keys {
   0% {
-    scale: 0.95;
+    scale: 0.9;
     opacity: 0;
   }
 
@@ -356,7 +407,31 @@ trix-editor {
   }
 
   100% {
-    scale: 0.95;
+    scale: 0.9;
+    opacity: 0;
+  }
+}
+
+@keyframes slide-in-right-keys {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-right-keys {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(100%);
     opacity: 0;
   }
 }
@@ -371,6 +446,18 @@ trix-editor {
   }
 }
 
+@keyframes fade-in-up-keys {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes fade-out-keys {
   0% {
     opacity: 1;
@@ -378,6 +465,50 @@ trix-editor {
 
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes bounce-in-keys {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+
+  70% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-slow-keys {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes slide-up-keys {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
