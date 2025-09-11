@@ -241,7 +241,7 @@
 
 /* Timeline / Posts */
 .timeline-post {
-  @apply flex space-x-3 pt-4 pb-1.5 px-4 mb-4 bg-white border-2 rounded-md border-gray-200 dark:border-gray-700 shadow-md dark:shadow-emerald-500/50 dark:bg-gray-800;
+  @apply flex space-x-3 pt-4 pb-1.5 px-2 sm:px-4 mb-4 bg-white border-2 rounded-md border-gray-200 dark:border-gray-700 shadow-md dark:shadow-emerald-500/50 dark:bg-gray-800;
 }
 
 .timeline-post-body {
@@ -250,6 +250,26 @@
 
 .post-body {
   @apply mt-2 mb-4;
+}
+
+/* Ensure content doesn't overflow on mobile */
+@media (max-width: 768px) {
+  .timeline-post,
+  .timeline-post * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+  }
+  
+  .trix-content {
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+  
+  .timeline-post img {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 figcaption {

@@ -513,7 +513,7 @@ defmodule MossletWeb.CoreComponents do
       <div
         id={"#{@id}-dropdown"}
         phx-click-away={hide_dropdown("##{@id}-dropdown")}
-        class="hidden z-40 origin-top absolute right-0 left-0 mt-1 size-fit whitespace-nowrap rounded-md shadow-lg dark:shadow-emerald-500/50 bg-background-50 dark:bg-gray-950 ring-1 ring-background-100 dark:ring-gray-950 ring-opacity-5 divide-y divide-background-200 dark:divide-gray-900"
+        class="hidden z-40 origin-top absolute left-0 mt-1 min-w-max max-w-xs rounded-md shadow-lg dark:shadow-emerald-500/50 bg-background-50 dark:bg-gray-950 ring-1 ring-background-100 dark:ring-gray-950 ring-opacity-5 divide-y divide-background-200 dark:divide-gray-900"
         role="menu"
         aria-labelledby={@id}
       >
@@ -524,7 +524,7 @@ defmodule MossletWeb.CoreComponents do
               id={link.link_id}
               tabindex="-1"
               role="menuitem"
-              class="py-2 px-3 text-sm text-background-700 dark:text-gray-200 hover:bg-background-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background-100 focus:ring-background-500"
+              class="py-2 px-3 text-sm text-background-700 dark:text-gray-200 hover:bg-background-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background-100 focus:ring-background-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
               phx-click={link.phx_click}
               phx-value-post-id={link.phx_value_post_id}
               phx-value-user-id={link.phx_value_user_id}

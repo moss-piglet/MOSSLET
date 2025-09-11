@@ -207,7 +207,7 @@ defmodule MossletWeb.SidebarLayout do
         </div>
       </div>
 
-      <div class="relative flex flex-col flex-1 pb-32 overflow-x-auto overflow-y-auto lg:pb-0">
+      <div class="relative flex flex-col flex-1 pb-32 overflow-x-hidden overflow-y-auto lg:pb-0 lg:overflow-x-auto">
         <header class={[
           "sticky top-0 z-30 border-b dark:lg:shadow-none dark:border-b lg:backdrop-filter backdrop-blur",
           @header_bg_class,

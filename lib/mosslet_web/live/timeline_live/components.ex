@@ -19,22 +19,22 @@ defmodule MossletWeb.TimelineLive.Components do
     <div>
       <img
         :if={@current_user.connection.profile}
-        class="mb-4 h-32 w-full object-cover lg:h-48"
+        class="mb-4 h-24 w-full object-cover sm:h-32 lg:h-48"
         src={~p"/images/profile/#{get_banner_image_for_connection(@current_user.connection)}"}
         alt="profile banner image"
       />
-      <div class="mx-auto flex items-center justify-between max-w-4xl px-6">
-        <div class="flex items-center space-x-5">
+      <div class="mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between max-w-full sm:max-w-2xl lg:max-w-4xl px-3 sm:px-6">
+        <div class="flex items-center space-x-5 mb-4 sm:mb-0">
           <div>
-            <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100">
               Timeline
             </h1>
           </div>
         </div>
-        <div class="mt-6 flex flex-col-reverse justify-stretch space-y-4 space-y-reverse sm:flex-row-reverse sm:justify-end sm:space-x-3 sm:space-y-0 sm:space-x-reverse md:mt-0 md:flex-row md:space-x-3">
+        <div class="w-full sm:w-auto flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
           <%!-- filter / page / sort --%>
-          <div class="inline-flex items-center">
-            <div id="filter-for-posts" class="flex justify-start py-2 ml-2 sm:ml-6">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+            <div id="filter-for-posts" class="flex-1 sm:flex-none">
               <form phx-change="filter">
                 <PetalComponents.Field.field
                   type="select"
@@ -46,7 +46,7 @@ defmodule MossletWeb.TimelineLive.Components do
               </form>
             </div>
 
-            <div id="per-page-for-posts" class="flex justify-start py-2 ml-2 sm:ml-6">
+            <div id="per-page-for-posts" class="flex-1 sm:flex-none">
               <form phx-change="filter">
                 <PetalComponents.Field.field
                   type="select"
@@ -280,7 +280,7 @@ defmodule MossletWeb.TimelineLive.Components do
     <% user_post_receipt = get_user_post_receipt(@post, @current_user) %>
     <div
       id={@id}
-      class="timeline-post bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg dark:shadow-emerald-500/10 rounded-xl transition-all duration-300 hover:shadow-xl hover:border-emerald-200 dark:hover:border-emerald-500/50 hover:-translate-y-0.5 group mb-6"
+      class="timeline-post bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg dark:shadow-emerald-500/10 rounded-xl transition-all duration-300 hover:shadow-xl hover:border-emerald-200 dark:hover:border-emerald-500/50 hover:-translate-y-0.5 group mb-4 mx-1 sm:mx-0 sm:mb-6"
     >
       <div :if={@post.user_id == @current_user.id} class="shrink-0">
         <.phx_avatar
@@ -363,11 +363,11 @@ defmodule MossletWeb.TimelineLive.Components do
         </div>
 
         <%!-- Post Content --%>
-        <div class="px-6 pb-4">
+        <div class="px-3 sm:px-6 pb-4">
           <div
             id={"post-body-#{@post.id}"}
             phx-hook="TrixContentPostHook"
-            class="post-body text-gray-800 dark:text-gray-200 text-base leading-relaxed"
+            class="post-body text-gray-800 dark:text-gray-200 text-sm sm:text-base leading-relaxed break-words"
           >
             {html_block(
               decr_item(
@@ -383,7 +383,7 @@ defmodule MossletWeb.TimelineLive.Components do
         </div>
 
         <%!-- Post Actions Bar - Improved --%>
-        <footer class="border-t border-gray-100 dark:border-gray-700 px-6 py-3">
+        <footer class="border-t border-gray-100 dark:border-gray-700 px-3 sm:px-6 py-3">
           <div class="flex items-center justify-between">
             <%!-- Primary engagement actions --%>
             <div class="flex items-center space-x-1">
@@ -673,9 +673,9 @@ defmodule MossletWeb.TimelineLive.Components do
       </div>
       <div
         id="new-post-container"
-        class="hidden mt-6 bg-gradient-to-r from-white via-gray-50/80 to-white dark:from-gray-900/90 dark:via-gray-800/50 dark:to-gray-900/90 border border-gray-200/60 dark:border-emerald-500/30 shadow-xl dark:shadow-emerald-500/20 rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl backdrop-blur-sm animate-fade-in"
+        class="hidden mt-6 bg-gradient-to-r from-white via-gray-50/80 to-white dark:from-gray-900/90 dark:via-gray-800/50 dark:to-gray-900/90 border border-gray-200/60 dark:border-emerald-500/30 shadow-xl dark:shadow-emerald-500/20 rounded-2xl p-3 sm:p-6 transition-all duration-300 hover:shadow-2xl backdrop-blur-sm animate-fade-in"
       >
-        <div class="flex space-x-3 pl-1 pr-2">
+        <div class="flex space-x-2 sm:space-x-3 pl-1 pr-2">
           <%!--
           <div class="shrink-0">
             <.phx_avatar
@@ -741,7 +741,7 @@ defmodule MossletWeb.TimelineLive.Components do
                 />
               </div>
 
-              <div class="mt-3 flex items-center justify-between">
+              <div class="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div class="group inline-flex items-start space-x-2 text-sm text-gray-500 dark:text-emerald-500">
                   <.phx_icon
                     name="hero-heart-solid"
@@ -753,7 +753,7 @@ defmodule MossletWeb.TimelineLive.Components do
                 <button
                   :if={@post_form.source.valid? && !@uploads_in_progress}
                   type="submit"
-                  class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
+                  class="w-full sm:w-auto inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
                 >
                   <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" />
                   Share Post
@@ -761,7 +761,7 @@ defmodule MossletWeb.TimelineLive.Components do
                 <button
                   :if={!@post_form.source.valid? && !@uploads_in_progress}
                   type="submit"
-                  class="inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm opacity-20"
+                  class="w-full sm:w-auto inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm opacity-20"
                   disabled
                 >
                   <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" />
@@ -770,7 +770,7 @@ defmodule MossletWeb.TimelineLive.Components do
                 <button
                   :if={@uploads_in_progress}
                   type="submit"
-                  class="inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm opacity-20"
+                  class="w-full sm:w-auto inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm opacity-20"
                   disabled
                 >
                   <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" />
@@ -789,7 +789,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@user_post_receipt.id}-read-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="toggle-unread"
       phx-value-id={@user_post_receipt.id}
       data-tippy-content="Mark Post as unread"
@@ -804,7 +804,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@user_post_receipt.id}-unread-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="toggle-read"
       phx-value-id={@user_post_receipt.id}
       data-tippy-content="Mark Post as read"
@@ -819,7 +819,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click={
         JS.dispatch("mosslet:show-post-photos-#{@post.id}",
           to: "#timeline-card-#{@post.id}",
@@ -857,14 +857,14 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@post.id}-fav-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="fav"
       phx-value-id={@post.id}
       data-tippy-content="Add favorite"
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-star" class="h-4 w-4" />
-      <span class="ml-1.5 text-xs font-medium">{@post.favs_count}</span>
+      <span class="ml-1 sm:ml-1.5 text-xs font-medium">{@post.favs_count}</span>
     </button>
     """
   end
@@ -873,14 +873,14 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@post.id}-unfav-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="unfav"
       phx-value-id={@post.id}
       data-tippy-content="Remove favorite"
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-      <span class="ml-1.5 text-xs font-medium">{@post.favs_count}</span>
+      <span class="ml-1 sm:ml-1.5 text-xs font-medium">{@post.favs_count}</span>
     </button>
     """
   end
@@ -890,7 +890,7 @@ defmodule MossletWeb.TimelineLive.Components do
     <button
       :if={@current_user}
       id={"post-#{@post.id}-reply-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="reply"
       phx-value-id={@post.id}
       phx-value-url={@return_url}
@@ -907,7 +907,7 @@ defmodule MossletWeb.TimelineLive.Components do
     <button
       :if={@current_user && can_repost?(@current_user, @post) && is_nil(@post.group_id)}
       id={"post-#{@post.id}-repost-#{@current_user.id}"}
-      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="repost"
       phx-value-id={@post.id}
       phx-value-body={
@@ -925,7 +925,7 @@ defmodule MossletWeb.TimelineLive.Components do
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-arrow-path-rounded-square" class="h-4 w-4" />
-      <span class="ml-1.5 text-xs font-medium">{@post.reposts_count}</span>
+      <span class="ml-1 sm:ml-1.5 text-xs font-medium">{@post.reposts_count}</span>
     </button>
 
     <div
@@ -933,10 +933,10 @@ defmodule MossletWeb.TimelineLive.Components do
         @current_user &&
           (@post.reposts_count > 0 && !can_repost?(@current_user, @post))
       }
-      class="inline-flex items-center px-3 py-2 rounded-lg text-secondary-600 dark:text-secondary-400 cursor-default"
+      class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-secondary-600 dark:text-secondary-400 cursor-default"
     >
       <.phx_icon name="hero-arrow-path-rounded-square" class="h-4 w-4" />
-      <span class="ml-1.5 text-xs font-medium">{@post.reposts_count}</span>
+      <span class="ml-1 sm:ml-1.5 text-xs font-medium">{@post.reposts_count}</span>
     </div>
     """
   end
@@ -984,7 +984,7 @@ defmodule MossletWeb.TimelineLive.Components do
     <div
       :if={!Enum.empty?(@post.replies)}
       id={"first-reply-#{@post.id}"}
-      class="my-2 pt-4 pb-2 pl-2 pr-4 bg-background-50 dark:bg-gray-900 border border-2 border-background-100 dark:border-emerald-500 rounded-lg shadow-md shadow-background-500/50 dark:shadow-emerald-500/50"
+      class="my-2 pt-4 pb-2 pl-2 pr-2 sm:pr-4 bg-background-50 dark:bg-gray-900 border border-2 border-background-100 dark:border-emerald-500 rounded-lg shadow-md shadow-background-500/50 dark:shadow-emerald-500/50"
     >
       <% reply = Timeline.first_reply(@post, @options) %>
       <% user_connection =
@@ -1124,7 +1124,7 @@ defmodule MossletWeb.TimelineLive.Components do
                     </div>
                   </div>
 
-                  <div id={"reply-body-#{reply.id}"} phx-hook="TrixContentReplyHook" class="post-body">
+                  <div id={"reply-body-#{reply.id}"} phx-hook="TrixContentReplyHook" class="post-body text-sm sm:text-base break-words">
                     {html_block(
                       decr_item(
                         reply.body,
