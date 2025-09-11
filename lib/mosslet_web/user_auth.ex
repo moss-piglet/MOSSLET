@@ -36,6 +36,7 @@ defmodule MossletWeb.UserAuth do
     "About",
     "Blog",
     "Faq",
+    "Support",
     "Pricing",
     "Privacy",
     "Terms",

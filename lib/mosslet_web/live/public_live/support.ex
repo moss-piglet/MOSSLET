@@ -70,7 +70,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </div>
           </div>
-
+          
     <!-- Support options section -->
           <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
             <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
@@ -104,7 +104,7 @@ defmodule MossletWeb.PublicLive.Support do
                     Email us directly for personalized help. We typically respond within 24 hours, often much sooner. Our team reads every message personally.
                   </p>
                 </div>
-
+                
     <!-- FAQ -->
                 <div class="relative isolate flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-900 px-8 pb-8 pt-80 sm:pt-48 lg:pt-80">
                   <img
@@ -134,7 +134,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </div>
           </div>
-
+          
     <!-- What we help with section -->
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
             <div class="mx-auto max-w-2xl lg:mx-0">
@@ -196,7 +196,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </dl>
           </div>
-
+          
     <!-- Our commitment section -->
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-48 lg:px-8">
             <div class="mx-auto max-w-2xl lg:mx-0">
