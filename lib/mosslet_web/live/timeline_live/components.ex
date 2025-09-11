@@ -1124,7 +1124,11 @@ defmodule MossletWeb.TimelineLive.Components do
                     </div>
                   </div>
 
-                  <div id={"reply-body-#{reply.id}"} phx-hook="TrixContentReplyHook" class="post-body text-sm sm:text-base break-words">
+                  <div
+                    id={"reply-body-#{reply.id}"}
+                    phx-hook="TrixContentReplyHook"
+                    class="post-body text-sm sm:text-base break-words"
+                  >
                     {html_block(
                       decr_item(
                         reply.body,
