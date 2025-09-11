@@ -982,7 +982,7 @@ defmodule MossletWeb.TimelineLive.Components do
     <div
       :if={!Enum.empty?(@post.replies)}
       id={"first-reply-#{@post.id}"}
-      class="my-2 pt-4 pb-2 pl-2 pr-2 sm:pr-4 bg-background-50 dark:bg-gray-900 border border-2 border-background-100 dark:border-emerald-500 rounded-lg shadow-md shadow-background-500/50 dark:shadow-emerald-500/50"
+      class="my-2 pt-3 pb-2 px-3 sm:px-4 bg-background-50 dark:bg-gray-900 border border-background-100 dark:border-emerald-500 rounded-lg shadow-sm dark:shadow-emerald-500/30"
     >
       <% reply = Timeline.first_reply(@post, @options) %>
       <% user_connection =
@@ -996,7 +996,7 @@ defmodule MossletWeb.TimelineLive.Components do
         <ul role="list" class="-mb-8">
           <li id={"reply-#{reply.id}"}>
             <div class="relative pb-8">
-              <div class="relative flex items-start space-x-3">
+              <div class="relative flex items-start space-x-2 sm:space-x-3">
                 <div class="relative">
                   <.phx_avatar
                     :if={user_connection}
@@ -1011,7 +1011,7 @@ defmodule MossletWeb.TimelineLive.Components do
                             @post_loading_list
                           )
                     }
-                    class="h-8 w-8 rounded-full"
+                    class="h-6 w-6 sm:h-8 sm:w-8 rounded-full"
                   />
                   <.phx_avatar
                     :if={reply.user_id == @current_user.id}
@@ -1026,7 +1026,7 @@ defmodule MossletWeb.TimelineLive.Components do
                             @post_loading_list
                           )
                     }
-                    class="h-8 w-8 rounded-full"
+                    class="h-6 w-6 sm:h-8 sm:w-8 rounded-full"
                   />
                   <span class="absolute -bottom-0.5 -right-1 rounded-tl bg-gray-50 group-hover:bg-primary-50 dark:bg-gray-900 dark:group-hover:bg-gray-700 px-0.5 py-px">
                     <svg
@@ -1045,37 +1045,39 @@ defmodule MossletWeb.TimelineLive.Components do
                 </div>
                 <div class="min-w-0 flex-1">
                   <div>
-                    <div class="inline-flex text-sm">
-                      <%!-- Reply username --%>
-                      <p class="text-sm font-semibold leading-6">
-                        {decr_item(
-                          reply.username,
-                          @current_user,
-                          get_post_key(@post, @current_user),
-                          @key,
-                          reply,
-                          "body"
-                        )}
-                      </p>
-                      <div class="inline-flex justify-end text-sm space-x-2">
-                        <%!--
-                        <.link
-                          :if={@current_user && @current_user.id == reply.user_id}
-                          id={"edit-#{reply.id}-button"}
-                          phx-click="edit_reply"
-                          phx-value-id={reply.id}
-                          phx-value-url={@return_url}
-                          data-tippy-content="Edit Reply"
-                          phx-hook="TippyHook"
-                          class="ml-4"
-                        >
-                          <.phx_icon
-                            name="hero-pencil"
-                            class="size-4 hover:text-green-600 dark:hover:text-green-400"
-                          />
-                        </.link>
-                        --%>
-                        <.link
+                    <%!-- Reply header with username and date --%>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="flex flex-col">
+                        <%!-- Reply username --%>
+                        <div class="font-semibold text-base text-gray-900 dark:text-white">
+                          {decr_item(
+                            reply.username,
+                            @current_user,
+                            get_post_key(@post, @current_user),
+                            @key,
+                            reply,
+                            "body"
+                          )}
+                        </div>
+                        <%!-- Reply timestamp --%>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Replied <.local_time_ago at={reply.inserted_at} id={reply.id} />
+                          <span
+                            :if={Timex.after?(reply.updated_at, reply.inserted_at)}
+                            class="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-xs font-medium text-emerald-700 ml-2"
+                          >
+                            Updated
+                          </span>
+                        </div>
+                      </div>
+                      <%!-- Reply actions --%>
+                      <div class="flex items-center space-x-1">
+                        <.timeline_reply_show_photos_icon
+                          :if={photos?(reply.image_urls)}
+                          current_user={@current_user}
+                          reply={reply}
+                        />
+                        <button
                           :if={
                             @current_user &&
                               (@current_user.id == reply.user_id || @current_user.id == @post.user_id)
@@ -1085,40 +1087,14 @@ defmodule MossletWeb.TimelineLive.Components do
                           id={"delete-#{reply.id}-button"}
                           data-tippy-content="Delete Reply"
                           phx-hook="TippyHook"
-                          class="ml-4"
+                          class="inline-flex items-center px-2 py-1 rounded-lg text-gray-600 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
                         >
                           <.phx_icon
                             name="hero-trash"
-                            class="size-4 hover:text-red-600 dark:hover:text-red-400"
+                            class="h-3 w-3"
                           />
-                        </.link>
+                        </button>
                       </div>
-                    </div>
-                    <div class="inline-flex items-center space-x-2">
-                      <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        Replied <.local_time_ago at={reply.inserted_at} id={reply.id} />
-                      </p>
-                      <span class="text-sm text-gray-500 dark:text-gray-400">&middot;</span>
-                      <span
-                        id={"timestamp-#{reply.id}-updated"}
-                        class="inline-flex text-xs text-gray-500 dark:text-gray-400 align-middle"
-                      >
-                        <time datetime={reply.updated_at}>
-                          <.local_time_ago id={"#{reply.id}-updated"} at={reply.updated_at} />
-                        </time>
-                        <span
-                          :if={Timex.after?(reply.updated_at, reply.inserted_at)}
-                          }
-                          class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700"
-                        >
-                          Updated
-                        </span>
-                      </span>
-                      <.timeline_reply_show_photos_icon
-                        :if={photos?(reply.image_urls)}
-                        current_user={@current_user}
-                        reply={reply}
-                      />
                     </div>
                   </div>
 
