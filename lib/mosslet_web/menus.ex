@@ -17,6 +17,7 @@ defmodule MossletWeb.Menus do
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Huh?"), path: "/in-the-know"},
       %{label: gettext("Pricing"), path: "/pricing"},
+      %{label: gettext("Support"), path: "/support"},
       %{label: gettext("FAQ"), path: "/faq"}
     ]
 
@@ -29,6 +30,7 @@ defmodule MossletWeb.Menus do
       %{label: gettext("Huh?"), path: "/in-the-know"},
       %{label: gettext("Pricing"), path: "/pricing"},
       %{label: gettext("Privacy"), path: "/privacy"},
+      %{label: gettext("Support"), path: "/support"},
       %{label: gettext("FAQ"), path: "/faq"}
     ]
 

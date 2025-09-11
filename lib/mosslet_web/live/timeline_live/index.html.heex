@@ -8,9 +8,15 @@
     />
   </div>
 
-  <div class="flex flex-col" style={@current_user.connection.profile && "margin-top: 6rem; padding-top: 0;" || ""}>
+  <div
+    class="flex flex-col"
+    style={(@current_user.connection.profile && "margin-top: 6rem; padding-top: 0;") || ""}
+  >
     <%!-- Header Section (without banner image) --%>
-    <div class="flex-shrink-0 px-2 py-4 sm:px-4 md:px-6 lg:px-8" style={@current_user.connection.profile && "padding-top: 8rem;" || ""}>
+    <div
+      class="flex-shrink-0 px-2 py-4 sm:px-4 md:px-6 lg:px-8"
+      style={(@current_user.connection.profile && "padding-top: 8rem;") || ""}
+    >
       <.timeline_header_content
         current_user={@current_user}
         key={@key}

@@ -206,7 +206,7 @@ defmodule MossletWeb.Components.LandingPage do
 
   def beta_banner(assigns) do
     ~H"""
-    <div class="relative isolate flex z-10 items-center gap-x-6 overflow-hidden bg-emerald-600 px-6 py-2.5 sm:px-3.5 sm:before:flex-1">
+    <div class="relative isolate flex z-10 items-center gap-x-6 overflow-hidden bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-2.5 sm:px-3.5 sm:before:flex-1">
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 lg:pt-0">
         <p class="text-sm/6 text-white">
           <strong class="font-semibold">Special Price</strong><svg
