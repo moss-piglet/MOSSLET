@@ -338,24 +338,22 @@ defmodule MossletWeb.TimelineLive.Components do
       </div>
 
       <div class="flex flex-col">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center space-x-2">
-            <div class="font-semibold text-lg text-gray-900 dark:text-white">
-              {decr_item(
-                @post.username,
-                @current_user,
-                get_post_key(@post, @current_user),
-                @key,
-                @post,
-                "username"
-              )}
-            </div>
+        <div class="px-3 sm:px-6 mb-3">
+          <div class="font-semibold text-lg text-gray-900 dark:text-white">
+            {decr_item(
+              @post.username,
+              @current_user,
+              get_post_key(@post, @current_user),
+              @key,
+              @post,
+              "username"
+            )}
           </div>
 
           <%!-- Timestamp --%>
           <time
             id={"timestamp-#{@post.id}-created"}
-            class="text-sm text-gray-500 dark:text-gray-400 font-medium flex-shrink-0"
+            class="text-xs text-gray-500 dark:text-gray-400 font-medium block mt-0.5"
             datetime={@post.inserted_at}
           >
             <.local_time_ago id={"#{@post.id}-created"} at={@post.inserted_at} />
@@ -964,17 +962,17 @@ defmodule MossletWeb.TimelineLive.Components do
         </.link>
         --%>
       </span>
-      <.link
+      <button
         :if={@current_user && @post.user_id == @current_user.id}
         phx-click={JS.push("delete_post", value: %{id: @post.id})}
         data-confirm="Are you sure you want to delete this post?"
-        class="dark:hover:text-red-400 hover:text-red-600"
+        class="inline-flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
         id={"delete-post-#{@post.id}-button"}
         data-tippy-content="Delete post"
         phx-hook="TippyHook"
       >
-        Delete
-      </.link>
+        <.phx_icon name="hero-trash" class="h-4 w-4" />
+      </button>
     </div>
     """
   end
