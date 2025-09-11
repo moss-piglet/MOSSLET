@@ -14,6 +14,48 @@ defmodule MossletWeb.TimelineLive.Components do
 
   import MossletWeb.Helpers
 
+  def timeline_header_content(assigns) do
+    ~H"""
+    <div class="mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between max-w-full sm:max-w-2xl lg:max-w-4xl px-3 sm:px-6">
+      <div class="flex items-center space-x-5 mb-4 sm:mb-0">
+        <div>
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100">
+            Timeline
+          </h1>
+        </div>
+      </div>
+      <div class="w-full sm:w-auto flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+        <%!-- filter / page / sort --%>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+          <div id="filter-for-posts" class="flex-1 sm:flex-none">
+            <form phx-change="filter">
+              <PetalComponents.Field.field
+                type="select"
+                label="Filter"
+                name="user_id"
+                options={user_options(@post_shared_users)}
+                value={@filter.user_id}
+              />
+            </form>
+          </div>
+
+          <div id="per-page-for-posts" class="flex-1 sm:flex-none">
+            <form phx-change="filter">
+              <PetalComponents.Field.field
+                type="select"
+                label="Per Page"
+                name="post_per_page"
+                options={[{"5", 5}, {"10", 10}, {"25", 25}, {"50", 50}]}
+                value={@options.post_per_page}
+              />
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   def timeline_header(assigns) do
     ~H"""
     <div>
