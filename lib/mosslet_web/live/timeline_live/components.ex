@@ -245,7 +245,7 @@ defmodule MossletWeb.TimelineLive.Components do
   def timeline_posts(assigns) do
     ~H"""
     <div>
-      <div class="px-4 py-6 sm:px-6">
+      <div class="py-6">
         <ul id="posts" role="list" phx-update="stream">
           <div id="posts-empty" class="only:block only:col-span-4 hidden">
             <.timeline_empty_post_state />
@@ -278,11 +278,14 @@ defmodule MossletWeb.TimelineLive.Components do
   def timeline_post(assigns) do
     ~H"""
     <% user_post_receipt = get_user_post_receipt(@post, @current_user) %>
-    <div id={@id} class="relative timeline-post anchor">
+    <div
+      id={@id}
+      class="timeline-post bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg dark:shadow-emerald-500/10 rounded-xl transition-all duration-300 hover:shadow-xl hover:border-emerald-200 dark:hover:border-emerald-500/50 hover:-translate-y-0.5 group mb-6"
+    >
       <div :if={@post.user_id == @current_user.id} class="shrink-0">
         <.phx_avatar
           :if={@post.user_id == @current_user.id}
-          class="size-10 rounded-full"
+          class="size-12 rounded-full ring-2 ring-emerald-500/20 transition-all duration-200 hover:ring-emerald-500/50"
           src={
             if !show_avatar?(@current_user),
               do: "",
@@ -318,7 +321,7 @@ defmodule MossletWeb.TimelineLive.Components do
           Accounts.get_user_connection_for_reply_shared_users(@post.user_id, @current_user.id) %>
         <.phx_avatar
           :if={user_connection}
-          class="size-10 rounded-full"
+          class="size-12 rounded-full ring-2 ring-emerald-500/20 transition-all duration-200 hover:ring-emerald-500/50"
           src={
             if !show_avatar?(user_connection),
               do: "",
@@ -335,100 +338,112 @@ defmodule MossletWeb.TimelineLive.Components do
       </div>
 
       <div class="flex flex-col">
-        <div class="inline-flex text-sm justify-start">
-          <div class="font-medium flex-none text-gray-900 dark:text-gray-100">
-            {decr_item(
-              @post.username,
-              @current_user,
-              get_post_key(@post, @current_user),
-              @key,
-              @post,
-              "username"
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <div class="font-semibold text-lg text-gray-900 dark:text-white">
+              {decr_item(
+                @post.username,
+                @current_user,
+                get_post_key(@post, @current_user),
+                @key,
+                @post,
+                "username"
+              )}
+            </div>
+          </div>
+
+          <%!-- Timestamp --%>
+          <time
+            id={"timestamp-#{@post.id}-created"}
+            class="text-sm text-gray-500 dark:text-gray-400 font-medium flex-shrink-0"
+            datetime={@post.inserted_at}
+          >
+            <.local_time_ago id={"#{@post.id}-created"} at={@post.inserted_at} />
+          </time>
+        </div>
+
+        <%!-- Post Content --%>
+        <div class="px-6 pb-4">
+          <div
+            id={"post-body-#{@post.id}"}
+            phx-hook="TrixContentPostHook"
+            class="post-body text-gray-800 dark:text-gray-200 text-base leading-relaxed"
+          >
+            {html_block(
+              decr_item(
+                @post.body,
+                @current_user,
+                get_post_key(@post, @current_user),
+                @key,
+                @post,
+                "body"
+              )
             )}
           </div>
         </div>
 
-        <div id={"post-body-#{@post.id}"} phx-hook="TrixContentPostHook" class="post-body">
-          {html_block(
-            decr_item(
-              @post.body,
-              @current_user,
-              get_post_key(@post, @current_user),
-              @key,
-              @post,
-              "body"
-            )
-          )}
-        </div>
+        <%!-- Post Actions Bar - Improved --%>
+        <footer class="border-t border-gray-100 dark:border-gray-700 px-6 py-3">
+          <div class="flex items-center justify-between">
+            <%!-- Primary engagement actions --%>
+            <div class="flex items-center space-x-1">
+              <%!-- Read/Unread status --%>
+              <.timeline_post_read_icon
+                :if={@current_user && read?(user_post_receipt)}
+                current_user={@current_user}
+                user_post_receipt={user_post_receipt}
+              />
+              <.timeline_post_unread_icon
+                :if={@current_user && user_post_receipt && !read?(user_post_receipt)}
+                current_user={@current_user}
+                user_post_receipt={user_post_receipt}
+              />
 
-        <div class="mt-2 space-x-2 text-sm">
-          <div class="inline-flex space-x-2 py-2 align-middle">
-            <%!-- favorite post icon --%>
-            <.timeline_post_read_icon
-              :if={@current_user && read?(user_post_receipt)}
-              current_user={@current_user}
-              user_post_receipt={user_post_receipt}
-            />
-            <.timeline_post_unread_icon
-              :if={@current_user && user_post_receipt && !read?(user_post_receipt)}
-              current_user={@current_user}
-              user_post_receipt={user_post_receipt}
-            />
-            <.timeline_post_show_photos_icon
-              :if={photos?(@post.image_urls)}
-              current_user={@current_user}
-              post={@post}
-            />
-            <%!-- favorite post icon --%>
-            <.timeline_post_favorite_icon
-              :if={@current_user && can_fav?(@current_user, @post)}
-              current_user={@current_user}
-              post={@post}
-            />
-            <%!-- unfavorite post icon --%>
-            <.timeline_post_unfavorite_icon
-              :if={@current_user && !can_fav?(@current_user, @post)}
-              current_user={@current_user}
-              post={@post}
-            />
-            <div class="inline-flex space-x-2 ml-1 text-xs align-middle">
-              <%!-- New Post Reply icon --%>
+              <%!-- Favorite action --%>
+              <.timeline_post_favorite_icon
+                :if={@current_user && can_fav?(@current_user, @post)}
+                current_user={@current_user}
+                post={@post}
+              />
+              <.timeline_post_unfavorite_icon
+                :if={@current_user && !can_fav?(@current_user, @post)}
+                current_user={@current_user}
+                post={@post}
+              />
+
+              <%!-- Reply action --%>
               <.timeline_new_post_reply_icon
                 current_user={@current_user}
                 post={@post}
                 return_url={@return_url}
               />
-            </div>
-            <%!-- new repost icon --%>
-            <.timeline_new_post_repost_icon current_user={@current_user} key={@key} post={@post} />
-          </div>
-          <%!-- show / edit / delete --%>
-          <.timeline_post_actions
-            :if={@current_user.id == @post.user_id}
-            current_user={@current_user}
-            post={@post}
-            return_url={@return_url}
-          />
-          <span class="text-sm text-gray-500 dark:text-gray-400">&middot;</span>
-          <span
-            id={"timestamp-#{@post.id}-created"}
-            class="inline-flex text-xs text-gray-500 dark:text-gray-400 align-middle"
-          >
-            <time datetime={@post.inserted_at}>
-              <.local_time_ago id={"#{@post.id}-created"} at={@post.inserted_at} />
-            </time>
-          </span>
 
-          <span
-            :if={@post.image_urls_updated_at}
-            id={"timestamp-#{@post.id}-updated"}
-            class="invisible inline-flex text-xs text-gray-500 dark:text-gray-400 align-middle"
-          >
-            <time datetime={@post.updated_at}>
-              <.local_time_ago id={"#{@post.id}-updated"} at={@post.image_urls_updated_at} />
-            </time>
-          </span>
-        </div>
+              <%!-- Repost action --%>
+              <.timeline_new_post_repost_icon
+                current_user={@current_user}
+                key={@key}
+                post={@post}
+              />
+
+              <%!-- Photos action --%>
+              <.timeline_post_show_photos_icon
+                :if={photos?(@post.image_urls)}
+                current_user={@current_user}
+                post={@post}
+              />
+            </div>
+
+            <%!-- Owner actions --%>
+            <div class="flex items-center space-x-1">
+              <.timeline_post_actions
+                :if={@current_user.id == @post.user_id}
+                current_user={@current_user}
+                post={@post}
+                return_url={@return_url}
+              />
+            </div>
+          </div>
+        </footer>
 
         <%!-- first reply --%>
         <.timeline_post_first_reply
@@ -630,23 +645,23 @@ defmodule MossletWeb.TimelineLive.Components do
   def timeline_new_post_form(assigns) do
     ~H"""
     <div>
-      <div id="show-new-post-button" class="flex-1 items-center justify-start px-4 mx-2">
+      <div id="show-new-post-button" class="flex-1 items-center justify-center mb-6">
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+          class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
           phx-click={
             JS.hide(to: "#show-new-post-button")
             |> JS.toggle(to: "#new-post-container")
             |> JS.toggle(to: "#hide-new-post-button")
           }
         >
-          <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" /> Start new Post
+          <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-2" /> Start new Post
         </button>
       </div>
-      <div id="hide-new-post-button" class="hidden flex-1 items-center justify-start mb-4 px-4 mx-2">
+      <div id="hide-new-post-button" class="hidden flex-1 items-center justify-center mb-6">
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+          class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-gray-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
           phx-click={
             JS.hide(to: "#hide-new-post-button")
             |> JS.toggle(to: "#new-post-container")
@@ -658,13 +673,13 @@ defmodule MossletWeb.TimelineLive.Components do
       </div>
       <div
         id="new-post-container"
-        class="hidden bg-gray-50 dark:bg-gray-800 mx-4 py-6 sm:mx-6 rounded-md shadow-md dark:shadow-emerald-500/50"
+        class="hidden mt-6 bg-gradient-to-r from-white via-gray-50/80 to-white dark:from-gray-900/90 dark:via-gray-800/50 dark:to-gray-900/90 border border-gray-200/60 dark:border-emerald-500/30 shadow-xl dark:shadow-emerald-500/20 rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl backdrop-blur-sm animate-fade-in"
       >
         <div class="flex space-x-3 pl-1 pr-2">
           <%!--
           <div class="shrink-0">
             <.phx_avatar
-              class="size-10 rounded-full"
+              class="size-12 rounded-full ring-2 ring-emerald-500/20 transition-all duration-200 hover:ring-emerald-500/50"
               src={
                 if !show_avatar?(@current_user),
                   do: "",
@@ -738,7 +753,7 @@ defmodule MossletWeb.TimelineLive.Components do
                 <button
                   :if={@post_form.source.valid? && !@uploads_in_progress}
                   type="submit"
-                  class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                  class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
                 >
                   <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" />
                   Share Post
@@ -774,7 +789,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@user_post_receipt.id}-read-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="toggle-unread"
       phx-value-id={@user_post_receipt.id}
       data-tippy-content="Mark Post as unread"
@@ -789,7 +804,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@user_post_receipt.id}-unread-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="toggle-read"
       phx-value-id={@user_post_receipt.id}
       data-tippy-content="Mark Post as read"
@@ -804,7 +819,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click={
         JS.dispatch("mosslet:show-post-photos-#{@post.id}",
           to: "#timeline-card-#{@post.id}",
@@ -823,7 +838,7 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"reply-#{@reply.id}-show-photos-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-2 py-1 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click={
         JS.dispatch("mosslet:show-reply-photos-#{@reply.id}",
           to: "#container-reply-#{@reply.id}",
@@ -842,14 +857,14 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@post.id}-fav-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="fav"
       phx-value-id={@post.id}
       data-tippy-content="Add favorite"
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-star" class="h-4 w-4" />
-      <span class="ml-1 text-xs">{@post.favs_count}</span>
+      <span class="ml-1.5 text-xs font-medium">{@post.favs_count}</span>
     </button>
     """
   end
@@ -858,14 +873,14 @@ defmodule MossletWeb.TimelineLive.Components do
     ~H"""
     <button
       id={"post-#{@post.id}-unfav-#{@current_user.id}"}
-      class="inline-flex align-middle text-emerald-600 dark:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="unfav"
       phx-value-id={@post.id}
       data-tippy-content="Remove favorite"
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-      <span class="ml-1 text-xs">{@post.favs_count}</span>
+      <span class="ml-1.5 text-xs font-medium">{@post.favs_count}</span>
     </button>
     """
   end
@@ -875,7 +890,7 @@ defmodule MossletWeb.TimelineLive.Components do
     <button
       :if={@current_user}
       id={"post-#{@post.id}-reply-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-emerald-600 dark:hover:text-emerald-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="reply"
       phx-value-id={@post.id}
       phx-value-url={@return_url}
@@ -889,10 +904,10 @@ defmodule MossletWeb.TimelineLive.Components do
 
   def timeline_new_post_repost_icon(assigns) do
     ~H"""
-    <div
+    <button
       :if={@current_user && can_repost?(@current_user, @post) && is_nil(@post.group_id)}
       id={"post-#{@post.id}-repost-#{@current_user.id}"}
-      class="inline-flex align-middle hover:text-purple-600 dark:hover:text-purple-400 hover:cursor-pointer"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all duration-200 hover:scale-110 cursor-pointer"
       phx-click="repost"
       phx-value-id={@post.id}
       phx-value-body={
@@ -910,18 +925,18 @@ defmodule MossletWeb.TimelineLive.Components do
       phx-hook="TippyHook"
     >
       <.phx_icon name="hero-arrow-path-rounded-square" class="h-4 w-4" />
-      <span class="ml-1 text-xs">{@post.reposts_count}</span>
-    </div>
+      <span class="ml-1.5 text-xs font-medium">{@post.reposts_count}</span>
+    </button>
 
     <div
       :if={
         @current_user &&
           (@post.reposts_count > 0 && !can_repost?(@current_user, @post))
       }
-      class="inline-flex align-middle text-secondary-600 dark:text-secondary-400 cursor-default"
+      class="inline-flex items-center px-3 py-2 rounded-lg text-secondary-600 dark:text-secondary-400 cursor-default"
     >
       <.phx_icon name="hero-arrow-path-rounded-square" class="h-4 w-4" />
-      <span class="ml-1 text-xs">{@post.reposts_count}</span>
+      <span class="ml-1.5 text-xs font-medium">{@post.reposts_count}</span>
     </div>
     """
   end
