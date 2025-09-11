@@ -70,7 +70,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </div>
           </div>
-          
+
     <!-- Support options section -->
           <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
             <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
@@ -88,13 +88,9 @@ defmodule MossletWeb.PublicLive.Support do
                   </div>
 
                   <div class="flex flex-wrap items-center gap-y-1 overflow-hidden text-sm leading-6 text-gray-300">
-                    <svg
-                      viewBox="0 0 2 2"
-                      class="mr-1.5 h-0.5 w-0.5 flex-none fill-gray-300"
-                    >
-                      <circle cx="1" cy="1" r="1" />
-                    </svg>
-                    Email Support
+                    <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-300 bg-clip-text text-transparent">
+                      Email Support
+                    </span>
                   </div>
                   <h3 class="mt-3 text-lg font-semibold leading-6 text-white">
                     <.link
@@ -108,7 +104,7 @@ defmodule MossletWeb.PublicLive.Support do
                     Email us directly for personalized help. We typically respond within 24 hours, often much sooner. Our team reads every message personally.
                   </p>
                 </div>
-                
+
     <!-- FAQ -->
                 <div class="relative isolate flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-900 px-8 pb-8 pt-80 sm:pt-48 lg:pt-80">
                   <img
@@ -122,13 +118,9 @@ defmodule MossletWeb.PublicLive.Support do
                   </div>
 
                   <div class="flex flex-wrap items-center gap-y-1 overflow-hidden text-sm leading-6 text-gray-300">
-                    <svg
-                      viewBox="0 0 2 2"
-                      class="mr-1.5 h-0.5 w-0.5 flex-none fill-gray-300"
-                    >
-                      <circle cx="1" cy="1" r="1" />
-                    </svg>
-                    Self-Service
+                    <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-300 bg-clip-text text-transparent">
+                      Self-Service
+                    </span>
                   </div>
                   <h3 class="mt-3 text-lg font-semibold leading-6 text-white">
                     <.link href={~p"/faq"} class="hover:text-teal-300 transition-colors">
@@ -142,7 +134,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </div>
           </div>
-          
+
     <!-- What we help with section -->
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
             <div class="mx-auto max-w-2xl lg:mx-0">
@@ -204,7 +196,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </dl>
           </div>
-          
+
     <!-- Our commitment section -->
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-48 lg:px-8">
             <div class="mx-auto max-w-2xl lg:mx-0">
