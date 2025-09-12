@@ -1161,61 +1161,144 @@ defmodule MossletWeb.CoreComponents do
 
     ~H"""
     <div class="mt-8 flow-root">
-      <div class="overflow-visible">
-        <div class="inline-block min-w-full py-2 align-middle">
-          <table class="min-w-full border-separate border-spacing-0">
-            <thead>
-              <tr>
-                <th
-                  :for={col <- @col}
-                  class="sticky top-0 z-10 border-b border-gray-300 dark:border-emerald-700 bg-background-50 dark:bg-gray-950 bg-opacity-75 py-3.5 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-300 backdrop-blur backdrop-filter"
-                >
-                  {col[:label]}
-                </th>
-                <th class="sticky top-0 z-10 border-b border-gray-300 dark:border-emerald-700 bg-background-50 dark:bg-gray-950 bg-opacity-75 py-3.5 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-300 backdrop-blur backdrop-filter">
-                  <span class="sr-only">{gettext("Actions")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              id={@id}
-              phx-update={match?(%Phoenix.LiveView.LiveStream{}, @rows) && "stream"}
-              class="relative divide-y divide-zinc-100 border-t border-gray-300 dark:border-emerald-700 text-sm leading-6 text-zinc-700 dark:text-gray-300"
-            >
-              <tr
-                :for={row <- @rows}
-                id={@row_id && @row_id.(row)}
-                class="group hover:bg-background-200 dark:hover:bg-gray-800"
-              >
-                <td
-                  :for={{col, i} <- Enum.with_index(@col)}
-                  phx-click={@row_click && @row_click.(row)}
-                  class={["relative p-0", @row_click && "hover:cursor-pointer"]}
-                >
-                  <div class="relative py-4 pr-2">
-                    <span class="absolute -inset-y-px right-0 -left-4" />
-                    <span class={[
-                      "relative",
-                      i == 0 && "font-semibold text-zinc-900 dark:text-gray-100"
-                    ]}>
-                      {render_slot(col, @row_item.(row))}
-                    </span>
-                  </div>
-                </td>
-                <td :if={@action != []} class="relative w-14 p-0">
-                  <div class="relative whitespace-nowrap p-4 text-right text-sm font-medium">
-                    <span class="absolute -inset-y-px -right-4 left-0" />
-                    <span
-                      :for={action <- @action}
-                      class="relative ml-4 font-semibold leading-6 text-zinc-900 hover:text-zinc-700 dark:text-gray-100 dark:group-hover:text-gray-200"
+      <!-- Desktop Table View -->
+      <div class="hidden lg:block overflow-visible">
+        <div class="w-full py-2">
+          <div class="overflow-hidden rounded-2xl shadow-xl dark:shadow-2xl border border-background-200 dark:border-emerald-800">
+            <div class="overflow-x-auto">
+              <table class="w-full divide-y divide-background-200 dark:divide-emerald-800">
+                <thead class="bg-gradient-to-r from-background-50 to-background-100 dark:from-gray-900 dark:to-gray-800">
+                  <tr>
+                    <th
+                      :for={col <- @col}
+                      class="sticky top-0 z-10 px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-emerald-300 backdrop-blur backdrop-filter"
                     >
-                      {render_slot(action, @row_item.(row))}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                      {col[:label]}
+                    </th>
+                    <th class="sticky top-0 z-10 px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-emerald-300 backdrop-blur backdrop-filter">
+                      <span class="sr-only">{gettext("Actions")}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody
+                  id={@id}
+                  phx-update={match?(%Phoenix.LiveView.LiveStream{}, @rows) && "stream"}
+                  class="bg-white dark:bg-gray-900 divide-y divide-background-100 dark:divide-gray-800"
+                >
+                  <tr
+                    :for={row <- @rows}
+                    id={@row_id && @row_id.(row)}
+                    class="group transition-all duration-200 hover:bg-gradient-to-r hover:from-background-50 hover:to-transparent dark:hover:from-emerald-950/30 dark:hover:to-transparent hover:shadow-lg hover:scale-[1.01] hover:z-10 relative"
+                  >
+                    <td
+                      :for={{col, i} <- Enum.with_index(@col)}
+                      phx-click={@row_click && @row_click.(row)}
+                      class={
+                        [
+                          "relative px-4 py-4",
+                          @row_click && "hover:cursor-pointer",
+                          # Name column - fixed width, no wrap
+                          i == 0 && "w-48 whitespace-nowrap",
+                          # Description column - flexible with wrapping
+                          i == 1 && "min-w-0 max-w-xs",
+                          # Members column - compact
+                          i == 2 && "w-32",
+                          # Other columns
+                          i > 2 && "whitespace-nowrap"
+                        ]
+                      }
+                    >
+                      <div class={[
+                        "text-sm",
+                        i == 0 && "font-semibold text-gray-900 dark:text-white",
+                        i == 1 && "text-gray-600 dark:text-gray-300 break-words leading-relaxed",
+                        i != 0 && i != 1 && "text-gray-600 dark:text-gray-300"
+                      ]}>
+                        {render_slot(col, @row_item.(row))}
+                      </div>
+                    </td>
+                    <td
+                      :if={@action != []}
+                      class="relative px-4 py-4 whitespace-nowrap text-right text-sm font-medium w-36"
+                    >
+                      <span
+                        :for={action <- @action}
+                        class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 mr-2 last:mr-0"
+                      >
+                        {render_slot(action, @row_item.(row))}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    <!-- Mobile Card View -->
+      <div class="lg:hidden space-y-6">
+        <div
+          :for={row <- @rows}
+          id={@row_id && @row_id.(row)}
+          phx-click={@row_click && @row_click.(row)}
+          class={[
+            "bg-white dark:bg-gray-900 rounded-2xl shadow-lg dark:shadow-2xl border border-background-200 dark:border-emerald-800 overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] relative",
+            @row_click && "hover:cursor-pointer"
+          ]}
+        >
+          <!-- Card Header -->
+          <div class="bg-gradient-to-r from-background-50 to-background-100 dark:from-gray-800 dark:to-gray-700 px-6 py-4 border-b border-background-100 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                {render_slot(Enum.at(@col, 0), @row_item.(row))}
+              </h3>
+              <div class="flex-shrink-0 ml-4">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
+                  <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fill-rule="evenodd"
+                      d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  {if elem(@row_item.(row), 1).inserted_at,
+                    do: Calendar.strftime(elem(@row_item.(row), 1).inserted_at, "%b %d, %Y"),
+                    else: "New"}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+    <!-- Card Body -->
+          <div class="p-6 space-y-5">
+            <div :for={{col, i} <- Enum.with_index(Enum.drop(@col, 1))} class="group">
+              <div class="flex flex-col space-y-2">
+                <dt class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-emerald-400 flex items-center">
+                  <span class="w-2 h-2 bg-emerald-400 rounded-full mr-2 opacity-60"></span>
+                  {col[:label]}
+                </dt>
+                <dd class="text-sm text-gray-700 dark:text-gray-300 ml-4 min-h-[1.25rem]">
+                  {render_slot(col, @row_item.(row))}
+                </dd>
+              </div>
+            </div>
+          </div>
+          
+    <!-- Card Actions -->
+          <div
+            :if={@action != []}
+            class="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-background-100 dark:border-gray-700"
+          >
+            <div class="flex flex-wrap gap-3 justify-center sm:justify-start">
+              <div
+                :for={action <- @action}
+                class=""
+              >
+                {render_slot(action, @row_item.(row))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
