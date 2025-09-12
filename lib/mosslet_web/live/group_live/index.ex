@@ -67,8 +67,8 @@ defmodule MossletWeb.GroupLive.Index do
       |> assign(:group_count, Groups.group_count_confirmed(current_user))
       |> assign(:any_pending_groups?, any_pending_groups?)
       |> assign(:return_url, url)
-      |> stream(:groups, groups, reset: true)
-      |> stream(:pending_groups, pending_groups, reset: true)
+      |> stream(:groups, groups)
+      |> stream(:pending_groups, pending_groups)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
