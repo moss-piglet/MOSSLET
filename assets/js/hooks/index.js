@@ -7,6 +7,7 @@ import HoverGroupMessage from "./hover-group-message";
 import InfiniteScrollGroupMessage from "./infinite-scroll-group-message";
 import InfiniteScrollRemark from "./infinite-scroll-remark";
 import * as LocalTimeHooks from "./local-time-hooks";
+import { LocalTimeTooltip } from "./local-time-tooltip";
 import Menu from "./dropdown-menu";
 import TippyHook from "./tippy-hook";
 import TrixEditor from "./trix";
@@ -23,6 +24,7 @@ export default {
   InfiniteScrollGroupMessage,
   InfiniteScrollRemark,
   ...LocalTimeHooks,
+  LocalTimeTooltip,
   Menu,
   MossletFrameworkHooks,
   ScrollDown,

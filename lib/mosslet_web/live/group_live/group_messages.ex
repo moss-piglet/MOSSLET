@@ -60,7 +60,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
   def message_meta(assigns) do
     ~H"""
-    <div class="flex items-start gap-3 mb-2">
+    <div class="flex items-start gap-3 mb-2 relative">
       <div class="flex-shrink-0">
         <% uconn =
           get_uconn_for_users(
@@ -99,8 +99,9 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       </div>
 
       <div class="flex-1 min-w-0">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-2">
+        <div class="flex flex-col gap-1">
+          <!-- Username and moniker row -->
+          <div class="flex items-center gap-2 min-w-0">
             <span class="font-semibold text-gray-900 dark:text-white text-sm">
               <span :if={@message.sender.name}>
                 {initials(
@@ -123,24 +124,63 @@ defmodule MossletWeb.GroupLive.GroupMessages do
               )}
             </span>
           </div>
-
-          <div class="flex items-center gap-2">
-            <time class="text-xs text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          
+    <!-- Time and delete controls row - shows below on mobile, to the right on desktop -->
+          <div class="flex items-center justify-end gap-2 sm:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <time
+              id={"time-tooltip-mobile-" <> @message.id}
+              class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer relative"
+              phx-hook="LocalTimeTooltip"
+              data-timestamp={@message.inserted_at}
+            >
               <.local_time
-                id={@message.id <> "-created"}
+                id={@message.id <> "-created-mobile"}
                 for={@message.inserted_at}
-                preset="DATETIME_SHORT"
+                preset="TIME_SIMPLE"
+                class="hover:text-gray-700 dark:hover:text-gray-300"
               />
             </time>
 
-            <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div class="flex-shrink-0">
               <.delete_icon
-                :if={@user_group.role in [:owner, :admin, :moderator]}
-                id={"message-#{@message.id}-buttons"}
+                :if={
+                  @user_group.role in [:owner, :admin, :moderator] ||
+                    @user_group.id == @message.sender_id
+                }
+                id={"message-#{@message.id}-buttons-mobile"}
                 phx_click="delete_message"
                 value={@message.id}
               />
             </div>
+          </div>
+        </div>
+        
+    <!-- Desktop time and delete controls - hidden on mobile -->
+        <div class="hidden sm:flex items-center gap-2 flex-shrink-0 absolute top-0 right-0">
+          <time
+            id={"time-tooltip-desktop-" <> @message.id}
+            class="text-xs text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap cursor-pointer relative"
+            phx-hook="LocalTimeTooltip"
+            data-timestamp={@message.inserted_at}
+          >
+            <.local_time
+              id={@message.id <> "-created-desktop"}
+              for={@message.inserted_at}
+              preset="TIME_SIMPLE"
+              class="hover:text-gray-700 dark:hover:text-gray-300"
+            />
+          </time>
+
+          <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+            <.delete_icon
+              :if={
+                @user_group.role in [:owner, :admin, :moderator] ||
+                  @user_group.id == @message.sender_id
+              }
+              id={"message-#{@message.id}-buttons-desktop"}
+              phx_click="delete_message"
+              value={@message.id}
+            />
           </div>
         </div>
       </div>

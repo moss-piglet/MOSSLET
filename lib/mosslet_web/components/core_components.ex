@@ -1676,8 +1676,7 @@ defmodule MossletWeb.CoreComponents do
       viewBox="0 0 24 24"
       stroke-width="1.5"
       stroke="red"
-      class="w-6 h-6 float-right pl-2 cursor-pointer"
-      style="display:none"
+      class="w-5 h-5 cursor-pointer hover:stroke-red-600 transition-colors"
       id={@id}
       phx-click={@phx_click}
       phx-target={@phx_target}

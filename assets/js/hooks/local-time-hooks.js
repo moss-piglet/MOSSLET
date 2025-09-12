@@ -22,7 +22,8 @@ export const LocalTimeHook = {
     const preset = this.el.dataset.preset;
     const locale = this.el.dataset.locale;
     const dtString = this.el.textContent.trim();
-    const dt = DateTime.fromISO(dtString).setLocale(locale);
+    // Parse as UTC and convert to local time (consistent with other local time hooks)
+    const dt = DateTime.fromISO(dtString, { zone: "UTC" }).toLocal().setLocale(locale);
 
     let formatted;
     if (format) {
