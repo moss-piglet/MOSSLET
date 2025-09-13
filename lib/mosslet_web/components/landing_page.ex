@@ -846,16 +846,37 @@ defmodule MossletWeb.Components.LandingPage do
     ~H"""
     <div id="features" class="bg-white dark:bg-gray-950 py-24 sm:py-32">
       <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl text-center">
-          <h2 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+        <!-- Hero Section with better spacing -->
+        <div class="mx-auto max-w-4xl text-center">
+          <h1 class="text-4xl font-bold tracking-tight text-pretty sm:text-6xl md:text-7xl lg:text-8xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
             Social media, unexpected.
-          </h2>
-          <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
+          </h1>
+          <p class="font-regular mt-8 text-xl/8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
             Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you.
           </p>
+          
+          <!-- Call-to-action buttons -->
+          <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
+            <.button
+              link_type="live_redirect"
+              to="/auth/register"
+              class="w-full sm:w-auto block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+            >
+              Get lifetime access
+            </.button>
+            <.button
+              link_type="live_redirect"
+              to="/pricing"
+              variant="outline"
+              class="w-full sm:w-auto !rounded-full"
+            >
+              See pricing options
+            </.button>
+          </div>
         </div>
 
-        <div class="relative overflow-hidden pt-16">
+        <!-- App Screenshot Section -->
+        <div class="relative overflow-hidden pt-20">
           <div class="mx-auto max-w-7xl px-6 lg:px-4">
             <img
               src={~p"/images/landing_page/light-timeline-preview.png"}
@@ -882,130 +903,181 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </div>
 
-        <div class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <dl class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
-            <div class="relative ">
+        <!-- Features Grid with improved hierarchy -->
+        <div class="mx-auto mt-24 max-w-2xl sm:mt-32 lg:mt-40 lg:max-w-none">
+          <div class="text-center mb-16">
+            <h2 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
+              Why MOSSLET is different
+            </h2>
+            <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+              Experience social media as it should be — simple, secure, and designed for your wellbeing.
+            </p>
+          </div>
+          
+          <!-- Priority Features (First Row) -->
+          <div class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3 mb-20">
+            <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
-                  <.phx_icon name="hero-adjustments-horizontal" class="size-6 text-white" />
+                <div class="mb-6 flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg">
+                  <.phx_icon name="hero-heart" class="size-7 text-white" />
                 </div>
-                Back to basics, please
+                <h3 class="text-xl font-bold">Calm by Design</h3>
               </dt>
-              <dd class="mt-2">
-                MOSSLET gives you the basics for connecting and sharing online without any complicated extras. Get together and live chat? Check. Share thoughts and photos in real time? Check. Two factor authentication? Check. Simple account settings? Check. Delete my account and everything instantly? Check. Privacy-first and secure? Check.
+              <dd class="mt-4 text-gray-600 dark:text-gray-300">
+                No stress, no anxiety, no manipulation. MOSSLET is designed to give you peace of mind, not keep you scrolling endlessly.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-6 flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg">
+                  <.phx_icon name="hero-shield-check" class="size-7 text-white" />
+                </div>
+                <h3 class="text-xl font-bold">Privacy First</h3>
+              </dt>
+              <dd class="mt-4 text-gray-600 dark:text-gray-300">
+                Your data belongs to you. Strong encryption, no tracking, no selling your information to advertisers.
+              </dd>
+            </div>
+            
+            <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
+              <dt class="font-semibold text-gray-900 dark:text-gray-100">
+                <div class="mb-6 flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg">
+                  <.phx_icon name="hero-adjustments-horizontal" class="size-7 text-white" />
+                </div>
+                <h3 class="text-xl font-bold">Back to Basics</h3>
+              </dt>
+              <dd class="mt-4 text-gray-600 dark:text-gray-300">
+                Just the essentials for connecting and sharing. No complicated features, no overwhelming interfaces.
+              </dd>
+            </div>
+          </div>
+
+          <!-- Secondary Features Grid -->
+          <dl class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-12 lg:max-w-none lg:grid-cols-2">
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
+              <dt class="font-semibold text-gray-900 dark:text-gray-100">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-chart-pie" class="size-6 text-white" />
                 </div>
-                Goodbye identity graphs
+                <h4 class="text-lg font-semibold">No Identity Graphs</h4>
               </dt>
-              <dd class="mt-2">
-                Meta, Google, and Amazon have created and refined comprehensive identities on each person as they scroll, search, like, shop, and boop around on their services. These identity graphs evolve each time you use their services, changing the way your life unfolds off screen. On MOSSLET, the Post you make or Memory you like is simply just that — gone are the invisible consequences of simply wanting to share.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                Unlike Meta and Google, we don't build profiles about you. What you share stays just that — no invisible consequences.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-sparkles" class="size-6 text-white" />
                 </div>
-                Free to be you, every time
+                <h4 class="text-lg font-semibold">Free to Be You</h4>
               </dt>
-              <dd class="mt-2">
-                Big Tech dictates your identity through their algorithms and their past histories of you, preventing your own growth and discovery. On MOSSLET, you get to decide who you are and who you will be. Easily delete all of your Connections, Posts, Memories, Groups, Remarks and more across our service in real-time without deleting your account. As you change throughout your life, you can come back to MOSSLET free to be you, every time.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                No algorithms dictating who you are. Delete and start fresh anytime without losing your account.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-sun" class="size-6 text-white" />
                 </div>
-                No dark patterns
+                <h4 class="text-lg font-semibold">No Dark Patterns</h4>
               </dt>
-              <dd class="mt-2">
-                Facebook and others design their services to trick and trap you — from disguised ads and difficult-to-cancel subscriptions to buried terms and emotional manipulation. MOSSLET has none of that and is designed to make it as simple as possible for you to share what you want and then get off our platform and back to living your life.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                No tricks, traps, or manipulation. Simple design that helps you share and get back to living.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
-                  <.phx_icon name="hero-shield-check" class="size-6 text-white" />
-                </div>
-                Strong safety
-              </dt>
-              <dd class="mt-2">
-                No one can interact with you on MOSSLET without your permission and you can remove people's ability to interact with you at anytime. Share a Memory or Post with people accidentally? No problem! You can remove it across the entire service in real-time.
-              </dd>
-            </div>
-            <div class="relative ">
-              <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-clipboard-document-list" class="size-6 text-white" />
                 </div>
-                Control your own data
+                <h4 class="text-lg font-semibold">Own Your Data</h4>
               </dt>
-              <dd class="mt-2">
-                Unlike the Big Tech platforms, we don't colonize you and your life. There is no sharing, selling, or otherwise using your data — especially against you. Your data on MOSSLET is yours and you can delete it and your account at any time.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                Your data stays yours. Delete everything instantly, anytime. No colonization of your digital life.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-hand-raised" class="size-6 text-white" />
                 </div>
-                No behavioral manipulation
+                <h4 class="text-lg font-semibold">No Manipulation</h4>
               </dt>
-              <dd class="mt-2">
-                Big Tech uses the data it harvests from you to create products that can be bought by others, with the sole purpose of changing how you think, act, and behave in the real world — from extremism to new-boot-goofin. On MOSSLET, you won't be turned into a weapon of mass manipulation. On MOSSLET, you control your experience.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                You won't be turned into a product or weapon. Control your own experience and thoughts.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
-                  <.phx_icon name="hero-heart" class="size-6 text-white" />
-                </div>
-                Calm
-              </dt>
-              <dd class="mt-2">
-                Facebook, Twitter, Instagram, and Tiktok fill your screen with content that keeps your nervous system stressed and your eyes glued to your device. On MOSSLET, you get to leave the manufactured stress and anxiety behind. There are no tricks, algorithms, or business decisions designed to profit off of your emotions. On MOSSLET, you get to experience calm.
-              </dd>
-            </div>
-            <div class="relative ">
-              <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-bell-snooze" class="size-6 text-white" />
                 </div>
-                In-app notifications
+                <h4 class="text-lg font-semibold">Calm Notifications</h4>
               </dt>
-              <dd class="mt-2">
-                Drop the pressure of feeling like you have to respond or interact with someone or something online. Our calm, in-app notifications are designed to NOT trigger you to action — freeing you from anxiety and giving you back the ability to make your own decisions.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                In-app notifications that don't pressure you. Take your time, respond when you want to.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-eye-slash" class="size-6 text-white" />
                 </div>
-                Better privacy
+                <h4 class="text-lg font-semibold">Private by Default</h4>
               </dt>
-              <dd class="mt-2">
-                On MOSSLET, your account starts private unlike Facebook, Twitter, Tiktok, and Instagram. Then you can choose what and who you want to share with. And no one can see your content without you explicitly giving them access, including us. No longer worry about a stranger at a company, malicious individual, or authority looking at or consuming information about you without you knowing.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                Your account starts private. Choose what to share and with whom. Even we can't see your content.
               </dd>
             </div>
-            <div class="relative ">
+            
+            <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
-                <div class="mb-6 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
+                <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
                   <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
                 </div>
-                Asymmetric encryption
+                <h4 class="text-lg font-semibold">Military-Grade Encryption</h4>
               </dt>
-              <dd class="mt-2">
-                Your data on MOSSLET is encrypted using strong public-key cryptography and a password-derived key to ensure that only you can access your data. This ensures that no one else can gain access to your data — not even us — while allowing you the ability to share with others. We then further encrypt your data with an extra layer of symmetric encryption when it is stored at-rest in our private and secure database.
+              <dd class="mt-2 text-gray-600 dark:text-gray-400">
+                Strong asymmetric encryption ensures only you can access your data. Double-encrypted for extra security.
               </dd>
             </div>
           </dl>
+        </div>
+
+        <!-- Bottom CTA Section -->
+        <div class="mt-24 text-center bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/60 dark:to-emerald-900/60 dark:bg-gray-800/60 rounded-3xl p-12 dark:border dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
+          <h3 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
+            Ready for a better social experience?
+          </h3>
+          <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            Join thousands who've already discovered what social media feels like without the stress, tracking, and manipulation.
+          </p>
+          <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
+            <.button
+              link_type="live_redirect"
+              to="/auth/register"
+              class="w-full sm:w-auto block rounded-full py-3 px-8 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+            >
+              Get lifetime access
+            </.button>
+            <.button
+              link_type="live_redirect"
+              to="/pricing"
+              variant="outline"
+              class="w-full sm:w-auto !rounded-full border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+            >
+              See pricing options
+            </.button>
+          </div>
         </div>
       </div>
     </div>
