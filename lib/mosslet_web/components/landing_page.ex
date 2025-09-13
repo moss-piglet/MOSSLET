@@ -1355,31 +1355,45 @@ defmodule MossletWeb.Components.LandingPage do
         </div>
 
         <h2 class="mt-4 text-center text-balance text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl text-black dark:text-white">
-          Say goodbye to never-ending subscription fees.
+          Pay once, own forever.
         </h2>
         <p class="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600 dark:text-gray-400">
-          Pay once and forget about it. With one, simple payment you get access to our service forever. No hidden fees, no subscriptions, no surprises. We also support lowering your upfront payment with Affirm.
+          No subscriptions. No recurring fees. No surprises. One simple payment gives you lifetime access to privacy and peace of mind.
         </p>
         <div class="mx-auto mt-16 grid max-w-lg grid-cols-1 items-center gap-y-6 sm:mt-20 sm:gap-y-0 lg:max-w-4xl lg:grid-cols-2">
           <div class="rounded-3xl p-8 ring-1 ring-gray-900/10 dark:ring-gray-100/10 sm:p-10 relative bg-white dark:bg-gray-950 shadow-2xl dark:shadow-emerald-500/50">
-            <span class="flex justify-between">
+            <span class="flex justify-between items-start">
               <h3
                 id="tier-personal"
                 class="text-base font-semibold leading-7 text-emerald-600 dark:text-emerald-400"
               >
                 Personal
               </h3>
-
-              <.badge color="warning" label="Save 40%" variant="soft" class="rounded-full" />
+              <.badge color="success" label="Lifetime" variant="outline" class="rounded-full text-xs" />
             </span>
-            <p class="mt-4 flex items-baseline gap-x-2">
-              <span class="text-5xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                $59
+            <p class="mt-4 flex flex-col sm:flex-row sm:items-baseline gap-x-2">
+              <span class="flex items-baseline gap-x-2">
+                <span class="text-6xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                  $59
+                </span>
+                <span class="text-lg text-gray-500 font-medium">/once</span>
+                <.badge
+                  color="warning"
+                  label="Save 40%"
+                  variant="soft"
+                  class="rounded-full ml-3 hidden sm:inline-flex"
+                />
               </span>
-              <span class="text-base text-gray-500">/once</span>
+              <.badge
+                color="warning"
+                label="Save 40%"
+                variant="soft"
+                class="rounded-full mt-2 self-start sm:hidden"
+              />
             </p>
             <p class="mt-6 text-base leading-7 text-gray-600 dark:text-gray-400">
-              Pay once to start sharing what you want with the privacy you deserve, <em>forever</em>. We also support lowering your upfront payment with Affirm.
+              Own your privacy forever with one simple payment. No subscriptions, no recurring fees – just pure digital freedom.
+              <small class="text-gray-500">Affirm payment plans available.</small>
             </p>
             <ul
               role="list"
@@ -1480,28 +1494,13 @@ defmodule MossletWeb.Components.LandingPage do
                 </svg>
                 Email support
               </li>
-              <li class="flex gap-x-3">
-                <svg
-                  class="h-6 w-5 flex-none text-emerald-600 dark:text-emerald-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                Supports Affirm Payment Plans
-              </li>
             </ul>
             <a
               href={~p"/auth/register"}
               aria-describedby="tier-personal"
-              class="mt-8 block rounded-full py-2.5 px-3.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:mt-10 bg-emerald-600 text-white shadow hover:bg-emerald-500"
+              class="mt-8 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:mt-10 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg hover:from-teal-600 hover:to-emerald-600 transform hover:scale-105 transition-all duration-200"
             >
-              Sign up today
+              Get Lifetime Access
             </a>
           </div>
           <div class="rounded-3xl p-8 ring-1 ring-gray-900/10 dark:ring-gray-100/10 sm:p-10 bg-white/60 dark:bg-gray-950/60 sm:mx-8 lg:mx-0 sm:rounded-t-none lg:rounded-tr-3xl lg:rounded-bl-none">
@@ -1518,7 +1517,7 @@ defmodule MossletWeb.Components.LandingPage do
               <span class="text-base text-gray-500">/once</span>
             </p>
             <p class="mt-6 text-base leading-7 text-gray-600 dark:text-gray-400">
-              In the works, a plan that supports your whole family with privacy and peace of mind.
+              Coming soon. Privacy and peace of mind for your whole family with one lifetime payment.
             </p>
             <ul
               role="list"
@@ -1572,10 +1571,10 @@ defmodule MossletWeb.Components.LandingPage do
             </ul>
             <button
               aria-describedby="tier-team"
-              class="mt-8 block rounded-full py-2.5 px-3.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400 sm:mt-10 text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-200 hover:ring-emerald-300 dark:ring-emerald-800 dark:hover:ring-emerald-700 cursor-not-allowed"
+              class="mt-8 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400 sm:mt-10 text-emerald-600 dark:text-emerald-400 ring-2 ring-inset ring-emerald-300 dark:ring-emerald-700 cursor-not-allowed opacity-75"
               disabled
             >
-              Coming soon
+              Coming Soon
             </button>
           </div>
         </div>
