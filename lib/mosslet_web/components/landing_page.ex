@@ -122,7 +122,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <.button
                   link_type="live_redirect"
                   to="/auth/register"
-                  class="!rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-500"
+                  class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                 >
                   Register today
                 </.button>
@@ -220,7 +220,7 @@ defmodule MossletWeb.Components.LandingPage do
           link_type="live_redirect"
           to="/auth/register"
           variant="outline"
-          class="!rounded-full text-white hover:text-emerald-600 dark:hover:text-white"
+          class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
         >
           Sign up today <span aria-hidden="true" class="ml-1">&rarr;</span>
         </.button>
@@ -1500,7 +1500,7 @@ defmodule MossletWeb.Components.LandingPage do
               aria-describedby="tier-personal"
               class="mt-8 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:mt-10 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
             >
-              Get Lifetime Access
+              Get lifetime access
             </a>
           </div>
           <div class="rounded-3xl p-8 ring-1 ring-gray-900/10 dark:ring-gray-100/10 sm:p-10 bg-white/60 dark:bg-gray-950/60 sm:mx-8 lg:mx-0 sm:rounded-t-none lg:rounded-tr-3xl lg:rounded-bl-none">
@@ -1574,7 +1574,7 @@ defmodule MossletWeb.Components.LandingPage do
               class="mt-8 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400 sm:mt-10 text-emerald-600 dark:text-emerald-400 ring-2 ring-inset ring-emerald-300 dark:ring-emerald-700 cursor-not-allowed opacity-75"
               disabled
             >
-              Coming Soon
+              Coming soon
             </button>
           </div>
         </div>
@@ -1607,10 +1607,10 @@ defmodule MossletWeb.Components.LandingPage do
           <.button
             link_type="live_redirect"
             to="/pricing"
-            class="!rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-500"
+            class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Learn more about our pricing
-            <.phx_icon name="hero-arrow-long-right" class="ml-1 inline h-5 w-5" />
+            <.phx_icon name="hero-arrow-long-right" class="ml-1 inline-flex h-5 w-5" />
           </.button>
         </div>
       </div>
