@@ -1498,7 +1498,7 @@ defmodule MossletWeb.Components.LandingPage do
             <a
               href={~p"/auth/register"}
               aria-describedby="tier-personal"
-              class="mt-8 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:mt-10 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg hover:from-teal-600 hover:to-emerald-600 transform hover:scale-105 transition-all duration-200"
+              class="mt-8 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:mt-10 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Get Lifetime Access
             </a>
