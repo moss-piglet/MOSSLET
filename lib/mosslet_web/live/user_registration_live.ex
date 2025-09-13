@@ -247,7 +247,7 @@ defmodule MossletWeb.UserRegistrationLive do
                 <.button
                   tabindex="0"
                   type="button"
-                  class="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full w-full shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  class="w-full rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                   phx-click="prev-step"
                 >
                   <.icon name="hero-arrow-long-left" class="w-5 h-5 mr-2" /> Back
@@ -268,7 +268,7 @@ defmodule MossletWeb.UserRegistrationLive do
                     tabindex="1"
                     type="submit"
                     phx-disable-with="Registering..."
-                    class="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full w-full shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    class="w-full rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                   >
                     Register
                   </.button>
@@ -279,7 +279,7 @@ defmodule MossletWeb.UserRegistrationLive do
                   tabindex="0"
                   aria-label="continue button"
                   type="button"
-                  class="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full w-full shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  class="w-full rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                   phx-click="next-step"
                 >
                   Continue <.icon name="hero-arrow-long-right" class="w-5 h-5 ml-2" />
@@ -289,7 +289,7 @@ defmodule MossletWeb.UserRegistrationLive do
                   tabindex="0"
                   aria-label="continue button"
                   type="button"
-                  class="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full w-full shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  class="w-full rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                   phx-click="next-step"
                   disabled
                 >

@@ -236,28 +236,26 @@ defmodule MossletWeb.PublicLive.Support do
                 </div>
               </div>
 
-              <div class="mt-10 p-6 bg-teal-50 dark:bg-teal-950/20 rounded-2xl border border-teal-200 dark:border-teal-800">
+              <div class="mt-10 p-6 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-2xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
                 <h3 class="text-lg font-bold tracking-tight text-pretty bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
                   Ready to get help?
                 </h3>
                 <p class="mt-2 text-gray-700 dark:text-gray-300">
                   Don't hesitate to reach out. Whether you have a simple question or need detailed assistance, we're here to help make your MOSSLET experience great.
                 </p>
-                <div class="mt-4">
+                <div class="mt-4 flex flex-col sm:flex-row sm:items-center gap-y-3 gap-x-4">
                   <.link
                     href="mailto:support@mosslet.com"
-                    class="inline-flex items-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 transition-colors"
+                    class="inline-flex items-center justify-center rounded-full py-3 px-4 sm:px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
                   >
                     Email us at support@mosslet.com
                   </.link>
-                  <span class="ml-4">
-                    <.link
-                      href={~p"/faq"}
-                      class="text-sm font-semibold leading-6 text-teal-600 hover:text-teal-500 transition-colors"
-                    >
-                      Or check our FAQ <span aria-hidden="true">→</span>
-                    </.link>
-                  </span>
+                  <.link
+                    href={~p"/faq"}
+                    class="text-sm font-semibold leading-6 text-teal-600 hover:text-teal-500 transition-colors text-center sm:text-left"
+                  >
+                    Or check our FAQ <span aria-hidden="true">→</span>
+                  </.link>
                 </div>
               </div>
             </div>

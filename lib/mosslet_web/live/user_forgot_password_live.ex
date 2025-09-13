@@ -18,8 +18,8 @@ defmodule MossletWeb.UserForgotPasswordLive do
           Enter the email used with your account and we'll send a password reset link to your inbox.
         </p>
       </div>
-      <div class="mt-10 mx-auto max-w-sm">
-        <.form for={@form} id="reset_password_form" phx-submit="send_email">
+      <div class="mt-10">
+        <.form for={@form} id="reset_password_form" phx-submit="send_email" class="space-y-6">
           <.field
             field={@form[:email]}
             type="email"
@@ -30,12 +30,13 @@ defmodule MossletWeb.UserForgotPasswordLive do
 
           <button
             phx-disable-with="Sending..."
-            class="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full w-full shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            class="w-full rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Send password reset instructions
           </button>
         </.form>
-        <div class="py-4 flex justify-between text-sm dark:text-gray-200">
+
+        <div class="mt-6 flex justify-between text-sm dark:text-gray-200">
           <.link navigate={~p"/auth/sign_in"} class=" hover:text-emerald-600 active:text-emerald-500">
             Sign in
           </.link>
