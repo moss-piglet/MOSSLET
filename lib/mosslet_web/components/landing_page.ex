@@ -855,7 +855,7 @@ defmodule MossletWeb.Components.LandingPage do
             Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you.
           </p>
           
-          <!-- Call-to-action buttons -->
+    <!-- Call-to-action buttons -->
           <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
             <.button
               link_type="live_redirect"
@@ -874,8 +874,8 @@ defmodule MossletWeb.Components.LandingPage do
             </.button>
           </div>
         </div>
-
-        <!-- App Screenshot Section -->
+        
+    <!-- App Screenshot Section -->
         <div class="relative overflow-hidden pt-20">
           <div class="mx-auto max-w-7xl px-6 lg:px-4">
             <img
@@ -902,8 +902,8 @@ defmodule MossletWeb.Components.LandingPage do
           <div class="absolute -inset-x-20 bottom-0 bg-gradient-to-t from-white dark:from-gray-950 pt-[7%]">
           </div>
         </div>
-
-        <!-- Features Grid with improved hierarchy -->
+        
+    <!-- Features Grid with improved hierarchy -->
         <div class="mx-auto mt-24 max-w-2xl sm:mt-32 lg:mt-40 lg:max-w-none">
           <div class="text-center mb-16">
             <h2 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
@@ -914,7 +914,7 @@ defmodule MossletWeb.Components.LandingPage do
             </p>
           </div>
           
-          <!-- Priority Features (First Row) -->
+    <!-- Priority Features (First Row) -->
           <div class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3 mb-20">
             <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
@@ -927,7 +927,7 @@ defmodule MossletWeb.Components.LandingPage do
                 No stress, no anxiety, no manipulation. MOSSLET is designed to give you peace of mind, not keep you scrolling endlessly.
               </dd>
             </div>
-            
+
             <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-6 flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg">
@@ -939,7 +939,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Your data belongs to you. Strong encryption, no tracking, no selling your information to advertisers.
               </dd>
             </div>
-            
+
             <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-6 flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg">
@@ -952,8 +952,8 @@ defmodule MossletWeb.Components.LandingPage do
               </dd>
             </div>
           </div>
-
-          <!-- Secondary Features Grid -->
+          
+    <!-- Secondary Features Grid -->
           <dl class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-12 lg:max-w-none lg:grid-cols-2">
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
@@ -966,7 +966,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Unlike Meta and Google, we don't build profiles about you. What you share stays just that — no invisible consequences.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -978,7 +978,7 @@ defmodule MossletWeb.Components.LandingPage do
                 No algorithms dictating who you are. Delete and start fresh anytime without losing your account.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -990,7 +990,7 @@ defmodule MossletWeb.Components.LandingPage do
                 No tricks, traps, or manipulation. Simple design that helps you share and get back to living.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -1002,7 +1002,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Your data stays yours. Delete everything instantly, anytime. No colonization of your digital life.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -1014,7 +1014,7 @@ defmodule MossletWeb.Components.LandingPage do
                 You won't be turned into a product or weapon. Control your own experience and thoughts.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -1026,7 +1026,7 @@ defmodule MossletWeb.Components.LandingPage do
                 In-app notifications that don't pressure you. Take your time, respond when you want to.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -1038,7 +1038,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Your account starts private. Choose what to share and with whom. Even we can't see your content.
               </dd>
             </div>
-            
+
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
                 <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500">
@@ -1052,8 +1052,8 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </dl>
         </div>
-
-        <!-- Bottom CTA Section -->
+        
+    <!-- Bottom CTA Section -->
         <div class="mt-24 text-center bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/60 dark:to-emerald-900/60 dark:bg-gray-800/60 rounded-3xl p-12 dark:border dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
           <h3 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
             Ready for a better social experience?
