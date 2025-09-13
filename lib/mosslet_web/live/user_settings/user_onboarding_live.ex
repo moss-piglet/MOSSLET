@@ -9,6 +9,8 @@ defmodule MossletWeb.UserOnboardingLive do
       socket
       |> assign(user_return_to: Map.get(params, "user_return_to", nil))
       |> assign(:name, nil)
+      |> assign(:show_details, false)
+      |> assign(:show_payment_info, false)
       |> assign_form(Accounts.change_user_onboarding(socket.assigns.current_user))
 
     {:ok, socket}
@@ -17,142 +19,196 @@ defmodule MossletWeb.UserOnboardingLive do
   def render(assigns) do
     ~H"""
     <div class="fixed inset-0 z-10 overflow-y-auto bg-background-100 dark:bg-gray-900">
-      <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
-          &#8203;
-        </span>
+      <div class="flex items-center justify-center min-h-screen px-3 py-6 sm:px-4 sm:py-8">
         <div
-          class="inline-block px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-background-50 dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-emerald-500/50 sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6"
+          class="w-full max-w-sm mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl dark:shadow-emerald-500/20 overflow-hidden sm:max-w-md"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-headline"
         >
-          <div>
-            <div class="flex items-center justify-center w-12 h-12 mx-auto text-2xl bg-green-100 rounded-full dark:bg-green-800">
+          <%!-- Header Section --%>
+          <div class="bg-gradient-to-r from-teal-500 to-emerald-500 px-4 py-6 text-center sm:px-6 sm:py-8">
+            <div class="flex items-center justify-center w-12 h-12 mx-auto mb-3 text-2xl bg-white/20 rounded-full backdrop-blur-sm sm:w-16 sm:h-16 sm:mb-4 sm:text-3xl">
               👋
             </div>
-            <div class="mt-3 text-center sm:mt-5">
-              <h3
-                class="text-base/7 font-semibold text-emerald-600 dark:text-emerald-500"
-                id="modal-headline"
-              >
-                {gettext("Welcome to Mosslet")}
-              </h3>
+            <h1 class="text-lg font-bold text-white sm:text-xl" id="modal-headline">
+              {gettext("Welcome to MOSSLET")}
+            </h1>
+            <p class="mt-1 text-xs text-white/80 sm:mt-2 sm:text-sm">
+              Join the movement for digital privacy
+            </p>
+          </div>
 
-              <div class="bg-background-50 dark:bg-gray-800">
-                <div class="mx-auto max-w-7xl px-6 lg:px-8">
-                  <div class="mx-auto max-w-5xl lg:max-w-none">
-                    <div class="text-center">
-                      <h2 class="text-5xl font-bold tracking-tight text-balance sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        A growing movement
-                      </h2>
-                      <p class="mt-4 text-lg/8 text-gray-600 dark:text-gray-400">
-                        Every day, people use Mosslet to take back control of their data and privacy online. We are committed to providing a secure, transparent, and user-friendly platform that empowers you to connect with others while keeping your personal information safe.
+          <%!-- Form Section --%>
+          <div class="px-4 py-6 sm:px-6 sm:py-8">
+            <.form
+              id="update_profile_form"
+              for={@form}
+              phx-submit="submit"
+              class="space-y-4 sm:space-y-6"
+            >
+              <%!-- Name Field --%>
+              <div class="space-y-2">
+                <.field
+                  field={@form[:name]}
+                  value={@name || @form[:name].value}
+                  label={gettext("What's your name?")}
+                  placeholder={gettext("Enter your name")}
+                  autocomplete="given-name"
+                  required
+                  class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:px-4 sm:py-3 sm:text-base sm:rounded-xl"
+                />
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  Your name stays private and is only shared with people you choose.
+                </p>
+              </div>
+
+              <%!-- Notifications Checkbox --%>
+              <div class="space-y-3">
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4 sm:rounded-xl">
+                  <div class="space-y-3">
+                    <%!-- Label and description above checkbox --%>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">
+                        {gettext("Allow calm, in-app notifications")}
+                      </label>
+                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        These will appear on your home page when you're already using our service. We won't pull you back in when you're offline, and you can always change this later in your settings.
                       </p>
                     </div>
-                    <div class="mt-6 sm:mt-10 mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-                      <h1 class="mt-2 text-left text-2xl font-bold tracking-tight text-balance sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        It's important you are here
-                      </h1>
-                      <div class="mt-6 grid max-w-xl grid-cols-1 gap-8 text-base/7 text-left text-gray-700 dark:text-gray-300 lg:max-w-none">
-                        <div>
-                          <p>
-                            We live in a new ecomonic era called surveillance capitalism, "<.link
-                              class="underline text-emerald-600 dark:text-emerald-500 hover:text-emerald-400 dark:hover:text-emerald-300"
-                              navigate="https://shoshanazuboff.com/book/shoshana/"
-                              target="_blank"
-                              rel="noopener"
-                            >where private human experience is secretly invaded, extracted as data, and exploited for hidden processes of manufacturing, prediction, and sales</.link>".
-                          </p>
-                          <p class="mt-8">
-                            The easiest way to think about it is to compare how capitalism took nature (like forests, rivers, and minerals) and turned them into things that can be bought and sold. Surveillance capitalism does the same with our humanity (like our thoughts, feelings, and behaviors).
-                          </p>
-                          <p class="mt-8">
-                            Here are some of the numbers that show how much data Facebook (Meta) gobbles up and secretly uses, just beyond our awareness (<.link
-                              class="underline text-emerald-600 dark:text-emerald-500 hover:text-emerald-400 dark:hover:text-emerald-300"
-                              navigate="https://www.clrn.org/how-much-data-does-facebook-take/"
-                              target="_blank"
-                              rel="noopener"
-                            >clrn</.link>, <.link
-                              class="underline text-emerald-600 dark:text-emerald-500 hover:text-emerald-400 dark:hover:text-emerald-300"
-                              navigate="https://themarkup.org/privacy/2024/01/17/each-facebook-user-is-monitored-by-thousands-of-companies-study-indicates"
-                              target="_blank"
-                              rel="noopener"
-                            >markup</.link>):
-                          </p>
-                        </div>
-                      </div>
+
+                    <%!-- Checkbox --%>
+                    <div class="flex items-center space-x-3">
+                      <.field
+                        type="checkbox"
+                        field={@form[:is_subscribed_to_marketing_notifications]}
+                        label={gettext("Yes, I'd like to receive these notifications")}
+                        class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 focus:ring-offset-2 sm:h-5 sm:w-5 flex-shrink-0"
+                      />
                     </div>
-                    <dl class="mt-16 grid grid-cols-1 gap-0.5 overflow-hidden rounded-2xl text-center sm:grid-cols-2 lg:grid-cols-3">
-                      <div class="flex flex-col bg-background-400/5 p-8">
-                        <dt class="text-sm/6 font-semibold text-gray-600 dark:text-gray-400">
-                          Terabytes of user data Facebook collects daily
-                        </dt>
-                        <dd class="order-first text-3xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                          450+
-                        </dd>
-                      </div>
+                  </div>
+                </div>
+              </div>
 
-                      <div class="flex flex-col bg-background-400/5 p-8">
-                        <dt class="text-sm/6 font-semibold text-gray-600 dark:text-gray-400">
-                          Companies giving user data to Facebook
-                        </dt>
-                        <dd class="order-first text-3xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                          186,892+
-                        </dd>
+              <%!-- Action Buttons --%>
+              <div class="space-y-3">
+                <.button class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:ring-4 focus:ring-emerald-500/25 text-sm sm:py-3 sm:px-6 sm:rounded-xl sm:text-base">
+                  {gettext("Complete Setup")}
+                </.button>
+
+                <div class="text-center">
+                  <.link
+                    class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline transition-colors sm:text-sm"
+                    href={~p"/auth/sign_out"}
+                    method="delete"
+                  >
+                    {gettext("Sign out instead")}
+                  </.link>
+                </div>
+              </div>
+            </.form>
+
+            <%!-- Learn More Sections --%>
+            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4 sm:mt-8 sm:pt-6">
+              <%!-- Why Privacy Matters Section --%>
+              <div>
+                <button
+                  type="button"
+                  phx-click="toggle_details"
+                  class="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  <span>Why privacy matters</span>
+                  <svg
+                    class={"w-4 h-4 transition-transform duration-200 #{if @show_details, do: "rotate-180", else: ""}"}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                <div class={"mt-3 space-y-3 text-sm text-gray-600 dark:text-gray-400 #{unless @show_details, do: "hidden"}"}>
+                  <p class="text-xs leading-relaxed sm:text-sm">
+                    We live in an era of surveillance capitalism, where your personal data is harvested and sold without your knowledge.
+                  </p>
+                  <div class="grid grid-cols-1 gap-2 text-center sm:gap-3">
+                    <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg sm:p-3">
+                      <div class="text-base font-bold text-red-600 dark:text-red-400 sm:text-lg">
+                        450+ TB
                       </div>
-                      <div class="flex flex-col bg-background-400/5 p-8">
-                        <dt class="text-sm/6 font-semibold text-gray-600 dark:text-gray-400">
-                          Companies sharing data on each user
-                        </dt>
-                        <dd class="order-first text-3xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                          2,230+
-                        </dd>
+                      <div class="text-xs leading-tight">Daily data Facebook collects</div>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg sm:p-3">
+                      <div class="text-base font-bold text-red-600 dark:text-red-400 sm:text-lg">
+                        2,230+
                       </div>
-                    </dl>
-                    <div class="mt-6 sm:mt-10 mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-                      <h1 class="mt-2 text-left text-2xl font-bold tracking-tight text-balance sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                        Next steps
-                      </h1>
-                      <div class="mt-6 grid max-w-xl grid-cols-1 gap-8 text-base/7 text-left text-gray-700 dark:text-gray-300 lg:max-w-none">
-                        <div>
-                          <p>
-                            Welcome! By choosing Mosslet, you have taken an important step toward securing your privacy and dignity online.
-                          </p>
-                          <p class="mt-8">
-                            After you complete this onboarding, you will be redirected to our secure payment portal to make a one-time payment for lifetime access to our service. This payment is not a subscription, and you will never be charged again. Your payment is vital for us to maintain the platform and continue to provide you with a secure and private service.
-                          </p>
-                          <p class="mt-8">
-                            Thank you for joining the growing movement supporting simple and ethical software choices. We hope we'll earn your trust and look forward to providing you with a simple, ethical, and more human experience.
-                          </p>
+                      <div class="text-xs leading-tight">Companies tracking each user</div>
+                    </div>
+                  </div>
+                  <p class="text-xs leading-relaxed">
+                    <.link
+                      class="text-emerald-600 dark:text-emerald-400 hover:underline"
+                      href="https://themarkup.org/privacy/2024/01/17/each-facebook-user-is-monitored-by-thousands-of-companies-study-indicates"
+                      target="_blank"
+                    >
+                      Read "How thousands of companies monitor users" →
+                    </.link>
+                  </p>
+                </div>
+              </div>
+
+              <%!-- Why Pay for Privacy Section --%>
+              <div>
+                <button
+                  type="button"
+                  phx-click="toggle_payment_info"
+                  class="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  <span>Why we charge for privacy</span>
+                  <svg
+                    class={"w-4 h-4 transition-transform duration-200 #{if @show_payment_info, do: "rotate-180", else: ""}"}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                <div class={"mt-3 space-y-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400 #{unless @show_payment_info, do: "hidden"} sm:text-sm"}>
+                  <p>
+                    When a service is "free," you become the product. Your data is harvested, packaged, and sold to advertisers.
+                  </p>
+                  <p>
+                    By charging a fair, one-time fee, we can:
+                  </p>
+                  <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li>Keep your data completely private</li>
+                    <li>Maintain our servers and security</li>
+                    <li>Develop new features based on your needs, not advertisers'</li>
+                    <li>Stay independent from Big Tech influence</li>
+                  </ul>
+                  <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                      <div class="text-emerald-600 dark:text-emerald-400">💡</div>
+                      <div>
+                        <div class="font-medium text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm">
+                          Pay once, own forever
                         </div>
-                      </div>
-
-                      <div class="bg-background-100 dark:bg-gray-800 rounded-md p-4 text-left mt-5 sm:mt-6">
-                        <.form id="update_profile_form" for={@form} phx-submit="submit">
-                          <.field
-                            field={@form[:name]}
-                            value={@name || @form[:name].value}
-                            label={gettext("What is your name?")}
-                            placeholder={gettext("eg. Isabella")}
-                            autocomplete="off"
-                            required
-                            help_text="Your name is kept private to you and who you wish to share it with."
-                          />
-
-                          <.field
-                            type="checkbox"
-                            field={@form[:is_subscribed_to_marketing_notifications]}
-                            label={gettext("Allow in-app notifications (like announcements)")}
-                          />
-
-                          <div class="flex items-center justify-between">
-                            <.link class="text-sm underline" href={~p"/auth/sign_out"} method="delete">
-                              {gettext("Sign out")}
-                            </.link>
-                            <.button class="rounded-full">{gettext("Submit")}</.button>
-                          </div>
-                        </.form>
+                        <div class="text-xs text-emerald-700 dark:text-emerald-400">
+                          No subscriptions, no recurring fees
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -164,6 +220,14 @@ defmodule MossletWeb.UserOnboardingLive do
       </div>
     </div>
     """
+  end
+
+  def handle_event("toggle_details", _params, socket) do
+    {:noreply, assign(socket, :show_details, !socket.assigns.show_details)}
+  end
+
+  def handle_event("toggle_payment_info", _params, socket) do
+    {:noreply, assign(socket, :show_payment_info, !socket.assigns.show_payment_info)}
   end
 
   def handle_event("submit", %{"user" => user_params}, socket) do
@@ -181,7 +245,7 @@ defmodule MossletWeb.UserOnboardingLive do
 
         socket =
           socket
-          |> put_flash(:success, gettext("You have been onboarded successfully!"))
+          |> put_flash(:success, gettext("Welcome aboard! Let's get you set up."))
           |> push_navigate(to: ~p"/app/subscribe")
 
         {:noreply, socket}
