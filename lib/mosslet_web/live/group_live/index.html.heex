@@ -16,10 +16,11 @@
         />
         <.button
           link_type="live_patch"
-          class="rounded-full"
-          label="New Group"
+          class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
           to={Routes.group_index_path(@socket, :new)}
-        />
+        >
+          <.phx_icon name="hero-user-group" class="size-5 mr-1" /> New Group
+        </.button>
       </div>
     </.page_header>
 

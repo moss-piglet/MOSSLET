@@ -86,7 +86,7 @@ defmodule MossletWeb.UserHomeLive.Components do
               type="button"
               id={"new-post-button-#{@current_user.id}"}
               phx-click={JS.push("new_post")}
-              class="inline-flex items-center justify-center rounded-full text-sm"
+              class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
               data-tippy-content="New Post"
               phx-hook="TippyHook"
             >
@@ -103,7 +103,7 @@ defmodule MossletWeb.UserHomeLive.Components do
             >
               <button
                 type="button"
-                class="inline-flex items-center justify-center rounded-full bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-md dark:shadow-emerald-500/50 ring-1 ring-offset ring-gray-300 dark:ring-gray-500 hover:bg-gray-200 dark:hover:bg-gray-900"
+                class="inline-flex items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 px-6 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-400 transition-all duration-200"
               >
                 Edit Profile
               </button>
