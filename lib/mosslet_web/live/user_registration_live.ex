@@ -138,12 +138,13 @@ defmodule MossletWeb.UserRegistrationLive do
               </div>
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
-                  You can optionally enable "Forgot Password?" recovery after confirming your account. This lets you reset your password if you forget it.
+                  After confirming your account, you'll have the option to enable "Forgot Password?" recovery in your settings. This feature allows you to reset your password if you forget it.
                 </p>
               </div>
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
-                  For maximum security, you can skip this option. However, if you forget your password and haven't enabled recovery, we cannot help you regain access to your account.
+                  <strong>Important:</strong>
+                  If you choose not to enable password recovery and forget your password, we cannot help you regain access to your account. Please confirm below that you understand this responsibility.
                 </p>
               </div>
               <div class="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
