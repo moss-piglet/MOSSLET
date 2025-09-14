@@ -1838,7 +1838,7 @@ defmodule MossletWeb.Components.LandingPage do
         </p>
       </div>
       <%!-- Table Container --%>
-      <div class="bg-background-50 dark:bg-gray-800 sm:py-10 mt-10 rounded-lg shadow-lg dark:shadow-emerald-500/50">
+      <div class="bg-background-50 dark:bg-gray-800 sm:py-10 mt-10 pb-4 rounded-lg shadow-lg dark:shadow-emerald-500/50">
         <h2 class="px-4 text-xl/8 font-semibold text-black dark:text-white sm:px-6 lg:px-8">
           How MOSSLET Compares
         </h2>
@@ -2675,84 +2675,167 @@ defmodule MossletWeb.Components.LandingPage do
             </tr>
           </tbody>
         </table>
-        <div class="flex mx-auto mt-6 py-6 px-4 border-t border-background-950/10 justify-center dark:border-white/10">
-          <div class="flex-col leading-8 space-y-6 px-4">
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">1</span>
-              Bluesky claims to share/sell data. Some of that sharing is benign, like payment processors (even we have to use Stripe to process the payment for your account). But others are more murky, like "business partners". Some of those business partners are hedge fund founders and venture capital, so their business is inevitably focused on Wall Street and its investors — their
-              <em>actual</em>
-              customers. It is also known that they link your content, contact information, and other personal identifiers to your account and all of it is accessible by Bluesky, therefore others. In summary: you are being tracked
-              <em>and</em>
-              they are planning a subscription fee.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">2</span>
-              The idea behind Element is positive. But in order to be "free" you have to be able to run their software on your own server, aka <em>self host</em>. This is not realistic for most people and not actually free (you have to factor in the cost of running the service yourself). Additionally, whoever is running the software has the ability to access your encrypted data — Element's privacy policy states that Element engineers
-              <em>and contractors</em>
-              can access your data from their paid products. This isn't inherently bad, but it is a <em>serious privacy concern</em>. On top of that, you are still being tracked and your data is still being sent through the usual pipelines of surveillance capitalism when you use their services.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">3</span>
-              This is incredibly alarming considering the 2025 Immigration and Customs Enforcement (ICE) kidnappings.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">4</span>
-              A recent study from Consumer Reports and The Markup discovered that thousands of companies are tracking each individual user on Facebook (Meta). You can
-              <.link
-                navigate={~p"/blog/articles/01#its-nothing-personal"}
-                class="text-gray-800 underline dark:text-gray-200"
-              >
-                learn more about it
-              </.link>
-              on our blog.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">5</span>
-              The $29.99 /mo pricing tier on LinkedIn, which we rounded to $30, is aimed at individuals and offers a few more of the company's services but the entire feature suite of LinkedIn is still limited and they still continue to monetize your data through the pipelines of surveillance capitalism. Other pricing tiers on LinkedIn range from $99.99-$835 per month.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">6</span>
-              On Mastodon, the privacy and data practices can vary significantly depending on the server you choose to join. Some servers may have strong privacy policies, while others may not prioritize user data protection at all — you would have to read and interpret the policies for every server. On mastodon.social there appeared to be no direct data sharing going on, but other Mastodon servers are able to collect your public information without you being aware. Additionally, your data is not asymetrically encrypted so anyone with access to a server's database (where data is stored) can see your information (read this to learn why we believe
-              <.link
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://www.schneier.com/essays/archives/2016/04/the_value_of_encrypt.html"
-                class="underline text-gray-800 dark:text-gray-200"
-              >
-                encryption matters
-              </.link>
-              to privacy). Lastly, each server is tracking you — including your location.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400 border-1  border-emerald-600 dark:border-emerald-400 p-2">
-              <span class="text-xs align-super text-emerald-600 dark:text-emerald-400">7</span>
-              We don't share, sell, sneak, trade, barter, or otherwise monetize your data for our business or others. We
-              <em>do need</em>
-              to use a payment processor to securely process your <em>one-time</em>
-              payment, and our provider is
-              <.link
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://support.stripe.com/questions/does-stripe-sell-my-information"
-                class="text-gray-800 underline dark:text-gray-200"
-              >
-                Stripe
-              </.link>
-              — whose got a policy so good we wish that Big Tech would adopt it. We talk about it in
-              <.link navigate={~p"/privacy"} class="text-gray-800 underline dark:text-gray-200">
-                our privacy policy
-              </.link>
-              that we wrote ourselves. At MOSSLET, we are privacy-first.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">8</span>
-              Reddit is sending your data <em>everywhere</em>. On top of sending to the usual suspects like Alphabet and Meta (LiveRamp is one of the biggest data brokers), they apparently send your data to Tower Data who openly <em>sells your information to political campaigns</em>. On top of all of this surveillance capitalism, Reddit also offers to charge you $5.99 /mo (an infinitely growing expense) to continue to be tracked and manipulated just beyond your awareness.
-            </p>
-            <p class="text-left text-sm text-gray-600 dark:text-gray-400">
-              <span class="text-xs align-super">9</span>
-              Adscape, Calico, Cameyo, CapitalG, Charleston Road Registry, DeepMind, Endoxon, FeedBurner, Google, Google Fiber, GV, ImageAmerica, Intrinsic, Isomorphic Labs, Kaltix, Nest Labs (the thermostat), reCAPTCHA, Verily, Waymo, Wing, YouTube, and ZipDash are all owned by Alphabet Inc. after Google, <em>creator of surveillance capitalism</em>, restructured their business.
-            </p>
+        <%!-- Collapsible Footnotes Section --%>
+        <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 mt-6 mx-4 sm:mx-6">
+          <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 border-b border-gray-100 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center">
+                  <.phx_icon
+                    name="hero-document-text"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Research Footnotes
+                  </h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Detailed analysis behind the privacy and tracking data
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block group-open:hidden">
+                  Click to expand
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:group-open:block">
+                  Click to close
+                </span>
+                <.phx_icon
+                  name="hero-chevron-down"
+                  class="h-5 w-5 text-gray-400 transition-transform duration-200 group-open:rotate-180"
+                />
+              </div>
+            </div>
+          </summary>
+          <div class="border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div class="p-4 space-y-4">
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  1
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">Bluesky:</strong>
+                  Claims to share/sell data. Some of that sharing is benign, like payment processors (even we have to use Stripe to process the payment for your account). But others are more murky, like "business partners". Some of those business partners are hedge fund founders and venture capital, so their business is inevitably focused on Wall Street and its investors — their
+                  <em>actual</em>
+                  customers. It is also known that they link your content, contact information, and other personal identifiers to your account and all of it is accessible by Bluesky, therefore others. In summary: you are being tracked
+                  <em>and</em>
+                  they are planning a subscription fee.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  2
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">Element:</strong>
+                  The idea behind Element is positive. But in order to be "free" you have to be able to run their software on your own server, aka <em>self host</em>. This is not realistic for most people and not actually free (you have to factor in the cost of running the service yourself). Additionally, whoever is running the software has the ability to access your encrypted data — Element's privacy policy states that Element engineers
+                  <em>and contractors</em>
+                  can access your data from their paid products. This isn't inherently bad, but it is a <em>serious privacy concern</em>. On top of that, you are still being tracked and your data is still being sent through the usual pipelines of surveillance capitalism when you use their services.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  3
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">ICE Concerns:</strong>
+                  This is incredibly alarming considering the 2025 Immigration and Customs Enforcement (ICE) kidnappings.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  4
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">Facebook/Meta:</strong>
+                  A recent study from Consumer Reports and The Markup discovered that thousands of companies are tracking each individual user on Facebook (Meta). You can
+                  <.link
+                    navigate={~p"/blog/articles/01#its-nothing-personal"}
+                    class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 underline font-medium"
+                  >
+                    learn more about it
+                  </.link>
+                  on our blog.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  5
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">LinkedIn:</strong>
+                  The $29.99 /mo pricing tier on LinkedIn, which we rounded to $30, is aimed at individuals and offers a few more of the company's services but the entire feature suite of LinkedIn is still limited and they still continue to monetize your data through the pipelines of surveillance capitalism. Other pricing tiers on LinkedIn range from $99.99-$835 per month.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  6
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">Mastodon:</strong>
+                  On Mastodon, the privacy and data practices can vary significantly depending on the server you choose to join. Some servers may have strong privacy policies, while others may not prioritize user data protection at all — you would have to read and interpret the policies for every server. On mastodon.social there appeared to be no direct data sharing going on, but other Mastodon servers are able to collect your public information without you being aware. Additionally, your data is not asymetrically encrypted so anyone with access to a server's database (where data is stored) can see your information (read this to learn why we believe
+                  <.link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    href="https://www.schneier.com/essays/archives/2016/04/the_value_of_encrypt.html"
+                    class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 underline font-medium"
+                  >
+                    encryption matters
+                  </.link>
+                  to privacy). Lastly, each server is tracking you — including your location.
+                </p>
+              </div>
+              <div class="flex gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                <span class="flex-shrink-0 w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  7
+                </span>
+                <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                  <strong class="text-emerald-800 dark:text-emerald-200">MOSSLET:</strong>
+                  We don't share, sell, sneak, trade, barter, or otherwise monetize your data for our business or others. We
+                  <em>do need</em>
+                  to use a payment processor to securely process your <em>one-time</em>
+                  payment, and our provider is
+                  <.link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    href="https://support.stripe.com/questions/does-stripe-sell-my-information"
+                    class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 underline font-medium"
+                  >
+                    Stripe
+                  </.link>
+                  — whose got a policy so good we wish that Big Tech would adopt it. We talk about it in
+                  <.link
+                    navigate={~p"/privacy"}
+                    class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 underline font-medium"
+                  >
+                    our privacy policy
+                  </.link>
+                  that we wrote ourselves. At MOSSLET, we are privacy-first.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  8
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">Reddit:</strong>
+                  Reddit is sending your data <em>everywhere</em>. On top of sending to the usual suspects like Alphabet and Meta (LiveRamp is one of the biggest data brokers), they apparently send your data to Tower Data who openly <em>sells your information to political campaigns</em>. On top of all of this surveillance capitalism, Reddit also offers to charge you $5.99 /mo (an infinitely growing expense) to continue to be tracked and manipulated just beyond your awareness.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <span class="flex-shrink-0 w-6 h-6 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-full flex items-center justify-center text-xs font-medium">
+                  9
+                </span>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  <strong class="text-gray-900 dark:text-gray-100">Alphabet/Google:</strong>
+                  Adscape, Calico, Cameyo, CapitalG, Charleston Road Registry, DeepMind, Endoxon, FeedBurner, Google, Google Fiber, GV, ImageAmerica, Intrinsic, Isomorphic Labs, Kaltix, Nest Labs (the thermostat), reCAPTCHA, Verily, Waymo, Wing, YouTube, and ZipDash are all owned by Alphabet Inc. after Google, <em>creator of surveillance capitalism</em>, restructured their business.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
       </div>
     </div>
     """
