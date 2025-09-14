@@ -222,7 +222,7 @@ defmodule MossletWeb.Components.LandingPage do
           variant="outline"
           class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
         >
-          Sign up today <span aria-hidden="true" class="ml-1">&rarr;</span>
+          Register today <span aria-hidden="true" class="ml-1">&rarr;</span>
         </.button>
       </div>
       <div class="flex flex-1 justify-end"></div>
@@ -567,7 +567,7 @@ defmodule MossletWeb.Components.LandingPage do
       </ul>
 
       <div class="p-3 mt-6 ">
-        <.button link_type="a" to={@sign_up_path} class="w-full rounded-full" label="Sign up today" />
+        <.button link_type="a" to={@sign_up_path} class="w-full rounded-full" label="Register today" />
       </div>
     </div>
     """
