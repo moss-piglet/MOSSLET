@@ -690,154 +690,285 @@ defmodule MossletWeb.Components.LandingPage do
     assigns = assigns
 
     ~H"""
-    <div id="myob" class="bg-white dark:bg-gray-900 py-24 sm:py-32">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="flex flex-col text-sm sm:text-xl sm:font-medium lg:text-2xl/8">
-          <p>It's none of our business where you go to school.</p>
-          <p>It's none of our business who you go on vacation with.</p>
-          <p>It's none of our business where your sister's getting married.</p>
-          <p>It's none of our business what your children are struggling with.</p>
-          <p>It's none of our business how much you eat in a day.</p>
-          <p>It's none of our business what products you use in the shower.</p>
-          <p>It's none of our business where you get your groceries.</p>
-          <p>It's none of our business what car you drive.</p>
-          <p>It's none of our business how you're feeling right now.</p>
-          <p>It's none of our business how much student loan debt you have.</p>
-          <p>It's none of our business where your favorite restaurants are.</p>
-          <p>It's none of our business if you just got divorced.</p>
-          <p>It's none of our business what your holiday plans are.</p>
-          <p>It's none of our business if you're home or not.</p>
-          <p>It's none of our business how much you spent remodeling.</p>
-          <p>It's none of our business where your kids go to school.</p>
-          <p>It's none of our business what books you read.</p>
-          <p>It's none of our business how you get to work.</p>
-          <p>It's none of our business if you went to a protest.</p>
-          <p>It's none of our business who you voted for.</p>
-          <p>It's none of our business what medicine you take.</p>
-          <p>It's none of our business which doctor you visit.</p>
-          <p>It's none of our business what your credit score is.</p>
-          <p>It's none of our business where you were born.</p>
-          <div class="relative" aria-hidden="true">
-            <div class="absolute -inset-x-20 bottom-0 bg-gradient-to-t from-white dark:from-gray-900 pt-[7%]">
+    <div id="myob" class="bg-white dark:bg-gray-950">
+      <main class="isolate">
+        <!-- Hero section -->
+        <div class="relative isolate -z-10 overflow-hidden pt-14">
+          <svg
+            class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
+            aria-hidden="true"
+          >
+            <defs>
+              <pattern
+                id="1f932ae7-37de-4c0a-a8b0-a6e3b4d44b84"
+                width="200"
+                height="200"
+                x="50%"
+                y="-1"
+                patternUnits="userSpaceOnUse"
+              >
+                <path d="M.5 200V.5H200" fill="none" />
+              </pattern>
+            </defs>
+            <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
+              <path
+                d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
+                stroke-width="0"
+              />
+            </svg>
+            <rect
+              width="100%"
+              height="100%"
+              stroke-width="0"
+              fill="url(#1f932ae7-37de-4c0a-a8b0-a6e3b4d44b84)"
+            />
+          </svg>
+          <div
+            class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+            aria-hidden="true"
+          >
+            <div
+              class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+              style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
+            >
             </div>
           </div>
-
-          <div class="text-xl text-right pt-10 sm:pt-24">
-            <h1 class="pb-2 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              Hey Big Tech,
-            </h1>
-            <div class="text-sm sm:text-xl sm:font-medium lg:text-2xl/8">
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">which ads I linger on.</strong>
+          
+    <!-- Hero Content -->
+          <div class="mx-auto max-w-7xl px-6 pb-24 pt-10 sm:pb-32 lg:flex lg:px-8 lg:py-40">
+            <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-xl lg:flex-shrink-0 lg:pt-8">
+              <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Mind Your Own Business
+              </h1>
+              <p class="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8">
+                Privacy isn't just a feature — it's the foundation of human dignity. Your personal life should stay personal, whether online or offline.
               </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">when I go online.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">which search engine I use.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">where I am right now.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">which photos I like.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">who I respond to.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">which articles I read.</strong>
-              </p>
-              <p>
-                It's none of your business <strong class="dark:text-gray-200">who I ignore.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">how many times I watched that video.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">if I'm using a VPN.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">what my home address is.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">what I just said out loud.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">how many tabs I have open.</strong>
-              </p>
-              <p>
-                It's none of your business <strong class="dark:text-gray-200">who I follow.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">what I'm typing right now.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">which apps I download.</strong>
-              </p>
-              <p>
-                It's none of your business
-                <strong class="dark:text-gray-200">what's left in my shopping cart.</strong>
-              </p>
+              <div class="mt-10 flex items-center gap-x-6">
+                <.button
+                  link_type="live_redirect"
+                  to="/auth/register"
+                  class="w-full sm:w-auto block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+                >
+                  Get lifetime access
+                </.button>
+                <.button
+                  link_type="live_redirect"
+                  to="/features"
+                  variant="outline"
+                  class="w-full sm:w-auto !rounded-full"
+                >
+                  Explore features
+                </.button>
+              </div>
             </div>
-          </div>
-
-          <div class="mx-auto max-w-4xl py-16">
-            <h2 class="text-center text-balance text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              It's none of our business, so it's not our business
-            </h2>
-          </div>
-          <div class="mx-auto max-w-2xl">
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              <strong class="dark:text-gray-200">
-                At MOSSLET, our business model is as basic as it is boring:
-              </strong>
-              We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never track you, spy on you, or enable others to either. It's absolutely none of their business, and it's none of ours either.
-            </p>
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              <strong class="dark:text-gray-200">
-                Privacy is personal to us:
-              </strong>
-              We've been building and using computers for thirty years. We were around in 2000 when Google pioneered the invisible prison of surveillance capitalism and hid behind the thin veil of "Don't Be Evil". We've seen their strategies for collecting, selling, and abusing personal data on an industrial scale spread to every industry. We remember when Facebook rose from The FaceBook to the pusher of algorithmically-engineered traps of attention and worse. The internet didn't use to be like this, and it doesn't have to be like that today either.
-            </p>
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              But right now it just is. You have to defend yourself from these Big Tech giants, and the legion of companies following their nasty example. Collect It All has sunk into the ideology of the commercial internet, so most companies don't even think about it. It's just what they do.
-            </p>
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              <strong class="dark:text-gray-200">
-                MOSSLET doesn't mine your posts for data:
-              </strong>
-              There are no big AI engines to feed. We don't track what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't take or track it even if we wanted to — which we don't.
-            </p>
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              When you're in the business of "free", like Google, Facebook, Instagram, TikTok, YouTube, and many others, you're in the business of snooping. Tricking. Collecting. Aggregating. Slicing. Dicing. Packaging. Do you really want to be used like that? As a resource to be mined? Do you really want companies secretly deciding and controlling your future? If you're here, and curious about MOSSLET, you probably don't.
-            </p>
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              Privacy used to be something exotic and niche. Today it's going mainstream, but it's still early. You can be early on this trend. You can be part of the change. Using MOSSLET is standing up, not giving in.
-            </p>
-            <p class="font-regular mt-6 text-xl/8 text-gray-600 dark:text-gray-400">
-              <strong class="dark:text-gray-200">
-                Your data is none of their business:
-              </strong>
-              Don't give them what isn't theirs. At MOSSLET, we've got your back without looking over your shoulder.
-            </p>
+            
+    <!-- Personal Privacy List -->
+            <div class="mx-auto mt-16 flex max-w-2xl lg:ml-10 lg:mr-0 lg:mt-0 lg:max-w-none lg:flex-none xl:ml-32">
+              <div class="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
+                <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400 sm:text-base lg:text-lg">
+                  <p>It's none of our business where you go to school.</p>
+                  <p>It's none of our business who you go on vacation with.</p>
+                  <p>It's none of our business where your sister's getting married.</p>
+                  <p>It's none of our business what your children are struggling with.</p>
+                  <p>It's none of our business how much you eat in a day.</p>
+                  <p>It's none of our business what products you use in the shower.</p>
+                  <p>It's none of our business where you get your groceries.</p>
+                  <p>It's none of our business what car you drive.</p>
+                  <p>It's none of our business how you're feeling right now.</p>
+                  <p>It's none of our business how much student loan debt you have.</p>
+                  <p>It's none of our business where your favorite restaurants are.</p>
+                  <p>It's none of our business if you just got divorced.</p>
+                  <p>It's none of our business what your holiday plans are.</p>
+                  <p>It's none of our business if you're home or not.</p>
+                  <p>It's none of our business how much you spent remodeling.</p>
+                  <p>It's none of our business where your kids go to school.</p>
+                  <p>It's none of our business what books you read.</p>
+                  <p>It's none of our business how you get to work.</p>
+                  <p>It's none of our business if you went to a protest.</p>
+                  <p>It's none of our business who you voted for.</p>
+                  <p>It's none of our business what medicine you take.</p>
+                  <p>It's none of our business which doctor you visit.</p>
+                  <p>It's none of our business what your credit score is.</p>
+                  <p>It's none of our business where you were born.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+        
+    <!-- Big Tech Section -->
+        <div class="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
+          <div class="mx-auto max-w-4xl text-center">
+            <h2 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              Hey Big Tech,
+            </h2>
+            <div class="mt-12 space-y-4 text-lg text-gray-600 dark:text-gray-400 sm:text-xl lg:text-2xl">
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">which ads I linger on.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">when I go online.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">which search engine I use.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">where I am right now.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">which photos I like.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">who I respond to.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">which articles I read.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">who I ignore.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">
+                  how many times I watched that video.
+                </strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">if I'm using a VPN.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">what my home address is.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">what I just said out loud.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">how many tabs I have open.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">who I follow.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">what I'm typing right now.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">which apps I download.</strong>
+              </p>
+              <p>
+                It's none of your business
+                <strong class="text-gray-900 dark:text-gray-200">
+                  what's left in my shopping cart.
+                </strong>
+              </p>
+            </div>
+          </div>
+        </div>
+        
+    <!-- Main Content Section -->
+        <div class="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
+          <div class="mx-auto max-w-4xl text-center">
+            <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              It's none of our business, so it's not our business
+            </h2>
+            <p class="mt-8 text-lg text-gray-600 dark:text-gray-400 sm:text-xl/8">
+              Unlike the surveillance economy of Big Tech, we've built MOSSLET on the radical idea that your privacy is valuable — and worth protecting.
+            </p>
+          </div>
+          
+    <!-- Content Grid -->
+          <div class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 lg:mx-0 lg:max-w-none lg:grid-cols-2 lg:items-start lg:gap-y-10">
+            <div class="lg:col-span-2 lg:col-start-1 lg:row-start-1 lg:mx-auto lg:grid lg:w-full lg:max-w-7xl lg:grid-cols-2 lg:gap-x-8 lg:px-8">
+              <div class="lg:pr-4">
+                <div class="lg:max-w-lg">
+                  <h3 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-3xl">
+                    Our business model is boring
+                  </h3>
+                  <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400">
+                    <strong class="text-gray-900 dark:text-gray-200">
+                      At MOSSLET, our business model is as basic as it is boring:
+                    </strong>
+                    We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never track you, spy on you, or enable others to either. It's absolutely none of their business, and it's none of ours either.
+                  </p>
+                </div>
+              </div>
+              <div class="pt-12 lg:pt-0">
+                <div class="lg:max-w-lg">
+                  <h3 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-3xl">
+                    Privacy is personal to us
+                  </h3>
+                  <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400">
+                    <strong class="text-gray-900 dark:text-gray-200">
+                      Privacy is personal to us:
+                    </strong>
+                    We've been building and using computers for thirty years. We were around in 2000 when Google pioneered the invisible prison of surveillance capitalism and hid behind the thin veil of "Don't Be Evil". We've seen their strategies for collecting, selling, and abusing personal data on an industrial scale spread to every industry. We remember when Facebook rose from The FaceBook to the pusher of algorithmically-engineered traps of attention and worse. The internet didn't use to be like this, and it doesn't have to be like that today either.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+    <!-- Additional Content -->
+          <div class="mx-auto mt-16 max-w-2xl lg:max-w-4xl">
+            <div class="space-y-8 text-lg leading-8 text-gray-600 dark:text-gray-400">
+              <p>
+                But right now it just is. You have to defend yourself from these Big Tech giants, and the legion of companies following their nasty example. Collect It All has sunk into the ideology of the commercial internet, so most companies don't even think about it. It's just what they do.
+              </p>
+              <p>
+                <strong class="text-gray-900 dark:text-gray-200">
+                  MOSSLET doesn't mine your posts for data:
+                </strong>
+                There are no big AI engines to feed. We don't track what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't take or track it even if we wanted to — which we don't.
+              </p>
+              <p>
+                When you're in the business of "free", like Google, Facebook, Instagram, TikTok, YouTube, and many others, you're in the business of snooping. Tricking. Collecting. Aggregating. Slicing. Dicing. Packaging. Do you really want to be used like that? As a resource to be mined? Do you really want companies secretly deciding and controlling your future? If you're here, and curious about MOSSLET, you probably don't.
+              </p>
+              <p>
+                Privacy used to be something exotic and niche. Today it's going mainstream, but it's still early. You can be early on this trend. You can be part of the change. Using MOSSLET is standing up, not giving in.
+              </p>
+              <p>
+                <strong class="text-gray-900 dark:text-gray-200">
+                  Your data is none of their business:
+                </strong>
+                Don't give them what isn't theirs. At MOSSLET, we've got your back without looking over your shoulder.
+              </p>
+            </div>
+            
+    <!-- Call to Action -->
+            <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
+              <.button
+                link_type="live_redirect"
+                to="/auth/register"
+                class="w-full sm:w-auto block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+              >
+                Get lifetime access
+              </.button>
+              <.button
+                link_type="live_redirect"
+                to="/features"
+                variant="outline"
+                class="w-full sm:w-auto !rounded-full"
+              >
+                Explore features
+              </.button>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
     """
   end
