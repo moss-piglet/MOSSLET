@@ -38,7 +38,10 @@ defmodule MossletWeb.UserTOTPHTML do
           <.link class="text-sm underline" href={~p"/auth/sign_out"} method="delete">
             Sign out
           </.link>
-          <.button label={gettext("Verify code and sign in")} />
+          <.button
+            label={gettext("Verify code and sign in")}
+            class="w-full sm:w-auto rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+          />
         </div>
       </.form>
     </.auth_layout>
