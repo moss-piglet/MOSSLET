@@ -1839,9 +1839,18 @@ defmodule MossletWeb.Components.LandingPage do
       </div>
       <%!-- Table Container --%>
       <div class="bg-background-50 dark:bg-gray-800 sm:py-10 mt-10 pb-4 rounded-lg shadow-lg dark:shadow-emerald-500/50">
-        <h2 class="px-4 text-xl/8 font-semibold text-black dark:text-white sm:px-6 lg:px-8">
-          How MOSSLET Compares
-        </h2>
+        <div class="text-center mb-8">
+          <h2 class="text-3xl font-black tracking-tight text-black dark:text-white sm:text-4xl lg:text-5xl">
+            How
+            <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              MOSSLET
+            </span>
+            Compares
+          </h2>
+          <p class="mt-4 text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            The only platform that doesn't track, spy on, or monetize your personal data
+          </p>
+        </div>
         <table class="mt-6 w-full text-left whitespace-wrap">
           <colgroup>
             <col class="w-2/12" />
@@ -1930,11 +1939,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -1980,11 +1992,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2031,11 +2046,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2082,11 +2100,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2130,11 +2151,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2181,11 +2205,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2232,11 +2259,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2261,8 +2291,11 @@ defmodule MossletWeb.Components.LandingPage do
             </tr>
 
             <%!-- MOSSLET Row --%>
-            <tr class="border-2 border-emerald-600 dark:border-emerald-400">
-              <td class="py-4 pr-8 pl-4 sm:pl-6 lg:pl-8">
+            <tr class="relative bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-500 dark:border-emerald-400 shadow-lg shadow-emerald-100/50 dark:shadow-emerald-900/30 hover:shadow-emerald-200/70 dark:hover:shadow-emerald-800/40 transition-all duration-300">
+              <%!-- Highlight accent --%>
+              <td class="py-6 pr-8 pl-4 sm:pl-6 lg:pl-8 relative">
+                <div class="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-r-md">
+                </div>
                 <div class="flex items-center gap-x-4">
                   <img
                     src={~p"/images/logo.svg"}
@@ -2275,31 +2308,34 @@ defmodule MossletWeb.Components.LandingPage do
                   <div class="truncate text-sm/6 font-medium text-black dark:text-white"></div>
                 </div>
               </td>
-              <td class="hidden py-4 pr-4 pl-0 sm:table-cell sm:pr-8">
+              <td class="hidden py-6 pr-4 pl-0 sm:table-cell sm:pr-8">
                 <div class="flex gap-x-3">
-                  <div class="font-mono text-sm/6 text-emerald-600 dark:text-emerald-400">
+                  <div class="font-mono text-sm/6 text-emerald-600 dark:text-emerald-400 font-semibold">
                     No data sent<span class="text-xs align-super ml-1 text-emerald-600 dark:text-emerald-400">7</span>
                   </div>
                 </div>
               </td>
-              <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
+              <td class="py-6 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-emerald-600/10 dark:bg-emerald-400/20 p-1 text-emerald-600 dark:text-emerald-400">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-emerald-600/20 dark:bg-emerald-400/30 p-2 text-emerald-600 dark:text-emerald-400">
+                    <div class="size-2 rounded-full bg-current"></div>
+                    <div class="absolute inset-0 rounded-full bg-emerald-600/20 dark:bg-emerald-400/25 animate-pulse">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-emerald-600 dark:text-emerald-400 ">
-                    None
+                  <div class="flex items-center gap-x-1 text-emerald-600 dark:text-emerald-400">
+                    <span class="font-semibold">Protected</span>
+                    <.phx_icon name="hero-shield-check" class="w-4 h-4" />
                   </div>
                 </div>
               </td>
 
-              <td class="hidden py-4 pr-8 pl-0 text-left text-sm/6 text-emerald-600 dark:text-emerald-400 md:table-cell md:pr-6 lg:pr-20">
+              <td class="hidden py-6 pr-8 pl-0 text-left text-sm/6 text-emerald-600 dark:text-emerald-400 font-semibold md:table-cell md:pr-6 lg:pr-20">
                 Full
               </td>
-              <td class="py-4 pr-4 pl-0 text-right text-sm/6 text-emerald-600 dark:text-emerald-400 sm:pr-6 lg:pr-8">
+              <td class="py-6 pr-4 pl-0 text-right text-sm/6 text-emerald-600 dark:text-emerald-400 font-bold sm:pr-6 lg:pr-8">
                 $59 /once
               </td>
-              <td class="hidden py-4 pr-4 pl-0 text-right text-sm/6 text-gray-400 sm:table-cell lg:pr-8">
+              <td class="hidden py-6 pr-4 pl-0 text-right text-sm/6 text-gray-400 sm:table-cell lg:pr-8">
                 <.link
                   target="_blank"
                   rel="noopener noreferrer"
@@ -2335,11 +2371,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2387,11 +2426,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2439,11 +2481,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2492,11 +2537,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2544,11 +2592,14 @@ defmodule MossletWeb.Components.LandingPage do
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
                   <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                    <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                      <div class="size-1.5 rounded-full bg-current"></div>
+                    <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                      <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                      <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                      </div>
                     </div>
-                    <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                      Tracking
+                    <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                      <span class="font-semibold animate-pulse">Live Tracking</span>
+                      <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                     </div>
                   </div>
                 </div>
@@ -2596,11 +2647,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
@@ -2647,11 +2701,14 @@ defmodule MossletWeb.Components.LandingPage do
               </td>
               <td class="py-4 pr-4 pl-0 text-sm/6 sm:pr-8 lg:pr-20">
                 <div class="flex items-center justify-end gap-x-2 sm:justify-start">
-                  <div class="flex-none rounded-full bg-rose-600/10 dark:bg-rose-400/20 p-1 text-rose-600 dark:text-rose-400 animate-pulse">
-                    <div class="size-1.5 rounded-full bg-current"></div>
+                  <div class="relative flex-none rounded-full bg-rose-600/20 dark:bg-rose-400/30 p-2 text-rose-600 dark:text-rose-400">
+                    <div class="size-2 rounded-full bg-current animate-pulse"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-600/30 dark:bg-rose-400/40 animate-ping">
+                    </div>
                   </div>
-                  <div class="text-black sm:block text-rose-600 dark:text-rose-400 animate-pulse">
-                    Tracking
+                  <div class="flex items-center gap-x-1 text-rose-600 dark:text-rose-400">
+                    <span class="font-semibold animate-pulse">Live Tracking</span>
+                    <.phx_icon name="hero-signal" class="w-4 h-4 animate-bounce" />
                   </div>
                 </div>
               </td>
