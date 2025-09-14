@@ -205,7 +205,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           <div class="pt-4">
             <.button
               :if={@action in [:new] && @form.source.valid?}
-              class="rounded-full"
+              class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
               phx-disable-with="Saving..."
             >
               Save Group
@@ -214,11 +214,15 @@ defmodule MossletWeb.GroupLive.FormComponent do
               :if={@action in [:new] && !@form.source.valid?}
               phx-disable-with="Saving..."
               disabled
-              class="opacity-25 rounded-full"
+              class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
             >
               Save Group
             </.button>
-            <.button :if={@action in [:edit]} class="rounded-full" phx-disable-with="Updating...">
+            <.button
+              :if={@action in [:edit]}
+              class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+              phx-disable-with="Updating..."
+            >
               Update Group
             </.button>
           </div>

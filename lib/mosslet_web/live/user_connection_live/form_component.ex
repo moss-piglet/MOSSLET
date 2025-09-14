@@ -82,10 +82,18 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
           phx-debounce="500"
         />
 
-        <.button :if={@form.source.valid?} class="rounded-full" phx-disable-with="Sending...">
+        <.button
+          :if={@form.source.valid?}
+          class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+          phx-disable-with="Sending..."
+        >
           Send
         </.button>
-        <.button :if={!@form.source.valid?} disabled class="opacity-25 rounded-full">
+        <.button
+          :if={!@form.source.valid?}
+          disabled
+          class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
+        >
           Send
         </.button>
       </.form>
@@ -133,10 +141,18 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
         <.field field={@form[:label]} type="hidden" />
         <.field field={@form[:id]} type="hidden" value={@uconn.id} />
 
-        <.button :if={@form.source.valid?} class="rounded-full" phx-disable-with="Updating...">
+        <.button
+          :if={@form.source.valid?}
+          class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+          phx-disable-with="Updating..."
+        >
           Update
         </.button>
-        <.button :if={!@form.source.valid?} disabled class="opacity-25 rounded-full">
+        <.button
+          :if={!@form.source.valid?}
+          disabled
+          class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
+        >
           Update
         </.button>
       </.form>

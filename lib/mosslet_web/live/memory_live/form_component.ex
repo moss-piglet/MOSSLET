@@ -274,7 +274,7 @@ defmodule MossletWeb.MemoryLive.FormComponent do
               @action in [:new, :new_memory] && Enum.empty?(@uploads.memory.errors)
           }
           phx-disable-with="Checking, encrypting, and creating..."
-          class="rounded-full"
+          class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
         >
           Create Memory
         </.button>
@@ -284,17 +284,22 @@ defmodule MossletWeb.MemoryLive.FormComponent do
               (Enum.empty?(@uploads.memory.entries) && @action in [:new, :new_memory])
           }
           disabled
-          class="opacity-25 rounded-full"
+          class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
         >
           Create Memory
         </.button>
         <.button
           :if={@form.source.valid? && @action == :edit}
           phx-disable-with="Checking, encrypting, and creating..."
+          class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
         >
           Update Memory
         </.button>
-        <.button :if={!@form.source.valid? && @action == :edit} disabled class="opacity-25">
+        <.button
+          :if={!@form.source.valid? && @action == :edit}
+          disabled
+          class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
+        >
           Update Memory
         </.button>
       </.simple_form>

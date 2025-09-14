@@ -162,7 +162,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           >
             <button
               type="button"
-              class="inline-flex items-center justify-center rounded-full bg-white dark:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-md dark:shadow-emerald-500/50 ring-1 ring-offset ring-gray-300 dark:ring-gray-500 hover:bg-gray-200 dark:hover:bg-gray-900"
+              class="inline-flex items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 px-6 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-400 transition-all duration-200"
             >
               Edit
             </button>
@@ -178,7 +178,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           >
             <button
               type="button"
-              class="inline-flex items-center justify-center rounded-full bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-md dark:shadow-rose-500/50 hover:bg-rose-500 ring-1 ring-offset ring-rose-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+              class="inline-flex items-center justify-center rounded-full py-3 px-6 text-center text-sm font-bold bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
             >
               Remove Connection
             </button>
@@ -518,7 +518,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
               <.link
                 id={"group-#{group.id}-link"}
                 patch={~p"/app/groups/#{group.id}"}
-                class="rounded-full bg-white dark:bg-gray-950 px-2.5 py-1 text-xs font-semibold text-gray-900 dark:text-gray-100 shadow-sm dark:shadow-emerald-500/50 ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hovery:bg-gray-900"
+                class="rounded-full border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 px-2.5 py-1 text-xs font-semibold text-gray-900 dark:text-gray-100 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-400 transition-all duration-200"
                 data-tippy-content="View Group"
                 phx-hook="TippyHook"
               >
@@ -529,7 +529,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
         </ul>
         <.link
           patch={~p"/app/groups"}
-          class="flex w-full items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+          class="flex w-full items-center justify-center rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
         >
           View all
         </.link>
@@ -642,28 +642,28 @@ defmodule MossletWeb.UserConnectionLive.Components do
             <div id="show-new-post-button" class="items-center">
               <button
                 type="button"
-                class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
                 phx-click={
                   JS.hide(to: "#show-new-post-button")
                   |> JS.toggle(to: "#new-post-container")
                   |> JS.toggle(to: "#hide-new-post-button")
                 }
               >
-                <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" />
+                <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-2" />
                 Start new Post
               </button>
             </div>
             <div id="hide-new-post-button" class="hidden items-center">
               <button
                 type="button"
-                class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gray-500 to-gray-600 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-gray-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
                 phx-click={
                   JS.hide(to: "#hide-new-post-button")
                   |> JS.toggle(to: "#new-post-container")
                   |> JS.toggle(to: "#show-new-post-button")
                 }
               >
-                <.phx_icon name="hero-x-mark" class="size-5 mr-1" /> Close new Post
+                <.phx_icon name="hero-x-mark" class="size-5 mr-2" /> Close new Post
               </button>
             </div>
           </div>
@@ -937,7 +937,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
               <button
                 :if={post_form.source.valid? && !@uploads_in_progress}
                 type="submit"
-                class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                class="inline-flex items-center justify-center rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
               >
                 Post to @{decr_uconn(
                   @user_connection.connection.username,
@@ -949,7 +949,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
               <button
                 :if={!post_form.source.valid? && !@uploads_in_progress}
                 type="submit"
-                class="inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white opacity-20"
+                class="inline-flex items-center justify-center rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm opacity-50 cursor-not-allowed"
                 disabled
               >
                 Post to @{decr_uconn(
@@ -962,7 +962,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
               <button
                 :if={@uploads_in_progress}
                 type="submit"
-                class="inline-flex items-center justify-center rounded-full bg-gray-600 dark:bg-gray-400 px-3 py-2 text-sm font-semibold text-white opacity-20"
+                class="inline-flex items-center justify-center rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm opacity-50 cursor-not-allowed"
                 disabled
               >
                 Updating...
