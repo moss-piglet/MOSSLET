@@ -2629,18 +2629,189 @@ defmodule MossletWeb.Components.LandingPage do
 
   def faq(assigns) do
     ~H"""
-    <section id="faq" aria-labelledby="faq-title">
-      <div class="bg-white dark:bg-gray-950">
-        <div class="mx-auto max-w-7xl px-6 py-24 sm:pt-32 lg:px-8 lg:pt-40">
+    <main class="isolate">
+      <!-- Hero section -->
+      <div class="relative isolate -z-10">
+        <svg
+          class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
+          aria-hidden="true"
+        >
+          <defs>
+            <pattern
+              id="faq-pattern"
+              width="200"
+              height="200"
+              x="50%"
+              y="-1"
+              patternUnits="userSpaceOnUse"
+            >
+              <path d="M.5 200V.5H200" fill="none" />
+            </pattern>
+          </defs>
+          <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
+            <path
+              d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
+              stroke-width="0"
+            />
+          </svg>
+          <rect
+            width="100%"
+            height="100%"
+            stroke-width="0"
+            fill="url(#faq-pattern)"
+          />
+        </svg>
+        <div
+          class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+          aria-hidden="true"
+        >
+          <div
+            class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+            style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
+          >
+          </div>
+        </div>
+        <div class="overflow-hidden">
+          <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
+            <div class="mx-auto max-w-4xl text-center">
+              <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Frequently Asked Questions
+              </h1>
+              <h2 class="mt-6 text-balance text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-black dark:text-white">
+                Get the answers you need
+              </h2>
+              <p class="mt-8 text-pretty text-lg font-medium text-gray-600 dark:text-gray-400 sm:text-xl/8 text-balance">
+                Everything you need to know about MOSSLET's privacy-first approach, features, and how we protect your data. Can't find what you're looking for? We're here to help.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    <!-- Quick answers section -->
+      <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
+        <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
+          <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <!-- Privacy Focus -->
+            <.link
+              href="/privacy"
+              class="flex flex-col h-full group cursor-pointer"
+            >
+              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 px-8 py-8 border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
+                <div class="flex justify-center pb-4">
+                  <svg
+                    class="size-12 text-emerald-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                    />
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                    Privacy First
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                    End-to-End Encryption
+                  </h3>
+                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    Your data is encrypted so only you can access it. We can't see it, and neither can anyone else.
+                  </p>
+                </div>
+              </div>
+            </.link>
+            
+    <!-- Simple Pricing -->
+            <.link
+              href="/pricing"
+              class="flex flex-col h-full group cursor-pointer"
+            >
+              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-orange-50 dark:bg-orange-900/60 dark:bg-gray-800/60 px-8 py-8 border border-orange-200 dark:border-orange-700/30 dark:shadow-xl dark:shadow-orange-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-orange-500/30 dark:group-hover:shadow-orange-500/40">
+                <div class="flex justify-center pb-4">
+                  <svg
+                    class="size-12 text-orange-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                    />
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold tracking-tight text-orange-600 dark:text-orange-400">
+                    Fair Pricing
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                    Pay Once, Own Forever
+                  </h3>
+                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    No subscriptions, no ads, no tracking. Just a one-time payment for lifetime access.
+                  </p>
+                </div>
+              </div>
+            </.link>
+            
+    <!-- Support -->
+            <.link
+              href="/support"
+              class="flex flex-col h-full group cursor-pointer"
+            >
+              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-blue-50 dark:bg-blue-900/60 dark:bg-gray-800/60 px-8 py-8 border border-blue-200 dark:border-blue-700/30 dark:shadow-xl dark:shadow-blue-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-blue-500/30 dark:group-hover:shadow-blue-500/40">
+                <div class="flex justify-center pb-4">
+                  <svg
+                    class="size-12 text-blue-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"
+                    />
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold tracking-tight text-blue-600 dark:text-blue-400">
+                    Human Support
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                    Real People, Real Help
+                  </h3>
+                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    Questions? Reach out to our support team. We're real people who actually want to help.
+                  </p>
+                </div>
+              </div>
+            </.link>
+          </div>
+        </div>
+      </div>
+      
+    <!-- Main FAQ section -->
+      <div class="bg-white dark:bg-gray-950 py-24 sm:py-32">
+        <div class="mx-auto max-w-7xl px-6 lg:px-8">
           <div class="lg:grid lg:grid-cols-12 lg:gap-8">
             <div class="lg:col-span-5">
-              <h2 class="text-pretty text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-                Frequently asked questions
+              <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Quick Answers
               </h2>
-              <p class="mt-4 text-pretty text-base/7 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
                 Can't find the answer you're looking for? Reach out to our
                 <.link
-                  class="font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 "
+                  class="font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
                   href="mailto:support@mosslet.com"
                 >
                   customer support
@@ -2651,57 +2822,55 @@ defmodule MossletWeb.Components.LandingPage do
             <div class="mt-10 lg:col-span-7 lg:mt-0">
               <dl class="space-y-10">
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     What is MOSSLET?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET is a privacy-first social network designed to protect users' privacy and human dignity from surveillance and the attention economy. We prioritize privacy, data protection, and creating a safe space for meaningful social interactions.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     How does MOSSLET protect my privacy?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET employs asymmetric encryption (end-to-end) to ensure that your data remains private and secure. This means that only you and the intended recipient can access your messages and information, keeping your interactions confidential.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     What is the pay once pricing model?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET operates on a pay once pricing model, currently set at $59 during our beta phase. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     What makes MOSSLET different from other social networks?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET stands out by prioritizing user privacy, employing ethical design practices, and offering a straightforward pricing model. Unlike traditional social networks that rely on advertising and data exploitation, we focus on creating a safe and respectful environment for our users.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     Can I delete my account and data?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     Yes, you can delete your account at any time. When you choose to delete your account, all your data will be permanently removed from our servers, ensuring that your information is no longer accessible.
                   </dd>
                 </div>
-
-                <%!-- More questions... --%>
               </dl>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </main>
 
     <div class="pb-12">
       <div id="more-faq-show-button-container" class="hidden relative">
