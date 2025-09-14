@@ -688,7 +688,7 @@ defmodule MossletWeb.TimelineLive.Components do
       <div id="show-new-post-button" class="flex-1 items-center justify-center mb-6">
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
+          class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
           phx-click={
             JS.hide(to: "#show-new-post-button")
             |> JS.toggle(to: "#new-post-container")
@@ -701,7 +701,7 @@ defmodule MossletWeb.TimelineLive.Components do
       <div id="hide-new-post-button" class="hidden flex-1 items-center justify-center mb-6">
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-gray-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
+          class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gray-500 to-gray-600 px-6 py-3 text-sm font-semibold text-white shadow-xl hover:shadow-gray-500/25 transition-all duration-200 hover:scale-105 active:scale-95"
           phx-click={
             JS.hide(to: "#hide-new-post-button")
             |> JS.toggle(to: "#new-post-container")
