@@ -157,12 +157,16 @@ defmodule MossletWeb.BillingComponents do
             to={@billing_path}
             link_type="live_redirect"
             label={@button_label}
-            class="w-full mt-6"
+            class="w-full mt-6 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
             {@button_props}
             disabled={@disabled}
           />
         <% else %>
-          <.button label={@button_label} class="w-full mt-6" {@button_props} />
+          <.button
+            label={@button_label}
+            class="w-full mt-6 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+            {@button_props}
+          />
         <% end %>
       <% end %>
     </div>

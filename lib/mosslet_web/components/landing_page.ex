@@ -692,7 +692,7 @@ defmodule MossletWeb.Components.LandingPage do
     ~H"""
     <div id="myob" class="bg-white dark:bg-gray-950">
       <main class="isolate">
-        <!-- Hero section -->
+        <%!-- Hero section --%>
         <div class="relative isolate -z-10 overflow-hidden pt-14">
           <svg
             class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
@@ -733,8 +733,8 @@ defmodule MossletWeb.Components.LandingPage do
             >
             </div>
           </div>
-          
-    <!-- Hero Content -->
+
+          <%!-- Hero Content --%>
           <div class="mx-auto max-w-7xl px-6 pb-24 pt-10 sm:pb-32 lg:flex lg:px-8 lg:py-40">
             <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-xl lg:flex-shrink-0 lg:pt-8">
               <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -761,8 +761,8 @@ defmodule MossletWeb.Components.LandingPage do
                 </.button>
               </div>
             </div>
-            
-    <!-- Personal Privacy List -->
+
+            <%!-- Personal Privacy List --%>
             <div class="mx-auto mt-16 flex max-w-2xl lg:ml-10 lg:mr-0 lg:mt-0 lg:max-w-none lg:flex-none xl:ml-32">
               <div class="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
                 <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400 sm:text-base lg:text-lg">
@@ -795,8 +795,8 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
         </div>
-        
-    <!-- Big Tech Section -->
+
+        <%!-- Big Tech Section --%>
         <div class="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
           <div class="mx-auto max-w-4xl text-center">
             <h2 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -878,8 +878,8 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
         </div>
-        
-    <!-- Main Content Section -->
+
+        <%!-- Main Content Section --%>
         <div class="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
           <div class="mx-auto max-w-4xl text-center">
             <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -889,8 +889,8 @@ defmodule MossletWeb.Components.LandingPage do
               Unlike the surveillance economy of Big Tech, we've built MOSSLET on the radical idea that your privacy is valuable — and worth protecting.
             </p>
           </div>
-          
-    <!-- Content Grid -->
+
+          <%!-- Content Grid --%>
           <div class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 lg:mx-0 lg:max-w-none lg:grid-cols-2 lg:items-start lg:gap-y-10">
             <div class="lg:col-span-2 lg:col-start-1 lg:row-start-1 lg:mx-auto lg:grid lg:w-full lg:max-w-7xl lg:grid-cols-2 lg:gap-x-8 lg:px-8">
               <div class="lg:pr-4">
@@ -921,8 +921,8 @@ defmodule MossletWeb.Components.LandingPage do
               </div>
             </div>
           </div>
-          
-    <!-- Additional Content -->
+
+          <%!-- Additional Content --%>
           <div class="mx-auto mt-16 max-w-2xl lg:max-w-4xl">
             <div class="space-y-8 text-lg leading-8 text-gray-600 dark:text-gray-400">
               <p>
@@ -947,8 +947,8 @@ defmodule MossletWeb.Components.LandingPage do
                 Don't give them what isn't theirs. At MOSSLET, we've got your back without looking over your shoulder.
               </p>
             </div>
-            
-    <!-- Call to Action -->
+
+            <%!-- Call to Action --%>
             <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
               <.button
                 link_type="live_redirect"
@@ -977,7 +977,7 @@ defmodule MossletWeb.Components.LandingPage do
     ~H"""
     <div id="features" class="bg-white dark:bg-gray-950 py-24 sm:py-32">
       <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <!-- Hero Section with better spacing -->
+        <%!-- Hero Section with better spacing --%>
         <div class="mx-auto max-w-4xl text-center">
           <h1 class="text-4xl font-bold tracking-tight text-pretty sm:text-6xl md:text-7xl lg:text-8xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
             Social media, unexpected.
@@ -985,8 +985,8 @@ defmodule MossletWeb.Components.LandingPage do
           <p class="font-regular mt-8 text-xl/8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
             Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you.
           </p>
-          
-    <!-- Call-to-action buttons -->
+
+          <%!-- Call-to-action buttons --%>
           <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
             <.button
               link_type="live_redirect"
@@ -1005,8 +1005,8 @@ defmodule MossletWeb.Components.LandingPage do
             </.button>
           </div>
         </div>
-        
-    <!-- App Screenshot Section -->
+
+        <%!-- App Screenshot Section --%>
         <div class="relative overflow-hidden pt-20">
           <div class="mx-auto max-w-7xl px-6 lg:px-4">
             <img
@@ -1033,8 +1033,8 @@ defmodule MossletWeb.Components.LandingPage do
           <div class="absolute -inset-x-20 bottom-0 bg-gradient-to-t from-white dark:from-gray-950 pt-[7%]">
           </div>
         </div>
-        
-    <!-- Features Grid with improved hierarchy -->
+
+        <%!-- Features Grid with improved hierarchy --%>
         <div class="mx-auto mt-24 max-w-2xl sm:mt-32 lg:mt-40 lg:max-w-none">
           <div class="text-center mb-16">
             <h2 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
@@ -1044,8 +1044,8 @@ defmodule MossletWeb.Components.LandingPage do
               Experience social media as it should be — simple, secure, and designed for your wellbeing.
             </p>
           </div>
-          
-    <!-- Priority Features (First Row) -->
+
+          <%!-- Priority Features (First Row) --%>
           <div class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3 mb-20">
             <div class="relative bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/50 dark:to-teal-900/50 dark:bg-gray-800/50 p-8 rounded-2xl shadow-lg dark:shadow-emerald-500/20 dark:border dark:border-emerald-700/30">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
@@ -1083,8 +1083,8 @@ defmodule MossletWeb.Components.LandingPage do
               </dd>
             </div>
           </div>
-          
-    <!-- Secondary Features Grid -->
+
+          <%!-- Secondary Features Grid --%>
           <dl class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-12 lg:max-w-none lg:grid-cols-2">
             <div class="relative hover:bg-gray-50 dark:hover:bg-gray-900/50 p-6 rounded-xl transition-colors duration-200">
               <dt class="font-semibold text-gray-900 dark:text-gray-100">
@@ -1183,8 +1183,8 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </dl>
         </div>
-        
-    <!-- Bottom CTA Section -->
+
+        <%!-- Bottom CTA Section --%>
         <div class="mt-24 text-center bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/60 dark:to-emerald-900/60 dark:bg-gray-800/60 rounded-3xl p-12 dark:border dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
           <h3 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
             Ready for a better social experience?
@@ -2901,7 +2901,7 @@ defmodule MossletWeb.Components.LandingPage do
   def faq(assigns) do
     ~H"""
     <main class="isolate">
-      <!-- Hero section -->
+      <%!-- Hero section --%>
       <div class="relative isolate -z-10">
         <svg
           class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
@@ -2958,12 +2958,12 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </div>
       </div>
-      
-    <!-- Quick answers section -->
+
+      <%!-- Quick answers section --%>
       <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
         <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
           <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <!-- Privacy Focus -->
+            <%!-- Privacy Focus --%>
             <.link
               href="/privacy"
               class="flex flex-col h-full group cursor-pointer"
@@ -2997,8 +2997,8 @@ defmodule MossletWeb.Components.LandingPage do
                 </div>
               </div>
             </.link>
-            
-    <!-- Simple Pricing -->
+
+            <%!-- Simple Pricing --%>
             <.link
               href="/pricing"
               class="flex flex-col h-full group cursor-pointer"
@@ -3032,8 +3032,8 @@ defmodule MossletWeb.Components.LandingPage do
                 </div>
               </div>
             </.link>
-            
-    <!-- Support -->
+
+            <%!-- Support --%>
             <.link
               href="/support"
               class="flex flex-col h-full group cursor-pointer"
@@ -3070,8 +3070,8 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </div>
       </div>
-      
-    <!-- Main FAQ section -->
+
+      <%!-- Main FAQ section --%>
       <div class="bg-white dark:bg-gray-950 py-24 sm:py-32">
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
           <div class="lg:grid lg:grid-cols-12 lg:gap-8">
@@ -3480,22 +3480,153 @@ defmodule MossletWeb.Components.LandingPage do
 
   def faq_app(assigns) do
     ~H"""
-    <section
-      id="faq_app"
-      aria-labelledby="faq-title"
-      class="mb-10 flex align-middle items-center justify-center transition-all"
-    >
-      <div class="bg-white dark:bg-gray-800 shadow-md dark:shadow-emerald-500/50">
-        <div class="mx-auto max-w-7xl px-6 py-24 sm:pt-32 lg:px-8 lg:pt-40">
+    <main class="isolate">
+      <%!-- Hero section --%>
+      <div class="relative isolate -z-10">
+        <svg
+          class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
+          aria-hidden="true"
+        >
+          <defs>
+            <pattern
+              id="faq-pattern"
+              width="200"
+              height="200"
+              x="50%"
+              y="-1"
+              patternUnits="userSpaceOnUse"
+            >
+              <path d="M.5 200V.5H200" fill="none" />
+            </pattern>
+          </defs>
+          <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
+            <path
+              d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
+              stroke-width="0"
+            />
+          </svg>
+          <rect
+            width="100%"
+            height="100%"
+            stroke-width="0"
+            fill="url(#faq-pattern)"
+          />
+        </svg>
+        <div
+          class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+          aria-hidden="true"
+        >
+          <div
+            class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+            style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
+          >
+          </div>
+        </div>
+        <div class="overflow-hidden">
+          <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
+            <div class="mx-auto max-w-4xl text-center">
+              <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Frequently Asked Questions
+              </h1>
+              <h2 class="mt-6 text-balance text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-black dark:text-white">
+                Get the answers you need
+              </h2>
+              <p class="mt-8 text-pretty text-lg font-medium text-gray-600 dark:text-gray-400 sm:text-xl/8 text-balance">
+                Everything you need to know about MOSSLET's privacy-first approach, features, and how we protect your data. Can't find what you're looking for? We're here to help.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Quick answers section --%>
+      <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
+        <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
+          <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <%!-- Privacy Focus --%>
+            <.link
+              href="/privacy"
+              class="flex flex-col h-full group cursor-pointer"
+            >
+              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 px-8 py-8 border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
+                <div class="flex justify-center pb-4">
+                  <.phx_icon name="hero-lock-closed" class="size-12 text-emerald-500" />
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                    Privacy First
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                    End-to-End Encryption
+                  </h3>
+                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    Your data is encrypted so only you can access it. We can't see it, and neither can anyone else.
+                  </p>
+                </div>
+              </div>
+            </.link>
+
+            <%!-- Simple Pricing --%>
+            <.link
+              href="/app/billing"
+              class="flex flex-col h-full group cursor-pointer"
+            >
+              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-orange-50 dark:bg-orange-900/60 dark:bg-gray-800/60 px-8 py-8 border border-orange-200 dark:border-orange-700/30 dark:shadow-xl dark:shadow-orange-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-orange-500/30 dark:group-hover:shadow-orange-500/40">
+                <div class="flex justify-center pb-4">
+                  <.phx_icon name="hero-currency-dollar" class="size-12 text-orange-500" />
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold tracking-tight text-orange-600 dark:text-orange-400">
+                    Fair Pricing
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                    Pay Once, Own Forever
+                  </h3>
+                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    No subscriptions, no ads, no tracking. Just a one-time payment for lifetime access.
+                  </p>
+                </div>
+              </div>
+            </.link>
+
+            <%!-- Support --%>
+            <.link
+              href="/support"
+              class="flex flex-col h-full group cursor-pointer"
+            >
+              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-blue-50 dark:bg-blue-900/60 dark:bg-gray-800/60 px-8 py-8 border border-blue-200 dark:border-blue-700/30 dark:shadow-xl dark:shadow-blue-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-blue-500/30 dark:group-hover:shadow-blue-500/40">
+                <div class="flex justify-center pb-4">
+                  <.phx_icon name="hero-users" class="size-12 text-blue-500" />
+                </div>
+                <div class="text-center">
+                  <div class="text-sm font-bold tracking-tight text-blue-600 dark:text-blue-400">
+                    Human Support
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                    Real People, Real Help
+                  </h3>
+                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    Questions? Reach out to our support team. We're real people who actually want to help.
+                  </p>
+                </div>
+              </div>
+            </.link>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Main FAQ section --%>
+      <div class="bg-white dark:bg-gray-950 py-24 sm:py-32">
+        <div class="mx-auto max-w-7xl px-6 lg:px-8">
           <div class="lg:grid lg:grid-cols-12 lg:gap-8">
             <div class="lg:col-span-5">
-              <h2 class="text-pretty text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-                Frequently asked questions
+              <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Quick Answers
               </h2>
-              <p class="mt-4 text-pretty text-base/7 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
                 Can't find the answer you're looking for? Reach out to our
                 <.link
-                  class="font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 "
+                  class="font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
                   href="mailto:support@mosslet.com"
                 >
                   customer support
@@ -3506,57 +3637,55 @@ defmodule MossletWeb.Components.LandingPage do
             <div class="mt-10 lg:col-span-7 lg:mt-0">
               <dl class="space-y-10">
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     What is MOSSLET?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET is a privacy-first social network designed to protect users' privacy and human dignity from surveillance and the attention economy. We prioritize privacy, data protection, and creating a safe space for meaningful social interactions.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     How does MOSSLET protect my privacy?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET employs asymmetric encryption (end-to-end) to ensure that your data remains private and secure. This means that only you and the intended recipient can access your messages and information, keeping your interactions confidential.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     What is the pay once pricing model?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
-                    MOSSLET operates on a pay once pricing model, currently set at $20 during our beta phase. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
+                    MOSSLET operates on a pay once pricing model, currently set at $59 during our beta phase. This approach allows us to maintain our service without relying on advertising or data monetization, ensuring that your privacy and experience remains our top priority.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     What makes MOSSLET different from other social networks?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     MOSSLET stands out by prioritizing user privacy, employing ethical design practices, and offering a straightforward pricing model. Unlike traditional social networks that rely on advertising and data exploitation, we focus on creating a safe and respectful environment for our users.
                   </dd>
                 </div>
 
                 <div>
-                  <dt class="text-base/7 font-semibold text-gray-900 dark:text-gray-100">
+                  <dt class="text-lg font-bold text-gray-900 dark:text-gray-100">
                     Can I delete my account and data?
                   </dt>
-                  <dd class="mt-2 text-base/7 text-gray-600 dark:text-gray-400">
+                  <dd class="mt-3 text-base/7 text-gray-600 dark:text-gray-400">
                     Yes, you can delete your account at any time. When you choose to delete your account, all your data will be permanently removed from our servers, ensuring that your information is no longer accessible.
                   </dd>
                 </div>
-
-                <%!-- More questions... --%>
               </dl>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </main>
 
     <div class="pb-12">
       <div id="more-faq-show-button-container" class="hidden relative">
