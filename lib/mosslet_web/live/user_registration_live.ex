@@ -43,35 +43,62 @@ defmodule MossletWeb.UserRegistrationLive do
         <%= case @current_step do %>
           <% 1 -> %>
             <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              Take back your privacy today.
+              Take back your privacy today
             </h2>
+            <h3 class="mt-3 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
+              Create your MOSSLET account
+            </h3>
 
             <div class="space-y-4">
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                  Enter your email to get started. People can send you requests to connect by knowing your email and it will be used when signing into your account.
+                  Welcome! Let's start by setting up your email address. This will be used to sign into your account and for people to send you connection requests.
                 </p>
+                <div class="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                  <div class="flex items-center space-x-2">
+                    <span class="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                    <span>Step 1 of 4</span>
+                    <span class="mx-2">•</span>
+                    <span>Email setup</span>
+                  </div>
+                </div>
               </div>
             </div>
           <% 2 -> %>
             <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              Create your username.
+              Choose your username
             </h2>
 
             <div class="space-y-4">
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                  People can also send you requests to connect by knowing your username and it will be used when sharing items.
+                  Your username is how others can find and connect with you on MOSSLET. It will also be used when sharing content.
                 </p>
+                <div class="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                  <div class="flex items-center space-x-2">
+                    <span class="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                    <span>Step 2 of 4</span>
+                    <span class="mx-2">•</span>
+                    <span>Username setup</span>
+                  </div>
+                </div>
               </div>
             </div>
           <% 3 -> %>
             <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              Create a password.
+              Create a secure password
             </h2>
             <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
-              Your password is used to create a secure key that keeps your account encrypted and private. You can change it at any time from within your account settings.
+              Your password secures your account with strong encryption, keeping your data private. You can change it anytime in your settings.
             </p>
+            <div class="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
+              <div class="flex items-center space-x-2">
+                <span class="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                <span>Step 3 of 4</span>
+                <span class="mx-2">•</span>
+                <span>Password setup</span>
+              </div>
+            </div>
 
             <div class="mt-4 rounded-md bg-background-50 dark:bg-emerald-50 p-4 shadow-md dark:shadow-emerald-500/50">
               <div class="flex">
@@ -101,23 +128,31 @@ defmodule MossletWeb.UserRegistrationLive do
             </div>
           <% 4 -> %>
             <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              Why still a password?
+              Password recovery options
             </h2>
             <div class="space-y-4">
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
-                  Only your password can be used to unlock your data thanks to strong asymmetric encryption. So, it's super important to keep your password safe (we recommend a password manager).
+                  Your password is the only way to unlock your encrypted data. We recommend using a password manager to keep it safe.
                 </p>
               </div>
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
-                  Once you confirm your account you will be able to go into your settings and set the "Forgot Password?" option. This option enables you to reset your password in the event that you forget it.
+                  You can optionally enable "Forgot Password?" recovery after confirming your account. This lets you reset your password if you forget it.
                 </p>
               </div>
               <div class="mt-2 text-sm text-gray-700 dark:text-gray-200">
                 <p>
-                  If you are in a very security conscious environment, then you can choose not to set that option. If you do not set that option, and forget your password, we can not help you get back into your account.
+                  For maximum security, you can skip this option. However, if you forget your password and haven't enabled recovery, we cannot help you regain access to your account.
                 </p>
+              </div>
+              <div class="mt-4 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                <div class="flex items-center space-x-2">
+                  <span class="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  <span>Step 4 of 4</span>
+                  <span class="mx-2">•</span>
+                  <span>Final setup</span>
+                </div>
               </div>
             </div>
           <% true -> %>
