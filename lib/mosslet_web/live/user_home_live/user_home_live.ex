@@ -6,6 +6,8 @@ defmodule MossletWeb.UserHomeLive do
   alias Mosslet.Accounts
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Post
+  alias Mosslet.Groups
+  alias Mosslet.Repo
 
   import MossletWeb.UserHomeLive.Components
 
@@ -55,9 +57,18 @@ defmodule MossletWeb.UserHomeLive do
         do: Timeline.unread_posts(current_user),
         else: []
 
+    # Calculate activity stats using existing functions
+    activity_stats = %{
+      posts: get_user_post_count(current_user),
+      connections: length(Accounts.get_all_confirmed_user_connections(current_user.id)),
+      replies: get_user_reply_count(current_user),
+      groups: length(Groups.list_groups(current_user))
+    }
+
     socket =
       socket
       |> stream(:unread_posts, unread_posts, reset: true)
+      |> assign(:activity_stats, activity_stats)
       |> start_async(:assign_post_shared_users, fn ->
         decrypt_shared_user_connections(
           Accounts.get_all_confirmed_user_connections(current_user.id),
@@ -243,6 +254,28 @@ defmodule MossletWeb.UserHomeLive do
       )
 
     {:noreply, socket}
+  end
+
+  defp get_user_post_count(user) do
+    import Ecto.Query
+
+    from(up in Timeline.UserPost,
+      inner_join: p in Timeline.Post,
+      on: up.post_id == p.id,
+      where: up.user_id == ^user.id
+    )
+    |> Repo.aggregate(:count, :id)
+  end
+
+  defp get_user_reply_count(user) do
+    import Ecto.Query
+
+    from(r in Timeline.Reply,
+      inner_join: p in Timeline.Post,
+      on: r.post_id == p.id,
+      where: r.user_id == ^user.id
+    )
+    |> Repo.aggregate(:count, :id)
   end
 
   defp apply_action(socket, :show, _params) do
