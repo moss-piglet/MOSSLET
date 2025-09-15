@@ -6,7 +6,7 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
   def render(assigns) do
     ~H"""
-    <.layout current_page={:connections} current_user={@current_user} key={@key} type="sidebar">
+    <.layout current_page={:new_invite} current_user={@current_user} key={@key} type="sidebar">
       <div class="space-y-8 pt-4 mx-4 sm:mx-6 max-w-4xl">
         <%!-- Invitation Section --%>
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
