@@ -750,7 +750,8 @@ defmodule MossletWeb.CoreComponents do
 
   attr :type, :string,
     default: "text",
-    values: ~w(checkbox color date datetime-local email file hidden month number password
+    values:
+      ~w(checkbox color color_select date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week)
 
   attr :field, Phoenix.HTML.FormField,
@@ -817,17 +818,89 @@ defmodule MossletWeb.CoreComponents do
     """
   end
 
+  def phx_input(%{type: "color_select"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label for={@id}>{@label}</.label>
+      <div
+        :if={@description?}
+        id={@id <> "_description"}
+        class="mt-2 text-sm leading-6 text-zinc-600 dark:text-gray-400"
+      >
+        {render_slot(@description_block)}
+      </div>
+
+      <div class="relative">
+        <select
+          id={@id}
+          name={@name}
+          class={
+            if @apply_classes?,
+              do: [
+                @classes,
+                @errors == [] && "border-zinc-300 focus:border-zinc-400",
+                @errors != [] && "border-rose-400 focus:border-rose-400"
+              ],
+              else: [
+                "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800 pr-10",
+                @errors == [] && "border-zinc-300 focus:border-zinc-400",
+                @errors != [] && "border-rose-400 focus:border-rose-400"
+              ]
+          }
+          multiple={@multiple}
+          {@rest}
+        >
+          <option :if={@prompt} value="">{@prompt}</option>
+          {Phoenix.HTML.Form.options_for_select(@options, @value)}
+        </select>
+
+        <%!-- Color indicator dot --%>
+        <div
+          :if={@value && @value != ""}
+          class="absolute inset-y-0 right-8 flex items-center pointer-events-none"
+        >
+          <div class={["w-3 h-3 rounded-full", get_color_classes(@value)]}></div>
+        </div>
+
+        <%!-- Dropdown arrow --%>
+        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <.phx_icon name="hero-chevron-down" class="h-4 w-4 text-gray-400" />
+        </div>
+      </div>
+
+      <.error :for={msg <- @errors}>{msg}</.error>
+      <.help :if={@help} text={@help} class="mt-1" />
+    </div>
+    """
+  end
+
   def phx_input(%{type: "select"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
       <.label for={@id}>{@label}</.label>
-      <div :if={@description?} id={@id <> "_description"} class="mt-2 text-sm leading-6 text-zinc-600">
+      <div
+        :if={@description?}
+        id={@id <> "_description"}
+        class="mt-2 text-sm leading-6 text-zinc-600 dark:text-gray-400"
+      >
         {render_slot(@description_block)}
       </div>
       <select
         id={@id}
         name={@name}
-        class="mt-2 block w-full rounded-md border border-gray-300 bg-white shadow-sm focus:border-zinc-400 focus:ring-0 sm:text-sm"
+        class={
+          if @apply_classes?,
+            do: [
+              @classes,
+              @errors == [] && "border-zinc-300 focus:border-zinc-400",
+              @errors != [] && "border-rose-400 focus:border-rose-400"
+            ],
+            else: [
+              "mt-2 block w-full rounded-md border border-gray-300 bg-white dark:bg-gray-800 shadow-sm focus:border-zinc-400 focus:ring-0 sm:text-sm text-gray-900 dark:text-white",
+              @errors == [] && "border-zinc-300 focus:border-zinc-400",
+              @errors != [] && "border-rose-400 focus:border-rose-400"
+            ]
+        }
         multiple={@multiple}
         {@rest}
       >
@@ -1161,7 +1234,7 @@ defmodule MossletWeb.CoreComponents do
 
     ~H"""
     <div class="mt-8 flow-root">
-      <!-- Desktop Table View -->
+      <%!-- Desktop Table View --%>
       <div class="hidden lg:block overflow-visible">
         <div class="w-full py-2">
           <div class="overflow-hidden rounded-2xl shadow-xl dark:shadow-2xl border border-background-200 dark:border-emerald-800">
@@ -1235,8 +1308,8 @@ defmodule MossletWeb.CoreComponents do
           </div>
         </div>
       </div>
-      
-    <!-- Mobile Card View -->
+
+      <%!-- Mobile Card View --%>
       <div class="lg:hidden space-y-6">
         <div
           :for={row <- @rows}
@@ -1247,7 +1320,7 @@ defmodule MossletWeb.CoreComponents do
             @row_click && "hover:cursor-pointer"
           ]}
         >
-          <!-- Card Header -->
+          <%!-- Card Header --%>
           <div class="bg-gradient-to-r from-background-50 to-background-100 dark:from-gray-800 dark:to-gray-700 px-6 py-4 border-b border-background-100 dark:border-gray-700">
             <div class="flex items-center justify-between">
               <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
@@ -1269,8 +1342,8 @@ defmodule MossletWeb.CoreComponents do
               </div>
             </div>
           </div>
-          
-    <!-- Card Body -->
+
+          <%!-- Card Body --%>
           <div class="p-6 space-y-5">
             <div :for={{col, i} <- Enum.with_index(Enum.drop(@col, 1))} class="group">
               <div class="flex flex-col space-y-2">
@@ -1284,8 +1357,8 @@ defmodule MossletWeb.CoreComponents do
               </div>
             </div>
           </div>
-          
-    <!-- Card Actions -->
+
+          <%!-- Card Actions --%>
           <div
             :if={@action != []}
             class="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-background-100 dark:border-gray-700"
@@ -2281,4 +2354,15 @@ defmodule MossletWeb.CoreComponents do
   defp generate_initials(_) do
     ""
   end
+
+  # Color helper functions for color_select component
+  defp get_color_classes(color) when is_atom(color), do: get_color_classes(Atom.to_string(color))
+  defp get_color_classes("emerald"), do: "bg-emerald-500"
+  defp get_color_classes("orange"), do: "bg-orange-500"
+  defp get_color_classes("pink"), do: "bg-pink-500"
+  defp get_color_classes("purple"), do: "bg-purple-500"
+  defp get_color_classes("rose"), do: "bg-rose-500"
+  defp get_color_classes("yellow"), do: "bg-yellow-500"
+  defp get_color_classes("zinc"), do: "bg-zinc-500"
+  defp get_color_classes(_), do: "bg-gray-300"
 end

@@ -1352,93 +1352,90 @@ defmodule MossletWeb.UserConnectionLive.Components do
 
   def cards_greeter(assigns) do
     ~H"""
-    <div id={@id} phx-update="stream" class="py-10 grid grid-cols-1 gap-6 divide-y divide-emerald-100">
-      <div
-        :for={{id, item} <- @stream}
-        phx-click={@card_click.(item)}
-        class={[
-          "col-span-1 divide-y divide-emerald-200 gap-x-4 py-2 px-2",
-          @card_click &&
-            "transition hover:bg-emerald-50 dark:hover:bg-gray-900 sm:hover:rounded-2xl sm:hover:scale-105"
-        ]}
+    <div class="space-y-6">
+      <%!-- Connection Cards Grid --%>
+      <div id={@id} phx-update="stream" class="space-y-4 sm:space-y-6">
+        <%!-- Empty State - shows when stream has no items --%>
+        <div id="arrivals-empty" class="only:block hidden text-center py-12 sm:py-16">
+          <div class="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
+            <.phx_icon
+              name="hero-users"
+              class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600 dark:text-emerald-400"
+            />
+          </div>
+          <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            No pending connections
+          </h3>
+          <p class="text-gray-600 dark:text-gray-300 max-w-md mx-auto">
+            When people send you connection requests, they'll appear here for you to review.
+          </p>
+        </div>
+
+        <div
+          :for={{id, item} <- @stream}
+          phx-click={@card_click.(item)}
+          class={[
+            "transition-all duration-200",
+            @card_click && "cursor-pointer hover:scale-[1.02]"
+          ]}
+        >
+          <.arrival
+            :if={not is_nil(item)}
+            uconn={item}
+            current_user={@current_user}
+            key={@key}
+            list_id={id}
+            color={item.color || :purple}
+            loading_list={@loading_list}
+            arrivals_count={@arrivals_count}
+          />
+        </div>
+      </div>
+
+      <%!-- Pagination --%>
+      <nav
+        :if={@arrivals_count > 0}
+        id="arrivals-pagination"
+        class="flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4 sm:space-y-0"
       >
-        <.arrival
-          :if={not is_nil(item)}
-          uconn={item}
-          current_user={@current_user}
-          key={@key}
-          list_id={id}
-          color={item.color || :purple}
-          loading_list={@loading_list}
-          arrivals_count={@arrivals_count}
-        />
-      </div>
+        <div class="flex justify-center sm:justify-start w-full sm:w-auto">
+          <.link
+            :if={@options.page > 1}
+            patch={~p"/app/users/connections/greet?#{%{@options | page: @options.page - 1}}"}
+            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+          >
+            <.phx_icon name="hero-chevron-left" class="w-4 h-4 mr-2" /> Previous
+          </.link>
+        </div>
+
+        <div class="hidden sm:flex space-x-2">
+          <.link
+            :for={{page_number, current_page?} <- pages(@options, @arrivals_count)}
+            class={
+              if current_page?,
+                do:
+                  "inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-emerald-600 rounded-lg",
+                else:
+                  "inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+            }
+            patch={~p"/app/users/connections/greet?#{%{@options | page: page_number}}"}
+            aria-current="page"
+          >
+            {page_number}
+          </.link>
+        </div>
+
+        <div class="flex justify-center sm:justify-end w-full sm:w-auto">
+          <.link
+            :if={more_pages?(@options, @arrivals_count)}
+            patch={~p"/app/users/connections/greet?#{%{@options | page: @options.page + 1}}"}
+            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+          >
+            Next <.phx_icon name="hero-chevron-right" class="w-4 h-4 ml-2" />
+          </.link>
+        </div>
+      </nav>
     </div>
-    <!-- pagination -->
-    <nav
-      :if={@arrivals_count > 0}
-      id="arrivals-pagination"
-      class="flex items-center justify-between border-t border-gray-200 px-4 sm:px-0"
-    >
-      <div class="-mt-px flex w-0 flex-1">
-        <.link
-          :if={@options.page > 1}
-          patch={~p"/app/users/connections/greet?#{%{@options | page: @options.page - 1}}"}
-          class="inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
-        >
-          <svg
-            class="mr-3 h-5 w-5 text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M18 10a.75.75 0 01-.75.75H4.66l2.1 1.95a.75.75 0 11-1.02 1.1l-3.5-3.25a.75.75 0 010-1.1l3.5-3.25a.75.75 0 111.02 1.1l-2.1 1.95h12.59A.75.75 0 0118 10z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          Previous
-        </.link>
-      </div>
-      <div class="hidden md:-mt-px md:flex">
-        <.link
-          :for={{page_number, current_page?} <- pages(@options, @arrivals_count)}
-          class={
-            if current_page?,
-              do:
-                "inline-flex items-center border-t-2 border-primary-500 px-4 pt-4 text-sm font-medium text-primary-600",
-              else:
-                "inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
-          }
-          patch={~p"/app/users/connections/greet?#{%{@options | page: page_number}}"}
-          aria-current="page"
-        >
-          {page_number}
-        </.link>
-      </div>
-      <div class="-mt-px flex w-0 flex-1 justify-end">
-        <.link
-          :if={more_pages?(@options, @arrivals_count)}
-          patch={~p"/app/users/connections/greet?#{%{@options | page: @options.page + 1}}"}
-          class="inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
-        >
-          Next
-          <svg
-            class="ml-3 h-5 w-5 text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </.link>
-      </div>
-    </nav>
     """
   end
 
@@ -1458,55 +1455,68 @@ defmodule MossletWeb.UserConnectionLive.Components do
 
   def arrival(assigns) do
     ~H"""
-    <div class="flex w-full items-center justify-between space-x-6 p-2">
-      <div class="flex-1 truncate">
-        <div class="flex items-center space-x-3">
-          <h3
-            class="truncate text-sm font-medium text-gray-900 dark:text-gray-50"
-            title={"username: " <> decr_uconn(@uconn.request_username, @current_user, @uconn.key, @key)}
-          >
-            {decr_uconn(@uconn.request_username, @current_user, @uconn.key, @key)}
-          </h3>
-          <span class={"inline-flex flex-shrink-0 items-center rounded-full #{badge_color(@color)} px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset"}>
-            {decr_uconn(@uconn.label, @current_user, @uconn.key, @key)}
-          </span>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-4 sm:p-6 border border-gray-100 dark:border-gray-700">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-6">
+        <%!-- User Info Section --%>
+        <div class="flex items-start space-x-4 flex-1 min-w-0">
+          <%!-- Avatar --%>
+          <div class="flex-shrink-0">
+            <.phx_avatar
+              class="h-12 w-12 sm:h-14 sm:w-14 rounded-full border-2 border-emerald-100 dark:border-emerald-800"
+              src={
+                if !show_avatar?(@uconn),
+                  do: "",
+                  else: maybe_get_avatar_src(@uconn, @current_user, @key, @loading_list)
+              }
+            />
+          </div>
+
+          <%!-- User Details --%>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start sm:items-center space-x-3">
+              <h3
+                class="text-lg font-semibold text-gray-900 dark:text-white truncate flex-1"
+                title={"username: " <> decr_uconn(@uconn.request_username, @current_user, @uconn.key, @key)}
+              >
+                {decr_uconn(@uconn.request_username, @current_user, @uconn.key, @key)}
+              </h3>
+              <span class={"inline-flex items-center rounded-full #{badge_color(@color)} px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset flex-shrink-0"}>
+                {decr_uconn(@uconn.label, @current_user, @uconn.key, @key)}
+              </span>
+            </div>
+
+            <p
+              class="mt-1 text-sm text-gray-600 dark:text-gray-300 truncate"
+              title={"email: " <> decr_uconn(@uconn.request_email, @current_user, @uconn.key, @key)}
+            >
+              {decr_uconn(@uconn.request_email, @current_user, @uconn.key, @key)}
+            </p>
+
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <.local_time_ago id={@uconn.id} at={@uconn.inserted_at} />
+            </p>
+          </div>
         </div>
-        <p
-          class="mt-1 truncate text-sm text-gray-500 dark:text-gray-400"
-          title={"email: " <> decr_uconn(@uconn.request_email, @current_user, @uconn.key, @key)}
-        >
-          {decr_uconn(@uconn.request_email, @current_user, @uconn.key, @key)}
-        </p>
-        <p class="mt-1 flex justify-start text-xs space-x-4">
-          <.local_time_ago id={@uconn.id} at={@uconn.inserted_at} />
-        </p>
-      </div>
-      <div class="flex-col items-center justify-between">
-        <.phx_avatar
-          class="mx-auto h-10 w-10 flex-shrink-0 rounded-full"
-          src={
-            if !show_avatar?(@uconn),
-              do: "",
-              else: maybe_get_avatar_src(@uconn, @current_user, @key, @loading_list)
-          }
-        />
-        <div class="mt-2 space-x-4">
+
+        <%!-- Action Buttons --%>
+        <div class="flex items-center justify-center sm:justify-end space-x-3 flex-shrink-0">
           <.link
             :if={@current_user && @uconn.user_id == @current_user.id}
             id={"#{@uconn.id}-accept-button"}
             phx-click={JS.push("accept_uconn", value: %{id: @uconn.id})}
-            class="hover:text-emerald-600"
+            class="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-all duration-200 hover:scale-105 active:scale-95"
             data-tippy-content="Accept Connection"
             phx-hook="TippyHook"
           >
             <.phx_icon name="hero-hand-thumb-up" class="h-5 w-5" />
           </.link>
+
           <.link
             :if={@current_user && @uconn.user_id == @current_user.id}
             id={"#{@uconn.id}-delete-button"}
             phx-click={JS.push("decline_uconn", value: %{id: @uconn.id})}
             data-confirm="Are you sure you wish to decline this request?"
-            class="hover:text-rose-600"
+            class="inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-all duration-200 hover:scale-105 active:scale-95"
             data-tippy-content="Privately decline Connection"
             phx-hook="TippyHook"
           >

@@ -7,12 +7,18 @@ defmodule MossletWeb.UserConnectionLive.ArrivalComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div>
-      <.page_header :if={@action == :greet} title={@title} />
-      <.p>
-        View your awaiting connections below and accept, ignore, or privately decline.
-      </.p>
+    <div class="space-y-6">
+      <%!-- Header Section --%>
+      <div class="text-center sm:text-left space-y-3">
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+          {@title}
+        </h2>
+        <p class="text-base sm:text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto sm:mx-0">
+          Review your pending connections below. You can accept, decline, or ignore each request.
+        </p>
+      </div>
 
+      <%!-- Connection Cards --%>
       <Components.cards_greeter
         id="arrivals_greeter"
         stream={@stream}

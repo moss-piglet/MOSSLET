@@ -5,8 +5,6 @@ defmodule MossletWeb.UserHomeLive.Components do
   use Phoenix.Component
   use MossletWeb, :verified_routes
 
-  alias Phoenix.LiveView.JS
-
   import MossletWeb.CoreComponents
 
   import MossletWeb.Helpers

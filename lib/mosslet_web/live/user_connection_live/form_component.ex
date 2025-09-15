@@ -7,13 +7,19 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div>
-      <.page_header title={@title} />
-
-      <div class="pb-4">
-        <.p :if={@action == :new}>Use this form to request a new connection.</.p>
-        <.p :if={@action == :edit}>Use this form to edit your existing connection.</.p>
+    <div class="px-6 py-6 bg-white dark:bg-gray-900 rounded-lg shadow-sm">
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold leading-7 text-gray-900 dark:text-white">
+          {@title}
+        </h2>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <span :if={@action == :new}>
+            Connect with someone new to start sharing memories and posts.
+          </span>
+          <span :if={@action == :edit}>Update your connection settings and preferences.</span>
+        </p>
       </div>
+
       <.form
         :if={@action == :new}
         for={@form}
@@ -21,27 +27,30 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
         phx-target={@myself}
         phx-change="validate"
         phx-submit="save"
+        class="space-y-6"
       >
-        <.field field={@form[:connection_id]} type="hidden" value={@user.connection.id} />
-        <.field field={@form[:user_id]} type="hidden" value={@recipient_id} />
-        <.field field={@form[:reverse_user_id]} type="hidden" value={@user.id} />
-        <.field field={@form[:request_username]} type="hidden" value={@request_username} />
-        <.field field={@form[:request_email]} type="hidden" value={@request_email} />
-        <.field field={@form[:key]} type="hidden" value={@recipient_key} />
-        <.field field={@form[:label]} type="hidden" />
+        <.phx_input field={@form[:connection_id]} type="hidden" value={@user.connection.id} />
+        <.phx_input field={@form[:user_id]} type="hidden" value={@recipient_id} />
+        <.phx_input field={@form[:reverse_user_id]} type="hidden" value={@user.id} />
+        <.phx_input field={@form[:request_username]} type="hidden" value={@request_username} />
+        <.phx_input field={@form[:request_email]} type="hidden" value={@request_email} />
+        <.phx_input field={@form[:key]} type="hidden" value={@recipient_key} />
+        <.phx_input field={@form[:label]} type="hidden" />
 
-        <div class="inline-flex items-center space-x-4 dark:text-gray-300">
-          <.field
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <.phx_input
             field={@form[:temp_label]}
             type="text"
             label="Label"
             placeholder="Family, friend, partner, et al"
+            apply_classes?={true}
+            classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
             {alpine_autofocus()}
           />
 
-          <.field
+          <.phx_input
             field={@form[:color]}
-            type="select"
+            type="color_select"
             label="Color"
             prompt="Choose label color"
             options={
@@ -52,50 +61,61 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
                 ]
               end)
             }
-            data-label="label"
           />
         </div>
 
-        <.field
+        <.phx_input
           field={@form[:selector]}
           type="select"
           label="Find by"
           prompt="Choose how to find"
           options={[Username: "username", Email: "email"]}
+          apply_classes?={true}
+          classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
         />
 
-        <.field
+        <.phx_input
           :if={@selector == "email"}
           field={@form[:email]}
           type="email"
           label="Email"
           autocomplete="off"
           phx-debounce="500"
+          placeholder="Enter their email address"
+          apply_classes?={true}
+          classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
         />
 
-        <.field
+        <.phx_input
           :if={@selector == "username"}
           field={@form[:username]}
           type="text"
           label="Username"
           autocomplete="off"
           phx-debounce="500"
+          placeholder="Enter their username"
+          apply_classes?={true}
+          classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
         />
 
-        <.button
-          :if={@form.source.valid?}
-          class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-          phx-disable-with="Sending..."
-        >
-          Send
-        </.button>
-        <.button
-          :if={!@form.source.valid?}
-          disabled
-          class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
-        >
-          Send
-        </.button>
+        <div class="flex justify-end pt-6">
+          <button
+            :if={@form.source.valid?}
+            type="submit"
+            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            phx-disable-with="Sending..."
+          >
+            <.phx_icon name="hero-paper-airplane" class="size-4 mr-2" /> Send Connection Request
+          </button>
+          <button
+            :if={!@form.source.valid?}
+            type="submit"
+            disabled
+            class="inline-flex items-center opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-sm font-semibold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
+          >
+            <.phx_icon name="hero-paper-airplane" class="size-4 mr-2" /> Send Connection Request
+          </button>
+        </div>
       </.form>
 
       <.form
@@ -105,19 +125,22 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
         phx-target={@myself}
         phx-change="validate_update"
         phx-submit="update"
+        class="space-y-6"
       >
-        <div class="inline-flex items-center space-x-4">
-          <.field
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <.phx_input
             field={@form[:temp_label]}
             type="text"
             label="New label"
             value={@temp_label}
             placeholder="Family, friend, partner, et al"
+            apply_classes?={true}
+            classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
           />
 
-          <.field
+          <.phx_input
             field={@form[:color]}
-            type="select"
+            type="color_select"
             label="Color"
             prompt="Choose label color"
             options={
@@ -128,33 +151,40 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
                 ]
               end)
             }
-            data-label="label"
           />
         </div>
-        <.field
+
+        <.phx_input
           field={@form[:photos?]}
           type="checkbox"
           label="Memory mode"
-          help_text="Allow this person to be able to download and save any Memories you share with them."
-        />
-
-        <.field field={@form[:label]} type="hidden" />
-        <.field field={@form[:id]} type="hidden" value={@uconn.id} />
-
-        <.button
-          :if={@form.source.valid?}
-          class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-          phx-disable-with="Updating..."
         >
-          Update
-        </.button>
-        <.button
-          :if={!@form.source.valid?}
-          disabled
-          class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
-        >
-          Update
-        </.button>
+          <:description_block>
+            Allow this person to be able to download and save any Memories you share with them.
+          </:description_block>
+        </.phx_input>
+
+        <.phx_input field={@form[:label]} type="hidden" />
+        <.phx_input field={@form[:id]} type="hidden" value={@uconn.id} />
+
+        <div class="flex justify-end pt-6">
+          <button
+            :if={@form.source.valid?}
+            type="submit"
+            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            phx-disable-with="Updating..."
+          >
+            <.phx_icon name="hero-check" class="size-4 mr-2" /> Update Connection
+          </button>
+          <button
+            :if={!@form.source.valid?}
+            type="submit"
+            disabled
+            class="inline-flex items-center opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-sm font-semibold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
+          >
+            <.phx_icon name="hero-check" class="size-4 mr-2" /> Update Connection
+          </button>
+        </div>
       </.form>
     </div>
     """
