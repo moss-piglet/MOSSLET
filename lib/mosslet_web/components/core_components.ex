@@ -1058,7 +1058,7 @@ defmodule MossletWeb.CoreComponents do
     ~H"""
     <label for={@for} class="block text-sm font-semibold leading-6 text-zinc-800 dark:text-white">
       {render_slot(@inner_block)}
-      {if @required, do: " *", else: ""}
+      <span :if={@required} class="text-red-500"> *</span>
     </label>
     """
   end
