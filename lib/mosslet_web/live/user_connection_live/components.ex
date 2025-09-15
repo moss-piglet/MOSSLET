@@ -17,28 +17,56 @@ defmodule MossletWeb.UserConnectionLive.Components do
   def user_connection_card(assigns) do
     ~H"""
     <.link navigate={~p"/app/users/connections/#{@user_connection}"} id={@id}>
-      <div class="card">
-        <div class="name">
-          {decr_uconn(@user_connection.connection.name, @current_user, @user_connection.key, @key)}
-        </div>
-        <img src={
-          if !show_avatar?(@user_connection) ||
-               maybe_get_avatar_src(@user_connection, @current_user, @key, @user_connections) == "",
-             do: ~p"/images/logo.svg",
-             else: maybe_get_avatar_src(@user_connection, @current_user, @key, @user_connections)
-        } />
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-4 sm:p-6 border border-gray-100 dark:border-gray-700 group hover:scale-[1.02]">
+        <div class="flex items-center space-x-4">
+          <%!-- Avatar --%>
+          <div class="flex-shrink-0">
+            <img
+              class="h-12 w-12 sm:h-16 sm:w-16 rounded-full border-2 border-emerald-100 dark:border-emerald-800 group-hover:border-emerald-200 dark:group-hover:border-emerald-700 transition-colors duration-200"
+              src={
+                if !show_avatar?(@user_connection) ||
+                     maybe_get_avatar_src(@user_connection, @current_user, @key, @user_connections) ==
+                       "",
+                   do: ~p"/images/logo.svg",
+                   else:
+                     maybe_get_avatar_src(@user_connection, @current_user, @key, @user_connections)
+              }
+              alt="Connection avatar"
+            />
+          </div>
 
-        <div class="details">
-          @{decr_uconn(
-            @user_connection.connection.username,
-            @current_user,
-            @user_connection.key,
-            @key
-          )}
-          <div class="text-sm">
-            <.user_connection_badge
-              color={@user_connection.color}
-              label={decr_uconn(@user_connection.label, @current_user, @user_connection.key, @key)}
+          <%!-- User Info --%>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start space-x-3">
+              <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200 truncate flex-1">
+                {decr_uconn(
+                  @user_connection.connection.name,
+                  @current_user,
+                  @user_connection.key,
+                  @key
+                )}
+              </h3>
+              <.user_connection_badge
+                color={@user_connection.color}
+                label={decr_uconn(@user_connection.label, @current_user, @user_connection.key, @key)}
+              />
+            </div>
+
+            <p class="mt-1 text-sm sm:text-base text-gray-600 dark:text-gray-300 truncate">
+              @{decr_uconn(
+                @user_connection.connection.username,
+                @current_user,
+                @user_connection.key,
+                @key
+              )}
+            </p>
+          </div>
+
+          <%!-- Chevron Icon --%>
+          <div class="flex-shrink-0">
+            <.phx_icon
+              name="hero-chevron-right"
+              class="h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-emerald-500 transition-colors duration-200"
             />
           </div>
         </div>
@@ -1337,7 +1365,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
   end
 
   attr :id, :string, required: true
-  attr :stream, :list, required: true
+  attr :stream, :any, required: true
   attr :card_click, :any, default: nil, doc: "the function for handling phx-click on each card"
   attr :current_user, :string, required: true
   attr :key, :string, required: true
@@ -1394,7 +1422,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
 
       <%!-- Pagination --%>
       <nav
-        :if={@arrivals_count > 0}
+        :if={@arrivals_count > @options.per_page}
         id="arrivals-pagination"
         class="flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4 sm:space-y-0"
       >
@@ -1529,7 +1557,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
   end
 
   attr :id, :string, required: true
-  attr :stream, :list, required: true
+  attr :stream, :any, required: true
   attr :card_click, :any, default: nil, doc: "the function for handling phx-click on each card"
   attr :page, :integer, required: true
   attr :current_user, :string, required: true

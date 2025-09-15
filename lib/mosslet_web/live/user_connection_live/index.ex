@@ -35,6 +35,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
     sort_by = valid_sort_by(params)
     sort_order = valid_sort_order(params)
 
+    # Arrivals pagination
     arrivals_page = param_to_integer(params["page"], @page_default)
 
     arrivals_per_page =
@@ -58,17 +59,20 @@ defmodule MossletWeb.UserConnectionLive.Index do
         do: ~p"/app/users/connections/greet",
         else: ~p"/app/users/connections/greet?#{arrivals_options}"
 
+    # Get connections (keeping simple for now)
+    connections = Accounts.filter_user_connections(params, current_user)
+    connections_count = length(connections)
+
     socket =
       socket
       |> assign(arrivals_options: arrivals_options)
       |> assign(:any_pending_arrivals?, any_pending_arrivals?)
       |> assign(:arrivals_count, Accounts.arrivals_count(current_user))
+      |> assign(:connections_count, connections_count)
       |> assign(:loading_list, arrivals_loading_list)
       |> assign(:return_url, url)
       |> stream(:arrivals, uconn_arrivals, reset: true)
-      |> stream(:user_connections, Accounts.filter_user_connections(params, current_user),
-        reset: true
-      )
+      |> stream(:user_connections, connections, reset: true)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -187,21 +191,27 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   @impl true
   def handle_info({:uconn_created, uconn}, socket) do
+    current_user = socket.assigns.current_user
+
     cond do
-      uconn.user_id == socket.assigns.current_user.id && uconn.confirmed_at ->
+      uconn.user_id == current_user.id && uconn.confirmed_at ->
         {:noreply,
          socket
          |> push_patch(to: socket.assigns.return_to)}
 
-      uconn.reverse_user_id == socket.assigns.current_user.id && uconn.confirmed_at ->
+      uconn.reverse_user_id == current_user.id && uconn.confirmed_at ->
         {:noreply,
          socket
          |> push_patch(to: socket.assigns.return_to)}
 
-      uconn.user_id == socket.assigns.current_user.id ->
+      uconn.user_id == current_user.id ->
+        # Update both stream and count for real-time updates
+        updated_count = Accounts.arrivals_count(current_user)
+
         {:noreply,
          socket
-         |> stream_insert(:arrivals, uconn, at: 0)}
+         |> stream_insert(:arrivals, uconn, at: 0)
+         |> assign(:arrivals_count, updated_count)}
 
       true ->
         {:noreply, socket}
@@ -475,6 +485,8 @@ defmodule MossletWeb.UserConnectionLive.Index do
       :error -> default
     end
   end
+
+  defp limit_per_page(nil), do: @per_page_default
 
   defp limit_per_page(per_page) when is_integer(per_page) do
     if per_page > 24, do: 24, else: per_page
