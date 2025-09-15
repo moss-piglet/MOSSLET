@@ -486,8 +486,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
     end
   end
 
-  defp limit_per_page(nil), do: @per_page_default
-
   defp limit_per_page(per_page) when is_integer(per_page) do
     if per_page > 24, do: 24, else: per_page
   end

@@ -986,7 +986,7 @@ defmodule MossletWeb.CoreComponents do
   def phx_input(assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label for={@id}>{@label}</.label>
+      <.label for={@id} required={@required}>{@label}</.label>
       <div :if={@description?} id={@id <> "_description"} class="mt-2 text-sm leading-6 text-zinc-600">
         {render_slot(@description_block)}
       </div>
@@ -1009,6 +1009,7 @@ defmodule MossletWeb.CoreComponents do
               @errors != [] && "border-rose-400 focus:border-rose-400"
             ]
         }
+        required={@required}
         {@rest}
       />
       <.error :for={msg <- @errors}>{msg}</.error>
@@ -2006,23 +2007,9 @@ defmodule MossletWeb.CoreComponents do
             >
               <.link
                 navigate={~p"/app/users/connections/invite/new-invite"}
-                class="inline-flex items-center text-sm text-background-500 dark:text-gray-400 hover:bg-background-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-background-200 dark:focus:ring-gray-700 rounded-lg py-2.5 px-3"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="1.5"
-                  stroke="currentColor"
-                  class="size-5 mr-1"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
-                  />
-                </svg>
-                New invite
+                <.phx_icon name="hero-paper-airplane" class="size-4" /> New invite
               </.link>
             </button>
 

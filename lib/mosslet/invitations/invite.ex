@@ -16,6 +16,7 @@ defmodule Mosslet.Invitations.Invite do
   def changeset(invite, attrs) do
     invite
     |> cast(attrs, [:recipient_name, :recipient_email])
+    |> validate_required([:recipient_name, :recipient_email])
     |> validate_name()
     |> validate_email()
   end
@@ -24,7 +25,6 @@ defmodule Mosslet.Invitations.Invite do
     if Map.has_key?(changeset.changes, :recipient_email) do
       changeset
       |> put_change(:recipient_email, String.downcase(get_field(changeset, :recipient_email)))
-      |> validate_required([:recipient_email])
       |> validate_format(:recipient_email, ~r/^[^\s]+@[^\s]+$/,
         message: "must have the @ sign and no spaces"
       )
