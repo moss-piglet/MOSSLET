@@ -20,16 +20,12 @@ defmodule MossletWeb.UserHomeLive.Components do
         src={~p"/images/profile/#{get_banner_image_for_connection(@current_user.connection)}"}
         alt="profile banner image"
       />
-      <div class="mx-auto max-w-3xl px-4 sm:px-6 md:flex md:items-center md:justify-between md:space-x-5 lg:max-w-7xl lg:px-8">
-        <div class="flex items-center space-x-5">
-          <div class={
-            if get_banner_image_for_connection(@current_user.connection) == "",
-              do: "shrink-0",
-              else: "-mt-12 sm:-mt-16 sm:flex sm:items-end sm:space-x-5 shrink-0"
-          }>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="relative -mt-12 sm:-mt-16 flex items-end space-x-5">
+          <div class="flex">
             <div class="relative">
               <.phx_avatar
-                class="size-32 sm:size-48 rounded-full"
+                class="size-24 sm:size-32 rounded-full ring-4 ring-white dark:ring-gray-800 shadow-lg"
                 src={
                   if !show_avatar?(@current_user) ||
                        maybe_get_user_avatar(@current_user, @key) ==
@@ -39,76 +35,62 @@ defmodule MossletWeb.UserHomeLive.Components do
                 }
                 alt="Your avatar"
               />
-              <span class="absolute inset-0 rounded-full shadow-inner" aria-hidden="true"></span>
             </div>
           </div>
-          <div>
-            <h1
-              :if={show_name?(@current_user)}
-              class="text-2xl font-bold text-gray-900 dark:text-gray-100"
-            >
-              {decr_item(
-                @current_user.connection.profile.name,
-                @current_user,
-                @current_user.connection.profile.profile_key,
-                @key,
-                @current_user.connection.profile
-              )}
-            </h1>
-            <h1
-              :if={!show_name?(@current_user)}
-              class="text-2xl font-bold text-gray-900 dark:text-gray-100"
-            >
-              {decr_item(
-                @current_user.connection.profile.username,
-                @current_user,
-                @current_user.connection.profile.profile_key,
-                @key,
-                @current_user.connection.profile
-              )}
-            </h1>
+          <div class="mt-6 sm:flex-1 sm:min-w-0 sm:flex sm:items-center sm:justify-end sm:space-x-6 sm:pb-1">
+            <div class="sm:hidden md:block mt-6 min-w-0 flex-1">
+              <h1
+                :if={show_name?(@current_user)}
+                class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate"
+              >
+                {decr_item(
+                  @current_user.connection.profile.name,
+                  @current_user,
+                  @current_user.connection.profile.profile_key,
+                  @key,
+                  @current_user.connection.profile
+                )}
+              </h1>
+              <h1
+                :if={!show_name?(@current_user)}
+                class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate"
+              >
+                {decr_item(
+                  @current_user.connection.profile.username,
+                  @current_user,
+                  @current_user.connection.profile.profile_key,
+                  @key,
+                  @current_user.connection.profile
+                )}
+              </h1>
+            </div>
           </div>
         </div>
-        <div class="mt-6 flex flex-col-reverse justify-stretch space-y-4 space-y-reverse sm:flex-row-reverse sm:justify-end sm:space-x-3 sm:space-y-0 sm:space-x-reverse md:mt-0 md:flex-row md:space-x-3">
-          <.async_result :let={_result} assign={@post_shared_users_result}>
-            <:loading>
-              <div class="loading inline-flex items-center">
-                <div class="spinner"></div>
-              </div>
-            </:loading>
-            <:failed :let={{:error, reason}}>
-              <div class="failed inline-flex items-center">
-                Whoops: {reason}
-              </div>
-            </:failed>
-            <.phx_button
-              :if={@current_user}
-              type="button"
-              id={"new-post-button-#{@current_user.id}"}
-              phx-click={JS.push("new_post")}
-              class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-              data-tippy-content="New Post"
-              phx-hook="TippyHook"
-            >
-              <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-1" /> New Post
-            </.phx_button>
-
-            <.link
-              :if={@current_user}
-              id={"edit-profile-button-#{@current_user.id}"}
-              class="inline-flex items-center hover:text-emerald-600"
-              phx-click={JS.patch(~p"/app/users/edit-profile")}
-              data-tippy-content="Edit your profile"
-              phx-hook="TippyHook"
-            >
-              <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 px-6 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-400 transition-all duration-200"
-              >
-                Edit Profile
-              </button>
-            </.link>
-          </.async_result>
+        <div class="hidden sm:block md:hidden mt-6 min-w-0 flex-1">
+          <h1
+            :if={show_name?(@current_user)}
+            class="text-2xl font-bold text-gray-900 dark:text-gray-100 truncate"
+          >
+            {decr_item(
+              @current_user.connection.profile.name,
+              @current_user,
+              @current_user.connection.profile.profile_key,
+              @key,
+              @current_user.connection.profile
+            )}
+          </h1>
+          <h1
+            :if={!show_name?(@current_user)}
+            class="text-2xl font-bold text-gray-900 dark:text-gray-100 truncate"
+          >
+            {decr_item(
+              @current_user.connection.profile.username,
+              @current_user,
+              @current_user.connection.profile.profile_key,
+              @key,
+              @current_user.connection.profile
+            )}
+          </h1>
         </div>
       </div>
     </div>
