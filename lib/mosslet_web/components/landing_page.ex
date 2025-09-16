@@ -743,7 +743,7 @@ defmodule MossletWeb.Components.LandingPage do
               <p class="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8">
                 Privacy isn't just a feature — it's the foundation of human dignity. Your personal life should stay personal, whether online or offline.
               </p>
-              <div class="mt-10 flex items-center gap-x-6">
+              <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
                 <.button
                   link_type="live_redirect"
                   to="/auth/register"
