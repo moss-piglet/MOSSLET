@@ -28,8 +28,8 @@ defmodule MossletWeb.UserConfirmationInstructionsLive do
         <%!-- Main heading with gradient --%>
         <h1 class={[
           "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-4",
-          "bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600",
-          "dark:from-teal-400 dark:via-emerald-400 dark:to-cyan-400",
+          "bg-gradient-to-r from-teal-500 to-emerald-500",
+          "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
           "bg-clip-text text-transparent"
         ]}>
           Almost there!
