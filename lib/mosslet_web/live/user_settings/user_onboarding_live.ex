@@ -18,90 +18,130 @@ defmodule MossletWeb.UserOnboardingLive do
 
   def render(assigns) do
     ~H"""
-    <div class="fixed inset-0 z-10 overflow-y-auto bg-background-100 dark:bg-gray-900">
-      <div class="flex items-center justify-center min-h-screen px-3 py-6 sm:px-4 sm:py-8">
+    <div class="fixed inset-0 z-10 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <%!-- Background decorative elements --%>
+      <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute -top-40 -right-32 h-96 w-96 rounded-full bg-gradient-to-br from-teal-400/20 via-emerald-500/15 to-cyan-400/20 blur-3xl animate-pulse">
+        </div>
         <div
-          class="w-full max-w-sm mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl dark:shadow-emerald-500/20 overflow-hidden sm:max-w-md"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-headline"
+          class="absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-gradient-to-tr from-emerald-400/15 via-teal-500/10 to-cyan-400/15 blur-3xl animate-pulse"
+          style="animation-delay: -2s;"
         >
-          <%!-- Header Section --%>
-          <div class="bg-gradient-to-r from-teal-500 to-emerald-500 px-4 py-6 text-center sm:px-6 sm:py-8">
-            <div class="flex items-center justify-center w-12 h-12 mx-auto mb-3 text-2xl bg-white/20 rounded-full backdrop-blur-sm sm:w-16 sm:h-16 sm:mb-4 sm:text-3xl">
-              👋
-            </div>
-            <h1 class="text-lg font-bold text-white sm:text-xl" id="modal-headline">
-              {gettext("Welcome to MOSSLET")}
-            </h1>
-            <p class="mt-1 text-xs text-white/80 sm:mt-2 sm:text-sm">
-              Join the movement for digital privacy
-            </p>
-          </div>
+        </div>
+      </div>
 
-          <%!-- Form Section --%>
-          <div class="px-4 py-6 sm:px-6 sm:py-8">
+      <div class="relative z-10 flex items-center justify-center min-h-screen px-4 py-6 sm:px-6 sm:py-8">
+        <div class="w-full max-w-md mx-auto">
+          <%!-- Auth card with liquid metal styling --%>
+          <.liquid_card padding="lg" class="overflow-hidden">
+            <%!-- Header Section --%>
+            <div class="text-center mb-8">
+              <%!-- Welcome badge --%>
+              <div class="mb-6">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/30 mb-4">
+                  <span class="text-2xl">👋</span>
+                  <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
+                    Welcome aboard!
+                  </span>
+                </div>
+              </div>
+
+              <%!-- Main heading with gradient --%>
+              <h1 class={[
+                "text-2xl sm:text-3xl font-bold tracking-tight leading-tight mb-4",
+                "bg-gradient-to-r from-teal-500 to-emerald-500",
+                "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
+                "bg-clip-text text-transparent"
+              ]}>
+                {gettext("Welcome to MOSSLET")}
+              </h1>
+
+              <%!-- Subtitle --%>
+              <p class="text-base text-slate-600 dark:text-slate-300">
+                Join the movement for digital privacy
+              </p>
+            </div>
+
+            <%!-- Form Section --%>
             <.form
               id="update_profile_form"
               for={@form}
               phx-submit="submit"
-              class="space-y-4 sm:space-y-6"
+              class="space-y-6"
             >
               <%!-- Name Field --%>
               <div class="space-y-2">
-                <.field
+                <.phx_input
                   field={@form[:name]}
-                  value={@name || @form[:name].value}
+                  type="text"
                   label={gettext("What's your name?")}
                   placeholder={gettext("Enter your name")}
+                  value={@name || @form[:name].value}
                   autocomplete="given-name"
                   required
-                  class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:px-4 sm:py-3 sm:text-base sm:rounded-xl"
-                />
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  Your name stays private and is only shared with people you choose.
-                </p>
+                  apply_classes?={true}
+                  classes={[
+                    "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                    "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                    "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                    "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                    "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                    "transition-all duration-200 ease-out",
+                    "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                    "text-base sm:text-sm sm:leading-6"
+                  ]}
+                >
+                  <:description_block>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                      Your name stays private and is only shared with people you choose.
+                    </p>
+                  </:description_block>
+                </.phx_input>
               </div>
 
-              <%!-- Notifications Checkbox --%>
-              <div class="space-y-3">
-                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4 sm:rounded-xl">
-                  <div class="space-y-3">
-                    <%!-- Label and description above checkbox --%>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">
-                        {gettext("Allow calm, in-app notifications")}
-                      </label>
-                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                        These will appear on your home page when you're already using our service. We won't pull you back in when you're offline, and you can always change this later in your settings.
-                      </p>
-                    </div>
-
-                    <%!-- Checkbox --%>
-                    <div class="flex items-center space-x-3">
-                      <.field
-                        type="checkbox"
-                        field={@form[:is_subscribed_to_marketing_notifications]}
-                        label={gettext("Yes, I'd like to receive these notifications")}
-                        class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 focus:ring-offset-2 sm:h-5 sm:w-5 flex-shrink-0"
-                      />
-                    </div>
-                  </div>
-                </div>
+              <%!-- Notifications Section --%>
+              <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-200/30 dark:border-emerald-700/20">
+                <.phx_input
+                  field={@form[:is_subscribed_to_marketing_notifications]}
+                  type="checkbox"
+                  label={gettext("Allow calm, in-app notifications")}
+                  apply_classes?={true}
+                  classes={[
+                    "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600",
+                    "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
+                    "dark:focus:ring-offset-slate-800",
+                    "transition-all duration-200 ease-out",
+                    "hover:border-emerald-400 dark:hover:border-emerald-500",
+                    "checked:bg-gradient-to-br checked:from-emerald-500 checked:to-teal-600",
+                    "checked:border-emerald-500 dark:checked:border-emerald-400"
+                  ]}
+                >
+                  <:description_block>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      These will appear on your home page when you're already using our service. We won't pull you back in when you're offline, and you can always change this later in your settings.
+                    </p>
+                  </:description_block>
+                </.phx_input>
               </div>
 
               <%!-- Action Buttons --%>
-              <div class="space-y-3">
-                <.button class="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:ring-4 focus:ring-emerald-500/25 text-sm sm:py-3 sm:px-6 sm:rounded-xl sm:text-base">
+              <div class="space-y-4 pt-4">
+                <.liquid_button
+                  type="submit"
+                  size="lg"
+                  icon="hero-check-circle"
+                  class="w-full"
+                >
                   {gettext("Complete Setup")}
-                </.button>
+                </.liquid_button>
 
                 <div class="text-center">
                   <.link
-                    class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline transition-colors sm:text-sm"
+                    class="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors duration-200"
                     href={~p"/auth/sign_out"}
                     method="delete"
                   >
+                    <.phx_icon name="hero-arrow-left-on-rectangle" class="w-4 h-4" />
                     {gettext("Sign out instead")}
                   </.link>
                 </div>
@@ -109,104 +149,119 @@ defmodule MossletWeb.UserOnboardingLive do
             </.form>
 
             <%!-- Learn More Sections --%>
-            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4 sm:mt-8 sm:pt-6">
+            <div class="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-700/50 space-y-4">
               <%!-- Why Privacy Matters Section --%>
-              <div>
+              <div class="rounded-xl bg-slate-50/50 dark:bg-slate-800/50 p-4">
                 <button
                   type="button"
                   phx-click="toggle_details"
-                  class="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  class="flex items-center justify-between w-full text-left group"
                 >
-                  <span>Why privacy matters</span>
-                  <svg
-                    class={"w-4 h-4 transition-transform duration-200 #{if @show_details, do: "rotate-180", else: ""}"}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200">
+                    Why privacy matters
+                  </span>
+                  <.phx_icon
+                    name="hero-chevron-down"
+                    class={[
+                      "w-5 h-5 text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-all duration-200",
+                      if(@show_details, do: "rotate-180", else: "")
+                    ]}
+                  />
                 </button>
 
-                <div class={"mt-3 space-y-3 text-sm text-gray-600 dark:text-gray-400 #{unless @show_details, do: "hidden"}"}>
-                  <p class="text-xs leading-relaxed sm:text-sm">
+                <div class={[
+                  "mt-4 space-y-4 text-sm text-slate-600 dark:text-slate-400",
+                  unless(@show_details, do: "hidden")
+                ]}>
+                  <p class="leading-relaxed">
                     We live in an era of surveillance capitalism, where your personal data is harvested and sold without your knowledge.
                   </p>
-                  <div class="grid grid-cols-1 gap-2 text-center sm:gap-3">
-                    <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg sm:p-3">
-                      <div class="text-base font-bold text-red-600 dark:text-red-400 sm:text-lg">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="text-center p-3 rounded-lg bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/20 border border-rose-200/50 dark:border-rose-800/30">
+                      <div class="text-lg font-bold text-rose-600 dark:text-rose-400">
                         450+ TB
                       </div>
-                      <div class="text-xs leading-tight">Daily data Facebook collects</div>
+                      <div class="text-xs text-rose-700 dark:text-rose-300 leading-tight">
+                        Daily data Facebook collects
+                      </div>
                     </div>
-                    <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg sm:p-3">
-                      <div class="text-base font-bold text-red-600 dark:text-red-400 sm:text-lg">
+                    <div class="text-center p-3 rounded-lg bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/20 border border-rose-200/50 dark:border-rose-800/30">
+                      <div class="text-lg font-bold text-rose-600 dark:text-rose-400">
                         2,230+
                       </div>
-                      <div class="text-xs leading-tight">Companies tracking each user</div>
+                      <div class="text-xs text-rose-700 dark:text-rose-300 leading-tight">
+                        Companies tracking each user
+                      </div>
                     </div>
                   </div>
-                  <p class="text-xs leading-relaxed">
+                  <p class="text-sm">
                     <.link
-                      class="text-emerald-600 dark:text-emerald-400 hover:underline"
+                      class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors duration-200 font-medium"
                       href="https://themarkup.org/privacy/2024/01/17/each-facebook-user-is-monitored-by-thousands-of-companies-study-indicates"
                       target="_blank"
                     >
-                      Read "How thousands of companies monitor users" →
+                      Read "How thousands of companies monitor users"
+                      <.phx_icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
                     </.link>
                   </p>
                 </div>
               </div>
 
               <%!-- Why Pay for Privacy Section --%>
-              <div>
+              <div class="rounded-xl bg-slate-50/50 dark:bg-slate-800/50 p-4">
                 <button
                   type="button"
                   phx-click="toggle_payment_info"
-                  class="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  class="flex items-center justify-between w-full text-left group"
                 >
-                  <span>Why we charge for privacy</span>
-                  <svg
-                    class={"w-4 h-4 transition-transform duration-200 #{if @show_payment_info, do: "rotate-180", else: ""}"}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200">
+                    Why we charge for privacy
+                  </span>
+                  <.phx_icon
+                    name="hero-chevron-down"
+                    class={[
+                      "w-5 h-5 text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-all duration-200",
+                      if(@show_payment_info, do: "rotate-180", else: "")
+                    ]}
+                  />
                 </button>
 
-                <div class={"mt-3 space-y-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400 #{unless @show_payment_info, do: "hidden"} sm:text-sm"}>
+                <div class={[
+                  "mt-4 space-y-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed",
+                  unless(@show_payment_info, do: "hidden")
+                ]}>
                   <p>
                     When a service is "free," you become the product. Your data is harvested, packaged, and sold to advertisers.
                   </p>
                   <p>
                     By charging a fair, one-time fee, we can:
                   </p>
-                  <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>Keep your data completely private</li>
-                    <li>Maintain our servers and security</li>
-                    <li>Develop new features based on your needs, not advertisers'</li>
-                    <li>Stay independent from Big Tech influence</li>
+                  <ul class="space-y-1 ml-4">
+                    <li class="flex items-start gap-2">
+                      <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></span>
+                      <span>Keep your data completely private</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></span>
+                      <span>Maintain our servers and security</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></span>
+                      <span>Develop new features based on your needs, not advertisers'</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></span>
+                      <span>Stay independent from Big Tech influence</span>
+                    </li>
                   </ul>
-                  <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg">
-                    <div class="flex items-center space-x-2">
-                      <div class="text-emerald-600 dark:text-emerald-400">💡</div>
+                  <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30">
+                    <div class="flex items-start gap-3">
+                      <span class="text-2xl">💡</span>
                       <div>
-                        <div class="font-medium text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm">
+                        <div class="font-semibold text-emerald-800 dark:text-emerald-200 text-sm">
                           Pay once, own forever
                         </div>
-                        <div class="text-xs text-emerald-700 dark:text-emerald-400">
+                        <div class="text-sm text-emerald-700 dark:text-emerald-300">
                           No subscriptions, no recurring fees
                         </div>
                       </div>
@@ -215,7 +270,7 @@ defmodule MossletWeb.UserOnboardingLive do
                 </div>
               </div>
             </div>
-          </div>
+          </.liquid_card>
         </div>
       </div>
     </div>

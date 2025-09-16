@@ -40,7 +40,9 @@ defmodule MossletWeb.Components.MossletAuthLayout do
       <%!-- Top navigation bar --%>
       <nav class="relative z-20 flex items-center justify-between p-4 sm:p-6 lg:px-8">
         <div class="flex items-center">
-          {render_slot(@logo)}
+          <.link navigate={~p"/"} class="transition-transform duration-200 hover:scale-105">
+            {render_slot(@logo)}
+          </.link>
         </div>
         <div class="flex items-center gap-4">
           {render_slot(@top_right)}
