@@ -39,7 +39,9 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             placeholder="Type your message..."
             apply_classes?={true}
             phx-debounce="500"
-            classes="block w-full resize-none border-0 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 rounded-xl py-3 px-4 shadow-sm border border-gray-200 dark:border-gray-700 text-sm max-h-20"
+            classes={[
+              "block w-full resize-none border-0 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 rounded-xl py-3 px-4 shadow-sm border border-gray-200 dark:border-gray-700 text-sm max-h-20"
+            ]}
           />
         </div>
 

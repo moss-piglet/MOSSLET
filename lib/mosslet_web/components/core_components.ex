@@ -24,7 +24,6 @@ defmodule MossletWeb.CoreComponents do
   import MossletWeb.ColorSchemeSwitch
   import MossletWeb.Helpers
   import MossletWeb.PublicLayout
-  import MossletWeb.SidebarLayout
   import MossletWeb.ModernSidebarLayout
   import MossletWeb.StackedLayout
 
@@ -565,54 +564,143 @@ defmodule MossletWeb.CoreComponents do
   end
 
   @doc """
-  Renders flash notices.
+  Renders flash notices with liquid metal design.
 
   ## Examples
 
       <.phx_flash kind={:info} flash={@flash} />
       <.phx_flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.phx_flash>
   """
-  attr :id, :string, default: "flash", doc: "the optional id of flash container"
+  attr :id, :string,
+    default: "flash-group-#{Ecto.UUID.generate()}",
+    doc: "the optional id of flash container"
+
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
-  attr :kind, :atom, values: [:info, :error, :success], doc: "used for styling and flash lookup"
+
+  attr :kind, :atom,
+    values: [:info, :error, :success, :warning],
+    doc: "used for styling and flash lookup"
+
+  attr :position, :integer, default: 0, doc: "stacking position for multiple flashes"
+
+  attr :expanded, :boolean,
+    default: false,
+    doc: "whether the flash is expanded for better visibility"
+
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
 
   def phx_flash(assigns) do
+    assigns =
+      assign_new(assigns, :id, fn ->
+        "flash-#{assigns.kind}-#{assigns.position || 0}-#{System.unique_integer([:positive])}"
+      end)
+
     ~H"""
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
-      phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-click={JS.dispatch("flash-expand", detail: %{id: @id})}
+      phx-hook="LiquidFlash"
       role="alert"
-      class={[
-        "fixed top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1",
-        @kind == :info && "bg-cyan-50 text-cyan-800 ring-cyan-500 fill-cyan-900",
-        @kind == :success && "bg-emerald-50 text-emerald-800 ring-emerald-500 fill-emerald-900",
-        @kind == :error && "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900"
-      ]}
+      data-position={@position}
+      data-expanded={@expanded}
+      class={
+        [
+          "group relative z-10 rounded-xl shadow-xl backdrop-blur-sm border transform-gpu transition-all duration-300 ease-out will-change-transform cursor-pointer",
+          "hover:scale-105 hover:shadow-2xl active:scale-95",
+          "max-w-sm w-full overflow-hidden",
+          # Expanded state for better readability when clicked
+          @expanded && "scale-110 z-[60] shadow-2xl",
+          # Color schemes based on kind with liquid metal gradients
+          @kind == :info &&
+            [
+              "bg-gradient-to-br from-blue-50/95 via-indigo-50/90 to-blue-100/95",
+              "dark:from-blue-900/90 dark:via-indigo-900/85 dark:to-blue-800/90",
+              "border-blue-200/60 dark:border-blue-700/60",
+              "text-blue-900 dark:text-blue-100"
+            ],
+          @kind == :success &&
+            [
+              "bg-gradient-to-br from-cyan-50/95 via-teal-50/90 to-cyan-100/95",
+              "dark:from-cyan-900/90 dark:via-teal-900/85 dark:to-cyan-800/90",
+              "border-cyan-200/60 dark:border-cyan-700/60",
+              "text-cyan-900 dark:text-cyan-100"
+            ],
+          @kind == :error &&
+            [
+              "bg-gradient-to-br from-rose-50/95 via-pink-50/90 to-rose-100/95",
+              "dark:from-rose-900/90 dark:via-pink-900/85 dark:to-rose-800/90",
+              "border-rose-200/60 dark:border-rose-700/60",
+              "text-rose-900 dark:text-rose-100"
+            ],
+          @kind == :warning &&
+            [
+              "bg-gradient-to-br from-amber-50/95 via-orange-50/90 to-amber-100/95",
+              "dark:from-amber-900/90 dark:via-orange-900/85 dark:to-amber-800/90",
+              "border-amber-200/60 dark:border-amber-700/60",
+              "text-amber-900 dark:text-amber-100"
+            ]
+        ]
+      }
       {@rest}
-      phx-hook="Flash"
     >
-      cyan
-      <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
-        <.icon :if={@kind == :info} name="hero-information-circle-mini" class="h-4 w-4" />
-        <.icon :if={@kind == :success} name="hero-check-circle-mini" class="h-4 w-4" />
-        <.icon :if={@kind == :error} name="hero-exclamation-circle-mini" class="h-4 w-4" />
-        {@title}
-      </p>
-      <p class="mt-2 text-sm leading-5">{msg}</p>
-      <button type="button" class="group absolute top-1 right-1 p-2" aria-label={gettext("close")}>
-        <.icon name="hero-x-mark-solid" class="h-5 w-5 opacity-40 group-hover:opacity-70" />
-      </button>
+      <%!-- Liquid shimmer effect on hover --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-white/20 dark:via-white/10 to-transparent transform -translate-x-full group-hover:translate-x-full">
+      </div>
+
+      <%!-- Content container --%>
+      <div class="relative p-4">
+        <div class="flex items-start gap-3">
+          <%!-- Icon with liquid background --%>
+          <div class={[
+            "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg overflow-hidden",
+            "transition-all duration-200 ease-out transform-gpu",
+            @kind == :info &&
+              "bg-gradient-to-br from-blue-100 via-indigo-50 to-blue-100 dark:from-blue-800 dark:via-indigo-700 dark:to-blue-800",
+            @kind == :success &&
+              "bg-gradient-to-br from-cyan-100 via-teal-50 to-cyan-100 dark:from-cyan-800 dark:via-teal-700 dark:to-cyan-800",
+            @kind == :error &&
+              "bg-gradient-to-br from-rose-100 via-pink-50 to-rose-100 dark:from-rose-800 dark:via-pink-700 dark:to-rose-800",
+            @kind == :warning &&
+              "bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-800 dark:via-orange-700 dark:to-amber-800"
+          ]}>
+            <.phx_icon :if={@kind == :info} name="hero-information-circle" class="h-5 w-5" />
+            <.phx_icon :if={@kind == :success} name="hero-check-circle" class="h-5 w-5" />
+            <.phx_icon :if={@kind == :error} name="hero-exclamation-circle" class="h-5 w-5" />
+            <.phx_icon :if={@kind == :warning} name="hero-exclamation-triangle" class="h-5 w-5" />
+          </div>
+
+          <%!-- Message content --%>
+          <div class="flex-1 min-w-0">
+            <p :if={@title} class="text-sm font-semibold leading-5 mb-1">
+              {@title}
+            </p>
+            <p class="text-sm leading-5 break-words">{msg}</p>
+          </div>
+
+          <%!-- Close button with hover effect --%>
+          <button
+            type="button"
+            class="group/close shrink-0 p-1 rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 z-20 relative"
+            aria-label={gettext("close")}
+            data-flash-close="true"
+          >
+            <.phx_icon
+              name="hero-x-mark"
+              class="h-4 w-4 opacity-60 group-hover/close:opacity-100 transition-opacity duration-200"
+            />
+          </button>
+        </div>
+      </div>
     </div>
     """
   end
 
   @doc """
-  Shows the flash group with standard titles and content.
+  Shows the flash group with liquid metal design and stackable functionality.
 
   ## Examples
 
@@ -622,31 +710,40 @@ defmodule MossletWeb.CoreComponents do
 
   def phx_flash_group(assigns) do
     ~H"""
-    <.phx_flash kind={:info} title="Info!" flash={@flash} />
-    <.phx_flash kind={:success} title="Success!" flash={@flash} />
-    <.phx_flash kind={:error} title="Error!" flash={@flash} />
-    <.phx_flash
-      id="client-error"
-      kind={:error}
-      title="We can't find the internet"
-      phx-disconnected={show(".phx-client-error #client-error")}
-      phx-connected={hide("#client-error")}
-      hidden
-    >
-      Attempting to reconnect <.icon name="hero-arrow-path" class="ml-1 h-3 w-3 animate-spin" />
-    </.phx_flash>
+    <%!-- Container for all flash messages with proper stacking --%>
+    <div id="flash-group" phx-hook="FlashGroup" class="flex flex-col-reverse gap-2">
+      <%!-- Regular flash messages --%>
+      <.phx_flash kind={:info} title="Info" flash={@flash} position={0} />
+      <.phx_flash kind={:success} title="Success" flash={@flash} position={1} />
+      <.phx_flash kind={:warning} title="Warning" flash={@flash} position={2} />
+      <.phx_flash kind={:error} title="Error" flash={@flash} position={3} />
 
-    <.phx_flash
-      id="server-error"
-      kind={:error}
-      title="Something went wrong!"
-      phx-disconnected={show(".phx-server-error #server-error")}
-      phx-connected={hide("#server-error")}
-      hidden
-    >
-      Hang in there while we get back on track
-      <.icon name="hero-arrow-path" class="ml-1 h-3 w-3 animate-spin" />
-    </.phx_flash>
+      <%!-- Connection status flashes --%>
+      <.phx_flash
+        id="client-error"
+        kind={:error}
+        title="Connection Lost"
+        position={4}
+        phx-disconnected={show(".phx-client-error #client-error")}
+        phx-connected={hide("#client-error")}
+        hidden
+      >
+        Attempting to reconnect <.phx_icon name="hero-arrow-path" class="ml-1 h-3 w-3 animate-spin" />
+      </.phx_flash>
+
+      <.phx_flash
+        id="server-error"
+        kind={:error}
+        title="Server Error"
+        position={5}
+        phx-disconnected={show(".phx-server-error #server-error")}
+        phx-connected={hide("#server-error")}
+        hidden
+      >
+        Hang in there while we get back on track
+        <.phx_icon name="hero-arrow-path" class="ml-1 h-3 w-3 animate-spin" />
+      </.phx_flash>
+    </div>
     """
   end
 
@@ -1098,7 +1195,8 @@ defmodule MossletWeb.CoreComponents do
           </p>
           <ul
             :if={@errors_list}
-            id="form-errors"
+            id={"form-errors-#{System.unique_integer([:positive])}"}
+            }
             class="mt-2 space-y-1 text-sm text-rose-700 dark:text-rose-300"
           >
             <li :for={error <- @errors_list} class="flex items-start gap-2">
@@ -1561,7 +1659,7 @@ defmodule MossletWeb.CoreComponents do
   attr(:alt, :string, default: nil, doc: "avatar alt text")
   attr(:size, :string, default: "h-12 w-12", doc: "the height and width sizes")
   attr(:text_size, :string, default: "md", doc: "the text size for initials, defaults to lg")
-  attr(:class, :string, default: "", doc: "CSS class")
+  attr(:class, :any, default: "", doc: "CSS class")
   attr(:name, :string, default: nil, doc: "name for placeholder initials")
   attr(:user, :any, default: nil, doc: "the current user struct")
   attr(:key, :string, default: nil, doc: "the current user session key")
@@ -1622,7 +1720,7 @@ defmodule MossletWeb.CoreComponents do
   attr(:alt, :string, default: nil, doc: "avatar alt text")
   attr(:size, :string, default: "h-12 w-12", doc: "the height and width sizes")
   attr(:text_size, :string, default: "md", doc: "the text size for initials, defaults to lg")
-  attr(:class, :string, default: "", doc: "CSS class")
+  attr(:class, :any, default: "", doc: "CSS class")
   attr(:name, :string, default: nil, doc: "name for placeholder initials")
   attr(:user, :any, default: nil, doc: "the current user struct")
   attr(:key, :string, default: nil, doc: "the current user session key")
@@ -1698,7 +1796,7 @@ defmodule MossletWeb.CoreComponents do
       <.icon name="hero-arrow-path" class="ml-1 w-3 h-3 animate-spin" />
   """
   attr :name, :string, required: true
-  attr :class, :string, default: nil
+  attr :class, :any, default: nil
   attr :style, :string, default: nil
 
   def phx_icon(%{name: "hero-" <> _} = assigns) do

@@ -212,7 +212,7 @@ defmodule MossletWeb.EditProfileLive do
                     rows="3"
                     apply_classes?={true}
                     placeholder="Share your story here."
-                    classes="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-2 ring-inset ring-gray-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-2 ring-inset ring-gray-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
                   />
                 </div>
               </div>
@@ -269,7 +269,7 @@ defmodule MossletWeb.EditProfileLive do
   end
 
   def handle_event("clipcopy", _params, socket) do
-    {:noreply, Toast.put_toast(socket, :success, "Profile URL copied to clipboard successfully.")}
+    {:noreply, put_flash(socket, :success, "Profile URL copied to clipboard successfully.")}
   end
 
   def handle_event("validate_profile", params, socket) do

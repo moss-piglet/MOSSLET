@@ -4,7 +4,7 @@
 <header
   x-data="{mobile: false}"
   x-init="window.makeHeaderTranslucentOnScroll()"
-  class="fixed top-0 left-0 z-30 w-full transition duration-500 ease-in-out bg-white md:sticky semi-translucent dark:bg-gray-950"
+  class="fixed top-0 left-0 z-30 w-full transition duration-500 ease-in-out bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm md:sticky semi-translucent border-b border-slate-200/60 dark:border-slate-700/60"
 >
   <.container max_width={max_width}>
     <div class="flex flex-wrap items-center h-16 md:h-18">
@@ -22,7 +22,7 @@
         <ul class="justify-center md:flex">
           <.list_menu_items
             li_class="ml-8 lg:mx-4 xl:mx-6"
-            a_class="block font-medium leading-7 capitalize dark:text-gray-100 menu-item"
+            a_class="block font-medium leading-7 capitalize text-slate-700 dark:text-slate-200 menu-item hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-200"
             menu_items={public_menu_items(@current_user)}
           />
         </ul>
@@ -86,10 +86,10 @@
     </div>
 
     <div x-bind:class="{ 'block' : mobile, 'hidden' : !mobile }" class="md:hidden">
-      <hr class="border-primary-900 border-primary/10 dark:border-gray-700" />
+      <hr class="border-slate-200 dark:border-slate-700" />
       <ul class="py-6">
         <.list_menu_items
-          li_class="mb-2 last:mb-0 dark:text-gray-400"
+          li_class="mb-2 last:mb-0 text-slate-700 dark:text-slate-300"
           a_class="inline-block font-medium capitalize menu-item"
           menu_items={public_menu_items(@current_user)}
         />
@@ -109,7 +109,7 @@
                 <% end %>
               </div>
               <div class="ml-3">
-                <div class="text-base font-medium text-gray-800 dark:text-gray-300">
+                <div class="text-base font-medium text-slate-800 dark:text-slate-200">
                   {user_name(@current_user)}
                 </div>
               </div>
@@ -119,7 +119,7 @@
 
         <.list_menu_items
           li_class="mb-2 last:mb-0"
-          a_class="inline-block font-medium capitalize menu-item dark:text-gray-400"
+          a_class="inline-block font-medium capitalize menu-item text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-200"
           menu_items={user_menu_items(@current_user)}
         />
       </ul>

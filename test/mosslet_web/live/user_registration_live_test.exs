@@ -8,7 +8,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
     test "renders registration page", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/auth/register")
 
-      assert html =~ "Register"
+      assert html =~ "Complete step"
       assert html =~ "Sign in"
     end
 

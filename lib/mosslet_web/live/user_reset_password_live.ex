@@ -5,7 +5,7 @@ defmodule MossletWeb.UserResetPasswordLive do
 
   def render(assigns) do
     ~H"""
-    <.mosslet_auth_layout title="Reset Password">
+    <.mosslet_auth_layout title="Reset Password" conn={@socket}>
       <.link navigate="/" class="-ml-4">
         <.logo class="mb-2 h-16 w-auto" />
       </.link>

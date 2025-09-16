@@ -1,7 +1,9 @@
-<main class="bg-background-50">
-  <div id="flash-notifications">
-    <Toast.toast_group flash={@flash} rich_colors={true} />
+<main class="relative bg-gradient-to-br from-slate-50/95 via-slate-50/90 to-slate-100/95 dark:from-slate-800/95 dark:via-slate-800/90 dark:to-slate-900/95 backdrop-blur-sm min-h-screen">
+  <%!-- Subtle liquid background overlay --%>
+  <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 pointer-events-none">
   </div>
-
-  {@inner_content}
+  <%!-- Main content area with relative positioning for overlay --%>
+  <div class="relative z-10">
+    {@inner_content}
+  </div>
 </main>

@@ -24,7 +24,7 @@ defmodule MossletWeb.DesignSystem do
   attr :color, :string, default: "teal", values: ~w(teal blue purple amber rose cyan indigo)
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
-  attr :class, :string, default: ""
+  attr :class, :any, default: ""
   attr :href, :string, default: nil
   attr :navigate, :string, default: nil
   attr :patch, :string, default: nil
@@ -145,7 +145,7 @@ defmodule MossletWeb.DesignSystem do
         Card content goes here
       </.liquid_card>
   """
-  attr :class, :string, default: ""
+  attr :class, :any, default: ""
   attr :padding, :string, default: "md", values: ~w(sm md lg)
   slot :title
   slot :inner_block, required: true
@@ -198,7 +198,7 @@ defmodule MossletWeb.DesignSystem do
   attr :icon, :string, default: nil
   attr :active, :boolean, default: false
   attr :mobile_full_width, :boolean, default: false
-  attr :class, :string, default: ""
+  attr :class, :any, default: ""
   slot :inner_block, required: true
 
   def liquid_nav_item(assigns) do

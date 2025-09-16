@@ -44,7 +44,9 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
             label="Label"
             placeholder="Family, friend, partner, et al"
             apply_classes?={true}
-            classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+            classes={[
+              "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+            ]}
             {alpine_autofocus()}
           />
 
@@ -71,7 +73,9 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
           prompt="Choose how to find"
           options={[Username: "username", Email: "email"]}
           apply_classes?={true}
-          classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+          classes={[
+            "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+          ]}
         />
 
         <.phx_input
@@ -83,7 +87,9 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
           phx-debounce="500"
           placeholder="Enter their email address"
           apply_classes?={true}
-          classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+          classes={[
+            "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+          ]}
         />
 
         <.phx_input
@@ -95,7 +101,9 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
           phx-debounce="500"
           placeholder="Enter their username"
           apply_classes?={true}
-          classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+          classes={[
+            "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+          ]}
         />
 
         <div class="flex justify-end pt-6">
@@ -135,7 +143,9 @@ defmodule MossletWeb.UserConnectionLive.FormComponent do
             value={@temp_label}
             placeholder="Family, friend, partner, et al"
             apply_classes?={true}
-            classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+            classes={[
+              "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+            ]}
           />
 
           <.phx_input

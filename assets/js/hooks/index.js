@@ -2,6 +2,8 @@ import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import ClearFlashHook from "./clear-flash-hook";
 import ColorSchemeHook from "./color-scheme-hook";
 import Flash from "./flash";
+import LiquidFlash from "./liquid-flash";
+import FlashGroup from "./flash-group";
 import HoverRemark from "./hover-remark";
 import HoverGroupMessage from "./hover-group-message";
 import InfiniteScrollGroupMessage from "./infinite-scroll-group-message";
@@ -19,6 +21,8 @@ export default {
   ClearFlashHook,
   ColorSchemeHook,
   Flash,
+  LiquidFlash,
+  FlashGroup,
   HoverGroupMessage,
   HoverRemark,
   InfiniteScrollGroupMessage,

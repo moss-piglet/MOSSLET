@@ -6,6 +6,9 @@ defmodule MossletWeb.BillingComponents do
 
   use Gettext, backend: MossletWeb.Gettext
 
+  import MossletWeb.DesignSystem
+  import MossletWeb.CoreComponents, only: [phx_icon: 1]
+
   attr :panels, :integer, default: 3
   attr :interval_selector, :boolean, default: false
   attr :rest, :global
@@ -14,33 +17,30 @@ defmodule MossletWeb.BillingComponents do
   def pricing_panels_container(assigns) do
     ~H"""
     <div x-data="{ interval: 'one_time' }">
-      <div :if={@interval_selector} class="flex justify-center">
-        <div class="grid grid-cols-1 p-1 text-xs font-semibold leading-5 text-center text-black bg-background-200 rounded-full dark:text-white gap-x-1 dark:bg-white/20">
+      <div :if={@interval_selector} class="flex justify-center mb-8">
+        <div class="relative p-1 rounded-full overflow-hidden bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30">
+          <%!-- Liquid metal shimmer background --%>
+          <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+          </div>
+
           <label
-            class="px-4 py-2 rounded-full cursor-pointer"
+            class="relative flex items-center justify-center px-6 py-2 rounded-full cursor-pointer text-sm font-semibold transition-all duration-200 ease-out transform-gpu"
             @click="interval = 'one_time'"
-            x-bind:class="{ 'bg-primary-600 text-white dark:bg-primary-500': interval == 'one_time' }"
+            x-bind:class="{
+              'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-emerald-500/25': interval == 'one_time',
+              'text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400': interval != 'one_time'
+            }"
           >
             <input type="radio" name="frequency" value="personal" class="sr-only" />
-            <span>Personal</span>
+            <span class="relative z-10">Personal</span>
           </label>
-          <%!--
-            <label
-              class="px-4 py-2 rounded-full cursor-pointer"
-              @click="interval = 'year'"
-              x-bind:class="{ 'bg-primary-500 text-white': interval == 'year' }"
-            >
-              <input type="radio" name="frequency" value="family" class="sr-only" />
-              <span>Family</span>
-            </label>
-          --%>
         </div>
       </div>
 
       <div
         {@rest}
         class={[
-          "grid max-w-md grid-cols-1 gap-8 mx-auto mt-10 isolate",
+          "grid max-w-md grid-cols-1 gap-8 mx-auto isolate",
           pricing_panels_container_css(@panels)
         ]}
       >
@@ -62,49 +62,76 @@ defmodule MossletWeb.BillingComponents do
 
   def pricing_panel(assigns) do
     ~H"""
-    <div class={"relative p-8 transition duration-500 ease-in-out shadow-xl rounded-3xl xl:p-10 #{@class} " <> if @most_popular, do: "bg-emerald-400/5 ring-emerald-950/5 shadow-emerald-400/5 dark:shadow-emerald-400 dark:ring-emerald-500/50 ring-2", else: "bg-white dark:bg-gray-800 ring-gray-950/5 shadow-gray-400/5 dark:shadow-emerald-500/50 dark:ring-emerald-500/50 ring-1"}>
-      <%= if @most_popular do %>
-        <div class="absolute top-0 right-0 mr-6 -mt-4">
-          <div class="inline-flex px-3 py-1 mt-px text-sm font-semibold rounded-full text-emerald-600 bg-emerald-200 dark:bg-emerald-800 dark:text-emerald-100">
-            {gettext("Most Popular")}
+    <.liquid_card
+      class={[
+        "relative overflow-hidden transition-all duration-300 ease-out transform-gpu",
+        "hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20",
+        if(@most_popular,
+          do: "ring-2 ring-emerald-500 dark:ring-emerald-400 shadow-2xl shadow-emerald-500/30",
+          else: "hover:ring-1 hover:ring-emerald-200 dark:hover:ring-emerald-800"
+        ),
+        if(@disabled, do: "opacity-60 cursor-not-allowed"),
+        @class
+      ]}
+      padding="lg"
+      {@rest}
+    >
+      <%!-- Most Popular Badge --%>
+      <div :if={@most_popular} class="absolute -top-3 -right-3">
+        <div class="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold shadow-lg shadow-amber-500/30 transform rotate-12">
+          <.phx_icon name="hero-star" class="w-4 h-4 mr-1" />
+          {gettext("Most Popular")}
+        </div>
+      </div>
+
+      <%!-- Liquid shimmer effect on hover --%>
+      <div class={[
+        "absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu",
+        "bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent",
+        "dark:via-emerald-400/10",
+        "group-hover:opacity-100 hover:opacity-100 hover:translate-x-full -translate-x-full"
+      ]}>
+      </div>
+
+      <div class="relative z-10">
+        <div class="flex items-center justify-between gap-x-4 mb-4">
+          <h3 class="text-xl font-bold leading-8 text-slate-900 dark:text-slate-100">
+            {@label}
+          </h3>
+          <div class="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-700 dark:text-amber-300 text-sm font-semibold">
+            <.phx_icon name="hero-fire" class="w-4 h-4 mr-1" /> Save 40%
           </div>
         </div>
-      <% end %>
 
-      <div class="flex items-center justify-between gap-x-4">
-        <h3 class="text-lg font-semibold leading-8 text-black dark:text-white">
-          {@label}
-        </h3>
-        <.badge color="warning" label="Save 40%" variant="soft" class="rounded-full" />
+        <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+          {@description}
+        </p>
+
+        {render_slot(@inner_block)}
+
+        <ul class="mt-8 space-y-4">
+          <%= for feature <- @features do %>
+            <li class="flex items-start gap-x-3">
+              <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 flex items-center justify-center mt-0.5">
+                <.phx_icon
+                  name="hero-check"
+                  class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                />
+              </div>
+              <span class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                {feature}
+                <span
+                  :if={future_check(feature)}
+                  class="inline-flex items-center px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium ml-2"
+                >
+                  <.phx_icon name="hero-clock" class="w-3 h-3 mr-1" /> Future
+                </span>
+              </span>
+            </li>
+          <% end %>
+        </ul>
       </div>
-      <p class="mt-4 text-sm leading-6 text-gray-700 dark:text-gray-300">
-        {@description}
-      </p>
-      {render_slot(@inner_block)}
-      <ul class="mt-8 space-y-3 text-sm leading-6 text-gray-700 dark:text-gray-300 xl:mt-10">
-        <%= for feature <- @features do %>
-          <li class="flex gap-x-3">
-            <svg
-              class="flex-none w-6 h-6 text-black dark:text-white"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                clip-rule="evenodd"
-              />
-            </svg>
-
-            <span>
-              {feature}
-              <.badge :if={future_check(feature)} color="warning" label="Future" class="ml-2" />
-            </span>
-          </li>
-        <% end %>
-      </ul>
-    </div>
+    </.liquid_card>
     """
   end
 
@@ -123,8 +150,8 @@ defmodule MossletWeb.BillingComponents do
   def item_price(assigns) do
     ~H"""
     <div id={@id} x-bind:class={"{ 'hidden': interval != '#{@interval}' }"}>
-      <p class="flex items-baseline mt-6 gap-x-1">
-        <span class="text-4xl font-bold tracking-tight text-black dark:text-white">
+      <div class="flex items-baseline gap-x-2 mt-6 mb-8">
+        <span class="text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
           <%= case @interval do %>
             <% :one_time -> %>
               {@amount |> Util.format_money()}
@@ -132,7 +159,7 @@ defmodule MossletWeb.BillingComponents do
               {(@amount / 12) |> ceil() |> Util.format_money()}
           <% end %>
         </span>
-        <span class="text-sm font-semibold leading-6 text-gray-700 dark:text-gray-300">
+        <span class="text-lg font-medium text-slate-600 dark:text-slate-400">
           /
           <%= case @interval do %>
             <% :one_time -> %>
@@ -141,32 +168,41 @@ defmodule MossletWeb.BillingComponents do
               {gettext("month (paid yearly)")}
           <% end %>
         </span>
-      </p>
+      </div>
 
       <%= if @is_public do %>
-        <.button
-          color="light"
-          class="w-full px-3 py-2 mt-6 text-sm font-semibold leading-6 text-center text-black bg-gray-200 border-none rounded-md hover:bg-gray-300 dark:text-white dark:bg-white/20 dark:hover:bg-white/30"
-          label={@button_label}
-          link_type="live_redirect"
-          to={~p"/auth/register"}
-        />
+        <.liquid_button
+          variant="secondary"
+          size="lg"
+          href={~p"/auth/register"}
+          class="w-full"
+        >
+          {@button_label}
+        </.liquid_button>
       <% else %>
         <%= if @is_already_paid do %>
-          <.button
-            to={@billing_path}
-            link_type="live_redirect"
-            label={@button_label}
-            class="w-full mt-6 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-            {@button_props}
+          <.liquid_button
+            variant="primary"
+            size="lg"
+            navigate={@billing_path}
+            class="w-full"
+            icon="hero-check-circle"
             disabled={@disabled}
-          />
-        <% else %>
-          <.button
-            label={@button_label}
-            class="w-full mt-6 block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
             {@button_props}
-          />
+          >
+            {@button_label}
+          </.liquid_button>
+        <% else %>
+          <.liquid_button
+            variant="primary"
+            size="lg"
+            class="w-full"
+            icon="hero-credit-card"
+            disabled={@disabled}
+            {@button_props}
+          >
+            {@button_label}
+          </.liquid_button>
         <% end %>
       <% end %>
     </div>

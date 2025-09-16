@@ -8,6 +8,8 @@ defmodule MossletWeb.ModernSidebarLayout do
 
   import MossletWeb.ModernSidebarMenu
   import MossletWeb.Helpers
+
+  alias Phoenix.LiveView.JS, as: JS
   alias Mosslet.Repo
 
   attr :current_page, :atom, required: true
@@ -258,12 +260,7 @@ defmodule MossletWeb.ModernSidebarLayout do
         <div class="relative">
           <MossletWeb.CoreComponents.phx_avatar
             src={maybe_get_user_avatar(@current_user, @key)}
-            class={[
-              "h-8 w-8 rounded-full transition-all duration-300",
-              "ring-2 ring-white dark:ring-slate-600",
-              "group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400",
-              "group-hover:shadow-md group-hover:shadow-emerald-500/30"
-            ]}
+            class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-white dark:ring-slate-600 group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
             alt="User avatar"
           />
           <%!-- Online indicator with pulse --%>
@@ -306,7 +303,7 @@ defmodule MossletWeb.ModernSidebarLayout do
             "transition-all duration-200 ease-out",
             "first:rounded-t-lg last:rounded-b-lg"
           ]}
-          @click="open = false"
+          phx-click={JS.toggle_attribute({"data-show", "false", "true"}, to: "#user-menu")}
         >
           <%!-- Menu item shimmer --%>
           <div class={[
@@ -320,11 +317,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           <span class="relative truncate">{item[:label]}</span>
           <MossletWeb.CoreComponents.phx_icon
             name="hero-arrow-top-right-on-square"
-            class={[
-              "relative ml-auto h-4 w-4 transition-all duration-200",
-              "opacity-0 group-hover:opacity-100 group-hover:scale-110",
-              "text-emerald-500 dark:text-emerald-400"
-            ]}
+            class="relative ml-auto h-4 w-4 transition-all duration-200 opacity-0 group-hover:opacity-100 group-hover:scale-110 text-emerald-500 dark:text-emerald-400"
           />
         </.link>
       </div>

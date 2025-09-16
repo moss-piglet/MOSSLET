@@ -231,7 +231,7 @@ defmodule MossletWeb.GroupLive.Join do
               {:noreply,
                socket
                |> assign_form(changeset)
-               |> Toast.put_toast(
+               |> put_flash(
                  :info,
                  "Incorrect password, #{5 - join_attempts} attempts left, please try again."
                )}
@@ -240,7 +240,7 @@ defmodule MossletWeb.GroupLive.Join do
               {:noreply,
                socket
                |> assign_form(changeset)
-               |> Toast.put_toast(
+               |> put_flash(
                  :info,
                  "Incorrect password, #{5 - join_attempts} attempts left, please try again."
                )}
@@ -249,7 +249,7 @@ defmodule MossletWeb.GroupLive.Join do
               {:noreply,
                socket
                |> assign_form(changeset)
-               |> Toast.put_toast(
+               |> put_flash(
                  :info,
                  "Incorrect password, #{5 - join_attempts} attempts left, please try again."
                )}
@@ -258,7 +258,7 @@ defmodule MossletWeb.GroupLive.Join do
               {:noreply,
                socket
                |> assign_form(changeset)
-               |> Toast.put_toast(
+               |> put_flash(
                  :warning,
                  "Incorrect password, #{5 - join_attempts} attempt left, please try again."
                )}

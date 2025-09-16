@@ -58,7 +58,9 @@ defmodule MossletWeb.UserConnectionLive.Invite do
                   phx-debounce="500"
                   autocomplete="off"
                   apply_classes?={true}
-                  classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+                  classes={[
+                    "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+                  ]}
                 />
 
                 <.phx_input
@@ -69,7 +71,9 @@ defmodule MossletWeb.UserConnectionLive.Invite do
                   phx-debounce="500"
                   autocomplete="off"
                   apply_classes?={true}
-                  classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+                  classes={[
+                    "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
+                  ]}
                 />
 
                 <.phx_input
@@ -79,7 +83,9 @@ defmodule MossletWeb.UserConnectionLive.Invite do
                   phx-debounce="500"
                   rows="4"
                   apply_classes?={true}
-                  classes="block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800 resize-none min-h-[6rem]"
+                  classes={[
+                    "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800 resize-none min-h-[6rem]"
+                  ]}
                 />
               </div>
 

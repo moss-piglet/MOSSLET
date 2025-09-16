@@ -52,21 +52,26 @@ defmodule MossletWeb.SubscribeLive do
       socket={@socket}
       key={@key}
     >
-      <.container class="my-12">
-        <div class="mx-auto max-w-4xl sm:text-center pb-4">
-          <div class="mx-auto max-w-2xl text-center lg:max-w-4xl">
-            <h1 class="mt-2 text-6xl font-bold tracking-tight text-pretty sm:text-7xl lg:text-8xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+      <.container class="my-12 max-w-7xl">
+        <%!-- Header Section --%>
+        <div class="mx-auto max-w-4xl text-center pb-16">
+          <h1 class="text-6xl font-bold tracking-tight sm:text-7xl lg:text-8xl">
+            <span class="bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
               Simple,
-              <span class="italic underline underline-offset-4 decoration-emerald-600 dark:decoration-emerald-400 decoration-double text-6xl font-bold tracking-tight text-pretty sm:text-7xl lg:text-8xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                pay once
-              </span>
+            </span>
+            <span class="block mt-2 bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent italic underline underline-offset-4 decoration-emerald-600 dark:decoration-emerald-400 decoration-2">
+              pay once
+            </span>
+            <span class="block mt-2 bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
               pricing
-            </h1>
-          </div>
-          <h2 class="mt-4 text-center text-balance text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl text-black dark:text-white">
+            </span>
+          </h1>
+
+          <h2 class="mt-8 text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-slate-900 dark:text-slate-100">
             Say goodbye to never-ending subscription fees.
           </h2>
-          <p class="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600 dark:text-gray-400">
+
+          <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-400">
             Pay once and forget about it. With one, simple payment you get access to our service forever. No hidden fees, no subscriptions, no surprises. We also support lowering your upfront payment with Affirm.
           </p>
         </div>

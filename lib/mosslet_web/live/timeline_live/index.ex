@@ -314,7 +314,7 @@ defmodule MossletWeb.TimelineLive.Index do
     if current_user.id == user_id do
       {:noreply,
        socket
-       |> Toast.put_toast(:success, "Post image deleted from cloud successfully.")
+       |> put_flash(:success, "Post image deleted from cloud successfully.")
        |> push_patch(to: return_url)}
     else
       {:noreply, socket}
@@ -365,14 +365,14 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("file_too_large", %{"message" => message, "flag" => flag}, socket) do
     socket = assign(socket, :uploads_in_progress, flag)
-    {:noreply, Toast.put_toast(socket, :warning, message)}
+    {:noreply, put_flash(socket, :warning, message)}
   end
 
   def handle_event("nsfw", %{"message" => message, "flag" => flag}, socket) do
     socket =
       socket
       |> assign(:uploads_in_progress, flag)
-      |> Toast.put_toast(:warning, message)
+      |> put_flash(:warning, message)
 
     {:noreply, socket}
   end
@@ -388,7 +388,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("error_uploading", %{"message" => message, "flag" => flag}, socket) do
     socket = assign(socket, :uploads_in_progress, flag)
-    {:noreply, Toast.put_toast(socket, :warning, message)}
+    {:noreply, put_flash(socket, :warning, message)}
   end
 
   def handle_event(
@@ -401,7 +401,7 @@ defmodule MossletWeb.TimelineLive.Index do
     Logger.error("Error removing Trix image in TimelineLive.Index: #{url}")
     socket = assign(socket, :uploads_in_progress, flag)
 
-    {:noreply, Toast.put_toast(socket, :warning, message)}
+    {:noreply, put_flash(socket, :warning, message)}
   end
 
   def handle_event("trix_key", _params, socket) do
@@ -654,7 +654,7 @@ defmodule MossletWeb.TimelineLive.Index do
                 to_form(Timeline.change_post(%Post{}, %{}, user: current_user))
               )
               |> assign(:image_urls, [])
-              |> Toast.put_toast(:success, "Post created successfully")
+              |> put_flash(:success, "Post created successfully")
               |> push_navigate(to: socket.assigns.return_url)
 
             {:noreply, socket}
@@ -663,7 +663,7 @@ defmodule MossletWeb.TimelineLive.Index do
             socket =
               socket
               |> assign(:post_form, to_form(changeset, action: :validate))
-              |> Toast.put_toast(:error, "#{changeset.message}")
+              |> put_flash(:error, "#{changeset.message}")
               |> push_patch(to: socket.assigns.return_url)
 
             {:noreply, socket}
@@ -671,13 +671,13 @@ defmodule MossletWeb.TimelineLive.Index do
       else
         {:noreply,
          socket
-         |> Toast.put_toast(:warning, "You do not have permission to create this post.")
+         |> put_flash(:warning, "You do not have permission to create this post.")
          |> push_patch(to: socket.assigns.return_url)}
       end
     else
       {:noreply,
        socket
-       |> Toast.put_toast(
+       |> put_flash(
          :warning,
          "You are not connected to the internet. Please refresh your page and try again."
        )
@@ -763,7 +763,7 @@ defmodule MossletWeb.TimelineLive.Index do
           {:noreply, socket}
 
         {:error, changeset} ->
-          {:noreply, Toast.put_toast(socket, :error, "#{changeset.message}")}
+          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
       end
     else
       {:noreply, socket}
@@ -786,7 +786,7 @@ defmodule MossletWeb.TimelineLive.Index do
           {:noreply, socket}
 
         {:error, changeset} ->
-          {:noreply, Toast.put_toast(socket, :error, "#{changeset.message}")}
+          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
       end
     else
       {:noreply, socket}
@@ -845,17 +845,17 @@ defmodule MossletWeb.TimelineLive.Index do
 
           socket =
             socket
-            |> Toast.put_toast(:success, "Post reposted successfully.")
+            |> put_flash(:success, "Post reposted successfully.")
 
           {:noreply, push_navigate(socket, to: return_url)}
 
         {:error, changeset} ->
-          {:noreply, Toast.put_toast(socket, :error, "#{changeset.message}")}
+          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
       end
     else
       {:noreply,
        socket
-       |> Toast.put_toast(
+       |> put_flash(
          :error,
          "You have already reposted this post or do not have permission to repost."
        )}
@@ -891,7 +891,7 @@ defmodule MossletWeb.TimelineLive.Index do
         {:ok, post} ->
           socket =
             socket
-            |> Toast.put_toast(:success, "Post deleted successfully.")
+            |> put_flash(:success, "Post deleted successfully.")
             |> assign(:delete_post_from_cloud_message, AsyncResult.loading())
             |> assign(:image_urls, [])
             |> start_async(
@@ -920,10 +920,10 @@ defmodule MossletWeb.TimelineLive.Index do
           {:noreply, push_patch(socket, to: return_url)}
 
         {:error, changeset} ->
-          {:noreply, Toast.put_toast(socket, :error, "#{changeset.message}")}
+          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
       end
     else
-      {:noreply, socket |> Toast.put_toast(:error, "You are not authorized to delete this post.")}
+      {:noreply, socket |> put_flash(:error, "You are not authorized to delete this post.")}
     end
   end
 
@@ -970,7 +970,7 @@ defmodule MossletWeb.TimelineLive.Index do
         {:ok, reply} ->
           socket =
             socket
-            |> Toast.put_toast(:success, "Reply deleted successfully.")
+            |> put_flash(:success, "Reply deleted successfully.")
             |> assign(:delete_reply_from_cloud_message, AsyncResult.loading())
             |> start_async(
               :delete_reply_from_cloud,
@@ -987,11 +987,10 @@ defmodule MossletWeb.TimelineLive.Index do
           {:noreply, push_patch(socket, to: socket.assigns.return_url)}
 
         {:error, message} ->
-          {:noreply, Toast.put_toast(socket, :warning, message)}
+          {:noreply, put_flash(socket, :warning, message)}
       end
     else
-      {:noreply,
-       Toast.put_toast(socket, :warning, "You do not have permission to delete this Reply.")}
+      {:noreply, put_flash(socket, :warning, "You do not have permission to delete this Reply.")}
     end
   end
 
@@ -1015,7 +1014,7 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_async(:update_post_body, {:ok, {message, _post}}, socket) do
     socket =
       socket
-      |> Toast.put_toast(:info, "Update post body successful!")
+      |> put_flash(:info, "Update post body successful!")
       |> assign(:post_image_processing, AsyncResult.ok(message))
 
     if message === "updated" do
@@ -1041,7 +1040,7 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_async(:update_reply_body, {:ok, {message, _post}}, socket) do
     socket =
       socket
-      |> Toast.put_toast(:info, "Update reply body successful!")
+      |> put_flash(:info, "Update reply body successful!")
       |> assign(:reply_image_processing, AsyncResult.ok(message))
 
     if message === "updated" do
@@ -1077,7 +1076,7 @@ defmodule MossletWeb.TimelineLive.Index do
     socket =
       socket
       |> clear_flash(:warning)
-      |> Toast.put_toast(
+      |> put_flash(
         :warning,
         "Post image(s) could not be deleted from cloud: #{inspect(reason)}"
       )
@@ -1100,7 +1099,7 @@ defmodule MossletWeb.TimelineLive.Index do
     socket =
       socket
       |> clear_flash(:warning)
-      |> Toast.put_toast(
+      |> put_flash(
         :warning,
         "Reply image(s) could not be deleted from cloud: #{inspect(reason)}"
       )
