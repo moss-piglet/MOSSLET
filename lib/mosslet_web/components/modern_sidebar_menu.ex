@@ -32,7 +32,7 @@ defmodule MossletWeb.ModernSidebarMenu do
   defp modern_menu_item(assigns) do
     ~H"""
     <.link
-      navigate={@item[:path]}
+      {if @item[:method], do: %{method: @item[:method], href: @item[:path]}, else: %{navigate: @item[:path]}}
       class={[
         "group relative flex items-center gap-x-3 text-sm font-medium",
         "lg:rounded-lg lg:px-4 lg:py-3",

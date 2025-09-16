@@ -296,7 +296,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       >
         <.link
           :for={item <- @user_menu_items}
-          navigate={item[:path]}
+          {if item[:method], do: %{method: item[:method], href: item[:path]}, else: %{navigate: item[:path]}}
           class={[
             "group relative flex items-center px-4 py-2.5 text-sm font-medium overflow-hidden",
             "text-slate-700 dark:text-slate-200",
