@@ -245,7 +245,7 @@ defmodule MossletWeb.UserRegistrationLive do
               <div class="space-y-2">
                 <div class="flex justify-between items-center">
                   <div></div>
-                   <%!-- Empty div to maintain layout --%>
+                  <%!-- Empty div to maintain layout --%>
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
@@ -421,7 +421,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       "dark:focus:ring-offset-slate-800"
                     ]}
                   >
-                    <.icon
+                    <.phx_icon
                       name="hero-arrow-left"
                       class="relative w-5 h-5 transition-transform group-hover:-translate-x-1"
                     />
@@ -466,7 +466,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       </div>
 
                       <span class="relative">Join the revolution</span>
-                      <.icon
+                      <.phx_icon
                         name="hero-shield-check"
                         class="relative w-5 h-5 transition-transform group-hover:scale-110"
                       />
@@ -512,7 +512,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       </div>
 
                       <span class="relative">Continue</span>
-                      <.icon
+                      <.phx_icon
                         name="hero-arrow-right"
                         class="relative w-5 h-5 transition-transform group-hover:translate-x-1"
                       />
@@ -526,7 +526,7 @@ defmodule MossletWeb.UserRegistrationLive do
 
         <%!-- Footer link with improved styling and proper spacing --%>
         <div class="mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-center sm:text-left">
+          <div class="flex flex-col sm:flex-row items-center sm:justify-between gap-4 text-center sm:text-left">
             <span class="text-sm text-slate-600 dark:text-slate-400">
               Already have an account?
             </span>

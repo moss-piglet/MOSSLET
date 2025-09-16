@@ -154,18 +154,18 @@ defmodule MossletWeb.UserLoginLive do
               <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-[shimmer_1s_ease-out] transition-opacity duration-200">
               </div>
 
-              <span class="relative">Sign in</span>
-              <.icon
-                name="hero-arrow-right"
-                class="relative w-5 h-5 transition-transform group-hover:translate-x-1"
+              <.phx_icon
+                name="hero-arrow-left-end-on-rectangle"
+                class="relative w-5 h-5"
               />
+              <span class="relative">Sign in</span>
             </button>
           </div>
         </.form>
 
         <%!-- Footer links with improved spacing and styling --%>
         <div class="pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-center sm:text-left">
+          <div class="flex flex-col sm:flex-row items-center sm:justify-between gap-4 text-center sm:text-left">
             <.link
               navigate={~p"/auth/reset-password"}
               class={[

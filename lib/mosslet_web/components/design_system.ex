@@ -75,7 +75,14 @@ defmodule MossletWeb.DesignSystem do
       >
       </div>
 
-      <.phx_icon :if={@icon} name={@icon} class="h-4 w-4 relative z-10" />
+      <.phx_icon
+        :if={@icon}
+        name={@icon}
+        class={[
+          "h-4 w-4 relative z-10 transition-transform duration-200 ease-out",
+          icon_animation_classes(@icon)
+        ]}
+      />
       <span class="relative z-10">{render_slot(@inner_block)}</span>
     </.link>
 
@@ -115,7 +122,14 @@ defmodule MossletWeb.DesignSystem do
       >
       </div>
 
-      <.phx_icon :if={@icon} name={@icon} class="h-4 w-4 relative z-10" />
+      <.phx_icon
+        :if={@icon}
+        name={@icon}
+        class={[
+          "h-4 w-4 relative z-10 transition-transform duration-200 ease-out",
+          icon_animation_classes(@icon)
+        ]}
+      />
       <span class="relative z-10">{render_slot(@inner_block)}</span>
     </button>
     """
@@ -294,8 +308,8 @@ defmodule MossletWeb.DesignSystem do
   # Private helper functions
 
   defp button_size_classes("sm"), do: "px-3 py-1.5 text-xs rounded-lg"
-  defp button_size_classes("md"), do: "px-6 py-3 text-sm rounded-full"
-  defp button_size_classes("lg"), do: "px-8 py-4 text-base rounded-full"
+  defp button_size_classes("md"), do: "px-6 py-3 text-sm rounded-xl"
+  defp button_size_classes("lg"), do: "px-8 py-4 text-base rounded-xl"
 
   defp button_variant_classes("primary", color) do
     gradient_classes = gradient_for_color(color)
@@ -388,4 +402,22 @@ defmodule MossletWeb.DesignSystem do
   defp phx_icon(assigns) do
     MossletWeb.CoreComponents.phx_icon(assigns)
   end
+
+  # Icon animation patterns based on icon semantics
+  defp icon_animation_classes("hero-arrow-right"), do: "group-hover:translate-x-1"
+  defp icon_animation_classes("hero-arrow-left"), do: "group-hover:-translate-x-1"
+  defp icon_animation_classes("hero-arrow-up"), do: "group-hover:-translate-y-1"
+  defp icon_animation_classes("hero-arrow-down"), do: "group-hover:translate-y-1"
+
+  defp icon_animation_classes("hero-paper-airplane"),
+    do: "group-hover:translate-x-1 group-hover:-translate-y-0.5"
+
+  defp icon_animation_classes("hero-plus"), do: "group-hover:scale-110"
+  defp icon_animation_classes("hero-trash"), do: "group-hover:scale-110"
+  defp icon_animation_classes("hero-shield-check"), do: "group-hover:scale-110"
+  defp icon_animation_classes("hero-user-plus"), do: "group-hover:scale-110"
+  defp icon_animation_classes("hero-key"), do: "group-hover:scale-110"
+  defp icon_animation_classes("hero-arrow-left-on-rectangle"), do: "group-hover:-translate-x-1"
+  # Default for other icons
+  defp icon_animation_classes(_), do: "group-hover:scale-105"
 end
