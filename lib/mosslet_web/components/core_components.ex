@@ -1436,43 +1436,97 @@ defmodule MossletWeb.CoreComponents do
     """
   end
 
-  attr :navigate, :any, required: true
+  attr :href, :string, default: nil, doc: "URL or link destination"
+  attr :mailto, :string, default: nil, doc: "Email address for mailto links"
+  attr :navigate, :string, default: nil, doc: "Navigate to another page"
   attr :nav_title, :string, required: true
+  attr :icon, :string, default: "hero-information-circle", doc: "Icon name for the banner"
+  attr :variant, :string, default: "info", values: ~w(info warning success), doc: "Visual variant"
   slot :inner_block, required: true
 
   def info_banner(assigns) do
     ~H"""
-    <div class="rounded-lg bg-background-200 dark:bg-gray-800 p-4 mt-8 shadow-lg dark:shadow-emerald-500/50">
-      <div class="flex">
+    <div class={[
+      "relative rounded-xl border transition-all duration-200 ease-in-out",
+      "bg-gradient-to-br from-slate-50/80 to-blue-50/50 border-slate-200/70",
+      "dark:from-slate-900/80 dark:to-slate-800/50 dark:border-slate-700/50",
+      "shadow-sm hover:shadow-md dark:shadow-slate-900/20",
+      "backdrop-blur-sm",
+      "p-4 sm:p-5 lg:p-6"
+    ]}>
+      <div class="flex flex-col sm:flex-row sm:items-start gap-4">
         <div class="flex-shrink-0">
-          <svg
-            class="h-5 w-5 text-background-500 dark:text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
-              clip-rule="evenodd"
-            />
-          </svg>
+          <div class={[
+            "flex items-center justify-center rounded-lg",
+            "w-10 h-10 sm:w-12 sm:h-12",
+            variant_classes(@variant)
+          ]}>
+            <.phx_icon name={@icon} class="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
         </div>
-        <div class="ml-3 flex-1 md:flex md:justify-between">
-          <p class="text-sm text-background-800 dark:text-gray-200">{render_slot(@inner_block)}</p>
-          <p class="mt-3 text-sm md:ml-6 md:mt-0">
-            <.link
-              navigate={@navigate}
-              class="whitespace-nowrap font-medium text-background-800 hover:text-background-700 dark:text-gray-200 dark:hover:text-gray-100"
-            >
-              {@nav_title}
-              <span aria-hidden="true"> &rarr;</span>
-            </.link>
-          </p>
+
+        <div class="flex-1 min-w-0">
+          <div class="space-y-3">
+            <p class={[
+              "text-sm sm:text-base leading-relaxed",
+              "text-slate-700 dark:text-slate-300"
+            ]}>
+              {render_slot(@inner_block)}
+            </p>
+
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <a
+                href={get_banner_href(assigns)}
+                class={[
+                  "inline-flex items-center justify-center gap-2 px-4 py-2.5",
+                  "text-sm font-medium rounded-lg",
+                  "bg-slate-100 hover:bg-slate-200 text-slate-700",
+                  "dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300",
+                  "border border-slate-200 dark:border-slate-600",
+                  "transition-all duration-200 hover:scale-[1.02]",
+                  "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2",
+                  "dark:focus:ring-offset-slate-800",
+                  "shadow-sm hover:shadow",
+                  "w-fit mx-auto sm:mx-0"
+                ]}
+              >
+                <span>{@nav_title}</span>
+                <.phx_icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
     """
+  end
+
+  # Helper function for info_banner href logic
+  defp get_banner_href(%{mailto: mailto}) when not is_nil(mailto), do: "mailto:#{mailto}"
+  defp get_banner_href(%{href: href}) when not is_nil(href), do: href
+  defp get_banner_href(%{navigate: navigate}) when not is_nil(navigate), do: navigate
+  defp get_banner_href(_), do: "#"
+
+  # Helper function for info_banner variant classes
+  defp variant_classes("info") do
+    [
+      "bg-blue-100 dark:bg-blue-900/30",
+      "text-blue-600 dark:text-blue-400"
+    ]
+  end
+
+  defp variant_classes("warning") do
+    [
+      "bg-amber-100 dark:bg-amber-900/30",
+      "text-amber-600 dark:text-amber-400"
+    ]
+  end
+
+  defp variant_classes("success") do
+    [
+      "bg-emerald-100 dark:bg-emerald-900/30",
+      "text-emerald-600 dark:text-emerald-400"
+    ]
   end
 
   attr(:src, :string, default: nil, doc: "hosted avatar URL")
