@@ -5,7 +5,7 @@ defmodule MossletWeb.ModernSidebarLayout do
   """
   use MossletWeb, :verified_routes
   use Phoenix.Component
-  
+
   import MossletWeb.ModernSidebarMenu
   import MossletWeb.Helpers
   alias Mosslet.Repo
@@ -17,18 +17,18 @@ defmodule MossletWeb.ModernSidebarLayout do
   attr :user_menu_items, :list, default: []
   attr :sidebar_title, :string, default: nil
   attr :home_path, :string, default: "/"
-  
+
   slot :inner_block, required: true
   slot :logo
-  slot :logo_icon  
+  slot :logo_icon
   slot :top_right
 
   def modern_sidebar_layout(assigns) do
     ~H"""
     <div class="min-h-screen bg-slate-50/50 dark:bg-slate-900" x-data="{ sidebarOpen: false }">
       <%!-- Mobile sidebar backdrop --%>
-      <div 
-        class="fixed inset-0 z-40 lg:hidden" 
+      <div
+        class="fixed inset-0 z-40 lg:hidden"
         x-show="sidebarOpen"
         x-transition:enter="transition-opacity ease-linear duration-200"
         x-transition:enter-start="opacity-0"
@@ -44,17 +44,30 @@ defmodule MossletWeb.ModernSidebarLayout do
 
       <%!-- Desktop sidebar --%>
       <aside class="hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:w-64 lg:flex-col">
-        <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 px-6 pb-4">
+        <div class={[
+          "flex grow flex-col gap-y-6 overflow-y-auto px-6 pb-4",
+          "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
+          "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
+          "border-r border-slate-200/60 dark:border-slate-700/60",
+          "backdrop-blur-sm"
+        ]}>
           <%!-- Logo --%>
           <div class="flex h-16 shrink-0 items-center">
-            <.link navigate={@home_path} class="block">
-              {render_slot(@logo)}
+            <.link
+              navigate={@home_path}
+              class="group block transition-transform duration-300 ease-out hover:scale-105"
+            >
+              <div class="relative">
+                {render_slot(@logo)}
+                <div class="absolute inset-0 rounded-lg bg-gradient-to-br from-emerald-500/0 to-cyan-500/0 group-hover:from-emerald-500/5 group-hover:to-cyan-500/5 transition-all duration-300">
+                </div>
+              </div>
             </.link>
           </div>
-          
+
           <%!-- Navigation --%>
-          <nav class="flex flex-1 flex-col">
-            <.modern_sidebar_menu 
+          <nav class="flex flex-1 flex-col space-y-2">
+            <.modern_sidebar_menu
               menu_items={@main_menu_items}
               current_page={@current_page}
               title={@sidebar_title}
@@ -65,32 +78,44 @@ defmodule MossletWeb.ModernSidebarLayout do
 
       <%!-- Mobile sidebar --%>
       <div class="relative z-50 lg:hidden">
-        <div 
-          class="fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 px-6 pb-4 transition-transform duration-200 ease-in-out"
+        <div
+          class={[
+            "fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto px-0 pb-4",
+            "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
+            "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
+            "border-r border-slate-200/60 dark:border-slate-700/60",
+            "backdrop-blur-sm transition-transform duration-300 ease-out"
+          ]}
           x-show="sidebarOpen"
-          x-transition:enter="transform transition ease-in-out duration-200"
-          x-transition:enter-start="-translate-x-full"
-          x-transition:enter-end="translate-x-0"
-          x-transition:leave="transform transition ease-in-out duration-200"
-          x-transition:leave-start="translate-x-0"
-          x-transition:leave-end="-translate-x-full"
+          x-transition:enter="transform transition ease-out duration-300"
+          x-transition:enter-start="-translate-x-full opacity-90"
+          x-transition:enter-end="translate-x-0 opacity-100"
+          x-transition:leave="transform transition ease-in duration-250"
+          x-transition:leave-start="translate-x-0 opacity-100"
+          x-transition:leave-end="-translate-x-full opacity-90"
           x-cloak
         >
-          <div class="flex h-16 shrink-0 items-center justify-between">
+          <div class="flex h-16 shrink-0 items-center justify-between px-6">
             <.link navigate={@home_path} class="block">
               {render_slot(@logo)}
             </.link>
-            <button 
+            <button
               @click="sidebarOpen = false"
-              class="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+              class={[
+                "group p-2 rounded-lg transition-all duration-200 ease-out",
+                "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+                "hover:bg-gradient-to-br hover:from-slate-100 hover:to-slate-50",
+                "dark:hover:from-slate-700 dark:hover:to-slate-600",
+                "hover:scale-105 active:scale-95"
+              ]}
             >
               <span class="sr-only">Close sidebar</span>
               <MossletWeb.CoreComponents.phx_icon name="hero-x-mark" class="w-5 h-5" />
             </button>
           </div>
-          
-          <nav class="flex flex-1 flex-col mt-5">
-            <.modern_sidebar_menu 
+
+          <nav class="flex flex-1 flex-col mt-5 px-0">
+            <.modern_sidebar_menu
               menu_items={@main_menu_items}
               current_page={@current_page}
               title={@sidebar_title}
@@ -102,11 +127,23 @@ defmodule MossletWeb.ModernSidebarLayout do
       <%!-- Main content --%>
       <div class="lg:pl-64">
         <%!-- Top bar --%>
-        <div class="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-x-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <div class={[
+          "sticky top-0 z-20 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
+          "border-b border-slate-200/60 dark:border-slate-700/60",
+          "bg-gradient-to-r from-white/90 via-slate-50/80 to-white/90",
+          "dark:from-slate-800/90 dark:via-slate-800/80 dark:to-slate-800/90",
+          "backdrop-blur-md shadow-sm shadow-slate-900/5 dark:shadow-slate-900/20"
+        ]}>
           <%!-- Mobile menu button --%>
-          <button 
+          <button
             @click="sidebarOpen = !sidebarOpen"
-            class="p-2.5 text-slate-700 dark:text-slate-200 lg:hidden rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            class={[
+              "group p-2.5 lg:hidden rounded-lg transition-all duration-200 ease-out",
+              "text-slate-700 dark:text-slate-200",
+              "hover:bg-gradient-to-br hover:from-slate-100 hover:to-slate-50",
+              "dark:hover:from-slate-700 dark:hover:to-slate-600",
+              "hover:scale-105 active:scale-95 hover:shadow-md"
+            ]}
           >
             <span class="sr-only">Open sidebar</span>
             <MossletWeb.CoreComponents.phx_icon name="hero-bars-3" class="w-5 h-5" />
@@ -119,9 +156,9 @@ defmodule MossletWeb.ModernSidebarLayout do
           <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">
             <div class="flex items-center gap-x-4 lg:gap-x-6">
               {render_slot(@top_right)}
-              
+
               <%!-- User menu --%>
-              <.modern_user_menu 
+              <.modern_user_menu
                 :if={@user_menu_items != []}
                 user_menu_items={@user_menu_items}
                 current_user={@current_user}
@@ -146,17 +183,21 @@ defmodule MossletWeb.ModernSidebarLayout do
   # Modern beta banner with improved styling
   defp modern_beta_banner(assigns) do
     ~H"""
-    <div 
+    <div
       :if={!has_subscription?(@current_user)}
       class="relative isolate flex items-center gap-x-6 overflow-hidden bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 px-6 py-2.5 sm:px-3.5"
     >
-      <div class="absolute left-[max(-7rem,calc(50%-52rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl" aria-hidden="true">
-        <div 
+      <div
+        class="absolute left-[max(-7rem,calc(50%-52rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl"
+        aria-hidden="true"
+      >
+        <div
           class="aspect-[577/310] w-[36.0625rem] bg-gradient-to-r from-emerald-400 to-cyan-400 opacity-20"
           style="clip-path: polygon(74.8% 41.9%, 97.2% 73.2%, 100% 34.9%, 92.5% 0.4%, 87.5% 0%, 75% 28.6%, 58.5% 54.6%, 50.1% 56.8%, 46.9% 44%, 48.3% 17.4%, 24.7% 53.9%, 0% 27.9%, 11.9% 74.2%, 24.9% 54.1%, 68.6% 100%, 74.8% 41.9%)"
-        ></div>
+        >
+        </div>
       </div>
-      
+
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p class="text-sm text-slate-900 dark:text-slate-100">
           <strong class="font-semibold">Special Beta Price</strong>
@@ -186,41 +227,105 @@ defmodule MossletWeb.ModernSidebarLayout do
     _ -> false
   end
 
-  # Modern user menu dropdown
+  # Modern user menu dropdown with liquid metal styling
   defp modern_user_menu(assigns) do
     ~H"""
     <div class="relative" x-data="{ open: false }" @click.away="open = false">
       <button
         @click="open = !open"
-        class="flex items-center gap-x-2 rounded-full bg-white dark:bg-slate-800 p-1.5 text-sm ring-1 ring-slate-200 dark:ring-slate-700 hover:ring-slate-300 dark:hover:ring-slate-600 transition-all"
+        class={[
+          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-hidden",
+          "bg-gradient-to-br from-slate-50 via-white to-slate-100",
+          "dark:from-slate-800 dark:via-slate-700 dark:to-slate-800",
+          "ring-1 ring-slate-200/60 dark:ring-slate-600/40",
+          "hover:ring-teal-300/60 dark:hover:ring-emerald-500/40",
+          "hover:shadow-lg hover:shadow-emerald-500/20 dark:hover:shadow-emerald-400/10",
+          "transition-all duration-300 ease-out hover:scale-105 active:scale-95",
+          "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+        ]}
       >
         <span class="sr-only">Open user menu</span>
-        <MossletWeb.CoreComponents.phx_avatar 
-          src={maybe_get_user_avatar(@current_user, @key)}
-          size="h-8 w-8" 
-          class="rounded-full"
-          alt="User avatar"
-        />
+
+        <%!-- Shimmer effect on hover --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-500",
+          "bg-gradient-to-r from-transparent via-white/30 to-transparent",
+          "dark:via-emerald-400/20",
+          "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
+        ]}>
+        </div>
+
+        <div class="relative">
+          <MossletWeb.CoreComponents.phx_avatar
+            src={maybe_get_user_avatar(@current_user, @key)}
+            class={[
+              "h-8 w-8 rounded-full transition-all duration-300",
+              "ring-2 ring-white dark:ring-slate-600",
+              "group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400",
+              "group-hover:shadow-md group-hover:shadow-emerald-500/30"
+            ]}
+            alt="User avatar"
+          />
+          <%!-- Online indicator with pulse --%>
+          <div class={[
+            "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full",
+            "bg-gradient-to-br from-emerald-400 to-emerald-500",
+            "ring-2 ring-white dark:ring-slate-800",
+            "animate-pulse group-hover:animate-bounce"
+          ]}>
+          </div>
+        </div>
       </button>
 
       <div
         x-show="open"
-        x-transition:enter="transition ease-out duration-100"
-        x-transition:enter-start="transform opacity-0 scale-95"
-        x-transition:enter-end="transform opacity-100 scale-100"
-        x-transition:leave="transition ease-in duration-75"
-        x-transition:leave-start="transform opacity-100 scale-100"
-        x-transition:leave-end="transform opacity-0 scale-95"
-        class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-lg bg-white dark:bg-slate-800 py-1 shadow-lg ring-1 ring-slate-900/5 dark:ring-slate-700/50 focus:outline-none"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="transform opacity-0 scale-95 -translate-y-2"
+        x-transition:enter-end="transform opacity-100 scale-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
+        x-transition:leave-end="transform opacity-0 scale-95 -translate-y-2"
+        class={[
+          "absolute right-0 z-50 mt-3 w-48 origin-top-right overflow-hidden",
+          "rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+          "py-2 shadow-xl shadow-slate-900/15 dark:shadow-slate-900/30",
+          "ring-1 ring-slate-200/60 dark:ring-slate-700/60",
+          "border border-slate-100/60 dark:border-slate-600/40"
+        ]}
         x-cloak
       >
         <.link
           :for={item <- @user_menu_items}
           navigate={item[:path]}
-          class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          class={[
+            "group relative flex items-center px-4 py-2.5 text-sm font-medium overflow-hidden",
+            "text-slate-700 dark:text-slate-200",
+            "hover:bg-gradient-to-r hover:from-teal-50 hover:via-emerald-50 hover:to-cyan-50",
+            "dark:hover:from-teal-900/30 dark:hover:via-emerald-900/20 dark:hover:to-cyan-900/30",
+            "hover:text-emerald-700 dark:hover:text-emerald-300",
+            "transition-all duration-200 ease-out",
+            "first:rounded-t-lg last:rounded-b-lg"
+          ]}
           @click="open = false"
         >
-          {item[:label]}
+          <%!-- Menu item shimmer --%>
+          <div class={[
+            "absolute inset-0 opacity-0 transition-all duration-500",
+            "bg-gradient-to-r from-transparent via-emerald-100/50 to-transparent",
+            "dark:via-emerald-400/20",
+            "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
+          ]}>
+          </div>
+
+          <span class="relative truncate">{item[:label]}</span>
+          <MossletWeb.CoreComponents.phx_icon
+            name="hero-arrow-top-right-on-square"
+            class={[
+              "relative ml-auto h-4 w-4 transition-all duration-200",
+              "opacity-0 group-hover:opacity-100 group-hover:scale-110",
+              "text-emerald-500 dark:text-emerald-400"
+            ]}
+          />
         </.link>
       </div>
     </div>
