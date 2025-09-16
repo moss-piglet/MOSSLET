@@ -95,19 +95,19 @@ defmodule MossletWeb.EditDetailsLive do
         <div class="flex justify-end">
           <.button
             :if={@uploads.avatar.entries != []}
-            class="rounded-full"
+            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
             phx-disable-with="Updating..."
           >
             {gettext("Update avatar")}
           </.button>
-          <.button
+          <.phx_button
             :if={@uploads.avatar.entries == []}
-            class="rounded-full"
+            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
             phx-disable-with="Updating..."
             disabled
           >
             {gettext("Choose photo to upload")}
-          </.button>
+          </.phx_button>
         </div>
       </.form>
 
@@ -126,13 +126,13 @@ defmodule MossletWeb.EditDetailsLive do
             value={@current_name}
           />
 
-          <.button
-            class="rounded-full"
+          <.phx_button
+            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
             phx-disable-with="Updating..."
             disabled={!@name_change_valid?}
           >
             {gettext("Update name")}
-          </.button>
+          </.phx_button>
         </.form>
       </div>
 
@@ -151,13 +151,13 @@ defmodule MossletWeb.EditDetailsLive do
             value={@current_username}
           />
 
-          <.button
-            class="rounded-full"
+          <.phx_button
+            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
             phx-disable-with="Updating..."
             disabled={!@username_change_valid?}
           >
             {gettext("Update username")}
-          </.button>
+          </.phx_button>
         </.form>
       </div>
     </.settings_layout>
