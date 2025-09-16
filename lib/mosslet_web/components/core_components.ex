@@ -2155,18 +2155,28 @@ defmodule MossletWeb.CoreComponents do
   slot :logo
 
   def layout(assigns) do
+    # Safely get current_user from either user or current_user assigns
+    current_user = assigns[:user] || assigns[:current_user]
+    
     assigns =
       assigns
-      |> assign_new(:current_user, fn -> assigns[:user] || assigns[:current_user] end)
-      |> assign_new(:public_menu_items, fn -> public_menu_items(assigns[:current_user]) end)
+      |> assign_new(:current_user, fn -> current_user end)
+      |> assign_new(:public_menu_items, fn -> public_menu_items(current_user) end)
       |> assign_new(:public_menu_footer_items, fn ->
-        public_menu_footer_items(assigns[:current_user])
+        public_menu_footer_items(current_user)
       end)
-      |> assign_new(:main_menu_items, fn -> main_menu_items(assigns[:current_user]) end)
-      |> assign_new(:user_menu_items, fn -> user_menu_items(assigns[:current_user]) end)
-      |> assign_new(:current_user_name, fn -> user_name(assigns[:current_user], assigns[:key]) end)
-      |> assign_new(:avatar_src, fn -> user_avatar_url(assigns[:current_user]) end)
-      |> assign_new(:home_path, fn -> home_path(assigns[:current_user]) end)
+      |> assign_new(:main_menu_items, fn -> main_menu_items(current_user) end)
+      |> assign_new(:user_menu_items, fn -> user_menu_items(current_user) end)
+      |> assign_new(:current_user_name, fn -> 
+        # Only decrypt username if we have both user and session key
+        if current_user && assigns[:key] do
+          user_name(current_user, assigns[:key])
+        else
+          nil
+        end
+      end)
+      |> assign_new(:avatar_src, fn -> user_avatar_url(current_user) end)
+      |> assign_new(:home_path, fn -> home_path(current_user) end)
 
     ~H"""
     <%= case @type do %>
