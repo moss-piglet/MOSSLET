@@ -58,7 +58,7 @@ defmodule MossletWeb.DesignSystem do
         "rounded-full"
       ]}></div>
 
-      <MossletWeb.CoreComponents.phx_icon :if={@icon} name={@icon} class="h-4 w-4 relative z-10" />
+      <.phx_icon :if={@icon} name={@icon} class="h-4 w-4 relative z-10" />
       <span class="relative z-10">{render_slot(@inner_block)}</span>
     </button>
     """
@@ -186,7 +186,7 @@ defmodule MossletWeb.DesignSystem do
           ]
         )
       ]}>
-        <MossletWeb.CoreComponents.phx_icon name={@icon} class="h-4 w-4 relative" />
+        <.phx_icon name={@icon} class="h-4 w-4 relative" />
       </div>
 
       <span class={[
@@ -274,6 +274,6 @@ defmodule MossletWeb.DesignSystem do
 
   # Import the phx_icon component
   defp phx_icon(assigns) do
-    MossletWeb.CoreComponentsMossletWeb.CoreComponents.phx_icon(assigns)
+    MossletWeb.CoreComponents.phx_icon(assigns)
   end
 end
