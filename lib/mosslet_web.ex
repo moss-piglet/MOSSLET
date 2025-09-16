@@ -132,6 +132,7 @@ defmodule MossletWeb do
 
       use Gettext, backend: MossletWeb.Gettext
       import MossletWeb.CoreComponents
+      import MossletWeb.DesignSystem
       import MossletWeb.Helpers
       import Phoenix.HTML
 

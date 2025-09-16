@@ -16,7 +16,7 @@
       <%!-- Quick Actions Bar --%>
       <div class="mb-8 flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
             <.phx_icon name="hero-user-circle" class="size-5" />
             <span>Profile Dashboard</span>
           </div>
@@ -35,31 +35,31 @@
               </div>
             </:failed>
 
-            <%!-- New Post Button - Consistent with design system --%>
-            <.phx_button
+            <%!-- New Post Button - Using design system --%>
+            <MossletWeb.DesignSystem.liquid_button
               :if={@current_user}
               type="button"
               id={"new-post-button-#{@current_user.id}"}
               phx-click={JS.push("new_post")}
-              class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+              icon="hero-chat-bubble-oval-left-ellipsis"
               data-tippy-content="Share something new"
               phx-hook="TippyHook"
             >
-              <.phx_icon name="hero-chat-bubble-oval-left-ellipsis" class="size-5 mr-2" />
               New Post
-            </.phx_button>
+            </MossletWeb.DesignSystem.liquid_button>
 
-            <%!-- Edit Profile Button - Secondary style --%>
-            <.link
+            <%!-- Edit Profile Button - Using design system --%>
+            <MossletWeb.DesignSystem.liquid_button
               :if={@current_user}
+              variant="secondary"
               id={"edit-profile-button-#{@current_user.id}"}
-              class="inline-flex items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 px-6 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-emerald-400 dark:hover:border-emerald-400 transition-all duration-200"
-              phx-click={JS.patch(~p"/app/users/edit-profile")}
+              patch={~p"/app/users/edit-profile"}
+              icon="hero-pencil-square"
               data-tippy-content="Edit your profile"
               phx-hook="TippyHook"
             >
-              <.phx_icon name="hero-pencil-square" class="size-5 mr-2" /> Edit Profile
-            </.link>
+              Edit Profile
+            </MossletWeb.DesignSystem.liquid_button>
           </.async_result>
         </div>
       </div>
@@ -69,25 +69,23 @@
         <%!-- Profile Information - Enhanced Left Column --%>
         <div class="lg:col-span-2 space-y-8">
           <%!-- Profile Overview Card --%>
-          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-emerald-500/10 border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+          <MossletWeb.DesignSystem.liquid_card>
+            <:title>
               <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <div class="flex items-center gap-2">
                   <.phx_icon name="hero-user" class="size-6 text-emerald-600" /> Profile Overview
-                </h2>
+                </div>
                 <span class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/20 px-3 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-300">
                   Active
                 </span>
               </div>
-            </div>
-
-            <div class="p-6">
+            </:title>
               <dl class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
-                  <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4">
+                  <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
                     <.phx_icon name="hero-at-symbol" class="size-4" /> Username
                   </dt>
-                  <dd class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <dd class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                     {decr_item(
                       @current_user.connection.profile.username,
                       @current_user,
@@ -98,13 +96,13 @@
                   </dd>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
-                  <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4">
+                  <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
                     <.phx_icon name="hero-envelope" class="size-4" /> Email address
                   </dt>
                   <dd
                     :if={show_email?(@current_user)}
-                    class="text-lg font-semibold text-gray-900 dark:text-gray-100 break-all"
+                    class="text-lg font-semibold text-slate-900 dark:text-slate-100 break-all"
                   >
                     {decr_item(
                       @current_user.connection.profile.email,
@@ -116,21 +114,21 @@
                   </dd>
                   <dd
                     :if={!show_email?(@current_user)}
-                    class="text-lg font-semibold text-gray-500 dark:text-gray-400 italic"
+                    class="text-lg font-semibold text-slate-500 dark:text-slate-400 italic"
                   >
                     Hidden for privacy 😊
                   </dd>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
-                  <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4">
+                  <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
                     <.phx_icon name="hero-eye" class="size-4" /> Profile Visibility
                   </dt>
-                  <dd class="text-lg font-semibold text-gray-900 dark:text-gray-100 capitalize">
+                  <dd class="text-lg font-semibold text-slate-900 dark:text-slate-100 capitalize">
                     <span class={[
                       "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
                       if(@current_user.connection.profile.visibility == "public",
-                        do: "bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300",
+                        do: "bg-cyan-100 dark:bg-cyan-900/20 text-cyan-800 dark:text-cyan-300",
                         else:
                           "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300"
                       )
@@ -140,13 +138,13 @@
                   </dd>
                 </div>
 
-                <div class="sm:col-span-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
-                  <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                <div class="sm:col-span-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4">
+                  <dt class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
                     <.phx_icon name="hero-chat-bubble-left-right" class="size-4" /> About
                   </dt>
                   <dd
                     :if={@current_user.connection.profile.about}
-                    class="text-base text-gray-900 dark:text-gray-100 leading-relaxed"
+                    class="text-base text-slate-900 dark:text-slate-100 leading-relaxed"
                   >
                     {decr_item(
                       @current_user.connection.profile.about,
@@ -158,30 +156,28 @@
                   </dd>
                   <dd
                     :if={!@current_user.connection.profile.about}
-                    class="text-base text-gray-500 dark:text-gray-400 italic"
+                    class="text-base text-slate-500 dark:text-slate-400 italic"
                   >
                     Add something about yourself to help others get to know you better! 😊
                   </dd>
                 </div>
               </dl>
-            </div>
-          </div>
+          </MossletWeb.DesignSystem.liquid_card>
 
           <%!-- Activity Stats Card --%>
-          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-emerald-500/10 border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <MossletWeb.DesignSystem.liquid_card>
+            <:title>
+              <div class="flex items-center gap-2">
                 <.phx_icon name="hero-chart-bar" class="size-5 text-emerald-600" />
                 Activity Overview
-              </h3>
-            </div>
-            <div class="p-6">
+              </div>
+            </:title>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <div class="text-center p-4 bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-xl">
+                  <div class="text-2xl font-bold text-teal-600 dark:text-teal-400">
                     {@activity_stats.posts}
                   </div>
-                  <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">Posts</div>
+                  <div class="text-sm text-teal-600 dark:text-teal-400 font-medium">Posts</div>
                 </div>
                 <div class="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl">
                   <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
@@ -191,62 +187,60 @@
                     Connections
                   </div>
                 </div>
-                <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                <div class="text-center p-4 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 rounded-xl">
+                  <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
                     {@activity_stats.replies}
                   </div>
-                  <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                  <div class="text-sm text-cyan-600 dark:text-cyan-400 font-medium">
                     Replies
                   </div>
                 </div>
-                <div class="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                <div class="text-center p-4 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/20 dark:to-emerald-800/20 rounded-xl">
+                  <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                     {@activity_stats.groups}
                   </div>
-                  <div class="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                  <div class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                     Groups
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+          </MossletWeb.DesignSystem.liquid_card>
         </div>
 
         <%!-- Notifications Sidebar - Enhanced Right Column --%>
         <div class="lg:col-span-1">
-          <div
+          <MossletWeb.DesignSystem.liquid_card
             :if={
               @current_user.is_subscribed_to_marketing_notifications &&
                 !Enum.empty?(@streams.unread_posts.inserts)
             }
-            class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-emerald-500/10 border border-gray-100 dark:border-gray-700 overflow-hidden"
           >
-            <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+            <:title>
               <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <div class="flex items-center gap-2">
                   <.phx_icon name="hero-bell" class="size-5 text-emerald-600" /> Recent Activity
-                </h3>
+                </div>
                 <span class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/20 px-2 py-1 text-xs font-medium text-red-800 dark:text-red-300">
                   {length(@streams.unread_posts.inserts)} new
                 </span>
               </div>
-            </div>
+            </:title>
 
-            <div class="max-h-96 overflow-y-auto">
+            <div class="max-h-96 overflow-y-auto -m-6 p-6">
               <div
                 id="unread-posts"
-                class="divide-y divide-gray-100 dark:divide-gray-700"
+                class="divide-y divide-slate-100 dark:divide-slate-700"
                 phx-update="stream"
               >
                 <div id="unread_posts-empty" class="only:block hidden p-8 text-center">
-                  <.phx_icon name="hero-inbox" class="size-12 text-gray-400 mx-auto mb-4" />
-                  <p class="text-gray-500 dark:text-gray-400">All caught up! 😌</p>
+                  <.phx_icon name="hero-inbox" class="size-12 text-slate-400 mx-auto mb-4" />
+                  <p class="text-slate-500 dark:text-slate-400">All caught up! 😌</p>
                 </div>
 
                 <div
                   :for={{dom_id, unread_post} <- @streams.unread_posts}
                   id={dom_id}
-                  class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200"
+                  class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200"
                 >
                   <div class="flex items-start gap-3">
                     <div class="shrink-0">
@@ -257,7 +251,7 @@
                         ) %>
                       <.phx_avatar
                         :if={user_connection}
-                        class="size-10 rounded-full ring-2 ring-white dark:ring-gray-800"
+                        class="size-10 rounded-full ring-2 ring-white dark:ring-slate-800"
                         src={
                           if !show_avatar?(user_connection),
                             do: "",
@@ -273,7 +267,7 @@
                       />
                       <.phx_avatar
                         :if={!user_connection && unread_post.user_id == @current_user.id}
-                        class="size-10 rounded-full ring-2 ring-white dark:ring-gray-800"
+                        class="size-10 rounded-full ring-2 ring-white dark:ring-slate-800"
                         src={
                           if !show_avatar?(@current_user) ||
                                maybe_get_user_avatar(@current_user, @key) ==
@@ -287,7 +281,7 @@
 
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-1">
-                        <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                           {decr_item(
                             unread_post.username,
                             @current_user,
@@ -304,13 +298,13 @@
 
                       <p
                         :if={unread_post.user_id == @current_user.id}
-                        class="text-sm text-gray-600 dark:text-gray-400 mb-3"
+                        class="text-sm text-slate-600 dark:text-slate-400 mb-3"
                       >
                         Your post has activity
                       </p>
                       <p
                         :if={unread_post.user_id != @current_user.id}
-                        class="text-sm text-gray-600 dark:text-gray-400 mb-3"
+                        class="text-sm text-slate-600 dark:text-slate-400 mb-3"
                       >
                         Shared a new post with you
                       </p>
@@ -327,44 +321,45 @@
                 </div>
               </div>
             </div>
-          </div>
+          </MossletWeb.DesignSystem.liquid_card>
 
           <%!-- Quick Actions Card --%>
-          <div class="mt-8 p-6 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-2xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
-            <h4 class="text-lg font-bold tracking-tight text-pretty bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent mb-4 flex items-center gap-2">
-              <.phx_icon name="hero-bolt" class="size-5" /> Quick Actions
-            </h4>
-            <div class="space-y-4">
-              <%!-- Primary Action Button --%>
-              <.link
-                navigate={~p"/app/timeline"}
-                class="inline-flex items-center justify-center w-full rounded-full py-3 px-4 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-              >
-                <.phx_icon name="hero-newspaper" class="size-5 mr-2" /> View Timeline
-              </.link>
-
-              <%!-- Secondary Action Links --%>
-              <div class="space-y-2">
-                <.link
-                  navigate={~p"/app/users/connections"}
-                  class="w-full flex items-center gap-3 p-3 rounded-xl text-sm font-semibold text-teal-600 hover:text-teal-500 transition-colors text-center sm:text-left"
+          <MossletWeb.DesignSystem.liquid_card class="mt-8 bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
+            <:title>
+              <h4 class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
+                <.phx_icon name="hero-bolt" class="size-5" /> Quick Actions
+              </h4>
+            </:title>
+              <div class="space-y-4">
+                <%!-- Primary Action Button --%>
+                <MossletWeb.DesignSystem.liquid_button
+                  class="w-full"
+                  navigate={~p"/app/timeline"}
+                  icon="hero-newspaper"
                 >
-                  <.phx_icon name="hero-users" class="size-5" />
-                  <span>Manage Connections</span>
-                  <span class="ml-auto" aria-hidden="true">→</span>
-                </.link>
+                  View Timeline
+                </MossletWeb.DesignSystem.liquid_button>
 
-                <.link
-                  navigate={~p"/app/groups"}
-                  class="w-full flex items-center gap-3 p-3 rounded-xl text-sm font-semibold text-teal-600 hover:text-teal-500 transition-colors text-center sm:text-left"
-                >
-                  <.phx_icon name="hero-user-group" class="size-5" />
-                  <span>Join Groups</span>
-                  <span class="ml-auto" aria-hidden="true">→</span>
-                </.link>
+                <%!-- Secondary Action Links --%>
+                <div class="space-y-2">
+                  <MossletWeb.DesignSystem.liquid_nav_item
+                    navigate={~p"/app/users/connections"}
+                    icon="hero-users"
+                    class="rounded-xl"
+                  >
+                    Manage Connections
+                  </MossletWeb.DesignSystem.liquid_nav_item>
+
+                  <MossletWeb.DesignSystem.liquid_nav_item
+                    navigate={~p"/app/groups"}
+                    icon="hero-user-group"
+                    class="rounded-xl"
+                  >
+                    Join Groups
+                  </MossletWeb.DesignSystem.liquid_nav_item>
+                </div>
               </div>
-            </div>
-          </div>
+          </MossletWeb.DesignSystem.liquid_card>
         </div>
       </div>
     </div>

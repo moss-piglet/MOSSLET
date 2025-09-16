@@ -24,12 +24,56 @@ defmodule MossletWeb.DesignSystem do
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
   attr :class, :string, default: ""
-  attr :rest, :global, include: ~w(phx-click phx-submit href navigate patch)
+  attr :href, :string, default: nil
+  attr :navigate, :string, default: nil
+  attr :patch, :string, default: nil
+  attr :rest, :global, include: ~w(phx-click phx-submit data-tippy-content phx-hook id)
   slot :inner_block, required: true
 
   def liquid_button(assigns) do
+    # Determine if this should be a link or button
+    is_link = assigns[:href] || assigns[:navigate] || assigns[:patch]
+    
+    assigns = assign(assigns, :is_link, is_link)
+    
     ~H"""
+    <.link
+      :if={@is_link}
+      href={@href}
+      navigate={@navigate}
+      patch={@patch}
+      class={[
+        # Base styles
+        "relative inline-flex items-center justify-center gap-2 font-semibold",
+        "transition-all duration-200 ease-out transform-gpu will-change-transform",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+
+        # Size variants
+        button_size_classes(@size),
+
+        # Style variants
+        button_variant_classes(@variant),
+
+        # Custom classes
+        @class
+      ]}
+      {@rest}
+    >
+      <%!-- Shimmer effect for primary buttons --%>
+      <div :if={@variant == "primary"} class={[
+        "absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu",
+        "bg-gradient-to-r from-transparent via-white/20 to-transparent",
+        "group-hover:opacity-100 hover:opacity-100 hover:translate-x-full -translate-x-full",
+        "rounded-full"
+      ]}></div>
+
+      <.phx_icon :if={@icon} name={@icon} class="h-4 w-4 relative z-10" />
+      <span class="relative z-10">{render_slot(@inner_block)}</span>
+    </.link>
+    
     <button
+      :if={!@is_link}
       type={@type}
       disabled={@disabled}
       class={[
