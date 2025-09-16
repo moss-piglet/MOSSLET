@@ -3,59 +3,199 @@ defmodule MossletWeb.UserLoginLive do
 
   def render(assigns) do
     ~H"""
-    <.mosslet_auth_layout conn={@socket} title="Log In">
+    <.mosslet_auth_layout conn={@socket} title="Sign In">
       <:logo>
         <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
       </:logo>
       <:top_right>
         <.color_scheme_switch />
       </:top_right>
-      <div class="flex flex-col items-start justify-start">
-        <.link navigate="/" class="-ml-4">
-          <.logo class="mb-2 h-16 w-auto" />
-        </.link>
 
-        <h2 class="mt-16 text-2xl font-bold tracking-tight text-pretty sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-          Sign in to your account.
-        </h2>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-400">
-          👋 Welcome back!
+      <%!-- Header with improved visual hierarchy --%>
+      <div class="text-center mb-8 sm:mb-10">
+        <%!-- Welcome back section --%>
+        <div class="mb-6">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/30 mb-4">
+            <span class="text-2xl">👋</span>
+            <span class="text-sm font-medium text-teal-700 dark:text-teal-300">Welcome back!</span>
+          </div>
+        </div>
+
+        <%!-- Main heading with gradient --%>
+        <h1 class={[
+          "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-4",
+          "bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600",
+          "dark:from-teal-400 dark:via-emerald-400 dark:to-cyan-400",
+          "bg-clip-text text-transparent"
+        ]}>
+          Welcome back to privacy
+        </h1>
+
+        <%!-- Subtitle --%>
+        <p class="text-lg text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+          Step back into your safe space, away from Big Tech's prying eyes.
         </p>
       </div>
-      <div class="mt-10">
-        <.form for={@form} id="login_form" action={~p"/auth/sign_in"} phx-update="ignore">
-          <.field
-            field={@form[:email]}
-            type="email"
-            label="Email"
-            autocomplete="off"
-            required
-            {alpine_autofocus()}
-          />
-          <.field field={@form[:password]} type="password" label="Password" required />
 
-          <.field field={@form[:remember_me]} type="checkbox" label="Keep me signed in" />
+      <%!-- Sign-in form with modern styling --%>
+      <div class="space-y-6">
+        <.form
+          for={@form}
+          id="login_form"
+          action={~p"/auth/sign_in"}
+          phx-update="ignore"
+          class="space-y-6"
+        >
+          <%!-- Email field with liquid styling --%>
+          <div class="space-y-2">
+            <label
+              for={@form[:email].name}
+              class="block text-sm font-semibold text-slate-700 dark:text-slate-200"
+            >
+              Email address
+            </label>
+            <div class="relative">
+              <input
+                type="email"
+                name={@form[:email].name}
+                id={@form[:email].id}
+                value={@form[:email].value}
+                autocomplete="email"
+                required
+                {alpine_autofocus()}
+                class={[
+                  "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                  "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                  "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                  "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                  "transition-all duration-200 ease-out",
+                  "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                  "text-base sm:text-sm sm:leading-6"
+                ]}
+                placeholder="Enter your email"
+              />
+              <%!-- Input shimmer effect --%>
+              <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              </div>
+            </div>
+          </div>
 
-          <div class="flex-1 pb-4 space-x-4">
+          <%!-- Password field with liquid styling --%>
+          <div class="space-y-2">
+            <label
+              for={@form[:password].name}
+              class="block text-sm font-semibold text-slate-700 dark:text-slate-200"
+            >
+              Password
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                name={@form[:password].name}
+                id={@form[:password].id}
+                value={@form[:password].value}
+                autocomplete="current-password"
+                required
+                class={[
+                  "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                  "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                  "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                  "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                  "transition-all duration-200 ease-out",
+                  "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                  "text-base sm:text-sm sm:leading-6"
+                ]}
+                placeholder="Enter your password"
+              />
+              <%!-- Input shimmer effect --%>
+              <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              </div>
+            </div>
+          </div>
+
+          <%!-- Remember me checkbox with modern styling --%>
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <input
+                type="checkbox"
+                name={@form[:remember_me].name}
+                id={@form[:remember_me].id}
+                value="true"
+                class={[
+                  "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600",
+                  "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
+                  "dark:focus:ring-offset-slate-800",
+                  "transition-all duration-200 ease-out",
+                  "hover:border-emerald-400 dark:hover:border-emerald-500"
+                ]}
+              />
+            </div>
+            <label
+              for={@form[:remember_me].id}
+              class="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            >
+              Keep me signed in for 60 days
+            </label>
+          </div>
+
+          <%!-- Submit button with liquid metal styling --%>
+          <div class="pt-4">
             <button
               type="submit"
               phx-disable-with="Signing in..."
-              class="w-full rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+              class={[
+                "group relative w-full flex justify-center items-center gap-3",
+                "rounded-xl py-4 px-6 text-base font-semibold",
+                "bg-gradient-to-r from-teal-500 to-emerald-500",
+                "hover:from-teal-600 hover:to-emerald-600",
+                "text-white shadow-lg shadow-emerald-500/25",
+                "transition-all duration-200 ease-out transform-gpu",
+                "hover:scale-[1.02] active:scale-[0.98]",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+                "dark:focus:ring-offset-slate-800",
+                "disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              ]}
             >
-              Sign in <.icon name="hero-arrow-long-right" class="w-5 h-5 ml-2" />
+              <%!-- Button shimmer effect --%>
+              <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-[shimmer_1s_ease-out] transition-opacity duration-200">
+              </div>
+
+              <span class="relative">Sign in</span>
+              <.icon
+                name="hero-arrow-right"
+                class="relative w-5 h-5 transition-transform group-hover:translate-x-1"
+              />
             </button>
           </div>
         </.form>
-        <div class="flex justify-between text-sm dark:text-gray-200">
-          <.link
-            navigate={~p"/auth/reset-password"}
-            class="text-sm hover:text-emerald-600 active:text-emerald-500"
-          >
-            Forgot your password?
-          </.link>
-          <.link navigate={~p"/auth/register"} class=" hover:text-emerald-600 active:text-emerald-500">
-            Register
-          </.link>
+
+        <%!-- Footer links with improved spacing and styling --%>
+        <div class="pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-center sm:text-left">
+            <.link
+              navigate={~p"/auth/reset-password"}
+              class={[
+                "inline-flex items-center gap-2 text-sm font-medium",
+                "text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400",
+                "transition-colors duration-200"
+              ]}
+            >
+              <.icon name="hero-key" class="w-4 h-4" /> Forgot your password?
+            </.link>
+
+            <.link
+              navigate={~p"/auth/register"}
+              class={[
+                "inline-flex items-center gap-2 text-sm font-medium",
+                "text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400",
+                "transition-colors duration-200"
+              ]}
+            >
+              <.icon name="hero-user-plus" class="w-4 h-4" /> Create account
+            </.link>
+          </div>
         </div>
       </div>
     </.mosslet_auth_layout>
@@ -65,6 +205,6 @@ defmodule MossletWeb.UserLoginLive do
   def mount(_params, _session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
-    {:ok, assign(socket, form: form, page_title: "Log In"), temporary_assigns: [form: form]}
+    {:ok, assign(socket, form: form, page_title: "Sign In"), temporary_assigns: [form: form]}
   end
 end
