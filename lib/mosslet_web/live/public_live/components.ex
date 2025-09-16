@@ -7,17 +7,17 @@ defmodule MossletWeb.PublicLive.Components do
     ~H"""
     <div class="flex flex-col h-full animate-pulse">
       <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-200 dark:bg-gray-800 px-8 pb-8 pt-12 h-full min-h-[300px]">
-        <!-- Category skeleton -->
+        <%!-- Category skeleton --%>
         <div class="flex items-center gap-2 mb-3">
           <div class="w-5 h-5 bg-gray-300 dark:bg-gray-700 rounded"></div>
           <div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-24"></div>
         </div>
 
         <div class="flex-1">
-          <!-- Title skeleton -->
+          <%!-- Title skeleton --%>
           <div class="h-6 bg-gray-300 dark:bg-gray-700 rounded mb-3 w-3/4"></div>
-          
-    <!-- Description skeleton -->
+
+          <%!-- Description skeleton --%>
           <div class="space-y-2">
             <div class="h-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
             <div class="h-3 bg-gray-300 dark:bg-gray-700 rounded w-5/6"></div>
@@ -33,7 +33,7 @@ defmodule MossletWeb.PublicLive.Components do
     ~H"""
     <div class="bg-white dark:bg-gray-950">
       <main class="isolate">
-        <!-- Hero section -->
+        <%!-- Hero section --%>
         <div class="relative isolate -z-10">
           <svg
             class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
@@ -90,12 +90,12 @@ defmodule MossletWeb.PublicLive.Components do
             </div>
           </div>
         </div>
-        
-    <!-- Why this matters section -->
+
+        <%!-- Why this matters section --%>
         <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
           <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
             <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
-              <!-- MOSSLET's Approach -->
+              <%!-- MOSSLET's Approach --%>
               <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 px-8 py-8 border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
                 <div class="flex justify-center pb-4">
                   <img class="size-16" src={~p"/images/logo.svg"} />
@@ -112,8 +112,8 @@ defmodule MossletWeb.PublicLive.Components do
                   </p>
                 </div>
               </div>
-              
-    <!-- News Problem -->
+
+              <%!-- News Problem --%>
               <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-red-50 dark:bg-red-900/60 dark:bg-gray-800/60 px-8 py-8 border border-red-200 dark:border-red-700/30 dark:shadow-xl dark:shadow-red-500/20">
                 <div class="flex justify-center pb-4">
                   <svg
@@ -136,8 +136,8 @@ defmodule MossletWeb.PublicLive.Components do
                   </p>
                 </div>
               </div>
-              
-    <!-- Solution -->
+
+              <%!-- Solution --%>
               <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-emerald-50 dark:bg-emerald-900/60 dark:bg-gray-800/60 px-8 py-8 border border-emerald-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
                 <div class="flex justify-center pb-4">
                   <svg
@@ -163,8 +163,8 @@ defmodule MossletWeb.PublicLive.Components do
             </div>
           </div>
         </div>
-        
-    <!-- Big statement section -->
+
+        <%!-- Big statement section --%>
         <div class="mx-auto mt-40 mb-40 max-w-7xl px-6 sm:mt-56 sm:mb-56 lg:px-8">
           <div class="mx-auto max-w-4xl text-center">
             <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl text-black dark:text-white">
@@ -175,8 +175,8 @@ defmodule MossletWeb.PublicLive.Components do
             </h2>
           </div>
         </div>
-        
-    <!-- News sources section -->
+
+        <%!-- News sources section --%>
         <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
           <div class="mx-auto max-w-2xl lg:mx-0">
             <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -188,7 +188,7 @@ defmodule MossletWeb.PublicLive.Components do
           </div>
 
           <div class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:mx-0 lg:max-w-none lg:grid-cols-2">
-            <!-- Capitol Hill Citizen -->
+            <%!-- Capitol Hill Citizen --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -200,8 +200,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Independent Journalism
@@ -218,8 +218,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
               </div>
             </.link>
-            
-    <!-- Democracy Now -->
+
+            <%!-- Democracy Now --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -231,8 +231,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Non-Profit News
@@ -249,8 +249,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
               </div>
             </.link>
-            
-    <!-- More Perfect Union -->
+
+            <%!-- More Perfect Union --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -262,8 +262,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Emmy Award-Winning
@@ -275,13 +275,13 @@ defmodule MossletWeb.PublicLive.Components do
                     More Perfect Union
                   </h3>
                   <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Building power for the working class. Advocacy journalism nonprofit reporting on corporate abuses and wrongdoing. Available in written and video format.
+                    Building power for the working class. Advocacy journalism nonprofit reporting on corporate abuses and wrongdoing. Available in video format on your favorite surveillance network (TikTok, YouTube, Instagram, et al).
                   </p>
                 </div>
               </div>
             </.link>
-            
-    <!-- ProPublica -->
+
+            <%!-- ProPublica --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -293,8 +293,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Pulitzer Prize Winner
@@ -312,8 +312,8 @@ defmodule MossletWeb.PublicLive.Components do
               </div>
             </.link>
           </div>
-          
-    <!-- Public Citizen -->
+
+          <%!-- Public Citizen --%>
           <div class="mx-auto mt-8 max-w-2xl lg:max-w-none">
             <div class="flex flex-col lg:flex-row lg:items-center gap-8">
               <.link
@@ -327,8 +327,8 @@ defmodule MossletWeb.PublicLive.Components do
                   </div>
                   <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                   </div>
-                  
-    <!-- Category -->
+
+                  <%!-- Category --%>
                   <div class="mb-3">
                     <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                       Consumer Advocacy
@@ -348,8 +348,8 @@ defmodule MossletWeb.PublicLive.Components do
             </div>
           </div>
         </div>
-        
-    <!-- Privacy & Technology section -->
+
+        <%!-- Privacy & Technology section --%>
         <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
           <div class="mx-auto max-w-2xl lg:mx-0">
             <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -361,7 +361,7 @@ defmodule MossletWeb.PublicLive.Components do
           </div>
 
           <div class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
-            <!-- 404 Media -->
+            <%!-- 404 Media --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -373,8 +373,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Journalist-Funded
@@ -391,8 +391,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
               </div>
             </.link>
-            
-    <!-- EFF -->
+
+            <%!-- EFF --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -404,8 +404,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Since 1990
@@ -422,8 +422,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
               </div>
             </.link>
-            
-    <!-- The Markup -->
+
+            <%!-- The Markup --%>
             <.link
               target="_blank"
               rel="noopener noreferer"
@@ -435,8 +435,8 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
                 <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
                 </div>
-                
-    <!-- Category -->
+
+                <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     Transparent Methods
@@ -455,8 +455,8 @@ defmodule MossletWeb.PublicLive.Components do
             </.link>
           </div>
         </div>
-        
-    <!-- Call to action section -->
+
+        <%!-- Call to action section --%>
         <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-48 lg:px-8">
           <div class="mx-auto max-w-2xl text-center">
             <div class="p-8 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-3xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
