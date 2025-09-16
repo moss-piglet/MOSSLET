@@ -138,77 +138,51 @@ defmodule MossletWeb.UserRegistrationLive do
             autocomplete="off"
           >
             <div class={unless @current_step === 1, do: "hidden"}>
-              <div class="space-y-2">
-                <label
-                  for={@form[:email].name}
-                  class="block text-sm font-semibold text-slate-700 dark:text-slate-200"
-                >
-                  Email address
-                </label>
-                <div class="relative">
-                  <input
-                    type="email"
-                    name={@form[:email].name}
-                    id={@form[:email].id}
-                    value={@form[:email].value}
-                    autocomplete="email"
-                    required
-                    tabindex="0"
-                    phx-debounce="500"
-                    {alpine_autofocus()}
-                    class={[
-                      "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
-                      "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
-                      "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
-                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                      "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
-                      "transition-all duration-200 ease-out",
-                      "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
-                      "text-base sm:text-sm sm:leading-6"
-                    ]}
-                    placeholder="Enter your email"
-                  />
-                  <%!-- Input shimmer effect --%>
-                  <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                  </div>
-                </div>
-              </div>
+              <.phx_input
+                field={@form[:email]}
+                type="email"
+                label="Email address"
+                placeholder="Enter your email"
+                required
+                autocomplete="email"
+                phx-debounce="500"
+                tabindex="0"
+                apply_classes?={true}
+                classes={[
+                  "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                  "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                  "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                  "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                  "transition-all duration-200 ease-out",
+                  "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                  "text-base sm:text-sm sm:leading-6"
+                ]}
+                {alpine_autofocus()}
+              />
             </div>
 
             <div class={unless @current_step === 2, do: "hidden"}>
-              <div class="space-y-2">
-                <label
-                  for={@form[:username].name}
-                  class="block text-sm font-semibold text-slate-700 dark:text-slate-200"
-                >
-                  Username
-                </label>
-                <div class="relative">
-                  <input
-                    type="text"
-                    name={@form[:username].name}
-                    id={@form[:username].id}
-                    value={@form[:username].value}
-                    autocomplete="username"
-                    required
-                    phx-debounce="500"
-                    class={[
-                      "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
-                      "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
-                      "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
-                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                      "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
-                      "transition-all duration-200 ease-out",
-                      "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
-                      "text-base sm:text-sm sm:leading-6"
-                    ]}
-                    placeholder="Choose your username"
-                  />
-                  <%!-- Input shimmer effect --%>
-                  <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                  </div>
-                </div>
-              </div>
+              <.phx_input
+                field={@form[:username]}
+                type="text"
+                label="Username"
+                placeholder="Choose your username"
+                required
+                autocomplete="username"
+                phx-debounce="500"
+                apply_classes?={true}
+                classes={[
+                  "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                  "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                  "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                  "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                  "transition-all duration-200 ease-out",
+                  "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                  "text-base sm:text-sm sm:leading-6"
+                ]}
+              />
             </div>
 
             <div id="step3" class={unless @current_step === 3, do: "hidden"}>
@@ -270,12 +244,8 @@ defmodule MossletWeb.UserRegistrationLive do
               <%!-- Password field --%>
               <div class="space-y-2">
                 <div class="flex justify-between items-center">
-                  <label
-                    for="password-text"
-                    class="block text-sm font-semibold text-slate-700 dark:text-slate-200"
-                  >
-                    Password
-                  </label>
+                  <div></div>
+                   <%!-- Empty div to maintain layout --%>
                   <div class="flex items-center gap-2">
                     <button
                       type="button"
@@ -285,7 +255,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       phx-click={JS.push("generate-password")}
                       class="group p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors duration-200"
                     >
-                      <.icon
+                      <.phx_icon
                         name="hero-sparkles"
                         class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
                       />
@@ -302,7 +272,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       }
                       class="group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
                     >
-                      <.icon
+                      <.phx_icon
                         name="hero-eye"
                         class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors"
                       />
@@ -319,87 +289,58 @@ defmodule MossletWeb.UserRegistrationLive do
                         |> JS.remove_class("hidden", to: "#eye")
                       }
                     >
-                      <.icon
+                      <.phx_icon
                         name="hero-eye-slash"
                         class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors"
                       />
                     </button>
                   </div>
                 </div>
-                <div class="relative">
-                  <input
-                    type="password"
-                    name={@form[:password].name}
-                    id="password-text"
-                    value={@form[:password].value}
-                    autocomplete="new-password"
-                    required
-                    phx-debounce="500"
-                    class={[
-                      "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
-                      "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
-                      "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
-                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                      "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
-                      "transition-all duration-200 ease-out",
-                      "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
-                      "text-base sm:text-sm sm:leading-6"
-                    ]}
-                    placeholder="Create a strong password"
-                  />
-                  <%!-- Input shimmer effect --%>
-                  <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                  </div>
-                </div>
-                <%!-- Password field errors (only show after changeset action) --%>
-                <div
-                  :if={@changeset.action && @form[:password].errors != []}
-                  class="mt-2 text-sm text-rose-600 dark:text-rose-400"
-                >
-                  <span :for={error <- @form[:password].errors}>{elem(error, 0)}</span>
-                </div>
+                <.phx_input
+                  field={@form[:password]}
+                  type="password"
+                  label="Password"
+                  id="password-text"
+                  placeholder="Create a strong password"
+                  required
+                  autocomplete="new-password"
+                  phx-debounce="500"
+                  apply_classes?={true}
+                  classes={[
+                    "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                    "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                    "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                    "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                    "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                    "transition-all duration-200 ease-out",
+                    "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                    "text-base sm:text-sm sm:leading-6"
+                  ]}
+                />
               </div>
 
               <%!-- Password confirmation field --%>
-              <div class="space-y-2 mt-4">
-                <label
-                  for="password-confirmation"
-                  class="block text-sm font-semibold text-slate-700 dark:text-slate-200"
-                >
-                  Confirm Password
-                </label>
-                <div class="relative">
-                  <input
-                    type="password"
-                    name={@form[:password_confirmation].name}
-                    id="password-confirmation"
-                    value={@form[:password_confirmation].value}
-                    autocomplete="new-password"
-                    required
-                    phx-debounce="500"
-                    class={[
-                      "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
-                      "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
-                      "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
-                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                      "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
-                      "transition-all duration-200 ease-out",
-                      "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
-                      "text-base sm:text-sm sm:leading-6"
-                    ]}
-                    placeholder="Confirm your password"
-                  />
-                  <%!-- Input shimmer effect --%>
-                  <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                  </div>
-                </div>
-                <%!-- Password confirmation field errors (only show after changeset action) --%>
-                <div
-                  :if={@changeset.action && @form[:password_confirmation].errors != []}
-                  class="mt-2 text-sm text-rose-600 dark:text-rose-400"
-                >
-                  <span :for={error <- @form[:password_confirmation].errors}>{elem(error, 0)}</span>
-                </div>
+              <div class="mt-4">
+                <.phx_input
+                  field={@form[:password_confirmation]}
+                  type="password"
+                  label="Confirm Password"
+                  placeholder="Confirm your password"
+                  required
+                  autocomplete="new-password"
+                  phx-debounce="500"
+                  apply_classes?={true}
+                  classes={[
+                    "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+                    "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                    "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+                    "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                    "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+                    "transition-all duration-200 ease-out",
+                    "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+                    "text-base sm:text-sm sm:leading-6"
+                  ]}
+                />
               </div>
             </div>
 
@@ -442,30 +383,22 @@ defmodule MossletWeb.UserRegistrationLive do
               </div>
 
               <%!-- Password reminder checkbox --%>
-              <div class="flex items-start gap-3">
-                <div class="relative mt-1">
-                  <input
-                    type="checkbox"
-                    name={@form[:password_reminder].name}
-                    id={@form[:password_reminder].id}
-                    value="true"
-                    required
-                    class={[
-                      "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600",
-                      "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
-                      "dark:focus:ring-offset-slate-800",
-                      "transition-all duration-200 ease-out",
-                      "hover:border-emerald-400 dark:hover:border-emerald-500"
-                    ]}
-                  />
-                </div>
-                <label
-                  for={@form[:password_reminder].id}
-                  class="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer leading-relaxed"
-                >
-                  I understand that losing my password means losing access to my account forever
-                </label>
-              </div>
+              <.phx_input
+                field={@form[:password_reminder]}
+                type="checkbox"
+                label="I understand that losing my password could mean losing access to my account forever"
+                required
+                apply_classes?={true}
+                classes={[
+                  "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600",
+                  "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
+                  "dark:focus:ring-offset-slate-800",
+                  "transition-all duration-200 ease-out",
+                  "hover:border-emerald-400 dark:hover:border-emerald-500",
+                  "checked:bg-gradient-to-br checked:from-emerald-500 checked:to-teal-600",
+                  "checked:border-emerald-500 dark:checked:border-emerald-400"
+                ]}
+              />
             </div>
 
             <%!-- Form buttons with liquid metal styling --%>
@@ -592,7 +525,7 @@ defmodule MossletWeb.UserRegistrationLive do
         </div>
 
         <%!-- Footer link with improved styling and proper spacing --%>
-        <div class="pt-8 border-t border-slate-200/50 dark:border-slate-700/50">
+        <div class="mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-center sm:text-left">
             <span class="text-sm text-slate-600 dark:text-slate-400">
               Already have an account?

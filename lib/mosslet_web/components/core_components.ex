@@ -760,7 +760,7 @@ defmodule MossletWeb.CoreComponents do
 
   attr :description?, :boolean, default: false
   attr :apply_classes?, :boolean, default: false
-  attr :classes, :string
+  attr :classes, :list
 
   attr :help, :string, default: nil
   attr :errors, :list, default: []
@@ -794,14 +794,8 @@ defmodule MossletWeb.CoreComponents do
 
     ~H"""
     <div phx-feedback-for={@name}>
-      <div class="relative flex items-start pb-4 pt-3.5">
-        <div class="min-w-0 flex-1 text-sm leading-6">
-          <label class="font-semibold text-zinc-900 dark:text-white">{@label}</label>
-          <div :if={@description?} id={@id <> "_description"} class="text-zinc-500 dark:text-gray-400">
-            {render_slot(@description_block)}
-          </div>
-        </div>
-        <div class="ml-3 flex h-6 items-center">
+      <div class="flex items-center gap-3">
+        <div class="relative">
           <input type="hidden" name={@name} value="false" />
           <input
             type="checkbox"
@@ -809,12 +803,32 @@ defmodule MossletWeb.CoreComponents do
             name={@name}
             value="true"
             checked={@checked}
-            class="h-4 w-4 rounded border-emerald-300 text-emerald-700 focus:ring-emerald-500"
+            class={
+              if @apply_classes?,
+                do: @classes,
+                else:
+                  "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500"
+            }
             {@rest}
           />
         </div>
-        <.error :for={msg <- @errors}>{msg}</.error>
+        <div class="flex-1">
+          <label
+            for={@id}
+            class="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer leading-relaxed"
+          >
+            {@label}
+          </label>
+          <div
+            :if={@description?}
+            id={@id <> "_description"}
+            class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+          >
+            {render_slot(@description_block)}
+          </div>
+        </div>
       </div>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -1072,17 +1086,30 @@ defmodule MossletWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="mt-3 flex gap-3 text-sm leading-6 text-rose-600 phx-no-feedback:hidden">
-      <.icon name="hero-exclamation-circle-mini" class="mt-0.5 h-5 w-5 flex-none" />
-      {render_slot(@inner_block)}
-      <ul
-        :if={@errors_list}
-        id="form-errors"
-        class="flex ml-10 mt-4 gap-3 text-sm leading-6 text-rose-600 list-disc"
-      >
-        {render_slot(@errors_list)}
-      </ul>
-    </p>
+    <div class="mt-2 p-3 rounded-xl bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 border border-rose-200/50 dark:border-rose-800/50 phx-no-feedback:hidden">
+      <div class="flex items-start gap-3">
+        <.phx_icon
+          name="hero-exclamation-triangle"
+          class="w-4 h-4 text-rose-600 dark:text-rose-400 mt-0.5 flex-shrink-0"
+        />
+        <div class="flex-1">
+          <p class="text-sm font-medium text-rose-800 dark:text-rose-200">
+            {render_slot(@inner_block)}
+          </p>
+          <ul
+            :if={@errors_list}
+            id="form-errors"
+            class="mt-2 space-y-1 text-sm text-rose-700 dark:text-rose-300"
+          >
+            <li :for={error <- @errors_list} class="flex items-start gap-2">
+              <span class="w-1 h-1 bg-rose-500 dark:bg-rose-400 rounded-full mt-2 flex-shrink-0">
+              </span>
+              <span>{render_slot(error)}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
     """
   end
 

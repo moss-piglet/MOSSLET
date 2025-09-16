@@ -116,29 +116,21 @@ defmodule MossletWeb.UserLoginLive do
           </div>
 
           <%!-- Remember me checkbox with modern styling --%>
-          <div class="flex items-center gap-3">
-            <div class="relative">
-              <input
-                type="checkbox"
-                name={@form[:remember_me].name}
-                id={@form[:remember_me].id}
-                value="true"
-                class={[
-                  "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600",
-                  "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
-                  "dark:focus:ring-offset-slate-800",
-                  "transition-all duration-200 ease-out",
-                  "hover:border-emerald-400 dark:hover:border-emerald-500"
-                ]}
-              />
-            </div>
-            <label
-              for={@form[:remember_me].id}
-              class="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
-            >
-              Keep me signed in for 60 days
-            </label>
-          </div>
+          <.phx_input
+            field={@form[:remember_me]}
+            type="checkbox"
+            label="Keep me signed in for 60 days"
+            apply_classes?={true}
+            classes={[
+              "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600",
+              "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
+              "dark:focus:ring-offset-slate-800",
+              "transition-all duration-200 ease-out",
+              "hover:border-emerald-400 dark:hover:border-emerald-500",
+              "checked:bg-gradient-to-br checked:from-emerald-500 checked:to-teal-600",
+              "checked:border-emerald-500 dark:checked:border-emerald-400"
+            ]}
+          />
 
           <%!-- Submit button with liquid metal styling --%>
           <div class="pt-4">
