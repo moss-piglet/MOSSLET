@@ -195,7 +195,7 @@ defmodule MossletWeb.PublicLayout do
                     {@current_user_name}
                   </div>
                   <div class="text-sm text-slate-500 dark:text-slate-400">
-                    Online
+                    {if @current_user, do: "Online", else: "Guest"}
                   </div>
                 </div>
               </div>
@@ -273,14 +273,17 @@ defmodule MossletWeb.PublicLayout do
             ]}
             alt="User avatar"
           />
-          <%!-- Online indicator with improved positioning --%>
-          <div class={[
-            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full",
-            "bg-gradient-to-br from-emerald-400 to-emerald-500",
-            "ring-2 ring-white dark:ring-slate-800",
-            "transition-all duration-300",
-            "group-hover:scale-110 group-hover:from-emerald-300 group-hover:to-emerald-400"
-          ]}>
+          <%!-- Online indicator with improved positioning (only when user is signed in) --%>
+          <div
+            :if={@current_user}
+            class={[
+              "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full",
+              "bg-gradient-to-br from-emerald-400 to-emerald-500",
+              "ring-2 ring-white dark:ring-slate-800",
+              "transition-all duration-300",
+              "group-hover:scale-110 group-hover:from-emerald-300 group-hover:to-emerald-400"
+            ]}
+          >
             <%!-- Inner pulse dot --%>
             <div class="absolute inset-1 rounded-full bg-white/30 animate-ping"></div>
           </div>
@@ -292,7 +295,7 @@ defmodule MossletWeb.PublicLayout do
             {@current_user_name}
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">
-            Online
+            {if @current_user, do: "Online", else: "Guest"}
           </div>
         </div>
 

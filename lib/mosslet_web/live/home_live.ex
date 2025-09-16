@@ -8,7 +8,7 @@ defmodule MossletWeb.HomeLive do
     ~H"""
     <.layout
       type="public"
-      user={assigns[:user]}
+      current_user={@current_user}
       current_page={:landing}
       container_max_width={@max_width}
       key={@key}

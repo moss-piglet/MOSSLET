@@ -263,13 +263,16 @@ defmodule MossletWeb.ModernSidebarLayout do
             class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-white dark:ring-slate-600 group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
             alt="User avatar"
           />
-          <%!-- Online indicator with pulse --%>
-          <div class={[
-            "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full",
-            "bg-gradient-to-br from-emerald-400 to-emerald-500",
-            "ring-2 ring-white dark:ring-slate-800",
-            "animate-pulse group-hover:animate-bounce"
-          ]}>
+          <%!-- Online indicator with pulse (only when user is signed in) --%>
+          <div
+            :if={@current_user}
+            class={[
+              "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full",
+              "bg-gradient-to-br from-emerald-400 to-emerald-500",
+              "ring-2 ring-white dark:ring-slate-800",
+              "animate-pulse group-hover:animate-bounce"
+            ]}
+          >
           </div>
         </div>
       </button>

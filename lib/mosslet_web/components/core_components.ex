@@ -2157,6 +2157,7 @@ defmodule MossletWeb.CoreComponents do
   def layout(assigns) do
     assigns =
       assigns
+      |> assign_new(:current_user, fn -> assigns[:user] || assigns[:current_user] end)
       |> assign_new(:public_menu_items, fn -> public_menu_items(assigns[:current_user]) end)
       |> assign_new(:public_menu_footer_items, fn ->
         public_menu_footer_items(assigns[:current_user])
