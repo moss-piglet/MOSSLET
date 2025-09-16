@@ -1,15 +1,15 @@
 # Mosslet Design System
 
-A modern, calm design system featuring liquid metal aesthetics with teal-to-emerald gradients.
+A modern, calm design system featuring liquid metal aesthetics with intelligent color gradients.
 
-## 🎨 Color Palette
+## 🎨 Expanded Color Palette
 
-### Primary Gradient
+### Primary Gradient (Brand)
 
-Our signature gradient that defines the brand's liquid metal look:
+Our signature teal-to-emerald gradient that defines the brand's liquid metal look:
 
 ```css
-/* Primary Gradient */
+/* Primary Brand Gradient */
 bg-gradient-to-r from-teal-500 to-emerald-500
 
 /* Variations */
@@ -17,6 +17,42 @@ from-teal-400 to-emerald-600  /* Darker variant */
 from-teal-100 to-emerald-200  /* Light variant */
 from-teal-50 to-emerald-100   /* Subtle variant */
 ```
+
+### Color Variants
+
+Additional liquid metal color schemes for semantic meaning:
+
+```css
+/* Cool Blues - Tech/Information */
+bg-gradient-to-r from-blue-500 to-cyan-500
+
+/* Deep Purples - Premium/Luxury */
+bg-gradient-to-r from-purple-500 to-violet-500
+
+/* Warm Ambers - Warning/Attention */
+bg-gradient-to-r from-amber-500 to-orange-500
+
+/* Soft Roses - Alerts/Errors */
+bg-gradient-to-r from-rose-500 to-pink-500
+
+/* Aqua Cyans - Fresh/Success */
+bg-gradient-to-r from-cyan-500 to-teal-500
+
+/* Rich Indigos - Professional/Corporate */
+bg-gradient-to-r from-indigo-500 to-blue-500
+```
+
+### Semantic Color Usage Guidelines
+
+| Color | Use Case | Examples |
+|-------|----------|----------|
+| **Teal** (Default) | Primary brand actions, main CTAs | Save, Submit, Continue |
+| **Blue** | Informational, secondary actions | Learn More, View Details, Info |
+| **Purple** | Premium features, luxury actions | Upgrade, Pro Features, VIP |
+| **Amber** | Warnings, important notifications | Alert, Caution, Review |
+| **Rose** | Destructive actions, errors | Delete, Remove, Error |
+| **Cyan** | Fresh actions, success states | Refresh, New, Success |
+| **Indigo** | Professional, corporate actions | Export, Report, Business |
 
 ### Neutral Base
 
@@ -30,15 +66,12 @@ slate-50, slate-100, slate-200, slate-300, slate-600, slate-700, slate-900
 slate-600, slate-700, slate-800, slate-900
 ```
 
-### Semantic Colors
+### Color Harmony Principles
 
-```css
-/* Success/Active States */
-emerald-500, emerald-600, emerald-700
-
-/* Backgrounds */
-slate-50/50 (light), slate-900 (dark)
-```
+1. **Maintain Liquid Metal Feel**: All colors use gradient pairs that create depth
+2. **Consistent Opacity**: Use `/50`, `/30`, `/20` for subtle background effects
+3. **Dark Mode Adaptation**: Each color auto-adapts with appropriate dark variants
+4. **Accessibility**: All color combinations meet WCAG contrast requirements
 
 ## ✨ Liquid Metal Effects
 
@@ -84,7 +117,42 @@ slate-50/50 (light), slate-900 (dark)
 </div>
 ```
 
-## 🎯 Interactive States
+## 🎯 Component Examples with Colors
+
+### Primary Buttons
+
+```html
+<!-- Default teal brand button -->
+<.liquid_button>Save Changes</.liquid_button>
+
+<!-- Blue for informational actions -->
+<.liquid_button color="blue" icon="hero-information-circle">Learn More</.liquid_button>
+
+<!-- Purple for premium features -->
+<.liquid_button color="purple" icon="hero-star">Upgrade to Pro</.liquid_button>
+
+<!-- Amber for important warnings -->
+<.liquid_button color="amber" icon="hero-exclamation-triangle">Warning Action</.liquid_button>
+
+<!-- Rose for destructive actions -->
+<.liquid_button color="rose" icon="hero-trash">Delete Item</.liquid_button>
+```
+
+### Secondary Buttons
+
+```html
+<!-- Subtle secondary variants -->
+<.liquid_button variant="secondary" color="cyan">Cancel</.liquid_button>
+<.liquid_button variant="secondary" color="indigo">Back</.liquid_button>
+```
+
+### Ghost Buttons
+
+```html
+<!-- Minimal ghost variants -->
+<.liquid_button variant="ghost" color="purple">Advanced Options</.liquid_button>
+<.liquid_button variant="ghost" color="blue">View Details</.liquid_button>
+```
 
 ### Hover States
 
