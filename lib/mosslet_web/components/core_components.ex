@@ -25,6 +25,7 @@ defmodule MossletWeb.CoreComponents do
   import MossletWeb.Helpers
   import MossletWeb.PublicLayout
   import MossletWeb.SidebarLayout
+  import MossletWeb.ModernSidebarLayout
   import MossletWeb.StackedLayout
 
   alias Phoenix.LiveView.JS
@@ -2044,13 +2045,10 @@ defmodule MossletWeb.CoreComponents do
     ~H"""
     <%= case @type do %>
       <% "sidebar" -> %>
-        <.sidebar_layout {assigns} collapsed_only={true}>
+        <.modern_sidebar_layout {assigns}>
           <:logo>
             <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
           </:logo>
-          <:logo_icon>
-            <.logo_icon />
-          </:logo_icon>
           <:top_right>
             <button
               :if={@current_user.confirmed_at}
@@ -2061,7 +2059,7 @@ defmodule MossletWeb.CoreComponents do
             >
               <.link
                 navigate={~p"/app/users/connections/invite/new-invite"}
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
               >
                 <.phx_icon name="hero-paper-airplane" class="size-4" /> New invite
               </.link>
@@ -2070,7 +2068,7 @@ defmodule MossletWeb.CoreComponents do
             <.color_scheme_switch />
           </:top_right>
           {render_slot(@inner_block)}
-        </.sidebar_layout>
+        </.modern_sidebar_layout>
       <% "stacked" -> %>
         <.stacked_layout {assigns}>
           <:logo>
