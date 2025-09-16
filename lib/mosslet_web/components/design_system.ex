@@ -8,6 +8,7 @@ defmodule MossletWeb.DesignSystem do
   See DESIGN_SYSTEM.md for detailed guidelines and principles.
   """
   use Phoenix.Component
+  use MossletWeb, :verified_routes
 
   @doc """
   Primary button with liquid metal styling.
@@ -179,6 +180,249 @@ defmodule MossletWeb.DesignSystem do
       <div class="relative">
         {render_slot(@inner_block)}
       </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Modern footer component with liquid metal styling.
+
+  ## Examples
+
+      <.liquid_footer current_user={@current_user} />
+  """
+  attr :current_user, :map, default: nil
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_footer(assigns) do
+    ~H"""
+    <footer
+      class={[
+        "relative bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950",
+        @class
+      ]}
+      {@rest}
+    >
+      <!-- Decorative top border with gradient -->
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700">
+      </div>
+      
+    <!-- Main footer content -->
+      <div class="relative px-4 py-16 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+          <!-- Logo section with liquid styling -->
+          <div class="flex justify-center mb-10">
+            <.link
+              href="/"
+              class="group inline-flex items-center transition-all duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 rounded-lg"
+            >
+              <div class="relative p-2">
+                <MossletWeb.CoreComponents.logo class="h-12 w-auto" />
+                <!-- Subtle hover glow -->
+                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/0 to-cyan-500/0 group-hover:from-emerald-500/10 group-hover:to-cyan-500/10 transition-all duration-300">
+                </div>
+              </div>
+            </.link>
+          </div>
+          
+    <!-- Navigation links with liquid styling -->
+          <nav class="mb-12">
+            <div class="flex flex-wrap justify-center gap-2">
+              <.link
+                :for={item <- footer_menu_items(@current_user)}
+                href={item.path}
+                class={[
+                  "group relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-out",
+                  "text-slate-600 dark:text-slate-400",
+                  "hover:text-emerald-600 dark:hover:text-emerald-400",
+                  "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+                  "overflow-hidden"
+                ]}
+                method={if item[:method], do: item[:method], else: nil}
+              >
+                <!-- Subtle liquid background effect -->
+                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/30 via-emerald-50/40 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100 rounded-lg">
+                </div>
+                <span class="relative">{item.label}</span>
+              </.link>
+            </div>
+          </nav>
+          
+    <!-- Divider with gradient -->
+          <div class="mb-10">
+            <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700">
+            </div>
+          </div>
+          
+    <!-- Bottom section -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <!-- Social links with improved styling -->
+            <div class="flex items-center justify-center sm:justify-start gap-4">
+              <.footer_social_link
+                href={~p"/terms#terms_and_conditions"}
+                navigate={true}
+                aria_label="MOSSLET Terms and Conditions"
+                tooltip="MOSSLET Terms and Conditions"
+              >
+                <MossletWeb.CoreComponents.phx_icon name="hero-document-text" class="h-5 w-5" />
+              </.footer_social_link>
+
+              <.footer_social_link
+                href="https://podcast.mosslet.com"
+                external={true}
+                aria_label="MOSSLET Podcast"
+                tooltip="MOSSLET Podcast"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+                  />
+                </svg>
+              </.footer_social_link>
+
+              <.footer_social_link
+                href="https://github.com/moss-piglet/mosslet"
+                external={true}
+                aria_label="MOSSLET on GitHub"
+                tooltip="MOSSLET open source code on GitHub"
+              >
+                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z" />
+                </svg>
+              </.footer_social_link>
+            </div>
+            
+    <!-- Copyright and climate info -->
+            <div class="text-center sm:text-right">
+              <p class="text-sm text-slate-500 dark:text-slate-400">
+                Copyright © {DateTime.utc_now().year} Moss Piglet Corporation.
+              </p>
+              <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                A Public Benefit company. All rights reserved.
+              </p>
+              <.link
+                href="https://climate.stripe.com/0YsHsR"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-2 mt-2 text-xs text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200"
+              >
+                <span>1% of purchases contributed to Stripe Climate</span>
+                <img
+                  src={~p"/images/landing_page/Stripe Climate Badge.svg"}
+                  class="h-4 w-4"
+                  alt="Stripe Climate"
+                />
+              </.link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+    """
+  end
+
+  # Footer social link component with liquid styling
+  defp footer_social_link(assigns) do
+    assigns = assign_new(assigns, :navigate, fn -> false end)
+    assigns = assign_new(assigns, :external, fn -> false end)
+    assigns = assign_new(assigns, :tooltip, fn -> nil end)
+
+    ~H"""
+    <.link
+      {if @navigate, do: %{navigate: @href}, else: if(@external, do: %{href: @href, target: "_blank", rel: "noopener noreferrer"}, else: %{href: @href})}
+      class={[
+        "group relative p-2.5 rounded-xl overflow-hidden transition-all duration-300 ease-out",
+        "text-slate-500 dark:text-slate-400",
+        "hover:text-emerald-600 dark:hover:text-emerald-400",
+        "hover:scale-110 active:scale-95",
+        "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+      ]}
+      aria-label={@aria_label}
+      data-tippy-content={@tooltip}
+      phx-hook={if @tooltip, do: "TippyHook", else: nil}
+    >
+      <!-- Liquid background effect -->
+      <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50 dark:from-teal-900/20 dark:via-emerald-900/25 dark:to-cyan-900/20 group-hover:opacity-100 rounded-xl">
+      </div>
+      <!-- Icon content -->
+      <div class="relative">
+        {render_slot(@inner_block)}
+      </div>
+    </.link>
+    """
+  end
+
+  # Helper function for footer menu items
+  defp footer_menu_items(current_user) do
+    base_items = [
+      %{path: "/about", label: "About"},
+      %{path: "/myob", label: "MYOB"},
+      %{path: "/blog", label: "Blog"},
+      %{path: "/features", label: "Features"},
+      %{path: "/in-the-know", label: "Huh?"},
+      %{path: "/pricing", label: "Pricing"},
+      %{path: "/privacy", label: "Privacy"},
+      %{path: "/support", label: "Support"},
+      %{path: "/faq", label: "FAQ"}
+    ]
+
+    # Add conditional items based on user state
+    if current_user do
+      base_items
+    else
+      base_items
+    end
+  end
+
+  @doc """
+  Container component with responsive max-width and consistent padding.
+
+  ## Examples
+
+      <.liquid_container>
+        Content goes here
+      </.liquid_container>
+
+      <.liquid_container max_width="xl" class="py-8">
+        Wide container with custom padding
+      </.liquid_container>
+  """
+  attr :max_width, :string, default: "lg", values: ~w(sm md lg xl full)
+  attr :class, :any, default: ""
+  attr :no_padding_on_mobile, :boolean, default: false
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def liquid_container(assigns) do
+    ~H"""
+    <div
+      class={
+        [
+          # Base container styling
+          "mx-auto w-full",
+
+          # Max width variants
+          container_max_width_classes(@max_width),
+
+          # Responsive padding
+          container_padding_classes(@no_padding_on_mobile),
+
+          # Custom classes
+          @class
+        ]
+      }
+      {@rest}
+    >
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -379,6 +623,19 @@ defmodule MossletWeb.DesignSystem do
   defp card_padding_classes("sm"), do: "p-4"
   defp card_padding_classes("md"), do: "p-6"
   defp card_padding_classes("lg"), do: "p-8"
+
+  # Container max-width classes following design system breakpoints
+  defp container_max_width_classes("sm"), do: "max-w-screen-sm"
+  defp container_max_width_classes("md"), do: "max-w-screen-md"
+  defp container_max_width_classes("lg"), do: "max-w-screen-lg"
+  defp container_max_width_classes("xl"), do: "max-w-screen-xl"
+  defp container_max_width_classes("full"), do: "max-w-full"
+  # fallback
+  defp container_max_width_classes(_), do: "max-w-screen-lg"
+
+  # Container padding classes following design system spacing
+  defp container_padding_classes(true), do: "px-0 sm:px-6 lg:px-8"
+  defp container_padding_classes(false), do: "px-4 sm:px-6 lg:px-8"
 
   defp nav_item_classes(true) do
     [
