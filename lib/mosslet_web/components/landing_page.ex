@@ -1840,14 +1840,14 @@ defmodule MossletWeb.Components.LandingPage do
       <%!-- Table Container --%>
       <div class="bg-background-50 dark:bg-gray-800 sm:py-10 mt-10 pb-4 rounded-lg shadow-lg dark:shadow-emerald-500/50">
         <div class="text-center mb-8">
-          <h2 class="text-3xl font-black tracking-tight text-black dark:text-white sm:text-4xl lg:text-5xl">
+          <h2 class="pt-4 text-3xl font-black tracking-tight text-black dark:text-white sm:text-4xl lg:text-5xl">
             How
             <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
               MOSSLET
             </span>
             Compares
           </h2>
-          <p class="mt-4 text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+          <p class="mt-4 mx-1 text-lg text-gray-600 dark:text-gray-400 max-w-3xl sm:mx-auto">
             The only platform that doesn't track, spy on, or monetize your personal data
           </p>
         </div>
