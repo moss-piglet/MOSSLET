@@ -11,64 +11,71 @@ defmodule MossletWeb.PublicLive.Terms do
       socket={@socket}
       key={@key}
     >
-      <div class="bg-white dark:bg-gray-950">
+      <%!-- Enhanced liquid metal background --%>
+      <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
         <main class="isolate">
-          <!-- Hero section -->
-          <div class="relative isolate -z-10">
-            <svg
-              class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern
-                  id="terms-pattern"
-                  width="200"
-                  height="200"
-                  x="50%"
-                  y="-1"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path d="M.5 200V.5H200" fill="none" />
-                </pattern>
-              </defs>
-              <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
-                <path
-                  d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
-                  stroke-width="0"
-                />
+          <%!-- Hero section with liquid effects matching other pages --%>
+          <div class="relative isolate">
+            <%!-- Background pattern with liquid styling --%>
+            <div class="absolute inset-0 -z-10 overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-teal-50/10 via-transparent to-emerald-50/10 dark:from-teal-900/5 dark:via-transparent dark:to-emerald-900/5">
+              </div>
+              <svg
+                class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-slate-200/60 dark:stroke-slate-700/60 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
+                aria-hidden="true"
+              >
+                <defs>
+                  <pattern
+                    id="terms-pattern"
+                    width="200"
+                    height="200"
+                    x="50%"
+                    y="-1"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path d="M.5 200V.5H200" fill="none" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" stroke-width="0" fill="url(#terms-pattern)" />
               </svg>
-              <rect
-                width="100%"
-                height="100%"
-                stroke-width="0"
-                fill="url(#terms-pattern)"
-              />
-            </svg>
+            </div>
+
+            <%!-- Floating gradient orbs for liquid metal effect --%>
             <div
-              class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+              class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
               aria-hidden="true"
             >
               <div
-                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-400/20 to-cyan-400/30 opacity-40 dark:opacity-20"
                 style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
               >
               </div>
             </div>
+
             <div class="overflow-hidden">
               <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
                 <div class="mx-auto max-w-2xl text-center">
-                  <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                  <%!-- Enhanced hero title with liquid metal styling matching other pages --%>
+                  <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
                     Terms & Conditions
                   </h1>
-                  <p class="mt-8 text-pretty text-lg font-medium text-gray-600 dark:text-gray-400 sm:text-xl/8">
+
+                  <%!-- Enhanced subtitle --%>
+                  <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
                     Clear, fair terms that respect your rights and privacy. We believe in transparency and treating you with dignity.
                   </p>
+
+                  <%!-- Decorative accent line matching other pages --%>
+                  <div class="mt-8 flex justify-center">
+                    <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          
-    <!-- Terms content section -->
+
+          <%!-- Terms content section --%>
           <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
             <div class="mx-auto max-w-4xl">
               <div class="text-center mb-16">
@@ -79,8 +86,8 @@ defmodule MossletWeb.PublicLive.Terms do
                   Welcome to MOSSLET, a privacy-first social networking web application operated by Moss Piglet Corporation, a family-owned and operated public benefit company.
                 </p>
               </div>
-              
-    <!-- Overview Section -->
+
+              <%!-- Overview Section --%>
               <div class="mb-12 p-6 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-2xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
                 <h3 class="text-xl font-bold text-teal-800 dark:text-teal-200 mb-6">
                   Our Commitment to You
@@ -89,8 +96,8 @@ defmodule MossletWeb.PublicLive.Terms do
                   <p class="text-lg leading-relaxed">
                     Our mission is to create a platform that prioritizes <strong>user privacy and human dignity</strong>. By using our services, you agree to comply with and be bound by the following terms and conditions.
                   </p>
-                  
-    <!-- Key Principles Grid -->
+
+                  <%!-- Key Principles Grid --%>
                   <div class="bg-white dark:bg-gray-800/80 rounded-xl p-6 border border-teal-100 dark:border-teal-800">
                     <h4 class="font-semibold text-teal-800 dark:text-teal-200 mb-4 text-center">
                       Our Core Principles
@@ -125,10 +132,10 @@ defmodule MossletWeb.PublicLive.Terms do
                   </p>
                 </div>
               </div>
-              
-    <!-- Collapsible Sections -->
+
+              <%!-- Collapsible Sections --%>
               <div class="space-y-4" id="terms_and_conditions">
-                <!-- Acceptance of Terms -->
+                <%!-- Acceptance of Terms --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -147,8 +154,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </p>
                   </div>
                 </details>
-                
-    <!-- User Conduct -->
+
+                <%!-- User Conduct --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -206,8 +213,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Privacy and Data Protection -->
+
+                <%!-- Privacy and Data Protection --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -234,8 +241,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Attribution -->
+
+                <%!-- Attribution --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -275,8 +282,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Compliance with Applicable Laws -->
+
+                <%!-- Compliance with Applicable Laws --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -295,8 +302,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </p>
                   </div>
                 </details>
-                
-    <!-- Changes to Terms -->
+
+                <%!-- Changes to Terms --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -315,8 +322,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </p>
                   </div>
                 </details>
-                
-    <!-- Limitation of Liability -->
+
+                <%!-- Limitation of Liability --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -335,8 +342,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </p>
                   </div>
                 </details>
-                
-    <!-- Governing Law -->
+
+                <%!-- Governing Law --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -355,8 +362,8 @@ defmodule MossletWeb.PublicLive.Terms do
                     </p>
                   </div>
                 </details>
-                
-    <!-- Contact Information -->
+
+                <%!-- Contact Information --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -387,6 +394,9 @@ defmodule MossletWeb.PublicLive.Terms do
             </div>
           </div>
         </main>
+
+        <%!-- Spacer for proper footer separation --%>
+        <div class="pb-24"></div>
       </div>
     </.layout>
     """

@@ -2,6 +2,8 @@ defmodule MossletWeb.PublicLive.Privacy do
   @moduledoc false
   use MossletWeb, :live_view
 
+  import MossletWeb.DesignSystem
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -13,115 +15,149 @@ defmodule MossletWeb.PublicLive.Privacy do
       socket={@socket}
       key={@key}
     >
-      <div class="bg-white dark:bg-gray-950">
+      <%!-- Enhanced liquid metal background --%>
+      <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
         <main class="isolate">
-          <%!-- Hero section --%>
-          <div class="relative isolate -z-10">
-            <svg
-              class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern
-                  id="privacy-pattern"
-                  width="200"
-                  height="200"
-                  x="50%"
-                  y="-1"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path d="M.5 200V.5H200" fill="none" />
-                </pattern>
-              </defs>
-              <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
-                <path
-                  d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
-                  stroke-width="0"
-                />
+          <%!-- Hero section with liquid effects matching other pages --%>
+          <div class="relative isolate">
+            <%!-- Background pattern with liquid styling --%>
+            <div class="absolute inset-0 -z-10 overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-teal-50/10 via-transparent to-emerald-50/10 dark:from-teal-900/5 dark:via-transparent dark:to-emerald-900/5">
+              </div>
+              <svg
+                class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-slate-200/60 dark:stroke-slate-700/60 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
+                aria-hidden="true"
+              >
+                <defs>
+                  <pattern
+                    id="privacy-pattern"
+                    width="200"
+                    height="200"
+                    x="50%"
+                    y="-1"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path d="M.5 200V.5H200" fill="none" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" stroke-width="0" fill="url(#privacy-pattern)" />
               </svg>
-              <rect
-                width="100%"
-                height="100%"
-                stroke-width="0"
-                fill="url(#privacy-pattern)"
-              />
-            </svg>
+            </div>
+
+            <%!-- Floating gradient orbs for liquid metal effect --%>
             <div
-              class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+              class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
               aria-hidden="true"
             >
               <div
-                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-400/20 to-cyan-400/30 opacity-40 dark:opacity-20"
                 style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
               >
               </div>
             </div>
+
             <div class="overflow-hidden">
               <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
                 <div class="mx-auto max-w-2xl text-center">
-                  <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                  <%!-- Enhanced hero title with liquid metal styling matching other pages --%>
+                  <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
                     Privacy is the standard
                   </h1>
-                  <p class="mt-8 text-pretty text-lg font-medium text-gray-600 dark:text-gray-400 sm:text-xl/8">
+
+                  <%!-- Enhanced subtitle --%>
+                  <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
                     We do not log or share personal information. Your privacy isn't a feature to us — it's a fundamental right that guides everything we do.
                   </p>
+
+                  <%!-- Decorative accent line matching other pages --%>
+                  <div class="mt-8 flex justify-center">
+                    <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <%!-- Privacy features section --%>
+          <%!-- Privacy features section with liquid metal cards --%>
           <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
             <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
               <div class="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800 px-8 py-10 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:scale-105">
-                  <.icon
-                    name="hero-lock-closed-solid"
-                    class="absolute top-8 left-8 h-8 w-8 text-emerald-600 dark:text-emerald-400"
-                  />
-                  <h3 class="text-lg font-semibold leading-7 text-emerald-600 dark:text-emerald-400 mt-8">
-                    Asymmetric
-                  </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-400">
+                <.liquid_card
+                  padding="md"
+                  class="group hover:scale-105 transition-all duration-300 ease-out transform-gpu"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500">
+                        <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-semibold">
+                        Asymmetric
+                      </span>
+                    </div>
+                  </:title>
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                     Your data is encrypted to your account password so that only you can access it.
                   </p>
-                </div>
-                <div class="group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800 px-8 py-10 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:scale-105">
-                  <.icon
-                    name="hero-banknotes-solid"
-                    class="absolute top-8 left-8 h-8 w-8 text-emerald-600 dark:text-emerald-400"
-                  />
-                  <h3 class="text-lg font-semibold leading-7 text-emerald-600 dark:text-emerald-400 mt-8">
-                    Ownership
-                  </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-400">
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="md"
+                  class="group hover:scale-105 transition-all duration-300 ease-out transform-gpu"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500">
+                        <.phx_icon name="hero-banknotes" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-emerald-500 to-cyan-500 bg-clip-text text-transparent font-semibold">
+                        Ownership
+                      </span>
+                    </div>
+                  </:title>
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                     You own your data and can delete your account, and all of its data, at any time.
                   </p>
-                </div>
-                <div class="group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800 px-8 py-10 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:scale-105">
-                  <.icon
-                    name="hero-beaker-solid"
-                    class="absolute top-8 left-8 h-8 w-8 text-emerald-600 dark:text-emerald-400"
-                  />
-                  <h3 class="text-lg font-semibold leading-7 text-emerald-600 dark:text-emerald-400 mt-8">
-                    Guinea Pig Free
-                  </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-400">
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="md"
+                  class="group hover:scale-105 transition-all duration-300 ease-out transform-gpu"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-violet-500">
+                        <.phx_icon name="hero-beaker" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent font-semibold">
+                        Guinea Pig Free
+                      </span>
+                    </div>
+                  </:title>
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                     We adore our furry friends, but you won't find any here. No user experiments ever.
                   </p>
-                </div>
-                <div class="group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800 px-8 py-10 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:scale-105">
-                  <.icon
-                    name="hero-finger-print-solid"
-                    class="absolute top-8 left-8 h-8 w-8 text-emerald-600 dark:text-emerald-400"
-                  />
-                  <h3 class="text-lg font-semibold leading-7 text-emerald-600 dark:text-emerald-400 mt-8">
-                    Autonomy
-                  </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-400">
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="md"
+                  class="group hover:scale-105 transition-all duration-300 ease-out transform-gpu"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-pink-500">
+                        <.phx_icon name="hero-finger-print" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent font-semibold">
+                        Autonomy
+                      </span>
+                    </div>
+                  </:title>
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                     Connect and share free from fingerprints, spyware and trackers.
                   </p>
-                </div>
+                </.liquid_card>
               </div>
             </div>
           </div>
@@ -793,6 +829,9 @@ defmodule MossletWeb.PublicLive.Privacy do
             </div>
           </div>
         </main>
+
+        <%!-- Spacer for proper footer separation --%>
+        <div class="pb-24"></div>
       </div>
     </.layout>
     """
