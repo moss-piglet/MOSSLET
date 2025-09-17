@@ -41,12 +41,12 @@ defmodule MossletWeb.Menus do
   def main_menu_items(current_user) do
     if current_user.connection.profile do
       build_menu(
-        [:home, :connections, :groups, :timeline, :faq, :settings, :subscribe],
+        [:home, :connections, :groups, :timeline, :settings, :subscribe],
         current_user
       )
     else
       build_menu(
-        [:dashboard, :connections, :groups, :timeline, :faq, :settings, :subscribe],
+        [:dashboard, :connections, :groups, :timeline, :settings, :subscribe],
         current_user
       )
     end
@@ -348,15 +348,6 @@ defmodule MossletWeb.Menus do
       label: gettext("Connections"),
       path: ~p"/app/users/connections",
       icon: "hero-users"
-    }
-  end
-
-  def get_link(:faq = name, _current_user) do
-    %{
-      name: name,
-      label: gettext("FAQ"),
-      path: ~p"/app/faq",
-      icon: "hero-question-mark-circle"
     }
   end
 

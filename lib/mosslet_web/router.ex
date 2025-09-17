@@ -163,10 +163,6 @@ defmodule MossletWeb.Router do
       live "/users/org-invitations", UserOrgInvitationsLive
       live "/users/two-factor-authentication", EditTotpLive
 
-      # FAQ page for signed-in users
-      # accessible without a paid subscription
-      live "/faq", FaqLive.Index
-
       # moved to subscription routes
     end
   end
