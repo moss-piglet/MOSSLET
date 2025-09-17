@@ -4,15 +4,43 @@ defmodule MossletWeb.PublicLive.Blog.Components do
 
   def blog_page_heading(assigns) do
     ~H"""
-    <div class="relative before:absolute before:top-0 before:h-px before:w-[200vw]  before:-left-[100vw] after:absolute after:bottom-0 after:h-px after:w-[200vw]  after:-left-[100vw]">
-      <h1 class="mx-2 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+    <%!-- Enhanced liquid metal page heading --%>
+    <div class="relative mb-12 text-center">
+      <%!-- Subtle background pattern --%>
+      <div class="absolute inset-0 -z-10 opacity-30">
+        <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 rounded-2xl">
+        </div>
+      </div>
+
+      <%!-- Main heading with liquid metal gradient --%>
+      <h1 class={[
+        "mx-2 mb-6 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl",
+        "bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 bg-clip-text text-transparent",
+        "transition-all duration-300 ease-out"
+      ]}>
         MOSSLET updates
       </h1>
-    </div>
-    <div class="mt-10 relative before:absolute before:top-0 before:h-px before:w-[200vw]  before:-left-[100vw] after:absolute after:bottom-0 after:h-px after:w-[200vw]  after:-left-[100vw]">
-      <p class="mx-2 text-lg">
-        Learn about privacy, our company, and our opinions on the latest privacy news.
-      </p>
+
+      <%!-- Subtitle with enhanced styling --%>
+      <div class="mt-6 relative">
+        <p class={[
+          "mx-2 text-lg lg:text-xl leading-relaxed max-w-3xl mx-auto",
+          "text-slate-600 dark:text-slate-400",
+          "transition-colors duration-300 ease-out"
+        ]}>
+          Learn about privacy, our company, and our opinions on the latest privacy news.
+        </p>
+      </div>
+
+      <%!-- Decorative accent line --%>
+      <div class="mt-8 flex justify-center">
+        <div class={[
+          "h-1 w-24 rounded-full transition-all duration-500 ease-out",
+          "bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400",
+          "shadow-sm shadow-emerald-500/30"
+        ]}>
+        </div>
+      </div>
     </div>
     """
   end
@@ -68,50 +96,140 @@ defmodule MossletWeb.PublicLive.Blog.Components do
 
   def blog_entry(assigns) do
     ~H"""
-    <div class="p col-span-3 grid grid-cols-subgrid relative before:absolute before:top-0 before:h-px before:w-[200vw] before:-left-[100vw] after:absolute after:bottom-0 after:h-px after:w-[200vw] after:-left-[100vw]">
-      <div class="px-2 text-sm/6 font-medium tracking-widest text-gray-500 dark:text-gray-400 uppercase max-lg:hidden">
-        {@date}
-      </div>
-      <div class="max-lg:hidden"></div>
-      <div class="text-md px-2">
-        <div class="max-w-(--container-2xl)">
-          <div class="mb-4 text-sm/6 font-medium tracking-widest text-gray-500 dark:text-gray-400 uppercase lg:hidden">
-            {@date}
-          </div>
-          <.link :if={@link} class="font-semibold" navigate={@link}>
-            {@title}
-          </.link>
-          <a :if={!@link} class="font-semibold">
-            {@title}
-          </a>
-          <div class="prose prose-blog mt-4 line-clamp-3 leading-7 dark:text-gray-400">
-            {@preview}
-          </div>
-          <.link
-            :if={@link}
-            class="mt-4 inline-block text-sm font-semibold text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
-            navigate={@link}
-          >
-            Read more
-          </.link>
+    <article class={[
+      "group relative mb-8 overflow-hidden rounded-2xl",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+      "transition-all duration-300 ease-out transform-gpu will-change-transform",
+      "hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10",
+      "p-6 lg:p-8",
+      if(@link, do: "cursor-pointer", else: "")
+    ]}>
+      <%!-- Make entire card clickable when link is available --%>
+      <.link
+        :if={@link}
+        navigate={@link}
+        class="absolute inset-0 z-20"
+        aria-label={"Read article: #{@title}"}
+      >
+        <span class="sr-only">Read article: {@title}</span>
+      </.link>
 
-          <a
-            :if={!@link}
-            id={@id <> "-coming-soon"}
-            phx-hook="TippyHook"
-            data-tippy-content="Coming Soon"
-            class="mt-4 inline-block text-sm font-semibold text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
-          >
-            Coming Soon
-          </a>
+      <%!-- Liquid background effects --%>
+      <div class={[
+        "absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out",
+        "bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20",
+        "dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10",
+        "group-hover:opacity-100"
+      ]}>
+      </div>
+
+      <%!-- Shimmer effect on hover --%>
+      <div class={[
+        "absolute inset-0 -z-10 opacity-0 transition-all duration-500 ease-out",
+        "bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent",
+        "dark:via-emerald-400/15",
+        "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"
+      ]}>
+      </div>
+
+      <%!-- Card border with liquid metal accent --%>
+      <div class={[
+        "absolute inset-0 rounded-2xl ring-1 transition-all duration-300 ease-out",
+        "ring-slate-200/60 dark:ring-slate-700/60",
+        "group-hover:ring-emerald-500/30 dark:group-hover:ring-emerald-400/30"
+      ]}>
+      </div>
+
+      <%!-- Content with improved typography and spacing --%>
+      <div class="relative z-10">
+        <%!-- Date badge with liquid styling --%>
+        <div class="mb-4">
+          <time class={[
+            "inline-flex px-3 py-1.5 rounded-full text-xs font-medium tracking-wide uppercase",
+            "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700",
+            "dark:from-slate-700 dark:to-slate-600 dark:text-slate-300",
+            "border border-slate-300/60 dark:border-slate-600/60",
+            "transition-all duration-200 ease-out",
+            "group-hover:from-teal-100 group-hover:to-emerald-100 group-hover:text-teal-800",
+            "dark:group-hover:from-teal-900/40 dark:group-hover:to-emerald-900/40 dark:group-hover:text-teal-200"
+          ]}>
+            {@date}
+          </time>
+        </div>
+
+        <%!-- Title with liquid metal effects --%>
+        <h2 class={[
+          "relative mb-4 text-xl lg:text-2xl font-bold leading-tight",
+          "text-slate-900 dark:text-slate-100",
+          "transition-all duration-200 ease-out",
+          "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
+        ]}>
+          <span class="relative">{@title}</span>
+          <%!-- Subtle underline effect --%>
+          <div class={[
+            "absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out",
+            "bg-gradient-to-r from-teal-400 to-emerald-400",
+            "group-hover:w-full"
+          ]}>
+          </div>
+        </h2>
+
+        <%!-- Preview text with enhanced styling --%>
+        <div class={[
+          "mb-6 text-slate-600 dark:text-slate-400 leading-relaxed",
+          "line-clamp-4 lg:line-clamp-3",
+          "transition-colors duration-200 ease-out",
+          "group-hover:text-slate-700 dark:group-hover:text-slate-300"
+        ]}>
+          {@preview}
+        </div>
+
+        <%!-- Read more button with liquid styling --%>
+        <div :if={@link} class="flex justify-start">
+          <div class={[
+            "inline-flex items-center gap-2 px-4 py-2 rounded-lg",
+            "text-sm font-semibold transition-all duration-200 ease-out",
+            "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300",
+            "bg-emerald-50/50 hover:bg-emerald-100/70 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30",
+            "border border-emerald-200/60 hover:border-emerald-300/80 dark:border-emerald-700/40 dark:hover:border-emerald-600/60",
+            "hover:translate-x-1 transform-gpu"
+          ]}>
+            <span>Read more</span>
+            <svg class="w-4 h-4 transition-transform duration-200 ease-out group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </div>
+        </div>
+
+        <%!-- Coming soon indicator for non-linked articles --%>
+        <div
+          :if={!@link}
+          id={@id <> "-coming-soon"}
+          phx-hook="TippyHook"
+          data-tippy-content="Coming Soon"
+          class={[
+            "inline-flex items-center gap-2 px-4 py-2 rounded-lg",
+            "text-sm font-semibold text-amber-600 dark:text-amber-400",
+            "bg-amber-50/50 dark:bg-amber-900/20",
+            "border border-amber-200/60 dark:border-amber-700/40",
+            "cursor-not-allowed opacity-75"
+          ]}
+        >
+          <span>Coming Soon</span>
+          <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
         </div>
       </div>
-    </div>
-    <div class="contents">
-      <div class="h-16 max-lg:hidden"></div>
-      <div class="h-16 max-lg:hidden"></div>
-      <div class="h-16"></div>
-    </div>
+
+      <%!-- Bottom accent gradient --%>
+      <div class={[
+        "absolute bottom-0 left-0 right-0 h-1 transition-all duration-300 ease-out",
+        "bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500",
+        "opacity-0 group-hover:opacity-100"
+      ]}>
+      </div>
+    </article>
     """
   end
 
@@ -119,56 +237,139 @@ defmodule MossletWeb.PublicLive.Blog.Components do
     ~H"""
     <article
       id={@id}
-      class="relative isolate flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-900 px-8 pb-8 pt-80 sm:pt-48 lg:pt-80"
+      class={[
+        "group relative isolate flex flex-col justify-end overflow-hidden",
+        "rounded-2xl transition-all duration-300 ease-out transform-gpu",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+        "hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/10",
+        "px-6 pb-6 pt-60 sm:pt-48 lg:pt-60",
+        "will-change-transform",
+        if(@link, do: "cursor-pointer", else: "")
+      ]}
     >
-      <img
-        src={@img_source}
-        alt="article image preview"
-        class="absolute inset-0 -z-10 size-full object-cover"
-      />
-      <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-900 via-gray-900/40"></div>
-      <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-900/10"></div>
+      <%!-- Make entire card clickable when link is available --%>
+      <.link
+        :if={@link}
+        navigate={@link}
+        class="absolute inset-0 z-20"
+        aria-label={"Read article: #{@title}"}
+      >
+        <span class="sr-only">Read article: {@title}</span>
+      </.link>
 
-      <div class="flex flex-wrap items-center gap-y-1 overflow-hidden text-sm/6 text-gray-300">
-        <time datetime="2020-03-16" class="mr-8">{@date}</time>
-        <div class="-ml-4 flex items-center gap-x-4">
-          <svg viewBox="0 0 2 2" class="-ml-0.5 size-0.5 flex-none fill-white/50">
-            <circle cx="1" cy="1" r="1" />
-          </svg>
-          <div :if={@author_mark?} class="flex gap-x-2.5">
-            <img
-              src={~p"/images/about/mark_photo.jpg"}
-              alt="mark photo"
-              class="size-6 flex-none rounded-full bg-white/10"
-            /> Mark
-          </div>
-          <div :if={@author_isabella?} class="flex gap-x-2.5">
-            <img
-              src={~p"/images/about/isabella_photo.jpg"}
-              alt="isabella photo"
-              class="size-6 flex-none rounded-full bg-white/10"
-            /> Isabella Jeanette
-          </div>
+      <%!-- Background image with liquid metal overlay --%>
+      <div class="absolute inset-0 -z-20 rounded-2xl overflow-hidden">
+        <img
+          src={@img_source}
+          alt="article image preview"
+          class="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+        />
+        <%!-- Liquid metal gradient overlay --%>
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-slate-900/20">
+        </div>
+        <%!-- Subtle teal accent gradient --%>
+        <div class="absolute inset-0 bg-gradient-to-t from-teal-900/20 via-transparent to-transparent">
         </div>
       </div>
-      <h3 :if={@link} class="mt-3 text-lg/6 font-semibold text-white">
-        <.link navigate={@link}>
-          <span class="absolute inset-0"></span>
-          {@title}
-        </.link>
-      </h3>
-      <h3
-        :if={!@link}
-        id={@id <> "-coming-soon"}
-        phx-hook="TippyHook"
-        data-tippy-content="Coming Soon"
-        class="mt-3 text-lg/6 font-semibold text-white"
-      >
-        <a>
-          <span class="absolute inset-0"></span>
-          {@title}
-        </a>
-      </h3>
+
+      <%!-- Liquid background effects --%>
+      <div class={[
+        "absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out",
+        "bg-gradient-to-br from-teal-50/10 via-emerald-50/5 to-cyan-50/10",
+        "dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10",
+        "group-hover:opacity-100"
+      ]}>
+      </div>
+
+      <%!-- Shimmer effect on hover --%>
+      <div class={[
+        "absolute inset-0 -z-10 opacity-0 transition-all duration-500 ease-out",
+        "bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent",
+        "dark:via-emerald-400/10",
+        "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"
+      ]}>
+      </div>
+
+      <%!-- Card border with liquid metal accent --%>
+      <div class={[
+        "absolute inset-0 rounded-2xl ring-1 transition-all duration-300 ease-out",
+        "ring-slate-200/60 dark:ring-slate-700/60",
+        "group-hover:ring-emerald-500/30 dark:group-hover:ring-emerald-400/30"
+      ]}>
+      </div>
+
+      <%!-- Content overlay with enhanced liquid styling --%>
+      <div class="relative z-10">
+        <%!-- Meta information with liquid styling --%>
+        <div class="flex flex-wrap items-center gap-y-1 overflow-hidden text-sm/6 text-slate-300 dark:text-slate-400 mb-3">
+          <time datetime="2020-03-16" class="mr-6 px-3 py-1 rounded-full bg-slate-900/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 dark:border-slate-600/50">
+            {@date}
+          </time>
+          <div class="flex items-center gap-x-3">
+            <div class="flex h-1 w-1 rounded-full bg-emerald-400/60"></div>
+            <div :if={@author_mark?} class="flex items-center gap-x-2">
+              <div class="relative overflow-hidden rounded-full border-2 border-emerald-400/60">
+                <img
+                  src={~p"/images/about/mark_photo.jpg"}
+                  alt="mark photo"
+                  class="size-6 object-cover"
+                />
+              </div>
+              <span class="text-slate-200 dark:text-slate-300 font-medium">Mark</span>
+            </div>
+            <div :if={@author_isabella?} class="flex items-center gap-x-2">
+              <div class="relative overflow-hidden rounded-full border-2 border-emerald-400/60">
+                <img
+                  src={~p"/images/about/isabella_photo.jpg"}
+                  alt="isabella photo"
+                  class="size-6 object-cover"
+                />
+              </div>
+              <span class="text-slate-200 dark:text-slate-300 font-medium">Isabella Jeanette</span>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Title with liquid metal effects --%>
+        <h3 class={[
+          "relative text-xl font-bold text-white leading-tight",
+          "transition-all duration-200 ease-out",
+          "group-hover:text-emerald-100"
+        ]}>
+          <span class="relative">{@title}</span>
+          <%!-- Subtle underline effect --%>
+          <div class={[
+            "absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out",
+            "bg-gradient-to-r from-teal-400 to-emerald-400",
+            "group-hover:w-full"
+          ]}>
+          </div>
+          <%!-- Coming soon indicator for non-linked articles --%>
+          <div
+            :if={!@link}
+            id={@id <> "-coming-soon"}
+            phx-hook="TippyHook"
+            data-tippy-content="Coming Soon"
+            class={[
+              "absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium",
+              "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
+              "animate-pulse z-30"
+            ]}
+          >
+            Soon
+          </div>
+        </h3>
+      </div>
+
+      <%!-- Bottom accent gradient --%>
+      <div class={[
+        "absolute bottom-0 left-0 right-0 h-1 transition-all duration-300 ease-out",
+        "bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500",
+        "opacity-0 group-hover:opacity-100"
+      ]}>
+      </div>
     </article>
     """
   end
@@ -16300,6 +16501,156 @@ defmodule MossletWeb.PublicLive.Blog.Components do
           </clipPath>
         </defs>
       </svg>
+    </div>
+    """
+  end
+
+  @doc """
+  Reusable blog article layout component with liquid metal design.
+
+  ## Examples
+
+      <.blog_article
+        title="Article Title"
+        date="May 14, 2025"
+        author_name="Mark"
+        author_image={~p"/images/about/mark_photo.jpg"}
+        author_link={~p"/"}
+        author_link_text="MOSSLET"
+      >
+        <p>Article content goes here...</p>
+      </.blog_article>
+  """
+  attr :title, :string, required: true
+  attr :date, :string, required: true
+  attr :author_name, :string, required: true
+  attr :author_image, :string, required: true
+  attr :author_link, :string, default: "/"
+  attr :author_link_text, :string, default: "MOSSLET"
+  attr :class, :any, default: ""
+  slot :inner_block, required: true
+
+  def blog_article(assigns) do
+    ~H"""
+    <%!-- Enhanced liquid metal blog article layout --%>
+    <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
+      <div class="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-16 pb-24">
+        <%!-- Article header with liquid styling --%>
+        <header class="mb-16">
+          <%!-- Date badge --%>
+          <div class="mb-6">
+            <time class={[
+              "inline-flex px-4 py-2 rounded-full text-sm font-medium tracking-wide uppercase",
+              "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700",
+              "dark:from-slate-700 dark:to-slate-600 dark:text-slate-300",
+              "border border-slate-300/60 dark:border-slate-600/60",
+              "shadow-sm"
+            ]}>
+              {@date}
+            </time>
+          </div>
+
+          <%!-- Article title with liquid metal styling --%>
+          <div class="relative mb-8">
+            <h1 class={[
+              "text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight",
+              "bg-gradient-to-r from-slate-900 via-teal-800 to-emerald-800 bg-clip-text text-transparent",
+              "dark:from-slate-100 dark:via-teal-200 dark:to-emerald-200",
+              "transition-all duration-300 ease-out"
+            ]}>
+              {@title}
+            </h1>
+            <%!-- Decorative underline --%>
+            <div class={[
+              "mt-4 h-1 w-24 rounded-full",
+              "bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400",
+              "shadow-sm shadow-emerald-500/30"
+            ]}>
+            </div>
+          </div>
+
+          <%!-- Author section with enhanced styling --%>
+          <div class={[
+            "flex items-center gap-4 p-4 rounded-2xl",
+            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
+            "border border-slate-200/60 dark:border-slate-700/60",
+            "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20"
+          ]}>
+            <div class="relative overflow-hidden rounded-full border-2 border-emerald-400/60">
+              <img
+                src={@author_image}
+                alt={@author_name}
+                class="w-12 h-12 object-cover"
+              />
+            </div>
+            <div class="flex flex-col">
+              <div class="font-semibold text-slate-900 dark:text-slate-100">
+                {@author_name}
+              </div>
+              <.link
+                navigate={@author_link}
+                class={[
+                  "text-sm font-medium transition-colors duration-200 ease-out",
+                  "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                ]}
+              >
+                {@author_link_text}
+              </.link>
+            </div>
+          </div>
+        </header>
+
+        <%!-- Article content with enhanced typography --%>
+        <article class={[
+          "relative overflow-hidden rounded-2xl p-8 lg:p-12",
+          "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+          "border border-slate-200/60 dark:border-slate-700/60",
+          "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+          "prose prose-lg prose-slate dark:prose-invert max-w-none",
+          "prose-headings:font-bold prose-headings:tracking-tight",
+          "prose-h1:text-3xl prose-h1:lg:text-4xl",
+          "prose-h2:text-2xl prose-h2:lg:text-3xl prose-h2:mt-12 prose-h2:mb-6",
+          "prose-h3:text-xl prose-h3:lg:text-2xl prose-h3:mt-8 prose-h3:mb-4",
+          "prose-p:leading-relaxed prose-p:mb-6",
+          "prose-a:text-emerald-600 prose-a:no-underline hover:prose-a:text-emerald-700",
+          "dark:prose-a:text-emerald-400 dark:hover:prose-a:text-emerald-300",
+          "prose-strong:text-slate-900 dark:prose-strong:text-slate-100",
+          "prose-code:text-emerald-600 dark:prose-code:text-emerald-400",
+          "prose-blockquote:border-l-emerald-500 prose-blockquote:bg-emerald-50/50",
+          "dark:prose-blockquote:bg-emerald-900/20",
+          "prose-hr:border-slate-200 dark:prose-hr:border-slate-700",
+          "prose-li:marker:text-emerald-500",
+          @class
+        ]}>
+          <%!-- Subtle background effects --%>
+          <div class="absolute inset-0 -z-10 bg-gradient-to-br from-teal-50/10 via-transparent to-emerald-50/10 dark:from-teal-900/5 dark:via-transparent dark:to-emerald-900/5">
+          </div>
+
+          <%!-- Content --%>
+          <div class="relative z-10">
+            {render_slot(@inner_block)}
+          </div>
+        </article>
+
+        <%!-- Navigation or related content could go here --%>
+        <div class="mt-16 text-center">
+          <.link
+            navigate={~p"/blog"}
+            class={[
+              "inline-flex items-center gap-2 px-6 py-3 rounded-xl",
+              "bg-gradient-to-r from-teal-500 to-emerald-500 text-white",
+              "font-semibold transition-all duration-200 ease-out transform-gpu",
+              "hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/25",
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+            ]}
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+            <span>Back to Blog</span>
+          </.link>
+        </div>
+      </div>
     </div>
     """
   end
