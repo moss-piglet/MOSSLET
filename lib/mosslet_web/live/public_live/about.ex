@@ -15,45 +15,18 @@ defmodule MossletWeb.PublicLive.About do
       container_max_width={@max_width}
       key={@key}
     >
-      <div class="bg-white dark:bg-gray-950">
+      <%!-- Enhanced liquid metal background --%>
+      <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
         <main class="isolate">
-          <%!-- Hero section --%>
-          <div class="relative isolate -z-10">
-            <svg
-              class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern
-                  id="1f932ae7-37de-4c0a-a8b0-a6e3b4d44b84"
-                  width="200"
-                  height="200"
-                  x="50%"
-                  y="-1"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path d="M.5 200V.5H200" fill="none" />
-                </pattern>
-              </defs>
-              <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
-                <path
-                  d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
-                  stroke-width="0"
-                />
-              </svg>
-              <rect
-                width="100%"
-                height="100%"
-                stroke-width="0"
-                fill="url(#1f932ae7-37de-4c0a-a8b0-a6e3b4d44b84)"
-              />
-            </svg>
+          <%!-- Hero section with gradient orbs but cleaner background --%>
+          <div class="relative isolate">
+            <%!-- Floating gradient orbs for liquid metal effect --%>
             <div
-              class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+              class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
               aria-hidden="true"
             >
               <div
-                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-400/20 to-cyan-400/30 opacity-40 dark:opacity-20"
                 style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
               >
               </div>
@@ -65,9 +38,15 @@ defmodule MossletWeb.PublicLive.About do
                     <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                       We're going back to the future
                     </h1>
-                    <p class="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:max-w-md sm:text-xl/8 lg:max-w-none">
+                    <p class="mt-8 text-pretty text-lg font-medium text-slate-600 dark:text-slate-400 sm:max-w-md sm:text-xl/8 lg:max-w-none transition-colors duration-300 ease-out">
                       Social networking has become overwhelming, transformed from a fun connection space into a marketplace filled with cheap ads and less authentic content from friends. We're not interested in selling or harvesting your data. We care about making a service that feels good, keeps you connected to your people, and then lets you get back to real life. No addiction required.
                     </p>
+
+                    <%!-- Decorative accent line matching other pages --%>
+                    <div class="mt-8 flex justify-start">
+                      <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+                      </div>
+                    </div>
 
                     <%!-- Call to action buttons using design system --%>
                     <div class="mt-10 flex flex-col sm:flex-row gap-4">
@@ -157,17 +136,17 @@ defmodule MossletWeb.PublicLive.About do
               </h2>
               <div class="mt-6 flex flex-col gap-x-8 gap-y-20 lg:flex-row">
                 <div class="lg:w-full lg:max-w-2xl lg:flex-auto">
-                  <p class="text-xl/8 text-gray-600 dark:text-gray-400">
+                  <p class="text-xl/8 text-slate-600 dark:text-slate-400">
                     We are part of the growing movement for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media.
                   </p>
-                  <p class="mt-10 max-w-xl text-base/7 text-gray-700 dark:text-gray-300">
+                  <p class="mt-10 max-w-xl text-base/7 text-slate-700 dark:text-slate-300">
                     The alarming trend of authorities targeting individuals because of their opinions expressed online adds to the concern. The utilization of personal photographs, including those of minors, for the training of AI systems presents serious dangers as well. None of this is inevitable. People make these systems and people can change them. We aim to provide a safer, private online space where you can connect without being monitored or having your humanity sold to the highest bidder.
                   </p>
                 </div>
                 <div class="lg:flex lg:flex-auto lg:justify-center">
                   <dl class="w-64 space-y-8 xl:w-80">
                     <div class="flex flex-col-reverse gap-y-4">
-                      <dt class="text-base/7 text-gray-600 dark:text-gray-400">
+                      <dt class="text-base/7 text-slate-600 dark:text-slate-400">
                         Data brokers thwarted
                       </dt>
                       <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -175,7 +154,7 @@ defmodule MossletWeb.PublicLive.About do
                       </dd>
                     </div>
                     <div class="flex flex-col-reverse gap-y-4">
-                      <dt class="text-base/7 text-gray-600 dark:text-gray-400">
+                      <dt class="text-base/7 text-slate-600 dark:text-slate-400">
                         Protected every 24 hours
                       </dt>
                       <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -183,7 +162,7 @@ defmodule MossletWeb.PublicLive.About do
                       </dd>
                     </div>
                     <div class="flex flex-col-reverse gap-y-4">
-                      <dt class="text-base/7 text-gray-600 dark:text-gray-400">
+                      <dt class="text-base/7 text-slate-600 dark:text-slate-400">
                         Surveillance capitalists blocked
                       </dt>
                       <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -211,7 +190,7 @@ defmodule MossletWeb.PublicLive.About do
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Our values
               </h2>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 As a small, family-owned public-benefit company, our values are the foundation of everything we do. They guide our decisions, shape our culture, and ensure we stay true to our mission of empowering people while respecting their privacy and the world around us.
               </p>
             </div>
@@ -225,7 +204,7 @@ defmodule MossletWeb.PublicLive.About do
                     Privacy-first
                   </span>
                 </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                   We prioritize our customer privacy and data protection first, then consider everything else.
                 </p>
               </.liquid_card>
@@ -239,7 +218,7 @@ defmodule MossletWeb.PublicLive.About do
                     No Data Selling
                   </span>
                 </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                   We will never sell or otherwise exploit customer data to third parties.
                 </p>
               </.liquid_card>
@@ -253,7 +232,7 @@ defmodule MossletWeb.PublicLive.About do
                     Customer Control
                   </span>
                 </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                   We empower our customers to control and manage their data and privacy settings with ease.
                 </p>
               </.liquid_card>
@@ -267,7 +246,7 @@ defmodule MossletWeb.PublicLive.About do
                     Public Benefit
                   </span>
                 </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                   As a public-benefit company, we prioritize creating a service that benefits our customers and community.
                 </p>
               </.liquid_card>
@@ -281,7 +260,7 @@ defmodule MossletWeb.PublicLive.About do
                     Ethical Practices
                   </span>
                 </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                   We promise to adhere to ethical standards in all operations, prioritizing customer well-being over profit.
                 </p>
               </.liquid_card>
@@ -295,7 +274,7 @@ defmodule MossletWeb.PublicLive.About do
                     Continuous Improvement
                   </span>
                 </:title>
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
                   We strive to continually improve our service and features based on customer feedback.
                 </p>
               </.liquid_card>
@@ -308,50 +287,50 @@ defmodule MossletWeb.PublicLive.About do
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Our team
               </h2>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 As a small, dedicated team passionate about connection and privacy, we are committed to delivering peace of mind for our customers. We trust MOSSLET for ourselves and hope you will too. Join us on our mission for a better world, today.
               </p>
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Happily small tech
               </h3>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 We don't chase venture capital or need investors — we're customer-funded and family-owned. We believe in building a sustainable business that puts people first, not profits. Our team is small but mighty, and we take pride in our work.
               </p>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 MOSSLET is run by Mark (developer) and Isabella (marketing). We're located in the United States and take pride in our work. We're always listening to our customers and making decisions for features and improvements based on what you tell us.
               </p>
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Privacy is our business model
               </h3>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 It's simple, you pay us <em>once</em>
                 and we provide you with a service that respects and protects your digital privacy. That's it. We're not in this to get-rich-quick or take the big exit — we're here for the long haul, for you (and us!).
               </p>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 We use MOSSLET and trust it with our own families (unlike the leaders of Big Tech who knowingly forbid their children from using their services). We're tired of surveillance capitalism and its secret control of our lives. We're tired of never-ending subscription fees, making the cost for a service increase the longer you use it, yikes! We think you're tired too, which is why you're probably here.
               </p>
 
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Hope for a human future
               </h3>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 MOSSLET is our hope for a better internet and a more human future.
               </p>
 
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 A future where you are not raw material in a soul-plundering, mind-shredding, behavior-controlling economic pipeline. In this future you are free to think, feel, believe, and behave as yourself. You can share with your loved ones and not watch your credit score, insurace premium, job opportunties, prison sentences, mortage qualifications, and airline prices be negatively affected.
               </p>
 
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 It is a future with a shared reality, with empathy and compassion, with critical thinking. It is a future for everyone, for you and me. It is a future necessary for healthy and prosperous societies, a future necessary for life on Earth.
               </p>
 
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
                 MOSSLET is our small step toward this future. We hope you'll join us.
               </p>
               <div class="mt-8 flex flex-col sm:flex-row gap-4 items-start">
                 <div class="flex-1">
-                  <p class="text-lg/8 text-gray-600 dark:text-gray-400">
+                  <p class="text-lg/8 text-slate-600 dark:text-slate-400">
                     — Isabella & Mark
                   </p>
                   <p class="mt-2 text-sm text-gray-500 dark:text-gray-500 italic">
@@ -377,7 +356,7 @@ defmodule MossletWeb.PublicLive.About do
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 From the blog
               </h2>
-              <p class="mt-2 text-lg/8 text-gray-600 dark:text-gray-400">
+              <p class="mt-2 text-lg/8 text-slate-600 dark:text-slate-400">
                 Learn about privacy, our company, and our opinions on the latest privacy news.
               </p>
               <div class="mt-8">

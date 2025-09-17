@@ -15,45 +15,18 @@ defmodule MossletWeb.PublicLive.Myob do
       socket={@socket}
       key={@key}
     >
-      <div class="bg-white dark:bg-gray-950">
+      <%!-- Enhanced liquid metal background --%>
+      <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
         <main class="isolate">
-          <%!-- Hero section --%>
-          <div class="relative isolate -z-10 overflow-hidden pt-14">
-            <svg
-              class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern
-                  id="1f932ae7-37de-4c0a-a8b0-a6e3b4d44b84"
-                  width="200"
-                  height="200"
-                  x="50%"
-                  y="-1"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path d="M.5 200V.5H200" fill="none" />
-                </pattern>
-              </defs>
-              <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
-                <path
-                  d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
-                  stroke-width="0"
-                />
-              </svg>
-              <rect
-                width="100%"
-                height="100%"
-                stroke-width="0"
-                fill="url(#1f932ae7-37de-4c0a-a8b0-a6e3b4d44b84)"
-              />
-            </svg>
+          <%!-- Hero section with liquid effects matching other pages --%>
+          <div class="relative isolate overflow-hidden pt-14">
+            <%!-- Floating gradient orbs for liquid metal effect --%>
             <div
-              class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+              class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
               aria-hidden="true"
             >
               <div
-                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-400/20 to-cyan-400/30 opacity-40 dark:opacity-20"
                 style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
               >
               </div>
@@ -62,12 +35,19 @@ defmodule MossletWeb.PublicLive.Myob do
             <%!-- Hero Content --%>
             <div class="mx-auto max-w-7xl px-6 pb-24 pt-10 sm:pb-32 lg:flex lg:px-8 lg:py-40">
               <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-xl lg:flex-shrink-0 lg:pt-8">
-                <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                <%!-- Enhanced hero title with liquid metal styling matching other pages --%>
+                <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
                   Mind Your Own Business
                 </h1>
-                <p class="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8">
+                <p class="mt-8 text-pretty text-lg font-medium text-slate-600 dark:text-slate-400 sm:text-xl/8 transition-colors duration-300 ease-out">
                   Privacy isn't just a feature — it's the foundation of human dignity. Your personal life should stay personal, whether online or offline.
                 </p>
+
+                <%!-- Decorative accent line matching other pages --%>
+                <div class="mt-8 flex justify-start">
+                  <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+                  </div>
+                </div>
 
                 <%!-- CTA buttons using design system --%>
                 <div class="mt-10 flex flex-col sm:flex-row gap-4">
@@ -97,7 +77,7 @@ defmodule MossletWeb.PublicLive.Myob do
                 <div class="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
                   <.liquid_card
                     padding="lg"
-                    class="space-y-2 text-sm text-gray-600 dark:text-gray-400 sm:text-base lg:text-lg"
+                    class="space-y-2 text-sm text-slate-600 dark:text-slate-400 sm:text-base lg:text-lg"
                   >
                     <:title>
                       <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent">
@@ -148,84 +128,86 @@ defmodule MossletWeb.PublicLive.Myob do
                     None of Your Business Either
                   </span>
                 </:title>
-                <div class="space-y-4 text-lg text-gray-600 dark:text-gray-400 sm:text-xl lg:text-2xl">
+                <div class="space-y-4 text-lg text-slate-600 dark:text-slate-400 sm:text-xl lg:text-2xl">
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">which ads I linger on.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">which ads I linger on.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">when I go online.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">when I go online.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">
+                    <strong class="text-slate-900 dark:text-slate-200">
                       which search engine I use.
                     </strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">where I am right now.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">where I am right now.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">which photos I like.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">which photos I like.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">who I respond to.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">who I respond to.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">which articles I read.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">which articles I read.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">who I ignore.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">who I ignore.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">
+                    <strong class="text-slate-900 dark:text-slate-200">
                       how many times I watched that video.
                     </strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">if I'm using a VPN.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">if I'm using a VPN.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">what my home address is.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">
+                      what my home address is.
+                    </strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">
+                    <strong class="text-slate-900 dark:text-slate-200">
                       what I just said out loud.
                     </strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">
+                    <strong class="text-slate-900 dark:text-slate-200">
                       how many tabs I have open.
                     </strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">who I follow.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">who I follow.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">
+                    <strong class="text-slate-900 dark:text-slate-200">
                       what I'm typing right now.
                     </strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">which apps I download.</strong>
+                    <strong class="text-slate-900 dark:text-slate-200">which apps I download.</strong>
                   </p>
                   <p>
                     It's none of your business
-                    <strong class="text-gray-900 dark:text-gray-200">
+                    <strong class="text-slate-900 dark:text-slate-200">
                       what's left in my shopping cart.
                     </strong>
                   </p>
@@ -240,7 +222,7 @@ defmodule MossletWeb.PublicLive.Myob do
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 It's none of our business, so it's not our business
               </h2>
-              <p class="mt-8 text-lg text-gray-600 dark:text-gray-400 sm:text-xl/8">
+              <p class="mt-8 text-lg text-slate-600 dark:text-slate-400 sm:text-xl/8">
                 Unlike the surveillance economy of Big Tech, we've built MOSSLET on the radical idea that your privacy is valuable — and worth protecting.
               </p>
             </div>
@@ -256,8 +238,8 @@ defmodule MossletWeb.PublicLive.Myob do
                     Our business model is boring
                   </span>
                 </:title>
-                <p class="text-lg leading-8 text-gray-600 dark:text-gray-400">
-                  <strong class="text-gray-900 dark:text-gray-200">
+                <p class="text-lg leading-8 text-slate-600 dark:text-slate-400">
+                  <strong class="text-slate-900 dark:text-slate-200">
                     At MOSSLET, our business model is as basic as it is boring:
                   </strong>
                   We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never spy on you or enable others to either. It's absolutely none of their business, and it's none of ours either.
@@ -273,8 +255,8 @@ defmodule MossletWeb.PublicLive.Myob do
                     Privacy is personal to us
                   </span>
                 </:title>
-                <p class="text-lg leading-8 text-gray-600 dark:text-gray-400">
-                  <strong class="text-gray-900 dark:text-gray-200">
+                <p class="text-lg leading-8 text-slate-600 dark:text-slate-400">
+                  <strong class="text-slate-900 dark:text-slate-200">
                     Privacy is personal to us:
                   </strong>
                   We've been building and using computers for thirty years. We were around in 2000 when Google pioneered the invisible prison of surveillance capitalism and hid behind the thin veil of "Don't Be Evil". We've seen their strategies for collecting, selling, and abusing personal data on an industrial scale spread to every industry. We remember when Facebook rose from The FaceBook to the pusher of algorithmically-engineered traps of attention and worse. The internet didn't use to be like this, and it doesn't have to be like that today either.
@@ -289,12 +271,12 @@ defmodule MossletWeb.PublicLive.Myob do
                   Your Privacy, Our Promise
                 </span>
               </:title>
-              <div class="space-y-8 text-lg leading-8 text-gray-600 dark:text-gray-400">
+              <div class="space-y-8 text-lg leading-8 text-slate-600 dark:text-slate-400">
                 <p>
                   But right now it just is. You have to defend yourself from these Big Tech giants, and the legion of companies following their nasty example. Collect It All has sunk into the ideology of the commercial internet, so most companies don't even think about it. It's just what they do.
                 </p>
                 <p>
-                  <strong class="text-gray-900 dark:text-gray-200">
+                  <strong class="text-slate-900 dark:text-slate-200">
                     MOSSLET doesn't mine your posts for data:
                   </strong>
                   There are no big AI engines to feed. We don't analyze what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't analyze or monetize it even if we wanted to — which we don't.
@@ -306,7 +288,7 @@ defmodule MossletWeb.PublicLive.Myob do
                   Privacy used to be something exotic and niche. Today it's going mainstream, but it's still early. You can be early on this trend. You can be part of the change. Using MOSSLET is standing up, not giving in.
                 </p>
                 <p>
-                  <strong class="text-gray-900 dark:text-gray-200">
+                  <strong class="text-slate-900 dark:text-slate-200">
                     Your data is none of their business:
                   </strong>
                   Don't give them what isn't theirs. At MOSSLET, we've got your back without looking over your shoulder.

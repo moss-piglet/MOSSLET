@@ -1808,32 +1808,8 @@ defmodule MossletWeb.DesignSystem do
       @class
     ]}>
       <main class="isolate">
-        <%!-- Hero section with liquid effects matching support page style --%>
+        <%!-- Hero section with gradient orbs but cleaner background --%>
         <div class="relative isolate">
-          <%!-- Background pattern with liquid styling --%>
-          <div class="absolute inset-0 -z-10 overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-teal-50/10 via-transparent to-emerald-50/10 dark:from-teal-900/5 dark:via-transparent dark:to-emerald-900/5">
-            </div>
-            <svg
-              class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-slate-200/60 dark:stroke-slate-700/60 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern
-                  id="faq-pattern"
-                  width="200"
-                  height="200"
-                  x="50%"
-                  y="-1"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path d="M.5 200V.5H200" fill="none" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" stroke-width="0" fill="url(#faq-pattern)" />
-            </svg>
-          </div>
-
           <%!-- Floating gradient orbs for liquid metal effect --%>
           <div
             class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
