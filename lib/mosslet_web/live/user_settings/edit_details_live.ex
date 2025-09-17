@@ -2,8 +2,6 @@ defmodule MossletWeb.EditDetailsLive do
   @moduledoc false
   use MossletWeb, :live_view
 
-  import MossletWeb.UserSettingsLayoutComponent
-
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
   alias Mosslet.Extensions.AvatarProcessor
@@ -19,6 +17,119 @@ defmodule MossletWeb.EditDetailsLive do
   @upload_provider Mosslet.FileUploads.Storj
   # @upload_provider Mosslet.FileUploads.Cloudinary
   # @upload_provider Mosslet.FileUploads.S3
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <.layout current_user={@current_user} current_page={:edit_details} key={@key} type="sidebar">
+      <.container class="py-16">
+        <.page_header title="Profile Details" />
+
+        <div class="space-y-8 max-w-2xl">
+          <.form
+            id="update_avatar_form"
+            for={@avatar_form}
+            phx-submit="update_avatar"
+            phx-change="validate"
+            class="max-w-lg"
+          >
+            <FileUploadComponents.image_input
+              upload={@uploads.avatar}
+              label={gettext("Avatar")}
+              current_image_src={maybe_get_user_avatar(@current_user, @key)}
+              user={@current_user}
+              key={@key}
+              placeholder_icon={:user}
+              on_delete="delete_avatar"
+              automatic_help_text
+              url={
+                if @current_user.connection.avatar_url,
+                  do:
+                    decr_avatar(
+                      @current_user.connection.avatar_url,
+                      @current_user,
+                      @current_user.conn_key,
+                      @key
+                    ),
+                  else: nil
+              }
+            />
+
+            <div class="space-y-2">
+              <.phx_button
+                :if={Enum.any?(@uploads.avatar.entries)}
+                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                phx-disable-with="Updating..."
+                disabled={!@uploads.avatar.entries}
+              >
+                {gettext("Update avatar")}
+              </.phx_button>
+
+              <.phx_button
+                :if={@uploads.avatar.entries == []}
+                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                phx-disable-with="Updating..."
+                disabled
+              >
+                {gettext("Choose photo to upload")}
+              </.phx_button>
+            </div>
+          </.form>
+
+          <div id="name-change-form" class="py-2">
+            <.form
+              for={@name_form}
+              id="update_name_form"
+              phx-submit="update_name"
+              phx-change="validate_name"
+              class="max-w-lg"
+            >
+              <.field
+                field={@name_form[:name]}
+                label={gettext("Name")}
+                placeholder={gettext("eg. Isabella")}
+                value={@current_name}
+              />
+
+              <.phx_button
+                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                phx-disable-with="Updating..."
+                disabled={!@name_change_valid?}
+              >
+                {gettext("Update name")}
+              </.phx_button>
+            </.form>
+          </div>
+
+          <div id="username-change-form" class="py-2 mt-4">
+            <.form
+              for={@username_form}
+              id="update_username_form"
+              phx-submit="update_username"
+              phx-change="validate_username"
+              class="max-w-lg"
+            >
+              <.field
+                field={@username_form[:username]}
+                label={gettext("Username")}
+                placeholder={gettext("eg. isabella")}
+                value={@current_username}
+              />
+
+              <.phx_button
+                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                phx-disable-with="Updating..."
+                disabled={!@username_change_valid?}
+              >
+                {gettext("Update username")}
+              </.phx_button>
+            </.form>
+          </div>
+        </div>
+      </.container>
+    </.layout>
+    """
+  end
 
   @impl true
   def mount(_params, _session, socket) do
@@ -57,111 +168,6 @@ defmodule MossletWeb.EditDetailsLive do
       )
 
     {:ok, socket}
-  end
-
-  @impl true
-  def render(assigns) do
-    ~H"""
-    <.settings_layout current_page={:edit_details} current_user={@current_user} key={@key}>
-      <.form
-        id="update_avatar_form"
-        for={@avatar_form}
-        phx-submit="update_avatar"
-        phx-change="validate"
-        class="max-w-lg"
-      >
-        <FileUploadComponents.image_input
-          upload={@uploads.avatar}
-          label={gettext("Avatar")}
-          current_image_src={maybe_get_user_avatar(@current_user, @key)}
-          user={@current_user}
-          key={@key}
-          placeholder_icon={:user}
-          on_delete="delete_avatar"
-          automatic_help_text
-          url={
-            if @current_user.connection.avatar_url,
-              do:
-                decr_avatar(
-                  @current_user.connection.avatar_url,
-                  @current_user,
-                  @current_user.conn_key,
-                  @key
-                ),
-              else: nil
-          }
-        />
-
-        <div class="flex justify-end">
-          <.button
-            :if={@uploads.avatar.entries != []}
-            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-            phx-disable-with="Updating..."
-          >
-            {gettext("Update avatar")}
-          </.button>
-          <.phx_button
-            :if={@uploads.avatar.entries == []}
-            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            phx-disable-with="Updating..."
-            disabled
-          >
-            {gettext("Choose photo to upload")}
-          </.phx_button>
-        </div>
-      </.form>
-
-      <div id="name-change-form" class="py-2">
-        <.form
-          for={@name_form}
-          id="update_name_form"
-          phx-submit="update_name"
-          phx-change="validate_name"
-          class="max-w-lg"
-        >
-          <.field
-            field={@name_form[:name]}
-            label={gettext("Name")}
-            placeholder={gettext("eg. Isabella")}
-            value={@current_name}
-          />
-
-          <.phx_button
-            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            phx-disable-with="Updating..."
-            disabled={!@name_change_valid?}
-          >
-            {gettext("Update name")}
-          </.phx_button>
-        </.form>
-      </div>
-
-      <div id="username-change-form" class="py-2 mt-4">
-        <.form
-          for={@username_form}
-          id="update_username_form"
-          phx-submit="update_username"
-          phx-change="validate_username"
-          class="max-w-lg"
-        >
-          <.field
-            field={@username_form[:username]}
-            label={gettext("Username")}
-            placeholder={gettext("eg. isabella")}
-            value={@current_username}
-          />
-
-          <.phx_button
-            class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            phx-disable-with="Updating..."
-            disabled={!@username_change_valid?}
-          >
-            {gettext("Update username")}
-          </.phx_button>
-        </.form>
-      </div>
-    </.settings_layout>
-    """
   end
 
   @impl true

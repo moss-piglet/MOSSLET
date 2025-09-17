@@ -2217,7 +2217,7 @@ defmodule MossletWeb.CoreComponents do
           </:logo>
           <:top_right>
             <button
-              :if={@current_user.confirmed_at}
+              :if={@current_user && @current_user.confirmed_at}
               id="invite-connection-link"
               phx-hook="TippyHook"
               type="button"

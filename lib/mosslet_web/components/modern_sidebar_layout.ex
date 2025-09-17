@@ -27,7 +27,11 @@ defmodule MossletWeb.ModernSidebarLayout do
 
   def modern_sidebar_layout(assigns) do
     ~H"""
-    <div class="min-h-screen bg-slate-50/50 dark:bg-slate-900" x-data="{ sidebarOpen: false }">
+    <div
+      class="min-h-screen bg-slate-50/50 dark:bg-slate-900"
+      x-data="{ sidebarOpen: false }"
+      x-bind:class="{ 'overflow-hidden h-screen': sidebarOpen }"
+    >
       <%!-- Mobile sidebar backdrop --%>
       <div
         class="fixed inset-0 z-40 lg:hidden"
@@ -40,6 +44,7 @@ defmodule MossletWeb.ModernSidebarLayout do
         x-transition:leave-end="opacity-0"
         @click="sidebarOpen = false"
         x-cloak
+        style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important;"
       >
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
       </div>
@@ -82,7 +87,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <div class="relative z-50 lg:hidden">
         <div
           class={[
-            "fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto px-0 pb-4",
+            "fixed z-50 w-64 flex flex-col px-0 pb-4",
             "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
             "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
             "border-r border-slate-200/60 dark:border-slate-700/60",
@@ -96,8 +101,9 @@ defmodule MossletWeb.ModernSidebarLayout do
           x-transition:leave-start="translate-x-0 opacity-100"
           x-transition:leave-end="-translate-x-full opacity-90"
           x-cloak
+          style="position: fixed !important; top: 0 !important; bottom: 0 !important; left: 0 !important; width: 16rem !important; height: 100vh !important;"
         >
-          <div class="flex h-16 shrink-0 items-center justify-between px-6">
+          <div class="flex h-16 shrink-0 items-center justify-between px-6 border-b border-slate-200/30 dark:border-slate-700/30">
             <.link navigate={@home_path} class="block">
               {render_slot(@logo)}
             </.link>
@@ -116,7 +122,7 @@ defmodule MossletWeb.ModernSidebarLayout do
             </button>
           </div>
 
-          <nav class="flex flex-1 flex-col mt-5 px-0">
+          <nav class="flex-1 overflow-y-auto px-2 py-4 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
             <.modern_sidebar_menu
               menu_items={@main_menu_items}
               current_page={@current_page}

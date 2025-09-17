@@ -31,6 +31,7 @@ defmodule MossletWeb.ModernSidebarMenu do
 
   defp modern_menu_item(assigns) do
     ~H"""
+    <!-- Main menu item -->
     <.link
       {if @item[:method], do: %{method: @item[:method], href: @item[:path]}, else: %{navigate: @item[:path]}}
       class={[
@@ -40,7 +41,7 @@ defmodule MossletWeb.ModernSidebarMenu do
         "transition-all duration-200 ease-out will-change-transform",
         "overflow-hidden backdrop-blur-sm transform-gpu",
         "hover:translate-x-1 active:translate-x-0",
-        menu_item_classes(@current_page, @item[:name])
+        menu_item_classes(@current_page, @item[:name], @item[:children])
       ]}
     >
       <%!-- Liquid background effect --%>
@@ -65,7 +66,7 @@ defmodule MossletWeb.ModernSidebarMenu do
       <.modern_menu_icon
         :if={@item[:icon]}
         icon={@item[:icon]}
-        active={@current_page == @item[:name]}
+        active={@current_page == @item[:name] or child_active?(@item[:children], @current_page)}
       />
       <span class={[
         "relative flex-1 truncate transition-colors duration-200",
@@ -74,37 +75,120 @@ defmodule MossletWeb.ModernSidebarMenu do
         {@item[:label]}
       </span>
 
+      <%!-- Submenu indicator --%>
+      <div
+        :if={@item[:children]}
+        class={[
+          "relative w-4 h-4 transition-transform duration-200 transform-gpu",
+          if(show_submenu?(@item, @current_page), do: "rotate-90", else: "")
+        ]}
+      >
+        <MossletWeb.CoreComponents.phx_icon
+          name="hero-chevron-right"
+          class="h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 dark:group-hover:text-emerald-400"
+        />
+      </div>
+
       <%!-- Row indicator --%>
-      <div class={[
-        "relative w-1 h-8 rounded-full transition-all duration-200 transform-gpu",
-        "lg:block hidden",
-        "opacity-0 group-hover:opacity-100",
-        "bg-gradient-to-b from-teal-400 to-emerald-500",
-        "shadow-sm shadow-emerald-500/50"
-      ]}>
+      <div
+        :if={!@item[:children]}
+        class={[
+          "relative w-1 h-8 rounded-full transition-all duration-200 transform-gpu",
+          "lg:block hidden",
+          "opacity-0 group-hover:opacity-100",
+          "bg-gradient-to-b from-teal-400 to-emerald-500",
+          "shadow-sm shadow-emerald-500/50"
+        ]}
+      >
       </div>
 
       <%!-- Mobile edge indicator --%>
-      <div class={[
-        "absolute right-0 top-0 bottom-0 w-1 transition-all duration-200 transform-gpu",
-        "lg:hidden block",
-        "opacity-0 group-hover:opacity-100",
-        "bg-gradient-to-b from-teal-400 to-emerald-500",
-        "shadow-sm shadow-emerald-500/50"
-      ]}>
+      <div
+        :if={!@item[:children]}
+        class={[
+          "absolute right-0 top-0 bottom-0 w-1 transition-all duration-200 transform-gpu",
+          "lg:hidden block",
+          "opacity-0 group-hover:opacity-100",
+          "bg-gradient-to-b from-teal-400 to-emerald-500",
+          "shadow-sm shadow-emerald-500/50"
+        ]}
+      >
       </div>
     </.link>
+
+    <%!-- Submenu items --%>
+    <div
+      :if={@item[:children] && show_submenu?(@item, @current_page)}
+      class="mt-2 ml-2 lg:ml-8 space-y-1.5 border-l-2 border-emerald-200/40 dark:border-emerald-700/30 pl-3 lg:pl-3"
+    >
+      <.link
+        :for={child <- @item[:children]}
+        {if child[:method], do: %{method: child[:method], href: child[:path]}, else: %{navigate: child[:path]}}
+        class={[
+          "group relative flex items-start gap-x-3 text-sm",
+          "rounded-lg px-2 py-3 lg:px-3 lg:py-3",
+          "transition-all duration-200 ease-out will-change-transform",
+          "overflow-hidden backdrop-blur-sm transform-gpu",
+          "hover:translate-x-1 active:translate-x-0",
+          submenu_item_classes(@current_page, child[:name])
+        ]}
+      >
+        <%!-- Subtle liquid background for submenu --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-300 ease-out",
+          "bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40",
+          "dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10",
+          "group-hover:opacity-100 transform-gpu",
+          "rounded-lg"
+        ]}>
+        </div>
+
+        <.modern_menu_icon
+          :if={child[:icon]}
+          icon={child[:icon]}
+          active={@current_page == child[:name]}
+          size="sm"
+          class="mt-0.5"
+        />
+
+        <div class="relative flex-1 min-w-0">
+          <div class={[
+            "font-medium transition-colors duration-200",
+            "group-hover:text-emerald-700 dark:group-hover:text-emerald-300",
+            "leading-tight"
+          ]}>
+            {child[:label]}
+          </div>
+          <div
+            :if={child[:description]}
+            class={[
+              "text-xs mt-1 transition-colors duration-200",
+              "text-slate-500 dark:text-slate-400",
+              "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+              "leading-relaxed",
+              "block"
+            ]}
+          >
+            {child[:description]}
+          </div>
+        </div>
+      </.link>
+    </div>
     """
   end
 
   attr :icon, :any, required: true
   attr :active, :boolean, default: false
+  attr :size, :string, default: "md", values: ~w(sm md)
+  attr :class, :string, default: ""
 
   defp modern_menu_icon(assigns) do
     ~H"""
     <div class={[
-      "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden",
+      "relative flex shrink-0 items-center justify-center rounded-lg overflow-hidden",
+      icon_container_size_classes(@size),
       "transition-all duration-200 ease-out transform-gpu will-change-transform",
+      @class,
       if(@active,
         do: [
           "bg-gradient-to-br from-teal-500 to-emerald-600 text-white",
@@ -144,7 +228,8 @@ defmodule MossletWeb.ModernSidebarMenu do
       <MossletWeb.CoreComponents.phx_icon
         name={@icon}
         class={[
-          "relative h-4 w-4 transition-colors duration-200 transform-gpu",
+          "relative transition-colors duration-200 transform-gpu",
+          icon_size_classes(@size),
           if(@active, do: "drop-shadow-sm")
         ]}
       />
@@ -152,8 +237,29 @@ defmodule MossletWeb.ModernSidebarMenu do
     """
   end
 
-  # Active state with row-like styling
-  defp menu_item_classes(page, page) do
+  # Helper function to check if any child is active
+  defp child_active?(nil, _current_page), do: false
+  defp child_active?([], _current_page), do: false
+
+  defp child_active?(children, current_page) do
+    Enum.any?(children, fn child -> child[:name] == current_page end)
+  end
+
+  # Helper function to determine if submenu should be shown
+  defp show_submenu?(item, current_page) do
+    current_page == item[:name] || child_active?(item[:children], current_page)
+  end
+
+  # Icon size classes
+  defp icon_size_classes("sm"), do: "h-3.5 w-3.5"
+  defp icon_size_classes("md"), do: "h-4 w-4"
+
+  # Icon container size classes
+  defp icon_container_size_classes("sm"), do: "h-6 w-6"
+  defp icon_container_size_classes("md"), do: "h-7 w-7"
+
+  # Active state with row-like styling (updated for children support)
+  defp menu_item_classes(page, page, _opts) do
     [
       "bg-gradient-to-r from-teal-50/80 via-emerald-50/90 to-cyan-50/70 text-emerald-700",
       "dark:from-teal-900/25 dark:via-emerald-900/35 dark:to-cyan-900/20 dark:text-emerald-300",
@@ -163,8 +269,22 @@ defmodule MossletWeb.ModernSidebarMenu do
     ]
   end
 
+  # Active state when a child is active (for parent items with children)
+  defp menu_item_classes(current_page, link_page, children) when is_list(children) do
+    if child_active?(children, current_page) do
+      [
+        "bg-gradient-to-r from-teal-50/60 via-emerald-50/70 to-cyan-50/50 text-emerald-600",
+        "dark:from-teal-900/20 dark:via-emerald-900/25 dark:to-cyan-900/15 dark:text-emerald-400",
+        "border-l-2 border-l-emerald-400 dark:border-l-emerald-500",
+        "border-y border-r border-emerald-200/40 dark:border-emerald-700/25"
+      ]
+    else
+      menu_item_classes(current_page, link_page, nil)
+    end
+  end
+
   # Inactive state with subtle row appearance
-  defp menu_item_classes(_current_page, _link_page) do
+  defp menu_item_classes(_current_page, _link_page, _children) do
     [
       "text-slate-600 hover:text-emerald-700 border-l-2 border-l-transparent",
       "dark:text-slate-300 dark:hover:text-emerald-300",
@@ -173,6 +293,25 @@ defmodule MossletWeb.ModernSidebarMenu do
       "dark:hover:from-emerald-900/15 dark:hover:to-transparent",
       "border-y border-r border-transparent hover:border-y-emerald-200/30 hover:border-r-emerald-200/30",
       "dark:hover:border-y-emerald-700/20 dark:hover:border-r-emerald-700/20"
+    ]
+  end
+
+  # Submenu item classes
+  defp submenu_item_classes(page, page) do
+    [
+      "bg-gradient-to-r from-emerald-50/80 to-cyan-50/60 text-emerald-700",
+      "dark:from-emerald-900/25 dark:to-cyan-900/20 dark:text-emerald-300",
+      "border border-emerald-200/60 dark:border-emerald-700/40",
+      "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-400/5"
+    ]
+  end
+
+  defp submenu_item_classes(_current_page, _link_page) do
+    [
+      "text-slate-600 hover:text-emerald-700 border border-transparent",
+      "dark:text-slate-400 dark:hover:text-emerald-400",
+      "hover:border-emerald-200/50 dark:hover:border-emerald-700/30",
+      "hover:shadow-sm hover:shadow-emerald-500/5 dark:hover:shadow-emerald-400/5"
     ]
   end
 end

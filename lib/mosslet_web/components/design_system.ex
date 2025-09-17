@@ -336,9 +336,19 @@ defmodule MossletWeb.DesignSystem do
     assigns = assign_new(assigns, :external, fn -> false end)
     assigns = assign_new(assigns, :tooltip, fn -> nil end)
 
+    assigns =
+      assign_new(assigns, :id, fn ->
+        # Generate a unique ID based on the href/content
+        href_hash =
+          :crypto.hash(:md5, assigns[:href] || "") |> Base.encode16() |> String.slice(0, 8)
+
+        "footer-social-#{href_hash}"
+      end)
+
     ~H"""
     <.link
       {if @navigate, do: %{navigate: @href}, else: if(@external, do: %{href: @href, target: "_blank", rel: "noopener noreferrer"}, else: %{href: @href})}
+      id={if @tooltip, do: @id, else: nil}
       class={[
         "group relative p-2.5 rounded-xl overflow-hidden transition-all duration-300 ease-out",
         "text-slate-500 dark:text-slate-400",

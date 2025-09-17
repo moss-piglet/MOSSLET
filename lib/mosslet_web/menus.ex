@@ -41,12 +41,12 @@ defmodule MossletWeb.Menus do
   def main_menu_items(current_user) do
     if current_user.connection.profile do
       build_menu(
-        [:home, :connections, :groups, :timeline, :faq, :subscribe],
+        [:home, :connections, :groups, :timeline, :faq, :settings, :subscribe],
         current_user
       )
     else
       build_menu(
-        [:dashboard, :connections, :groups, :timeline, :faq, :subscribe],
+        [:dashboard, :connections, :groups, :timeline, :faq, :settings, :subscribe],
         current_user
       )
     end
@@ -58,9 +58,9 @@ defmodule MossletWeb.Menus do
 
   def user_menu_items(%{current_user: current_user}) do
     if current_user.connection.profile do
-      build_menu([:home, :settings, :sign_out], current_user)
+      build_menu([:home, :sign_out], current_user)
     else
-      build_menu([:dashboard, :settings, :sign_out], current_user)
+      build_menu([:dashboard, :sign_out], current_user)
     end
   end
 
@@ -140,7 +140,86 @@ defmodule MossletWeb.Menus do
       name: name,
       label: gettext("Settings"),
       path: ~p"/app/users/edit-details",
-      icon: "hero-cog"
+      icon: "hero-cog",
+      children: [
+        %{
+          name: :edit_details,
+          label: gettext("Profile Details"),
+          description: gettext("Update your name, username, and avatar"),
+          path: ~p"/app/users/edit-details",
+          icon: "hero-user-circle"
+        },
+        %{
+          name: :edit_profile,
+          label: gettext("Profile"),
+          description: gettext("Manage your public profile and bio"),
+          path: ~p"/app/users/edit-profile",
+          icon: "hero-identification"
+        },
+        %{
+          name: :edit_email,
+          label: gettext("Email"),
+          description: gettext("Change your email address"),
+          path: ~p"/app/users/edit-email",
+          icon: "hero-at-symbol"
+        },
+        %{
+          name: :edit_visibility,
+          label: gettext("Visibility"),
+          description: gettext("Control who can see your profile"),
+          path: ~p"/app/users/edit-visibility",
+          icon: "hero-eye"
+        },
+        %{
+          name: :edit_password,
+          label: gettext("Password"),
+          description: gettext("Update your login password"),
+          path: ~p"/app/users/change-password",
+          icon: "hero-key"
+        },
+        %{
+          name: :edit_forgot_password,
+          label: gettext("Recovery"),
+          description: gettext("Set up account recovery options"),
+          path: ~p"/app/users/change-forgot-password",
+          icon: "hero-lifebuoy"
+        },
+        %{
+          name: :edit_notifications,
+          label: gettext("Notifications"),
+          description: gettext("Manage email and push notifications"),
+          path: ~p"/app/users/edit-notifications",
+          icon: "hero-bell"
+        },
+        %{
+          name: :edit_totp,
+          label: gettext("2FA"),
+          description: gettext("Two-factor authentication security"),
+          path: ~p"/app/users/two-factor-authentication",
+          icon: "hero-shield-check"
+        },
+        %{
+          name: :manage_data,
+          label: gettext("Data"),
+          description: gettext("Export or manage your personal data"),
+          path: ~p"/app/users/manage-data",
+          icon: "hero-circle-stack"
+        },
+        %{
+          name: :billing,
+          label: gettext("Billing"),
+          description: gettext("Manage subscription and payments"),
+          path: ~p"/app/billing",
+          icon: "hero-credit-card"
+        },
+        %{
+          name: :delete_account,
+          label: gettext("Delete Account"),
+          description: gettext("Permanently delete your account"),
+          path: ~p"/app/users/delete-account",
+          icon: "hero-trash"
+        }
+      ]
     }
   end
 
