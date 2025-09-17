@@ -3,6 +3,7 @@ defmodule MossletWeb.PublicLive.About do
   use MossletWeb, :live_view
 
   import MossletWeb.PublicLive.Blog.Components
+  import MossletWeb.DesignSystem
 
   @impl true
   def render(assigns) do
@@ -67,6 +68,28 @@ defmodule MossletWeb.PublicLive.About do
                     <p class="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:max-w-md sm:text-xl/8 lg:max-w-none">
                       Social networking has become overwhelming, transformed from a fun connection space into a marketplace filled with cheap ads and less authentic content from friends. We're not interested in selling or harvesting your data. We care about making a service that feels good, keeps you connected to your people, and then lets you get back to real life. No addiction required.
                     </p>
+
+                    <%!-- Call to action buttons using design system --%>
+                    <div class="mt-10 flex flex-col sm:flex-row gap-4">
+                      <.liquid_button
+                        navigate="/auth/register"
+                        color="teal"
+                        variant="primary"
+                        icon="hero-rocket-launch"
+                        size="lg"
+                      >
+                        Get Started
+                      </.liquid_button>
+                      <.liquid_button
+                        navigate="/features"
+                        color="blue"
+                        variant="secondary"
+                        icon="hero-sparkles"
+                        size="lg"
+                      >
+                        Explore Features
+                      </.liquid_button>
+                    </div>
                   </div>
                   <div class="mt-14 flex justify-end gap-8 sm:-mt-44 sm:justify-start sm:pl-20 lg:mt-0 lg:pl-0">
                     <div class="ml-auto w-44 flex-none space-y-8 pt-32 sm:ml-0 sm:pt-80 lg:order-last lg:pt-36 xl:order-none xl:pt-80">
@@ -182,7 +205,7 @@ defmodule MossletWeb.PublicLive.About do
             />
           </div>
 
-          <%!-- Values section --%>
+          <%!-- Values section with design system cards --%>
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
             <div class="mx-auto max-w-2xl lg:mx-0">
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -192,133 +215,92 @@ defmodule MossletWeb.PublicLive.About do
                 As a small, family-owned public-benefit company, our values are the foundation of everything we do. They guide our decisions, shape our culture, and ensure we stay true to our mission of empowering people while respecting their privacy and the world around us.
               </p>
             </div>
-            <dl class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 text-base/7 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3">
-              <div>
-                <dt class="font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Privacy-first
-                </dt>
-                <dd class="mt-1 text-gray-600 dark:text-gray-400">
+            <div class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-bold">
+                    Privacy-first
+                  </span>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
                   We prioritize our customer privacy and data protection first, then consider everything else.
-                </dd>
-              </div>
-              <div>
-                <dt class="font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  No Data Selling
-                </dt>
-                <dd class="mt-1 text-gray-600 dark:text-gray-400">
+                </p>
+              </.liquid_card>
+
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-bold">
+                    No Data Selling
+                  </span>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
                   We will never sell or otherwise exploit customer data to third parties.
-                </dd>
-              </div>
-              <div>
-                <dt class="font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Customer Control
-                </dt>
-                <dd class="mt-1 text-gray-600 dark:text-gray-400">
+                </p>
+              </.liquid_card>
+
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-bold">
+                    Customer Control
+                  </span>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
                   We empower our customers to control and manage their data and privacy settings with ease.
-                </dd>
-              </div>
-              <div>
-                <dt class="font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Public Benefit
-                </dt>
-                <dd class="mt-1 text-gray-600 dark:text-gray-400">
+                </p>
+              </.liquid_card>
+
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-bold">
+                    Public Benefit
+                  </span>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
                   As a public-benefit company, we prioritize creating a service that benefits our customers and community.
-                </dd>
-              </div>
-              <div>
-                <dt class="font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Ethical Practices
-                </dt>
-                <dd class="mt-1 text-gray-600 dark:text-gray-400">
+                </p>
+              </.liquid_card>
+
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <span class="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent font-bold">
+                    Ethical Practices
+                  </span>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
                   We promise to adhere to ethical standards in all operations, prioritizing customer well-being over profit.
-                </dd>
-              </div>
-              <div>
-                <dt class="font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Continuous Improvement
-                </dt>
-                <dd class="mt-1 text-gray-600 dark:text-gray-400">
+                </p>
+              </.liquid_card>
+
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <span class="bg-gradient-to-r from-indigo-500 to-blue-500 bg-clip-text text-transparent font-bold">
+                    Continuous Improvement
+                  </span>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
                   We strive to continually improve our service and features based on customer feedback.
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <%!-- Logo cloud
-          <div class="relative isolate -z-10 mt-32 sm:mt-48">
-            <div class="absolute inset-x-0 top-1/2 -z-10 flex -translate-y-1/2 justify-center overflow-hidden [mask-image:radial-gradient(50%_45%_at_50%_55%,white,transparent)]">
-              <svg class="h-[40rem] w-[80rem] flex-none stroke-gray-200" aria-hidden="true">
-                <defs>
-                  <pattern
-                    id="e9033f3e-f665-41a6-84ef-756f6778e6fe"
-                    width="200"
-                    height="200"
-                    x="50%"
-                    y="50%"
-                    patternUnits="userSpaceOnUse"
-                    patternTransform="translate(-100 0)"
-                  >
-                    <path d="M.5 200V.5H200" fill="none" />
-                  </pattern>
-                </defs>
-                <svg x="50%" y="50%" class="overflow-visible fill-gray-50">
-                  <path d="M-300 0h201v201h-201Z M300 200h201v201h-201Z" stroke-width="0" />
-                </svg>
-                <rect
-                  width="100%"
-                  height="100%"
-                  stroke-width="0"
-                  fill="url(#e9033f3e-f665-41a6-84ef-756f6778e6fe)"
-                />
-              </svg>
+                </p>
+              </.liquid_card>
             </div>
-
-            <div class="mx-auto max-w-7xl px-6 lg:px-8">
-              <h2 class="text-center text-lg/8 font-semibold text-gray-900 dark:text-gray-100">
-                Trusted by our friends and family
-              </h2>
-              <div class="mx-auto mt-10 grid max-w-lg grid-cols-4 items-center gap-x-8 gap-y-10 sm:max-w-xl sm:grid-cols-6 sm:gap-x-10 lg:mx-0 lg:max-w-none lg:grid-cols-5">
-                <img
-                  class="col-span-2 max-h-12 w-full object-contain lg:col-span-1"
-                  src="https://tailwindcss.com/plus-assets/img/logos/158x48/transistor-logo-gray-900.svg"
-                  alt="Transistor"
-                  width="158"
-                  height="48"
-                />
-                <img
-                  class="col-span-2 max-h-12 w-full object-contain lg:col-span-1"
-                  src="https://tailwindcss.com/plus-assets/img/logos/158x48/reform-logo-gray-900.svg"
-                  alt="Reform"
-                  width="158"
-                  height="48"
-                />
-                <img
-                  class="col-span-2 max-h-12 w-full object-contain lg:col-span-1"
-                  src="https://tailwindcss.com/plus-assets/img/logos/158x48/tuple-logo-gray-900.svg"
-                  alt="Tuple"
-                  width="158"
-                  height="48"
-                />
-                <img
-                  class="col-span-2 max-h-12 w-full object-contain sm:col-start-2 lg:col-span-1"
-                  src="https://tailwindcss.com/plus-assets/img/logos/158x48/savvycal-logo-gray-900.svg"
-                  alt="SavvyCal"
-                  width="158"
-                  height="48"
-                />
-                <img
-                  class="col-span-2 col-start-2 max-h-12 w-full object-contain sm:col-start-auto lg:col-span-1"
-                  src="https://tailwindcss.com/plus-assets/img/logos/158x48/statamic-logo-gray-900.svg"
-                  alt="Statamic"
-                  width="158"
-                  height="48"
-                />
-              </div>
-            </div>
-
-
           </div>
-          --%>
 
           <%!-- Team section --%>
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-48 lg:px-8">
@@ -367,20 +349,29 @@ defmodule MossletWeb.PublicLive.About do
               <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
                 MOSSLET is our small step toward this future. We hope you'll join us.
               </p>
-              <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
-                — Isabella & Mark<br />
-                <span class="text-xs sm:text-sm bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent italic">
-                  Say "hello" at <.link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href="mailto:support@mosslet.com"
-                  >support@mosslet.com</.link>.
-                </span>
-              </p>
+              <div class="mt-8 flex flex-col sm:flex-row gap-4 items-start">
+                <div class="flex-1">
+                  <p class="text-lg/8 text-gray-600 dark:text-gray-400">
+                    — Isabella & Mark
+                  </p>
+                  <p class="mt-2 text-sm text-gray-500 dark:text-gray-500 italic">
+                    Say "hello" at support@mosslet.com
+                  </p>
+                </div>
+                <.liquid_button
+                  href="mailto:support@mosslet.com"
+                  color="teal"
+                  variant="secondary"
+                  icon="hero-envelope"
+                  class="flex-shrink-0"
+                >
+                  Contact Us
+                </.liquid_button>
+              </div>
             </div>
           </div>
 
-          <%!-- Blog section --%>
+          <%!-- Blog section with design system integration --%>
           <div id="blog" class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
             <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -389,6 +380,16 @@ defmodule MossletWeb.PublicLive.About do
               <p class="mt-2 text-lg/8 text-gray-600 dark:text-gray-400">
                 Learn about privacy, our company, and our opinions on the latest privacy news.
               </p>
+              <div class="mt-8">
+                <.liquid_button
+                  navigate="/blog"
+                  color="blue"
+                  variant="secondary"
+                  icon="hero-arrow-right"
+                >
+                  View All Posts
+                </.liquid_button>
+              </div>
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
@@ -460,8 +461,6 @@ defmodule MossletWeb.PublicLive.About do
                 author_isabella?={false}
                 link={~p"/blog/articles/01"}
               />
-
-              <%!-- More posts... --%>
             </div>
           </div>
         </main>
