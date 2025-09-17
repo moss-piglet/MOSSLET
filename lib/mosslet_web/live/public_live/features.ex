@@ -101,32 +101,192 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </div>
 
-          <%!-- App Screenshot Section --%>
-          <.liquid_container max_width="full" class="relative overflow-hidden -mt-12 sm:mt-0 xl:-mt-8">
-            <div class="mx-auto max-w-7xl px-6 lg:px-4">
-              <%!-- Light theme screenshot --%>
-              <img
-                src={~p"/images/landing_page/light-timeline-preview.png"}
-                alt="App screenshot light"
-                class="mb-[-12%] rounded-xl shadow-2xl shadow-background-500/50 ring-1 ring-background-900/10 block dark:hidden"
-                width="2432"
-                height="1442"
-              />
-              <%!-- Dark theme screenshot --%>
-              <img
-                src={~p"/images/landing_page/dark-timeline-preview.png"}
-                alt="App screenshot dark"
-                class="mb-[-12%] rounded-xl shadow-2xl shadow-emerald-500/50 ring-1 ring-emerald-900/10 hidden dark:block"
-                width="2432"
-                height="1442"
-              />
-              <div class="relative" aria-hidden="true">
-                <div class="absolute -inset-x-20 bottom-0 bg-gradient-to-t from-white dark:from-gray-900 pt-[7%]">
-                </div>
+          <%!-- Interactive Feature Preview Section --%>
+          <.liquid_container max_width="full" class="relative -mt-12 sm:mt-0 xl:-mt-8">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                  Experience the difference
+                </h2>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                  See what social media feels like when it's designed for your wellbeing, not profit.
+                </p>
               </div>
-            </div>
-            <div class="z-20 relative" aria-hidden="true">
-              <div class="absolute -inset-x-20 bottom-0 bg-gradient-to-t from-white dark:from-gray-950 pt-[7%]">
+
+              <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-4">
+                <%!-- Your Private Timeline Preview --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500">
+                        <.phx_icon name="hero-newspaper" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-semibold">
+                        Your Private Timeline
+                      </span>
+                    </div>
+                  </:title>
+
+                  <%!-- Mock timeline preview --%>
+                  <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-4 mb-4">
+                    <div class="space-y-3">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400">
+                        </div>
+                        <div class="flex-1">
+                          <div class="h-2 bg-slate-300 dark:bg-slate-600 rounded w-20 mb-1"></div>
+                          <div class="h-1.5 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
+                        </div>
+                      </div>
+                      <div class="h-2 bg-slate-300 dark:bg-slate-600 rounded w-full"></div>
+                      <div class="h-2 bg-slate-300 dark:bg-slate-600 rounded w-3/4"></div>
+                      <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                        🔒 Private • No ads • No tracking
+                      </div>
+                    </div>
+                  </div>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    See only posts from people you choose to follow. No algorithms, no ads, no manipulation.
+                  </p>
+                </.liquid_card>
+
+                <%!-- Secure Messaging Preview --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500">
+                        <.phx_icon name="hero-chat-bubble-left-right" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-semibold">
+                        Secure Messaging
+                      </span>
+                    </div>
+                  </:title>
+
+                  <%!-- Mock messaging preview --%>
+                  <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-4 mb-4">
+                    <div class="space-y-3">
+                      <div class="flex justify-end">
+                        <div class="bg-gradient-to-r from-teal-400 to-emerald-400 rounded-lg p-2 max-w-xs">
+                          <div class="h-2 bg-white/80 rounded w-16 mb-1"></div>
+                          <div class="h-2 bg-white/80 rounded w-12"></div>
+                        </div>
+                      </div>
+                      <div class="flex justify-start">
+                        <div class="bg-slate-200 dark:bg-slate-600 rounded-lg p-2 max-w-xs">
+                          <div class="h-2 bg-slate-400 dark:bg-slate-400 rounded w-20 mb-1"></div>
+                          <div class="h-2 bg-slate-400 dark:bg-slate-400 rounded w-14"></div>
+                        </div>
+                      </div>
+                      <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-1">
+                        <.phx_icon name="hero-lock-closed" class="size-3" /> End-to-end encrypted
+                      </div>
+                    </div>
+                  </div>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Messages encrypted so only you and your recipient can read them. Even we can't see them.
+                  </p>
+                </.liquid_card>
+
+                <%!-- Privacy Controls Preview --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-violet-500">
+                        <.phx_icon name="hero-shield-check" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-semibold">
+                        Privacy Controls
+                      </span>
+                    </div>
+                  </:title>
+
+                  <%!-- Mock privacy settings preview --%>
+                  <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-4 mb-4">
+                    <div class="space-y-3">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                          <div class="h-2 bg-slate-300 dark:bg-slate-600 rounded w-16"></div>
+                        </div>
+                        <div class="w-8 h-4 bg-emerald-500 rounded-full"></div>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                          <div class="h-2 bg-slate-300 dark:bg-slate-600 rounded w-20"></div>
+                        </div>
+                        <div class="w-8 h-4 bg-emerald-500 rounded-full"></div>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                          <div class="h-2 bg-slate-300 dark:bg-slate-600 rounded w-14"></div>
+                        </div>
+                        <div class="w-8 h-4 bg-slate-300 rounded-full"></div>
+                      </div>
+                      <div class="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        ✓ Private by default
+                      </div>
+                    </div>
+                  </div>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Granular privacy controls. Choose exactly what to share and with whom.
+                  </p>
+                </.liquid_card>
+
+                <%!-- Calm Notifications Preview --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-amber-500 to-orange-500">
+                        <.phx_icon name="hero-bell" class="size-6 text-white" />
+                      </div>
+                      <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-semibold">
+                        Calm Notifications
+                      </span>
+                    </div>
+                  </:title>
+
+                  <%!-- Mock notification preview --%>
+                  <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-4 mb-4">
+                    <div class="space-y-3">
+                      <div class="flex items-center gap-3 p-2 bg-teal-50 dark:bg-teal-900/30 rounded border-l-4 border-teal-400">
+                        <div class="w-6 h-6 rounded-full bg-gradient-to-r from-teal-400 to-emerald-400">
+                        </div>
+                        <div class="flex-1">
+                          <div class="h-2 bg-teal-600 dark:bg-teal-400 rounded w-24 mb-1"></div>
+                          <div class="h-1.5 bg-teal-500 dark:bg-teal-500 rounded w-20"></div>
+                        </div>
+                      </div>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">
+                        In-app only • No tracking • Respectful timing
+                      </div>
+                      <div class="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                        🧘 Designed for your peace of mind
+                      </div>
+                    </div>
+                  </div>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Notifications that respect your time. No addiction tactics, just gentle updates when you choose.
+                  </p>
+                </.liquid_card>
               </div>
             </div>
           </.liquid_container>
