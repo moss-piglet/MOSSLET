@@ -136,7 +136,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <div class="lg:pl-72">
         <%!-- Top bar --%>
         <div class={[
-          "sticky top-0 z-20 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
+          "sticky top-0 z-10 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
           "border-b border-slate-200/60 dark:border-slate-700/60",
           "bg-gradient-to-r from-white/90 via-slate-50/80 to-white/90",
           "dark:from-slate-800/90 dark:via-slate-800/80 dark:to-slate-800/90",
@@ -238,7 +238,13 @@ defmodule MossletWeb.ModernSidebarLayout do
   # Modern user menu dropdown with liquid metal styling
   defp modern_user_menu(assigns) do
     ~H"""
-    <div class="relative" x-data="{ open: false }" @click.away="open = false">
+    <div
+      class="relative"
+      x-data="{ open: false }"
+      @click.away="open = false"
+      phx-update="ignore"
+      id="user-menu-dropdown"
+    >
       <button
         @click="open = !open"
         class={[
@@ -292,7 +298,7 @@ defmodule MossletWeb.ModernSidebarLayout do
         x-transition:leave-start="opacity-100 translate-y-0"
         x-transition:leave-end="opacity-0 -translate-y-1"
         class={[
-          "absolute right-0 z-50 mt-3 w-48 origin-top-right overflow-hidden",
+          "absolute right-0 z-[60] mt-3 w-48 origin-top-right overflow-hidden",
           "rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
           "py-2 shadow-xl shadow-slate-900/15 dark:shadow-slate-900/30",
           "ring-1 ring-slate-200/60 dark:ring-slate-700/60",

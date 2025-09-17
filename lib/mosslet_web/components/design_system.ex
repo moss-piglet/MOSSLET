@@ -10,6 +10,45 @@ defmodule MossletWeb.DesignSystem do
   use Phoenix.Component
   use MossletWeb, :verified_routes
 
+  # Import Phoenix.LiveView.JS for modal functionality
+  alias Phoenix.LiveView.JS
+
+  # Custom modal functions that prevent scroll jumping and ensure viewport positioning
+  defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
+    js
+    |> JS.show(to: "##{id}")
+    |> JS.show(
+      to: "##{id}-bg",
+      transition: {"transition-all transform ease-out duration-300", "opacity-0", "opacity-100"}
+    )
+    |> JS.remove_class("hidden", to: "##{id}-container")
+    |> JS.add_class("opacity-100 translate-y-0 sm:scale-100", to: "##{id}-container")
+    |> JS.remove_class("opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+      to: "##{id}-container"
+    )
+    |> JS.add_class("overflow-hidden", to: "body")
+    # Ensure any stale modals are cleaned up
+    |> JS.dispatch("phx:cleanup-stale-modals", detail: %{current_id: id})
+    # Move modal to body to escape stacking context
+    |> JS.dispatch("phx:modal-to-body", to: "##{id}")
+  end
+
+  defp liquid_hide_modal(js \\ %JS{}, id) do
+    js
+    |> JS.hide(
+      to: "##{id}-bg",
+      transition: {"transition-all transform ease-in duration-200", "opacity-100", "opacity-0"}
+    )
+    |> JS.add_class("opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+      to: "##{id}-container"
+    )
+    |> JS.remove_class("opacity-100 translate-y-0 sm:scale-100", to: "##{id}-container")
+    |> JS.add_class("hidden", to: "##{id}-container")
+    |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
+    |> JS.remove_class("overflow-hidden", to: "body")
+    |> JS.pop_focus()
+  end
+
   @doc """
   Primary button with liquid metal styling.
 
@@ -204,14 +243,14 @@ defmodule MossletWeb.DesignSystem do
       ]}
       {@rest}
     >
-      <!-- Decorative top border with gradient -->
+      <%!-- Decorative top border with gradient --%>
       <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700">
       </div>
-      
-    <!-- Main footer content -->
+
+      <%!-- Main footer content --%>
       <div class="relative px-4 py-16 sm:px-6 lg:px-8">
         <div class="mx-auto max-w-7xl">
-          <!-- Logo section with liquid styling -->
+          <%!-- Logo section with liquid styling --%>
           <div class="flex justify-center mb-10">
             <.link
               href="/"
@@ -219,14 +258,14 @@ defmodule MossletWeb.DesignSystem do
             >
               <div class="relative p-2">
                 <MossletWeb.CoreComponents.logo class="h-12 w-auto" />
-                <!-- Subtle hover glow -->
+                <%!-- Subtle hover glow --%>
                 <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/0 to-cyan-500/0 group-hover:from-emerald-500/10 group-hover:to-cyan-500/10 transition-all duration-300">
                 </div>
               </div>
             </.link>
           </div>
-          
-    <!-- Navigation links with liquid styling -->
+
+          <%!-- Navigation links with liquid styling --%>
           <nav class="mb-12">
             <div class="flex flex-wrap justify-center gap-2">
               <.link
@@ -241,23 +280,23 @@ defmodule MossletWeb.DesignSystem do
                 ]}
                 method={if item[:method], do: item[:method], else: nil}
               >
-                <!-- Subtle liquid background effect -->
+                <%!-- Subtle liquid background effect --%>
                 <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/30 via-emerald-50/40 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100 rounded-lg">
                 </div>
                 <span class="relative">{item.label}</span>
               </.link>
             </div>
           </nav>
-          
-    <!-- Divider with gradient -->
+
+          <%!-- Divider with gradient --%>
           <div class="mb-10">
             <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700">
             </div>
           </div>
-          
-    <!-- Bottom section -->
+
+          <%!-- Bottom section --%>
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <!-- Social links with improved styling -->
+            <%!-- Social links with improved styling --%>
             <div class="flex items-center justify-center sm:justify-start gap-4">
               <.footer_social_link
                 href={~p"/terms#terms_and_conditions"}
@@ -300,8 +339,8 @@ defmodule MossletWeb.DesignSystem do
                 </svg>
               </.footer_social_link>
             </div>
-            
-    <!-- Copyright and climate info -->
+
+            <%!-- Copyright and climate info --%>
             <div class="text-center sm:text-right">
               <p class="text-sm text-slate-500 dark:text-slate-400">
                 Copyright © {DateTime.utc_now().year} Moss Piglet Corporation.
@@ -360,10 +399,10 @@ defmodule MossletWeb.DesignSystem do
       data-tippy-content={@tooltip}
       phx-hook={if @tooltip, do: "TippyHook", else: nil}
     >
-      <!-- Liquid background effect -->
+      <%!-- Liquid background effect --%>
       <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50 dark:from-teal-900/20 dark:via-emerald-900/25 dark:to-cyan-900/20 group-hover:opacity-100 rounded-xl">
       </div>
-      <!-- Icon content -->
+      <%!-- Icon content --%>
       <div class="relative">
         {render_slot(@inner_block)}
       </div>
@@ -394,18 +433,141 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
-  Container component with responsive max-width and consistent padding.
+  Modern modal component with liquid metal styling.
 
   ## Examples
 
-      <.liquid_container>
-        Content goes here
-      </.liquid_container>
-
-      <.liquid_container max_width="xl" class="py-8">
-        Wide container with custom padding
-      </.liquid_container>
+      <.liquid_modal id="my-modal" show={@show_modal}>
+        <:title>Modal Title</:title>
+        Modal content goes here
+      </.liquid_modal>
   """
+  attr :id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :size, :string, default: "md", values: ~w(sm md lg xl)
+  attr :on_cancel, JS, default: %JS{}
+  attr :class, :any, default: ""
+  slot :title
+  slot :inner_block, required: true
+
+  def liquid_modal(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      phx-mounted={@show && liquid_show_modal(@id)}
+      phx-remove={liquid_hide_modal(@id)}
+      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      class="fixed top-0 left-0 w-screen h-screen z-[60] hidden"
+      style="position: fixed !important;"
+      phx-hook="ModalPortal"
+      data-modal-type="liquid-modal"
+    >
+      <%!-- Backdrop with liquid metal blur effect --%>
+      <div
+        id={"#{@id}-bg"}
+        class={[
+          "fixed top-0 left-0 right-0 bottom-0 z-40 transition-all duration-300 ease-out",
+          "bg-gradient-to-br from-slate-900/60 via-slate-800/80 to-slate-900/60",
+          "dark:from-slate-950/80 dark:via-slate-900/90 dark:to-slate-950/80",
+          "backdrop-blur-md"
+        ]}
+        aria-hidden="true"
+        style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;"
+      />
+
+      <%!-- Modal container with proper z-index --%>
+      <div
+        class="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6"
+        aria-labelledby={"#{@id}-title"}
+        aria-describedby={"#{@id}-description"}
+        role="dialog"
+        aria-modal="true"
+        style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;"
+      >
+        <div class="flex min-h-full items-center justify-center p-2 sm:p-4 lg:p-6">
+          <.focus_wrap
+            id={"#{@id}-container"}
+            phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+            phx-key="escape"
+            phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
+            class={
+              [
+                "relative w-full max-h-[90vh] h-auto flex flex-col overflow-hidden",
+                "transform-gpu transition-all duration-300 ease-out",
+                "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95 hidden",
+                "rounded-xl sm:rounded-2xl",
+                "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+                "border border-slate-200/60 dark:border-slate-700/60",
+                "shadow-2xl shadow-slate-900/25 dark:shadow-slate-900/50",
+                "ring-1 ring-slate-200/20 dark:ring-slate-700/30",
+
+                # Size variants with mobile-first approach
+                modal_size_classes(@size),
+
+                # Custom classes
+                @class
+              ]
+            }
+          >
+            <%!-- Subtle liquid background gradient --%>
+            <div class="absolute inset-0 bg-gradient-to-br from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+            </div>
+
+            <%!-- Close button with mobile-friendly positioning --%>
+            <div class="absolute top-2 right-2 sm:top-4 sm:right-4 z-10">
+              <button
+                phx-click={JS.exec("data-cancel", to: "##{@id}")}
+                type="button"
+                class={
+                  [
+                    "group relative p-2 sm:p-2 rounded-lg sm:rounded-xl overflow-hidden transition-all duration-200 ease-out",
+                    "bg-slate-100/80 hover:bg-slate-200/80 dark:bg-slate-700/80 dark:hover:bg-slate-600/80",
+                    "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+                    "border border-slate-200/60 dark:border-slate-600/60",
+                    "hover:border-slate-300/80 dark:hover:border-slate-500/80",
+                    "shadow-sm hover:shadow-md transition-shadow duration-200",
+                    "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+                    "hover:scale-110 active:scale-95",
+                    # Better mobile touch handling
+                    "touch-manipulation"
+                  ]
+                }
+                aria-label="Close modal"
+              >
+                <%!-- Subtle shimmer on hover --%>
+                <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-emerald-400/20 transform group-hover:translate-x-full -translate-x-full">
+                </div>
+                <.phx_icon name="hero-x-mark" class="relative h-5 w-5 sm:h-5 sm:w-5" />
+              </button>
+            </div>
+
+            <%!-- Modal content --%>
+            <div class="relative">
+              <%!-- Title section with mobile optimization --%>
+              <div
+                :if={render_slot(@title)}
+                class="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-slate-200/60 dark:border-slate-700/60"
+              >
+                <h2
+                  id={"#{@id}-title"}
+                  class="text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100 pr-12"
+                >
+                  {render_slot(@title)}
+                </h2>
+              </div>
+
+              <%!-- Content area with responsive scrolling --%>
+              <div id={"#{@id}-content"} class="flex-1 overflow-y-auto p-4 sm:p-6">
+                {render_slot(@inner_block)}
+              </div>
+            </div>
+          </.focus_wrap>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   attr :max_width, :string, default: "lg", values: ~w(sm md lg xl full)
   attr :class, :any, default: ""
   attr :no_padding_on_mobile, :boolean, default: false
@@ -687,4 +849,12 @@ defmodule MossletWeb.DesignSystem do
   defp icon_animation_classes("hero-arrow-left-on-rectangle"), do: "group-hover:-translate-x-1"
   # Default for other icons
   defp icon_animation_classes(_), do: "group-hover:scale-105"
+
+  # Modal size classes with mobile-first responsive approach
+  defp modal_size_classes("sm"), do: "w-full max-w-sm sm:max-w-md"
+  defp modal_size_classes("md"), do: "w-full max-w-lg sm:max-w-xl"
+  defp modal_size_classes("lg"), do: "w-full max-w-xl sm:max-w-2xl lg:max-w-3xl"
+  defp modal_size_classes("xl"), do: "w-full max-w-2xl sm:max-w-3xl lg:max-w-5xl"
+  # fallback
+  defp modal_size_classes(_), do: "w-full max-w-lg sm:max-w-xl"
 end

@@ -112,7 +112,7 @@ defmodule MossletWeb.ModernSidebarMenu do
         x-transition:leave="transition ease-in duration-150 transform"
         x-transition:leave-start="opacity-100 translate-y-0"
         x-transition:leave-end="opacity-0 -translate-y-2"
-        class="mt-2 ml-2 lg:ml-4 space-y-1.5 border-l-2 border-emerald-200/40 dark:border-emerald-700/30 pl-3 lg:pl-4"
+        class="mt-2 ml-2 lg:ml-4 space-y-1.5 border-l-2 border-emerald-200/40 dark:border-emerald-700/30 pl-3 lg:pl-4 relative z-40"
       >
         <.link
           :for={child <- @item[:children]}

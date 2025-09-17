@@ -1,6 +1,6 @@
 <.layout current_page={:timeline} current_user={@current_user} key={@key} type="sidebar">
   <%!-- Full-width banner image (outside sidebar constraints) --%>
-  <div :if={@current_user.connection.profile} class="absolute top-16 left-0 w-screen z-10">
+  <div :if={@current_user.connection.profile} class="absolute top-16 left-0 w-screen z-5">
     <img
       class="w-full h-24 sm:h-32 lg:h-48 object-cover"
       src={~p"/images/profile/#{get_banner_image_for_connection(@current_user.connection)}"}
@@ -9,7 +9,7 @@
   </div>
 
   <div
-    class="flex flex-col relative z-20"
+    class="flex flex-col relative z-5"
     style={(@current_user.connection.profile && "margin-top: 6rem; padding-top: 0;") || ""}
   >
     <%!-- Header Section (without banner image) --%>
@@ -113,16 +113,17 @@
   </.phx_modal>
   --%>
 
-  <.phx_modal
-    :if={@live_action in [:reply, :reply_edit]}
-    id="reply-modal"
+  <MossletWeb.DesignSystem.liquid_modal
+    :if={@live_action in [:reply, :reply_edit] && @post}
+    id={"reply-modal-#{@live_action}"}
     show
-    class="shadow-md dark:shadow-emerald-500/50"
+    size="lg"
     on_cancel={JS.patch(@return_url)}
   >
+    <:title>Reply to Post</:title>
     <.live_component
       module={MossletWeb.PostLive.Replies.FormComponent}
-      id={@reply.id || :reply}
+      id={@reply.id || "reply-#{@post.id}"}
       title="Reply to Post"
       action={@live_action}
       post={@post}
@@ -135,5 +136,5 @@
       uploads_in_progress={@uploads_in_progress}
       patch={@return_url}
     />
-  </.phx_modal>
+  </MossletWeb.DesignSystem.liquid_modal>
 </.layout>

@@ -11,6 +11,7 @@ import InfiniteScrollRemark from "./infinite-scroll-remark";
 import * as LocalTimeHooks from "./local-time-hooks";
 import { LocalTimeTooltip } from "./local-time-tooltip";
 import Menu from "./dropdown-menu";
+import ModalPortal from "./modal-portal";
 import TippyHook from "./tippy-hook";
 import TrixEditor from "./trix";
 import TrixContentPostHook from "./trix-content-post-hook";
@@ -30,6 +31,7 @@ export default {
   ...LocalTimeHooks,
   LocalTimeTooltip,
   Menu,
+  ModalPortal,
   MossletFrameworkHooks,
   ScrollDown,
   TippyHook,

@@ -177,7 +177,35 @@ defmodule MossletWeb.PublicLayout do
               <span class="relative">{item.label}</span>
             </.link>
 
-            <%!-- Mobile user section --%>
+            <%!-- Mobile authentication section for signed-out users --%>
+            <div
+              :if={!@current_user || @current_user_name == "nil"}
+              class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1"
+            >
+              <%!-- Sign In button using design system --%>
+              <MossletWeb.DesignSystem.liquid_button
+                navigate="/auth/sign_in"
+                variant="primary"
+                color="teal"
+                icon="hero-arrow-right-on-rectangle"
+                class="w-full justify-center"
+              >
+                Sign In
+              </MossletWeb.DesignSystem.liquid_button>
+
+              <%!-- Register button using design system --%>
+              <MossletWeb.DesignSystem.liquid_button
+                navigate="/auth/register"
+                variant="secondary"
+                color="teal"
+                icon="hero-user-plus"
+                class="w-full justify-center"
+              >
+                Create Account
+              </MossletWeb.DesignSystem.liquid_button>
+            </div>
+
+            <%!-- Mobile user section for signed-in users --%>
             <div
               :if={@current_user_name && @current_user_name != "nil"}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60"
