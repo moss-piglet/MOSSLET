@@ -15,7 +15,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
       <%!-- Main heading with liquid metal gradient --%>
       <h1 class={[
         "mx-2 mb-6 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl",
-        "bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 bg-clip-text text-transparent",
+        "bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent",
         "transition-all duration-300 ease-out"
       ]}>
         MOSSLET updates
@@ -36,7 +36,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
       <div class="mt-8 flex justify-center">
         <div class={[
           "h-1 w-24 rounded-full transition-all duration-500 ease-out",
-          "bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400",
+          "bg-gradient-to-r from-teal-400 to-emerald-400",
           "shadow-sm shadow-emerald-500/30"
         ]}>
         </div>
