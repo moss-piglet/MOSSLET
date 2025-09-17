@@ -7,6 +7,7 @@ defmodule MossletWeb.EditDetailsLive do
   alias Mosslet.Extensions.AvatarProcessor
   alias MossletWeb.FileUploadComponents
   alias Mosslet.FileUploads.Storj
+  alias MossletWeb.DesignSystem
 
   # SETUP_TODO: pick a storage option for images below.
   # Cloudinary setup info: /lib/petal_pro/file_uploads/cloudinary.ex
@@ -22,111 +23,175 @@ defmodule MossletWeb.EditDetailsLive do
   def render(assigns) do
     ~H"""
     <.layout current_user={@current_user} current_page={:edit_details} key={@key} type="sidebar">
-      <.container class="py-16">
-        <.page_header title="Profile Details" />
-
-        <div class="space-y-8 max-w-2xl">
-          <.form
-            id="update_avatar_form"
-            for={@avatar_form}
-            phx-submit="update_avatar"
-            phx-change="validate"
-            class="max-w-lg"
-          >
-            <FileUploadComponents.image_input
-              upload={@uploads.avatar}
-              label={gettext("Avatar")}
-              current_image_src={maybe_get_user_avatar(@current_user, @key)}
-              user={@current_user}
-              key={@key}
-              placeholder_icon={:user}
-              on_delete="delete_avatar"
-              automatic_help_text
-              url={
-                if @current_user.connection.avatar_url,
-                  do:
-                    decr_avatar(
-                      @current_user.connection.avatar_url,
-                      @current_user,
-                      @current_user.conn_key,
-                      @key
-                    ),
-                  else: nil
-              }
-            />
-
-            <div class="space-y-2">
-              <.phx_button
-                :if={Enum.any?(@uploads.avatar.entries)}
-                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                phx-disable-with="Updating..."
-                disabled={!@uploads.avatar.entries}
-              >
-                {gettext("Update avatar")}
-              </.phx_button>
-
-              <.phx_button
-                :if={@uploads.avatar.entries == []}
-                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                phx-disable-with="Updating..."
-                disabled
-              >
-                {gettext("Choose photo to upload")}
-              </.phx_button>
-            </div>
-          </.form>
-
-          <div id="name-change-form" class="py-2">
-            <.form
-              for={@name_form}
-              id="update_name_form"
-              phx-submit="update_name"
-              phx-change="validate_name"
-              class="max-w-lg"
-            >
-              <.field
-                field={@name_form[:name]}
-                label={gettext("Name")}
-                placeholder={gettext("eg. Isabella")}
-                value={@current_name}
-              />
-
-              <.phx_button
-                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                phx-disable-with="Updating..."
-                disabled={!@name_change_valid?}
-              >
-                {gettext("Update name")}
-              </.phx_button>
-            </.form>
+      <DesignSystem.liquid_container max_width="lg" class="py-16">
+        <%!-- Page header with liquid metal styling --%>
+        <div class="mb-12">
+          <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              Profile Details
+            </h1>
+            <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+              Update your avatar, name, and username to personalize your MOSSLET profile.
+            </p>
           </div>
-
-          <div id="username-change-form" class="py-2 mt-4">
-            <.form
-              for={@username_form}
-              id="update_username_form"
-              phx-submit="update_username"
-              phx-change="validate_username"
-              class="max-w-lg"
-            >
-              <.field
-                field={@username_form[:username]}
-                label={gettext("Username")}
-                placeholder={gettext("eg. isabella")}
-                value={@current_username}
-              />
-
-              <.phx_button
-                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                phx-disable-with="Updating..."
-                disabled={!@username_change_valid?}
-              >
-                {gettext("Update username")}
-              </.phx_button>
-            </.form>
+          <%!-- Decorative accent line --%>
+          <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
           </div>
         </div>
-      </.container>
+
+        <div class="space-y-8 max-w-2xl">
+          <%!-- Avatar Section with liquid card --%>
+          <DesignSystem.liquid_card>
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-cyan-900/30">
+                  <.phx_icon
+                    name="hero-user-circle"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+                Avatar
+              </div>
+            </:title>
+
+            <.form
+              id="update_avatar_form"
+              for={@avatar_form}
+              phx-submit="update_avatar"
+              phx-change="validate"
+              class="space-y-6"
+            >
+              <FileUploadComponents.image_input
+                upload={@uploads.avatar}
+                label={gettext("Avatar")}
+                current_image_src={maybe_get_user_avatar(@current_user, @key)}
+                user={@current_user}
+                key={@key}
+                placeholder_icon={:user}
+                on_delete="delete_avatar"
+                automatic_help_text
+                url={
+                  if @current_user.connection.avatar_url,
+                    do:
+                      decr_avatar(
+                        @current_user.connection.avatar_url,
+                        @current_user,
+                        @current_user.conn_key,
+                        @key
+                      ),
+                    else: nil
+                }
+              />
+
+              <div class="flex flex-col sm:flex-row gap-3">
+                <DesignSystem.liquid_button
+                  :if={Enum.any?(@uploads.avatar.entries)}
+                  type="submit"
+                  phx-disable-with="Updating..."
+                  disabled={!@uploads.avatar.entries}
+                  icon="hero-photo"
+                >
+                  {gettext("Update avatar")}
+                </DesignSystem.liquid_button>
+
+                <DesignSystem.liquid_button
+                  :if={@uploads.avatar.entries == []}
+                  type="button"
+                  disabled
+                  variant="secondary"
+                  icon="hero-photo"
+                >
+                  {gettext("Choose photo to upload")}
+                </DesignSystem.liquid_button>
+              </div>
+            </.form>
+          </DesignSystem.liquid_card>
+
+          <%!-- Name Section with liquid card --%>
+          <DesignSystem.liquid_card>
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+                  <.phx_icon
+                    name="hero-identification"
+                    class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                  />
+                </div>
+                Display Name
+              </div>
+            </:title>
+
+            <div id="name-change-form">
+              <.form
+                for={@name_form}
+                id="update_name_form"
+                phx-submit="update_name"
+                phx-change="validate_name"
+                class="space-y-6"
+              >
+                <.field
+                  field={@name_form[:name]}
+                  label={gettext("Name")}
+                  placeholder={gettext("eg. Isabella")}
+                  value={@current_name}
+                />
+
+                <DesignSystem.liquid_button
+                  type="submit"
+                  color="blue"
+                  phx-disable-with="Updating..."
+                  disabled={!@name_change_valid?}
+                  icon="hero-check"
+                >
+                  {gettext("Update name")}
+                </DesignSystem.liquid_button>
+              </.form>
+            </div>
+          </DesignSystem.liquid_card>
+
+          <%!-- Username Section with liquid card --%>
+          <DesignSystem.liquid_card>
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/25 dark:to-purple-900/30">
+                  <.phx_icon
+                    name="hero-at-symbol"
+                    class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                  />
+                </div>
+                Username
+              </div>
+            </:title>
+
+            <div id="username-change-form">
+              <.form
+                for={@username_form}
+                id="update_username_form"
+                phx-submit="update_username"
+                phx-change="validate_username"
+                class="space-y-6"
+              >
+                <.field
+                  field={@username_form[:username]}
+                  label={gettext("Username")}
+                  placeholder={gettext("eg. isabella")}
+                  value={@current_username}
+                />
+
+                <DesignSystem.liquid_button
+                  type="submit"
+                  color="purple"
+                  phx-disable-with="Updating..."
+                  disabled={!@username_change_valid?}
+                  icon="hero-check"
+                >
+                  {gettext("Update username")}
+                </DesignSystem.liquid_button>
+              </.form>
+            </div>
+          </DesignSystem.liquid_card>
+        </div>
+      </DesignSystem.liquid_container>
     </.layout>
     """
   end
