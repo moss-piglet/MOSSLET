@@ -11,7 +11,6 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
       container_max_width={@max_width}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <div class="max-w-screen overflow-x-hidden">
         <div class="grid min-h-dvh grid-cols-1 grid-rows-[1fr_1px_auto_1px_auto] justify-center pt-14.25 [--gutter-width:2.5rem] lg:grid-cols-[var(--gutter-width)_minmax(0,var(--breakpoint-2xl))_var(--gutter-width)]">
           <div class="col-start-1 row-span-full row-start-1 hidden lg:block"></div>

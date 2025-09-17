@@ -13,7 +13,6 @@ defmodule MossletWeb.PublicLive.Pricing do
       socket={@socket}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <.container>
         <MossletWeb.Components.LandingPage.pricing_cards />
         <MossletWeb.Components.LandingPage.pricing_comparison />

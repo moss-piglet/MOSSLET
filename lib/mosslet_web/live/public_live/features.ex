@@ -15,7 +15,6 @@ defmodule MossletWeb.PublicLive.Features do
       socket={@socket}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <.container>
         <LandingPage.landing_features />
       </.container>

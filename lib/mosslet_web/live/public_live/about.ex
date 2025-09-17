@@ -14,7 +14,6 @@ defmodule MossletWeb.PublicLive.About do
       container_max_width={@max_width}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <div class="bg-white dark:bg-gray-950">
         <main class="isolate">
           <%!-- Hero section --%>

@@ -15,7 +15,6 @@ defmodule MossletWeb.PublicLive.Myob do
       socket={@socket}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <.container>
         <LandingPage.myob />
       </.container>

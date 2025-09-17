@@ -83,7 +83,6 @@ defmodule MossletWeb.Components.LandingPage do
 
     ~H"""
     <section id="hero">
-      <.beta_banner />
       <.container class="bg-white dark:bg-gray-950">
         <div class="relative isolate px-6 lg:px-8">
           <div
@@ -119,21 +118,23 @@ defmodule MossletWeb.Components.LandingPage do
                 Ditch intrusive and stressful Big Tech social platforms for MOSSLET — an alternative to Facebook, Twitter, and Instagram that's simple and privacy-first. Experience peace of mind.
               </p>
               <div class="mt-10 flex items-center justify-center gap-x-6">
-                <.button
-                  link_type="live_redirect"
-                  to="/auth/register"
-                  class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+                <MossletWeb.DesignSystem.liquid_button
+                  navigate="/auth/register"
+                  variant="primary"
+                  color="teal"
+                  icon="hero-user-plus"
+                  class="py-3 px-6"
                 >
                   Register today
-                </.button>
-                <.button
-                  link_type="live_redirect"
-                  to="/auth/sign_in"
-                  variant="outline"
-                  class="!rounded-full"
+                </MossletWeb.DesignSystem.liquid_button>
+                <MossletWeb.DesignSystem.liquid_button
+                  navigate="/auth/sign_in"
+                  variant="secondary"
+                  color="teal"
+                  icon="hero-arrow-right-on-rectangle"
                 >
                   Sign in
-                </.button>
+                </MossletWeb.DesignSystem.liquid_button>
                 <%!--
                 <.button
                   id="mosslet-demo-video"
@@ -200,32 +201,6 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         <% end %>
       </div>
-    </div>
-    """
-  end
-
-  def beta_banner(assigns) do
-    ~H"""
-    <div class="relative isolate flex z-10 items-center gap-x-6 overflow-hidden bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-2.5 sm:px-3.5 sm:before:flex-1">
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 lg:pt-0">
-        <p class="text-sm/6 text-white">
-          <strong class="font-semibold">Special Price</strong><svg
-            viewBox="0 0 2 2"
-            class="mx-2 inline size-0.5 fill-current"
-            aria-hidden="true"
-          ><circle cx="1" cy="1" r="1" /></svg>Join us for 40% off while we're in beta and have privacy now for life.
-        </p>
-
-        <.button
-          link_type="live_redirect"
-          to="/auth/register"
-          variant="outline"
-          class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-        >
-          Register today <span aria-hidden="true" class="ml-1">&rarr;</span>
-        </.button>
-      </div>
-      <div class="flex flex-1 justify-end"></div>
     </div>
     """
   end
@@ -567,7 +542,15 @@ defmodule MossletWeb.Components.LandingPage do
       </ul>
 
       <div class="p-3 mt-6 ">
-        <.button link_type="a" to={@sign_up_path} class="w-full rounded-full" label="Register today" />
+        <MossletWeb.DesignSystem.liquid_button
+          navigate={@sign_up_path}
+          variant="primary"
+          color="teal"
+          icon="hero-user-plus"
+          class="w-full"
+        >
+          Register today
+        </MossletWeb.DesignSystem.liquid_button>
       </div>
     </div>
     """
@@ -1581,6 +1564,9 @@ defmodule MossletWeb.Components.LandingPage do
                 </span>
                 <span class="text-lg text-gray-500 font-medium">/once</span>
                 <.badge
+                  id="desktop-beta-badge"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Special price while we're in beta"
                   color="warning"
                   label="Save 40%"
                   variant="soft"
@@ -1588,6 +1574,9 @@ defmodule MossletWeb.Components.LandingPage do
                 />
               </span>
               <.badge
+                id="mobile-beta-badge"
+                phx-hook="TippyHook"
+                data-tippy-content="Special price while we're in beta"
                 color="warning"
                 label="Save 40%"
                 variant="soft"
@@ -1807,14 +1796,15 @@ defmodule MossletWeb.Components.LandingPage do
         </p>
 
         <div class="mt-10 flex items-center justify-center gap-x-6">
-          <.button
-            link_type="live_redirect"
-            to="/pricing"
-            class="block rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+          <MossletWeb.DesignSystem.liquid_button
+            navigate="/pricing"
+            variant="primary"
+            color="teal"
+            icon="hero-arrow-long-right"
+            class="py-3 px-6"
           >
             Learn more about our pricing
-            <.phx_icon name="hero-arrow-long-right" class="ml-1 inline-flex h-5 w-5" />
-          </.button>
+          </MossletWeb.DesignSystem.liquid_button>
         </div>
       </div>
 

@@ -15,7 +15,6 @@ defmodule MossletWeb.PublicLive.InTheKnow do
       socket={@socket}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <.container>
         <Components.in_the_know />
       </.container>

@@ -98,7 +98,12 @@ defmodule MossletWeb.BillingComponents do
           <h3 class="text-xl font-bold leading-8 text-slate-900 dark:text-slate-100">
             {@label}
           </h3>
-          <div class="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-700 dark:text-amber-300 text-sm font-semibold">
+          <div
+            id="app-beta-badge"
+            phx-hook="TippyHook"
+            data-tippy-content="Special price while we're in beta"
+            class="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-amber-700 dark:text-amber-300 text-sm font-semibold"
+          >
             <.phx_icon name="hero-fire" class="w-4 h-4 mr-1" /> Save 40%
           </div>
         </div>

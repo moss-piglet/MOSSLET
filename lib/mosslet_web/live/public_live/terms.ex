@@ -11,7 +11,6 @@ defmodule MossletWeb.PublicLive.Terms do
       socket={@socket}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <div class="bg-white dark:bg-gray-950">
         <main class="isolate">
           <!-- Hero section -->

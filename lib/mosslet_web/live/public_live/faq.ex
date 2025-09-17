@@ -13,7 +13,6 @@ defmodule MossletWeb.PublicLive.Faq do
       socket={@socket}
       key={@key}
     >
-      <MossletWeb.Components.LandingPage.beta_banner />
       <.container>
         <MossletWeb.Components.LandingPage.faq />
       </.container>

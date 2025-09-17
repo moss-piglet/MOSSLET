@@ -10,7 +10,6 @@ defmodule MossletWeb.ModernSidebarLayout do
   import MossletWeb.Helpers
 
   alias Phoenix.LiveView.JS, as: JS
-  alias Mosslet.Repo
 
   attr :current_page, :atom, required: true
   attr :current_user, :map, required: true
@@ -177,8 +176,6 @@ defmodule MossletWeb.ModernSidebarLayout do
         </div>
 
         <%!-- Beta banner --%>
-        <.modern_beta_banner :if={@current_user} current_user={@current_user} />
-
         <%!-- Page content --%>
         <main>
           {render_slot(@inner_block)}
@@ -186,53 +183,6 @@ defmodule MossletWeb.ModernSidebarLayout do
       </div>
     </div>
     """
-  end
-
-  # Modern beta banner with improved styling
-  defp modern_beta_banner(assigns) do
-    ~H"""
-    <div
-      :if={!has_subscription?(@current_user)}
-      class="relative isolate flex items-center gap-x-6 overflow-hidden bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 px-6 py-2.5 sm:px-3.5"
-    >
-      <div
-        class="absolute left-[max(-7rem,calc(50%-52rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl"
-        aria-hidden="true"
-      >
-        <div
-          class="aspect-[577/310] w-[36.0625rem] bg-gradient-to-r from-emerald-400 to-cyan-400 opacity-20"
-          style="clip-path: polygon(74.8% 41.9%, 97.2% 73.2%, 100% 34.9%, 92.5% 0.4%, 87.5% 0%, 75% 28.6%, 58.5% 54.6%, 50.1% 56.8%, 46.9% 44%, 48.3% 17.4%, 24.7% 53.9%, 0% 27.9%, 11.9% 74.2%, 24.9% 54.1%, 68.6% 100%, 74.8% 41.9%)"
-        >
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <p class="text-sm text-slate-900 dark:text-slate-100">
-          <strong class="font-semibold">Special Beta Price</strong>
-          <svg viewBox="0 0 2 2" class="mx-2 inline h-0.5 w-0.5 fill-current" aria-hidden="true">
-            <circle cx="1" cy="1" r="1" />
-          </svg>
-          Join us for 40% off while we're in beta and have privacy now for life.
-        </p>
-        <.link
-          navigate={~p"/app/subscribe"}
-          class="flex-none rounded-full bg-emerald-600 px-3.5 py-1 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 transition-colors"
-        >
-          Pay once <span aria-hidden="true">&rarr;</span>
-        </.link>
-      </div>
-    </div>
-    """
-  end
-
-  # Check if user has subscription
-  defp has_subscription?(user) do
-    case Repo.preload(user, customer: :subscriptions) do
-      %{customer: customer} when not is_nil(customer) -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
   end
 
   # Modern user menu dropdown with liquid metal styling
