@@ -10,7 +10,7 @@ defmodule MossletWeb.UserConfirmationInstructionsLive do
         <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
       </:logo>
       <:top_right>
-        <.color_scheme_switch />
+        <%!-- Dark mode toggle removed - will be replaced with updated version --%>
       </:top_right>
 
       <%!-- Header with improved visual hierarchy --%>

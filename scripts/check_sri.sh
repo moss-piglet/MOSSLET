@@ -16,9 +16,10 @@ CURRENT_TIPPY=$(grep -A 5 "tippy.js@6.3.7" "$TEMPLATE_FILE" | grep "integrity=" 
 CURRENT_TRIX_JS=$(grep -A 5 "trix@2.1.13/dist/trix.umd.min.js" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 CURRENT_TRIX_CSS=$(grep -A 5 "trix@2.1.13/dist/trix.css" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 CURRENT_FATHOM=$(grep -A 5 "cdn.usefathom.com" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
+CURRENT_THEME_TOGGLE=$(grep -A 1 "script integrity=" "$TEMPLATE_FILE" | grep "integrity=" | sed 's/.*sha512-\([^"]*\).*/\1/')
 
 # Validate that we extracted hashes (basic check)
-if [[ -z "$CURRENT_POPPER" || -z "$CURRENT_TIPPY" || -z "$CURRENT_TRIX_JS" || -z "$CURRENT_TRIX_CSS" || -z "$CURRENT_FATHOM" ]]; then
+if [[ -z "$CURRENT_POPPER" || -z "$CURRENT_TIPPY" || -z "$CURRENT_TRIX_JS" || -z "$CURRENT_TRIX_CSS" || -z "$CURRENT_FATHOM" || -z "$CURRENT_THEME_TOGGLE" ]]; then
     echo "❌ Failed to extract current hashes from template file"
     echo "   Make sure $TEMPLATE_FILE exists and contains the expected script tags"
     exit 1
@@ -30,6 +31,27 @@ NEW_TIPPY=$(curl -s "https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.
 NEW_TRIX_JS=$(curl -s "https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js" | openssl dgst -sha512 -binary | openssl base64 -A)
 NEW_TRIX_CSS=$(curl -s "https://unpkg.com/trix@2.1.13/dist/trix.css" | openssl dgst -sha512 -binary | openssl base64 -A)
 NEW_FATHOM=$(curl -s "https://cdn.usefathom.com/script.js" | openssl dgst -sha512 -binary | openssl base64 -A)
+
+# Generate new hash for theme toggle script (inline) - with exact formatting from template
+NEW_THEME_TOGGLE=$(echo -n '
+      (() => {
+        const setTheme = (theme) => {
+          if (theme === "system") {
+            localStorage.removeItem("phx:theme");
+            document.documentElement.removeAttribute("data-theme");
+          } else {
+            localStorage.setItem("phx:theme", theme);
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+        };
+        if (!document.documentElement.hasAttribute("data-theme")) {
+          setTheme(localStorage.getItem("phx:theme") || "system");
+        }
+        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        
+        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+      })();
+    ' | openssl dgst -sha512 -binary | openssl base64 -A)
 
 changes_needed=false
 
@@ -66,6 +88,13 @@ if [ "$CURRENT_FATHOM" != "$NEW_FATHOM" ]; then
     echo "❗ Fathom Analytics hash changed!"
     echo "   Old: $CURRENT_FATHOM"
     echo "   New: $NEW_FATHOM"
+    changes_needed=true
+fi
+
+if [ "$CURRENT_THEME_TOGGLE" != "$NEW_THEME_TOGGLE" ]; then
+    echo "❗ Theme Toggle script hash changed!"
+    echo "   Old: $CURRENT_THEME_TOGGLE"
+    echo "   New: $NEW_THEME_TOGGLE"
     changes_needed=true
 fi
 

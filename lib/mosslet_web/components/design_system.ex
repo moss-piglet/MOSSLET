@@ -236,136 +236,133 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_footer(assigns) do
     ~H"""
-    <footer
-      class={[
-        "relative bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950",
-        @class
-      ]}
-      {@rest}
-    >
-      <%!-- Decorative top border with gradient --%>
-      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700">
-      </div>
-
-      <%!-- Main footer content --%>
-      <div class="relative px-4 py-16 sm:px-6 lg:px-8">
-        <div class="mx-auto max-w-7xl">
-          <%!-- Logo section with liquid styling --%>
-          <div class="flex justify-center mb-10">
-            <.link
-              href="/"
-              class="group inline-flex items-center transition-all duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 rounded-lg"
-            >
-              <div class="relative p-2">
-                <MossletWeb.CoreComponents.logo class="h-12 w-auto" />
-                <%!-- Subtle hover glow --%>
-                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/0 to-cyan-500/0 group-hover:from-emerald-500/10 group-hover:to-cyan-500/10 transition-all duration-300">
-                </div>
+    <%!-- Main footer content with seamless integration --%>
+    <div class="relative px-4 py-20 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl">
+        <%!-- Logo section with enhanced liquid styling --%>
+        <div class="flex justify-center mb-12">
+          <.link
+            href="/"
+            class="group inline-flex items-center transition-all duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 rounded-xl p-3"
+          >
+            <%!-- Enhanced logo container with liquid background --%>
+            <div class="relative overflow-hidden rounded-xl">
+              <%!-- Liquid background effect --%>
+              <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/80 via-emerald-50/60 to-cyan-50/80 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100">
               </div>
+              <%!-- Shimmer effect --%>
+              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/40 to-transparent dark:via-emerald-400/20 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+              </div>
+
+              <MossletWeb.CoreComponents.logo class="relative h-14 w-auto" />
+            </div>
+          </.link>
+        </div>
+
+        <%!-- Navigation links with enhanced liquid styling and improved mobile layout --%>
+        <nav class="mb-16">
+          <div class="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-4xl mx-auto">
+            <.link
+              :for={item <- footer_menu_items(@current_user)}
+              href={item.path}
+              class={[
+                "group relative px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
+                "text-slate-600 dark:text-slate-400",
+                "hover:text-emerald-600 dark:hover:text-emerald-400",
+                "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+                "overflow-hidden backdrop-blur-sm flex-shrink-0",
+                "min-w-0 text-center whitespace-nowrap"
+              ]}
+              method={if item[:method], do: item[:method], else: nil}
+            >
+              <%!-- Enhanced liquid background effect --%>
+              <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 group-hover:opacity-100 rounded-xl">
+              </div>
+              <%!-- Shimmer effect --%>
+              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-xl">
+              </div>
+              <span class="relative">{item.label}</span>
             </.link>
           </div>
+        </nav>
 
-          <%!-- Navigation links with liquid styling --%>
-          <nav class="mb-12">
-            <div class="flex flex-wrap justify-center gap-2">
-              <.link
-                :for={item <- footer_menu_items(@current_user)}
-                href={item.path}
-                class={[
-                  "group relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-out",
-                  "text-slate-600 dark:text-slate-400",
-                  "hover:text-emerald-600 dark:hover:text-emerald-400",
-                  "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
-                  "overflow-hidden"
-                ]}
-                method={if item[:method], do: item[:method], else: nil}
+        <%!-- Enhanced divider with liquid gradient --%>
+        <div class="mb-12">
+          <div class="h-px bg-gradient-to-r from-transparent via-teal-200/40 via-emerald-300/60 via-cyan-200/40 to-transparent dark:via-teal-700/30 dark:via-emerald-600/40 dark:via-cyan-700/30">
+          </div>
+        </div>
+
+        <%!-- Bottom section with improved layout --%>
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+          <%!-- Social links with enhanced styling --%>
+          <div class="flex items-center justify-center lg:justify-start gap-4">
+            <.footer_social_link
+              href={~p"/terms#terms_and_conditions"}
+              navigate={true}
+              aria_label="MOSSLET Terms and Conditions"
+              tooltip="MOSSLET Terms and Conditions"
+            >
+              <MossletWeb.CoreComponents.phx_icon name="hero-document-text" class="h-5 w-5" />
+            </.footer_social_link>
+
+            <.footer_social_link
+              href="https://podcast.mosslet.com"
+              external={true}
+              aria_label="MOSSLET Podcast"
+              tooltip="MOSSLET Podcast"
+            >
+              <svg
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
               >
-                <%!-- Subtle liquid background effect --%>
-                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/30 via-emerald-50/40 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100 rounded-lg">
-                </div>
-                <span class="relative">{item.label}</span>
-              </.link>
-            </div>
-          </nav>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+                />
+              </svg>
+            </.footer_social_link>
 
-          <%!-- Divider with gradient --%>
-          <div class="mb-10">
-            <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700">
-            </div>
+            <.footer_social_link
+              href="https://github.com/moss-piglet/mosslet"
+              external={true}
+              aria_label="MOSSLET on GitHub"
+              tooltip="MOSSLET open source code on GitHub"
+            >
+              <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z" />
+              </svg>
+            </.footer_social_link>
           </div>
 
-          <%!-- Bottom section --%>
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <%!-- Social links with improved styling --%>
-            <div class="flex items-center justify-center sm:justify-start gap-4">
-              <.footer_social_link
-                href={~p"/terms#terms_and_conditions"}
-                navigate={true}
-                aria_label="MOSSLET Terms and Conditions"
-                tooltip="MOSSLET Terms and Conditions"
-              >
-                <MossletWeb.CoreComponents.phx_icon name="hero-document-text" class="h-5 w-5" />
-              </.footer_social_link>
-
-              <.footer_social_link
-                href="https://podcast.mosslet.com"
-                external={true}
-                aria_label="MOSSLET Podcast"
-                tooltip="MOSSLET Podcast"
-              >
-                <svg
-                  class="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="1.5"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
-                  />
-                </svg>
-              </.footer_social_link>
-
-              <.footer_social_link
-                href="https://github.com/moss-piglet/mosslet"
-                external={true}
-                aria_label="MOSSLET on GitHub"
-                tooltip="MOSSLET open source code on GitHub"
-              >
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z" />
-                </svg>
-              </.footer_social_link>
-            </div>
-
-            <%!-- Copyright and climate info --%>
-            <div class="text-center sm:text-right">
-              <p class="text-sm text-slate-500 dark:text-slate-400">
-                Copyright © {DateTime.utc_now().year} Moss Piglet Corporation.
-              </p>
-              <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                A Public Benefit company. All rights reserved.
-              </p>
-              <.link
-                href="https://climate.stripe.com/0YsHsR"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center gap-2 mt-2 text-xs text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200"
-              >
-                <span>1% of purchases contributed to Stripe Climate</span>
-                <img
-                  src={~p"/images/landing_page/Stripe Climate Badge.svg"}
-                  class="h-4 w-4"
-                  alt="Stripe Climate"
-                />
-              </.link>
-            </div>
+          <%!-- Copyright and climate info with better typography --%>
+          <div class="text-center lg:text-right">
+            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+              Copyright © {DateTime.utc_now().year} Moss Piglet Corporation.
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-500 mt-1">
+              A Public Benefit company. All rights reserved.
+            </p>
+            <.link
+              href="https://climate.stripe.com/0YsHsR"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 mt-3 text-xs text-slate-500 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 group"
+            >
+              <span>1% of purchases contributed to Stripe Climate</span>
+              <img
+                src={~p"/images/landing_page/Stripe Climate Badge.svg"}
+                class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
+                alt="Stripe Climate"
+              />
+            </.link>
           </div>
         </div>
       </div>
-    </footer>
+    </div>
     """
   end
 

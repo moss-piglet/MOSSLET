@@ -21,7 +21,6 @@ defmodule MossletWeb.CoreComponents do
   use Gettext, backend: MossletWeb.Gettext
   import MossletWeb.Helpers
 
-  import MossletWeb.ColorSchemeSwitch
   import MossletWeb.Helpers
   import MossletWeb.PublicLayout
   import MossletWeb.ModernSidebarLayout
@@ -2231,7 +2230,8 @@ defmodule MossletWeb.CoreComponents do
               </.link>
             </button>
 
-            <.color_scheme_switch />
+            <%!-- Dark mode toggle removed - will be replaced with updated version --%>
+            <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}
         </.modern_sidebar_layout>
@@ -2248,7 +2248,8 @@ defmodule MossletWeb.CoreComponents do
             </div>
           </:logo>
           <:top_right>
-            <.color_scheme_switch />
+            <%!-- Dark mode toggle removed - will be replaced with updated version --%>
+            <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}
         </.stacked_layout>
@@ -2258,14 +2259,14 @@ defmodule MossletWeb.CoreComponents do
           twitter_url={Mosslet.config(:twitter_url)}
           github_url={Mosslet.config(:github_url)}
           discord_url={Mosslet.config(:discord_url)}
-          header_class="inline-block px-2 py-1 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-50"
         >
           <:logo>
             <.logo class="h-14 w-auto" />
           </:logo>
 
           <:top_right>
-            <.color_scheme_switch />
+            <%!-- Dark mode toggle removed - will be replaced with updated version --%>
+            <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}
         </.mosslet_public_layout>

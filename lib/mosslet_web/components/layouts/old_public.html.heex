@@ -3,7 +3,6 @@
 
 <header
   x-data="{mobile: false}"
-  x-init="window.makeHeaderTranslucentOnScroll()"
   class="fixed top-0 left-0 z-30 w-full transition duration-500 ease-in-out bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm md:sticky semi-translucent border-b border-slate-200/60 dark:border-slate-700/60"
 >
   <.container max_width={max_width}>
@@ -34,7 +33,7 @@
             current_locale={Gettext.get_locale(MossletWeb.Gettext)}
             language_options={Mosslet.config(:language_options)}
           />
-          <MossletWeb.ColorSchemeSwitch.color_scheme_switch />
+          <%!-- Dark mode toggle removed - will be replaced with updated version --%>
         </div>
 
         <div class="hidden md:block">

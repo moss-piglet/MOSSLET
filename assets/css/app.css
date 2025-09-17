@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Use the data attribute for dark mode  */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @source "../js/**/*.js";
 @source "../../lib/mosslet_web.ex";
@@ -13,8 +14,6 @@
 
 @import "./colors.css";
 @import "./fonts.css";
-
-@import "../../deps/toast/assets/css/toast.css";
 
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/forms";
@@ -170,11 +169,6 @@
   .failed {
     @apply flex justify-center my-6 text-sm rounded-md p-3 font-medium text-red-800 border-2 border-dashed border-red-200;
   }
-
-  header :not(button) > a {
-    @apply text-gray-600 font-medium hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:underline transition ease-in-out duration-150;
-  }
-
   /* Headline Component */
 
   .headline {
@@ -260,12 +254,12 @@
     overflow-wrap: break-word;
     max-width: 100%;
   }
-  
+
   .trix-content {
     max-width: 100%;
     overflow-wrap: break-word;
   }
-  
+
   .timeline-post img {
     max-width: 100%;
     height: auto;
@@ -338,7 +332,8 @@ trix-editor {
 /* Animations */
 
 .fade-in-scale {
-  animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0s normal forwards 1 fade-in-scale-keys;
+  animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0s normal forwards 1
+    fade-in-scale-keys;
 }
 
 .fade-out-scale {
@@ -346,11 +341,13 @@ trix-editor {
 }
 
 .slide-in-right {
-  animation: 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0s normal forwards 1 slide-in-right-keys;
+  animation: 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0s normal forwards 1
+    slide-in-right-keys;
 }
 
 .slide-out-right {
-  animation: 0.3s cubic-bezier(0.7, 0, 0.84, 0) 0s normal forwards 1 slide-out-right-keys;
+  animation: 0.3s cubic-bezier(0.7, 0, 0.84, 0) 0s normal forwards 1
+    slide-out-right-keys;
 }
 
 .fade-in {
@@ -391,7 +388,8 @@ trix-editor {
 }
 
 .animate-bounce-in {
-  animation: 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.1s both bounce-in-keys;
+  animation: 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.1s both
+    bounce-in-keys;
 }
 
 .animate-pulse-slow {
@@ -402,11 +400,21 @@ trix-editor {
   animation: 0.4s ease-out both slide-up-keys;
 }
 
-.animate-slide-up-stagger > *:nth-child(1) { animation-delay: 0.1s; }
-.animate-slide-up-stagger > *:nth-child(2) { animation-delay: 0.2s; }
-.animate-slide-up-stagger > *:nth-child(3) { animation-delay: 0.3s; }
-.animate-slide-up-stagger > *:nth-child(4) { animation-delay: 0.4s; }
-.animate-slide-up-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+.animate-slide-up-stagger > *:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.animate-slide-up-stagger > *:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.animate-slide-up-stagger > *:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.animate-slide-up-stagger > *:nth-child(4) {
+  animation-delay: 0.4s;
+}
+.animate-slide-up-stagger > *:nth-child(5) {
+  animation-delay: 0.5s;
+}
 
 @keyframes fade-in-scale-keys {
   0% {
@@ -511,7 +519,8 @@ trix-editor {
 }
 
 @keyframes pulse-slow-keys {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
 
@@ -550,53 +559,6 @@ trix-editor {
   }
 }
 
-/* Header Menu Hover Effects */
-header .menu-item {
-  position: relative;
-}
-
-header .menu-item:before {
-  content: "";
-  position: absolute;
-  right: 0;
-  width: 0;
-  bottom: 0;
-  height: 2px;
-  background: #4b5563;
-  transition: 0.3s all ease;
-}
-
-.dark header .menu-item:before {
-  background: #ccc;
-}
-
-header .menu-item:hover:before {
-  left: 0;
-  width: 100%;
-}
-
-header .menu-item.is-active:before {
-  left: 0;
-  width: 100%;
-}
-
-/* Translucent effects for the navbar when you scroll down the page */
-header.is-active {
-  background: rgba(255, 255, 255, 0.55);
-  @apply shadow;
-}
-
-.dark header.is-active {
-  background: rgba(0, 0, 0, 0.45);
-  @apply shadow;
-}
-
-header.is-active.semi-translucent {
-  backdrop-filter: saturate(180%) blur(10px);
-  -webkit-backdrop-filter: saturate(180%) blur(10px);
-  -moz-backdrop-filter: saturate(180%) blur(10px);
-}
-
 /* Flickity Carousel Testimonials */
 #testimonials .flickity-viewport {
   overflow: unset;
@@ -623,4 +585,10 @@ header.is-active.semi-translucent {
 
 .dark #testimonials .flickity-page-dots .dot {
   background: white;
+}
+
+/* Make LiveView wrapper divs transparent for layout */
+[data-phx-session],
+[data-phx-teleported-src] {
+  display: contents;
 }

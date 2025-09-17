@@ -32,7 +32,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
           current_locale={Gettext.get_locale(MossletWeb.Gettext)}
           language_options={Mosslet.config(:language_options)}
         />
-        <MossletWeb.ColorSchemeSwitch.color_scheme_switch />
+        <%!-- Dark mode toggle removed - will be replaced with updated version --%>
       </:top_right>
 
       <%!-- Main settings content with liquid styling --%>
@@ -74,7 +74,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
           current_locale={Gettext.get_locale(MossletWeb.Gettext)}
           language_options={Mosslet.config(:language_options)}
         />
-        <MossletWeb.ColorSchemeSwitch.color_scheme_switch />
+        <%!-- Dark mode toggle removed - will be replaced with updated version --%>
       </:top_right>
 
       <.liquid_container max_width="xl" class="py-8 lg:py-12">

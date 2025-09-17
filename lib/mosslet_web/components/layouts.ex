@@ -94,4 +94,62 @@ defmodule MossletWeb.Layouts do
       &(URI.parse(&1.path).path == stripped_path)
     )
   end
+
+  @doc """
+  Provides dark vs light theme toggle based on themes defined in app.css.
+  Uses liquid metal design system styling consistent with navigation.
+
+  See <head> in root.html.heex which applies the theme before page load.
+  """
+  def theme_toggle(assigns) do
+    ~H"""
+    <div class="group relative flex items-center rounded-xl overflow-hidden transition-all duration-300 ease-out">
+      <%!-- Enhanced liquid background effect --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 group-hover:opacity-100 rounded-xl">
+      </div>
+      <%!-- Shimmer effect --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-xl">
+      </div>
+
+      <%!-- System theme button --%>
+      <button
+        class="group/btn relative flex items-center justify-center p-2.5 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 rounded-l-xl"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme="system"
+        title="System theme"
+      >
+        <MossletWeb.CoreComponents.phx_icon
+          name="hero-computer-desktop"
+          class="relative h-4 w-4 text-slate-500 dark:text-slate-400 transition-colors duration-200 group-hover/btn:text-emerald-600 dark:group-hover/btn:text-emerald-400"
+        />
+      </button>
+
+      <%!-- Light theme button --%>
+      <button
+        class="group/btn relative flex items-center justify-center p-2.5 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme="light"
+        title="Light theme"
+      >
+        <MossletWeb.CoreComponents.phx_icon
+          name="hero-sun"
+          class="relative h-4 w-4 text-slate-500 dark:text-slate-400 transition-colors duration-200 group-hover/btn:text-emerald-600 dark:group-hover/btn:text-emerald-400"
+        />
+      </button>
+
+      <%!-- Dark theme button --%>
+      <button
+        class="group/btn relative flex items-center justify-center p-2.5 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 rounded-r-xl"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme="dark"
+        title="Dark theme"
+      >
+        <MossletWeb.CoreComponents.phx_icon
+          name="hero-moon"
+          class="relative h-4 w-4 text-slate-500 dark:text-slate-400 transition-colors duration-200 group-hover/btn:text-emerald-600 dark:group-hover/btn:text-emerald-400"
+        />
+      </button>
+    </div>
+    """
+  end
 end

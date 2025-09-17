@@ -3,7 +3,6 @@ defmodule MossletComponents do
   defmacro __using__(_) do
     quote do
       import MossletWeb.AuthLayout
-      import MossletWeb.ColorSchemeSwitch
       import MossletWeb.ComboBox
       import MossletWeb.ContentEditor
       import MossletWeb.DataTable

@@ -35,20 +35,6 @@ import live_select from "live_select";
 // Add your custom hooks to the hooks folder - then import them in hooks/index.js
 import mossletHooks from "./hooks/index";
 
-// Import Toast JS for toast notifications (flash)
-import Toast from "../../deps/toast/assets/js/toast.js";
-
-// Color Scheme Switch
-import {
-  applyScheme,
-  toggleScheme,
-  initScheme,
-} from "./hooks/color_scheme_switch";
-
-// Translucent header on scroll for public layout
-import { bindHeaderTranslucency } from "./hooks/make_header_translucent";
-bindHeaderTranslucency();
-
 Alpine.plugin(collapse);
 Alpine.plugin(focus);
 Alpine.plugin(intersect);
@@ -168,8 +154,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
       LocalTimeNow: mossletHooks.LocalTimeNow,
       LocalTimeNowMed: mossletHooks.LocalTimeNowMed,
     },
-    live_select,
-    { Toast }
+    live_select
   ),
   params: { _csrf_token: csrfToken },
   dom: {

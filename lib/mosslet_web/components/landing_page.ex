@@ -84,14 +84,17 @@ defmodule MossletWeb.Components.LandingPage do
     ~H"""
     <section id="hero" class="relative overflow-hidden">
       <%!-- Liquid Metal Background System --%>
-      <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900"></div>
-      
+      <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+      </div>
+
       <%!-- Primary Liquid Background Gradient --%>
-      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/40 via-emerald-50/30 to-cyan-50/40 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20"></div>
-      
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/40 via-emerald-50/30 to-cyan-50/40 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20">
+      </div>
+
       <%!-- Animated Shimmer Layer --%>
-      <div class="absolute inset-0 opacity-0 animate-pulse transition-opacity duration-[3000ms] bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent dark:via-emerald-400/10"></div>
-      
+      <div class="absolute inset-0 opacity-0 animate-pulse transition-opacity duration-[3000ms] bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent dark:via-emerald-400/10">
+      </div>
+
       <.container class="relative">
         <div class="relative isolate px-6 lg:px-8">
           <%!-- Top Decorative Gradient (Updated to Liquid Metal Colors) --%>
@@ -110,12 +113,15 @@ defmodule MossletWeb.Components.LandingPage do
             <div class="hidden sm:mb-8 sm:flex sm:justify-center">
               <div class="group relative overflow-hidden rounded-full px-4 py-2 text-sm leading-6 text-slate-600 dark:text-slate-400 transition-all duration-300 ease-out">
                 <%!-- Liquid Background --%>
-                <div class="absolute inset-0 bg-gradient-to-r from-slate-100/80 via-slate-50/90 to-slate-100/80 dark:from-slate-800/80 dark:via-slate-700/90 dark:to-slate-800/80 transition-all duration-300 group-hover:from-teal-100/60 group-hover:via-emerald-50/80 group-hover:to-cyan-100/60 dark:group-hover:from-teal-900/30 dark:group-hover:via-emerald-900/25 dark:group-hover:to-cyan-900/30"></div>
+                <div class="absolute inset-0 bg-gradient-to-r from-slate-100/80 via-slate-50/90 to-slate-100/80 dark:from-slate-800/80 dark:via-slate-700/90 dark:to-slate-800/80 transition-all duration-300 group-hover:from-teal-100/60 group-hover:via-emerald-50/80 group-hover:to-cyan-100/60 dark:group-hover:from-teal-900/30 dark:group-hover:via-emerald-900/25 dark:group-hover:to-cyan-900/30">
+                </div>
                 <%!-- Ring Border --%>
-                <div class="absolute inset-0 rounded-full ring-1 ring-slate-200/60 dark:ring-slate-700/60 transition-all duration-300 group-hover:ring-emerald-300/50 dark:group-hover:ring-emerald-600/30"></div>
+                <div class="absolute inset-0 rounded-full ring-1 ring-slate-200/60 dark:ring-slate-700/60 transition-all duration-300 group-hover:ring-emerald-300/50 dark:group-hover:ring-emerald-600/30">
+                </div>
                 <%!-- Shimmer Effect --%>
-                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full"></div>
-                
+                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full">
+                </div>
+
                 <span class="relative">The fight for democracy in the age of surveillance</span>
                 <a
                   href="https://journals.sagepub.com/doi/full/10.1177/26317877221129290"
@@ -124,7 +130,12 @@ defmodule MossletWeb.Components.LandingPage do
                   class="relative font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"
                 >
                   <span class="absolute inset-0" aria-hidden="true"></span>Read more
-                  <span aria-hidden="true" class="ml-1 transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+                  <span
+                    aria-hidden="true"
+                    class="ml-1 transition-transform duration-200 group-hover:translate-x-1"
+                  >
+                    &rarr;
+                  </span>
                 </a>
               </div>
             </div>
@@ -196,8 +207,104 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </div>
 
-        <%!-- Pricing table --%>
-        <.pricing_comparison hero_intro?={true} pricing_link?={true} />
+        <%!-- Features preview section with liquid metal design --%>
+        <div class="relative mt-24 sm:mt-32">
+          <%!-- Section background --%>
+          <div class="absolute inset-0 bg-gradient-to-b from-transparent via-slate-50/50 to-transparent dark:via-slate-900/50 rounded-3xl">
+          </div>
+
+          <div class="relative max-w-5xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-16">
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
+                Built for
+                <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                  privacy
+                </span>
+                and peace of mind
+              </h2>
+              <p class="mt-6 text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+                Everything you need to connect and share without the anxiety of Big Tech surveillance.
+              </p>
+            </div>
+
+            <%!-- Feature grid --%>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <%!-- Feature 1: Privacy First --%>
+              <div class="group relative">
+                <div class="relative rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 p-8 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-105">
+                  <%!-- Liquid background effect --%>
+                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-2xl">
+                  </div>
+
+                  <div class="relative">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white mb-6">
+                      <.phx_icon name="hero-shield-check" class="h-6 w-6" />
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                      Zero Tracking
+                    </h3>
+                    <p class="text-slate-600 dark:text-slate-400">
+                      We don't track, spy on, or monetize your personal data. Your privacy is not for sale.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Feature 2: Real connections --%>
+              <div class="group relative">
+                <div class="relative rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 p-8 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-105">
+                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-2xl">
+                  </div>
+
+                  <div class="relative">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 text-white mb-6">
+                      <.phx_icon name="hero-users" class="h-6 w-6" />
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                      Real Connections
+                    </h3>
+                    <p class="text-slate-600 dark:text-slate-400">
+                      Connect with people who matter. Share memories and moments without algorithmic manipulation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Feature 3: Simple by design --%>
+              <div class="group relative">
+                <div class="relative rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 p-8 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-105">
+                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-2xl">
+                  </div>
+
+                  <div class="relative">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 text-white mb-6">
+                      <.phx_icon name="hero-heart" class="h-6 w-6" />
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                      Simple by Design
+                    </h3>
+                    <p class="text-slate-600 dark:text-slate-400">
+                      No dark patterns, no addiction tactics. Just a clean, peaceful way to stay connected.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Bottom CTA --%>
+            <div class="mt-16 mb-20 text-center">
+              <MossletWeb.DesignSystem.liquid_button
+                navigate="/features"
+                variant="secondary"
+                color="teal"
+                icon="hero-arrow-right"
+                size="lg"
+              >
+                Explore all features
+              </MossletWeb.DesignSystem.liquid_button>
+            </div>
+          </div>
+        </div>
       </.container>
     </section>
     """
@@ -240,11 +347,13 @@ defmodule MossletWeb.Components.LandingPage do
     ~H"""
     <section id="features" class="relative overflow-hidden">
       <%!-- Liquid Metal Background System --%>
-      <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900"></div>
-      
+      <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+      </div>
+
       <%!-- Subtle Liquid Background Accent --%>
-      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"></div>
-      
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+      </div>
+
       <div class="relative py-24 sm:py-32">
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
           <div class="mx-auto max-w-2xl lg:mx-0">
@@ -1883,8 +1992,16 @@ defmodule MossletWeb.Components.LandingPage do
           </colgroup>
           <thead class="border-b border-background-950/10 dark:border-white/10 text-lg/8 text-black dark:text-white">
             <tr>
-              <th scope="col" class="py-2 pr-8 pl-4 font-light sm:pl-6 lg:pl-8">Company</th>
-              <th scope="col" class="hidden py-2 pr-8 pl-0 font-light sm:table-cell">
+              <th
+                scope="col"
+                class="py-3 pr-8 pl-4 font-semibold text-slate-900 dark:text-slate-100 sm:pl-6 lg:pl-8"
+              >
+                Company
+              </th>
+              <th
+                scope="col"
+                class="hidden py-3 pr-8 pl-0 font-semibold text-slate-900 dark:text-slate-100 sm:table-cell"
+              >
                 <span
                   id="sends-data-column"
                   phx-hook="TippyHook"
@@ -1896,7 +2013,7 @@ defmodule MossletWeb.Components.LandingPage do
               </th>
               <th
                 scope="col"
-                class="py-2 pr-4 pl-0 text-right font-light sm:pr-8 sm:text-left lg:pr-20"
+                class="py-3 pr-4 pl-0 text-right font-semibold text-slate-900 dark:text-slate-100 sm:pr-8 sm:text-left lg:pr-20"
               >
                 <span
                   id="tracking-column"
@@ -1907,7 +2024,10 @@ defmodule MossletWeb.Components.LandingPage do
                   Tracking?
                 </span>
               </th>
-              <th scope="col" class="hidden py-2 pr-4 pl-0 font-light md:table-cell lg:pr-20">
+              <th
+                scope="col"
+                class="hidden py-3 pr-4 pl-0 font-semibold text-slate-900 dark:text-slate-100 md:table-cell lg:pr-20"
+              >
                 <span
                   id="features-column"
                   phx-hook="TippyHook"
@@ -1917,12 +2037,15 @@ defmodule MossletWeb.Components.LandingPage do
                   Features
                 </span>
               </th>
-              <th scope="col" class="py-2 pr-4 pl-8 text-right font-light sm:pr-6 lg:pr-8">
+              <th
+                scope="col"
+                class="py-3 pr-4 pl-8 text-right font-semibold text-slate-900 dark:text-slate-100 sm:pr-6 lg:pr-8"
+              >
                 Price
               </th>
               <th
                 scope="col"
-                class="hidden py-2 pr-4 pl-0 text-right font-light sm:table-cell sm:pr-6 lg:pr-8"
+                class="hidden py-3 pr-4 pl-0 text-right font-semibold text-slate-900 dark:text-slate-100 sm:table-cell sm:pr-6 lg:pr-8"
               >
                 <span
                   id="the-privacy-report"
@@ -1935,7 +2058,7 @@ defmodule MossletWeb.Components.LandingPage do
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-background-950/5 dark:divide-white/5">
+          <tbody class="divide-y divide-slate-200/40 dark:divide-slate-700/40">
             <%!-- Bluesky Row --%>
             <tr>
               <td class="py-4 pr-8 pl-4 sm:pl-6 lg:pl-8">

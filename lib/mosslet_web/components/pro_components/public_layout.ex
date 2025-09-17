@@ -36,7 +36,6 @@ defmodule MossletWeb.PublicLayout do
     ~H"""
     <header
       x-data="{ isOpen: false }"
-      x-init="window.makeHeaderTranslucentOnScroll && window.makeHeaderTranslucentOnScroll()"
       class={[
         "fixed top-0 left-0 z-30 w-full transition-all duration-300 ease-out",
         "lg:sticky backdrop-blur-md",
@@ -54,34 +53,43 @@ defmodule MossletWeb.PublicLayout do
               href="/"
               class="group inline-flex items-center transition-all duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 rounded-lg"
             >
-              <div class="relative p-1">
-                {render_slot(@logo)}
-                <%!-- Subtle hover glow with better positioning --%>
-                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/0 to-cyan-500/0 group-hover:from-emerald-500/10 group-hover:to-cyan-500/10 transition-all duration-300">
+              <div class="relative overflow-hidden p-1 rounded-xl">
+                <%!-- Liquid background effect matching footer --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/80 via-emerald-50/60 to-cyan-50/80 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-xl">
+                </div>
+                <%!-- Shimmer effect matching footer --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/40 to-transparent dark:via-emerald-400/20 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-xl">
+                </div>
+
+                <div class="relative">
+                  {render_slot(@logo)}
                 </div>
               </div>
             </.link>
           </div>
 
-          <%!-- Desktop navigation with improved spacing --%>
+          <%!-- Desktop navigation with full liquid metal effects matching footer --%>
           <nav class="hidden lg:flex lg:items-center lg:justify-center flex-1 max-w-3xl mx-8">
             <div class="flex items-center space-x-1">
               <.link
                 :for={item <- @public_menu_items}
                 href={item.path}
                 class={[
-                  "relative group px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 ease-out",
-                  "text-slate-700 dark:text-slate-200",
+                  "group relative px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
+                  "text-slate-600 dark:text-slate-400",
                   "hover:text-emerald-600 dark:hover:text-emerald-400",
                   "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
-                  "overflow-hidden"
+                  "overflow-hidden "
                 ]}
                 method={if item[:method], do: item[:method], else: nil}
               >
-                <%!-- Subtle liquid background effect --%>
-                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/50 via-emerald-50/60 to-cyan-50/50 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100 rounded-lg">
+                <%!-- Enhanced liquid background effect matching footer exactly --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 group-hover:opacity-100 rounded-xl">
                 </div>
-                <span class="relative font-medium">{item.label}</span>
+                <%!-- Shimmer effect matching footer exactly --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-xl">
+                </div>
+                <span class="relative">{item.label}</span>
               </.link>
             </div>
           </nav>
@@ -103,8 +111,8 @@ defmodule MossletWeb.PublicLayout do
                 avatar_src={@avatar_src}
               />
             </div>
-            
-    <!-- Mobile menu toggle -->
+
+            <%!-- Mobile menu toggle --%>
             <button
               @click="isOpen = !isOpen"
               class={[
@@ -115,12 +123,12 @@ defmodule MossletWeb.PublicLayout do
               ]}
             >
               <span class="sr-only">Toggle menu</span>
-              
-    <!-- Subtle background effect -->
+
+              <%!-- Subtle background effect --%>
               <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/30 via-emerald-50/40 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 hover:opacity-100 rounded-lg">
               </div>
-              
-    <!-- Hamburger icon -->
+
+              <%!-- Hamburger icon --%>
               <svg
                 x-show="!isOpen"
                 class="relative w-6 h-6 transition-opacity duration-300 ease-out"
@@ -135,7 +143,7 @@ defmodule MossletWeb.PublicLayout do
                   d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
                 />
               </svg>
-              <!-- Close icon -->
+              <%!-- Close icon --%>
               <svg
                 x-show="isOpen"
                 class="relative w-6 h-6 transition-opacity duration-300 ease-out"
@@ -164,15 +172,18 @@ defmodule MossletWeb.PublicLayout do
           x-cloak
         >
           <div class="px-2 pt-2 pb-3 space-y-1 border-t border-slate-200/60 dark:border-slate-700/60">
-            <%!-- Mobile navigation items --%>
+            <%!-- Mobile navigation items with enhanced liquid effects --%>
             <.link
               :for={item <- @public_menu_items}
               href={item.path}
               class="group relative flex items-center px-4 py-3 text-base font-medium text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all duration-300 ease-out overflow-hidden"
               method={if item[:method], do: item[:method], else: nil}
             >
-              <%!-- Subtle liquid background effect --%>
+              <%!-- Enhanced liquid background effect matching footer exactly --%>
               <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/50 to-cyan-50/40 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100">
+              </div>
+              <%!-- Shimmer effect matching footer exactly --%>
+              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
               </div>
               <span class="relative">{item.label}</span>
             </.link>
@@ -228,15 +239,18 @@ defmodule MossletWeb.PublicLayout do
                 </div>
               </div>
 
-              <%!-- Mobile user menu items --%>
+              <%!-- Mobile user menu items with full liquid effects --%>
               <.link
                 :for={item <- @user_menu_items}
                 href={item.path}
                 class="group relative flex items-center px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all duration-300 ease-out overflow-hidden"
                 method={if item[:method], do: item[:method], else: nil}
               >
-                <%!-- Subtle liquid background effect --%>
+                <%!-- Enhanced liquid background effect matching other nav items --%>
                 <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/30 via-emerald-50/40 to-cyan-50/30 dark:from-teal-900/8 dark:via-emerald-900/12 dark:to-cyan-900/8 group-hover:opacity-100">
+                </div>
+                <%!-- Shimmer effect matching other nav items --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
                 </div>
                 <span class="relative">{item.label}</span>
               </.link>
@@ -251,9 +265,27 @@ defmodule MossletWeb.PublicLayout do
       {render_slot(@inner_block)}
     </div>
 
-    <!-- Footer -->
-    <footer class="bg-white dark:bg-slate-950">
-      <.liquid_container max_width={@max_width}>
+    <%!-- Footer with seamless liquid metal integration --%>
+    <footer class="relative overflow-hidden">
+      <%!-- Liquid Metal Background System matching hero design --%>
+      <div class="absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+      </div>
+
+      <%!-- Subtle Liquid Background Accent --%>
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+      </div>
+
+      <%!-- Seamless transition gradient from main content --%>
+      <div class="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-white via-slate-50/90 to-transparent dark:from-slate-950 dark:via-slate-900/90 dark:to-transparent">
+      </div>
+
+      <%!-- Decorative top border with enhanced liquid gradient --%>
+      <div class="absolute top-0 left-0 right-0 h-px">
+        <div class="h-full bg-gradient-to-r from-transparent via-teal-200/60 via-emerald-300/80 via-cyan-200/60 to-transparent dark:via-teal-700/40 dark:via-emerald-600/60 dark:via-cyan-700/40">
+        </div>
+      </div>
+
+      <.liquid_container max_width={@max_width} class="relative">
         <.liquid_footer current_user={@current_user} />
       </.liquid_container>
     </footer>
@@ -344,7 +376,7 @@ defmodule MossletWeb.PublicLayout do
         x-transition:leave-end="opacity-0 -translate-y-1"
         class={[
           "absolute right-0 z-50 mt-3 w-48 origin-top-right overflow-hidden",
-          "rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+          "rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-md",
           "py-2 shadow-xl shadow-slate-900/15 dark:shadow-slate-900/30",
           "ring-1 ring-slate-200/60 dark:ring-slate-700/60",
           "border border-slate-100/60 dark:border-slate-600/40"
