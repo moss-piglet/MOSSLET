@@ -824,6 +824,792 @@ defmodule MossletWeb.DesignSystem do
     ]
   end
 
+  @doc """
+  Liquid metal pricing card component.
+
+  ## Examples
+
+      <.liquid_pricing_card
+        title="Personal"
+        price="$59"
+        period="/once"
+        badge="Lifetime"
+        description="Own your privacy forever"
+        cta_text="Get Started"
+        cta_href="/auth/register"
+        features={["Feature 1", "Feature 2"]}
+      />
+  """
+  attr :title, :string, required: true
+  attr :price, :string, required: true
+  attr :period, :string, default: ""
+  attr :badge, :string, default: nil
+  attr :save_badge, :string, default: nil
+  attr :save_tooltip, :string, default: nil
+  attr :description, :string, required: true
+  attr :note, :string, default: nil
+  attr :cta_text, :string, required: true
+  attr :cta_href, :string, required: true
+  attr :cta_icon, :string, default: nil
+  attr :featured, :boolean, default: false
+  attr :disabled, :boolean, default: false
+  attr :features, :list, default: []
+  attr :class, :any, default: ""
+
+  def liquid_pricing_card(assigns) do
+    ~H"""
+    <div class={[
+      "relative rounded-2xl overflow-hidden",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+      "p-8 sm:p-10 transition-all duration-300 ease-out",
+      if(@featured, do: "ring-2 ring-emerald-500/50 scale-105", else: ""),
+      if(@disabled, do: "opacity-60", else: "hover:scale-105"),
+      @class
+    ]}>
+      <%!-- Enhanced liquid background for featured cards --%>
+      <div
+        :if={@featured}
+        class="absolute inset-0 bg-gradient-to-br from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"
+      >
+      </div>
+
+      <%!-- Header with title and badge --%>
+      <div class="relative flex justify-between items-start mb-4">
+        <h3 class="text-base font-semibold leading-7 text-emerald-600 dark:text-emerald-400">
+          {@title}
+        </h3>
+        <.liquid_badge
+          :if={@badge}
+          variant={if(@disabled, do: "soft", else: "outline")}
+          color={if(@disabled, do: "slate", else: "emerald")}
+          size="sm"
+        >
+          {@badge}
+        </.liquid_badge>
+      </div>
+
+      <%!-- Price section --%>
+      <div class="relative mb-6">
+        <div class="flex items-baseline gap-x-2">
+          <span class="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            {@price}
+          </span>
+          <span :if={@period != ""} class="text-lg text-slate-500 font-medium">{@period}</span>
+          <.liquid_badge
+            :if={@save_badge && !@disabled}
+            id={"save-badge-#{String.downcase(@title)}"}
+            variant="soft"
+            color="amber"
+            size="xs"
+            class="ml-2"
+            data-tippy-content={@save_tooltip}
+            phx-hook={if @save_tooltip, do: "TippyHook", else: nil}
+          >
+            {@save_badge}
+          </.liquid_badge>
+        </div>
+      </div>
+
+      <%!-- Description --%>
+      <p class="relative text-base leading-7 text-slate-600 dark:text-slate-400 mb-6">
+        {@description}
+        <small :if={@note} class="block mt-2 text-slate-500">{@note}</small>
+      </p>
+
+      <%!-- Features list --%>
+      <ul
+        :if={length(@features) > 0}
+        role="list"
+        class="relative space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-400 mb-8"
+      >
+        <li :for={feature <- @features} class="flex gap-x-3">
+          <.phx_icon
+            name="hero-check"
+            class="h-6 w-5 flex-none text-emerald-600 dark:text-emerald-400"
+          />
+          <span>{feature}</span>
+        </li>
+      </ul>
+
+      <%!-- CTA Button --%>
+      <div class="relative">
+        <.liquid_button
+          href={@cta_href}
+          size="lg"
+          class="w-full justify-center"
+          disabled={@disabled}
+          color={if(@featured, do: "teal", else: "blue")}
+          variant={if(@featured, do: "primary", else: "secondary")}
+          icon={@cta_icon}
+        >
+          {@cta_text}
+        </.liquid_button>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Liquid metal comparison table component.
+
+  ## Examples
+
+      <.liquid_comparison_table />
+  """
+  attr :class, :any, default: ""
+
+  def liquid_comparison_table(assigns) do
+    ~H"""
+    <div class={[
+      "relative rounded-2xl overflow-hidden",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+      "p-6 sm:p-8",
+      @class
+    ]}>
+      <%!-- Subtle liquid background --%>
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/5 dark:via-emerald-900/3 dark:to-cyan-900/5">
+      </div>
+
+      <div class="relative">
+        <%!-- Table header --%>
+        <div class="text-center mb-8">
+          <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+            How
+            <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              MOSSLET
+            </span>
+            Compares
+          </h3>
+          <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+            The only platform that doesn't track, spy on, or monetize your personal data
+          </p>
+        </div>
+
+        <%!-- Responsive table wrapper --%>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="border-b border-slate-200/60 dark:border-slate-700/60">
+              <tr>
+                <th class="py-3 pr-4 pl-2 font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base">
+                  Platform
+                </th>
+                <th class="hidden sm:table-cell py-3 px-2 font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                  Tracking
+                </th>
+                <th class="py-3 px-2 font-semibold text-slate-900 dark:text-slate-100 text-sm text-right">
+                  Price/Year
+                </th>
+                <th class="hidden md:table-cell py-3 pl-2 font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                  Privacy
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/40 dark:divide-slate-700/40">
+              <%!-- MOSSLET Row (Featured) --%>
+              <tr class="bg-gradient-to-r from-emerald-50/30 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10">
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/logo.svg"}
+                      alt="MOSSLET logo"
+                      class="h-10 w-10 object-contain"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">MOSSLET</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Moss Piglet Corporation, PBC
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-emerald-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-emerald-500"></div>
+                    </div>
+                    <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                      None
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">$59 once</div>
+                  <div class="text-xs text-emerald-600 dark:text-emerald-400">Lifetime</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="solid" color="emerald" size="sm">
+                    Excellent
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Facebook Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/facebook_logo.svg"}
+                      alt="Facebook logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Facebook</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Meta Platforms, Inc.
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-500 line-through">"Free"</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">~$700/yr</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Instagram Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/instagram_logo.png"}
+                      alt="Instagram logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Instagram</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Meta Platforms, Inc.
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-500 line-through">"Free"</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">~$700/yr</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Twitter/X Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/twitter_x_logo.png"}
+                      alt="X (Twitter) logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">X (Twitter)</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">X Corp.</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-900 dark:text-slate-100">$96-192/yr</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">+ data value</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="amber" size="sm">
+                    Limited
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- TikTok Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/tiktok_logo.png"}
+                      alt="TikTok logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">TikTok</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">ByteDance</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-500 line-through">"Free"</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">~$700/yr</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Bluesky Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/bluesky_logo.png"}
+                      alt="Bluesky logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Bluesky</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Bluesky Social, PBC
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">Active</span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-500 line-through">"Free"</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">~$700/yr</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="amber" size="sm">
+                    Limited
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- LinkedIn Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/linkedin_logo.png"}
+                      alt="LinkedIn logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">LinkedIn</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Microsoft Corporation
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-900 dark:text-slate-100">$60-120/yr</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">+ data value</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Reddit Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/reddit_logo.svg"}
+                      alt="Reddit logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Reddit</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">Reddit Inc.</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-900 dark:text-slate-100">$50-100/yr</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">+ data value</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="amber" size="sm">
+                    Limited
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Signal Row (Good privacy) --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/signal_logo.png"}
+                      alt="Signal logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Signal</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Signal Technology Foundation
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-emerald-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-emerald-500"></div>
+                    </div>
+                    <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                      Minimal
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-900 dark:text-slate-100">Free</div>
+                  <div class="text-xs text-emerald-600 dark:text-emerald-400">Donations</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="solid" color="emerald" size="sm">
+                    Excellent
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Mastodon Row (Decentralized, good privacy) --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/mastodon_logo.png"}
+                      alt="Mastodon logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Mastodon</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">Mastodon gGmbH</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-amber-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-amber-500"></div>
+                    </div>
+                    <span class="text-sm text-amber-600 dark:text-amber-400 font-medium">Varies</span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-900 dark:text-slate-100">Free</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">Instance costs</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="amber" size="sm">
+                    Varies
+                  </.liquid_badge>
+                </td>
+              </tr>
+
+              <%!-- Kin Social Row --%>
+              <tr>
+                <td class="py-4 pr-4 pl-2">
+                  <div class="flex items-center gap-x-3">
+                    <img
+                      src={~p"/images/landing_page/kin_logo.png"}
+                      alt="Kin Social logo"
+                      class="h-10 w-10 object-contain rounded-lg"
+                    />
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">Kin Social</div>
+                      <div class="text-xs text-slate-600 dark:text-slate-400">
+                        Todos Media Limited
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden sm:table-cell py-4 px-2">
+                  <div class="flex items-center gap-x-2">
+                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
+                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
+                    </div>
+                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
+                      Extensive
+                    </span>
+                  </div>
+                </td>
+                <td class="py-4 px-2 text-right">
+                  <div class="text-sm text-slate-500 line-through">"Free"</div>
+                  <div class="text-xs text-slate-600 dark:text-slate-400">~$700/yr</div>
+                </td>
+                <td class="hidden md:table-cell py-4 pl-2">
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
+                  </.liquid_badge>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <%!-- Footer note --%>
+        <div class="mt-6 text-center">
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            Data value estimates based on research by
+            <a
+              href="https://proton.me/blog/what-is-your-data-worth"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-500 underline"
+            >
+              Proton
+            </a>
+            and industry analysis.
+          </p>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Liquid metal badge component with various styles and colors.
+
+  ## Examples
+
+      <.liquid_badge>Default</.liquid_badge>
+      <.liquid_badge variant="soft" color="emerald">Success</.liquid_badge>
+      <.liquid_badge variant="outline" color="amber">Warning</.liquid_badge>
+      <.liquid_badge variant="solid" color="rose">Error</.liquid_badge>
+  """
+  attr :variant, :string, default: "soft", values: ~w(soft solid outline)
+
+  attr :color, :string,
+    default: "slate",
+    values: ~w(slate teal emerald blue cyan purple violet amber orange rose pink indigo)
+
+  attr :size, :string, default: "sm", values: ~w(xs sm md lg)
+  attr :class, :any, default: ""
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def liquid_badge(assigns) do
+    ~H"""
+    <span
+      class={
+        [
+          "inline-flex items-center font-medium transition-all duration-200 ease-out",
+
+          # Size variants
+          badge_size_classes(@size),
+
+          # Style variants with liquid metal effects
+          badge_variant_classes(@variant, @color),
+
+          # Custom classes
+          @class
+        ]
+      }
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  # Private helper functions for badges
+  defp badge_size_classes("xs"), do: "px-1.5 py-0.5 text-xs rounded-md"
+  defp badge_size_classes("sm"), do: "px-2.5 py-0.5 text-xs rounded-lg"
+  defp badge_size_classes("md"), do: "px-3 py-1 text-sm rounded-lg"
+  defp badge_size_classes("lg"), do: "px-4 py-1.5 text-base rounded-xl"
+
+  defp badge_variant_classes("soft", color) do
+    [
+      "bg-gradient-to-r shadow-sm",
+      badge_soft_color_classes(color)
+    ]
+  end
+
+  defp badge_variant_classes("solid", color) do
+    [
+      "text-white shadow-sm",
+      badge_solid_color_classes(color)
+    ]
+  end
+
+  defp badge_variant_classes("outline", color) do
+    [
+      "border-2 bg-white dark:bg-slate-800 shadow-sm",
+      badge_outline_color_classes(color)
+    ]
+  end
+
+  # Soft variant color classes with liquid metal gradients (improved contrast)
+  defp badge_soft_color_classes("slate"),
+    do:
+      "from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
+
+  defp badge_soft_color_classes("teal"),
+    do:
+      "from-teal-100 to-emerald-200 text-teal-800 dark:from-teal-800 dark:to-emerald-700 dark:text-teal-200 border border-teal-300 dark:border-teal-600"
+
+  defp badge_soft_color_classes("emerald"),
+    do:
+      "from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600"
+
+  defp badge_soft_color_classes("blue"),
+    do:
+      "from-blue-100 to-cyan-200 text-blue-800 dark:from-blue-800 dark:to-cyan-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600"
+
+  defp badge_soft_color_classes("cyan"),
+    do:
+      "from-cyan-100 to-blue-200 text-cyan-800 dark:from-cyan-800 dark:to-blue-700 dark:text-cyan-200 border border-cyan-300 dark:border-cyan-600"
+
+  defp badge_soft_color_classes("purple"),
+    do:
+      "from-purple-100 to-violet-200 text-purple-800 dark:from-purple-800 dark:to-violet-700 dark:text-purple-200 border border-purple-300 dark:border-purple-600"
+
+  defp badge_soft_color_classes("violet"),
+    do:
+      "from-violet-100 to-purple-200 text-violet-800 dark:from-violet-800 dark:to-purple-700 dark:text-violet-200 border border-violet-300 dark:border-violet-600"
+
+  defp badge_soft_color_classes("amber"),
+    do:
+      "from-amber-100 to-orange-200 text-amber-800 dark:from-amber-800 dark:to-orange-700 dark:text-amber-200 border border-amber-300 dark:border-amber-600"
+
+  defp badge_soft_color_classes("orange"),
+    do:
+      "from-orange-100 to-amber-200 text-orange-800 dark:from-orange-800 dark:to-amber-700 dark:text-orange-200 border border-orange-300 dark:border-orange-600"
+
+  defp badge_soft_color_classes("rose"),
+    do:
+      "from-rose-100 to-pink-200 text-rose-800 dark:from-rose-800 dark:to-pink-700 dark:text-rose-200 border border-rose-300 dark:border-rose-600"
+
+  defp badge_soft_color_classes("pink"),
+    do:
+      "from-pink-100 to-rose-200 text-pink-800 dark:from-pink-800 dark:to-rose-700 dark:text-pink-200 border border-pink-300 dark:border-pink-600"
+
+  defp badge_soft_color_classes("indigo"),
+    do:
+      "from-indigo-100 to-blue-200 text-indigo-800 dark:from-indigo-800 dark:to-blue-700 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-600"
+
+  # Solid variant color classes with liquid metal gradients
+  defp badge_solid_color_classes("slate"), do: "bg-gradient-to-r from-slate-500 to-slate-600"
+  defp badge_solid_color_classes("teal"), do: "bg-gradient-to-r from-teal-500 to-emerald-500"
+  defp badge_solid_color_classes("emerald"), do: "bg-gradient-to-r from-emerald-500 to-teal-500"
+  defp badge_solid_color_classes("blue"), do: "bg-gradient-to-r from-blue-500 to-cyan-500"
+  defp badge_solid_color_classes("cyan"), do: "bg-gradient-to-r from-cyan-500 to-blue-500"
+  defp badge_solid_color_classes("purple"), do: "bg-gradient-to-r from-purple-500 to-violet-500"
+  defp badge_solid_color_classes("violet"), do: "bg-gradient-to-r from-violet-500 to-purple-500"
+  defp badge_solid_color_classes("amber"), do: "bg-gradient-to-r from-amber-500 to-orange-500"
+  defp badge_solid_color_classes("orange"), do: "bg-gradient-to-r from-orange-500 to-amber-500"
+  defp badge_solid_color_classes("rose"), do: "bg-gradient-to-r from-rose-500 to-pink-500"
+  defp badge_solid_color_classes("pink"), do: "bg-gradient-to-r from-pink-500 to-rose-500"
+  defp badge_solid_color_classes("indigo"), do: "bg-gradient-to-r from-indigo-500 to-blue-500"
+
+  # Outline variant color classes
+  defp badge_outline_color_classes("slate"),
+    do: "border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"
+
+  defp badge_outline_color_classes("teal"),
+    do: "border-teal-300 text-teal-700 dark:border-teal-600 dark:text-teal-300"
+
+  defp badge_outline_color_classes("emerald"),
+    do: "border-emerald-300 text-emerald-700 dark:border-emerald-600 dark:text-emerald-300"
+
+  defp badge_outline_color_classes("blue"),
+    do: "border-blue-300 text-blue-700 dark:border-blue-600 dark:text-blue-300"
+
+  defp badge_outline_color_classes("cyan"),
+    do: "border-cyan-300 text-cyan-700 dark:border-cyan-600 dark:text-cyan-300"
+
+  defp badge_outline_color_classes("purple"),
+    do: "border-purple-300 text-purple-700 dark:border-purple-600 dark:text-purple-300"
+
+  defp badge_outline_color_classes("violet"),
+    do: "border-violet-300 text-violet-700 dark:border-violet-600 dark:text-violet-300"
+
+  defp badge_outline_color_classes("amber"),
+    do: "border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-300"
+
+  defp badge_outline_color_classes("orange"),
+    do: "border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-300"
+
+  defp badge_outline_color_classes("rose"),
+    do: "border-rose-300 text-rose-700 dark:border-rose-600 dark:text-rose-300"
+
+  defp badge_outline_color_classes("pink"),
+    do: "border-pink-300 text-pink-700 dark:border-pink-600 dark:text-pink-300"
+
+  defp badge_outline_color_classes("indigo"),
+    do: "border-indigo-300 text-indigo-700 dark:border-indigo-600 dark:text-indigo-300"
+
   # Import the phx_icon component
   defp phx_icon(assigns) do
     MossletWeb.CoreComponents.phx_icon(assigns)

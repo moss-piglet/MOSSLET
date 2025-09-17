@@ -31,72 +31,58 @@ defmodule MossletWeb.PublicLive.Components do
 
   def in_the_know(assigns) do
     ~H"""
-    <div class="bg-white dark:bg-gray-950">
+    <div class="bg-white dark:bg-slate-950">
       <main class="isolate">
-        <%!-- Hero section --%>
+        <%!-- Hero section with liquid metal background --%>
         <div class="relative isolate -z-10">
-          <svg
-            class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
-            aria-hidden="true"
-          >
-            <defs>
-              <pattern
-                id="know-pattern"
-                width="200"
-                height="200"
-                x="50%"
-                y="-1"
-                patternUnits="userSpaceOnUse"
-              >
-                <path d="M.5 200V.5H200" fill="none" />
-              </pattern>
-            </defs>
-            <svg x="50%" y="-1" class="overflow-visible fill-gray-50 dark:fill-gray-900">
-              <path
-                d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
-                stroke-width="0"
-              />
-            </svg>
-            <rect
-              width="100%"
-              height="100%"
-              stroke-width="0"
-              fill="url(#know-pattern)"
-            />
-          </svg>
+          <%!-- Liquid metal background gradient --%>
           <div
             class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
             aria-hidden="true"
           >
             <div
-              class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30"
+              class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-300/40 to-cyan-400/30 opacity-40 dark:opacity-20"
               style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
             >
             </div>
           </div>
-          <div class="overflow-hidden">
-            <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
-              <div class="mx-auto max-w-4xl text-center">
-                <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  Be in the know
-                </h1>
-                <h2 class="mt-6 text-balance text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-black dark:text-white">
-                  MOSSLET helps you reclaim the truth
-                </h2>
-                <p class="mt-8 text-pretty text-lg font-medium text-gray-600 dark:text-gray-400 sm:text-xl/8 text-balance">
-                  The #1 product of surveillance capitalism is disinformation. You can protect yourself by choosing organizations and sources of information that are factual and on the side of people, not profit.
-                </p>
-              </div>
+
+          <%!-- Additional liquid background effect --%>
+          <div
+            class="absolute right-1/2 left-0 top-0 -z-10 ml-24 transform-gpu overflow-hidden blur-3xl lg:-ml-24 xl:-ml-48"
+            aria-hidden="true"
+          >
+            <div
+              class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tl from-cyan-400/20 via-teal-300/30 to-emerald-400/25 opacity-30 dark:opacity-15"
+              style="clip-path: polygon(36.9% 70.5%, 0% 82.9%, 23.4% 97%, 51.6% 100%, 55.4% 95.3%, 45.5% 74.7%, 40.2% 51%, 44.8% 42.2%, 55.6% 42.8%, 72.2% 52.1%, 64.9% 18.5%, 100% 2.3%, 60.8% 0%, 64.8% 18.6%, 2.8% 47.2%, 36.9% 70.5%)"
+            >
             </div>
           </div>
+
+          <MossletWeb.DesignSystem.liquid_container
+            max_width="xl"
+            class="pb-32 pt-36 sm:pt-60 lg:pt-32"
+          >
+            <div class="mx-auto max-w-4xl text-center">
+              <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Be in the know
+              </h1>
+              <h2 class="mt-6 text-balance text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-slate-900 dark:text-white">
+                MOSSLET helps you reclaim the truth
+              </h2>
+              <p class="mt-8 text-pretty text-lg font-medium text-slate-600 dark:text-slate-400 sm:text-xl/8 text-balance">
+                The #1 product of surveillance capitalism is disinformation. You can protect yourself by choosing organizations and sources of information that are factual and on the side of people, not profit.
+              </p>
+            </div>
+          </MossletWeb.DesignSystem.liquid_container>
         </div>
 
         <%!-- Why this matters section --%>
-        <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
+        <MossletWeb.DesignSystem.liquid_container max_width="xl" class="-mt-12 sm:mt-0 xl:-mt-8">
           <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
             <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
               <%!-- MOSSLET's Approach --%>
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 px-8 py-8 border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
+              <MossletWeb.DesignSystem.liquid_card class="border-teal-200 dark:border-teal-700/30 bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/50 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20">
                 <div class="flex justify-center pb-4">
                   <img class="size-16" src={~p"/images/logo.svg"} />
                 </div>
@@ -104,20 +90,20 @@ defmodule MossletWeb.PublicLive.Components do
                   <div class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                     MOSSLET's Promise
                   </div>
-                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-slate-800 dark:text-white">
                     No Algorithm, No Feed
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     You will see the Posts that your friends have shared with you, and that's it. Your friends will see any Posts that you have shared with them. Simple as that.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
 
               <%!-- News Problem --%>
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-red-50 dark:bg-red-900/60 dark:bg-gray-800/60 px-8 py-8 border border-red-200 dark:border-red-700/30 dark:shadow-xl dark:shadow-red-500/20">
+              <MossletWeb.DesignSystem.liquid_card class="border-rose-200 dark:border-rose-700/30 bg-gradient-to-br from-rose-50/60 via-pink-50/40 to-red-50/50 dark:from-rose-900/20 dark:via-pink-900/15 dark:to-red-900/20">
                 <div class="flex justify-center pb-4">
                   <svg
-                    class="size-16 text-red-500 dark:text-red-400"
+                    class="size-16 text-rose-500 dark:text-rose-400"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -125,20 +111,20 @@ defmodule MossletWeb.PublicLive.Components do
                   </svg>
                 </div>
                 <div class="text-center">
-                  <div class="text-sm font-bold tracking-tight text-red-600 dark:text-red-400">
+                  <div class="text-sm font-bold tracking-tight text-rose-600 dark:text-rose-400">
                     The Problem
                   </div>
-                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-slate-800 dark:text-white">
                     News is Not Our Business
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     When your social platform decides what is newsworthy, news quickly fades from facts to whatever suits the business. Disinformation arises.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
 
               <%!-- Solution --%>
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-emerald-50 dark:bg-emerald-900/60 dark:bg-gray-800/60 px-8 py-8 border border-emerald-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
+              <MossletWeb.DesignSystem.liquid_card class="border-emerald-200 dark:border-emerald-700/30 bg-gradient-to-br from-emerald-50/60 via-cyan-50/40 to-teal-50/50 dark:from-emerald-900/20 dark:via-cyan-900/15 dark:to-teal-900/20">
                 <div class="flex justify-center pb-4">
                   <svg
                     class="size-16 text-emerald-500 dark:text-emerald-400"
@@ -152,37 +138,37 @@ defmodule MossletWeb.PublicLive.Components do
                   <div class="text-sm font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
                     The Solution
                   </div>
-                  <h3 class="mt-3 text-lg font-semibold leading-6 text-gray-800 dark:text-white">
+                  <h3 class="mt-3 text-lg font-semibold leading-6 text-slate-800 dark:text-white">
                     Trusted News Sources
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     We think social platforms should not be news outlets. Here are reputable, truthful sources that will empower you.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </div>
           </div>
-        </div>
+        </MossletWeb.DesignSystem.liquid_container>
 
         <%!-- Big statement section --%>
-        <div class="mx-auto mt-40 mb-40 max-w-7xl px-6 sm:mt-56 sm:mb-56 lg:px-8">
+        <MossletWeb.DesignSystem.liquid_container max_width="xl" class="mt-40 mb-40 sm:mt-56 sm:mb-56">
           <div class="mx-auto max-w-4xl text-center">
-            <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl text-black dark:text-white">
+            <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl text-slate-900 dark:text-white">
               Big Tech controls who knows and who decides who knows.
               <span class="block mt-4 bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                 Don't let them control you.
               </span>
             </h2>
           </div>
-        </div>
+        </MossletWeb.DesignSystem.liquid_container>
 
         <%!-- News sources section --%>
-        <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
+        <MossletWeb.DesignSystem.liquid_container max_width="xl" class="mt-32 sm:mt-40">
           <div class="mx-auto max-w-2xl lg:mx-0">
             <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
               General News Sources
             </h2>
-            <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+            <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
               Reputable organizations that prioritize truth over profit, people over algorithms.
             </p>
           </div>
@@ -195,12 +181,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://www.capitolhillcitizen.com/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -209,14 +190,14 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     Capitol Hill Citizen
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Democracy dies in broad daylight. A real newspaper! For as little as $5, you'll receive the best newspaper we've read in years. From tireless public defenders like Ralph Nader.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
 
             <%!-- Democracy Now --%>
@@ -226,12 +207,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://www.democracynow.org/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -240,14 +216,14 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     Democracy Now!
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     A global, daily news hour. Founded in 1996, accepts no government funding, corporate sponsorship, or advertising revenue. You can trust what you hear here.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
 
             <%!-- More Perfect Union --%>
@@ -257,12 +233,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://perfectunion.us/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -271,14 +242,14 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     More Perfect Union
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Building power for the working class. Advocacy journalism nonprofit reporting on corporate abuses and wrongdoing. Available in video format on your favorite surveillance network (TikTok, YouTube, Instagram, et al).
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
 
             <%!-- ProPublica --%>
@@ -288,12 +259,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://www.propublica.org/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -302,14 +268,14 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     ProPublica
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Investigative journalism in the public interest. From privacy to healthcare, ProPublica investigates issues that matter to all of us — no matter who you are or what you believe.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
           </div>
 
@@ -322,12 +288,7 @@ defmodule MossletWeb.PublicLive.Components do
                 href="https://www.citizen.org/"
                 class="flex-1 group cursor-pointer"
               >
-                <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[200px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                  <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                  </div>
-                  <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                  </div>
-
+                <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[200px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                   <%!-- Category --%>
                   <div class="mb-3">
                     <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -336,26 +297,26 @@ defmodule MossletWeb.PublicLive.Components do
                   </div>
 
                   <div class="flex-1">
-                    <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                    <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                       Public Citizen
                     </h3>
-                    <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                    <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                       The people's advocate. Represents the people in the face of power regardless of your political affiliation. Find current events and resources for taking action.
                     </p>
                   </div>
-                </div>
+                </MossletWeb.DesignSystem.liquid_card>
               </.link>
             </div>
           </div>
-        </div>
+        </MossletWeb.DesignSystem.liquid_container>
 
         <%!-- Privacy & Technology section --%>
-        <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
+        <MossletWeb.DesignSystem.liquid_container max_width="xl" class="mt-32 sm:mt-40">
           <div class="mx-auto max-w-2xl lg:mx-0">
             <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
               Privacy & Technology News
             </h2>
-            <p class="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+            <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
               Trusted sources for understanding how technology shapes our world.
             </p>
           </div>
@@ -368,12 +329,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://www.404media.co/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -382,14 +338,14 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     404 Media
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Unparalleled access to hidden worlds both online and IRL. Investigating the hidden worlds of technology, surveillance, and the internet.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
 
             <%!-- EFF --%>
@@ -399,12 +355,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://www.eff.org/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -413,14 +364,14 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     Electronic Frontier Foundation
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Defending digital privacy, free speech, and innovation. Leading advocate for the public, providing news, guides and tools to protect you online.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
 
             <%!-- The Markup --%>
@@ -430,12 +381,7 @@ defmodule MossletWeb.PublicLive.Components do
               href="https://themarkup.org/"
               class="flex flex-col h-full group cursor-pointer"
             >
-              <div class="relative isolate flex flex-col justify-between overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800/60 px-8 pb-8 pt-12 h-full min-h-[300px] border border-gray-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20 transition-all duration-300 ease-out group-hover:scale-105 group-hover:shadow-2xl group-hover:shadow-emerald-500/30 dark:group-hover:shadow-emerald-500/40">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-100/40 dark:via-gray-900/40">
-                </div>
-                <div class="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-200/20 dark:ring-gray-900/10">
-                </div>
-
+              <MossletWeb.DesignSystem.liquid_card class="h-full min-h-[300px] group-hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30">
                 <%!-- Category --%>
                 <div class="mb-3">
                   <span class="text-sm font-bold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -444,45 +390,48 @@ defmodule MossletWeb.PublicLive.Components do
                 </div>
 
                 <div class="flex-1">
-                  <h3 class="text-lg font-semibold leading-6 text-gray-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
+                  <h3 class="text-lg font-semibold leading-6 text-slate-800 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors">
                     The Markup
                   </h3>
-                  <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Challenging technology to serve the public good. Non-profit investigative journalism with real world impact. They share their methods and datasets publicly.
                   </p>
                 </div>
-              </div>
+              </MossletWeb.DesignSystem.liquid_card>
             </.link>
           </div>
-        </div>
+        </MossletWeb.DesignSystem.liquid_container>
 
         <%!-- Call to action section --%>
-        <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-48 lg:px-8">
+        <MossletWeb.DesignSystem.liquid_container max_width="xl" class="mt-32 sm:mt-48">
           <div class="mx-auto max-w-2xl text-center">
-            <div class="p-8 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-3xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
+            <MossletWeb.DesignSystem.liquid_card class="p-8 bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/50 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 border-teal-200 dark:border-emerald-700/30">
               <h3 class="text-2xl font-bold tracking-tight text-pretty bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent sm:text-3xl">
                 Break free from Big Tech's control
               </h3>
-              <p class="mt-4 text-lg text-gray-700 dark:text-gray-300">
+              <p class="mt-4 text-lg text-slate-700 dark:text-slate-300">
                 Once we break free from Big Tech's disinformation silos, we can start fixing problems and making progress again. MOSSLET is here to help you do that.
               </p>
               <div class="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-4">
-                <.link
-                  href="/auth/register"
-                  class="inline-flex items-center justify-center rounded-full py-3 px-8 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+                <MossletWeb.DesignSystem.liquid_button
+                  navigate="/auth/register"
+                  size="lg"
+                  icon="hero-rocket-launch"
                 >
-                  Join MOSSLET today
-                </.link>
-                <.link
-                  href="/features"
-                  class="text-sm font-semibold leading-6 text-teal-600 hover:text-teal-500 transition-colors"
+                  Get Started
+                </MossletWeb.DesignSystem.liquid_button>
+                <MossletWeb.DesignSystem.liquid_button
+                  navigate="/features"
+                  variant="secondary"
+                  color="blue"
+                  icon="hero-sparkles"
                 >
-                  Learn about our features <span aria-hidden="true">→</span>
-                </.link>
+                  Explore features
+                </MossletWeb.DesignSystem.liquid_button>
               </div>
-            </div>
+            </MossletWeb.DesignSystem.liquid_card>
           </div>
-        </div>
+        </MossletWeb.DesignSystem.liquid_container>
       </main>
     </div>
     """

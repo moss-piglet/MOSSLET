@@ -1,8 +1,6 @@
 defmodule MossletWeb.Layouts do
   use MossletWeb, :html
 
-  alias MossletWeb.LandingPageComponents
-
   require Logger
 
   embed_templates "layouts/*"
