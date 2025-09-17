@@ -94,7 +94,11 @@ defmodule MossletWeb.PublicLive.Blog.Blog01 do
           <div class="relative overflow-hidden rounded-xl">
             <div class="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-slate-950/10 ring-inset dark:ring-white/10">
             </div>
-            <img src={~p"/images/blog/may_14_2025_cfpb.jpg"} class="w-full" alt="Data broker surveillance illustration" />
+            <img
+              src={~p"/images/blog/may_14_2025_cfpb.jpg"}
+              class="w-full"
+              alt="Data broker surveillance illustration"
+            />
           </div>
           <figcaption class="flex justify-end text-sm text-slate-500 dark:text-slate-400 mt-2">
             artwork by
@@ -180,9 +184,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog01 do
         </p>
 
         <p>
-          The next thing you can do is delete your Facebook account and other social media accounts and switch to privacy-first alternatives like <a
-            href="/"
-          >MOSSLET</a>.
+          The next thing you can do is delete your Facebook account and other social media accounts and switch to privacy-first alternatives like <a href="/">MOSSLET</a>.
         </p>
         <p>
           A third thing is to look into privacy-first services that try to help you remove your data from these data brokers — like DuckDuckGo's
@@ -225,8 +227,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog01 do
             information removal service</a>.
           </li>
           <li>
-            Switch to a
-            <a href="/">social network like ours</a>
+            Switch to a <a href="/">social network like ours</a>
             to start dramatically reducing the amount of data these brokers have on you.
           </li>
         </ol>
