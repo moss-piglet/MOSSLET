@@ -610,7 +610,11 @@ defmodule MossletWeb.UserAuth do
   defp mount_current_user(socket, session) do
     Phoenix.Component.assign_new(socket, :current_user, fn ->
       if user_token = session["user_token"] do
-        Accounts.get_user_by_session_token(user_token)
+        try do
+          Accounts.get_user_by_session_token(user_token)
+        rescue
+          _ -> nil
+        end
       else
         nil
       end

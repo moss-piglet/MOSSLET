@@ -30,7 +30,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
         |> element("#registration_form")
         |> render_change(user: %{"email" => "with spaces"})
 
-      assert result =~ "Waiting..."
+      assert result =~ "Complete"
       assert result =~ "must have the @ sign and no spaces"
       assert result =~ "invalid or not a valid domain"
     end
@@ -53,7 +53,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
         |> element("#registration_form")
         |> render_change(user: %{"username" => "o"})
 
-      assert result =~ "Waiting..."
+      assert result =~ "Complete"
       assert result =~ "has invalid format"
       assert result =~ "should be at least 2"
     end
@@ -86,7 +86,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
         |> element("#registration_form")
         |> render_change(user: %{"password" => "invalid", "password_confirmation" => "no match"})
 
-      assert result =~ "Waiting..."
+      assert result =~ "Complete"
       assert result =~ "try putting an extra word, dash, space, or number"
       assert result =~ "may be cracked"
       assert result =~ "should be at least 12 character"
@@ -136,7 +136,7 @@ defmodule MossletWeb.UserRegistrationLiveTest do
         |> element("#registration_form")
         |> render_change(user: %{"password_reminder" => false})
 
-      assert result =~ "Waiting..."
+      assert result =~ "Please accept the terms above"
       assert result =~ "please take a moment to understand and agree before continuing"
     end
   end
@@ -202,8 +202,8 @@ defmodule MossletWeb.UserRegistrationLiveTest do
         )
 
       result = render_submit(form)
-      assert result =~ "Oops, something went wrong! Please check the errors below"
-      assert result =~ "email is invalid or already taken"
+      assert result =~ "Please check the following errors"
+      assert result =~ "Email invalid or already taken"
     end
   end
 

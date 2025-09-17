@@ -9,7 +9,7 @@ defmodule MossletWeb.PublicLive.Features do
     ~H"""
     <.layout
       type="public"
-      user={assigns[:user]}
+      current_user={assigns[:current_user]}
       current_page={:pricing}
       container_max_width={@max_width}
       socket={@socket}

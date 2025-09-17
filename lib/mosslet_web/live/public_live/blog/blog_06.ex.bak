@@ -6,7 +6,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog06 do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      user={assigns[:user]}
       current_page={:blog}
       container_max_width={@max_width}
       key={@key}

@@ -14,7 +14,7 @@ defmodule MossletWeb.UserLoginLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/auth/sign_in")
 
       assert html =~ "Sign in"
-      assert html =~ "Register"
+      assert html =~ "Create account"
       assert html =~ "Forgot your password?"
     end
 
@@ -83,11 +83,11 @@ defmodule MossletWeb.UserLoginLiveTest do
 
       {:ok, _login_live, html} =
         lv
-        |> element("a", "Register")
+        |> element("a", "Create account")
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/register")
 
-      assert html =~ "Register"
+      assert html =~ "Complete step"
     end
 
     test "redirects to forgot password page when the Forgot Password button is clicked", %{

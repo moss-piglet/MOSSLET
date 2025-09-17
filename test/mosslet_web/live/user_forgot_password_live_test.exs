@@ -14,8 +14,8 @@ defmodule MossletWeb.UserForgotPasswordLiveTest do
       {:ok, lv, html} = live(conn, ~p"/auth/reset-password")
 
       assert html =~ "Forgot your password?"
-      assert has_element?(lv, ~s|a[href="#{~p"/auth/register"}"]|, "Register")
-      assert has_element?(lv, ~s|a[href="#{~p"/auth/sign_in"}"]|, "Sign in")
+      assert has_element?(lv, ~s|a[href="#{~p"/auth/register"}"]|, "Create account")
+      assert has_element?(lv, ~s|a[href="#{~p"/auth/sign_in"}"]|, "Back to sign in")
     end
 
     test "redirects if already logged in", %{conn: conn} do

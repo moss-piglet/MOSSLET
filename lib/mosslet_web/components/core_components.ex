@@ -572,7 +572,7 @@ defmodule MossletWeb.CoreComponents do
       <.phx_flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.phx_flash>
   """
   attr :id, :string,
-    default: "flash-group-#{Ecto.UUID.generate()}",
+    default: "flash-#{Ecto.UUID.generate()}",
     doc: "the optional id of flash container"
 
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
@@ -706,21 +706,46 @@ defmodule MossletWeb.CoreComponents do
 
       <.phx_flash_group flash={@flash} />
   """
+  attr :flash_group_id, :string, default: "flash-group-#{Ecto.UUID.generate()}"
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
   def phx_flash_group(assigns) do
     ~H"""
     <%!-- Container for all flash messages with proper stacking --%>
-    <div id="flash-group" phx-hook="FlashGroup" class="flex flex-col-reverse gap-2">
+    <div id={@flash_group_id} phx-hook="FlashGroup" class="flex flex-col-reverse gap-2">
       <%!-- Regular flash messages --%>
-      <.phx_flash kind={:info} title="Info" flash={@flash} position={0} />
-      <.phx_flash kind={:success} title="Success" flash={@flash} position={1} />
-      <.phx_flash kind={:warning} title="Warning" flash={@flash} position={2} />
-      <.phx_flash kind={:error} title="Error" flash={@flash} position={3} />
+      <.phx_flash
+        id={"info-#{Ecto.UUID.generate()}"}
+        kind={:info}
+        title="Info"
+        flash={@flash}
+        position={0}
+      />
+      <.phx_flash
+        id={"success-#{Ecto.UUID.generate()}"}
+        kind={:success}
+        title="Success"
+        flash={@flash}
+        position={1}
+      />
+      <.phx_flash
+        id={"warning-#{Ecto.UUID.generate()}"}
+        kind={:warning}
+        title="Warning"
+        flash={@flash}
+        position={2}
+      />
+      <.phx_flash
+        id={"error-#{Ecto.UUID.generate()}"}
+        kind={:error}
+        title="Error"
+        flash={@flash}
+        position={3}
+      />
 
       <%!-- Connection status flashes --%>
       <.phx_flash
-        id="client-error"
+        id={"client-error-#{@flash_group_id}"}
         kind={:error}
         title="Connection Lost"
         position={4}
@@ -732,7 +757,7 @@ defmodule MossletWeb.CoreComponents do
       </.phx_flash>
 
       <.phx_flash
-        id="server-error"
+        id={"server-error-#{@flash_group_id}"}
         kind={:error}
         title="Server Error"
         position={5}
@@ -2157,7 +2182,7 @@ defmodule MossletWeb.CoreComponents do
   def layout(assigns) do
     # Safely get current_user from either user or current_user assigns
     current_user = assigns[:user] || assigns[:current_user]
-    
+
     assigns =
       assigns
       |> assign_new(:current_user, fn -> current_user end)
@@ -2167,10 +2192,15 @@ defmodule MossletWeb.CoreComponents do
       end)
       |> assign_new(:main_menu_items, fn -> main_menu_items(current_user) end)
       |> assign_new(:user_menu_items, fn -> user_menu_items(current_user) end)
-      |> assign_new(:current_user_name, fn -> 
+      |> assign_new(:current_user_name, fn ->
         # Only decrypt username if we have both user and session key
+        # Also wrap in try/rescue to handle any decryption errors gracefully
         if current_user && assigns[:key] do
-          user_name(current_user, assigns[:key])
+          try do
+            user_name(current_user, assigns[:key])
+          rescue
+            _ -> nil
+          end
         else
           nil
         end

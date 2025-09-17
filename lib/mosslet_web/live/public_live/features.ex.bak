@@ -1,4 +1,4 @@
-defmodule MossletWeb.PublicLive.Myob do
+defmodule MossletWeb.PublicLive.Features do
   @moduledoc false
   use MossletWeb, :live_view
 
@@ -9,7 +9,7 @@ defmodule MossletWeb.PublicLive.Myob do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      user={assigns[:user]}
       current_page={:pricing}
       container_max_width={@max_width}
       socket={@socket}
@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Myob do
     >
       <MossletWeb.Components.LandingPage.beta_banner />
       <.container>
-        <LandingPage.myob />
+        <LandingPage.landing_features />
       </.container>
     </.layout>
     """
@@ -28,9 +28,9 @@ defmodule MossletWeb.PublicLive.Myob do
     {:ok,
      socket
      |> assign_new(:max_width, fn -> "full" end)
-     |> assign(:page_title, "Mind Your Own Business")
+     |> assign(:page_title, "Features")
      |> assign_new(:meta_description, fn ->
-       "At MOSSLET, our business model is as basic as it is boring: We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never track you, spy on you, or enable others to either. It's absolutely none of their business, and it's none of ours either."
+       "Social media, unexpected. Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you."
      end)}
   end
 end
