@@ -1,7 +1,7 @@
 defmodule MossletWeb.PublicLive.Support do
   @moduledoc false
   use MossletWeb, :live_view
-  
+
   import MossletWeb.DesignSystem
 
   @impl true
@@ -22,7 +22,8 @@ defmodule MossletWeb.PublicLive.Support do
           <div class="relative isolate">
             <%!-- Background pattern with liquid styling --%>
             <div class="absolute inset-0 -z-10 overflow-hidden">
-              <div class="absolute inset-0 bg-gradient-to-br from-teal-50/10 via-transparent to-emerald-50/10 dark:from-teal-900/5 dark:via-transparent dark:to-emerald-900/5"></div>
+              <div class="absolute inset-0 bg-gradient-to-br from-teal-50/10 via-transparent to-emerald-50/10 dark:from-teal-900/5 dark:via-transparent dark:to-emerald-900/5">
+              </div>
               <svg
                 class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-slate-200/60 dark:stroke-slate-700/60 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
                 aria-hidden="true"
@@ -44,11 +45,15 @@ defmodule MossletWeb.PublicLive.Support do
             </div>
 
             <%!-- Floating gradient orbs for liquid metal effect --%>
-            <div class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48" aria-hidden="true">
+            <div
+              class="absolute left-1/2 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
+              aria-hidden="true"
+            >
               <div
                 class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-400/20 to-cyan-400/30 opacity-40 dark:opacity-20"
                 style="clip-path: polygon(63.1% 29.5%, 100% 17.1%, 76.6% 3%, 48.4% 0%, 44.6% 4.7%, 54.5% 25.3%, 59.8% 49%, 55.2% 57.8%, 44.4% 57.2%, 27.8% 47.9%, 35.1% 81.5%, 0% 97.7%, 39.2% 100%, 35.2% 81.4%, 97.2% 52.8%, 63.1% 29.5%)"
-              ></div>
+              >
+              </div>
             </div>
 
             <div class="overflow-hidden">
@@ -66,7 +71,8 @@ defmodule MossletWeb.PublicLive.Support do
 
                   <%!-- Decorative accent line --%>
                   <div class="mt-8 flex justify-center">
-                    <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30"></div>
+                    <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+                    </div>
                   </div>
                 </div>
               </div>
@@ -80,13 +86,16 @@ defmodule MossletWeb.PublicLive.Support do
                 <%!-- Email Support Card with liquid styling --%>
                 <div class="group relative overflow-hidden rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10">
                   <%!-- Liquid background effects --%>
-                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100"></div>
+                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100">
+                  </div>
 
                   <%!-- Shimmer effect --%>
-                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"></div>
+                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+                  </div>
 
                   <%!-- Card border with liquid accent --%>
-                  <div class="absolute inset-0 rounded-xl ring-1 transition-all duration-300 ease-out ring-slate-200/60 dark:ring-slate-700/60 group-hover:ring-emerald-500/30 dark:group-hover:ring-emerald-400/30"></div>
+                  <div class="absolute inset-0 rounded-xl ring-1 transition-all duration-300 ease-out ring-slate-200/60 dark:ring-slate-700/60 group-hover:ring-emerald-500/30 dark:group-hover:ring-emerald-400/30">
+                  </div>
 
                   <%!-- Background image with overlay --%>
                   <div class="relative h-64 sm:h-48 lg:h-64">
@@ -95,7 +104,8 @@ defmodule MossletWeb.PublicLive.Support do
                       alt="Support illustration"
                       class="absolute inset-0 h-full w-full object-cover rounded-t-xl"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent rounded-t-xl"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent rounded-t-xl">
+                    </div>
                   </div>
 
                   <%!-- Content --%>
@@ -111,9 +121,9 @@ defmodule MossletWeb.PublicLive.Support do
                         href="mailto:support@mosslet.com"
                         class="relative"
                       >
-                        support@mosslet.com
-                        <%!-- Subtle underline effect --%>
-                        <div class="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full"></div>
+                        support@mosslet.com <%!-- Subtle underline effect --%>
+                        <div class="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full">
+                        </div>
                       </.link>
                     </h3>
 
@@ -126,13 +136,16 @@ defmodule MossletWeb.PublicLive.Support do
                 <%!-- FAQ Card with liquid styling --%>
                 <div class="group relative overflow-hidden rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10">
                   <%!-- Liquid background effects --%>
-                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100"></div>
+                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100">
+                  </div>
 
                   <%!-- Shimmer effect --%>
-                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"></div>
+                  <div class="absolute inset-0 -z-10 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+                  </div>
 
                   <%!-- Card border with liquid accent --%>
-                  <div class="absolute inset-0 rounded-xl ring-1 transition-all duration-300 ease-out ring-slate-200/60 dark:ring-slate-700/60 group-hover:ring-emerald-500/30 dark:group-hover:ring-emerald-400/30"></div>
+                  <div class="absolute inset-0 rounded-xl ring-1 transition-all duration-300 ease-out ring-slate-200/60 dark:ring-slate-700/60 group-hover:ring-emerald-500/30 dark:group-hover:ring-emerald-400/30">
+                  </div>
 
                   <%!-- Background image with overlay --%>
                   <div class="relative h-64 sm:h-48 lg:h-64">
@@ -141,7 +154,8 @@ defmodule MossletWeb.PublicLive.Support do
                       alt="FAQ illustration"
                       class="absolute inset-0 h-full w-full object-cover rounded-t-xl"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent rounded-t-xl"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent rounded-t-xl">
+                    </div>
                   </div>
 
                   <%!-- Content --%>
@@ -154,9 +168,9 @@ defmodule MossletWeb.PublicLive.Support do
 
                     <h3 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
                       <.link href={~p"/faq"} class="relative">
-                        Frequently Asked Questions
-                        <%!-- Subtle underline effect --%>
-                        <div class="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full"></div>
+                        Frequently Asked Questions <%!-- Subtle underline effect --%>
+                        <div class="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full">
+                        </div>
                       </.link>
                     </h3>
 
@@ -275,7 +289,8 @@ defmodule MossletWeb.PublicLive.Support do
               <%!-- Enhanced CTA section --%>
               <div class="relative mt-10 overflow-hidden rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 p-8">
                 <%!-- Liquid background effects --%>
-                <div class="absolute inset-0 -z-10 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"></div>
+                <div class="absolute inset-0 -z-10 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+                </div>
 
                 <h3 class="text-lg font-bold tracking-tight text-pretty bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                   Ready to get help?

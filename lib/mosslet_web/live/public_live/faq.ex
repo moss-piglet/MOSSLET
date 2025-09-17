@@ -1,7 +1,7 @@
 defmodule MossletWeb.PublicLive.Faq do
   @moduledoc false
   use MossletWeb, :live_view
-  
+
   import MossletWeb.DesignSystem
 
   @impl true
