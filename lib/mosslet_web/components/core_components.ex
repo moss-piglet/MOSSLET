@@ -882,7 +882,7 @@ defmodule MossletWeb.CoreComponents do
 
   attr :description?, :boolean, default: false
   attr :apply_classes?, :boolean, default: false
-  attr :classes, :list
+  attr :classes, :list, default: []
 
   attr :help, :string, default: nil
   attr :errors, :list, default: []

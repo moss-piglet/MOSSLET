@@ -308,12 +308,12 @@ defmodule MossletWeb.PublicLayout do
 
       <div
         x-show="open"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="transform opacity-0 scale-95 -translate-y-2"
-        x-transition:enter-end="transform opacity-100 scale-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
-        x-transition:leave-end="transform opacity-0 scale-95 -translate-y-2"
+        x-transition:enter="transition ease-out duration-300 transform-gpu"
+        x-transition:enter-start="opacity-0 -translate-y-1"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-200 transform-gpu"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 -translate-y-1"
         class={[
           "absolute right-0 z-50 mt-3 w-48 origin-top-right overflow-hidden",
           "rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
@@ -332,7 +332,8 @@ defmodule MossletWeb.PublicLayout do
             "hover:bg-gradient-to-r hover:from-teal-50 hover:via-emerald-50 hover:to-cyan-50",
             "dark:hover:from-teal-900/30 dark:hover:via-emerald-900/20 dark:hover:to-cyan-900/30",
             "hover:text-emerald-700 dark:hover:text-emerald-300",
-            "transition-all duration-200 ease-out",
+            "transition-all duration-200 ease-out transform-gpu",
+            "hover:scale-105 active:scale-95",
             "first:rounded-t-lg last:rounded-b-lg"
           ]}
         >
