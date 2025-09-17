@@ -1803,7 +1803,10 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_faq_simple(assigns) do
     ~H"""
-    <div class={["min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10", @class]}>
+    <div class={[
+      "min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10",
+      @class
+    ]}>
       <main class="isolate">
         <%!-- Hero section with liquid effects matching support page style --%>
         <div class="relative isolate">
@@ -1900,7 +1903,10 @@ defmodule MossletWeb.DesignSystem do
 
                   <%!-- Questions with improved spacing and styling --%>
                   <dl class="space-y-8">
-                    <div :for={qa <- section.questions} class="group/question border-l-4 border-transparent transition-all duration-200 ease-out hover:border-emerald-400 hover:pl-4">
+                    <div
+                      :for={qa <- section.questions}
+                      class="group/question border-l-4 border-transparent transition-all duration-200 ease-out hover:border-emerald-400 hover:pl-4"
+                    >
                       <dt class="text-lg font-semibold leading-7 text-slate-900 dark:text-slate-100 group-hover/question:text-emerald-600 dark:group-hover/question:text-emerald-400 transition-colors duration-200">
                         {qa.q}
                       </dt>
@@ -1941,8 +1947,7 @@ defmodule MossletWeb.DesignSystem do
                       href="mailto:support@mosslet.com"
                       class="relative"
                     >
-                      Contact our support team
-                      <%!-- Subtle underline effect --%>
+                      Contact our support team <%!-- Subtle underline effect --%>
                       <div class="absolute bottom-0 left-1/2 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full group-hover:left-0">
                       </div>
                     </.link>
