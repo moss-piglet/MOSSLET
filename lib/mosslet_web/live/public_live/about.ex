@@ -464,6 +464,9 @@ defmodule MossletWeb.PublicLive.About do
             </div>
           </div>
         </main>
+
+        <%!-- Spacer for proper footer separation --%>
+        <div class="pb-24"></div>
       </div>
     </.layout>
     """

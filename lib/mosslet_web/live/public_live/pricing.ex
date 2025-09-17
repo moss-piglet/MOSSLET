@@ -44,22 +44,20 @@ defmodule MossletWeb.PublicLive.Pricing do
             </div>
 
             <.liquid_container max_width="xl" class="pb-32 pt-36 sm:pt-60 lg:pt-32">
-              <div class="mx-auto max-w-4xl text-center">
-                <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl">
-                  Simple,
-                  <span class="italic underline underline-offset-4 decoration-emerald-600 dark:decoration-emerald-400 decoration-double bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                    pay once
-                  </span>
-                  <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                    pricing
-                  </span>
+              <div class="mx-auto max-w-2xl text-center">
+                <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
+                  Simple, pay once pricing
                 </h1>
-                <h2 class="mt-6 text-balance text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-slate-900 dark:text-white">
-                  Pay once, own forever.
-                </h2>
-                <p class="mt-8 text-pretty text-lg font-medium text-slate-600 dark:text-slate-400 sm:text-xl/8 text-balance max-w-2xl mx-auto">
-                  No subscriptions. No recurring fees. No surprises. One simple payment gives you lifetime access to privacy and peace of mind.
+
+                <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
+                  Pay once, own forever. No subscriptions. No recurring fees. No surprises. One simple payment gives you lifetime access to privacy and peace of mind.
                 </p>
+
+                <%!-- Decorative accent line matching support/FAQ style --%>
+                <div class="mt-8 flex justify-center">
+                  <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 shadow-sm shadow-emerald-500/30">
+                  </div>
+                </div>
               </div>
             </.liquid_container>
           </div>
@@ -130,33 +128,59 @@ defmodule MossletWeb.PublicLive.Pricing do
             <.liquid_comparison_table />
           </.liquid_container>
 
-          <%!-- Call to action section --%>
+          <%!-- Call to action section with liquid metal design --%>
           <.liquid_container max_width="xl" class="mt-32 sm:mt-48">
-            <div class="mx-auto max-w-2xl text-center">
-              <.liquid_card class="p-8 bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/50 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 border-teal-200 dark:border-emerald-700/30">
-                <h3 class="text-2xl font-bold tracking-tight text-pretty bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent sm:text-3xl">
-                  Own your digital life
-                </h3>
-                <p class="mt-4 text-lg text-slate-700 dark:text-slate-300">
-                  Join thousands who've chosen privacy over profit. One payment, lifetime protection.
+            <div class="mx-auto max-w-4xl">
+              <.liquid_card
+                padding="lg"
+                class="text-center bg-gradient-to-br from-teal-50/40 via-emerald-50/30 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/10 dark:to-cyan-900/15 border-teal-200/60 dark:border-emerald-700/30"
+              >
+                <:title>
+                  <span class="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                    Own your digital life
+                  </span>
+                </:title>
+                <p class="mt-6 text-lg leading-8 text-slate-700 dark:text-slate-300 max-w-2xl mx-auto">
+                  Join thousands who've chosen privacy over profit. One payment, lifetime protection. No subscriptions, no recurring fees, no surprises.
                 </p>
-                <div class="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-4">
-                  <.liquid_button navigate="/auth/register" size="lg" icon="hero-rocket-launch">
-                    Get Started
+
+                <%!-- Action buttons with enhanced spacing and layout --%>
+                <div class="mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-6">
+                  <.liquid_button
+                    navigate="/auth/register"
+                    size="lg"
+                    icon="hero-rocket-launch"
+                    color="teal"
+                    variant="primary"
+                    class="group/btn"
+                  >
+                    Get Started Today
                   </.liquid_button>
                   <.liquid_button
                     navigate="/features"
                     variant="secondary"
                     color="blue"
                     icon="hero-sparkles"
+                    size="lg"
+                    class="group/btn"
                   >
-                    Explore features
+                    Explore All Features
                   </.liquid_button>
+                </div>
+
+                <%!-- Trust indicator --%>
+                <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    30-day money-back guarantee • Human support team • No hidden fees
+                  </p>
                 </div>
               </.liquid_card>
             </div>
           </.liquid_container>
         </main>
+
+        <%!-- Spacer for proper footer separation --%>
+        <div class="pb-24"></div>
       </div>
     </.layout>
     """
