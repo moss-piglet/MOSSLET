@@ -246,8 +246,8 @@ defmodule MossletWeb.PublicLayout do
       </.liquid_container>
     </header>
 
-    <%!-- Main content with proper spacing --%>
-    <div class="bg-white dark:bg-slate-950 pt-16 lg:pt-20">
+    <%!-- Main content without header spacing since hero handles its own positioning --%>
+    <div class="bg-white dark:bg-slate-950">
       {render_slot(@inner_block)}
     </div>
 

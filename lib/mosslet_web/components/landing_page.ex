@@ -82,48 +82,70 @@ defmodule MossletWeb.Components.LandingPage do
       end)
 
     ~H"""
-    <section id="hero">
-      <.container class="bg-white dark:bg-gray-950">
+    <section id="hero" class="relative overflow-hidden">
+      <%!-- Liquid Metal Background System --%>
+      <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900"></div>
+      
+      <%!-- Primary Liquid Background Gradient --%>
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/40 via-emerald-50/30 to-cyan-50/40 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20"></div>
+      
+      <%!-- Animated Shimmer Layer --%>
+      <div class="absolute inset-0 opacity-0 animate-pulse transition-opacity duration-[3000ms] bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent dark:via-emerald-400/10"></div>
+      
+      <.container class="relative">
         <div class="relative isolate px-6 lg:px-8">
+          <%!-- Top Decorative Gradient (Updated to Liquid Metal Colors) --%>
           <div
             class="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
             aria-hidden="true"
           >
             <div
-              class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#9ACF65] to-[#8BE8E8] opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
+              class="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-teal-500/30 to-emerald-500/30 dark:from-teal-600/20 dark:to-emerald-600/20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
               style="clip-path: polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"
             >
             </div>
           </div>
           <div class="mx-auto max-w-2xl pb-32 pt-24 sm:pb-48 sm:pt-32 lg:pb-56">
+            <%!-- Liquid Metal Badge with Hover Effects --%>
             <div class="hidden sm:mb-8 sm:flex sm:justify-center">
-              <div class="relative rounded-full px-3 py-1 text-sm leading-6 text-gray-600 dark:text-gray-400 ring-1 ring-gray-900/10 dark:ring-gray-100/10 hover:ring-gray-900/20 dark:hover:ring-gray-100/20">
-                The fight for democracy in the age of surveillance
+              <div class="group relative overflow-hidden rounded-full px-4 py-2 text-sm leading-6 text-slate-600 dark:text-slate-400 transition-all duration-300 ease-out">
+                <%!-- Liquid Background --%>
+                <div class="absolute inset-0 bg-gradient-to-r from-slate-100/80 via-slate-50/90 to-slate-100/80 dark:from-slate-800/80 dark:via-slate-700/90 dark:to-slate-800/80 transition-all duration-300 group-hover:from-teal-100/60 group-hover:via-emerald-50/80 group-hover:to-cyan-100/60 dark:group-hover:from-teal-900/30 dark:group-hover:via-emerald-900/25 dark:group-hover:to-cyan-900/30"></div>
+                <%!-- Ring Border --%>
+                <div class="absolute inset-0 rounded-full ring-1 ring-slate-200/60 dark:ring-slate-700/60 transition-all duration-300 group-hover:ring-emerald-300/50 dark:group-hover:ring-emerald-600/30"></div>
+                <%!-- Shimmer Effect --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full"></div>
+                
+                <span class="relative">The fight for democracy in the age of surveillance</span>
                 <a
                   href="https://journals.sagepub.com/doi/full/10.1177/26317877221129290"
                   rel="noopener"
                   target="_blank"
-                  class="font-semibold text-emerald-600"
+                  class="relative font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"
                 >
                   <span class="absolute inset-0" aria-hidden="true"></span>Read more
-                  <span aria-hidden="true">&rarr;</span>
+                  <span aria-hidden="true" class="ml-1 transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
                 </a>
               </div>
             </div>
-            <div class="text-center">
-              <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+            <div class="text-center relative z-10">
+              <%!-- Enhanced Heading with Better Liquid Metal Effect --%>
+              <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm">
                 A social alternative that's simple and privacy-first
               </h1>
-              <p class="mt-6 text-lg leading-8 text-gray-600 text-balance dark:text-gray-400">
+              <%!-- Enhanced Description with Better Typography --%>
+              <p class="mt-6 text-lg leading-8 text-slate-600 text-balance dark:text-slate-400 max-w-2xl mx-auto">
                 Ditch intrusive and stressful Big Tech social platforms for MOSSLET — an alternative to Facebook, Twitter, and Instagram that's simple and privacy-first. Experience peace of mind.
               </p>
-              <div class="mt-10 flex items-center justify-center gap-x-6">
+              <%!-- Liquid Metal CTA Buttons --%>
+              <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
                 <MossletWeb.DesignSystem.liquid_button
                   navigate="/auth/register"
                   variant="primary"
                   color="teal"
                   icon="hero-user-plus"
-                  class="py-3 px-6"
+                  size="lg"
+                  class="w-full sm:w-auto shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300"
                 >
                   Register today
                 </MossletWeb.DesignSystem.liquid_button>
@@ -132,6 +154,8 @@ defmodule MossletWeb.Components.LandingPage do
                   variant="secondary"
                   color="teal"
                   icon="hero-arrow-right-on-rectangle"
+                  size="lg"
+                  class="w-full sm:w-auto"
                 >
                   Sign in
                 </MossletWeb.DesignSystem.liquid_button>
@@ -159,12 +183,13 @@ defmodule MossletWeb.Components.LandingPage do
               </div>
             </div>
           </div>
+          <%!-- Bottom Decorative Gradient (Updated to Liquid Metal Colors) --%>
           <div
             class="absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]"
             aria-hidden="true"
           >
             <div
-              class="relative left-[calc(50%+3rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 bg-gradient-to-tr from-[#9ACF65] to-[#8BE8E8] opacity-30 sm:left-[calc(50%+36rem)] sm:w-[72.1875rem]"
+              class="relative left-[calc(50%+3rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 bg-gradient-to-tr from-cyan-500/25 to-teal-500/25 dark:from-cyan-600/15 dark:to-teal-600/15 sm:left-[calc(50%+36rem)] sm:w-[72.1875rem]"
               style="clip-path: polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"
             >
             </div>
@@ -213,30 +238,36 @@ defmodule MossletWeb.Components.LandingPage do
       |> assign_new(:max_width, fn -> "lg" end)
 
     ~H"""
-    <section id="features">
-      <div class="bg-white dark:bg-gray-950 py-24 sm:py-32">
+    <section id="features" class="relative overflow-hidden">
+      <%!-- Liquid Metal Background System --%>
+      <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900"></div>
+      
+      <%!-- Subtle Liquid Background Accent --%>
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"></div>
+      
+      <div class="relative py-24 sm:py-32">
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
           <div class="mx-auto max-w-2xl lg:mx-0">
             <h2 class="text-base font-semibold leading-7 text-emerald-600 dark:text-emerald-400">
               Everything you want to share
             </h2>
-            <p class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
+            <p class="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
               With privacy you need.
             </p>
-            <p class="mt-6 text-lg leading-8 text-gray-500 dark:text-gray-400">
+            <p class="mt-6 text-lg leading-8 text-slate-600 dark:text-slate-400">
               Easily share with people in your life in real-time without thinking twice. Zero
               <.link
                 navigate={~p"/#general"}
-                class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"
               >
                 dark patterns
               </.link>
               means you can say goodbye to digital addiction and the anxiety of wondering how your life on the web affects your life outside. MOSSLET is simple and privacy-first.
             </p>
           </div>
-          <dl class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 text-base leading-7  text-gray-500 dark:text-gray-400 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:gap-x-16">
+          <dl class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 text-base leading-7 text-slate-600 dark:text-slate-400 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:gap-x-16">
             <div class="relative pl-9">
-              <dt class="inline font-semibold text-gray-900 dark:text-gray-100">
+              <dt class="inline font-semibold text-slate-900 dark:text-slate-100">
                 <svg
                   class="absolute left-1 top-1 h-5 w-5 text-emerald-600 dark:text-emerald-400"
                   viewBox="0 0 20 20"
@@ -256,7 +287,7 @@ defmodule MossletWeb.Components.LandingPage do
               </dd>
             </div>
             <div class="relative pl-9">
-              <dt class="inline font-semibold text-gray-900 dark:text-gray-100">
+              <dt class="inline font-semibold text-slate-900 dark:text-slate-100">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -277,7 +308,7 @@ defmodule MossletWeb.Components.LandingPage do
               </dd>
             </div>
             <div class="relative pl-9">
-              <dt class="inline font-semibold text-gray-900 dark:text-gray-100">
+              <dt class="inline font-semibold text-slate-900 dark:text-slate-100">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
@@ -299,7 +330,7 @@ defmodule MossletWeb.Components.LandingPage do
               </dd>
             </div>
             <div class="relative pl-9">
-              <dt class="inline font-semibold text-gray-900 dark:text-gray-100">
+              <dt class="inline font-semibold text-slate-900 dark:text-slate-100">
                 <svg
                   class="absolute left-1 top-1 h-5 w-5 text-emerald-600 dark:text-emerald-400"
                   viewBox="0 0 20 20"
