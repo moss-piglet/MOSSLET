@@ -4,7 +4,6 @@ defmodule MossletWeb.DeleteAccountLive do
 
   require Logger
 
-  import MossletWeb.UserSettingsLayoutComponent
   import Mosslet.FileUploads.Storj
 
   alias Mosslet.Accounts
@@ -16,77 +15,83 @@ defmodule MossletWeb.DeleteAccountLive do
 
   def render(assigns) do
     ~H"""
-    <.settings_layout current_page={:delete_account} current_user={@current_user} key={@key}>
-      <.form
-        for={@form}
-        id="delete_account_form"
-        phx-change="validate_delete_account"
-        phx-submit="delete_account"
-        class="max-w-lg"
-      >
-        <div class="mx-auto pb-6">
-          <span class="inline-flex">
-            <.icon name="hero-exclamation-triangle" class="text-rose-700 dark:text-rose-600 h-6 w-6" />
-            <.h2 class="ml-2 text-lg font-semibold leading-6 text-rose-700 dark:text-rose-600">
-              Delete your account
-            </.h2>
-          </span>
-          <.p class="mt-1 text-sm text-gray-700">
-            Enter your current password below to delete your account and its data. All of your data will be deleted in real-time and any subscription will be canceled. This cannot be undone.
-          </.p>
-        </div>
+    <.layout current_user={@current_user} current_page={:delete_account} key={@key} type="sidebar">
+      <.container class="py-16">
+        <.page_header title="Delete Account" />
+        <.form
+          for={@form}
+          id="delete_account_form"
+          phx-change="validate_delete_account"
+          phx-submit="delete_account"
+          class="max-w-lg"
+        >
+          <div class="mx-auto pb-6">
+            <span class="inline-flex">
+              <.icon
+                name="hero-exclamation-triangle"
+                class="text-rose-700 dark:text-rose-600 h-6 w-6"
+              />
+              <.h2 class="ml-2 text-lg font-semibold leading-6 text-rose-700 dark:text-rose-600">
+                Delete your account
+              </.h2>
+            </span>
+            <.p class="mt-1 text-sm text-gray-700">
+              Enter your current password below to delete your account and its data. All of your data will be deleted in real-time and any subscription will be canceled. This cannot be undone.
+            </.p>
+          </div>
 
-        <.field field={@form[:id]} type="hidden" value={@current_user.id} required />
-        <div id="passwordField" class="relative">
-          <div id="pw-label-container" class="flex justify-between">
-            <div id="pw-actions" class="absolute top-0 right-0">
-              <button
-                type="button"
-                id="eye"
-                data-tippy-content="Show password"
-                phx-hook="TippyHook"
-                phx-click={
-                  JS.set_attribute({"type", "text"}, to: "#current-password-for-delete-account")
-                  |> JS.remove_class("hidden", to: "#eye-slash")
-                  |> JS.add_class("hidden", to: "#eye")
-                }
-              >
-                <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
-              </button>
-              <button
-                type="button"
-                id="eye-slash"
-                x-data
-                x-tooltip="Hide password"
-                data-tippy-content="Hide password"
-                phx-hook="TippyHook"
-                class="hidden"
-                phx-click={
-                  JS.set_attribute({"type", "password"}, to: "#current-password-for-delete-account")
-                  |> JS.add_class("hidden", to: "#eye-slash")
-                  |> JS.remove_class("hidden", to: "#eye")
-                }
-              >
-                <.icon name="hero-eye-slash" class="h-5 w-5  dark:text-white cursor-pointer" />
-              </button>
+          <.field field={@form[:id]} type="hidden" value={@current_user.id} required />
+          <div id="passwordField" class="relative">
+            <div id="pw-label-container" class="flex justify-between">
+              <div id="pw-actions" class="absolute top-0 right-0">
+                <button
+                  type="button"
+                  id="eye"
+                  data-tippy-content="Show password"
+                  phx-hook="TippyHook"
+                  phx-click={
+                    JS.set_attribute({"type", "text"}, to: "#current-password-for-delete-account")
+                    |> JS.remove_class("hidden", to: "#eye-slash")
+                    |> JS.add_class("hidden", to: "#eye")
+                  }
+                >
+                  <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
+                </button>
+                <button
+                  type="button"
+                  id="eye-slash"
+                  x-data
+                  x-tooltip="Hide password"
+                  data-tippy-content="Hide password"
+                  phx-hook="TippyHook"
+                  class="hidden"
+                  phx-click={
+                    JS.set_attribute({"type", "password"}, to: "#current-password-for-delete-account")
+                    |> JS.add_class("hidden", to: "#eye-slash")
+                    |> JS.remove_class("hidden", to: "#eye")
+                  }
+                >
+                  <.icon name="hero-eye-slash" class="h-5 w-5  dark:text-white cursor-pointer" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <.field
-          field={@form[:current_password]}
-          type="password"
-          label={gettext("Current password")}
-          id="current-password-for-delete-account"
-          value={@current_password}
-          required
-          {alpine_autofocus()}
-        />
+          <.field
+            field={@form[:current_password]}
+            type="password"
+            label={gettext("Current password")}
+            id="current-password-for-delete-account"
+            value={@current_password}
+            required
+            {alpine_autofocus()}
+          />
 
-        <.button color="danger" class="rounded-full" phx-disable-with="Deleting...">
-          Delete Account
-        </.button>
-      </.form>
-    </.settings_layout>
+          <.button color="danger" class="rounded-full" phx-disable-with="Deleting...">
+            Delete Account
+          </.button>
+        </.form>
+      </.container>
+    </.layout>
     """
   end
 

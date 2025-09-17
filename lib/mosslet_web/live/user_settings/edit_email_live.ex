@@ -4,8 +4,6 @@ defmodule MossletWeb.EditEmailLive do
 
   require Logger
 
-  import MossletWeb.UserSettingsLayoutComponent
-
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
   alias Mosslet.Encrypted.Users.Utils
@@ -20,87 +18,90 @@ defmodule MossletWeb.EditEmailLive do
 
   def render(assigns) do
     ~H"""
-    <.settings_layout current_page={:edit_email} current_user={@current_user} key={@key}>
-      <div
-        :if={
-          !@current_user.is_admin? &&
-            decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
-            @current_user.confirmed_at
-        }
-        class="flex justify-center"
-      >
-        <.button phx-click="update_admin" class="rounded-full" color="secondary">Set Admin</.button>
-      </div>
-      <div
-        :if={
-          @current_user.is_admin? &&
-            decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
-            @current_user.confirmed_at
-        }
-        class="flex justify-center"
-      >
-        <.button phx-click="update_admin" class="rounded-full" color="danger">Revoke Admin</.button>
-      </div>
-      <.form id="change_email_form" for={@form} phx-submit="update_email" class="max-w-lg">
-        <.field
-          type="email"
-          field={@form[:email]}
-          value={decr(@form[:email].value, @current_user, @key)}
-          label={gettext("Change your email")}
-          autocomplete="email"
-          {alpine_autofocus()}
-        />
+    <.layout current_user={@current_user} current_page={:edit_email} key={@key} type="sidebar">
+      <.container class="py-16">
+        <.page_header title="Email" />
+        <div
+          :if={
+            !@current_user.is_admin? &&
+              decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
+              @current_user.confirmed_at
+          }
+          class="flex justify-center"
+        >
+          <.button phx-click="update_admin" class="rounded-full" color="secondary">Set Admin</.button>
+        </div>
+        <div
+          :if={
+            @current_user.is_admin? &&
+              decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
+              @current_user.confirmed_at
+          }
+          class="flex justify-center"
+        >
+          <.button phx-click="update_admin" class="rounded-full" color="danger">Revoke Admin</.button>
+        </div>
+        <.form id="change_email_form" for={@form} phx-submit="update_email" class="max-w-lg">
+          <.field
+            type="email"
+            field={@form[:email]}
+            value={decr(@form[:email].value, @current_user, @key)}
+            label={gettext("Change your email")}
+            autocomplete="email"
+            {alpine_autofocus()}
+          />
 
-        <div id="password-current" class="relative">
-          <div id="pw-label-current-container" class="flex justify-between">
-            <div id="pw-current-actions" class="absolute top-0 right-0">
-              <button
-                type="button"
-                id="eye-current-password"
-                data-tippy-content="Show current password"
-                phx-hook="TippyHook"
-                phx-click={
-                  JS.set_attribute({"type", "text"}, to: "#current-password")
-                  |> JS.remove_class("hidden", to: "#eye-slash-current-password")
-                  |> JS.add_class("hidden", to: "#eye-current-password")
-                }
-              >
-                <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
-              </button>
-              <button
-                type="button"
-                id="eye-slash-current-password"
-                x-data
-                x-tooltip="Hide password"
-                data-tippy-content="Hide current password"
-                phx-hook="TippyHook"
-                class="hidden"
-                phx-click={
-                  JS.set_attribute({"type", "password"}, to: "#current-password")
-                  |> JS.add_class("hidden", to: "#eye-slash-current-password")
-                  |> JS.remove_class("hidden", to: "#eye-current-password")
-                }
-              >
-                <.icon name="hero-eye-slash" class="h-5 w-5  dark:text-white cursor-pointer" />
-              </button>
+          <div id="password-current" class="relative">
+            <div id="pw-label-current-container" class="flex justify-between">
+              <div id="pw-current-actions" class="absolute top-0 right-0">
+                <button
+                  type="button"
+                  id="eye-current-password"
+                  data-tippy-content="Show current password"
+                  phx-hook="TippyHook"
+                  phx-click={
+                    JS.set_attribute({"type", "text"}, to: "#current-password")
+                    |> JS.remove_class("hidden", to: "#eye-slash-current-password")
+                    |> JS.add_class("hidden", to: "#eye-current-password")
+                  }
+                >
+                  <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
+                </button>
+                <button
+                  type="button"
+                  id="eye-slash-current-password"
+                  x-data
+                  x-tooltip="Hide password"
+                  data-tippy-content="Hide current password"
+                  phx-hook="TippyHook"
+                  class="hidden"
+                  phx-click={
+                    JS.set_attribute({"type", "password"}, to: "#current-password")
+                    |> JS.add_class("hidden", to: "#eye-slash-current-password")
+                    |> JS.remove_class("hidden", to: "#eye-current-password")
+                  }
+                >
+                  <.icon name="hero-eye-slash" class="h-5 w-5  dark:text-white cursor-pointer" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <.field
-          type="password"
-          id="current-password"
-          field={@form[:current_password]}
-          name="current_password"
-          label={gettext("Current password")}
-          autocomplete="off"
-          required
-        />
+          <.field
+            type="password"
+            id="current-password"
+            field={@form[:current_password]}
+            name="current_password"
+            label={gettext("Current password")}
+            autocomplete="off"
+            required
+          />
 
-        <div class="flex justify-end">
-          <.button class="rounded-full">{gettext("Change email")}</.button>
-        </div>
-      </.form>
-    </.settings_layout>
+          <div class="flex justify-end">
+            <.button class="rounded-full">{gettext("Change email")}</.button>
+          </div>
+        </.form>
+      </.container>
+    </.layout>
     """
   end
 

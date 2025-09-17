@@ -50,7 +50,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       </div>
 
       <%!-- Desktop sidebar --%>
-      <aside class="hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:w-64 lg:flex-col">
+      <aside class="hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:w-72 lg:flex-col">
         <div class={[
           "flex grow flex-col gap-y-6 overflow-y-auto px-6 pb-4",
           "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
@@ -87,7 +87,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <div class="relative z-50 lg:hidden">
         <div
           class={[
-            "fixed z-50 w-64 flex flex-col px-0 pb-4",
+            "fixed z-50 w-72 flex flex-col px-0 pb-4",
             "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
             "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
             "border-r border-slate-200/60 dark:border-slate-700/60",
@@ -101,7 +101,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           x-transition:leave-start="translate-x-0 opacity-100"
           x-transition:leave-end="-translate-x-full opacity-90"
           x-cloak
-          style="position: fixed !important; top: 0 !important; bottom: 0 !important; left: 0 !important; width: 16rem !important; height: 100vh !important;"
+          style="position: fixed !important; top: 0 !important; bottom: 0 !important; left: 0 !important; width: 18rem !important; height: 100vh !important;"
         >
           <div class="flex h-16 shrink-0 items-center justify-between px-6 border-b border-slate-200/30 dark:border-slate-700/30">
             <.link navigate={@home_path} class="block">
@@ -133,7 +133,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       </div>
 
       <%!-- Main content --%>
-      <div class="lg:pl-64">
+      <div class="lg:pl-72">
         <%!-- Top bar --%>
         <div class={[
           "sticky top-0 z-20 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",

@@ -2,8 +2,6 @@ defmodule MossletWeb.EditTotpLive do
   @moduledoc false
   use MossletWeb, :live_view
 
-  import MossletWeb.UserSettingsLayoutComponent
-
   alias Mosslet.Accounts
 
   @qrcode_size 264
@@ -21,44 +19,51 @@ defmodule MossletWeb.EditTotpLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.settings_layout current_page={:edit_totp} current_user={@current_user} key={@key}>
-      <div class="max-w-lg">
-        <.h3>{gettext("Two-factor authentication")}</.h3>
+    <.layout current_user={@current_user} current_page={:edit_totp} key={@key} type="sidebar">
+      <.container class="py-16">
+        <.page_header title="2FA" />
+        <div class="max-w-lg">
+          <.h3>{gettext("Two-factor authentication")}</.h3>
 
-        <%= if @current_totp do %>
-          <div class="flex items-center gap-2 mb-6">
-            <.icon solid name="hero-check-badge" class="w-10 h-10 text-green-600 dark:text-green-400" />
+          <%= if @current_totp do %>
+            <div class="flex items-center gap-2 mb-6">
+              <.icon
+                solid
+                name="hero-check-badge"
+                class="w-10 h-10 text-green-600 dark:text-green-400"
+              />
 
-            <div class="font-semibold dark:text-gray-100">
-              {gettext("2FA Enabled")}
+              <div class="font-semibold dark:text-gray-100">
+                {gettext("2FA Enabled")}
+              </div>
             </div>
-          </div>
-        <% end %>
+          <% end %>
 
-        <.backup_codes
-          :if={@backup_codes}
-          id="backup-codes-component"
-          backup_codes={@backup_codes}
-          editing_totp={@editing_totp}
-        />
-
-        <%= if @editing_totp do %>
-          <.totp_form
-            totp_form={@totp_form}
-            current_totp={@current_totp}
-            secret_display={@secret_display}
-            qrcode_uri={@qrcode_uri}
+          <.backup_codes
+            :if={@backup_codes}
+            id="backup-codes-component"
+            backup_codes={@backup_codes}
             editing_totp={@editing_totp}
           />
-        <% else %>
-          <.enable_form
-            current_totp={@current_totp}
-            user_form={@user_form}
-            current_password={@current_password}
-          />
-        <% end %>
-      </div>
-    </.settings_layout>
+
+          <%= if @editing_totp do %>
+            <.totp_form
+              totp_form={@totp_form}
+              current_totp={@current_totp}
+              secret_display={@secret_display}
+              qrcode_uri={@qrcode_uri}
+              editing_totp={@editing_totp}
+            />
+          <% else %>
+            <.enable_form
+              current_totp={@current_totp}
+              user_form={@user_form}
+              current_password={@current_password}
+            />
+          <% end %>
+        </div>
+      </.container>
+    </.layout>
     """
   end
 

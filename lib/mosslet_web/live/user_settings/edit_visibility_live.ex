@@ -2,8 +2,6 @@ defmodule MossletWeb.EditVisibilityLive do
   @moduledoc false
   use MossletWeb, :live_view
 
-  import MossletWeb.UserSettingsLayoutComponent
-
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
 
@@ -17,29 +15,32 @@ defmodule MossletWeb.EditVisibilityLive do
 
   def render(assigns) do
     ~H"""
-    <.settings_layout current_page={:edit_visibility} current_user={@current_user} key={@key}>
-      <.form
-        id="change_visibility_form"
-        for={@form}
-        phx-submit="update_visibility"
-        phx-change="validate_visibility"
-        class="max-w-lg"
-      >
-        <.field
-          type="select"
-          field={@form[:visibility]}
-          options={Ecto.Enum.values(User, :visibility)}
-          label={gettext("Change your account visibility")}
-          autocomplete="visibility"
-          help_text={visibility_help_text(@form[:visibility].value)}
-          {alpine_autofocus()}
-        />
+    <.layout current_user={@current_user} current_page={:edit_visibility} key={@key} type="sidebar">
+      <.container class="py-16">
+        <.page_header title="Visibility" />
+        <.form
+          id="change_visibility_form"
+          for={@form}
+          phx-submit="update_visibility"
+          phx-change="validate_visibility"
+          class="max-w-lg"
+        >
+          <.field
+            type="select"
+            field={@form[:visibility]}
+            options={Ecto.Enum.values(User, :visibility)}
+            label={gettext("Change your account visibility")}
+            autocomplete="visibility"
+            help_text={visibility_help_text(@form[:visibility].value)}
+            {alpine_autofocus()}
+          />
 
-        <div class="flex justify-end">
-          <.button class="rounded-full">{gettext("Change visibility")}</.button>
-        </div>
-      </.form>
-    </.settings_layout>
+          <div class="flex justify-end">
+            <.button class="rounded-full">{gettext("Change visibility")}</.button>
+          </div>
+        </.form>
+      </.container>
+    </.layout>
     """
   end
 

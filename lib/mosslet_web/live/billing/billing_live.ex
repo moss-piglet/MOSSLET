@@ -2,8 +2,6 @@ defmodule MossletWeb.BillingLive do
   @moduledoc false
   use MossletWeb, :live_view
 
-  import MossletWeb.UserSettingsLayoutComponent
-
   alias Mosslet.Billing.PaymentIntents
   alias Mosslet.Repo
 
@@ -116,17 +114,19 @@ defmodule MossletWeb.BillingLive do
     ~H"""
     <%= case @source do %>
       <% :user -> %>
-        <.settings_layout current_page={:billing} current_user={@current_user} key={@key}>
-          <.h3>{gettext("Billing")}</.h3>
-          <.active_payment_intent_info
-            subscribe_path={subscribe_path(@source, assigns)}
-            billing_provider={@billing_provider}
-            provider_charge_async={@provider_charge_async}
-            provider_payment_intent_async={@provider_payment_intent_async}
-            current_user={@current_user}
-            key={@key}
-          />
-        </.settings_layout>
+        <.layout current_user={@current_user} current_page={:billing} key={@key} type="sidebar">
+          <.container class="py-16">
+            <.page_header title="Billing" />
+            <.active_payment_intent_info
+              subscribe_path={subscribe_path(@source, assigns)}
+              billing_provider={@billing_provider}
+              provider_charge_async={@provider_charge_async}
+              provider_payment_intent_async={@provider_payment_intent_async}
+              current_user={@current_user}
+              key={@key}
+            />
+          </.container>
+        </.layout>
     <% end %>
     """
   end
