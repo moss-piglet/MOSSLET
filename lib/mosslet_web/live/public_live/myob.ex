@@ -260,7 +260,7 @@ defmodule MossletWeb.PublicLive.Myob do
                   <strong class="text-gray-900 dark:text-gray-200">
                     At MOSSLET, our business model is as basic as it is boring:
                   </strong>
-                  We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never track you, spy on you, or enable others to either. It's absolutely none of their business, and it's none of ours either.
+                  We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never spy on you or enable others to either. It's absolutely none of their business, and it's none of ours either.
                 </p>
               </.liquid_card>
 
@@ -297,7 +297,7 @@ defmodule MossletWeb.PublicLive.Myob do
                   <strong class="text-gray-900 dark:text-gray-200">
                     MOSSLET doesn't mine your posts for data:
                   </strong>
-                  There are no big AI engines to feed. We don't track what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't take or track it even if we wanted to — which we don't.
+                  There are no big AI engines to feed. We don't analyze what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't analyze or monetize it even if we wanted to — which we don't.
                 </p>
                 <p>
                   When you're in the business of "free", like Google, Facebook, Instagram, TikTok, YouTube, and many others, you're in the business of snooping. Tricking. Collecting. Aggregating. Slicing. Dicing. Packaging. Do you really want to be used like that? As a resource to be mined? Do you really want companies secretly deciding and controlling your future? If you're here, and curious about MOSSLET, you probably don't.

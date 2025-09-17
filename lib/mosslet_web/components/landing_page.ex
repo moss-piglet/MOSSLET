@@ -241,10 +241,10 @@ defmodule MossletWeb.Components.LandingPage do
                       <.phx_icon name="hero-shield-check" class="h-6 w-6" />
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                      Zero Tracking
+                      Zero Spying
                     </h3>
                     <p class="text-slate-600 dark:text-slate-400">
-                      We don't track, spy on, or monetize your personal data. Your privacy is not for sale.
+                      We don't spy on or monetize your personal data. Your privacy is not for sale.
                     </p>
                   </div>
                 </div>
@@ -1025,7 +1025,7 @@ defmodule MossletWeb.Components.LandingPage do
                     <strong class="text-gray-900 dark:text-gray-200">
                       At MOSSLET, our business model is as basic as it is boring:
                     </strong>
-                    We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never track you, spy on you, or enable others to either. It's absolutely none of their business, and it's none of ours either.
+                    We charge our customers a fair price for our products. That's it. We don't take your personal data as payment, we don't try to monetize your eyeballs, we don't target you, we don't sell, broker, or barter ads. We will never spy on you or enable others to either. It's absolutely none of their business, and it's none of ours either.
                   </p>
                 </div>
               </div>
@@ -1055,7 +1055,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <strong class="text-gray-900 dark:text-gray-200">
                   MOSSLET doesn't mine your posts for data:
                 </strong>
-                There are no big AI engines to feed. We don't track what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't take or track it even if we wanted to — which we don't.
+                There are no big AI engines to feed. We don't analyze what links you click, your interests, your location, who your friends are, what you say. We don't take your your face from your pictures, nothing personal other than the most basic identifying information we need to call you a customer. Everything else is simply none of our business. And because you pay to use MOSSLET, it doesn't need to be. Even then, we encrypt it all in a way so that we couldn't analyze or monetize it even if we wanted to — which we don't.
               </p>
               <p>
                 When you're in the business of "free", like Google, Facebook, Instagram, TikTok, YouTube, and many others, you're in the business of snooping. Tricking. Collecting. Aggregating. Slicing. Dicing. Packaging. Do you really want to be used like that? As a resource to be mined? Do you really want companies secretly deciding and controlling your future? If you're here, and curious about MOSSLET, you probably don't.
@@ -1190,7 +1190,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <h3 class="text-xl font-bold">Privacy First</h3>
               </dt>
               <dd class="mt-4 text-gray-600 dark:text-gray-300">
-                Your data belongs to you. Strong encryption, no tracking, no selling your information to advertisers.
+                Your data belongs to you. Strong encryption, no spying, no selling your information to advertisers.
               </dd>
             </div>
 
@@ -1978,7 +1978,7 @@ defmodule MossletWeb.Components.LandingPage do
             Compares
           </h2>
           <p class="mt-4 mx-1 text-lg text-gray-600 dark:text-gray-400 max-w-3xl sm:mx-auto">
-            The only platform that doesn't track, spy on, or monetize your personal data
+            We don't spy on or monetize your personal data
           </p>
         </div>
         <table class="mt-6 w-full text-left whitespace-wrap">
@@ -3171,7 +3171,7 @@ defmodule MossletWeb.Components.LandingPage do
                     Pay Once, Own Forever
                   </h3>
                   <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    No subscriptions, no ads, no tracking. Just a one-time payment for lifetime access.
+                    No subscriptions, no ads, no spying. Just a one-time payment for lifetime access.
                   </p>
                 </div>
               </div>
@@ -3727,7 +3727,7 @@ defmodule MossletWeb.Components.LandingPage do
                     Pay Once, Own Forever
                   </h3>
                   <p class="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    No subscriptions, no ads, no tracking. Just a one-time payment for lifetime access.
+                    No subscriptions, no ads, no spying. Just a one-time payment for lifetime access.
                   </p>
                 </div>
               </div>

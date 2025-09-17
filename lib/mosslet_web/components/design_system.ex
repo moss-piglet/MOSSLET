@@ -985,7 +985,7 @@ defmodule MossletWeb.DesignSystem do
             Compares
           </h3>
           <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
-            The only platform that doesn't track, spy on, or monetize your personal data
+            We don't spy on or monetize your personal data
           </p>
         </div>
 
@@ -1027,14 +1027,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-emerald-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-emerald-500"></div>
-                    </div>
-                    <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                      None
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="minimal">
+                    Minimal***
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">$59 once</div>
@@ -1065,14 +1060,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm text-slate-500 line-through">"Free"</div>
@@ -1103,14 +1093,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm text-slate-500 line-through">"Free"</div>
@@ -1139,22 +1124,17 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
-                  <div class="text-sm text-slate-900 dark:text-slate-100">$96-192/yr</div>
+                  <div class="text-sm text-slate-900 dark:text-slate-100">$96-192/yr*</div>
                   <div class="text-xs text-slate-600 dark:text-slate-400">+ data value</div>
                 </td>
                 <td class="hidden md:table-cell py-4 pl-2">
-                  <.liquid_badge variant="soft" color="amber" size="sm">
-                    Limited
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
                   </.liquid_badge>
                 </td>
               </tr>
@@ -1175,14 +1155,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm text-slate-500 line-through">"Free"</div>
@@ -1213,12 +1188,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">Active</span>
-                  </div>
+                  <.liquid_tracking_indicator status="limited">
+                    Limited
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm text-slate-500 line-through">"Free"</div>
@@ -1249,17 +1221,12 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
-                  <div class="text-sm text-slate-900 dark:text-slate-100">$60-120/yr</div>
+                  <div class="text-sm text-slate-900 dark:text-slate-100">$60-120/yr*</div>
                   <div class="text-xs text-slate-600 dark:text-slate-400">+ data value</div>
                 </td>
                 <td class="hidden md:table-cell py-4 pl-2">
@@ -1285,22 +1252,17 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
-                  <div class="text-sm text-slate-900 dark:text-slate-100">$50-100/yr</div>
+                  <div class="text-sm text-slate-900 dark:text-slate-100">$50-100/yr*</div>
                   <div class="text-xs text-slate-600 dark:text-slate-400">+ data value</div>
                 </td>
                 <td class="hidden md:table-cell py-4 pl-2">
-                  <.liquid_badge variant="soft" color="amber" size="sm">
-                    Limited
+                  <.liquid_badge variant="soft" color="rose" size="sm">
+                    Poor
                   </.liquid_badge>
                 </td>
               </tr>
@@ -1323,14 +1285,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-emerald-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-emerald-500"></div>
-                    </div>
-                    <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                      Minimal
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="minimal">
+                    Minimal***
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm text-slate-900 dark:text-slate-100">Free</div>
@@ -1359,19 +1316,16 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-amber-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-amber-500"></div>
-                    </div>
-                    <span class="text-sm text-amber-600 dark:text-amber-400 font-medium">Varies</span>
-                  </div>
+                  <.liquid_tracking_indicator status="orange">
+                    Varies
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
-                  <div class="text-sm text-slate-900 dark:text-slate-100">Free</div>
+                  <div class="text-sm text-slate-900 dark:text-slate-100">Free**</div>
                   <div class="text-xs text-slate-600 dark:text-slate-400">Instance costs</div>
                 </td>
                 <td class="hidden md:table-cell py-4 pl-2">
-                  <.liquid_badge variant="soft" color="amber" size="sm">
+                  <.liquid_badge variant="soft" color="orange" size="sm">
                     Varies
                   </.liquid_badge>
                 </td>
@@ -1395,14 +1349,9 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </td>
                 <td class="hidden sm:table-cell py-4 px-2">
-                  <div class="flex items-center gap-x-2">
-                    <div class="flex-none rounded-full bg-rose-500/20 p-1">
-                      <div class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></div>
-                    </div>
-                    <span class="text-sm text-rose-600 dark:text-rose-400 font-medium">
-                      Extensive
-                    </span>
-                  </div>
+                  <.liquid_tracking_indicator status="extensive">
+                    Extensive
+                  </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
                   <div class="text-sm text-slate-500 line-through">"Free"</div>
@@ -1419,7 +1368,17 @@ defmodule MossletWeb.DesignSystem do
         </div>
 
         <%!-- Footer note --%>
-        <div class="mt-6 text-center">
+        <div class="mt-6 text-center space-y-2">
+          <p class="text-xs text-slate-500 dark:text-slate-500">
+            * Also offers "free" tier (~$700/yr data cost)
+          </p>
+          <p class="text-xs text-slate-500 dark:text-slate-500">
+            ** Premium features available ($500/month)
+          </p>
+          <p class="text-xs text-slate-500 dark:text-slate-500">
+            *** Collects minimal operational data necessary for service functionality:
+            MOSSLET (encrypted payment info, security logs), Signal (phone numbers for messaging)
+          </p>
           <p class="text-sm text-slate-600 dark:text-slate-400">
             Data value estimates based on research by
             <a
@@ -1541,11 +1500,11 @@ defmodule MossletWeb.DesignSystem do
 
   defp badge_soft_color_classes("amber"),
     do:
-      "from-amber-100 to-orange-200 text-amber-800 dark:from-amber-800 dark:to-orange-700 dark:text-amber-200 border border-amber-300 dark:border-amber-600"
+      "from-amber-100 to-yellow-200 text-amber-800 dark:from-amber-800 dark:to-yellow-700 dark:text-amber-200 border border-amber-300 dark:border-amber-600"
 
   defp badge_soft_color_classes("orange"),
     do:
-      "from-orange-100 to-amber-200 text-orange-800 dark:from-orange-800 dark:to-amber-700 dark:text-orange-200 border border-orange-300 dark:border-orange-600"
+      "from-orange-100 to-red-200 text-orange-800 dark:from-orange-800 dark:to-red-700 dark:text-orange-200 border border-orange-300 dark:border-orange-600"
 
   defp badge_soft_color_classes("rose"),
     do:
@@ -1640,4 +1599,180 @@ defmodule MossletWeb.DesignSystem do
   defp modal_size_classes("xl"), do: "w-full max-w-2xl sm:max-w-3xl lg:max-w-5xl"
   # fallback
   defp modal_size_classes(_), do: "w-full max-w-lg sm:max-w-xl"
+
+  @doc """
+  Liquid metal tracking indicator component for privacy/tracking status.
+
+  ## Examples
+
+      <.liquid_tracking_indicator status="minimal">Minimal</.liquid_tracking_indicator>
+      <.liquid_tracking_indicator status="extensive">Extensive</.liquid_tracking_indicator>
+      <.liquid_tracking_indicator status="varies">Varies</.liquid_tracking_indicator>
+      <.liquid_tracking_indicator status="none">None</.liquid_tracking_indicator>
+  """
+  attr :status, :string,
+    required: true,
+    values: ~w(none minimal extensive varies active moderate purple orange limited)
+
+  attr :class, :any, default: ""
+  attr :size, :string, default: "sm", values: ~w(xs sm md)
+  slot :inner_block, required: true
+
+  def liquid_tracking_indicator(assigns) do
+    ~H"""
+    <div class={[
+      "flex items-center gap-x-2",
+      @class
+    ]}>
+      <div class={[
+        "relative overflow-hidden transition-all duration-300 ease-out transform-gpu",
+        tracking_indicator_size_classes(@size),
+        tracking_indicator_bg_classes(@status)
+      ]}>
+        <%!-- Liquid background gradient --%>
+        <div class={[
+          "absolute inset-0 transition-all duration-500 ease-out",
+          tracking_indicator_liquid_bg_classes(@status)
+        ]}>
+        </div>
+
+        <%!-- Shimmer effect for active indicators --%>
+        <div
+          :if={@status in ["extensive", "active"]}
+          class={[
+            "absolute inset-0 transition-all duration-1000 ease-out animate-pulse",
+            tracking_indicator_shimmer_classes(@status)
+          ]}
+        >
+        </div>
+
+        <%!-- Status dot --%>
+        <div class={[
+          "relative rounded-full transition-all duration-200 ease-out",
+          tracking_indicator_dot_size_classes(@size),
+          tracking_indicator_dot_classes(@status)
+        ]}>
+        </div>
+      </div>
+
+      <span class={[
+        "font-medium transition-all duration-200 ease-out",
+        tracking_indicator_text_size_classes(@size),
+        tracking_indicator_text_classes(@status)
+      ]}>
+        {render_slot(@inner_block)}
+      </span>
+    </div>
+    """
+  end
+
+  # Size classes for the indicator container
+  defp tracking_indicator_size_classes("xs"), do: "flex-none rounded-full w-4 h-4 p-0.5"
+  defp tracking_indicator_size_classes("sm"), do: "flex-none rounded-full w-5 h-5 p-1"
+  defp tracking_indicator_size_classes("md"), do: "flex-none rounded-full w-6 h-6 p-1.5"
+
+  # Background classes for the indicator container
+  defp tracking_indicator_bg_classes("none"), do: "bg-emerald-500/20"
+  defp tracking_indicator_bg_classes("minimal"), do: "bg-emerald-500/20"
+  defp tracking_indicator_bg_classes("extensive"), do: "bg-rose-500/20"
+  defp tracking_indicator_bg_classes("active"), do: "bg-rose-500/20"
+  defp tracking_indicator_bg_classes("varies"), do: "bg-amber-500/20"
+  defp tracking_indicator_bg_classes("moderate"), do: "bg-amber-500/20"
+  defp tracking_indicator_bg_classes("purple"), do: "bg-purple-500/20"
+  defp tracking_indicator_bg_classes("orange"), do: "bg-orange-500/20"
+  defp tracking_indicator_bg_classes("limited"), do: "bg-amber-500/20"
+
+  # Liquid background gradients
+  defp tracking_indicator_liquid_bg_classes("none"),
+    do:
+      "bg-gradient-to-br from-emerald-50/60 via-teal-50/80 to-emerald-50/60 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("minimal"),
+    do:
+      "bg-gradient-to-br from-emerald-50/60 via-teal-50/80 to-emerald-50/60 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("extensive"),
+    do:
+      "bg-gradient-to-br from-rose-50/60 via-pink-50/80 to-rose-50/60 dark:from-rose-900/15 dark:via-pink-900/20 dark:to-rose-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("active"),
+    do:
+      "bg-gradient-to-br from-rose-50/60 via-pink-50/80 to-rose-50/60 dark:from-rose-900/15 dark:via-pink-900/20 dark:to-rose-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("varies"),
+    do:
+      "bg-gradient-to-br from-amber-50/60 via-orange-50/80 to-amber-50/60 dark:from-amber-900/15 dark:via-orange-900/20 dark:to-amber-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("moderate"),
+    do:
+      "bg-gradient-to-br from-amber-50/60 via-orange-50/80 to-amber-50/60 dark:from-amber-900/15 dark:via-orange-900/20 dark:to-amber-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("orange"),
+    do:
+      "bg-gradient-to-br from-orange-50/60 via-amber-50/80 to-orange-50/60 dark:from-orange-900/15 dark:via-amber-900/20 dark:to-orange-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("limited"),
+    do:
+      "bg-gradient-to-br from-amber-50/60 via-yellow-50/80 to-amber-50/60 dark:from-amber-900/15 dark:via-yellow-900/20 dark:to-amber-900/15"
+
+  defp tracking_indicator_liquid_bg_classes("purple"),
+    do:
+      "bg-gradient-to-br from-purple-50/60 via-violet-50/80 to-purple-50/60 dark:from-purple-900/15 dark:via-violet-900/20 dark:to-purple-900/15"
+
+  # Shimmer effects for animated indicators
+  defp tracking_indicator_shimmer_classes("extensive"),
+    do: "bg-gradient-to-r from-transparent via-rose-200/40 to-transparent dark:via-rose-400/20"
+
+  defp tracking_indicator_shimmer_classes("active"),
+    do: "bg-gradient-to-r from-transparent via-rose-200/40 to-transparent dark:via-rose-400/20"
+
+  defp tracking_indicator_shimmer_classes(_), do: ""
+
+  # Dot size classes
+  defp tracking_indicator_dot_size_classes("xs"), do: "h-2 w-2"
+  defp tracking_indicator_dot_size_classes("sm"), do: "h-2 w-2"
+  defp tracking_indicator_dot_size_classes("md"), do: "h-3 w-3"
+
+  # Dot color classes with liquid metal gradients
+  defp tracking_indicator_dot_classes("none"),
+    do: "bg-gradient-to-br from-emerald-400 to-teal-500"
+
+  defp tracking_indicator_dot_classes("minimal"),
+    do: "bg-gradient-to-br from-emerald-400 to-teal-500"
+
+  defp tracking_indicator_dot_classes("extensive"),
+    do: "bg-gradient-to-br from-rose-400 to-pink-500"
+
+  defp tracking_indicator_dot_classes("active"), do: "bg-gradient-to-br from-rose-400 to-pink-500"
+
+  defp tracking_indicator_dot_classes("varies"),
+    do: "bg-gradient-to-br from-amber-400 to-orange-500"
+
+  defp tracking_indicator_dot_classes("moderate"),
+    do: "bg-gradient-to-br from-amber-400 to-orange-500"
+
+  defp tracking_indicator_dot_classes("purple"),
+    do: "bg-gradient-to-br from-purple-400 to-violet-500"
+
+  defp tracking_indicator_dot_classes("orange"),
+    do: "bg-gradient-to-br from-orange-400 to-amber-500"
+
+  defp tracking_indicator_dot_classes("limited"),
+    do: "bg-gradient-to-br from-amber-400 to-yellow-500"
+
+  # Text size classes
+  defp tracking_indicator_text_size_classes("xs"), do: "text-xs"
+  defp tracking_indicator_text_size_classes("sm"), do: "text-sm"
+  defp tracking_indicator_text_size_classes("md"), do: "text-base"
+
+  # Text color classes
+  defp tracking_indicator_text_classes("none"), do: "text-emerald-600 dark:text-emerald-400"
+  defp tracking_indicator_text_classes("minimal"), do: "text-emerald-600 dark:text-emerald-400"
+  defp tracking_indicator_text_classes("extensive"), do: "text-rose-600 dark:text-rose-400"
+  defp tracking_indicator_text_classes("active"), do: "text-rose-600 dark:text-rose-400"
+  defp tracking_indicator_text_classes("varies"), do: "text-amber-600 dark:text-amber-400"
+  defp tracking_indicator_text_classes("moderate"), do: "text-amber-600 dark:text-amber-400"
+  defp tracking_indicator_text_classes("purple"), do: "text-purple-600 dark:text-purple-400"
+  defp tracking_indicator_text_classes("orange"), do: "text-orange-600 dark:text-orange-400"
+  defp tracking_indicator_text_classes("limited"), do: "text-amber-600 dark:text-amber-400"
 end

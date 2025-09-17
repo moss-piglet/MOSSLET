@@ -127,7 +127,7 @@ defmodule MossletWeb.PublicLive.Features do
                 </div>
               </:title>
               <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                Your data belongs to you. Strong encryption, no tracking, no selling your information to advertisers.
+                Your data belongs to you. Strong encryption, no spying, no selling your information to advertisers.
               </p>
             </.liquid_card>
 

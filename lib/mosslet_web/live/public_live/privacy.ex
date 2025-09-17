@@ -15,7 +15,7 @@ defmodule MossletWeb.PublicLive.Privacy do
     >
       <div class="bg-white dark:bg-gray-950">
         <main class="isolate">
-          <!-- Hero section -->
+          <%!-- Hero section --%>
           <div class="relative isolate -z-10">
             <svg
               class="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 dark:stroke-gray-800 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
@@ -69,8 +69,8 @@ defmodule MossletWeb.PublicLive.Privacy do
               </div>
             </div>
           </div>
-          
-    <!-- Privacy features section -->
+
+          <%!-- Privacy features section --%>
           <div class="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
             <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
               <div class="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -125,8 +125,8 @@ defmodule MossletWeb.PublicLive.Privacy do
               </div>
             </div>
           </div>
-          
-    <!-- Privacy Policy section -->
+
+          <%!-- Privacy Policy section --%>
           <div class="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
             <div class="mx-auto max-w-4xl">
               <div class="text-center mb-16">
@@ -137,14 +137,14 @@ defmodule MossletWeb.PublicLive.Privacy do
                   Originally published November 9, 2021
                 </p>
                 <p class="text-sm text-rose-600 dark:text-rose-400">
-                  (updated August 20, 2025)
+                  (updated September 17, 2025)
                 </p>
                 <p class="mt-8 text-xl text-gray-600 dark:text-gray-400 leading-8">
                   We do not log or share personal information. That is our privacy policy in a nutshell. The rest of this policy tries to explain what information we may have, why we have it, how we protect it, and why you should care.
                 </p>
               </div>
-              
-    <!-- Overview Section -->
+
+              <%!-- Overview Section --%>
               <div class="mb-12 p-6 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-2xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
                 <h3 class="text-xl font-bold text-teal-800 dark:text-teal-200 mb-6">
                   Why Privacy Matters
@@ -153,8 +153,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                   <p class="text-lg leading-relaxed">
                     Privacy is <strong>essential to a free life</strong>. MOSSLET is an alternative destination for social connection online, free of surveillance capitalism and psychometric profiling.
                   </p>
-                  
-    <!-- Key Benefits Grid -->
+
+                  <%!-- Key Benefits Grid --%>
                   <div class="bg-white dark:bg-gray-800/80 rounded-xl p-6 border border-teal-100 dark:border-teal-800">
                     <h4 class="font-semibold text-teal-800 dark:text-teal-200 mb-4 text-center">
                       What MOSSLET Guarantees
@@ -197,7 +197,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           name="hero-check-badge"
                           class="text-emerald-600 dark:text-emerald-400 mr-2 lg:mr-0 lg:mb-2 h-6 w-6 flex-shrink-0"
                         />
-                        <span class="text-sm lg:text-xs">You are <strong>not</strong> tracked</span>
+                        <span class="text-sm lg:text-xs">You are <strong>not</strong> spied on</span>
                       </div>
                     </div>
                   </div>
@@ -205,8 +205,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                   <p>
                     MOSSLET is designed so that you can connect and share with the people in your life, on your terms. At MOSSLET, being human doesn't come at the expense of your humanity.
                   </p>
-                  
-    <!-- Academic Context - Collapsible for those interested -->
+
+                  <%!-- Academic Context - Collapsible for those interested --%>
                   <details class="group">
                     <summary class="cursor-pointer text-teal-700 dark:text-teal-300 hover:text-teal-600 dark:hover:text-teal-200 font-medium flex items-center">
                       <span>Learn more about surveillance capitalism</span>
@@ -240,10 +240,10 @@ defmodule MossletWeb.PublicLive.Privacy do
                   </details>
                 </div>
               </div>
-              
-    <!-- Collapsible Sections -->
+
+              <%!-- Collapsible Sections --%>
               <div class="space-y-4">
-                <!-- What is your data? -->
+                <%!-- What is your data? --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -279,8 +279,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Where is your data stored? -->
+
+                <%!-- Where is your data stored? --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -342,8 +342,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Data Ownership -->
+
+                <%!-- Data Ownership --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -398,8 +398,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Encryption & Security -->
+
+                <%!-- Encryption & Security --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -442,8 +442,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- No Manipulation -->
+
+                <%!-- No Manipulation --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -470,8 +470,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- No Data Sharing -->
+
+                <%!-- No Data Sharing --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -500,16 +500,17 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </p>
                   </div>
                 </details>
-                
-    <!-- No Tracking -->
+
+                <%!-- No Tracking --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        You are not tracked
+                        You are not spied on
                         <span class="text-sm opacity-50 line-through ml-2">
                           surveillance capitalism
                         </span>
+                        <span class="text-sm text-rose-600 dark:text-rose-400 ml-2">(updated)</span>
                       </h3>
                       <.icon
                         name="hero-chevron-down"
@@ -519,7 +520,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                   </summary>
                   <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
                     <p class="pt-4">
-                      We do not use creepy cookies or
+                      We do not use behavioral tracking technologies like advertising cookies or
                       <.link
                         navigate="https://spreadprivacy.com/browser-fingerprinting/"
                         class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
@@ -528,12 +529,29 @@ defmodule MossletWeb.PublicLive.Privacy do
                       >
                         fingerprinting
                       </.link>
-                      to track or identify you.
+                      to spy on you across the internet or build advertising profiles.
                     </p>
+                    <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border-l-4 border-yellow-500">
+                      <p class="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                        Minimal operational data collection:
+                      </p>
+                      <ul class="space-y-1 text-sm">
+                        <li>• Encrypted payment information (processed by Stripe for billing)</li>
+                        <li>
+                          • Security logs (asymmetrically encrypted login times and IP addresses for your account security - only you can decrypt them for viewing where you last signed in)
+                        </li>
+                        <li>
+                          • Basic account functionality data (account confirmation status, etc.)
+                        </li>
+                      </ul>
+                      <p class="text-sm mt-2">
+                        This operational data is encrypted, never monetized, and used solely for service functionality and security.
+                      </p>
+                    </div>
                   </div>
                 </details>
-                
-    <!-- Metadata & Payment Information -->
+
+                <%!-- Metadata & Payment Information --%>
                 <details
                   class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
                   id="privacy_policy_metadata"
@@ -560,7 +578,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         <span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-sm">
                           subscription or payment
                         </span>
-                        to synchronize with Stripe (<span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-sm">asymmetrically encrypted</span> and deterministically hashed for lookups on our end), and subscription information (like dates and status).
+                        to synchronize with Stripe (<span class="px-2 py-1 bg-rose-200 dark:bg-rose-300 text-rose-900 rounded text-sm">asymmetrically encrypted - only you can decrypt them, not us</span> and deterministically hashed for lookups on our end), and subscription information (like dates and status).
                       </p>
                       <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border-l-4 border-orange-500 mt-4">
                         <p class="font-semibold text-orange-800 dark:text-orange-200">
@@ -669,8 +687,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Additional Information -->
+
+                <%!-- Additional Information --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
@@ -723,8 +741,8 @@ defmodule MossletWeb.PublicLive.Privacy do
                     </div>
                   </div>
                 </details>
-                
-    <!-- Updates & Contact -->
+
+                <%!-- Updates & Contact --%>
                 <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                   <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <div class="flex items-center justify-between">
