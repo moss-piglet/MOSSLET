@@ -12,13 +12,12 @@ export default {
   repositionFlashes() {
     // Simple stacking - let flexbox handle the layout
     const flashes = this.el.querySelectorAll('[phx-hook="LiquidFlash"]');
-    console.log(`Found ${flashes.length} flash messages`);
-    
+
     // Add stagger animation to new flashes
     flashes.forEach((flash, index) => {
       if (!flash.dataset.positioned) {
         flash.style.animationDelay = `${index * 100}ms`;
-        flash.dataset.positioned = 'true';
+        flash.dataset.positioned = "true";
       }
     });
   },
