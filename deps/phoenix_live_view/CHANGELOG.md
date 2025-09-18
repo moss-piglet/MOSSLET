@@ -267,6 +267,16 @@ When `:debug_heex_annotations` is enabled, LiveView will now annotate the beginn
 
 To enable this, a new callback called `annotate_slot/4` was added. Custom implementations of `Phoenix.LiveView.TagEngine` must implement it accordingly.
 
+## v1.1.12 (2025-09-14)
+
+### Bug fixes
+
+* Prevent HEEx line from being reported as uncovered when using a pattern in `:let={}` ([#3989](https://github.com/phoenixframework/phoenix_live_view/pull/3989))
+
+### Enhancements
+
+* Automatically symlink `assets/node_modules` folder for colocated hooks (see the documentation for `Phoenix.LiveView.ColocatedJS`, [#3988](https://github.com/phoenixframework/phoenix_live_view/pull/3988))
+
 ## v1.1.11 (2025-09-04)
 
 ### Bug fixes
@@ -292,7 +302,7 @@ To enable this, a new callback called `annotate_slot/4` was added. Custom implem
 * Ensure `push_patch` works during form recovery ([#3964](https://github.com/phoenixframework/phoenix_live_view/issues/3964))
 * Fix diff crash in LiveViewTest when rendering structs ([#3970](https://github.com/phoenixframework/phoenix_live_view/pull/3970))
 
-## Enhancements
+### Enhancements
 
 * Include form values from DOM in `Phoenix.LiveViewTest.submit_form/2` and `Phoenix.LiveViewTest.follow_trigger_action/2` to mimic browser behavior ([#3885](https://github.com/phoenixframework/phoenix_live_view/issues/3885))
 * Allow assigning generic hooks to type `Hook` ([#3955](https://github.com/phoenixframework/phoenix_live_view/issues/3955))

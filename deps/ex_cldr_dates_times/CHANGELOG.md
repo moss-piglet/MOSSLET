@@ -2,6 +2,20 @@
 
 **Note that `ex_cldr_dates_times` version 2.18.0 and later are supported on Elixir 1.12 and later only.**
 
+## Cldr_Dates_Times v2.24.0
+
+This is the changelog for Cldr_Dates_Times v2.24.0 released on September 11th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr_cldr_dates_times/tags)
+
+### Bug Fixes
+
+* Remove unused dependencies from `mix.lock`. Thanks to @Munksgaard. Closes #60.
+
+* Fix missing backticks in docs. Thanks to @Munksgaard. Closes #58.
+
+### Enhancements
+
+* Adds `Cldr.DateTime.Timezone.locations_with_zone_changes/0` that returns a list of locations which have changed time zone over time.
+
 ## Cldr_Dates_Times v2.23.0
 
 This is the changelog for Cldr_Dates_Times v2.23.0 released on August 27th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr_cldr_dates_times/tags)

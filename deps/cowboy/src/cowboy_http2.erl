@@ -82,8 +82,13 @@
 -export_type([opts/0]).
 
 -record(stream, {
-	%% Whether the stream is currently stopping.
-	status = running :: running | stopping,
+	%% Whether the stream is currently in a special state.
+	%%
+	%% - The running state is the normal state of a stream.
+	%% - The relaying state is used by extended CONNECT protocols to
+	%%   use a 'relay' data_delivery method.
+	%% - The stopping state indicates the stream used the 'stop' command.
+	status = running :: running | {relaying, non_neg_integer(), pid()} | stopping,
 
 	%% Flow requested for this stream.
 	flow = 0 :: non_neg_integer(),
@@ -142,7 +147,7 @@
 
 	%% Dynamic buffer moving average and current buffer size.
 	dynamic_buffer_size :: pos_integer() | false,
-	dynamic_buffer_moving_average :: non_neg_integer(),
+	dynamic_buffer_moving_average :: float(),
 
 	%% Currently active HTTP/2 streams. Streams may be initiated either
 	%% by the client or by the server through PUSH_PROMISE frames.
@@ -154,7 +159,8 @@
 }).
 
 -spec init(pid(), ranch:ref(), inet:socket(), module(),
-	ranch_proxy_header:proxy_info() | undefined, cowboy:opts()) -> ok.
+	ranch_proxy_header:proxy_info() | undefined, cowboy:opts()) -> no_return().
+
 init(Parent, Ref, Socket, Transport, ProxyHeader, Opts) ->
 	{ok, Peer} = maybe_socket_error(undefined, Transport:peername(Socket),
 		'A socket error occurred when retrieving the peer name.'),
@@ -178,7 +184,8 @@ init(Parent, Ref, Socket, Transport, ProxyHeader, Opts) ->
 -spec init(pid(), ranch:ref(), inet:socket(), module(),
 	ranch_proxy_header:proxy_info() | undefined, cowboy:opts(),
 	{inet:ip_address(), inet:port_number()}, {inet:ip_address(), inet:port_number()},
-	binary() | undefined, binary()) -> ok.
+	binary() | undefined, binary()) -> no_return().
+
 init(Parent, Ref, Socket, Transport, ProxyHeader, Opts, Peer, Sock, Cert, Buffer) ->
 	DynamicBuffer = init_dynamic_buffer_size(Opts),
 	{ok, Preface, HTTP2Machine} = cow_http2_machine:init(server, Opts),
@@ -188,7 +195,7 @@ init(Parent, Ref, Socket, Transport, ProxyHeader, Opts, Peer, Sock, Cert, Buffer
 		transport=Transport, proxy_header=ProxyHeader,
 		opts=Opts, peer=Peer, sock=Sock, cert=Cert,
 		dynamic_buffer_size=DynamicBuffer,
-		dynamic_buffer_moving_average=maps:get(dynamic_buffer_initial_average, Opts, 0),
+		dynamic_buffer_moving_average=maps:get(dynamic_buffer_initial_average, Opts, 0.0),
 		http2_status=sequence, http2_machine=HTTP2Machine}), 0),
 	safe_setopts_active(State),
 	case Buffer of
@@ -227,7 +234,8 @@ add_period(Time, Period) -> Time + Period.
 -spec init(pid(), ranch:ref(), inet:socket(), module(),
 	ranch_proxy_header:proxy_info() | undefined, cowboy:opts(),
 	{inet:ip_address(), inet:port_number()}, {inet:ip_address(), inet:port_number()},
-	binary() | undefined, binary(), map() | undefined, cowboy_req:req()) -> ok.
+	binary() | undefined, binary(), map() | undefined, cowboy_req:req()) -> no_return().
+
 init(Parent, Ref, Socket, Transport, ProxyHeader, Opts, Peer, Sock, Cert, Buffer,
 		_Settings, Req=#{method := Method}) ->
 	DynamicBuffer = init_dynamic_buffer_size(Opts),
@@ -238,7 +246,7 @@ init(Parent, Ref, Socket, Transport, ProxyHeader, Opts, Peer, Sock, Cert, Buffer
 		transport=Transport, proxy_header=ProxyHeader,
 		opts=Opts, peer=Peer, sock=Sock, cert=Cert,
 		dynamic_buffer_size=DynamicBuffer,
-		dynamic_buffer_moving_average=maps:get(dynamic_buffer_initial_average, Opts, 0),
+		dynamic_buffer_moving_average=maps:get(dynamic_buffer_initial_average, Opts, 0.0),
 		http2_status=upgrade, http2_machine=HTTP2Machine},
 	State1 = headers_frame(State0#state{
 		http2_machine=HTTP2Machine}, StreamID, Req),
@@ -276,7 +284,7 @@ before_loop(State=#state{opts=#{hibernate := true}}, Buffer) ->
 before_loop(State, Buffer) ->
 	loop(State, Buffer).
 
--spec loop(#state{}, binary()) -> ok.
+-spec loop(#state{}, binary()) -> no_return().
 
 loop(State=#state{parent=Parent, socket=Socket, transport=Transport,
 		opts=Opts, timer=TimerRef, children=Children}, Buffer) ->
@@ -324,6 +332,8 @@ loop(State=#state{parent=Parent, socket=Socket, transport=Transport,
 		%% Messages pertaining to a stream.
 		{{Pid, StreamID}, Msg} when Pid =:= self() ->
 			before_loop(info(State, StreamID, Msg), Buffer);
+		{'$cowboy_relay_command', {Pid, StreamID}, RelayCommand} when Pid =:= self() ->
+			before_loop(relay_command(State, StreamID, RelayCommand), Buffer);
 		%% Exit signal from children.
 		Msg = {'EXIT', Pid, _} ->
 			before_loop(down(State, Pid, Msg), Buffer);
@@ -517,6 +527,14 @@ data_frame(State0=#state{opts=Opts, flow=Flow0, streams=Streams}, StreamID, IsFi
 				reset_stream(State0, StreamID, {internal_error, {Class, Exception},
 					'Unhandled exception in cowboy_stream:data/4.'})
 			end;
+		%% Stream handlers are not used for the data when relaying.
+		#{StreamID := #stream{status={relaying, _, RelayPid}}} ->
+			RelayPid ! {'$cowboy_relay_data', {self(), StreamID}, IsFin, Data},
+			%% We keep a steady flow using the configured flow value.
+			%% Because we do not change the 'flow' value the update_window/2
+			%% function will always maintain this value (of course with
+			%% thresholds applying).
+			update_window(State0, StreamID);
 		%% We ignore DATA frames for streams that are stopping.
 		#{} ->
 			State0
@@ -863,6 +881,26 @@ commands(State=#state{socket=Socket, transport=Transport, http2_status=upgrade},
 	commands(State, StreamID, Tail);
 %% Use a different protocol within the stream (CONNECT :protocol).
 %% @todo Make sure we error out when the feature is disabled.
+%% There are two data_delivery: stream_handlers and relay.
+%% The former just has the data go through stream handlers
+%% like normal requests. The latter relays data directly.
+%%
+%% @todo When relaying there might be some data that is
+%%       in stream handlers and that need to be received,
+%%       depending on whether the protocol sends data
+%%       before processing the response.
+commands(State0=#state{flow=Flow, streams=Streams}, StreamID,
+		[{switch_protocol, Headers, _Mod, ModState=#{data_delivery := relay}}|Tail]) ->
+	State1 = info(State0, StreamID, {headers, 200, Headers}),
+	#{StreamID := Stream} = Streams,
+	#{data_delivery_pid := RelayPid} = ModState,
+	%% WINDOW_UPDATE frames updating the window will be sent after
+	%% the first DATA frame has been received.
+	RelayFlow = maps:get(data_delivery_flow, ModState, 131072),
+	State = State1#state{flow=Flow + RelayFlow, streams=Streams#{StreamID => Stream#stream{
+		status={relaying, RelayFlow, RelayPid},
+		flow=RelayFlow}}},
+	commands(State, StreamID, Tail);
 commands(State0, StreamID, [{switch_protocol, Headers, _Mod, _ModState}|Tail]) ->
 	State = info(State0, StreamID, {headers, 200, Headers}),
 	commands(State, StreamID, Tail);
@@ -877,6 +915,26 @@ commands(State, StreamID, [stop|_Tail]) ->
 commands(State=#state{opts=Opts}, StreamID, [Log={log, _, _, _}|Tail]) ->
 	cowboy:log(Log, Opts),
 	commands(State, StreamID, Tail).
+
+%% Relay data delivery commands.
+
+relay_command(State, StreamID, DataCmd = {data, _, _}) ->
+	commands(State, StreamID, [DataCmd]);
+%% When going active mode again we set the RelayFlow again
+%% and update the window if necessary.
+relay_command(State=#state{flow=Flow, streams=Streams}, StreamID, active) ->
+	#{StreamID := Stream} = Streams,
+	#stream{status={relaying, RelayFlow, _}} = Stream,
+	update_window(State#state{flow=Flow + RelayFlow,
+		streams=Streams#{StreamID => Stream#stream{flow=RelayFlow}}},
+		StreamID);
+%% When going passive mode we don't update the window
+%% since we have not incremented it.
+relay_command(State=#state{flow=Flow, streams=Streams}, StreamID, passive) ->
+	#{StreamID := Stream} = Streams,
+	#stream{flow=StreamFlow} = Stream,
+	State#state{flow=Flow - StreamFlow,
+		streams=Streams#{StreamID => Stream#stream{flow=0}}}.
 
 %% Tentatively update the window after the flow was updated.
 
@@ -1134,7 +1192,9 @@ goaway_streams(State, [Stream|Tail], LastStreamID, Reason, Acc) ->
 %% in-flight stream creation (at least one round-trip time), the server can send
 %% another GOAWAY frame with an updated last stream identifier. This ensures
 %% that a connection can be cleanly shut down without losing requests.
+
 -spec initiate_closing(#state{}, _) -> #state{}.
+
 initiate_closing(State=#state{http2_status=connected, socket=Socket,
 		transport=Transport, opts=Opts}, Reason) ->
 	ok = maybe_socket_error(State, Transport:send(Socket,
@@ -1151,7 +1211,9 @@ initiate_closing(State, Reason) ->
 	terminate(State, {stop, stop_reason(Reason), 'The connection is going away.'}).
 
 %% Switch to 'closing' state and stop accepting new streams.
+
 -spec closing(#state{}, Reason :: term()) -> #state{}.
+
 closing(State=#state{streams=Streams}, Reason) when Streams =:= #{} ->
 	terminate(State, Reason);
 closing(State0=#state{http2_status=closing_initiated,
@@ -1188,6 +1250,7 @@ maybe_socket_error(State, {error, Reason}, Human) ->
 	terminate(State, {socket_error, Reason, Human}).
 
 -spec terminate(#state{} | undefined, _) -> no_return().
+
 terminate(undefined, Reason) ->
 	exit({shutdown, Reason});
 terminate(State=#state{socket=Socket, transport=Transport, http2_status=Status,
@@ -1388,15 +1451,18 @@ terminate_stream_handler(#state{opts=Opts}, StreamID, Reason, StreamState) ->
 
 %% System callbacks.
 
--spec system_continue(_, _, {#state{}, binary()}) -> ok.
+-spec system_continue(_, _, {#state{}, binary()}) -> no_return().
+
 system_continue(_, _, {State, Buffer}) ->
 	before_loop(State, Buffer).
 
 -spec system_terminate(any(), _, _, {#state{}, binary()}) -> no_return().
+
 system_terminate(Reason0, _, _, {State, Buffer}) ->
 	Reason = {stop, {exit, Reason0}, 'sys:terminate/2,3 was called.'},
 	before_loop(initiate_closing(State, Reason), Buffer).
 
 -spec system_code_change(Misc, _, _, _) -> {ok, Misc} when Misc::{#state{}, binary()}.
+
 system_code_change(Misc, _, _, _) ->
 	{ok, Misc}.
