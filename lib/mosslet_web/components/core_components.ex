@@ -915,7 +915,7 @@ defmodule MossletWeb.CoreComponents do
 
     ~H"""
     <div phx-feedback-for={@name}>
-      <div class="flex items-center gap-3">
+      <div class="group flex items-center gap-3 p-2 -m-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-out">
         <div class="relative">
           <input type="hidden" name={@name} value="false" />
           <input
@@ -928,7 +928,7 @@ defmodule MossletWeb.CoreComponents do
               if @apply_classes?,
                 do: @classes,
                 else:
-                  "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500"
+                  "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500/50 dark:focus:ring-emerald-400/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 checked:border-emerald-600 dark:checked:border-emerald-400 shadow-sm hover:shadow-md"
             }
             {@rest}
           />
@@ -936,14 +936,14 @@ defmodule MossletWeb.CoreComponents do
         <div class="flex-1">
           <label
             for={@id}
-            class="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer leading-relaxed"
+            class="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 ease-out"
           >
             {@label}
           </label>
           <div
             :if={@description?}
             id={@id <> "_description"}
-            class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+            class="mt-1 text-sm text-slate-500 dark:text-slate-500"
           >
             {render_slot(@description_block)}
           </div>
@@ -978,9 +978,12 @@ defmodule MossletWeb.CoreComponents do
                 @errors != [] && "border-rose-400 focus:border-rose-400"
               ],
               else: [
-                "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800 pr-10",
-                @errors == [] && "border-zinc-300 focus:border-zinc-400",
-                @errors != [] && "border-rose-400 focus:border-rose-400"
+                "block w-full rounded-lg border py-2 px-3 text-slate-900 dark:text-slate-100 shadow-sm ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 pr-10",
+                "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 ring-slate-300 dark:ring-slate-600",
+                "focus:border-emerald-500 focus:ring-emerald-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400",
+                "transition-colors duration-200 ease-out",
+                @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
+                @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
               ]
           }
           multiple={@multiple}
@@ -1064,11 +1067,14 @@ defmodule MossletWeb.CoreComponents do
               @errors != [] && "border-rose-400 focus:border-rose-400"
             ],
             else: [
-              "bg-white dark:bg-gray-950 mt-2 block w-full rounded-lg text-zinc-900 dark:text-gray-100 focus:ring-0 sm:text-sm sm:leading-6",
-              "min-h-[6rem] phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
+              "bg-white dark:bg-slate-800 mt-2 block w-full rounded-lg text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm sm:leading-6",
+              "min-h-[6rem] phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-emerald-400",
+              "border border-slate-300 dark:border-slate-600 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+              "focus:border-emerald-500 focus:ring-emerald-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400",
+              "transition-colors duration-200 ease-out",
               @errors == [] &&
-                "border-zinc-300 focus:border-zinc-400 dark:border-gray-600 dark:focus:border-emerald-400",
-              @errors != [] && "border-rose-400 focus:border-rose-400"
+                "hover:border-slate-400 dark:hover:border-slate-500",
+              @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
             ]
         }
         {@rest}
@@ -1139,10 +1145,14 @@ defmodule MossletWeb.CoreComponents do
               @errors != [] && "border-rose-400 focus:border-rose-400"
             ],
             else: [
-              "mt-2 block w-full rounded-lg text-zinc-900 dark:text-white focus:ring-0 sm:text-sm sm:leading-6",
-              "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400",
-              @errors == [] && "border-zinc-300 focus:border-zinc-400",
-              @errors != [] && "border-rose-400 focus:border-rose-400"
+              "mt-2 block w-full rounded-lg text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm sm:leading-6",
+              "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600",
+              "placeholder:text-slate-500 dark:placeholder:text-slate-400",
+              "focus:border-emerald-500 focus:ring-emerald-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400",
+              "transition-colors duration-200 ease-out",
+              "phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-emerald-400",
+              @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
+              @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
             ]
         }
         required={@required}

@@ -1442,8 +1442,434 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
+  @doc """
+  Liquid metal checkbox component with enhanced styling.
+
+  ## Examples
+
+      <.liquid_checkbox field={@form[:accept_terms]} label="I accept the terms" />
+      <.liquid_checkbox field={@form[:newsletter]} label="Subscribe to newsletter" help="Get weekly updates" />
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+  attr :help, :string, default: nil
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_checkbox(assigns) do
+    # Extract field information
+    value = assigns.field.value
+    assigns = assign(assigns, :checked, value == true or value == "true" or value == "on")
+    assigns = assign(assigns, :id, assigns.field.id)
+    assigns = assign(assigns, :name, assigns.field.name)
+    assigns = assign(assigns, :value, assigns.field.value)
+
+    # Check for errors
+    errors = if Phoenix.Component.used_input?(assigns.field), do: assigns.field.errors, else: []
+    assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
+
+    ~H"""
+    <div phx-feedback-for={@name} class={["space-y-2", @class]}>
+      <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
+        <%!-- Enhanced liquid background effect on hover and focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-hover:opacity-100 group-focus-within:opacity-100 rounded-xl">
+        </div>
+
+        <%!-- Enhanced shimmer effect on hover and focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-focus-within:opacity-100 group-hover:translate-x-full group-focus-within:translate-x-full -translate-x-full rounded-xl">
+        </div>
+
+        <%!-- Focus ring with liquid metal styling --%>
+        <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+        </div>
+
+        <%!-- Secondary focus ring for better definition --%>
+        <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+        </div>
+
+        <div class="relative flex items-start gap-4">
+          <%!-- Checkbox input with enhanced liquid styling --%>
+          <div class="relative flex-shrink-0 pt-0.5">
+            <input type="hidden" name={@name} value="false" />
+            <input
+              type="checkbox"
+              id={@id}
+              name={@name}
+              value="true"
+              checked={@checked}
+              class={[
+                "h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer",
+                "bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400",
+                "border-slate-300 dark:border-slate-600",
+                "hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20",
+                "focus:border-emerald-500 dark:focus:border-emerald-400",
+                "focus:outline-none focus:ring-0",
+                "checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500",
+                "shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
+              ]}
+              }
+              {@rest}
+            />
+          </div>
+
+          <%!-- Label and help text --%>
+          <div class="flex-1 min-w-0">
+            <label
+              for={@id}
+              class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors duration-200 ease-out"
+            >
+              {@label}
+            </label>
+            <p
+              :if={@help}
+              class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+            >
+              {@help}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Error messages --%>
+      <div :if={@errors != []} class="ml-9">
+        <p :for={error <- @errors} class="text-sm text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Liquid metal textarea component with enhanced styling.
+
+  ## Examples
+
+      <.liquid_textarea field={@form[:description]} label="Description" />
+      <.liquid_textarea field={@form[:bio]} label="About you" placeholder="Tell us about yourself..." />
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, default: nil
+  attr :value, :string, default: nil
+  attr :placeholder, :string, default: nil
+  attr :help, :string, default: nil
+  attr :rows, :integer, default: 4
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_textarea(assigns) do
+    # Extract field information
+    assigns = assign(assigns, :id, assigns.field.id)
+    assigns = assign(assigns, :name, assigns.field.name)
+    # Use provided value or fallback to field value
+    assigns = assign(assigns, :textarea_value, assigns.value || assigns.field.value || "")
+
+    # Check for errors
+    errors = if Phoenix.Component.used_input?(assigns.field), do: assigns.field.errors, else: []
+    assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
+
+    ~H"""
+    <div phx-feedback-for={@name} class={["space-y-3", @class]}>
+      <%!-- Label --%>
+      <label
+        for={@id}
+        class="block text-sm font-medium text-slate-900 dark:text-slate-100 transition-colors duration-200 ease-out"
+      >
+        {@label}
+      </label>
+
+      <%!-- Textarea container with liquid effects and proper focus ring --%>
+      <div class="group relative">
+        <%!-- Enhanced liquid background effect on focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl">
+        </div>
+
+        <%!-- Enhanced shimmer effect on focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+        </div>
+
+        <%!-- Focus ring with liquid metal styling --%>
+        <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+        </div>
+
+        <%!-- Secondary focus ring for better definition --%>
+        <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+        </div>
+
+        <%!-- Textarea input with enhanced contrast --%>
+        <textarea
+          id={@id}
+          name={@name}
+          rows={@rows}
+          placeholder={@placeholder}
+          class={[
+            "relative block w-full rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100",
+            "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+            "border-2 border-slate-200 dark:border-slate-700",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "focus:border-emerald-500 dark:focus:border-emerald-400",
+            "focus:outline-none focus:ring-0",
+            "resize-none transition-all duration-200 ease-out",
+            "sm:text-sm sm:leading-6",
+            "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+            "focus:bg-white dark:focus:bg-slate-800",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          {@rest}
+        ><%= Phoenix.HTML.Form.normalize_value("textarea", @textarea_value) %></textarea>
+      </div>
+
+      <%!-- Help text --%>
+      <p
+        :if={@help}
+        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+      >
+        {@help}
+      </p>
+
+      <%!-- Error messages --%>
+      <div :if={@errors != []} class="space-y-1">
+        <p :for={error <- @errors} class="text-sm text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  defp translate_error({msg, opts}) do
+    # Use gettext for translation if available
+    if count = opts[:count] do
+      Gettext.dngettext(MossletWeb.Gettext, "errors", msg, msg, count, opts)
+    else
+      Gettext.dgettext(MossletWeb.Gettext, "errors", msg, opts)
+    end
+  end
+
+  defp translate_error(msg), do: msg
+
+  @doc """
+  Liquid metal text input component with enhanced styling.
+
+  ## Examples
+
+      <.liquid_input field={@form[:email]} label="Email" type="email" />
+      <.liquid_input field={@form[:password]} label="Password" type="password" />
+      <.liquid_input field={@form[:name]} label="Full Name" placeholder="Enter your name..." />
+      <.liquid_input field={@form[:id]} type="hidden" value="123" />
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, default: nil
+  attr :type, :string, default: "text"
+  attr :value, :string, default: nil
+  attr :placeholder, :string, default: nil
+  attr :help, :string, default: nil
+  attr :required, :boolean, default: false
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_input(assigns) do
+    # Extract field information
+    assigns = assign(assigns, :id, assigns.field.id)
+    assigns = assign(assigns, :name, assigns.field.name)
+    # Use provided value or fallback to field value
+    assigns = assign(assigns, :input_value, assigns.value || assigns.field.value || "")
+
+    # Check for errors
+    errors = if Phoenix.Component.used_input?(assigns.field), do: assigns.field.errors, else: []
+    assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
+
+    ~H"""
+    <div phx-feedback-for={@name} class={["space-y-3", @class]}>
+      <%!-- Label --%>
+      <label
+        for={@id}
+        class="block text-sm font-medium text-slate-900 dark:text-slate-100 transition-colors duration-200 ease-out"
+      >
+        {@label}
+        <span :if={@required} class="text-rose-500 ml-1">*</span>
+      </label>
+
+      <%!-- Input container with liquid effects and proper focus ring --%>
+      <div class="group relative">
+        <%!-- Enhanced liquid background effect on focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl">
+        </div>
+
+        <%!-- Enhanced shimmer effect on focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+        </div>
+
+        <%!-- Focus ring with liquid metal styling --%>
+        <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+        </div>
+
+        <%!-- Secondary focus ring for better definition --%>
+        <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+        </div>
+
+        <%!-- Input field with enhanced contrast --%>
+        <input
+          type={@type}
+          id={@id}
+          name={@name}
+          value={@input_value}
+          placeholder={@placeholder}
+          required={@required}
+          class={[
+            "relative block w-full rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100",
+            "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+            "border-2 border-slate-200 dark:border-slate-700",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "focus:border-emerald-500 dark:focus:border-emerald-400",
+            "focus:outline-none focus:ring-0",
+            "transition-all duration-200 ease-out",
+            "sm:text-sm sm:leading-6",
+            "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+            "focus:bg-white dark:focus:bg-slate-800",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          {@rest}
+        />
+      </div>
+
+      <%!-- Help text --%>
+      <p
+        :if={@help}
+        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+      >
+        {@help}
+      </p>
+
+      <%!-- Error messages --%>
+      <div :if={@errors != []} class="space-y-1">
+        <p :for={error <- @errors} class="text-sm text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Liquid metal select component with enhanced styling.
+
+  ## Examples
+
+      <.liquid_select field={@form[:country]} label="Country" options={["US", "CA", "UK"]} />
+      <.liquid_select field={@form[:category]} label="Category" options={@categories} prompt="Choose a category" />
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+  attr :options, :list, required: true
+  attr :prompt, :string, default: nil
+  attr :help, :string, default: nil
+  attr :required, :boolean, default: false
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_select(assigns) do
+    # Extract field information
+    assigns = assign(assigns, :id, assigns.field.id)
+    assigns = assign(assigns, :name, assigns.field.name)
+    assigns = assign(assigns, :value, assigns.field.value)
+
+    # Check for errors
+    errors = if Phoenix.Component.used_input?(assigns.field), do: assigns.field.errors, else: []
+    assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
+
+    ~H"""
+    <div phx-feedback-for={@name} class={["space-y-3", @class]}>
+      <%!-- Label --%>
+      <label
+        for={@id}
+        class="block text-sm font-medium text-slate-900 dark:text-slate-100 transition-colors duration-200 ease-out"
+      >
+        {@label}
+        <span :if={@required} class="text-rose-500 ml-1">*</span>
+      </label>
+
+      <%!-- Select container with liquid effects and proper focus ring --%>
+      <div class="group relative">
+        <%!-- Enhanced liquid background effect on focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl">
+        </div>
+
+        <%!-- Enhanced shimmer effect on focus --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+        </div>
+
+        <%!-- Focus ring with liquid metal styling --%>
+        <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+        </div>
+
+        <%!-- Secondary focus ring for better definition --%>
+        <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+        </div>
+
+        <%!-- Select field with enhanced contrast --%>
+        <select
+          id={@id}
+          name={@name}
+          class={[
+            "relative block w-full rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-slate-100",
+            "bg-slate-50 dark:bg-slate-900",
+            "border-2 border-slate-200 dark:border-slate-700",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "focus:border-emerald-500 dark:focus:border-emerald-400",
+            "focus:outline-none focus:ring-0",
+            "transition-all duration-200 ease-out",
+            "sm:text-sm sm:leading-6",
+            "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+            "focus:bg-white dark:focus:bg-slate-800",
+            "appearance-none cursor-pointer",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          {@rest}
+        >
+          <option :if={@prompt} value="">{@prompt}</option>
+          <option :for={option <- @options} value={option} selected={option == @value}>
+            {if is_atom(option), do: String.capitalize(to_string(option)), else: option}
+          </option>
+        </select>
+
+        <%!-- Custom dropdown arrow with liquid styling --%>
+        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <svg
+            class="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-emerald-500 dark:group-focus-within:text-emerald-400 transition-colors duration-200"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <%!-- Help text --%>
+      <p
+        :if={@help}
+        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+      >
+        {@help}
+      </p>
+
+      <%!-- Error messages --%>
+      <div :if={@errors != []} class="space-y-1">
+        <p :for={error <- @errors} class="text-sm text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
   # Private helper functions for badges
-  defp badge_size_classes("xs"), do: "px-1.5 py-0.5 text-xs rounded-md"
   defp badge_size_classes("sm"), do: "px-2.5 py-0.5 text-xs rounded-lg"
   defp badge_size_classes("md"), do: "px-3 py-1 text-sm rounded-lg"
   defp badge_size_classes("lg"), do: "px-4 py-1.5 text-base rounded-xl"

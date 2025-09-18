@@ -129,7 +129,7 @@ defmodule MossletWeb.EditDetailsLive do
                 phx-change="validate_name"
                 class="space-y-6"
               >
-                <.field
+                <DesignSystem.liquid_input
                   field={@name_form[:name]}
                   label={gettext("Name")}
                   placeholder={gettext("eg. Isabella")}
@@ -171,7 +171,7 @@ defmodule MossletWeb.EditDetailsLive do
                 phx-change="validate_username"
                 class="space-y-6"
               >
-                <.field
+                <DesignSystem.liquid_input
                   field={@username_form[:username]}
                   label={gettext("Username")}
                   placeholder={gettext("eg. isabella")}
