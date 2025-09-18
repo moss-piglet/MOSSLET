@@ -61,7 +61,7 @@ defmodule MossletWeb.DesignSystem do
   attr :type, :string, default: "button"
   attr :size, :string, default: "md", values: ~w(sm md lg)
   attr :variant, :string, default: "primary", values: ~w(primary secondary ghost)
-  attr :color, :string, default: "teal", values: ~w(teal blue purple amber rose cyan indigo slate)
+  attr :color, :string, default: "teal", values: ~w(teal emerald blue purple amber rose cyan indigo slate)
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
   attr :class, :any, default: ""
@@ -86,7 +86,7 @@ defmodule MossletWeb.DesignSystem do
       class={
         [
           # Base styles
-          "relative inline-flex items-center justify-center gap-2 font-semibold",
+          "group relative inline-flex items-center justify-center gap-2 font-semibold",
           "transition-all duration-200 ease-out transform-gpu will-change-transform",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
@@ -109,8 +109,8 @@ defmodule MossletWeb.DesignSystem do
         class={[
           "absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu",
           "bg-gradient-to-r from-transparent via-white/20 to-transparent",
-          "group-hover:opacity-100 hover:opacity-100 hover:translate-x-full -translate-x-full",
-          "rounded-full"
+          "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full",
+          "rounded-full overflow-hidden pointer-events-none"
         ]}
       >
       </div>
@@ -133,7 +133,7 @@ defmodule MossletWeb.DesignSystem do
       class={
         [
           # Base styles
-          "relative inline-flex items-center justify-center gap-2 font-semibold",
+          "group relative inline-flex items-center justify-center gap-2 font-semibold",
           "transition-all duration-200 ease-out transform-gpu will-change-transform",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
@@ -156,8 +156,8 @@ defmodule MossletWeb.DesignSystem do
         class={[
           "absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu",
           "bg-gradient-to-r from-transparent via-white/20 to-transparent",
-          "group-hover:opacity-100 hover:opacity-100 hover:translate-x-full -translate-x-full",
-          "rounded-full"
+          "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full",
+          "rounded-full overflow-hidden pointer-events-none"
         ]}
       >
       </div>
