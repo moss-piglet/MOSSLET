@@ -288,7 +288,7 @@ defmodule MossletWeb.EditTotpLive do
         </div>
 
         <%!-- Action buttons --%>
-        <div class="flex flex-col sm:flex-row justify-end gap-4 pt-4">
+        <div class="flex flex-col sm:flex-row justify-between gap-4 pt-4">
           <DesignSystem.liquid_button
             type="button"
             variant="ghost"
