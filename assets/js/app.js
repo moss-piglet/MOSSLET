@@ -118,7 +118,30 @@ window.addEventListener("phx:remove-el", (e) =>
 
 window.addEventListener("phx:clipcopy", (event) => {
   if ("clipboard" in navigator) {
-    var text = event.target.textContent.trim();
+    var text;
+    const target = event.target;
+
+    // Check if we have a custom data attribute for copy text
+    const customCopyText = target.getAttribute("data-copy-text");
+    if (customCopyText) {
+      text = customCopyText;
+    } else if (
+      target.id === "backup-codes-list" ||
+      target.closest("#backup-codes-list")
+    ) {
+      // Special handling for backup codes - extract codes and format with spaces
+      const codeElements = document.querySelectorAll(
+        "#backup-codes-list .font-mono"
+      );
+      const codes = Array.from(codeElements)
+        .map((el) => el.textContent.trim())
+        .filter((code) => code && !el.classList.contains("line-through")) // Skip used codes
+        .join(" ");
+      text = codes;
+    } else {
+      // Default behavior - copy the element's text content
+      text = target.textContent.trim();
+    }
 
     document.querySelectorAll(`[data-clipboard-copy]`).forEach((el) => {
       if (el.id == event.detail.dispatcher.id) {
@@ -126,7 +149,22 @@ window.addEventListener("phx:clipcopy", (event) => {
       }
     });
 
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).then(() => {
+      // Generate client-side timestamp for flash message
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+      
+      // Send a custom event with timestamp that the LiveView can handle
+      const timestampEvent = new CustomEvent('phx:clipcopy-timestamp', {
+        detail: { timestamp: timeString, dispatcher: event.detail.dispatcher }
+      });
+      document.dispatchEvent(timestampEvent);
+    });
   } else {
     alert("Sorry, your browser does not support clipboard copy.");
   }

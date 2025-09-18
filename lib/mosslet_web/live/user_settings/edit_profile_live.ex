@@ -45,315 +45,321 @@ defmodule MossletWeb.EditProfileLive do
           </div>
         </div>
 
-        <%!-- Profile form with liquid card --%>
-        <.form
-          :if={@current_user.confirmed_at}
-          for={@profile_form}
-          id="profile_form"
-          phx-submit={
-            if Map.get(@current_user.connection, :profile),
-              do: "update_profile",
-              else: "create_profile"
-          }
-          class="space-y-8 max-w-4xl"
-        >
-          <DesignSystem.liquid_input
-            field={@profile_form[:id]}
-            type="hidden"
-            value={@current_user.connection.id}
-          />
-          <.inputs_for :let={f_nested} field={@profile_form[:profile]}>
-            <%!-- Profile Settings Card --%>
-            <DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-3">
-                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-cyan-900/30">
-                    <.phx_icon
-                      name="hero-user"
-                      class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
-                    />
-                  </div>
-                  <span>Profile Settings</span>
-                  <span
-                    :if={Map.get(@current_user.connection, :profile)}
-                    id="profile-visibility"
-                    data-tippy-content="Your current profile visibility"
-                    phx-hook="TippyHook"
-                    class="inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600 cursor-help"
-                  >
-                    {String.capitalize(Atom.to_string(@current_user.connection.profile.visibility))}
-                  </span>
-                  <span
-                    :if={!Map.get(@current_user.connection, :profile)}
-                    id="profile-visibility"
-                    data-tippy-content="You do not have a profile yet. This is your current account visibility."
-                    phx-hook="TippyHook"
-                    class="inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium bg-gradient-to-r from-rose-100 to-pink-200 text-rose-800 dark:from-rose-800 dark:to-pink-700 dark:text-rose-200 border border-rose-300 dark:border-rose-600 cursor-help"
-                  >
-                    {String.capitalize(Atom.to_string(@current_user.visibility))}
-                  </span>
-                </div>
-              </:title>
-
-              <div class="space-y-6">
-                <div class="space-y-4">
-                  <p class="text-base text-slate-600 dark:text-slate-400">
-                    Your profile is your place to share your story.
-                  </p>
-                  <p class="text-sm text-slate-500 dark:text-slate-500">
-                    Check the badge above to know who you are currently allowing to view your profile, and hit "Update Profile" if you wish to realign it with your account's visibility setting.
-                  </p>
-                </div>
-
-                <%!-- Hidden fields --%>
-                <.field
-                  :if={@current_user.connection.avatar_url}
-                  field={f_nested[:avatar_url]}
-                  type="hidden"
-                  value={
-                    decr_avatar(
-                      @current_user.connection.avatar_url,
-                      @current_user,
-                      @current_user.conn_key,
-                      @key
-                    )
-                  }
-                />
-                <.input
-                  field={f_nested[:email]}
-                  type="hidden"
-                  value={decr(@current_user.email, @current_user, @key)}
-                />
-                <.input
-                  :if={@current_user.name}
-                  field={f_nested[:name]}
-                  type="hidden"
-                  value={decr(@current_user.name, @current_user, @key)}
-                />
-                <.input
-                  field={f_nested[:username]}
-                  type="hidden"
-                  value={decr(@current_user.username, @current_user, @key)}
-                />
-                <.input
-                  field={f_nested[:temp_username]}
-                  type="hidden"
-                  value={decr(@current_user.username, @current_user, @key)}
-                />
-                <.input
-                  field={f_nested[:visibility]}
-                  type="hidden"
-                  value={@current_user.visibility}
-                />
-                <.input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
-
-                <%!-- Profile URL Section --%>
-                <div class="space-y-3">
-                  <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Profile URL
-                  </label>
-                  <div class="flex rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+        <div class="space-y-8 max-w-3xl">
+          <%!-- Profile form with liquid card --%>
+          <.form
+            :if={@current_user.confirmed_at}
+            for={@profile_form}
+            id="profile_form"
+            phx-submit={
+              if Map.get(@current_user.connection, :profile),
+                do: "update_profile",
+                else: "create_profile"
+            }
+            class="space-y-8"
+          >
+            <DesignSystem.liquid_input
+              field={@profile_form[:id]}
+              type="hidden"
+              value={@current_user.connection.id}
+            />
+            <.inputs_for :let={f_nested} field={@profile_form[:profile]}>
+              <%!-- Profile Settings Card --%>
+              <DesignSystem.liquid_card>
+                <:title>
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-cyan-900/30">
+                      <.phx_icon
+                        name="hero-user"
+                        class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                      />
+                    </div>
+                    <span>Profile Settings</span>
                     <span
-                      id="mosslet-profile-url"
-                      class="flex-1 px-4 py-3 text-sm text-slate-700 dark:text-slate-300 bg-transparent"
-                    >
-                      https://mosslet.com/app/profile/{decr(
-                        @current_user.username,
-                        @current_user,
-                        @key
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      id="mossle-profile-url-copy"
-                      class="group relative px-4 py-3 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors duration-200 border-l border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                      :if={Map.get(@current_user.connection, :profile)}
+                      id="profile-visibility"
+                      data-tippy-content="Your current profile visibility"
                       phx-hook="TippyHook"
-                      data-clipboard-copy={JS.push("clipcopy")}
-                      data-tippy-content="Copy to clipboard"
-                      phx-click={JS.dispatch("phx:clipcopy", to: "#mosslet-profile-url")}
+                      class="inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600 cursor-help"
                     >
-                      <.phx_icon name="hero-clipboard" class="h-5 w-5" />
-                    </button>
+                      {String.capitalize(Atom.to_string(@current_user.connection.profile.visibility))}
+                    </span>
+                    <span
+                      :if={!Map.get(@current_user.connection, :profile)}
+                      id="profile-visibility"
+                      data-tippy-content="You do not have a profile yet. This is your current account visibility."
+                      phx-hook="TippyHook"
+                      class="inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium bg-gradient-to-r from-rose-100 to-pink-200 text-rose-800 dark:from-rose-800 dark:to-pink-700 dark:text-rose-200 border border-rose-300 dark:border-rose-600 cursor-help"
+                    >
+                      {String.capitalize(Atom.to_string(@current_user.visibility))}
+                    </span>
                   </div>
-                </div>
-              </div>
-            </DesignSystem.liquid_card>
+                </:title>
 
-            <%!-- Banner & Appearance Card --%>
-            <DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-3">
-                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/25 dark:to-purple-900/30">
-                    <.phx_icon name="hero-photo" class="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  Banner & Appearance
-                </div>
-              </:title>
-
-              <div id="banner-image-select" class="space-y-4">
-                <DesignSystem.liquid_select
-                  field={f_nested[:banner_image]}
-                  label="Select your banner image"
-                  options={Ecto.Enum.values(Connection.ConnectionProfile, :banner_image)}
-                />
-
-                <img
-                  :if={@banner_image}
-                  id="banner-preview"
-                  src={~p"/images/profile/#{get_banner_image(@banner_image)}"}
-                  class="h-24 w-48 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-sm"
-                  alt="Selected banner preview"
-                />
-              </div>
-            </DesignSystem.liquid_card>
-
-            <%!-- Privacy & Sharing Card --%>
-            <DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-3">
-                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
-                    <.phx_icon name="hero-eye" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  Privacy & Sharing
-                </div>
-              </:title>
-
-              <div class="space-y-6">
-                <div>
-                  <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
-                    Select all that you would like to share
-                  </h4>
+                <div class="space-y-6">
                   <div class="space-y-4">
-                    <DesignSystem.liquid_checkbox
-                      :if={@current_user.connection.avatar_url}
-                      field={f_nested[:show_avatar?]}
-                      label="Show your avatar?"
-                    />
-                    <DesignSystem.liquid_checkbox
-                      field={f_nested[:show_email?]}
-                      label="Show your email?"
-                    />
-                    <DesignSystem.liquid_checkbox
-                      field={f_nested[:show_name?]}
-                      label="Show your name?"
-                    />
-                    <DesignSystem.liquid_checkbox
-                      field={f_nested[:show_public_memories?]}
-                      label="Show your public Memories?"
-                      help="Public Memories are a potential feature in the future (TBD)."
-                    />
-                    <DesignSystem.liquid_checkbox
-                      field={f_nested[:show_public_posts?]}
-                      label="Show your public Posts?"
-                      help="Public Posts are a potential feature in the future (TBD)."
-                    />
+                    <p class="text-base text-slate-600 dark:text-slate-400">
+                      Your profile is your place to share your story.
+                    </p>
+                    <p class="text-sm text-slate-500 dark:text-slate-500">
+                      Check the badge above to know who you are currently allowing to view your profile, and hit "Update Profile" if you wish to realign it with your account's visibility setting.
+                    </p>
+                  </div>
+
+                  <%!-- Hidden fields --%>
+                  <.field
+                    :if={@current_user.connection.avatar_url}
+                    field={f_nested[:avatar_url]}
+                    type="hidden"
+                    value={
+                      decr_avatar(
+                        @current_user.connection.avatar_url,
+                        @current_user,
+                        @current_user.conn_key,
+                        @key
+                      )
+                    }
+                  />
+                  <.input
+                    field={f_nested[:email]}
+                    type="hidden"
+                    value={decr(@current_user.email, @current_user, @key)}
+                  />
+                  <.input
+                    :if={@current_user.name}
+                    field={f_nested[:name]}
+                    type="hidden"
+                    value={decr(@current_user.name, @current_user, @key)}
+                  />
+                  <.input
+                    field={f_nested[:username]}
+                    type="hidden"
+                    value={decr(@current_user.username, @current_user, @key)}
+                  />
+                  <.input
+                    field={f_nested[:temp_username]}
+                    type="hidden"
+                    value={decr(@current_user.username, @current_user, @key)}
+                  />
+                  <.input
+                    field={f_nested[:visibility]}
+                    type="hidden"
+                    value={@current_user.visibility}
+                  />
+                  <.input field={f_nested[:user_id]} type="hidden" value={@current_user.id} />
+
+                  <%!-- Profile URL Section --%>
+                  <div class="space-y-3">
+                    <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                      Profile URL
+                    </label>
+                    <div class="flex rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <span
+                        id="mosslet-profile-url"
+                        class="flex-1 px-4 py-3 text-sm text-slate-700 dark:text-slate-300 bg-transparent"
+                      >
+                        https://mosslet.com/app/profile/{decr(
+                          @current_user.username,
+                          @current_user,
+                          @key
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        id="mossle-profile-url-copy"
+                        class="group relative px-4 py-3 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors duration-200 border-l border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        phx-hook="TippyHook"
+                        data-clipboard-copy={JS.push("clipcopy")}
+                        data-tippy-content="Copy to clipboard"
+                        phx-click={JS.dispatch("phx:clipcopy", to: "#mosslet-profile-url")}
+                      >
+                        <.phx_icon name="hero-clipboard" class="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </DesignSystem.liquid_card>
+              </DesignSystem.liquid_card>
 
-            <%!-- About You Card --%>
-            <DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-3">
-                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
-                    <.phx_icon
-                      name="hero-document-text"
-                      class="h-4 w-4 text-amber-600 dark:text-amber-400"
-                    />
+              <%!-- Banner & Appearance Card --%>
+              <DesignSystem.liquid_card>
+                <:title>
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/25 dark:to-purple-900/30">
+                      <.phx_icon
+                        name="hero-photo"
+                        class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                      />
+                    </div>
+                    Banner & Appearance
                   </div>
-                  About You
+                </:title>
+
+                <div id="banner-image-select" class="space-y-4">
+                  <DesignSystem.liquid_select
+                    field={f_nested[:banner_image]}
+                    label="Select your banner image"
+                    options={Ecto.Enum.values(Connection.ConnectionProfile, :banner_image)}
+                  />
+
+                  <img
+                    :if={@banner_image}
+                    id="banner-preview"
+                    src={~p"/images/profile/#{get_banner_image(@banner_image)}"}
+                    class="h-24 w-48 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-sm"
+                    alt="Selected banner preview"
+                  />
                 </div>
-              </:title>
+              </DesignSystem.liquid_card>
 
-              <div class="space-y-3">
-                <DesignSystem.liquid_textarea
-                  field={f_nested[:about]}
-                  value={@profile_about}
-                  placeholder="Share your story here..."
-                  rows={4}
-                />
-              </div>
-            </DesignSystem.liquid_card>
-          </.inputs_for>
+              <%!-- Privacy & Sharing Card --%>
+              <DesignSystem.liquid_card>
+                <:title>
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+                      <.phx_icon name="hero-eye" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    Privacy & Sharing
+                  </div>
+                </:title>
 
-          <%!-- Action buttons --%>
-          <div class="flex flex-col sm:flex-row justify-between gap-4 pt-6">
-            <DesignSystem.liquid_button
-              :if={@current_user.connection.profile}
-              type="button"
-              color="rose"
-              variant="secondary"
-              phx-click="delete_profile"
-              phx-value-id={@current_user.connection.id}
-              data-confirm="Are you sure you want to delete your profile?"
-              icon="hero-trash"
-            >
-              Delete Profile
-            </DesignSystem.liquid_button>
+                <div class="space-y-6">
+                  <div>
+                    <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
+                      Select all that you would like to share
+                    </h4>
+                    <div class="space-y-4">
+                      <DesignSystem.liquid_checkbox
+                        :if={@current_user.connection.avatar_url}
+                        field={f_nested[:show_avatar?]}
+                        label="Show your avatar?"
+                      />
+                      <DesignSystem.liquid_checkbox
+                        field={f_nested[:show_email?]}
+                        label="Show your email?"
+                      />
+                      <DesignSystem.liquid_checkbox
+                        field={f_nested[:show_name?]}
+                        label="Show your name?"
+                      />
+                      <DesignSystem.liquid_checkbox
+                        field={f_nested[:show_public_memories?]}
+                        label="Show your public Memories?"
+                        help="Public Memories are a potential feature in the future (TBD)."
+                      />
+                      <DesignSystem.liquid_checkbox
+                        field={f_nested[:show_public_posts?]}
+                        label="Show your public Posts?"
+                        help="Public Posts are a potential feature in the future (TBD)."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </DesignSystem.liquid_card>
 
-            <div class="flex gap-3">
+              <%!-- About You Card --%>
+              <DesignSystem.liquid_card>
+                <:title>
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
+                      <.phx_icon
+                        name="hero-document-text"
+                        class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                      />
+                    </div>
+                    About You
+                  </div>
+                </:title>
+
+                <div class="space-y-3">
+                  <DesignSystem.liquid_textarea
+                    field={f_nested[:about]}
+                    value={@profile_about}
+                    placeholder="Share your story here..."
+                    rows={4}
+                  />
+                </div>
+              </DesignSystem.liquid_card>
+            </.inputs_for>
+
+            <%!-- Action buttons --%>
+            <div class="flex flex-col sm:flex-row justify-between gap-4 pt-6">
               <DesignSystem.liquid_button
                 :if={@current_user.connection.profile}
-                type="submit"
-                phx-disable-with="Updating..."
-                icon="hero-check"
+                type="button"
+                color="rose"
+                variant="secondary"
+                phx-click="delete_profile"
+                phx-value-id={@current_user.connection.id}
+                data-confirm="Are you sure you want to delete your profile?"
+                icon="hero-trash"
               >
-                Update Profile
+                Delete Profile
               </DesignSystem.liquid_button>
 
-              <DesignSystem.liquid_button
-                :if={is_nil(@current_user.connection.profile)}
-                type="submit"
-                phx-disable-with="Creating..."
-                icon="hero-plus"
-              >
-                Create Profile
-              </DesignSystem.liquid_button>
-            </div>
-          </div>
-        </.form>
+              <div class="flex gap-3">
+                <DesignSystem.liquid_button
+                  :if={@current_user.connection.profile}
+                  type="submit"
+                  phx-disable-with="Updating..."
+                  icon="hero-check"
+                >
+                  Update Profile
+                </DesignSystem.liquid_button>
 
-        <%!-- Unconfirmed account alert --%>
-        <DesignSystem.liquid_card
-          :if={!@current_user.confirmed_at}
-          class="border-amber-200 dark:border-amber-700 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10"
-        >
-          <:title>
-            <div class="flex items-center gap-3">
-              <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-200 to-orange-300">
-                <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-800" />
+                <DesignSystem.liquid_button
+                  :if={is_nil(@current_user.connection.profile)}
+                  type="submit"
+                  phx-disable-with="Creating..."
+                  icon="hero-plus"
+                >
+                  Create Profile
+                </DesignSystem.liquid_button>
               </div>
-              <span class="text-amber-800 dark:text-amber-200">🤫 Unconfirmed account</span>
             </div>
-          </:title>
+          </.form>
 
-          <div class="space-y-4">
-            <p class="text-amber-700 dark:text-amber-300">
-              {gettext(
-                "Please check your email for a confirmation link or click the button below to enter your email and send another. Once your email has been confirmed then you can get started creating your profile! 🥳"
-              )}
-            </p>
-            <DesignSystem.liquid_button
-              type="button"
-              color="amber"
-              variant="secondary"
-              patch={~p"/auth/confirm"}
-              icon="hero-envelope"
-            >
-              Confirm my account
-            </DesignSystem.liquid_button>
-          </div>
-        </DesignSystem.liquid_card>
+          <%!-- Unconfirmed account alert --%>
+          <DesignSystem.liquid_card
+            :if={!@current_user.confirmed_at}
+            class="border-amber-200 dark:border-amber-700 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10"
+          >
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-200 to-orange-300">
+                  <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-800" />
+                </div>
+                <span class="text-amber-800 dark:text-amber-200">🤫 Unconfirmed account</span>
+              </div>
+            </:title>
+
+            <div class="space-y-4">
+              <p class="text-amber-700 dark:text-amber-300">
+                {gettext(
+                  "Please check your email for a confirmation link or click the button below to enter your email and send another. Once your email has been confirmed then you can get started creating your profile! 🥳"
+                )}
+              </p>
+              <DesignSystem.liquid_button
+                type="button"
+                color="amber"
+                variant="secondary"
+                patch={~p"/auth/confirm"}
+                icon="hero-envelope"
+              >
+                Confirm my account
+              </DesignSystem.liquid_button>
+            </div>
+          </DesignSystem.liquid_card>
+        </div>
       </DesignSystem.liquid_container>
     </.layout>
     """
   end
 
   def handle_event("clipcopy", _params, socket) do
+    counter = :os.system_time(:millisecond) |> rem(10000)
     {:noreply,
      socket
-     |> put_flash(:success, "Profile URL copied to clipboard successfully.")}
+     |> put_flash(:success, "Profile URL copied to clipboard successfully! (##{counter})")}
   end
 
   def handle_event("validate_profile", params, socket) do

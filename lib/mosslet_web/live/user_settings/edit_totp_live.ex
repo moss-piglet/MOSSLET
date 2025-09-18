@@ -3,6 +3,7 @@ defmodule MossletWeb.EditTotpLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias MossletWeb.DesignSystem
 
   @qrcode_size 264
 
@@ -20,272 +21,597 @@ defmodule MossletWeb.EditTotpLive do
   def render(assigns) do
     ~H"""
     <.layout current_user={@current_user} current_page={:edit_totp} key={@key} type="sidebar">
-      <.container class="py-16">
-        <.page_header title="2FA" />
-        <div class="max-w-lg">
-          <.h3>{gettext("Two-factor authentication")}</.h3>
+      <DesignSystem.liquid_container max_width="lg" class="py-16">
+        <%!-- Page header with liquid metal styling --%>
+        <div class="mb-12">
+          <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              2FA Security
+            </h1>
+            <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+              Enhance your account security with two-factor authentication.
+            </p>
+          </div>
+          <%!-- Decorative accent line --%>
+          <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+          </div>
+        </div>
 
+        <div class="space-y-8 max-w-2xl">
+          <%!-- 2FA Status Card --%>
           <%= if @current_totp do %>
-            <div class="flex items-center gap-2 mb-6">
-              <.icon
-                solid
-                name="hero-check-badge"
-                class="w-10 h-10 text-green-600 dark:text-green-400"
-              />
+            <DesignSystem.liquid_card class="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10">
+              <:title>
+                <div class="flex items-center gap-3">
+                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30">
+                    <.phx_icon
+                      name="hero-check-badge"
+                      class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                    />
+                  </div>
+                  <span class="text-emerald-800 dark:text-emerald-200">2FA Enabled</span>
+                </div>
+              </:title>
 
-              <div class="font-semibold dark:text-gray-100">
-                {gettext("2FA Enabled")}
+              <div class="space-y-4">
+                <p class="text-emerald-700 dark:text-emerald-300">
+                  Your account is protected with two-factor authentication. You can view your backup codes or change your 2FA device by entering your password below.
+                </p>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span class="text-sm text-emerald-600 dark:text-emerald-400">
+                    Keep your backup codes safe for emergency access
+                  </span>
+                  <DesignSystem.liquid_button
+                    variant="secondary"
+                    color="emerald"
+                    size="sm"
+                    icon="hero-key"
+                    phx-click="show_backup_codes"
+                    class="self-start sm:self-auto"
+                  >
+                    View Backup Codes
+                  </DesignSystem.liquid_button>
+                </div>
               </div>
-            </div>
+            </DesignSystem.liquid_card>
           <% end %>
 
-          <.backup_codes
-            :if={@backup_codes}
-            id="backup-codes-component"
-            backup_codes={@backup_codes}
-            editing_totp={@editing_totp}
-          />
+          <%!-- Security Benefits Card --%>
+          <%= if !@current_totp do %>
+            <DesignSystem.liquid_card class="bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10">
+              <:title>
+                <div class="flex items-center gap-3">
+                  <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+                    <.phx_icon
+                      name="hero-shield-check"
+                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                  <span class="text-blue-800 dark:text-blue-200">Enhanced Security</span>
+                </div>
+              </:title>
 
-          <%= if @editing_totp do %>
-            <.totp_form
-              totp_form={@totp_form}
-              current_totp={@current_totp}
-              secret_display={@secret_display}
-              qrcode_uri={@qrcode_uri}
+              <div class="space-y-4">
+                <p class="text-blue-700 dark:text-blue-300">
+                  Two-factor authentication adds an extra layer of security to your account by requiring a second form of verification.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                      />
+                      <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                        Prevents unauthorized access
+                      </span>
+                    </div>
+                  </div>
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                      />
+                      <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                        Works with any TOTP app
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DesignSystem.liquid_card>
+          <% end %>
+
+          <%!-- Main 2FA Card --%>
+          <DesignSystem.liquid_card>
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-teal-900/30">
+                  <.phx_icon name="hero-device-phone-mobile" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <span>Two-Factor Authentication</span>
+              </div>
+            </:title>
+
+            <.backup_codes
+              :if={@backup_codes}
+              id="backup-codes-component"
+              backup_codes={@backup_codes}
               editing_totp={@editing_totp}
             />
-          <% else %>
-            <.enable_form
-              current_totp={@current_totp}
-              user_form={@user_form}
-              current_password={@current_password}
-            />
-          <% end %>
+
+            <%= if @editing_totp do %>
+              <.totp_form
+                totp_form={@totp_form}
+                current_totp={@current_totp}
+                secret_display={@secret_display}
+                qrcode_uri={@qrcode_uri}
+                editing_totp={@editing_totp}
+              />
+            <% else %>
+              <.enable_form
+                current_totp={@current_totp}
+                user_form={@user_form}
+                current_password={@current_password}
+              />
+            <% end %>
+          </DesignSystem.liquid_card>
         </div>
-      </.container>
+      </DesignSystem.liquid_container>
     </.layout>
     """
   end
 
   def totp_form(assigns) do
     ~H"""
-    <div class="mb-10">
-      <%= if @secret_display == :as_text do %>
-        <div class="prose prose-gray dark:prose-invert">
-          <p>
-            To {if @current_totp, do: "change", else: "enable"} two-factor authentication, enter the secret below into your two-factor authentication app in your phone.
+    <div class="space-y-8">
+      <%!-- Instructions Card --%>
+      <DesignSystem.liquid_card class="bg-gradient-to-br from-purple-50/50 to-violet-50/30 dark:from-purple-900/20 dark:to-violet-900/10">
+        <:title>
+          <div class="flex items-center gap-3">
+            <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/25 dark:to-purple-900/30">
+              <.phx_icon
+                name="hero-information-circle"
+                class="h-4 w-4 text-purple-600 dark:text-purple-400"
+              />
+            </div>
+            <span class="text-purple-800 dark:text-purple-200">Setup Instructions</span>
+          </div>
+        </:title>
+
+        <div class="space-y-4">
+          <%= if @secret_display == :as_text do %>
+            <p class="text-purple-700 dark:text-purple-300">
+              To {if @current_totp, do: "change", else: "enable"} two-factor authentication, enter the secret below into your two-factor authentication app.
+            </p>
+
+            <div class="flex items-center justify-center py-6">
+              <div class="p-6 border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-xl bg-purple-50/50 dark:bg-purple-900/20">
+                <div class="text-xl font-mono font-bold text-purple-800 dark:text-purple-200 text-center tracking-wider" id="totp-secret">
+                  {format_secret(@editing_totp.secret)}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-center">
+              <DesignSystem.liquid_button
+                variant="ghost"
+                color="purple"
+                size="sm"
+                icon="hero-qr-code"
+                phx-click="display_secret_as_qrcode"
+              >
+                Show QR Code Instead
+              </DesignSystem.liquid_button>
+            </div>
+          <% else %>
+            <p class="text-purple-700 dark:text-purple-300">
+              To {if @current_totp, do: "change", else: "enable"} two-factor authentication, scan the QR code below with your authenticator app, then enter the verification code.
+            </p>
+
+            <div class="flex justify-center py-6">
+              <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-700 shadow-lg">
+                {generate_qrcode(@qrcode_uri)}
+              </div>
+            </div>
+
+            <div class="flex items-center justify-center">
+              <DesignSystem.liquid_button
+                variant="ghost"
+                color="purple"
+                size="sm"
+                icon="hero-key"
+                phx-click="display_secret_as_text"
+              >
+                Enter Secret Manually
+              </DesignSystem.liquid_button>
+            </div>
+          <% end %>
+        </div>
+      </DesignSystem.liquid_card>
+
+      <%!-- Verification Form --%>
+      <.form for={@totp_form} id="form-update-totp" phx-submit="update_totp" class="space-y-6">
+        <%!-- Authentication Code Input --%>
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+            Authentication Code <span class="text-rose-500 ml-1">*</span>
+          </label>
+
+          <div class="group relative">
+            <%!-- Enhanced liquid background effect on focus --%>
+            <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl">
+            </div>
+
+            <%!-- Enhanced shimmer effect on focus --%>
+            <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+            </div>
+
+            <%!-- Focus ring with liquid metal styling --%>
+            <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+            </div>
+
+            <%!-- Secondary focus ring for better definition --%>
+            <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+            </div>
+
+            <input
+              type="text"
+              id="user_totp_code"
+              name="user_totp[code]"
+              required
+              autocomplete="one-time-code"
+              inputmode="numeric"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              class={[
+                "relative block w-full rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100",
+                "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+                "border-2 border-slate-200 dark:border-slate-700",
+                "hover:border-slate-300 dark:hover:border-slate-600",
+                "focus:border-emerald-500 dark:focus:border-emerald-400",
+                "focus:outline-none focus:ring-0",
+                "transition-all duration-200 ease-out",
+                "text-center text-2xl font-mono tracking-widest",
+                "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+                "focus:bg-white dark:focus:bg-slate-800"
+              ]}
+              placeholder="123456"
+              value={@totp_form[:code].value}
+            />
+          </div>
+
+          <p class="text-sm text-slate-600 dark:text-slate-400 text-center">
+            Enter the 6-digit code from your authenticator app
           </p>
         </div>
 
-        <div class="flex items-center justify-start px-4 py-8 sm:px-0">
-          <div class="p-5 border-4 border-gray-300 border-dashed rounded-lg dark:border-gray-700">
-            <div class="text-xl font-bold" id="totp-secret">
-              {format_secret(@editing_totp.secret)}
+        <%!-- Action buttons --%>
+        <div class="flex flex-col sm:flex-row justify-end gap-4 pt-4">
+          <DesignSystem.liquid_button
+            type="button"
+            variant="ghost"
+            color="slate"
+            phx-click="cancel_totp"
+            icon="hero-x-mark"
+          >
+            Cancel
+          </DesignSystem.liquid_button>
+
+          <DesignSystem.liquid_button
+            type="submit"
+            phx-disable-with="Verifying..."
+            icon="hero-shield-check"
+          >
+            Verify & {if @current_totp, do: "Update", else: "Enable"}
+          </DesignSystem.liquid_button>
+        </div>
+      </.form>
+
+      <%!-- Additional Options for Existing 2FA --%>
+      <%= if @current_totp do %>
+        <DesignSystem.liquid_card class="bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10">
+          <:title>
+            <div class="flex items-center gap-3">
+              <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
+                <.phx_icon
+                  name="hero-cog-6-tooth"
+                  class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                />
+              </div>
+              <span class="text-amber-800 dark:text-amber-200">Additional Options</span>
+            </div>
+          </:title>
+
+          <div class="space-y-4">
+            <p class="text-amber-700 dark:text-amber-300">
+              Manage your two-factor authentication settings and backup codes.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3">
+              <DesignSystem.liquid_button
+                variant="secondary"
+                color="amber"
+                size="sm"
+                icon="hero-key"
+                phx-click="show_backup_codes"
+              >
+                View Backup Codes
+              </DesignSystem.liquid_button>
+              <DesignSystem.liquid_button
+                variant="ghost"
+                color="rose"
+                size="sm"
+                icon="hero-shield-exclamation"
+                phx-click="disable_totp"
+                data-confirm="Are you sure you want to disable Two-factor authentication? This will make your account less secure."
+              >
+                Disable 2FA
+              </DesignSystem.liquid_button>
             </div>
           </div>
-        </div>
-
-        <div class="prose prose-gray dark:prose-invert">
-          <p>
-            Or <a href="#" class="underline" phx-click="display_secret_as_qrcode">scan the QR Code</a>
-            instead.
-          </p>
-        </div>
-      <% else %>
-        <div class="prose prose-gray dark:prose-invert">
-          <p>
-            To {if @current_totp, do: "change", else: "enable"} two-factor authentication, scan the image below with the two-factor authentication app in your phone and then enter the  authentication code at the bottom. If you can't use QR Code,
-            <a href="#" class="underline" phx-click="display_secret_as_text">enter your secret</a>
-            manually.
-          </p>
-        </div>
-
-        <div class="mt-10 text-center">
-          <div class="inline-block">
-            {generate_qrcode(@qrcode_uri)}
-          </div>
-        </div>
+        </DesignSystem.liquid_card>
       <% end %>
     </div>
-
-    <.form for={@totp_form} id="form-update-totp" phx-submit="update_totp" class="max-w-lg">
-      <.field
-        field={@totp_form[:code]}
-        label="Authentication code"
-        placeholder="eg. 123456"
-        autocomplete="one-time-code"
-      />
-
-      <div class="flex justify-end gap-2">
-        <.button type="submit" class="rounded-full" phx-disable-with="Verifying...">
-          Verify code
-        </.button>
-        <.button
-          id="cancel-totp"
-          class="rounded-full"
-          type="button"
-          color="secondary"
-          phx-click="cancel_totp"
-        >
-          Cancel
-        </.button>
-      </div>
-    </.form>
-
-    <%= if @current_totp do %>
-      <div class="mt-10 prose prose-gray dark:prose-invert">
-        <p>
-          You may also
-          <a href="#" id="show-backup" class="underline" phx-click="show_backup_codes">
-            see your available backup codes
-          </a>
-          or
-          <a
-            href="#"
-            id="disable-totp"
-            phx-click="disable_totp"
-            data-confirm="Are you sure you want to disable Two-factor authentication?"
-          >
-            disable two-factor authentication
-          </a>
-          altogether.
-        </p>
-      </div>
-    <% end %>
     """
   end
 
   def enable_form(assigns) do
     ~H"""
-    <.form
-      id="form-submit-totp"
-      for={@user_form}
-      phx-submit="submit_totp"
-      phx-change="change_totp"
-      class="max-w-lg"
-    >
-      <div class="pb-4">
-        <.p :if={@current_totp}>
-          Enter your current password to change 2FA or view your backup codes
-        </.p>
-        <.p :if={!@current_totp}>
-          Enter your current password to enable 2FA
-        </.p>
+    <div class="space-y-6">
+      <%!-- Information Section --%>
+      <div class="space-y-4">
+        <p class="text-slate-700 dark:text-slate-300">
+          <%= if @current_totp do %>
+            Enter your current password to change your 2FA device or view your backup codes.
+          <% else %>
+            Enter your current password to enable two-factor authentication and secure your account.
+          <% end %>
+        </p>
       </div>
-      <div id="passwordField" class="relative">
-        <div id="pw-label-container" class="flex justify-between">
-          <div id="pw-actions" class="absolute top-0 right-0">
-            <button
-              type="button"
-              id="eye"
-              data-tippy-content="Show password"
-              phx-hook="TippyHook"
-              phx-click={
-                JS.set_attribute({"type", "text"}, to: "#password")
-                |> JS.remove_class("hidden", to: "#eye-slash")
-                |> JS.add_class("hidden", to: "#eye")
-              }
-            >
-              <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
-            </button>
-            <button
-              type="button"
-              id="eye-slash"
-              x-data
-              x-tooltip="Hide password"
-              data-tippy-content="Hide password"
-              phx-hook="TippyHook"
-              class="hidden"
-              phx-click={
-                JS.set_attribute({"type", "password"}, to: "#password")
-                |> JS.add_class("hidden", to: "#eye-slash")
-                |> JS.remove_class("hidden", to: "#eye")
-              }
-            >
-              <.icon name="hero-eye-slash" class="h-5 w-5  dark:text-white cursor-pointer" />
-            </button>
+
+      <.form
+        id="form-submit-totp"
+        for={@user_form}
+        phx-submit="submit_totp"
+        phx-change="change_totp"
+        class="space-y-6"
+      >
+        <%!-- Current Password Section --%>
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+            Current Password <span class="text-rose-500 ml-1">*</span>
+          </label>
+
+          <div class="group relative">
+            <%!-- Enhanced liquid background effect on focus --%>
+            <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl">
+            </div>
+
+            <%!-- Enhanced shimmer effect on focus --%>
+            <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+            </div>
+
+            <%!-- Focus ring with liquid metal styling --%>
+            <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+            </div>
+
+            <%!-- Secondary focus ring for better definition --%>
+            <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+            </div>
+
+            <%!-- Password input with show/hide functionality --%>
+            <input
+              type="password"
+              id="user_current_password_2fa"
+              name="user[current_password]"
+              required
+              autocomplete="current-password"
+              class={[
+                "relative block w-full rounded-xl px-4 py-3 pr-12 text-slate-900 dark:text-slate-100",
+                "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+                "border-2 border-slate-200 dark:border-slate-700",
+                "hover:border-slate-300 dark:hover:border-slate-600",
+                "focus:border-emerald-500 dark:focus:border-emerald-400",
+                "focus:outline-none focus:ring-0",
+                "transition-all duration-200 ease-out",
+                "sm:text-sm sm:leading-6",
+                "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+                "focus:bg-white dark:focus:bg-slate-800"
+              ]}
+              placeholder="Enter your current password"
+              value={@current_password}
+            />
+
+            <%!-- Show/Hide password buttons with liquid styling --%>
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+              <button
+                type="button"
+                id="eye-2fa-password"
+                data-tippy-content="Show password"
+                phx-hook="TippyHook"
+                class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                phx-click={
+                  JS.set_attribute({"type", "text"}, to: "#user_current_password_2fa")
+                  |> JS.remove_class("hidden", to: "#eye-slash-2fa-password")
+                  |> JS.add_class("hidden", to: "#eye-2fa-password")
+                }
+              >
+                <.phx_icon
+                  name="hero-eye"
+                  class="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover/eye:text-emerald-600 dark:group-hover/eye:text-emerald-400 transition-colors duration-200"
+                />
+              </button>
+              <button
+                type="button"
+                id="eye-slash-2fa-password"
+                data-tippy-content="Hide password"
+                phx-hook="TippyHook"
+                class="hidden group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                phx-click={
+                  JS.set_attribute({"type", "password"}, to: "#user_current_password_2fa")
+                  |> JS.add_class("hidden", to: "#eye-slash-2fa-password")
+                  |> JS.remove_class("hidden", to: "#eye-2fa-password")
+                }
+              >
+                <.phx_icon
+                  name="hero-eye-slash"
+                  class="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover/eye:text-emerald-600 dark:group-hover/eye:text-emerald-400 transition-colors duration-200"
+                />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <.field
-        id="password"
-        type="password"
-        field={@user_form[:current_password]}
-        value={@current_password}
-        phx-debounce="blur"
-        placeholder="Enter your password"
-        autocomplete="current-password"
-        {alpine_autofocus()}
-      />
-
-      <.button
-        phx-disable-with="Verifying..."
-        class="rounded-full"
-        label={if @current_totp, do: "Change", else: "Enable"}
-      />
-    </.form>
+        <%!-- Submit Button --%>
+        <div class="flex justify-end pt-4">
+          <DesignSystem.liquid_button
+            type="submit"
+            phx-disable-with="Verifying..."
+            icon="hero-shield-check"
+          >
+            {if @current_totp, do: "Change 2FA Device", else: "Enable 2FA"}
+          </DesignSystem.liquid_button>
+        </div>
+      </.form>
+    </div>
     """
   end
 
   def backup_codes(assigns) do
     ~H"""
-    <.modal
+    <DesignSystem.liquid_modal
       id="backup-codes-modal"
-      title="Backup codes"
+      show={@backup_codes != nil}
       on_cancel={Phoenix.LiveView.JS.push("hide_backup_codes")}
     >
-      <div class="prose prose-gray dark:prose-invert">
-        <p>
-          Two-factor authentication is enabled. In case you lose access to your
-          phone, you will need one of the backup codes below. <b>Keep these backup codes safe</b>. You can also generate
-          new codes at any time.
-        </p>
-      </div>
+      <:title>Backup Codes</:title>
 
-      <div id="backup-codes-list" class="grid grid-cols-1 gap-3 mt-5 mb-10 md:grid-cols-2">
-        <%= for backup_code <- @backup_codes do %>
-          <div class="flex items-center justify-center p-3 font-mono bg-gray-300 rounded dark:bg-gray-700">
-            <h4>
-              <%= if backup_code.used_at do %>
-                <del class="line-through">{backup_code.code}</del>
-              <% else %>
-                {backup_code.code}
-              <% end %>
-            </h4>
+      <div class="space-y-6">
+        <%!-- Information Card --%>
+        <DesignSystem.liquid_card class="bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10">
+          <:title>
+            <div class="flex items-center gap-3">
+              <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
+                <.phx_icon
+                  name="hero-exclamation-triangle"
+                  class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                />
+              </div>
+              <span class="text-amber-800 dark:text-amber-200">Important Information</span>
+            </div>
+          </:title>
+
+          <div class="space-y-3">
+            <p class="text-amber-700 dark:text-amber-300">
+              Two-factor authentication is enabled. In case you lose access to your phone, you will need one of the backup codes below.
+            </p>
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              ⚠️ Keep these backup codes safe and secure. You can generate new codes at any time.
+            </p>
           </div>
-        <% end %>
-      </div>
+        </DesignSystem.liquid_card>
 
-      <div class="flex justify-between">
-        <%= if @editing_totp do %>
-          <.button
+        <%!-- Backup Codes Grid --%>
+        <div class="space-y-4">
+          <h4 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Your Backup Codes
+          </h4>
+          <div id="backup-codes-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <%= for backup_code <- @backup_codes do %>
+              <div class={[
+                "flex items-center justify-center p-4 rounded-xl border-2 transition-colors duration-200",
+                if(backup_code.used_at,
+                  do: "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600",
+                  else: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700"
+                )
+              ]}>
+                <div class={[
+                  "font-mono text-lg font-bold text-center tracking-wider",
+                  if(backup_code.used_at,
+                    do: "text-slate-500 dark:text-slate-400 line-through",
+                    else: "text-emerald-700 dark:text-emerald-300"
+                  )
+                ]}>
+                  {backup_code.code}
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Action Buttons --%>
+        <div class="flex flex-col items-center gap-4 pt-6">
+          <%!-- Copy to Clipboard Button --%>
+          <DesignSystem.liquid_button
             type="button"
-            color="white"
-            class="rounded-full"
-            id="regenerate-backup"
-            phx-click="regenerate_backup_codes"
-            data-confirm="Are you sure? This will generate new backup codes and invalidate the old ones."
-            label="Regenerate backup codes"
-          />
-        <% else %>
-          <div></div>
-        <% end %>
+            variant="primary"
+            color="blue"
+            icon="hero-clipboard-document-list"
+            id="copy-backup-codes-btn"
+            data-clipboard-copy={JS.push("clipcopy")}
+            data-copy-text={Enum.map(@backup_codes, fn code -> if code.used_at, do: nil, else: code.code end) |> Enum.filter(&(&1)) |> Enum.join(" ")}
+            phx-click={JS.dispatch("phx:clipcopy", to: "#copy-backup-codes-btn")}
+          >
+            Copy All Codes
+          </DesignSystem.liquid_button>
 
-        <.button
-          id="close-backup-codes"
-          label="Close"
-          class="rounded-full"
-          phx-click={Phoenix.LiveView.JS.push("hide_backup_codes")}
-        />
+          <%!-- Regenerate Codes Button (if editing) --%>
+          <%= if @editing_totp do %>
+            <DesignSystem.liquid_button
+              type="button"
+              variant="secondary"
+              color="amber"
+              size="sm"
+              icon="hero-arrow-path"
+              phx-click="regenerate_backup_codes"
+              data-confirm="Are you sure? This will generate new backup codes and invalidate the old ones."
+            >
+              Regenerate Codes
+            </DesignSystem.liquid_button>
+          <% end %>
+        </div>
       </div>
-    </.modal>
+    </DesignSystem.liquid_modal>
     """
   end
 
   @impl true
+  def handle_event("clipcopy", _, socket) do
+    counter = :os.system_time(:millisecond) |> rem(10000)
+    {:noreply,
+     socket
+     |> put_flash(:info, "Backup codes copied to clipboard successfully! (##{counter})")}
+  end
+
+  def handle_event("change_2fa_device", %{"value" => _}, socket) do
+    # Handle form-style event for change_2fa_device
+    # Reset form and show password input to change 2FA device
+    {:noreply,
+     socket
+     |> assign(:editing_totp, nil)
+     |> assign(:backup_codes, nil)
+     |> assign_user_form(nil)}
+  end
+
+  def handle_event("change_2fa_device", _params, socket) do
+    # Handle direct click event for change_2fa_device
+    # Reset form and show password input to change 2FA device
+    {:noreply,
+     socket
+     |> assign(:editing_totp, nil)
+     |> assign(:backup_codes, nil)
+     |> assign_user_form(nil)}
+  end
+
   def handle_event("show_backup_codes", _, socket) do
-    {:noreply, assign(socket, :backup_codes, socket.assigns.editing_totp.backup_codes)}
+    backup_codes = 
+      case socket.assigns.editing_totp do
+        nil -> socket.assigns.current_totp.backup_codes
+        editing_totp -> editing_totp.backup_codes
+      end
+    
+    {:noreply, assign(socket, :backup_codes, backup_codes)}
   end
 
   @impl true
@@ -374,6 +700,12 @@ defmodule MossletWeb.EditTotpLive do
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_event("submit_totp", _params, socket) do
+    # Handle other submit_totp events that don't match the expected pattern
+    {:noreply, socket}
   end
 
   @impl true

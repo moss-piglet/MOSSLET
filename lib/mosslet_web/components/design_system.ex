@@ -61,7 +61,7 @@ defmodule MossletWeb.DesignSystem do
   attr :type, :string, default: "button"
   attr :size, :string, default: "md", values: ~w(sm md lg)
   attr :variant, :string, default: "primary", values: ~w(primary secondary ghost)
-  attr :color, :string, default: "teal", values: ~w(teal blue purple amber rose cyan indigo)
+  attr :color, :string, default: "teal", values: ~w(teal blue purple amber rose cyan indigo slate)
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
   attr :class, :any, default: ""
@@ -749,8 +749,7 @@ defmodule MossletWeb.DesignSystem do
   defp button_variant_classes("ghost", color) do
     [
       "text-slate-600 dark:text-slate-300",
-      "hover:bg-gradient-to-r hover:from-#{color}-50 hover:to-#{secondary_color_for(color)}-50",
-      "dark:hover:from-#{color}-900/20 dark:hover:to-#{secondary_color_for(color)}-900/20",
+      "hover:bg-#{color}-50 dark:hover:bg-#{color}-900/20",
       "hover:text-#{color}-700 dark:hover:text-#{color}-300",
       "focus-visible:outline-slate-600"
     ]
@@ -764,6 +763,7 @@ defmodule MossletWeb.DesignSystem do
   defp gradient_for_color("rose"), do: "bg-gradient-to-r from-rose-500 to-pink-500"
   defp gradient_for_color("cyan"), do: "bg-gradient-to-r from-cyan-500 to-teal-500"
   defp gradient_for_color("indigo"), do: "bg-gradient-to-r from-indigo-500 to-blue-500"
+  defp gradient_for_color("slate"), do: "bg-gradient-to-r from-slate-500 to-slate-600"
   # fallback
   defp gradient_for_color(_), do: "bg-gradient-to-r from-teal-500 to-emerald-500"
 
@@ -775,6 +775,7 @@ defmodule MossletWeb.DesignSystem do
   defp primary_color_for("rose"), do: "pink"
   defp primary_color_for("cyan"), do: "teal"
   defp primary_color_for("indigo"), do: "blue"
+  defp primary_color_for("slate"), do: "slate"
   # fallback
   defp primary_color_for(_), do: "emerald"
 
@@ -786,6 +787,7 @@ defmodule MossletWeb.DesignSystem do
   defp secondary_color_for("rose"), do: "pink"
   defp secondary_color_for("cyan"), do: "teal"
   defp secondary_color_for("indigo"), do: "blue"
+  defp secondary_color_for("slate"), do: "slate"
   # fallback
   defp secondary_color_for(_), do: "emerald"
 
