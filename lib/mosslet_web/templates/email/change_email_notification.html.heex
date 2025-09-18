@@ -1,13 +1,54 @@
-<h1>Change your email notification</h1>
+<h1>Email Change Initiated</h1>
 
 <p>
-  This is a notification to inform you that you have initiated a change email request from your MOSSLET account.
+  This is a security notification to inform you that an email change request has been initiated for your MOSSLET account.
 </p>
+
+<EmailComponents.gap />
+
+<EmailComponents.status type="info">
+  <strong>🔄 Change Request Details:</strong>
+  <br /> New email address: <strong>{@new_email}</strong>
+  <br /> Request time: Just now<br /> Status: Awaiting confirmation
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<p>To complete this change, you'll need to:</p>
+<ol>
+  <li>📧 Check the inbox for <strong>{@new_email}</strong></li>
+  <li>🔗 Click the confirmation link in the email we sent</li>
+  <li>✅ Your email will be updated once confirmed</li>
+</ol>
 
 <p>
-  You have requested to change your email to <strong>{@new_email}</strong>. Please check the email inbox associated with this email address for a link to confirm your change.
+  This helps ensure that only you can change your email address and that you maintain access to your account.
 </p>
 
-<EmailComponents.small_text>
-  If you didn't request this change, please change your password immediately and report this email to support@mosslet.com.
-</EmailComponents.small_text>
+<EmailComponents.gap />
+
+<EmailComponents.status type="warning">
+  <strong>⚠️ Security Alert:</strong>
+  If you didn't request this email change, please secure your account immediately.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<p>If this wasn't you:</p>
+<ul>
+  <li>🔒 Change your password immediately</li>
+  <li>📧 Contact our support team at support@mosslet.com</li>
+  <li>🛡️ Review your account activity and security settings</li>
+</ul>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    This notification was sent to your current email address to keep you informed of account changes. MOSSLET takes your privacy and security seriously.
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you have any concerns about your account security, please contact us immediately at support@mosslet.com.
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

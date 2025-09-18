@@ -1,11 +1,42 @@
-<h1>Change your email</h1>
+<h1>Confirm Your Email Change</h1>
 
-<p>Touch the button below to change your email to <strong>{@new_email}</strong>.</p>
+<p>
+  We received a request to change your MOSSLET account email address from your current email to <EmailComponents.highlight color="teal"><strong>{@new_email}</strong></EmailComponents.highlight>.
+</p>
 
-<EmailComponents.button_centered to={@url}>
-  Change email
+<p>
+  To complete this change and ensure you continue receiving important account updates, please confirm your new email address by clicking the button below:
+</p>
+
+<EmailComponents.button_centered to={@url} color="cyan" size="lg">
+  Confirm New Email Address
 </EmailComponents.button_centered>
 
-<EmailComponents.small_text>
-  If you didn't request this change, please ignore this.
-</EmailComponents.small_text>
+<EmailComponents.gap />
+
+<EmailComponents.status type="warning">
+  <strong>⚠️ Important:</strong> This confirmation link will expire in 24 hours for your security.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<p>Once confirmed, you'll use <strong>{@new_email}</strong> to:</p>
+<ul>
+  <li>🔑 Sign in to your MOSSLET account</li>
+  <li>📧 Receive account notifications and updates</li>
+  <li>🔒 Access password reset and security features</li>
+  <li>💬 Continue your private conversations</li>
+</ul>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    If you're having trouble clicking the confirmation button, you can copy and paste this link into your browser:
+    <a href={@url}>{@url}</a>
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you didn't request this email change, please contact our support team immediately at support@mosslet.com or ignore this email if you believe it was sent in error.
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

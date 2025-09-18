@@ -24,11 +24,17 @@
         height: 100%;
         margin: 0;
         -webkit-text-size-adjust: none;
-        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;;
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
       }
 
       a {
-        color: #059669;
+        color: #14B8A6;
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: #10B981;
       }
 
       a img {
@@ -50,36 +56,41 @@
         opacity: 0;
         overflow: hidden;
       }
+
       /* Type ------------------------------ */
 
       body,
       td,
       th {
-        font-family: 'Inter', Helvetica, Arial, sans-serif;
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
       }
 
       h1 {
         margin-top: 0;
-        color: #333333;
-        font-size: 22px;
-        font-weight: bold;
+        color: #1e293b;
+        font-size: 28px;
+        font-weight: 700;
         text-align: left;
+        line-height: 1.2;
+        letter-spacing: -0.025em;
       }
 
       h2 {
         margin-top: 0;
-        color: #333333;
-        font-size: 16px;
-        font-weight: bold;
+        color: #334155;
+        font-size: 20px;
+        font-weight: 600;
         text-align: left;
+        line-height: 1.3;
       }
 
       h3 {
         margin-top: 0;
-        color: #333333;
-        font-size: 14px;
-        font-weight: bold;
+        color: #475569;
+        font-size: 16px;
+        font-weight: 600;
         text-align: left;
+        line-height: 1.4;
       }
 
       td,
@@ -94,11 +105,14 @@
         margin: .4em 0 1.1875em;
         font-size: 16px;
         line-height: 1.625;
+        color: #475569;
       }
 
       .sub {
         font-size: 13px;
+        color: #64748B;
       }
+
       /* Utilities ------------------------------ */
 
       .align-right {
@@ -112,212 +126,145 @@
       .align-center {
         text-align: center;
       }
-      /* Buttons ------------------------------ */
 
-      .button {
-        background-color: #059669;
-        border-top: 10px solid #059669;
-        border-right: 18px solid #059669;
-        border-bottom: 10px solid #059669;
-        border-left: 18px solid #059669;
+      /* Liquid Metal Buttons ------------------------------ */
+
+      .liquid-button {
+        background: linear-gradient(135deg, #14B8A6, #10B981);
+        border: none;
         display: inline-block;
-        color: #FFF !important;
+        color: #FFFFFF !important;
         text-decoration: none;
-        border-radius: 9999px;
-        box-shadow: 0 2px 3px rgba(0, 0, 0, 0.16);
+        border-radius: 12px;
+        box-shadow: 0 4px 14px 0 rgba(20, 184, 166, 0.39);
         -webkit-text-size-adjust: none;
         box-sizing: border-box;
-        line-height: 1.625;
+        line-height: 1.5;
+        font-weight: 600;
+        padding: 16px 32px;
+        font-size: 16px;
+        transition: all 0.2s ease-out;
+        position: relative;
+        overflow: hidden;
       }
 
-      .button--green {
-        background-color: #059669;
-        border-top: 10px solid #059669;
-        border-right: 18px solid #059669;
-        border-bottom: 10px solid #059669;
-        border-left: 18px solid #059669;
+      .liquid-button:hover {
+        box-shadow: 0 8px 25px 0 rgba(20, 184, 166, 0.45);
+        transform: translateY(-2px);
       }
 
-      .button--red {
-        background-color: #DC2626;
-        border-top: 10px solid #DC2626;
-        border-right: 18px solid #DC2626;
-        border-bottom: 10px solid #DC2626;
-        border-left: 18px solid #DC2626;
+      .liquid-button--teal {
+        background: linear-gradient(135deg, #14B8A6, #10B981);
+        box-shadow: 0 4px 14px 0 rgba(20, 184, 166, 0.39);
       }
 
-      .button--gray {
-        background-color: #4B5563;
-        border-top: 10px solid #4B5563;
-        border-right: 18px solid #4B5563;
-        border-bottom: 10px solid #4B5563;
-        border-left: 18px solid #4B5563;
+      .liquid-button--blue {
+        background: linear-gradient(135deg, #3B82F6, #06B6D4);
+        box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
       }
 
-      .button--sm {
-        font-size: 0.7rem;
+      .liquid-button--purple {
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+        box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.39);
       }
 
-      .button--md {
-        font-size: 1rem;
+      .liquid-button--amber {
+        background: linear-gradient(135deg, #F59E0B, #F97316);
+        box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.39);
       }
 
-      .button--lg {
-        font-size: 1.2rem;
+      .liquid-button--rose {
+        background: linear-gradient(135deg, #F43F5E, #EC4899);
+        box-shadow: 0 4px 14px 0 rgba(244, 63, 94, 0.39);
+      }
+
+      .liquid-button--cyan {
+        background: linear-gradient(135deg, #06B6D4, #14B8A6);
+        box-shadow: 0 4px 14px 0 rgba(6, 182, 212, 0.39);
+      }
+
+      .liquid-button--indigo {
+        background: linear-gradient(135deg, #6366F1, #3B82F6);
+        box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39);
+      }
+
+      .liquid-button--red {
+        background: linear-gradient(135deg, #DC2626, #EF4444);
+        box-shadow: 0 4px 14px 0 rgba(220, 38, 38, 0.39);
+      }
+
+      .liquid-button--green {
+        background: linear-gradient(135deg, #059669, #10B981);
+        box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.39);
+      }
+
+      .liquid-button--gray {
+        background: linear-gradient(135deg, #4B5563, #6B7280);
+        box-shadow: 0 4px 14px 0 rgba(75, 85, 99, 0.39);
+      }
+
+      .liquid-button--sm {
+        font-size: 14px;
+        padding: 10px 20px;
+      }
+
+      .liquid-button--md {
+        font-size: 16px;
+        padding: 16px 32px;
+      }
+
+      .liquid-button--lg {
+        font-size: 18px;
+        padding: 20px 40px;
       }
 
       @media only screen and (max-width: 500px) {
-        .button {
+        .liquid-button {
           width: 100% !important;
           text-align: center !important;
+          display: block !important;
         }
       }
-      /* Attribute list ------------------------------ */
 
-      .attributes {
-        margin: 0 0 21px;
-      }
+      /* Liquid Metal Cards ------------------------------ */
 
-      .attributes_content {
-        background-color: #F4F4F7;
-        padding: 16px;
-      }
-
-      .attributes_item {
-        padding: 0;
-      }
-      /* Related Items ------------------------------ */
-
-      .related {
-        width: 100%;
-        margin: 0;
-        padding: 25px 0 0 0;
-        -premailer-width: 100%;
-        -premailer-cellpadding: 0;
-        -premailer-cellspacing: 0;
-      }
-
-      .related_item {
-        padding: 10px 0;
-        color: #CBCCCF;
-        font-size: 15px;
-        line-height: 18px;
-      }
-
-      .related_item-title {
-        display: block;
-        margin: .5em 0 0;
-      }
-
-      .related_item-thumb {
-        display: block;
-        padding-bottom: 10px;
-      }
-
-      .related_heading {
-        border-top: 1px solid #CBCCCF;
-        text-align: center;
-        padding: 25px 0 10px;
-      }
-      /* Discount Code ------------------------------ */
-
-      .discount {
-        width: 100%;
-        margin: 0;
+      .liquid-card {
+        background: linear-gradient(145deg, #ffffff, #f8fafc);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
         padding: 24px;
-        -premailer-width: 100%;
-        -premailer-cellpadding: 0;
-        -premailer-cellspacing: 0;
-        background-color: #F4F4F7;
-        border: 2px dashed #CBCCCF;
+        margin: 20px 0;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        position: relative;
+        overflow: hidden;
       }
 
-      /* Social Icons ------------------------------ */
-
-      .social {
-        width: auto;
+      .liquid-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #14B8A6, #10B981, #06B6D4);
       }
 
-      .social td {
-        padding: 0;
-        width: auto;
+      .liquid-pin-display {
+        background: linear-gradient(145deg, #F0FDFA, #ECFDF5);
+        border: 2px solid #14B8A6;
+        border-radius: 12px;
+        padding: 20px 30px;
+        font-family: 'Inter', ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 24px;
+        letter-spacing: 6px;
+        color: #065F46;
+        display: inline-block;
+        margin: 20px 0;
+        box-shadow: 0 4px 14px 0 rgba(20, 184, 166, 0.15);
       }
 
-      .social_icon {
-        height: 20px;
-        margin: 0 8px 10px 8px;
-        padding: 0;
-      }
-      /* Data table ------------------------------ */
-
-      .purchase {
-        width: 100%;
-        margin: 0;
-        padding: 35px 0;
-        -premailer-width: 100%;
-        -premailer-cellpadding: 0;
-        -premailer-cellspacing: 0;
-      }
-
-      .purchase_content {
-        width: 100%;
-        margin: 0;
-        padding: 25px 0 0 0;
-        -premailer-width: 100%;
-        -premailer-cellpadding: 0;
-        -premailer-cellspacing: 0;
-      }
-
-      .purchase_item {
-        padding: 10px 0;
-        color: #51545E;
-        font-size: 15px;
-        line-height: 18px;
-      }
-
-      .purchase_heading {
-        padding-bottom: 8px;
-        border-bottom: 1px solid #EAEAEC;
-      }
-
-      .purchase_heading p {
-        margin: 0;
-        color: #85878E;
-        font-size: 12px;
-      }
-
-      .purchase_footer {
-        padding-top: 15px;
-        border-top: 1px solid #EAEAEC;
-      }
-
-      .purchase_total {
-        margin: 0;
-        text-align: right;
-        font-weight: bold;
-        color: #333333;
-      }
-
-      .purchase_total--label {
-        padding: 0 15px 0 0;
-      }
-
-      body {
-        color: #51545E;
-        background: white;
-      }
-
-      p {
-        color: #51545E;
-      }
-
-      p.sub {
-        color: #6B6E76;
-      }
-
-      .header {
-        border-bottom: 1px solid #EAEAEC;
-      }
+      /* Enhanced Email Wrapper ------------------------------ */
 
       .email-wrapper {
         width: 100%;
@@ -326,6 +273,7 @@
         -premailer-width: 100%;
         -premailer-cellpadding: 0;
         -premailer-cellspacing: 0;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
       }
 
       .email-content {
@@ -355,6 +303,30 @@
         -premailer-width: 570px;
         -premailer-cellpadding: 0;
         -premailer-cellspacing: 0;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        margin-top: 40px;
+        margin-bottom: 40px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .email-body_inner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #14B8A6, #10B981, #06B6D4, #14B8A6);
+        background-size: 200% 100%;
+        animation: shimmer 3s ease-in-out infinite;
+      }
+
+      @keyframes shimmer {
+        0%, 100% { background-position: 200% 0; }
+        50% { background-position: -200% 0; }
       }
 
       .email-footer {
@@ -368,72 +340,121 @@
       }
 
       .email-footer p {
-        color: #6B6E76;
-      }
-
-      .body-action {
-        width: 100%;
-        margin: 30px auto;
-        padding: 0;
-        -premailer-width: 100%;
-        -premailer-cellpadding: 0;
-        -premailer-cellspacing: 0;
-        text-align: center;
-      }
-
-      .top-border {
-        margin-top: 25px;
-        padding-top: 25px;
-        border-top: 1px solid #EAEAEC;
-      }
-
-      .bottom-border {
-        margin-bottom: 25px;
-        padding-bottom: 25px;
-        border-bottom: 1px solid #EAEAEC;
+        color: #64748B;
       }
 
       .content-cell {
-        padding: 35px;
+        padding: 40px;
+        position: relative;
       }
+
+      .content-cell-header {
+        padding: 40px 40px 20px 40px;
+        position: relative;
+      }
+
+      .content-cell-footer {
+        padding: 20px 40px 40px 40px;
+        position: relative;
+        border-top: 1px solid #e2e8f0;
+        margin-top: 30px;
+      }
+
+      /* Liquid Metal Accent Lines */
+      .liquid-accent-line {
+        height: 2px;
+        background: linear-gradient(90deg, #14B8A6, #10B981, #06B6D4);
+        border-radius: 1px;
+        margin: 20px 0;
+      }
+
+      .top-border {
+        margin-top: 30px;
+        padding-top: 30px;
+        border-top: 1px solid #e2e8f0;
+        position: relative;
+      }
+
+      .top-border::before {
+        content: '';
+        position: absolute;
+        top: -1px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 2px;
+        background: linear-gradient(90deg, #14B8A6, #10B981);
+      }
+
       /*Media Queries ------------------------------ */
 
       @media only screen and (max-width: 600px) {
         .email-body_inner,
         .email-footer {
           width: 100% !important;
+          margin: 20px 10px !important;
+        }
+
+        .content-cell,
+        .content-cell-header,
+        .content-cell-footer {
+          padding: 20px !important;
+        }
+
+        h1 {
+          font-size: 24px !important;
+        }
+
+        h2 {
+          font-size: 18px !important;
         }
       }
 
+      /* Dark Mode Support */
       @media (prefers-color-scheme: dark) {
         .email-wrapper {
-          background: #1A202C;
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
         }
-      }
 
-      @media (prefers-color-scheme: dark) {
+        .email-body_inner {
+          background: #1e293b !important;
+          border: 1px solid #475569;
+        }
+
         body,
         .email-body,
         .email-body_inner,
         .email-content,
         .email-wrapper,
         .email-footer {
-          color: #FFF !important;
+          color: #f1f5f9 !important;
         }
+
+        h1, h2, h3 {
+          color: #f1f5f9 !important;
+        }
+
         p,
         ul,
         ol,
         blockquote,
-        h1,
-        h2,
-        h3,
-        span,
-        .purchase_item {
-          color: #FFF !important;
+        span {
+          color: #cbd5e1 !important;
         }
-        .attributes_content,
-        .discount {
-          background-color: #222 !important;
+
+        .liquid-card {
+          background: linear-gradient(145deg, #334155, #475569) !important;
+          border-color: #64748b !important;
+        }
+
+        .liquid-pin-display {
+          background: linear-gradient(145deg, #134e4a, #115e59) !important;
+          border-color: #14b8a6 !important;
+          color: #a7f3d0 !important;
+        }
+
+        .sub {
+          color: #94a3b8 !important;
         }
       }
     </style>
@@ -469,12 +490,13 @@
                   cellspacing="0"
                   role="presentation"
                 >
-                  <!-- Body content -->
+                  <!-- Header content -->
                   <tr>
-                    <td class="content-cell">
-                      <a href={MossletWeb.Endpoint.url()}>
+                    <td class="content-cell-header">
+                      <a href={MossletWeb.Endpoint.url()} style="text-decoration: none;">
                         <.logo_for_emails />
                       </a>
+                      <div class="liquid-accent-line"></div>
                     </td>
                   </tr>
                 </table>
@@ -522,19 +544,26 @@
                   role="presentation"
                 >
                   <tr>
-                    <td class="content-cell top-border" align="center">
+                    <td class="content-cell-footer top-border" align="center">
                       <p class="font-fallback sub align-center">
                         Sent with ❤️ by {Mosslet.config(:app_name)}
                       </p>
                       <p class="font-fallback sub align-center">
                         <br /> 👋
-                        <a href={"mailto:#{Mosslet.config(:support_email)}?subject=Hey 👋"}>
+                        <a
+                          href={"mailto:#{Mosslet.config(:support_email)}?subject=Hey 👋"}
+                          style="color: #14B8A6; text-decoration: none;"
+                        >
                           Contact us
                         </a>
                       </p>
 
                       <%= if @unsubscribe_url do %>
-                        <a class="font-fallback sub align-center" href={@unsubscribe_url}>
+                        <a
+                          class="font-fallback sub align-center"
+                          href={@unsubscribe_url}
+                          style="color: #64748B; text-decoration: none; font-size: 13px;"
+                        >
                           Unsubscribe
                         </a>
                       <% end %>

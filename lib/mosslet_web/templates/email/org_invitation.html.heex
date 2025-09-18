@@ -1,15 +1,55 @@
-<h1>Invitation to join {@org.name}</h1>
+<h1>Join {@org.name} on MOSSLET</h1>
+
+<p>
+  Great news! You've been invited to join <strong>{@org.name}</strong>
+  on MOSSLET, where organizations can collaborate privately without the stress and tracking of traditional platforms.
+</p>
 
 <%= if @invitation.user_id do %>
-  <p>You can join the organization by using the button below:</p>
+  <p>
+    Since you already have a MOSSLET account, you can join <strong>{@org.name}</strong>
+    right away by clicking the button below:
+  </p>
+
+  <EmailComponents.button_centered to={@url} color="purple" size="lg">
+    Join {@org.name}
+  </EmailComponents.button_centered>
 <% else %>
-  <p>You can join the organization by registering an account using the button below:</p>
+  <p>
+    To join <strong>{@org.name}</strong>, you'll first need to create your free MOSSLET account. Don't worry – it only takes a minute, and you'll love the privacy-first experience!
+  </p>
+
+  <EmailComponents.button_centered to={@url} color="purple" size="lg">
+    Create Account & Join {@org.name}
+  </EmailComponents.button_centered>
 <% end %>
 
-<EmailComponents.button_centered to={@url}>
-  <%= if @invitation.user_id do %>
-    Join {@org.name}
-  <% else %>
-    Register and join {@org.name}
-  <% end %>
-</EmailComponents.button_centered>
+<EmailComponents.gap />
+
+<EmailComponents.status type="success">
+  <strong>🎉 Why organizations choose MOSSLET:</strong>
+  Private collaboration, no data mining, no distractions, just productive teamwork.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<p>As a member of <strong>{@org.name}</strong>, you'll enjoy:</p>
+<ul>
+  <li>🔒 Private team communication and updates</li>
+  <li>💬 Secure group messaging</li>
+  <li>🛡️ No corporate surveillance or data collection</li>
+  <li>🌱 A calm, focused environment for collaboration</li>
+</ul>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    This invitation was sent by a member of {@org.name}. If you're having trouble with the button above, you can copy and paste this link:
+    <a href={@url}>{@url}</a>
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you weren't expecting this invitation or don't want to join {@org.name}, you can safely ignore this email.
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

@@ -1,114 +1,133 @@
-<h1>👋 Hi, {@invitation.name}!</h1>
+<h1>👋 Welcome to MOSSLET, {@invitation.name}!</h1>
 
 <p>
-  You have been invited by {@user.name} to join them on MOSSLET, a privacy-first alternative to social networks. 🌿
+  Great news!
+  <EmailComponents.highlight color="teal">
+    <strong>{@user.name}</strong>
+  </EmailComponents.highlight>
+  has invited you to join them on MOSSLET – social media that actually respects your privacy and peace of mind. 🌱
 </p>
 
 <%= if @invitation.message not in ["", nil]  do %>
-  <h1>Message from {@user.name}</h1>
+  <EmailComponents.gap />
+
+  <h2>Personal Message from {@user.name}</h2>
   <EmailComponents.dotted_gray_box>
-    <p class="align-center">
-      {@invitation.message}
+    <p class="align-center" style="font-style: italic; font-size: 16px; line-height: 1.6;">
+      "{@invitation.message}"
     </p>
   </EmailComponents.dotted_gray_box>
 <% end %>
 
 <EmailComponents.gap />
 
-<p>Register and join {@user.name} by using the button below:</p>
+<p>
+  Ready to experience social media without the stress, tracking, and manipulation? Click below to create your account and join {@user.name}:
+</p>
 
-<EmailComponents.button_centered to={@url}>
-  Register and join {@user.name}
+<EmailComponents.button_centered to={@url} color="teal" size="lg">
+  Join {@user.name} on MOSSLET
 </EmailComponents.button_centered>
 
 <EmailComponents.gap />
 
-<EmailComponents.gap />
+<EmailComponents.status type="success">
+  <strong>🎉 What makes MOSSLET different:</strong>
+  No ads, no tracking, no algorithms, no manipulation – just authentic connections with the people you care about.
+</EmailComponents.status>
 
 <EmailComponents.gap />
-
-<EmailComponents.gap />
-
-<EmailComponents.top_border />
 
 <EmailComponents.gray_box>
-  <h2>Steps to Connect with {@user.name}:</h2>
+  <h3>🔗 Quick Steps to Connect with {@user.name}:</h3>
 
-  <ol>
-    <li>Register your new account using the button above</li>
-    <li>Confirm your account using the confirmation link sent to your account email</li>
-    <li>Pay once to create your lifetime subscription</li>
-    <li>Go to your <b>Connections</b> page</li>
-    <li>Click the <b>New Connection</b> button</li>
-    <li>Enter their username or email to connect:</li>
-    <ul>
+  <ol style="margin: 16px 0; padding-left: 20px; line-height: 1.6;">
+    <li>Create your account using the button above</li>
+    <li>Verify your email address</li>
+    <li>Choose your lifetime plan (one-time payment)</li>
+    <li>Find {@user.name} using their details:</li>
+    <ul style="margin: 8px 0; padding-left: 20px;">
       <li><strong>Email:</strong> {@user.email}</li>
-      <li><strong>Username:</strong> {@user.username}</li>
+      <li><strong>Username:</strong> @{@user.username}</li>
     </ul>
-    <li>If you can't connect, check with {@user.name} that their visibility is not private.</li>
+    <li>Send them a connection request</li>
+    <li>Start enjoying private, peaceful social media! 🌿</li>
   </ol>
 </EmailComponents.gray_box>
 
 <EmailComponents.gap />
 
-<EmailComponents.top_border />
-
-<h2>🌿 Discover MOSSLET: Your Privacy-First Social Network! 🌿</h2>
+<h2>🌿 Why People Choose MOSSLET</h2>
 
 <p>
-  Are you feeling overwhelmed by traditional social media and concerned about your privacy? It's time to detox and take control of your online experience with MOSSLET!
-</p>
-<p>
-  MOSSLET is a privacy-first social network designed to help you connect with others while protecting your personal information from surveillance. With a focus on meaningful interactions and a safe online environment, MOSSLET empowers you to engage without the fear of being tracked or exploited.
+  Tired of feeling anxious every time you open social media? You're not alone. MOSSLET was built for people who want to stay connected without the mental health toll.
 </p>
 
-<h2>✨ Why Choose MOSSLET?</h2>
+<div style="display: grid; gap: 16px; margin: 24px 0;">
+  <div style="padding: 16px; background: linear-gradient(145deg, #F0FDFA, #ECFDF5); border-radius: 12px; border-left: 4px solid #10B981;">
+    <strong>🔒 Privacy First:</strong>
+    Your data stays yours. No selling, no tracking, no surveillance capitalism.
+  </div>
 
-<ul>
-  <li>
-    <strong>Privacy Protection:</strong>
-    Your data is yours. MOSSLET prioritizes your privacy and ensures that your information is not sold or misused.
-  </li>
-  <li>
-    <strong>Detox from Social Media:</strong>
-    Step away from the noise and distractions of traditional platforms and enjoy a more serene online experience.
-  </li>
-  <li>
-    <strong>Community Focused:</strong>
-    Connect with like-minded individuals who value privacy and meaningful connections.
-  </li>
-</ul>
+  <div style="padding: 16px; background: linear-gradient(145deg, #EFF6FF, #DBEAFE); border-radius: 12px; border-left: 4px solid #3B82F6;">
+    <strong>🧘 Calm by Design:</strong>
+    No algorithmic manipulation, no endless scrolling, no anxiety-inducing features.
+  </div>
 
-<p>
-  Join the movement towards a more private and fulfilling social experience! Visit
-  <a href="https://mosslet.com" rel="noopener" target="_blank">MOSSLET</a>
-  to learn more and sign up today!
-</p>
-<p>
-  Spread the word and help others reclaim their online privacy! 🌍💚
-</p>
+  <div style="padding: 16px; background: linear-gradient(145deg, #FAF5FF, #F3E8FF); border-radius: 12px; border-left: 4px solid #8B5CF6;">
+    <strong>💬 Real Connections:</strong>
+    End-to-end encrypted messaging and genuine conversations with people you choose.
+  </div>
+
+  <div style="padding: 16px; background: linear-gradient(145deg, #FFFBEB, #FEF3C7); border-radius: 12px; border-left: 4px solid #F59E0B;">
+    <strong>🌱 Own Your Experience:</strong>
+    You control what you see, share, and how you engage. Delete everything anytime.
+  </div>
+</div>
 
 <EmailComponents.gap />
 
-<EmailComponents.top_border />
+<EmailComponents.accent_line width="60%" />
 
-<h2>🌟 Why MOSSLET Uses a Pay-Once Pricing Model 🌟</h2>
+<h3>💰 Why One-Time Payment?</h3>
 
 <p>
-  MOSSLET offers a one-time payment for a lifetime subscription to ensure that our service is designed with the needs of our users in mind, rather than being driven by advertisements or data monetization. 💡 This model allows us to provide an affordable and sustainable service while prioritizing user privacy and experience. 🔒
+  Unlike "free" platforms that make money by exploiting your data and attention, MOSSLET uses a simple one-time payment model. This means:
 </p>
-<p>
-  By eliminating recurring fees, we foster a community focused on meaningful connections 🤝, free from the distractions and surveillance common in traditional social media platforms. 📵 Your support directly contributes to a privacy-first environment where you can engage without compromise. 🌿
-</p>
+
+<ul style="line-height: 1.6;">
+  <li>
+    <strong>You're the customer, not the product</strong>
+    – we serve your interests, not advertisers
+  </li>
+  <li>
+    <strong>No hidden costs</strong> – pay once, use forever, no subscriptions or surprise fees
+  </li>
+  <li>
+    <strong>Sustainable and honest</strong>
+    – we can focus on building great features instead of maximizing engagement
+  </li>
+  <li>
+    <strong>Community over profit</strong>
+    – our success depends on your satisfaction, not your data
+  </li>
+</ul>
+
+<EmailComponents.gap />
+
+<EmailComponents.status type="info">
+  <strong>💡 Did you know?</strong>
+  The average person's data is worth about $700/year to companies like Facebook and Google. With MOSSLET, that value stays with you.
+</EmailComponents.status>
 
 <EmailComponents.gap />
 
 <EmailComponents.top_border>
-  <h3>Safely Ignore or Register</h3>
+  <h3>🛡️ Don't Know {@user.name}?</h3>
   <EmailComponents.small_text>
-    Do you know {@user.name}? If not, you can safely ignore this email.
+    If you don't recognize {@user.name} or didn't expect this invitation, you can safely ignore this email. No action is required.
   </EmailComponents.small_text>
   <EmailComponents.small_text>
-    You can also register safely using the button above without notifying {@user.name} or connecting with them.
+    You can also create an account without connecting to them – they won't be notified unless you choose to send a connection request.
   </EmailComponents.small_text>
 </EmailComponents.top_border>

@@ -1,112 +1,174 @@
-<h1>Header 1</h1>
-<h2>Header 2</h2>
-<h3>Header 3</h3>
+<h1>MOSSLET Email Component Showcase</h1>
+<h2>Liquid Metal Design System for Emails</h2>
+<h3>Beautiful, Privacy-Focused Email Templates</h3>
 
 <EmailComponents.gap />
 
-<h1>Paragraphs &amp; Formatting</h1>
+<h1>Typography & Formatting</h1>
 <p>
-  Transactional email is fun for the whole family! You can design it, write it, code it, and test it. And test it. And test it. And send it. And find a bug.
+  Welcome to MOSSLET's email design system! These components bring our liquid metal aesthetic to your inbox while maintaining compatibility across all email clients. Clean, modern, and respectful of your attention.
 </p>
 <p>
-  This paragraph has some <b>bold text</b>
+  This paragraph demonstrates <b>bold text</b>
   and <strong>strong text</strong>
   along with <i>italicized text</i>
   and <em>emphasized text</em>
-  .
+  for various formatting needs.
+</p>
+
+<EmailComponents.gap />
+
+<h1>Status Indicators</h1>
+
+<EmailComponents.status type="success">
+  <strong>✅ Success:</strong> Your account has been verified successfully!
+</EmailComponents.status>
+
+<EmailComponents.status type="warning">
+  <strong>⚠️ Warning:</strong> This verification link will expire in 24 hours.
+</EmailComponents.status>
+
+<EmailComponents.status type="error">
+  <strong>❌ Error:</strong> We couldn't process your request. Please try again.
+</EmailComponents.status>
+
+<EmailComponents.status type="info">
+  <strong>ℹ️ Info:</strong>
+  Your privacy settings have been updated according to our liquid metal principles.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<h1>Liquid Metal Buttons</h1>
+
+<EmailComponents.button_centered to="/" color="teal" size="lg">
+  Primary Teal Button
+</EmailComponents.button_centered>
+
+<EmailComponents.centered>
+  <EmailComponents.button to="/" color="blue" size="md">
+    Blue Information Button
+  </EmailComponents.button>
+</EmailComponents.centered>
+
+<EmailComponents.centered>
+  <EmailComponents.button to="/" color="purple" size="md">
+    Purple Premium Button
+  </EmailComponents.button>
+</EmailComponents.centered>
+
+<EmailComponents.centered>
+  <EmailComponents.button to="/" color="amber" size="md">
+    Amber Warning Button
+  </EmailComponents.button>
+</EmailComponents.centered>
+
+<EmailComponents.centered>
+  <EmailComponents.button to="/" color="rose" size="md">
+    Rose Destructive Button
+  </EmailComponents.button>
+</EmailComponents.centered>
+
+<EmailComponents.centered>
+  <EmailComponents.button to="/" color="cyan" size="sm">
+    Small Cyan Button
+  </EmailComponents.button>
+</EmailComponents.centered>
+
+<EmailComponents.gap />
+
+<h1>PIN Display</h1>
+<p>For secure authentication codes:</p>
+
+<EmailComponents.pin_display pin="123456" />
+
+<EmailComponents.gap />
+
+<h1>Highlighted Text</h1>
+<p>
+  Use highlights for important information: <EmailComponents.highlight color="teal">Account verified</EmailComponents.highlight>,
+  warnings: <EmailComponents.highlight color="amber">Expires in 2 hours</EmailComponents.highlight>,
+  or errors: <EmailComponents.highlight color="rose">Action required</EmailComponents.highlight>.
 </p>
 
 <EmailComponents.gap />
 
 <h1>Lists</h1>
 <ul>
-  <li>Unordered list item 1</li>
-  <li>Unordered list item 2</li>
-  <li>Unordered list item 3</li>
+  <li>🔒 Privacy-first design philosophy</li>
+  <li>🌱 Calm, respectful user experience</li>
+  <li>💎 Liquid metal visual aesthetics</li>
 </ul>
 <ol>
-  <li>Ordered list item 1</li>
-  <li>Ordered list item 2</li>
-  <li>Ordered list item 3</li>
+  <li>Create your MOSSLET account</li>
+  <li>Verify your email address</li>
+  <li>Choose your privacy settings</li>
+  <li>Start connecting privately</li>
 </ol>
 
 <EmailComponents.gap />
 
-<h1>Action Buttons</h1>
+<h1>Content Cards</h1>
 
-<EmailComponents.centered>
-  <EmailComponents.button to="/" size="sm" color="green">
-    Green button
-  </EmailComponents.button>
-</EmailComponents.centered>
-
-<EmailComponents.centered>
-  <EmailComponents.button to="/" size="md" color="blue">
-    Blue button
-  </EmailComponents.button>
-</EmailComponents.centered>
-
-<EmailComponents.centered>
-  <EmailComponents.button to="/" size="md" color="gray">
-    Gray button
-  </EmailComponents.button>
-</EmailComponents.centered>
-
-<EmailComponents.centered>
-  <EmailComponents.button to="/" size="lg" color="red">
-    Red button
-  </EmailComponents.button>
-</EmailComponents.centered>
-
-<h1>Attribute List</h1>
 <EmailComponents.gray_box>
-  <strong>SignIn Page:</strong> https://google.com <br />
-  <strong>Username:</strong> username
+  <strong>Account Information:</strong>
+  <br /> Username: @privacy_advocate<br /> Email: user@example.com<br />
+  Plan: Lifetime Privacy Plan<br /> Status:
+  <EmailComponents.highlight color="teal">Active</EmailComponents.highlight>
 </EmailComponents.gray_box>
 
 <EmailComponents.gap />
 
-<h1>Example Closing</h1>
-<p>
-  Thanks, <br /> [Sender Name] and the [Product Name] Team
-</p>
-<p>
-  <strong>P.S.</strong>
-  Need help getting started? Check out our help documentation. Or, just reply to this email with any questions or issues you have. The [Product Name] support team is always excited to help you.
-</p>
-
-<EmailComponents.gap />
-
-<h1>Discount Code</h1>
+<h1>Special Announcements</h1>
 
 <EmailComponents.dotted_gray_box>
-  <h1 class="align-center">
-    10% off your next purchase!
-  </h1>
+  <h2 class="align-center">🎉 Welcome to MOSSLET!</h2>
   <p class="align-center">
-    Thanks for your support! Here's a coupon for 10% off your next purchase if used by...
+    Experience social media without the stress, tracking, or manipulation. Your privacy-first journey starts here.
   </p>
   <EmailComponents.centered>
-    <EmailComponents.button to="/">
-      Button centered
+    <EmailComponents.button to="/" color="teal" size="lg">
+      Explore Your Private Timeline
     </EmailComponents.button>
   </EmailComponents.centered>
 </EmailComponents.dotted_gray_box>
 
 <EmailComponents.gap />
 
-<h1>Sub-text</h1>
+<h1>Visual Separators</h1>
+<p>Use accent lines to create visual hierarchy:</p>
+
+<EmailComponents.accent_line />
+
+<p>Or centered shorter lines for subtlety:</p>
+
+<EmailComponents.accent_line width="50%" />
+
+<EmailComponents.gap />
+
+<h1>Example Email Closing</h1>
 <p>
-  Sub-text is for any content that needs to be included at the bottom of the email but doesn't need to stand out. This can be good for disclaimers and text alternatives.
+  Thanks for choosing MOSSLET,<br /> The Privacy-First Social Team 🌱
 </p>
+<p>
+  <strong>P.S.</strong>
+  Need help getting started? Check out our <a href="/support" style="color: #14B8A6;">privacy-focused help documentation</a>. Or simply reply to this email – our human support team (yes, real humans!) is always excited to help you reclaim your digital privacy.
+</p>
+
+<EmailComponents.gap />
+
+<h1>Footer Information</h1>
 
 <EmailComponents.top_border>
   <EmailComponents.small_text>
-    If you’re having trouble clicking the confirm account button, copy and paste the URL below into your web browser.
+    If you're having trouble clicking any button above, copy and paste the URL below into your web browser.
   </EmailComponents.small_text>
   <EmailComponents.small_text>
-    <a href="/">
-      Some link
+    <a href="https://mosslet.com" style="color: #14B8A6;">
+      https://mosslet.com
     </a>
+  </EmailComponents.small_text>
+  <EmailComponents.small_text>
+    This email was sent to you because you have a MOSSLET account. We respect your privacy and will never sell your email to third parties.
   </EmailComponents.small_text>
 </EmailComponents.top_border>

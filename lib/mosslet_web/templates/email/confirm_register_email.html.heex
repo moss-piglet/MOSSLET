@@ -1,11 +1,43 @@
 <h1>Let's verify your account</h1>
 
-<p>Touch the button below to verify your account</p>
+<p>
+  Welcome to MOSSLET! We're excited to have you join our community of privacy-conscious users.
+</p>
 
-<EmailComponents.button_centered to={@url}>
-  Verify account
+<p>
+  To complete your registration and start enjoying social media without the stress, anxiety, or tracking, please verify your account by clicking the button below:
+</p>
+
+<EmailComponents.button_centered to={@url} color="teal" size="lg">
+  Verify Your Account
 </EmailComponents.button_centered>
 
-<EmailComponents.small_text>
-  If you didn't create an account with us, please ignore this.
-</EmailComponents.small_text>
+<EmailComponents.gap />
+
+<EmailComponents.status type="info">
+  <strong>🔒 Your Privacy Matters:</strong>
+  Unlike other platforms, we'll never sell your data, track you across the web, or use psychological manipulation to keep you scrolling.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<p>Once verified, you'll be able to:</p>
+<ul>
+  <li>📱 Share updates with friends and family privately</li>
+  <li>💬 Send end-to-end encrypted messages</li>
+  <li>🛡️ Control exactly what you share and with whom</li>
+  <li>🧘 Experience calm notifications that respect your time</li>
+</ul>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    If you're having trouble clicking the verification button, you can copy and paste this link into your browser:
+    <a href={@url}>{@url}</a>
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you didn't create an account with MOSSLET, you can safely ignore this email.
+  </EmailComponents.small_text>
+</EmailComponents.top_border>
