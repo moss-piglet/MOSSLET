@@ -7,6 +7,11 @@ export default {
   },
 
   updated() {
+    // Don't reset animations if this element is being dismissed
+    if (this.el.getAttribute('data-dismissing') === 'true') {
+      return;
+    }
+    
     this.setupFlashAnimation();
     this.setupCloseButton();
   },
@@ -23,12 +28,12 @@ export default {
       this.el.style.opacity = '1';
     });
 
-    // Auto-dismiss after 8 seconds unless it's an error
+    // Auto-dismiss after 12 seconds unless it's an error
     const kind = this.el.querySelector('[data-kind]')?.dataset.kind || 'info';
     if (kind !== 'error') {
       this.autoHideTimer = setTimeout(() => {
         this.hideFlash();
-      }, 8000);
+      }, 12000);
     }
   },
 
@@ -90,17 +95,43 @@ export default {
   },
 
   hideFlash() {
-    // Add fly-out animation
-    this.el.style.transition = 'all 500ms ease-out';
-    this.el.style.transform = 'translateX(100%)';
-    this.el.style.opacity = '0';
+    // Clear any existing timers to prevent conflicts
+    if (this.autoHideTimer) {
+      clearTimeout(this.autoHideTimer);
+      this.autoHideTimer = null;
+    }
     
-    // Remove element after animation
+    // Mark this element as being dismissed and tell LiveView to ignore it
+    this.el.setAttribute('data-dismissing', 'true');
+    this.el.setAttribute('phx-update', 'ignore');
+    
+    // Remove any existing CSS classes that might interfere and force our styles
+    this.el.style.cssText = `
+      transition: transform 500ms cubic-bezier(0.7, 0, 0.84, 0), opacity 500ms cubic-bezier(0.7, 0, 0.84, 0) !important;
+      transform: translateX(100%) !important;
+      opacity: 0 !important;
+      animation: none !important;
+      pointer-events: none !important;
+    `;
+    
+    // Wait for animation to FULLY complete before clearing LiveView state
     setTimeout(() => {
-      if (this.el.parentNode) {
-        this.el.remove();
+      // Clear the flash from Phoenix state using LiveView's built-in event system
+      const kind = this.el.dataset.kind;
+      if (kind && this.liveSocket) {
+        // Send clear_flash event directly to LiveView
+        this.liveSocket.execJS(this.el, `[["push",{"event":"lv:clear-flash","value":{"kind":"${kind}"}}]]`);
       }
-    }, 500);
+      
+      // Give a small additional delay to ensure LiveView processes the clear before DOM removal
+      setTimeout(() => {
+        // Remove element from DOM
+        if (this.el.parentNode) {
+          this.el.remove();
+        }
+      }, 50); // Small buffer to ensure LiveView state is cleared
+      
+    }, 600); // Wait for 500ms animation plus buffer
   },
 
   destroyed() {

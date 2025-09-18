@@ -706,7 +706,7 @@ defmodule MossletWeb.CoreComponents do
 
       <.phx_flash_group flash={@flash} />
   """
-  attr :flash_group_id, :string, default: "flash-group-#{Ecto.UUID.generate()}"
+  attr :flash_group_id, :string, default: "flash-group"
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
   def phx_flash_group(assigns) do
@@ -715,28 +715,28 @@ defmodule MossletWeb.CoreComponents do
     <div id={@flash_group_id} phx-hook="FlashGroup" class="flex flex-col-reverse gap-2">
       <%!-- Regular flash messages --%>
       <.phx_flash
-        id={"info-#{Ecto.UUID.generate()}"}
+        id="info-flash"
         kind={:info}
         title="Info"
         flash={@flash}
         position={0}
       />
       <.phx_flash
-        id={"success-#{Ecto.UUID.generate()}"}
+        id="success-flash"
         kind={:success}
         title="Success"
         flash={@flash}
         position={1}
       />
       <.phx_flash
-        id={"warning-#{Ecto.UUID.generate()}"}
+        id="warning-flash"
         kind={:warning}
         title="Warning"
         flash={@flash}
         position={2}
       />
       <.phx_flash
-        id={"error-#{Ecto.UUID.generate()}"}
+        id="error-flash"
         kind={:error}
         title="Error"
         flash={@flash}

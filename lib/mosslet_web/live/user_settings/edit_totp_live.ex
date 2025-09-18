@@ -58,7 +58,10 @@ defmodule MossletWeb.EditTotpLive do
                   Your account is protected with two-factor authentication. To view your backup codes or change your 2FA device, enter your password in the form below.
                 </p>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-shield-check" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <.phx_icon
+                    name="hero-shield-check"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
                   <span class="text-sm text-emerald-600 dark:text-emerald-400">
                     Keep your backup codes safe for emergency access
                   </span>
@@ -119,7 +122,10 @@ defmodule MossletWeb.EditTotpLive do
             <:title>
               <div class="flex items-center gap-3">
                 <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-teal-900/30">
-                  <.phx_icon name="hero-device-phone-mobile" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <.phx_icon
+                    name="hero-device-phone-mobile"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
                 </div>
                 <span>Two-Factor Authentication</span>
               </div>
@@ -179,7 +185,10 @@ defmodule MossletWeb.EditTotpLive do
 
             <div class="flex items-center justify-center py-6">
               <div class="p-6 border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-xl bg-purple-50/50 dark:bg-purple-900/20">
-                <div class="text-xl font-mono font-bold text-purple-800 dark:text-purple-200 text-center tracking-wider" id="totp-secret">
+                <div
+                  class="text-xl font-mono font-bold text-purple-800 dark:text-purple-200 text-center tracking-wider"
+                  id="totp-secret"
+                >
                   {format_secret(@editing_totp.secret)}
                 </div>
               </div>
@@ -514,7 +523,8 @@ defmodule MossletWeb.EditTotpLive do
                 "flex items-center justify-center p-4 rounded-xl border-2 transition-colors duration-200",
                 if(backup_code.used_at,
                   do: "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600",
-                  else: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700"
+                  else:
+                    "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700"
                 )
               ]}>
                 <div class={[
@@ -541,7 +551,11 @@ defmodule MossletWeb.EditTotpLive do
             icon="hero-clipboard-document-list"
             id="copy-backup-codes-btn"
             data-clipboard-copy={JS.push("clipcopy")}
-            data-copy-text={Enum.map(@backup_codes, fn code -> if code.used_at, do: nil, else: code.code end) |> Enum.filter(&(&1)) |> Enum.join(" ")}
+            data-copy-text={
+              Enum.map(@backup_codes, fn code -> if code.used_at, do: nil, else: code.code end)
+              |> Enum.filter(& &1)
+              |> Enum.join(" ")
+            }
             phx-click={JS.dispatch("phx:clipcopy", to: "#copy-backup-codes-btn")}
           >
             Copy All Codes
@@ -571,38 +585,19 @@ defmodule MossletWeb.EditTotpLive do
   def handle_event("clipcopy", _, socket) do
     fun_emojis = ["🎉", "✨", "🚀", "💫", "⭐", "🌟", "🎊", "💯", "🔥", "🎯"]
     emoji = Enum.random(fun_emojis)
+
     {:noreply,
      socket
      |> put_flash(:info, "Backup codes copied to clipboard successfully! #{emoji}")}
   end
 
-  def handle_event("change_2fa_device", %{"value" => _}, socket) do
-    # Handle form-style event for change_2fa_device
-    # Reset form and show password input to change 2FA device
-    {:noreply,
-     socket
-     |> assign(:editing_totp, nil)
-     |> assign(:backup_codes, nil)
-     |> assign_user_form(nil)}
-  end
-
-  def handle_event("change_2fa_device", _params, socket) do
-    # Handle direct click event for change_2fa_device
-    # Reset form and show password input to change 2FA device
-    {:noreply,
-     socket
-     |> assign(:editing_totp, nil)
-     |> assign(:backup_codes, nil)
-     |> assign_user_form(nil)}
-  end
-
   def handle_event("show_backup_codes", _, socket) do
-    backup_codes = 
+    backup_codes =
       case socket.assigns.editing_totp do
         nil -> socket.assigns.current_totp.backup_codes
         editing_totp -> editing_totp.backup_codes
       end
-    
+
     {:noreply, assign(socket, :backup_codes, backup_codes)}
   end
 
@@ -619,7 +614,8 @@ defmodule MossletWeb.EditTotpLive do
     # and temporarily hide/show the modal to force a clean re-render
     socket =
       socket
-      |> assign(:backup_codes, nil)  # Hide modal first
+      # Hide modal first
+      |> assign(:backup_codes, nil)
       |> assign(:editing_totp, totp)
 
     # Use send/2 to schedule showing the modal again after a brief delay
@@ -630,12 +626,6 @@ defmodule MossletWeb.EditTotpLive do
     })
 
     {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info(:show_regenerated_codes, socket) do
-    # Show the modal again with the new codes
-    {:noreply, assign(socket, :backup_codes, socket.assigns.editing_totp.backup_codes)}
   end
 
   @impl true
@@ -653,7 +643,10 @@ defmodule MossletWeb.EditTotpLive do
          |> assign(:backup_codes, current_totp.backup_codes)}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, totp_form: to_form(changeset))}
+        {:noreply,
+         socket
+         |> put_flash(:warning, "The code you entered is incorrect. Please try again.")
+         |> assign(totp_form: to_form(changeset))}
     end
   end
 
@@ -701,8 +694,12 @@ defmodule MossletWeb.EditTotpLive do
 
       {:noreply, socket}
     else
-      # Show error flash when password validation fails
-      {:noreply, put_flash(socket, :error, "The password you entered is incorrect. Please try again.")}
+      # Show warning flash when password validation fails and reassign form to maintain state
+      {:noreply,
+       socket
+       |> put_flash(:warning, "The password you entered is incorrect. Please try again.")}
+
+      # |> assign_user_form(current_password)}
     end
   end
 
@@ -715,6 +712,12 @@ defmodule MossletWeb.EditTotpLive do
   @impl true
   def handle_event("cancel_totp", _, socket) do
     {:noreply, reset_assigns(socket, socket.assigns.current_totp)}
+  end
+
+  @impl true
+  def handle_info(:show_regenerated_codes, socket) do
+    # Show the modal again with the new codes
+    {:noreply, assign(socket, :backup_codes, socket.assigns.editing_totp.backup_codes)}
   end
 
   defp reset_assigns(socket, totp) do

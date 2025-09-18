@@ -358,6 +358,7 @@ defmodule MossletWeb.EditProfileLive do
   def handle_event("clipcopy", _params, socket) do
     fun_emojis = ["🎉", "✨", "🚀", "💫", "⭐", "🌟", "🎊", "🎈", "🔥", "💯"]
     emoji = Enum.random(fun_emojis)
+
     {:noreply,
      socket
      |> put_flash(:success, "Profile URL copied to clipboard successfully! #{emoji}")}
