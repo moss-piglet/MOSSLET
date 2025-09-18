@@ -57,7 +57,9 @@ defmodule MossletWeb.LiquidEmailComponents do
   def liquid_email_button_centered(assigns) do
     ~H"""
     <.liquid_email_centered>
-      <.liquid_email_button {assigns} />
+      <.liquid_email_button {assigns}>
+        {render_slot(@inner_block)}
+      </.liquid_email_button>
     </.liquid_email_centered>
     """
   end

@@ -233,7 +233,9 @@ defmodule MossletWeb.EmailComponents do
   def button_centered(assigns) do
     ~H"""
     <.centered>
-      <.button {assigns} />
+      <.button {assigns}>
+        {render_slot(@inner_block)}
+      </.button>
     </.centered>
     """
   end
