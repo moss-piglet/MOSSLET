@@ -7,6 +7,7 @@ defmodule MossletWeb.EditEmailLive do
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
   alias Mosslet.Encrypted.Users.Utils
+  alias MossletWeb.DesignSystem
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -19,88 +20,179 @@ defmodule MossletWeb.EditEmailLive do
   def render(assigns) do
     ~H"""
     <.layout current_user={@current_user} current_page={:edit_email} key={@key} type="sidebar">
-      <.container class="py-16">
-        <.page_header title="Email" />
+      <DesignSystem.liquid_container max_width="lg" class="py-16">
+        <%!-- Page header with liquid metal styling --%>
+        <div class="mb-12">
+          <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              Email Settings
+            </h1>
+            <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+              Manage your email address and notification preferences.
+            </p>
+          </div>
+        </div>
+
+        <%!-- Admin status buttons --%>
         <div
           :if={
             !@current_user.is_admin? &&
               decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
               @current_user.confirmed_at
           }
-          class="flex justify-center"
+          class="flex justify-center mb-8"
         >
-          <.button phx-click="update_admin" class="rounded-full" color="secondary">Set Admin</.button>
+          <DesignSystem.liquid_button
+            phx-click="update_admin"
+            variant="secondary"
+            color="blue"
+            icon="hero-shield-check"
+          >
+            Set Admin
+          </DesignSystem.liquid_button>
         </div>
+
         <div
           :if={
             @current_user.is_admin? &&
               decr(@form[:email].value, @current_user, @key) === Encrypted.Session.admin_email() &&
               @current_user.confirmed_at
           }
-          class="flex justify-center"
+          class="flex justify-center mb-8"
         >
-          <.button phx-click="update_admin" class="rounded-full" color="danger">Revoke Admin</.button>
+          <DesignSystem.liquid_button
+            phx-click="update_admin"
+            variant="primary"
+            color="rose"
+            icon="hero-shield-exclamation"
+          >
+            Revoke Admin
+          </DesignSystem.liquid_button>
         </div>
-        <.form id="change_email_form" for={@form} phx-submit="update_email" class="max-w-lg">
-          <.field
-            type="email"
-            field={@form[:email]}
-            value={decr(@form[:email].value, @current_user, @key)}
-            label={gettext("Change your email")}
-            autocomplete="email"
-            {alpine_autofocus()}
-          />
 
-          <div id="password-current" class="relative">
-            <div id="pw-label-current-container" class="flex justify-between">
-              <div id="pw-current-actions" class="absolute top-0 right-0">
-                <button
-                  type="button"
-                  id="eye-current-password"
-                  data-tippy-content="Show current password"
-                  phx-hook="TippyHook"
-                  phx-click={
-                    JS.set_attribute({"type", "text"}, to: "#current-password")
-                    |> JS.remove_class("hidden", to: "#eye-slash-current-password")
-                    |> JS.add_class("hidden", to: "#eye-current-password")
-                  }
-                >
-                  <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
-                </button>
-                <button
-                  type="button"
-                  id="eye-slash-current-password"
-                  x-data
-                  x-tooltip="Hide password"
-                  data-tippy-content="Hide current password"
-                  phx-hook="TippyHook"
-                  class="hidden"
-                  phx-click={
-                    JS.set_attribute({"type", "password"}, to: "#current-password")
-                    |> JS.add_class("hidden", to: "#eye-slash-current-password")
-                    |> JS.remove_class("hidden", to: "#eye-current-password")
-                  }
-                >
-                  <.icon name="hero-eye-slash" class="h-5 w-5  dark:text-white cursor-pointer" />
-                </button>
+        <%!-- Email form with liquid card --%>
+        <DesignSystem.liquid_card>
+          <:title>
+            <div class="flex items-center gap-3">
+              <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+                <.phx_icon name="hero-envelope" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
+              Change Email Address
             </div>
-          </div>
-          <.field
-            type="password"
-            id="current-password"
-            field={@form[:current_password]}
-            name="current_password"
-            label={gettext("Current password")}
-            autocomplete="off"
-            required
-          />
+          </:title>
 
-          <div class="flex justify-end">
-            <.button class="rounded-full">{gettext("Change email")}</.button>
-          </div>
-        </.form>
-      </.container>
+          <.form id="change_email_form" for={@form} phx-submit="update_email" class="space-y-6">
+            <DesignSystem.liquid_input
+              field={@form[:email]}
+              type="email"
+              label="New Email Address"
+              placeholder="Enter your new email address"
+              value={decr(@form[:email].value, @current_user, @key)}
+              required
+              help="We'll send a confirmation link to verify your new email address."
+            />
+
+            <%!-- Current password field with enhanced styling --%>
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                Current Password <span class="text-rose-500 ml-1">*</span>
+              </label>
+
+              <div class="group relative">
+                <%!-- Enhanced liquid background effect on focus --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl">
+                </div>
+
+                <%!-- Enhanced shimmer effect on focus --%>
+                <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+                </div>
+
+                <%!-- Focus ring with liquid metal styling --%>
+                <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
+                </div>
+
+                <%!-- Secondary focus ring for better definition --%>
+                <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100">
+                </div>
+
+                <%!-- Password input with show/hide functionality --%>
+                <input
+                  type="password"
+                  id="current-password"
+                  name="current_password"
+                  required
+                  class={[
+                    "relative block w-full rounded-xl px-4 py-3 pr-12 text-slate-900 dark:text-slate-100",
+                    "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+                    "border-2 border-slate-200 dark:border-slate-700",
+                    "hover:border-slate-300 dark:hover:border-slate-600",
+                    "focus:border-emerald-500 dark:focus:border-emerald-400",
+                    "focus:outline-none focus:ring-0",
+                    "transition-all duration-200 ease-out",
+                    "sm:text-sm sm:leading-6",
+                    "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+                    "focus:bg-white dark:focus:bg-slate-800"
+                  ]}
+                  placeholder="Enter your current password"
+                />
+
+                <%!-- Show/Hide password buttons with liquid styling --%>
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                  <button
+                    type="button"
+                    id="eye-current-password"
+                    data-tippy-content="Show current password"
+                    phx-hook="TippyHook"
+                    class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                    phx-click={
+                      JS.set_attribute({"type", "text"}, to: "#current-password")
+                      |> JS.remove_class("hidden", to: "#eye-slash-current-password")
+                      |> JS.add_class("hidden", to: "#eye-current-password")
+                    }
+                  >
+                    <.phx_icon
+                      name="hero-eye"
+                      class="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover/eye:text-emerald-600 dark:group-hover/eye:text-emerald-400 transition-colors duration-200"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    id="eye-slash-current-password"
+                    data-tippy-content="Hide current password"
+                    phx-hook="TippyHook"
+                    class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200 hidden"
+                    phx-click={
+                      JS.set_attribute({"type", "password"}, to: "#current-password")
+                      |> JS.add_class("hidden", to: "#eye-slash-current-password")
+                      |> JS.remove_class("hidden", to: "#eye-current-password")
+                    }
+                  >
+                    <.phx_icon
+                      name="hero-eye-slash"
+                      class="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover/eye:text-emerald-600 dark:group-hover/eye:text-emerald-400 transition-colors duration-200"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <p class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                Confirm your current password to proceed with the email change.
+              </p>
+            </div>
+
+            <%!-- Submit button --%>
+            <div class="flex justify-end pt-4">
+              <DesignSystem.liquid_button
+                type="submit"
+                icon="hero-envelope"
+                color="blue"
+              >
+                Change Email
+              </DesignSystem.liquid_button>
+            </div>
+          </.form>
+        </DesignSystem.liquid_card>
+      </DesignSystem.liquid_container>
     </.layout>
     """
   end
