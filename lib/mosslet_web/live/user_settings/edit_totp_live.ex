@@ -300,6 +300,7 @@ defmodule MossletWeb.EditTotpLive do
           </DesignSystem.liquid_button>
 
           <DesignSystem.liquid_button
+            id={if @current_totp, do: "verify-update-button", else: "verify-enable-button"}
             type="submit"
             phx-disable-with="Verifying..."
             icon="hero-shield-check"
