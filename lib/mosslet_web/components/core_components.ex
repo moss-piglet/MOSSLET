@@ -606,6 +606,7 @@ defmodule MossletWeb.CoreComponents do
       role="alert"
       data-position={@position}
       data-expanded={@expanded}
+      data-kind={@kind}
       class={
         [
           "group relative z-10 rounded-xl shadow-xl backdrop-blur-sm border transform-gpu transition-all duration-300 ease-out will-change-transform cursor-pointer",
@@ -677,7 +678,7 @@ defmodule MossletWeb.CoreComponents do
             <p :if={@title} class="text-sm font-semibold leading-5 mb-1">
               {@title}
             </p>
-            <p class="text-sm leading-5 break-words">{msg}</p>
+            <p class="flash-message text-sm leading-5 break-words">{msg}</p>
           </div>
 
           <%!-- Close button with hover effect --%>

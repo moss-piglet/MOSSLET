@@ -356,10 +356,11 @@ defmodule MossletWeb.EditProfileLive do
   end
 
   def handle_event("clipcopy", _params, socket) do
-    counter = :os.system_time(:millisecond) |> rem(10000)
+    fun_emojis = ["🎉", "✨", "🚀", "💫", "⭐", "🌟", "🎊", "🎈", "🔥", "💯"]
+    emoji = Enum.random(fun_emojis)
     {:noreply,
      socket
-     |> put_flash(:success, "Profile URL copied to clipboard successfully! (##{counter})")}
+     |> put_flash(:success, "Profile URL copied to clipboard successfully! #{emoji}")}
   end
 
   def handle_event("validate_profile", params, socket) do

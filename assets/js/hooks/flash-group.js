@@ -1,4 +1,4 @@
-// Flash Group Hook - Manages stacking and positioning of multiple flash messages
+// Flash Group Hook - Simple stacking support for multiple flash messages
 export default {
   mounted() {
     this.repositionFlashes();
@@ -10,10 +10,17 @@ export default {
   },
 
   repositionFlashes() {
-    // With flexbox layout, we don't need to manually position each flash
-    // The flex-col-reverse class handles stacking from bottom up automatically
+    // Simple stacking - let flexbox handle the layout
     const flashes = this.el.querySelectorAll('[phx-hook="LiquidFlash"]');
     console.log(`Found ${flashes.length} flash messages`);
+    
+    // Add stagger animation to new flashes
+    flashes.forEach((flash, index) => {
+      if (!flash.dataset.positioned) {
+        flash.style.animationDelay = `${index * 100}ms`;
+        flash.dataset.positioned = 'true';
+      }
+    });
   },
 
   observeFlashChanges() {
@@ -23,7 +30,6 @@ export default {
 
       mutations.forEach((mutation) => {
         if (mutation.type === "childList") {
-          // Check if any flash elements were added or removed
           const addedFlashes = Array.from(mutation.addedNodes).some(
             (node) =>
               node.nodeType === 1 &&
@@ -42,7 +48,6 @@ export default {
       });
 
       if (shouldReposition) {
-        // Small delay to allow DOM to settle
         setTimeout(() => this.repositionFlashes(), 100);
       }
     });

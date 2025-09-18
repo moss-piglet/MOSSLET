@@ -63,7 +63,7 @@ defmodule MossletWeb.EditTotpLive do
                   </span>
                   <DesignSystem.liquid_button
                     variant="secondary"
-                    color="emerald"
+                    color="teal"
                     size="sm"
                     icon="hero-key"
                     phx-click="show_backup_codes"
@@ -578,10 +578,11 @@ defmodule MossletWeb.EditTotpLive do
 
   @impl true
   def handle_event("clipcopy", _, socket) do
-    counter = :os.system_time(:millisecond) |> rem(10000)
+    fun_emojis = ["🎉", "✨", "🚀", "💫", "⭐", "🌟", "🎊", "💯", "🔥", "🎯"]
+    emoji = Enum.random(fun_emojis)
     {:noreply,
      socket
-     |> put_flash(:info, "Backup codes copied to clipboard successfully! (##{counter})")}
+     |> put_flash(:info, "Backup codes copied to clipboard successfully! #{emoji}")}
   end
 
   def handle_event("change_2fa_device", %{"value" => _}, socket) do
