@@ -55,22 +55,13 @@ defmodule MossletWeb.EditTotpLive do
 
               <div class="space-y-4">
                 <p class="text-emerald-700 dark:text-emerald-300">
-                  Your account is protected with two-factor authentication. You can view your backup codes or change your 2FA device by entering your password below.
+                  Your account is protected with two-factor authentication. To view your backup codes or change your 2FA device, enter your password in the form below.
                 </p>
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <.phx_icon name="hero-shield-check" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <span class="text-sm text-emerald-600 dark:text-emerald-400">
                     Keep your backup codes safe for emergency access
                   </span>
-                  <DesignSystem.liquid_button
-                    variant="secondary"
-                    color="teal"
-                    size="sm"
-                    icon="hero-key"
-                    phx-click="show_backup_codes"
-                    class="self-start sm:self-auto"
-                  >
-                    View Backup Codes
-                  </DesignSystem.liquid_button>
                 </div>
               </div>
             </DesignSystem.liquid_card>
@@ -363,7 +354,7 @@ defmodule MossletWeb.EditTotpLive do
       <div class="space-y-4">
         <p class="text-slate-700 dark:text-slate-300">
           <%= if @current_totp do %>
-            Enter your current password to change your 2FA device or view your backup codes.
+            Enter your current password to change your 2FA device, view your backup codes, or generate new backup codes (which will invalidate your current ones).
           <% else %>
             Enter your current password to enable two-factor authentication and secure your account.
           <% end %>
@@ -624,16 +615,27 @@ defmodule MossletWeb.EditTotpLive do
   def handle_event("regenerate_backup_codes", _, socket) do
     {:ok, totp} = Accounts.regenerate_user_totp_backup_codes(socket.assigns.editing_totp)
 
+    # Ensure consistent state by updating both backup_codes and editing_totp
+    # and temporarily hide/show the modal to force a clean re-render
     socket =
       socket
-      |> assign(:backup_codes, totp.backup_codes)
+      |> assign(:backup_codes, nil)  # Hide modal first
       |> assign(:editing_totp, totp)
+
+    # Use send/2 to schedule showing the modal again after a brief delay
+    Process.send_after(self(), :show_regenerated_codes, 50)
 
     Mosslet.Logs.log_async("totp.regenerate_backup_codes", %{
       user: socket.assigns.current_user
     })
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(:show_regenerated_codes, socket) do
+    # Show the modal again with the new codes
+    {:noreply, assign(socket, :backup_codes, socket.assigns.editing_totp.backup_codes)}
   end
 
   @impl true
@@ -699,7 +701,8 @@ defmodule MossletWeb.EditTotpLive do
 
       {:noreply, socket}
     else
-      {:noreply, socket}
+      # Show error flash when password validation fails
+      {:noreply, put_flash(socket, :error, "The password you entered is incorrect. Please try again.")}
     end
   end
 
