@@ -61,7 +61,11 @@ defmodule MossletWeb.DesignSystem do
   attr :type, :string, default: "button"
   attr :size, :string, default: "md", values: ~w(sm md lg)
   attr :variant, :string, default: "primary", values: ~w(primary secondary ghost)
-  attr :color, :string, default: "teal", values: ~w(teal emerald blue purple amber rose cyan indigo slate)
+
+  attr :color, :string,
+    default: "teal",
+    values: ~w(teal emerald blue purple amber rose cyan indigo slate)
+
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
   attr :class, :any, default: ""
@@ -757,6 +761,7 @@ defmodule MossletWeb.DesignSystem do
 
   # Color gradient mappings
   defp gradient_for_color("teal"), do: "bg-gradient-to-r from-teal-500 to-emerald-500"
+  defp gradient_for_color("emerald"), do: "bg-gradient-to-r from-emerald-500 to-teal-500"
   defp gradient_for_color("blue"), do: "bg-gradient-to-r from-blue-500 to-cyan-500"
   defp gradient_for_color("purple"), do: "bg-gradient-to-r from-purple-500 to-violet-500"
   defp gradient_for_color("amber"), do: "bg-gradient-to-r from-amber-500 to-orange-500"
@@ -769,6 +774,7 @@ defmodule MossletWeb.DesignSystem do
 
   # Primary color for each variant (for shadows, focus, etc.)
   defp primary_color_for("teal"), do: "emerald"
+  defp primary_color_for("emerald"), do: "teal"
   defp primary_color_for("blue"), do: "cyan"
   defp primary_color_for("purple"), do: "violet"
   defp primary_color_for("amber"), do: "orange"
@@ -781,6 +787,7 @@ defmodule MossletWeb.DesignSystem do
 
   # Secondary color for gradients and hover states
   defp secondary_color_for("teal"), do: "emerald"
+  defp secondary_color_for("emerald"), do: "teal"
   defp secondary_color_for("blue"), do: "cyan"
   defp secondary_color_for("purple"), do: "violet"
   defp secondary_color_for("amber"), do: "orange"

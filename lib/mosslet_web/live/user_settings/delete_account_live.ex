@@ -87,12 +87,13 @@ defmodule MossletWeb.DeleteAccountLive do
                     variant="secondary"
                     color="emerald"
                     size="sm"
-                    icon="hero-arrow-down-tray"
+                    icon="hero-trash"
                     class="w-full justify-center"
                   >
-                    Export your data first
+                    Delete selected data first
                   </DesignSystem.liquid_button>
                   <DesignSystem.liquid_button
+                    :if={@current_user.visibility !== :private}
                     href="/app/users/edit-visibility"
                     variant="secondary"
                     color="blue"
@@ -132,7 +133,10 @@ defmodule MossletWeb.DeleteAccountLive do
               <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200/60 dark:border-slate-700/60">
                 <div class="flex items-start gap-3">
                   <div class="flex-shrink-0">
-                    <.phx_icon name="hero-shield-check" class="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
+                    <.phx_icon
+                      name="hero-shield-check"
+                      class="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5"
+                    />
                   </div>
                   <div class="space-y-1">
                     <h4 class="text-sm font-medium text-slate-800 dark:text-slate-200">
@@ -192,7 +196,6 @@ defmodule MossletWeb.DeleteAccountLive do
                       "shadow-sm focus:shadow-lg focus:shadow-rose-500/10",
                       "focus:bg-white dark:focus:bg-slate-800"
                     ]}
-
                   />
 
                   <%!-- Enhanced Show/Hide Password Toggle --%>
@@ -209,7 +212,10 @@ defmodule MossletWeb.DeleteAccountLive do
                         |> JS.add_class("hidden", to: "#eye")
                       }
                     >
-                      <.phx_icon name="hero-eye" class="h-4 w-4 group-hover/toggle:scale-110 transition-transform duration-200" />
+                      <.phx_icon
+                        name="hero-eye"
+                        class="h-4 w-4 group-hover/toggle:scale-110 transition-transform duration-200"
+                      />
                     </button>
                     <button
                       type="button"
@@ -218,18 +224,26 @@ defmodule MossletWeb.DeleteAccountLive do
                       phx-hook="TippyHook"
                       class="hidden group/toggle p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200"
                       phx-click={
-                        JS.set_attribute({"type", "password"}, to: "#current-password-for-delete-account")
+                        JS.set_attribute({"type", "password"},
+                          to: "#current-password-for-delete-account"
+                        )
                         |> JS.add_class("hidden", to: "#eye-slash")
                         |> JS.remove_class("hidden", to: "#eye")
                       }
                     >
-                      <.phx_icon name="hero-eye-slash" class="h-4 w-4 group-hover/toggle:scale-110 transition-transform duration-200" />
+                      <.phx_icon
+                        name="hero-eye-slash"
+                        class="h-4 w-4 group-hover/toggle:scale-110 transition-transform duration-200"
+                      />
                     </button>
                   </div>
                 </div>
 
                 <%!-- Helper text --%>
-                <p id="password-help" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p
+                  id="password-help"
+                  class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed"
+                >
                   Use the same password you use to sign in to your MOSSLET account.
                 </p>
               </div>
@@ -299,7 +313,9 @@ defmodule MossletWeb.DeleteAccountLive do
                     <div class="w-full border-t border-blue-200/40 dark:border-blue-700/40"></div>
                   </div>
                   <div class="relative flex justify-center text-xs">
-                    <span class="bg-white dark:bg-slate-800 px-2 text-blue-500 dark:text-blue-400 font-medium">or</span>
+                    <span class="bg-white dark:bg-slate-800 px-2 text-blue-500 dark:text-blue-400 font-medium">
+                      or
+                    </span>
                   </div>
                 </div>
 
