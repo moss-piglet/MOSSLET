@@ -3,115 +3,145 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
   alias Mosslet.Invitations
   alias Mosslet.Invitations.Invite
+  alias MossletWeb.DesignSystem
 
   def render(assigns) do
     ~H"""
     <.layout current_page={:new_invite} current_user={@current_user} key={@key} type="sidebar">
-      <div class="space-y-8 pt-4 mx-4 sm:mx-6 max-w-4xl">
-        <%!-- Invitation Section --%>
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <%!-- Section Header --%>
-          <div class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-6 py-4">
-            <div class="flex flex-col space-y-4">
-              <h2
-                id="invite-connection-title"
-                class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white"
-              >
-                Join me on Mosslet!
-              </h2>
-              <div class="space-y-3">
-                <p class="text-sm text-gray-600 dark:text-gray-300">
-                  Fill out the form below to send a new invitation. The person you invite will receive an email to their inbox inviting them to join you on Mosslet.
-                </p>
-                <p class="text-sm text-gray-600 dark:text-gray-300">
-                  Curious to see how it works? Try sending one to yourself.
-                </p>
-              </div>
-            </div>
+      <DesignSystem.liquid_container max_width="lg" class="py-16">
+        <%!-- Page header with liquid metal styling --%>
+        <div class="mb-12 max-w-3xl">
+          <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              Join me on MOSSLET!
+            </h1>
+            <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+              Fill out the form below to send a new invitation. The person you invite will receive an email to their inbox inviting them to join you on MOSSLET.
+            </p>
+            <p class="mt-2 text-base text-slate-500 dark:text-slate-500">
+              Curious to see how it works? Try sending one to yourself.
+            </p>
           </div>
+          <%!-- Decorative accent line --%>
+          <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+          </div>
+        </div>
 
-          <%!-- Form Content --%>
-          <div class="p-6">
+        <div class="space-y-8 max-w-3xl">
+          <%!-- Invitation Form Card --%>
+          <DesignSystem.liquid_card>
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-cyan-900/30">
+                  <.phx_icon
+                    name="hero-paper-airplane"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+                <span>Send Invitation</span>
+              </div>
+            </:title>
+
             <.form for={@form} id="new-invite-form" phx-change="validate" phx-submit="send_invite">
-              <.phx_input
+              <%!-- Hidden fields --%>
+              <DesignSystem.liquid_input
                 field={@form[:current_user_name]}
                 type="hidden"
                 value={decr(@current_user.name, @current_user, @key)}
               />
-              <.phx_input
+              <DesignSystem.liquid_input
                 field={@form[:current_user_email]}
                 type="hidden"
                 value={decr(@current_user.email, @current_user, @key)}
               />
-              <.phx_input
+              <DesignSystem.liquid_input
                 field={@form[:current_user_username]}
                 type="hidden"
                 value={decr(@current_user.username, @current_user, @key)}
               />
 
               <div class="space-y-6">
-                <.phx_input
+                <%!-- Recipient Name --%>
+                <DesignSystem.liquid_input
                   field={@form[:recipient_name]}
                   type="text"
                   label="Name"
+                  placeholder="Enter the recipient's full name"
                   required
-                  phx-debounce="500"
-                  autocomplete="off"
-                  apply_classes?={true}
-                  classes={[
-                    "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
-                  ]}
+                  help="The name of the person you'd like to invite to MOSSLET"
                 />
 
-                <.phx_input
+                <%!-- Recipient Email --%>
+                <DesignSystem.liquid_input
                   field={@form[:recipient_email]}
                   type="email"
                   label="Email"
+                  placeholder="Enter their email address"
                   required
-                  phx-debounce="500"
-                  autocomplete="off"
-                  apply_classes?={true}
-                  classes={[
-                    "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800"
-                  ]}
+                  help="We'll send the invitation to this email address"
                 />
 
-                <.phx_input
+                <%!-- Optional Message --%>
+                <DesignSystem.liquid_textarea
                   field={@form[:message]}
-                  type="textarea"
-                  label="Message (optional)"
-                  phx-debounce="500"
-                  rows="4"
-                  apply_classes?={true}
-                  classes={[
-                    "block w-full rounded-md border-0 py-2 px-3 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6 dark:bg-gray-800 resize-none min-h-[6rem]"
-                  ]}
+                  label="Personal Message (optional)"
+                  placeholder="Add a personal note to your invitation..."
+                  rows={4}
+                  help="Include a personal message to make your invitation more meaningful"
                 />
               </div>
 
+              <%!-- Action Buttons --%>
               <div class="flex justify-end pt-6">
-                <button
+                <DesignSystem.liquid_button
                   :if={@form.source.valid?}
                   type="submit"
                   phx-disable-with="Sending..."
-                  class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                  icon="hero-paper-airplane"
+                  color="teal"
                 >
-                  <.phx_icon name="hero-paper-airplane" class="size-5 mr-2" /> Send Invitation
-                </button>
+                  Send Invitation
+                </DesignSystem.liquid_button>
 
-                <button
+                <DesignSystem.liquid_button
                   :if={!@form.source.valid?}
-                  disabled
                   type="button"
-                  class="inline-flex items-center justify-center rounded-full bg-gray-300 dark:bg-gray-600 px-6 py-3 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
+                  disabled
+                  icon="hero-clock"
+                  color="slate"
+                  variant="secondary"
                 >
-                  <.phx_icon name="hero-clock" class="size-5 mr-2" /> Complete Form
-                </button>
+                  Complete Form
+                </DesignSystem.liquid_button>
               </div>
             </.form>
-          </div>
+          </DesignSystem.liquid_card>
+
+          <%!-- Help Card --%>
+          <DesignSystem.liquid_card class="border-blue-200 dark:border-blue-700 bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10">
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+                  <.phx_icon
+                    name="hero-information-circle"
+                    class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                  />
+                </div>
+                <span class="text-blue-800 dark:text-blue-200">💡 How Invitations Work</span>
+              </div>
+            </:title>
+
+            <div class="space-y-4 text-blue-700 dark:text-blue-300">
+              <p class="text-sm leading-relaxed">
+                When you send an invitation, your friend will receive a personalized email with a link to join MOSSLET. They'll be able to create their account and automatically connect with you.
+              </p>
+              <p class="text-sm leading-relaxed">
+                Each invitation is unique and can only be used once. If your friend doesn't receive the email, check their spam folder or try a different email address.
+              </p>
+            </div>
+          </DesignSystem.liquid_card>
         </div>
-      </div>
+      </DesignSystem.liquid_container>
     </.layout>
     """
   end
