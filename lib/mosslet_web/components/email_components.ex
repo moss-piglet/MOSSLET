@@ -156,8 +156,6 @@ defmodule MossletWeb.EmailComponents do
     >
       <tr>
         <td>
-          <div style="position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 60px; height: 2px; background: linear-gradient(90deg, #14B8A6, #10B981);">
-          </div>
           {render_slot(@inner_block)}
         </td>
       </tr>
@@ -318,7 +316,10 @@ defmodule MossletWeb.EmailComponents do
     assigns = assign(assigns, :text_color, text_color)
 
     ~H"""
-    <span style={"background-color: #{@background_color}; color: #{@text_color}; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 14px;"}>
+    <span
+      style={"background-color: #{@background_color}; color: #{@text_color}; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 14px; border: 1px solid #{@text_color}; display: inline-block;"}
+      class="email-highlight"
+    >
       {render_slot(@inner_block)}
     </span>
     """

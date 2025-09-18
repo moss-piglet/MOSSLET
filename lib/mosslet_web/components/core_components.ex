@@ -2043,8 +2043,38 @@ defmodule MossletWeb.CoreComponents do
   end
 
   def logo_for_emails(assigns) do
+    # Light logo (horizontal version for better email layout)
+    light_logo_base = Mosslet.config(:logo_url_for_emails)
+    base_url = String.replace(light_logo_base, ~r/Mosslet_Stacked_OnLight_\w+\.png/, "")
+
+    light_logo = base_url <> "Mosslet_Horizontal_OnLight_ut3rgu.png"
+    dark_logo = base_url <> "Mosslet_Horizontal_OnDark_rnim3i.png"
+
+    assigns = assign(assigns, :light_logo, light_logo)
+    assigns = assign(assigns, :dark_logo, dark_logo)
+
     ~H"""
-    <img height="60" src={Mosslet.config(:logo_url_for_emails)} />
+    <div style="text-align: center; margin: 0 auto;">
+      <!-- Light mode logo (horizontal layout) -->
+      <img
+        height="60"
+        width="auto"
+        src={@light_logo}
+        alt="MOSSLET"
+        style="display: block; max-width: 280px; margin: 0 auto;"
+        class="email-light-logo"
+      />
+      
+    <!-- Dark mode logo (horizontal layout) -->
+      <img
+        height="60"
+        width="auto"
+        src={@dark_logo}
+        alt="MOSSLET"
+        style="display: none; max-width: 280px; margin: 0 auto;"
+        class="email-dark-logo"
+      />
+    </div>
     """
   end
 

@@ -147,7 +147,7 @@ if config_env() == :prod do
 
   csp =
     System.get_env("CSP_HEADER") ||
-      "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-prod.fly.storage.tigris.dev/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self';"
+      "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-prod.fly.storage.tigris.dev/ https://res.cloudinary.com/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self';"
 
   config :mosslet, MossletWeb.Plugs.ContentSecurityPolicy, csp: csp
 

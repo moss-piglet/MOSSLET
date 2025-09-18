@@ -6,10 +6,11 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="color-scheme" content="light dark" />
     <meta name="supported-color-schemes" content="light dark" />
-    <MossletWeb.Layouts.favicon_link_meta />
+    <!-- Favicon removed for email compatibility -->
 
+    <!-- No external font loading for privacy -->
     <style>
-      @import url('https://rsms.me/inter/inter.css');
+      /* Use system fonts for maximum privacy and compatibility */
     </style>
     <title>
       <%= if assigns[:preview_text] do %>
@@ -24,7 +25,7 @@
         height: 100%;
         margin: 0;
         -webkit-text-size-adjust: none;
-        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
       }
 
@@ -62,7 +63,7 @@
       body,
       td,
       th {
-        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       }
 
       h1 {
@@ -237,16 +238,7 @@
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         position: relative;
         overflow: hidden;
-      }
-
-      .liquid-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #14B8A6, #10B981, #06B6D4);
+        border-top: 2px solid #14B8A6;
       }
 
       .liquid-pin-display {
@@ -310,23 +302,7 @@
         margin-bottom: 40px;
         overflow: hidden;
         position: relative;
-      }
-
-      .email-body_inner::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #14B8A6, #10B981, #06B6D4, #14B8A6);
-        background-size: 200% 100%;
-        animation: shimmer 3s ease-in-out infinite;
-      }
-
-      @keyframes shimmer {
-        0%, 100% { background-position: 200% 0; }
-        50% { background-position: -200% 0; }
+        border-top: 4px solid #14B8A6;
       }
 
       .email-footer {
@@ -375,15 +351,11 @@
         position: relative;
       }
 
-      .top-border::before {
-        content: '';
-        position: absolute;
-        top: -1px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 60px;
-        height: 2px;
-        background: linear-gradient(90deg, #14B8A6, #10B981);
+      .top-border-accent {
+        margin-top: 30px;
+        padding-top: 30px;
+        border-top: 3px solid #14B8A6;
+        position: relative;
       }
 
       /*Media Queries ------------------------------ */
@@ -455,6 +427,23 @@
 
         .sub {
           color: #94a3b8 !important;
+        }
+        
+        /* Email logo dark mode switching */
+        .email-light-logo {
+          display: none !important;
+        }
+        .email-dark-logo {
+          display: block !important;
+        }
+        
+        /* Better highlight colors for dark mode - force text color override */
+        .email-highlight,
+        .email-highlight *,
+        .email-highlight strong {
+          background-color: #FCD34D !important;
+          color: #92400E !important;
+          border-color: #F59E0B !important;
         }
       }
     </style>
