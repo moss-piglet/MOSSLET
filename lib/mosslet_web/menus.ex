@@ -16,9 +16,7 @@ defmodule MossletWeb.Menus do
       %{label: gettext("Blog"), path: "/blog"},
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Huh?"), path: "/in-the-know"},
-      %{label: gettext("Pricing"), path: "/pricing"},
-      %{label: gettext("Support"), path: "/support"},
-      %{label: gettext("FAQ"), path: "/faq"}
+      %{label: gettext("Pricing"), path: "/pricing"}
     ]
 
   def public_menu_footer_items(_user \\ nil),
