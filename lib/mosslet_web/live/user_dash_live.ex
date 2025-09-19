@@ -6,40 +6,39 @@ defmodule MossletWeb.UserDashLive do
   alias Mosslet.Memories
   alias Mosslet.Timeline
 
+  import MossletWeb.DesignSystem
+
   def render(assigns) do
     ~H"""
     <.layout current_page={:dashboard} current_user={@current_user} key={@key} type="sidebar">
-      <.container class="pt-16 pb-6">
-        <div :if={is_nil(@current_user.connection.profile) && @current_user.confirmed_at} class="py-8">
-          <div class="grow text-center">
-            <section aria-labelledby="new-profile-button">
-              <.icon
-                name="hero-identification"
-                class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-200"
-              />
-              <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">No profile</h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Get started by creating your profile.
-              </p>
-              <div class="mt-6">
-                <.button
-                  type="button"
-                  phx-click={JS.navigate(~p"/app/users/edit-profile")}
-                  class="rounded-full"
-                >
-                  <svg
-                    class="-ml-0.5 mr-1.5 h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                  </svg>
-                  New Profile
-                </.button>
+      <%!-- Calm dashboard with liquid metal styling like the sidebar --%>
+      <.liquid_container class="py-8">
+        <%!-- Profile creation section for new users --%>
+        <div :if={is_nil(@current_user.connection.profile) && @current_user.confirmed_at} class="mb-8">
+          <.liquid_card padding="lg" class="max-w-2xl mx-auto">
+            <div class="text-center space-y-6">
+              <div class="flex size-16 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 mx-auto">
+                <.phx_icon name="hero-user-circle" class="size-8 text-white" />
               </div>
-            </section>
-          </div>
+              <div>
+                <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                  Create your profile
+                </h2>
+                <p class="text-slate-600 dark:text-slate-400">
+                  Get started by setting up your profile to connect with others.
+                </p>
+              </div>
+              <.liquid_button
+                phx-click={JS.navigate(~p"/app/users/edit-profile")}
+                variant="primary"
+                color="teal"
+                size="lg"
+                icon="hero-plus"
+              >
+                Create Profile
+              </.liquid_button>
+            </div>
+          </.liquid_card>
         </div>
         <div :if={
           @current_user.is_subscribed_to_marketing_notifications &&
@@ -167,7 +166,7 @@ defmodule MossletWeb.UserDashLive do
             Confirm my account
           </.button>
         </.alert>
-      </.container>
+      </.liquid_container>
     </.layout>
     """
   end

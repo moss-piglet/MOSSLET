@@ -122,8 +122,11 @@ slate-600, slate-700, slate-800, slate-900
 ### Primary Buttons
 
 ```html
-<!-- Default teal brand button -->
+<!-- Default teal brand button (for use on card backgrounds) -->
 <.liquid_button>Save Changes</.liquid_button>
+
+<!-- Button for page backgrounds -->
+<.liquid_button shimmer="page">Save Changes</.liquid_button>
 
 <!-- Blue for informational actions -->
 <.liquid_button color="blue" icon="hero-information-circle">Learn More</.liquid_button>
@@ -136,6 +139,28 @@ slate-600, slate-700, slate-800, slate-900
 
 <!-- Rose for destructive actions -->
 <.liquid_button color="rose" icon="hero-trash">Delete Item</.liquid_button>
+```
+
+### Shimmer Effect Guidelines
+
+Our liquid metal buttons use context-aware shimmer effects that blend naturally with their backgrounds:
+
+**Card Context (default):**
+- Light mode: `via-white/30` - blends with white card backgrounds
+- Dark mode: `via-slate-800/40` - blends with `dark:bg-slate-800/95` card backgrounds
+
+**Page Context:**
+- Light mode: `via-white/30` - blends with light page backgrounds  
+- Dark mode: `via-slate-900/40` - blends with `dark:bg-slate-900` page backgrounds
+
+```html
+<!-- Use default for buttons inside cards -->
+<.liquid_card>
+  <.liquid_button>Save</.liquid_button>
+</.liquid_card>
+
+<!-- Use page variant for buttons directly on page backgrounds -->
+<.liquid_button shimmer="page">Create New</.liquid_button>
 ```
 
 ### Secondary Buttons

@@ -57,10 +57,12 @@ defmodule MossletWeb.DesignSystem do
       <.liquid_button>Save Changes</.liquid_button>
       <.liquid_button size="sm" icon="hero-plus">Add Item</.liquid_button>
       <.liquid_button variant="secondary">Cancel</.liquid_button>
+      <.liquid_button shimmer="page">Button on page background</.liquid_button>
   """
   attr :type, :string, default: "button"
   attr :size, :string, default: "md", values: ~w(sm md lg)
   attr :variant, :string, default: "primary", values: ~w(primary secondary ghost)
+  attr :shimmer, :string, default: "card", values: ~w(card page)
 
   attr :color, :string,
     default: "teal",
@@ -112,9 +114,9 @@ defmodule MossletWeb.DesignSystem do
         :if={@variant == "primary"}
         class={[
           "absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu",
-          "bg-gradient-to-r from-transparent via-white/20 to-transparent",
           "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full",
-          "rounded-full overflow-hidden pointer-events-none"
+          "rounded-full overflow-hidden pointer-events-none",
+          shimmer_classes(@shimmer)
         ]}
       >
       </div>
@@ -159,9 +161,9 @@ defmodule MossletWeb.DesignSystem do
         :if={@variant == "primary"}
         class={[
           "absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu",
-          "bg-gradient-to-r from-transparent via-white/20 to-transparent",
           "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full",
-          "rounded-full overflow-hidden pointer-events-none"
+          "rounded-full overflow-hidden pointer-events-none",
+          shimmer_classes(@shimmer)
         ]}
       >
       </div>
@@ -802,7 +804,23 @@ defmodule MossletWeb.DesignSystem do
   defp card_padding_classes("md"), do: "p-6"
   defp card_padding_classes("lg"), do: "p-8"
 
-  # Container max-width classes following design system breakpoints
+  # Shimmer effect classes based on background context
+  defp shimmer_classes("card") do
+    [
+      "bg-gradient-to-r from-transparent via-white/30 to-transparent",
+      "dark:bg-gradient-to-r dark:from-transparent dark:via-slate-800/40 dark:to-transparent"
+    ]
+  end
+
+  defp shimmer_classes("page") do
+    [
+      "bg-gradient-to-r from-transparent via-white/30 to-transparent",
+      "dark:bg-gradient-to-r dark:from-transparent dark:via-slate-900/40 dark:to-transparent"
+    ]
+  end
+
+  # fallback
+  defp shimmer_classes(_), do: shimmer_classes("card")
   defp container_max_width_classes("sm"), do: "max-w-screen-sm"
   defp container_max_width_classes("md"), do: "max-w-screen-md"
   defp container_max_width_classes("lg"), do: "max-w-screen-lg"

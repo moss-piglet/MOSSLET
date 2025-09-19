@@ -288,6 +288,7 @@ defmodule MossletWeb.EditProfileLive do
                 type="button"
                 color="rose"
                 variant="secondary"
+                shimmer="page"
                 phx-click="delete_profile"
                 phx-value-id={@current_user.connection.id}
                 data-confirm="Are you sure you want to delete your profile?"
@@ -301,6 +302,7 @@ defmodule MossletWeb.EditProfileLive do
                   :if={@current_user.connection.profile}
                   type="submit"
                   phx-disable-with="Updating..."
+                  shimmer="page"
                   icon="hero-check"
                 >
                   Update Profile
@@ -310,6 +312,7 @@ defmodule MossletWeb.EditProfileLive do
                   :if={is_nil(@current_user.connection.profile)}
                   type="submit"
                   phx-disable-with="Creating..."
+                  shimmer="page"
                   icon="hero-plus"
                 >
                   Create Profile

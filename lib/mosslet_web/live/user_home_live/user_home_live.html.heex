@@ -40,6 +40,7 @@
               :if={@current_user}
               type="button"
               color="teal"
+              shimmer="page"
               id={"new-post-button-#{@current_user.id}"}
               phx-click={JS.push("new_post")}
               icon="hero-chat-bubble-oval-left-ellipsis"
@@ -54,6 +55,7 @@
               :if={@current_user}
               variant="secondary"
               color="blue"
+              shimmer="page"
               id={"edit-profile-button-#{@current_user.id}"}
               patch={~p"/app/users/edit-profile"}
               icon="hero-pencil-square"
@@ -316,13 +318,15 @@
                         Shared a new post with you
                       </p>
 
-                      <.link
+                      <MossletWeb.DesignSystem.liquid_button
                         navigate={~p"/app/timeline#timeline-card-#{unread_post.id}"}
-                        class="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"
+                        variant="secondary"
+                        color="emerald"
+                        size="sm"
+                        icon="hero-arrow-right"
                       >
-                        <span>View Post</span>
-                        <.phx_icon name="hero-arrow-right" class="size-4" />
-                      </.link>
+                        View Post
+                      </MossletWeb.DesignSystem.liquid_button>
                     </div>
                   </div>
                 </div>

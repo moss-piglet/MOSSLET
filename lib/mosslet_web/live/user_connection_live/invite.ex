@@ -8,22 +8,22 @@ defmodule MossletWeb.UserConnectionLive.Invite do
   def render(assigns) do
     ~H"""
     <.layout current_page={:new_invite} current_user={@current_user} key={@key} type="sidebar">
-      <DesignSystem.liquid_container max_width="lg" class="py-16">
+      <DesignSystem.liquid_container max_width="lg" class="py-8 sm:py-16">
         <%!-- Page header with liquid metal styling --%>
-        <div class="mb-12 max-w-3xl">
-          <div class="mb-8">
-            <h1 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+        <div class="mb-8 sm:mb-12 max-w-3xl">
+          <div class="mb-6 sm:mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
               Join me on MOSSLET!
             </h1>
-            <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
+            <p class="mt-3 sm:mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
               Fill out the form below to send a new invitation. The person you invite will receive an email to their inbox inviting them to join you on MOSSLET.
             </p>
-            <p class="mt-2 text-base text-slate-500 dark:text-slate-500">
+            <p class="mt-2 text-sm sm:text-base text-slate-500 dark:text-slate-500 leading-relaxed">
               Curious to see how it works? Try sending one to yourself.
             </p>
           </div>
           <%!-- Decorative accent line --%>
-          <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
+          <div class="h-1 w-16 sm:w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
           </div>
         </div>
 
