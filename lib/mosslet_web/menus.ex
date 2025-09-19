@@ -56,9 +56,9 @@ defmodule MossletWeb.Menus do
 
   def user_menu_items(%{current_user: current_user}) do
     if current_user.connection.profile do
-      build_menu([:home, :sign_out], current_user)
+      build_menu([:home, :settings, :sign_out], current_user)
     else
-      build_menu([:dashboard, :sign_out], current_user)
+      build_menu([:dashboard, :settings, :sign_out], current_user)
     end
   end
 
