@@ -200,7 +200,7 @@ defmodule MossletWeb.EditDetailsLive do
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
-    AvatarProcessor.delete_ets_avatar("profile-#{current_user.connection.id}")
+    # AvatarProcessor.delete_ets_avatar("profile-#{current_user.connection.id}")
 
     socket =
       socket

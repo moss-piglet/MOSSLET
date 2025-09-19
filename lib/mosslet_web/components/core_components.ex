@@ -2065,7 +2065,7 @@ defmodule MossletWeb.CoreComponents do
         style="display: block; max-width: 280px; margin: 0 auto;"
         class="email-light-logo"
       />
-
+      
     <!-- Dark mode logo (horizontal layout) -->
       <img
         height="60"
