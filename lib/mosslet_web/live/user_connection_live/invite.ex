@@ -133,10 +133,13 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
             <div class="space-y-4 text-blue-700 dark:text-blue-300">
               <p class="text-sm leading-relaxed">
-                When you send an invitation, your friend will receive a personalized email with a link to join MOSSLET. They'll be able to create their account and automatically connect with you.
+                When you send an invitation, your friend will receive an email with step-by-step instructions on how to join MOSSLET and connect with you. If you include an optional message, they'll see your personalized note too.
               </p>
               <p class="text-sm leading-relaxed">
-                Each invitation is unique and can only be used once. If your friend doesn't receive the email, check their spam folder or try a different email address.
+                The invitation includes your account details (email & username) so they can easily find you once they join. You can send one invitation per person every 3 hours to keep things spam-free.
+              </p>
+              <p class="text-sm leading-relaxed">
+                Email not received? Check the spam folder or try a different email address.
               </p>
             </div>
           </DesignSystem.liquid_card>
