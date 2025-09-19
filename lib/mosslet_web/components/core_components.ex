@@ -2065,7 +2065,7 @@ defmodule MossletWeb.CoreComponents do
         style="display: block; max-width: 280px; margin: 0 auto;"
         class="email-light-logo"
       />
-      
+
     <!-- Dark mode logo (horizontal layout) -->
       <img
         height="60"
@@ -2267,11 +2267,10 @@ defmodule MossletWeb.CoreComponents do
                 navigate={~p"/app/users/connections/invite/new-invite"}
                 class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
               >
-                <.phx_icon name="hero-paper-airplane" class="size-4" /> New invite
+                <.phx_icon name="hero-paper-airplane" class="size-4" />
               </.link>
             </button>
 
-            <%!-- Dark mode toggle removed - will be replaced with updated version --%>
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}
@@ -2289,7 +2288,6 @@ defmodule MossletWeb.CoreComponents do
             </div>
           </:logo>
           <:top_right>
-            <%!-- Dark mode toggle removed - will be replaced with updated version --%>
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}
@@ -2306,7 +2304,6 @@ defmodule MossletWeb.CoreComponents do
           </:logo>
 
           <:top_right>
-            <%!-- Dark mode toggle removed - will be replaced with updated version --%>
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}

@@ -51,6 +51,7 @@ defmodule MossletWeb.EditProfileLive do
             :if={@current_user.confirmed_at}
             for={@profile_form}
             id="profile_form"
+            phx-change="validate_profile"
             phx-submit={
               if Map.get(@current_user.connection, :profile),
                 do: "update_profile",
@@ -593,10 +594,6 @@ defmodule MossletWeb.EditProfileLive do
       true ->
         nil
     end
-  end
-
-  def valid_banner_image_atoms do
-    [:geranium, :lupin, :mountains, :shoreline, :waves]
   end
 
   defp banner_image_atoms(value) when is_binary(value) do

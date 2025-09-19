@@ -198,9 +198,9 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    user = socket.assigns.current_user
+    current_user = socket.assigns.current_user
     key = socket.assigns.key
-    AvatarProcessor.delete_ets_avatar("profile-#{user.connection.id}")
+    AvatarProcessor.delete_ets_avatar("profile-#{current_user.connection.id}")
 
     socket =
       socket
@@ -213,18 +213,18 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign(
         :current_username,
         decr(
-          user.username,
-          user,
+          current_user.username,
+          current_user,
           key
         )
       )
       |> assign(
         :current_name,
-        decr(user.name, user, key)
+        decr(current_user.name, current_user, key)
       )
-      |> assign_avatar_form(user)
-      |> assign_name_form(user)
-      |> assign_username_form(user)
+      |> assign_avatar_form(current_user)
+      |> assign_name_form(current_user)
+      |> assign_username_form(current_user)
       |> allow_upload(:avatar,
         # SETUP_TODO: Uncomment the line below if using an external provider (Cloudinary or S3)
         # external: &@upload_provider.presign_upload/2,
