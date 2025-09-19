@@ -1,6 +1,156 @@
 <.layout current_page={:timeline} current_user={@current_user} key={@key} type="sidebar">
-    <%!-- mockup start --%>
+  <%!-- Fresh Timeline Mockup --%>
 
-    <%!-- mockup end --%>
+  <%!-- Main timeline container with improved visual flow --%>
+  <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
+    <%!-- Timeline header with better integration --%>
+    <div class="relative px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+      <div class="mx-auto max-w-2xl text-center">
+        <MossletWeb.DesignSystem.liquid_timeline_header
+          user_name="Isabella"
+          status="calm"
+          status_message="Mindfully connected"
+        />
+      </div>
+    </div>
 
+    <%!-- Content container with improved spacing --%>
+    <MossletWeb.DesignSystem.liquid_container max_width="lg" class="space-y-4">
+      <%!-- Realtime update indicator (sticky at top when new posts arrive) --%>
+      <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator new_posts_count={5} />
+
+      <%!-- Timeline navigation tabs with Bookmarks --%>
+      <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 p-2">
+        <MossletWeb.DesignSystem.liquid_timeline_tabs
+          tabs={[
+            %{key: "home", label: "Home", count: 12},
+            %{key: "connections", label: "Connections", count: 4},
+            %{key: "groups", label: "Groups", count: 2},
+            %{key: "bookmarks", label: "Bookmarks", count: 8},
+            %{key: "discover", label: "Discover"}
+          ]}
+          active_tab="home"
+        />
+      </div>
+
+      <%!-- Enhanced compose with better visual prominence --%>
+      <div class="relative">
+        <%!-- Subtle glow effect for composer --%>
+        <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl blur-xl">
+        </div>
+        <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
+          user_name="Isabella"
+          user_avatar="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face"
+          placeholder="Share something meaningful with your community..."
+          character_limit={500}
+          privacy_level="connections"
+          class="relative"
+        />
+      </div>
+
+      <%!-- Timeline feed with improved visual hierarchy --%>
+      <div class="space-y-4">
+        <%!-- Sample post 1: Text only --%>
+        <MossletWeb.DesignSystem.liquid_timeline_post
+          user_name="Alex Chen"
+          user_handle="@alex"
+          user_avatar="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face"
+          timestamp="2 hours ago"
+          verified={true}
+          content="Just finished reading a wonderful book about mindful technology use. It's fascinating how we can create digital spaces that actually enhance our wellbeing rather than diminish it. 📚✨
+
+The key insight: technology should serve human connection, not replace it."
+          stats={%{replies: 3, shares: 1, likes: 12}}
+          class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
+        />
+
+        <%!-- Sample post 2: With single image --%>
+        <MossletWeb.DesignSystem.liquid_timeline_post
+          user_name="Sarah Johnson"
+          user_handle="@sarah"
+          user_avatar="https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face"
+          timestamp="4 hours ago"
+          content="Beautiful sunset from my evening walk. Sometimes the best social network is just stepping outside and saying hello to neighbors. 🌅"
+          images={[
+            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop"
+          ]}
+          stats={%{replies: 7, shares: 3, likes: 24}}
+          class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
+        />
+
+        <%!-- Sample post 3: Multiple images --%>
+        <MossletWeb.DesignSystem.liquid_timeline_post
+          user_name="Mike Rodriguez"
+          user_handle="@mike"
+          user_avatar="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
+          timestamp="6 hours ago"
+          content="Weekend farmers market haul! Supporting local community and eating fresh. Here's what I picked up today:"
+          images={[
+            "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=400&fit=crop",
+            "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=400&h=400&fit=crop",
+            "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&h=400&fit=crop"
+          ]}
+          stats={%{replies: 2, shares: 5, likes: 18}}
+          class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
+        />
+
+        <%!-- Sample post 4: Community event --%>
+        <MossletWeb.DesignSystem.liquid_timeline_post
+          user_name="Community Garden Group"
+          user_handle="@community_garden"
+          user_avatar="https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=100&h=100&fit=crop"
+          timestamp="8 hours ago"
+          verified={true}
+          content="🌱 This Saturday: Community planting day!
+
+Join us from 9am-12pm for our monthly community garden session. We'll be planting winter vegetables and sharing gardening tips. 
+
+Bring: gloves, water bottle, and a friend
+We provide: tools, seeds, knowledge, and snacks
+
+Let's grow together! 🌿"
+          stats={%{replies: 12, shares: 8, likes: 35}}
+          class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
+        />
+
+        <%!-- Sample post 5: Thought-provoking --%>
+        <MossletWeb.DesignSystem.liquid_timeline_post
+          user_name="Dr. Emma Thompson"
+          user_handle="@dr_emma"
+          user_avatar="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&h=100&fit=crop&crop=face"
+          timestamp="12 hours ago"
+          verified={true}
+          content="Interesting research finding: People who engage in just 10 minutes of face-to-face conversation daily report 23% higher life satisfaction than those who rely primarily on digital communication.
+
+Not saying digital is bad—we're here after all! 😊 But it's a good reminder that this platform works best when it enhances rather than replaces our real-world connections.
+
+How do you balance digital and in-person socializing?"
+          stats={%{replies: 18, shares: 12, likes: 47}}
+          class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
+        />
+
+        <%!-- Enhanced load more button with remaining count and load count transparency --%>
+        <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+          remaining_count={23}
+          load_count={10}
+          loading={false}
+        />
+      </div>
+
+      <%!-- Gentle end of feed message with enhanced calm messaging --%>
+      <div class="text-center py-12">
+        <div class="inline-flex flex-col items-center gap-4 px-8 py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
+          <.phx_icon name="hero-heart" class="h-8 w-8 text-emerald-500" />
+          <div class="text-center">
+            <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
+              You're all caught up!
+            </p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 max-w-xs">
+              Time to step away and enjoy the real world. Your community will be here when you return.
+            </p>
+          </div>
+        </div>
+      </div>
+    </MossletWeb.DesignSystem.liquid_container>
+  </div>
 </.layout>

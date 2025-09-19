@@ -2231,6 +2231,1123 @@ defmodule MossletWeb.DesignSystem do
   defp tracking_indicator_text_classes("limited"), do: "text-amber-600 dark:text-amber-400"
 
   @doc """
+  Liquid metal avatar component with enhanced styling and status indicators.
+
+  ## Examples
+
+      <.liquid_avatar src="/path/to/avatar.jpg" name="John Doe" size="md" />
+      <.liquid_avatar src="/path/to/avatar.jpg" name="Jane" size="lg" status="online" />
+      <.liquid_avatar name="Anonymous" size="sm" verified={true} />
+  """
+  attr :src, :string, default: nil
+  attr :name, :string, required: true
+  attr :size, :string, default: "md", values: ~w(xs sm md lg xl)
+  attr :status, :string, default: "offline", values: ~w(online calm away busy offline)
+  attr :verified, :boolean, default: false
+  attr :class, :any, default: ""
+  attr :clickable, :boolean, default: false
+  attr :rest, :global
+
+  def liquid_avatar(assigns) do
+    assigns = assign(assigns, :avatar_url, assigns.src || "/images/default-avatar.svg")
+
+    ~H"""
+    <div
+      class={[
+        "relative flex-shrink-0",
+        avatar_container_size_classes(@size),
+        if(@clickable, do: "cursor-pointer group", else: ""),
+        @class
+      ]}
+      {@rest}
+    >
+      <%!-- Main avatar container with liquid styling --%>
+      <div class={[
+        "relative overflow-hidden transition-all duration-300 ease-out transform-gpu",
+        avatar_size_classes(@size),
+        "rounded-xl",
+        if(@clickable, do: "group-hover:scale-105 group-active:scale-95", else: "")
+      ]}>
+        <%!-- Liquid background gradient --%>
+        <div class={[
+          "absolute inset-0 transition-all duration-300 ease-out",
+          "bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100",
+          "dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40",
+          if(@clickable,
+            do:
+              "group-hover:from-teal-200 group-hover:via-emerald-100 group-hover:to-cyan-200 dark:group-hover:from-teal-800/50 dark:group-hover:via-emerald-800/40 dark:group-hover:to-cyan-800/50",
+            else: ""
+          )
+        ]}>
+        </div>
+
+        <%!-- Shimmer effect on hover (if clickable) --%>
+        <div
+          :if={@clickable}
+          class={[
+            "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
+            "bg-gradient-to-r from-transparent via-emerald-200/40 to-transparent",
+            "dark:via-emerald-400/20",
+            "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"
+          ]}
+        >
+        </div>
+
+        <%!-- Avatar image --%>
+        <img
+          src={@avatar_url}
+          alt={"#{@name} avatar"}
+          class="relative w-full h-full object-cover"
+          loading="lazy"
+        />
+
+        <%!-- Verified badge --%>
+        <div
+          :if={@verified}
+          class={[
+            "absolute -bottom-0.5 -right-0.5 rounded-full p-1",
+            "bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-800",
+            "shadow-lg"
+          ]}
+        >
+          <.phx_icon
+            name="hero-check-badge"
+            class="h-3 w-3 text-emerald-500"
+          />
+        </div>
+      </div>
+
+      <%!-- Status indicator --%>
+      <div
+        :if={@status && @status != "offline"}
+        class={[
+          "absolute -bottom-0.5 -right-0.5 rounded-full p-1",
+          "bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-800",
+          "shadow-lg"
+        ]}
+      >
+        <div class={[
+          "rounded-full transition-all duration-300 ease-out",
+          avatar_status_size_classes(@size),
+          avatar_status_color_classes(@status)
+        ]}>
+          <%!-- Pulse animation for online/calm status --%>
+          <div
+            :if={@status in ["online", "calm"]}
+            class={[
+              "absolute inset-0 rounded-full animate-ping opacity-75",
+              avatar_status_ping_classes(@status)
+            ]}
+          >
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline infinite scroll indicator with transparency about remaining content.
+  Simple, elegant design that shows exactly what will happen on click.
+  """
+  attr :remaining_count, :integer, default: 0
+  attr :load_count, :integer, default: 10
+  attr :loading, :boolean, default: false
+  attr :class, :any, default: ""
+
+  def liquid_timeline_scroll_indicator(assigns) do
+    ~H"""
+    <div class={[
+      "text-center py-8",
+      @class
+    ]}>
+      <%!-- Loading state --%>
+      <div
+        :if={@loading}
+        class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400"
+      >
+        <div class="w-2 h-2 bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full animate-pulse">
+        </div>
+        <span class="text-sm font-medium">Loading more posts...</span>
+      </div>
+
+      <%!-- Load more button (back to original simple design with added transparency) --%>
+      <div
+        :if={!@loading && @remaining_count > 0}
+        class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 transition-all duration-200 ease-out cursor-pointer group"
+      >
+        <div class="w-2 h-2 bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full animate-pulse">
+        </div>
+        <span class="text-sm font-medium">
+          Load {@load_count} more posts ({@remaining_count} remaining)
+        </span>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline realtime update indicator for PubSub notifications.
+  Positioned below the topbar to avoid mobile sidebar collision.
+  """
+  attr :new_posts_count, :integer, default: 0
+  attr :class, :any, default: ""
+
+  def liquid_timeline_realtime_indicator(assigns) do
+    ~H"""
+    <div
+      :if={@new_posts_count > 0}
+      id="timeline-realtime-indicator"
+      class={[
+        "sticky top-20 z-20 text-center mb-4",
+        @class
+      ]}
+    >
+      <button class="group inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2">
+        <%!-- Gentle pulse indicator --%>
+        <div class="relative">
+          <div class="w-2 h-2 bg-white rounded-full"></div>
+          <div class="absolute inset-0 w-2 h-2 bg-white rounded-full animate-ping opacity-75"></div>
+        </div>
+
+        <span class="text-sm font-medium">
+          {@new_posts_count} new post{if(@new_posts_count == 1, do: "", else: "s")}
+        </span>
+
+        <.phx_icon
+          name="hero-arrow-up"
+          class="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-1"
+        />
+      </button>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline composer with enhanced liquid metal avatar and calm design focus.
+  """
+  attr :user_name, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :placeholder, :string, default: "What's on your mind?"
+  attr :character_limit, :integer, default: 500
+  attr :privacy_level, :string, default: "connections", values: ~w(public connections private)
+  attr :class, :any, default: ""
+
+  def liquid_timeline_composer_enhanced(assigns) do
+    ~H"""
+    <div class={[
+      "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+      "focus-within:border-emerald-500/60 dark:focus-within:border-emerald-400/60",
+      "focus-within:shadow-xl focus-within:shadow-emerald-500/10",
+      @class
+    ]}>
+      <%!-- Liquid background on focus --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-cyan-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 focus-within:opacity-100">
+      </div>
+
+      <div class="relative p-6">
+        <%!-- User section with enhanced liquid avatar --%>
+        <div class="flex items-start gap-4 mb-4">
+          <%!-- Enhanced liquid metal avatar --%>
+          <.liquid_avatar
+            src={@user_avatar}
+            name={@user_name}
+            size="md"
+            status="calm"
+          />
+
+          <%!-- Compose area with character counter --%>
+          <div class="flex-1 min-w-0">
+            <div class="relative group">
+              <textarea
+                id="timeline-composer-textarea"
+                placeholder={@placeholder}
+                rows="3"
+                maxlength={@character_limit}
+                class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-lg leading-relaxed focus:outline-none focus:ring-0"
+                phx-hook="CharacterCounter"
+                data-limit={@character_limit}
+              ></textarea>
+
+              <%!-- Character counter (always visible while typing, with enhanced styling) --%>
+              <div
+                class="absolute bottom-2 right-2 opacity-0 transition-all duration-300 ease-out"
+                id="char-counter-{@user_name}"
+              >
+                <span class="text-xs text-slate-500 dark:text-slate-400 bg-white/95 dark:bg-slate-800/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg">
+                  <span class="js-char-count">0</span>/{@character_limit}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Actions row with responsive layout --%>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50 gap-3 sm:gap-0">
+          <%!-- Media and formatting actions --%>
+          <div class="flex items-center gap-2">
+            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group">
+              <.phx_icon
+                name="hero-photo"
+                class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
+              />
+            </button>
+            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group">
+              <.phx_icon
+                name="hero-face-smile"
+                class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
+              />
+            </button>
+            <%!-- Content warning toggle --%>
+            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group">
+              <.phx_icon
+                name="hero-exclamation-triangle"
+                class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
+              />
+            </button>
+          </div>
+
+          <%!-- Privacy controls and post button with mobile-first layout --%>
+          <div class="flex items-center justify-between sm:justify-end gap-3">
+            <%!-- Privacy selector (icon-only on mobile) --%>
+            <.liquid_privacy_selector selected={@privacy_level} />
+
+            <%!-- Post button with consistent text on all screen sizes --%>
+            <.liquid_button size="sm" disabled class="flex-shrink-0">
+              Share thoughtfully
+            </.liquid_button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Privacy level selector for posts with responsive design.
+  Now keeps full text and chevron on both mobile and desktop since we have good responsive spacing.
+  """
+  attr :selected, :string, default: "connections"
+  attr :compact, :boolean, default: false
+  attr :class, :any, default: ""
+
+  def liquid_privacy_selector(assigns) do
+    ~H"""
+    <div class={[
+      "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+      "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-600/60",
+      "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
+      "transition-all duration-200 ease-out cursor-pointer",
+      @class
+    ]}>
+      <.phx_icon
+        name={privacy_icon(@selected)}
+        class="h-4 w-4 text-slate-600 dark:text-slate-300 flex-shrink-0"
+      />
+      <%!-- Keep text and chevron on both mobile and desktop now that we have good spacing --%>
+      <span class="font-medium text-slate-700 dark:text-slate-200">
+        {privacy_label(@selected)}
+      </span>
+      <.phx_icon name="hero-chevron-down" class="h-3 w-3 text-slate-500 dark:text-slate-400" />
+    </div>
+    """
+  end
+
+  # Privacy helper functions
+  defp privacy_icon("public"), do: "hero-globe-alt"
+  defp privacy_icon("connections"), do: "hero-user-group"
+  defp privacy_icon("private"), do: "hero-lock-closed"
+
+  defp privacy_label("public"), do: "Public"
+  defp privacy_label("connections"), do: "Connections"
+  defp privacy_label("private"), do: "Private"
+
+  # Avatar size helper functions
+  defp avatar_container_size_classes("xs"), do: "w-6 h-6"
+  defp avatar_container_size_classes("sm"), do: "w-8 h-8"
+  defp avatar_container_size_classes("md"), do: "w-12 h-12"
+  defp avatar_container_size_classes("lg"), do: "w-16 h-16"
+  defp avatar_container_size_classes("xl"), do: "w-20 h-20"
+
+  defp avatar_size_classes("xs"), do: "w-6 h-6"
+  defp avatar_size_classes("sm"), do: "w-8 h-8"
+  defp avatar_size_classes("md"), do: "w-12 h-12"
+  defp avatar_size_classes("lg"), do: "w-16 h-16"
+  defp avatar_size_classes("xl"), do: "w-20 h-20"
+
+  defp avatar_status_size_classes("xs"), do: "w-1.5 h-1.5"
+  defp avatar_status_size_classes("sm"), do: "w-2 h-2"
+  defp avatar_status_size_classes("md"), do: "w-2.5 h-2.5"
+  defp avatar_status_size_classes("lg"), do: "w-3 h-3"
+  defp avatar_status_size_classes("xl"), do: "w-3.5 h-3.5"
+
+  defp avatar_status_color_classes("online"), do: "bg-emerald-500"
+  defp avatar_status_color_classes("calm"), do: "bg-gradient-to-br from-teal-400 to-emerald-500"
+  defp avatar_status_color_classes("away"), do: "bg-amber-500"
+  defp avatar_status_color_classes("busy"), do: "bg-rose-500"
+  defp avatar_status_color_classes("offline"), do: "bg-slate-400"
+  defp avatar_status_color_classes(_), do: "bg-slate-400"
+
+  defp avatar_status_ping_classes("online"), do: "bg-emerald-400"
+  defp avatar_status_ping_classes("calm"), do: "bg-teal-400"
+  defp avatar_status_ping_classes(_), do: ""
+
+  @doc """
+  Liquid metal timeline post card with calm, privacy-focused design.
+
+  ## Examples
+
+      <.liquid_timeline_post
+        user_name="Jane Doe"
+        user_handle="@jane"
+        user_avatar="/images/avatars/jane.jpg"
+        timestamp="2 hours ago"
+        content="This is a thoughtful post about connecting with others..."
+        images={["/uploads/image1.jpg", "/uploads/image2.jpg"]}
+        stats={%{replies: 3, shares: 1, likes: 12}}
+      />
+  """
+  attr :user_name, :string, required: true
+  attr :user_handle, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :timestamp, :string, required: true
+  attr :content, :string, required: true
+  attr :images, :list, default: []
+  attr :stats, :map, default: %{}
+  attr :verified, :boolean, default: false
+  attr :class, :any, default: ""
+
+  def liquid_timeline_post(assigns) do
+    ~H"""
+    <article class={[
+      "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+      "hover:border-slate-300/60 dark:hover:border-slate-600/60",
+      "transform-gpu will-change-transform",
+      @class
+    ]}>
+      <%!-- Subtle liquid background on hover --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100">
+      </div>
+
+      <%!-- Post content --%>
+      <div class="relative p-6">
+        <%!-- User header --%>
+        <div class="flex items-start gap-4 mb-4">
+          <%!-- Enhanced liquid metal avatar --%>
+          <.liquid_avatar
+            src={@user_avatar}
+            name={@user_name}
+            size="md"
+            verified={@verified}
+            clickable={true}
+          />
+
+          <%!-- User info --%>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
+                {@user_name}
+              </h3>
+              <.phx_icon
+                :if={@verified}
+                name="hero-check-badge"
+                class="h-5 w-5 text-emerald-500 flex-shrink-0"
+              />
+            </div>
+            <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <span class="truncate">{@user_handle}</span>
+              <span class="text-slate-400 dark:text-slate-500">•</span>
+              <time class="flex-shrink-0">{@timestamp}</time>
+            </div>
+          </div>
+
+          <%!-- Post menu (subtle) --%>
+          <button class="relative p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out">
+            <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
+          </button>
+        </div>
+
+        <%!-- Post content --%>
+        <div class="mb-4">
+          <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
+            {@content}
+          </p>
+        </div>
+
+        <%!-- Images (if any) --%>
+        <div :if={length(@images) > 0} class="mb-4">
+          <.liquid_timeline_images images={@images} />
+        </div>
+
+        <%!-- Engagement actions (calm and minimal) with semantic colors --%>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+          <%!-- Action buttons with semantic color coding --%>
+          <div class="flex items-center gap-1">
+            <.liquid_timeline_action
+              icon="hero-chat-bubble-oval-left"
+              count={Map.get(@stats, :replies, 0)}
+              label="Reply"
+              color="emerald"
+            />
+            <.liquid_timeline_action
+              icon="hero-arrow-path"
+              count={Map.get(@stats, :shares, 0)}
+              label="Share"
+              color="emerald"
+            />
+            <.liquid_timeline_action
+              icon="hero-heart"
+              count={Map.get(@stats, :likes, 0)}
+              label="Like"
+              color="rose"
+            />
+          </div>
+
+          <%!-- Enhanced bookmark action with amber semantic color (matches Bookmarks tab) --%>
+          <button class="p-2 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2">
+            <.phx_icon
+              name="hero-bookmark"
+              class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110"
+            />
+            <span class="sr-only">Bookmark this post</span>
+          </button>
+        </div>
+      </div>
+    </article>
+    """
+  end
+
+  @doc """
+  Timeline post images with smart layout based on count.
+  """
+  attr :images, :list, required: true
+  attr :class, :any, default: ""
+
+  def liquid_timeline_images(assigns) do
+    assigns = assign(assigns, :image_count, length(assigns.images))
+
+    ~H"""
+    <div class={[
+      "relative rounded-xl overflow-hidden",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      @class
+    ]}>
+      <%!-- Single image --%>
+      <img
+        :if={@image_count == 1}
+        src={hd(@images)}
+        alt="Post image"
+        class="w-full max-h-96 object-cover transition-transform duration-300 ease-out hover:scale-105"
+      />
+
+      <%!-- Two images side by side --%>
+      <div :if={@image_count == 2} class="grid grid-cols-2 gap-1">
+        <img
+          :for={image <- @images}
+          src={image}
+          alt="Post image"
+          class="aspect-square object-cover transition-transform duration-300 ease-out hover:scale-105"
+        />
+      </div>
+
+      <%!-- Three images: 1 large, 2 small --%>
+      <div :if={@image_count == 3} class="grid grid-cols-2 gap-1 h-64">
+        <img
+          src={Enum.at(@images, 0)}
+          alt="Post image"
+          class="row-span-2 w-full h-full object-cover transition-transform duration-300 ease-out hover:scale-105"
+        />
+        <div class="grid grid-rows-2 gap-1">
+          <img
+            :for={image <- Enum.slice(@images, 1, 2)}
+            src={image}
+            alt="Post image"
+            class="w-full h-full object-cover transition-transform duration-300 ease-out hover:scale-105"
+          />
+        </div>
+      </div>
+
+      <%!-- Four or more images: 2x2 grid with overflow indicator --%>
+      <div :if={@image_count >= 4} class="grid grid-cols-2 gap-1 h-64">
+        <img
+          :for={{image, index} <- Enum.with_index(Enum.slice(@images, 0, 3))}
+          src={image}
+          alt="Post image"
+          class="aspect-square object-cover transition-transform duration-300 ease-out hover:scale-105"
+        />
+        <div class="relative">
+          <img
+            src={Enum.at(@images, 3)}
+            alt="Post image"
+            class="aspect-square object-cover transition-transform duration-300 ease-out hover:scale-105"
+          />
+          <%!-- Overlay for additional images --%>
+          <div
+            :if={@image_count > 4}
+            class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center transition-all duration-200 ease-out hover:bg-slate-900/40"
+          >
+            <span class="text-white font-semibold text-lg">
+              +{@image_count - 4}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline action button (reply, share, like, bookmark) with calm interaction design.
+  """
+  attr :icon, :string, required: true
+  attr :count, :integer, default: 0
+  attr :label, :string, required: true
+  attr :active, :boolean, default: false
+  attr :color, :string, default: "slate", values: ~w(slate emerald amber rose)
+  attr :class, :any, default: ""
+
+  def liquid_timeline_action(assigns) do
+    ~H"""
+    <button class={[
+      "group/action relative flex items-center gap-2 px-3 py-2 rounded-xl",
+      "transition-all duration-200 ease-out active:scale-95",
+      "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+      timeline_action_classes(@active, @color),
+      @class
+    ]}>
+      <%!-- Subtle liquid background on hover --%>
+      <div class={[
+        "absolute inset-0 opacity-0 transition-all duration-300 ease-out rounded-xl",
+        "group-hover/action:opacity-100",
+        timeline_action_bg_classes(@color)
+      ]}>
+      </div>
+
+      <.phx_icon
+        name={@icon}
+        class="relative h-4 w-4 transition-transform duration-200 ease-out group-hover/action:scale-110"
+      />
+      <span :if={@count > 0} class="relative text-sm font-medium">
+        {@count}
+      </span>
+      <span class="sr-only">{@label}</span>
+    </button>
+    """
+  end
+
+  @doc """
+  Timeline compose/new post component with calm, focused design.
+  """
+  attr :user_name, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :placeholder, :string, default: "What's on your mind?"
+  attr :class, :any, default: ""
+
+  def liquid_timeline_composer(assigns) do
+    ~H"""
+    <div class={[
+      "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+      "focus-within:border-emerald-500/60 dark:focus-within:border-emerald-400/60",
+      "focus-within:shadow-xl focus-within:shadow-emerald-500/10",
+      @class
+    ]}>
+      <%!-- Liquid background on focus --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-cyan-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 focus-within:opacity-100">
+      </div>
+
+      <div class="relative p-6">
+        <%!-- User section --%>
+        <div class="flex items-start gap-4 mb-4">
+          <%!-- Avatar --%>
+          <div class="relative flex-shrink-0">
+            <div class="relative overflow-hidden rounded-xl">
+              <div class="absolute inset-0 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/30 dark:via-emerald-900/20 dark:to-cyan-900/30">
+              </div>
+              <img
+                src={@user_avatar || "/images/default-avatar.svg"}
+                alt={"#{@user_name} avatar"}
+                class="relative h-12 w-12 object-cover"
+              />
+            </div>
+          </div>
+
+          <%!-- Compose area --%>
+          <div class="flex-1 min-w-0">
+            <textarea
+              placeholder={@placeholder}
+              rows="3"
+              class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-lg leading-relaxed focus:outline-none focus:ring-0"
+            ></textarea>
+          </div>
+        </div>
+
+        <%!-- Actions row --%>
+        <div class="flex items-center justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+          <%!-- Media actions --%>
+          <div class="flex items-center gap-2">
+            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out">
+              <.phx_icon name="hero-photo" class="h-5 w-5" />
+            </button>
+            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out">
+              <.phx_icon name="hero-face-smile" class="h-5 w-5" />
+            </button>
+          </div>
+
+          <%!-- Privacy indicator and post button --%>
+          <div class="flex items-center gap-3">
+            <%!-- Privacy indicator --%>
+            <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <.phx_icon name="hero-lock-closed" class="h-4 w-4" />
+              <span>Private</span>
+            </div>
+
+            <%!-- Post button --%>
+            <.liquid_button size="sm" disabled>
+              Share
+            </.liquid_button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline status indicator showing online/calm status.
+  """
+  attr :status, :string, default: "calm", values: ~w(online calm away busy)
+  attr :message, :string, default: nil
+  attr :class, :any, default: ""
+
+  def liquid_timeline_status(assigns) do
+    ~H"""
+    <div class={[
+      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+      "border transition-all duration-200 ease-out",
+      timeline_status_classes(@status),
+      @class
+    ]}>
+      <%!-- Status indicator --%>
+      <div class={[
+        "relative flex-shrink-0 rounded-full transition-all duration-300 ease-out",
+        timeline_status_dot_size(@status),
+        timeline_status_dot_classes(@status)
+      ]}>
+        <%!-- Pulse animation for certain statuses --%>
+        <div
+          :if={@status in ["online", "calm"]}
+          class={[
+            "absolute inset-0 rounded-full animate-ping opacity-75",
+            timeline_status_ping_classes(@status)
+          ]}
+        >
+        </div>
+      </div>
+
+      <span class="font-medium">
+        {@message || String.capitalize(@status)}
+      </span>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline filter/tab component for switching views with enhanced desktop and mobile design.
+  Improved colors for semantic meaning and visual hierarchy while remaining calm.
+  """
+  attr :tabs, :list, required: true
+  attr :active_tab, :string, required: true
+  attr :class, :any, default: ""
+
+  def liquid_timeline_tabs(assigns) do
+    ~H"""
+    <div class={[
+      "relative rounded-xl overflow-hidden",
+      "bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "p-1",
+      @class
+    ]}>
+      <%!-- Enhanced mobile and desktop layout --%>
+      <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide md:overflow-x-visible md:grid md:grid-cols-5">
+        <button
+          :for={tab <- @tabs}
+          class={
+            [
+              "relative flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 ease-out",
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+              "whitespace-nowrap",
+              # Mobile: more compact, desktop: proper padding
+              "px-2 py-2 sm:px-3 md:px-4 md:py-2.5 text-xs sm:text-sm font-medium rounded-lg",
+              # Semantic colors for different tab types
+              timeline_tab_classes(tab.key, tab.key == @active_tab)
+            ]
+          }
+        >
+          <%!-- Active tab enhanced liquid background --%>
+          <div
+            :if={tab.key == @active_tab}
+            class={[
+              "absolute inset-0 rounded-lg transition-all duration-300 ease-out",
+              timeline_tab_active_bg(tab.key)
+            ]}
+          >
+          </div>
+
+          <%!-- Tab icon for mobile and semantic clarity --%>
+          <.phx_icon
+            :if={tab_icon(tab.key)}
+            name={tab_icon(tab.key)}
+            class="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 relative z-10"
+          />
+
+          <%!-- Tab label (responsive sizing) --%>
+          <span class="relative z-10 text-xs sm:text-sm truncate">
+            {tab.label}
+          </span>
+
+          <%!-- Count badge with enhanced mobile design --%>
+          <span
+            :if={tab[:count]}
+            class={[
+              "relative z-10 flex-shrink-0 px-1 sm:px-1.5 py-0.5 text-xs rounded-full font-medium",
+              timeline_tab_count_classes(tab.key, tab.key == @active_tab)
+            ]}
+          >
+            {tab.count}
+          </span>
+        </button>
+      </div>
+
+      <%!-- Enhanced scroll indicators for mobile (subtle but clear) --%>
+      <div class="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-100/90 to-transparent dark:from-slate-800/90 pointer-events-none md:hidden">
+      </div>
+      <div class="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-100/90 to-transparent dark:from-slate-800/90 pointer-events-none md:hidden">
+      </div>
+
+      <%!-- Subtle scroll hint for mobile --%>
+      <div class="absolute -bottom-5 right-2 md:hidden">
+        <div class="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+          <.phx_icon name="hero-arrows-pointing-out" class="h-3 w-3" />
+          <span>scroll</span>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Timeline header with calm, meaningful messaging about community and privacy.
+  """
+  attr :user_name, :string, required: true
+  attr :status, :string, default: "calm"
+  attr :status_message, :string, default: nil
+  attr :class, :any, default: ""
+
+  def liquid_timeline_header(assigns) do
+    ~H"""
+    <div class={[
+      "relative p-6 text-center",
+      @class
+    ]}>
+      <%!-- Meaningful header about community and privacy --%>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+        Your words
+        <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+          create community
+        </span>
+      </h1>
+
+      <p class="text-slate-600 dark:text-slate-400 mb-4">
+        Share thoughtfully in your private, peaceful space
+      </p>
+
+      <%!-- Status indicator --%>
+      <div class="flex justify-center">
+        <.liquid_timeline_status status={@status} message={@status_message} />
+      </div>
+    </div>
+    """
+  end
+
+  # Helper function for tab icons (mobile optimization)
+  defp tab_icon("home"), do: "hero-home"
+  defp tab_icon("connections"), do: "hero-user-group"
+  defp tab_icon("groups"), do: "hero-users"
+  defp tab_icon("bookmarks"), do: "hero-bookmark"
+  defp tab_icon("discover"), do: "hero-magnifying-glass"
+  defp tab_icon(_), do: nil
+
+  # Semantic colors for different tab types (calm but meaningful)
+  defp timeline_tab_classes("home", true) do
+    [
+      "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md",
+      "hover:from-emerald-600 hover:to-teal-600"
+    ]
+  end
+
+  defp timeline_tab_classes("connections", true) do
+    [
+      "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md",
+      "hover:from-blue-600 hover:to-cyan-600"
+    ]
+  end
+
+  defp timeline_tab_classes("groups", true) do
+    [
+      "bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md",
+      "hover:from-purple-600 hover:to-violet-600"
+    ]
+  end
+
+  defp timeline_tab_classes("bookmarks", true) do
+    [
+      "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md",
+      "hover:from-amber-600 hover:to-orange-600"
+    ]
+  end
+
+  defp timeline_tab_classes("discover", true) do
+    [
+      "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-md",
+      "hover:from-indigo-600 hover:to-blue-600"
+    ]
+  end
+
+  # Inactive states with subtle semantic tinting
+  defp timeline_tab_classes("home", false) do
+    [
+      "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300",
+      "hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20"
+    ]
+  end
+
+  defp timeline_tab_classes("connections", false) do
+    [
+      "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300",
+      "hover:bg-blue-50/50 dark:hover:bg-blue-900/20"
+    ]
+  end
+
+  defp timeline_tab_classes("groups", false) do
+    [
+      "text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300",
+      "hover:bg-purple-50/50 dark:hover:bg-purple-900/20"
+    ]
+  end
+
+  defp timeline_tab_classes("bookmarks", false) do
+    [
+      "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
+      "hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+    ]
+  end
+
+  defp timeline_tab_classes("discover", false) do
+    [
+      "text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300",
+      "hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"
+    ]
+  end
+
+  # Fallback
+  defp timeline_tab_classes(_, true) do
+    [
+      "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100",
+      "shadow-md border border-slate-200/60 dark:border-slate-600/60"
+    ]
+  end
+
+  defp timeline_tab_classes(_, false) do
+    [
+      "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100",
+      "hover:bg-white/50 dark:hover:bg-slate-700/50"
+    ]
+  end
+
+  # Active tab background gradients for semantic meaning
+  defp timeline_tab_active_bg("home"),
+    do:
+      "bg-gradient-to-r from-emerald-50/40 via-teal-50/30 to-emerald-50/40 dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-emerald-900/20"
+
+  defp timeline_tab_active_bg("connections"),
+    do:
+      "bg-gradient-to-r from-blue-50/40 via-cyan-50/30 to-blue-50/40 dark:from-blue-900/20 dark:via-cyan-900/15 dark:to-blue-900/20"
+
+  defp timeline_tab_active_bg("groups"),
+    do:
+      "bg-gradient-to-r from-purple-50/40 via-violet-50/30 to-purple-50/40 dark:from-purple-900/20 dark:via-violet-900/15 dark:to-purple-900/20"
+
+  defp timeline_tab_active_bg("bookmarks"),
+    do:
+      "bg-gradient-to-r from-amber-50/40 via-orange-50/30 to-amber-50/40 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-amber-900/20"
+
+  defp timeline_tab_active_bg("discover"),
+    do:
+      "bg-gradient-to-r from-indigo-50/40 via-blue-50/30 to-indigo-50/40 dark:from-indigo-900/20 dark:via-blue-900/15 dark:to-indigo-900/20"
+
+  defp timeline_tab_active_bg(_),
+    do:
+      "bg-gradient-to-r from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/20 dark:via-emerald-900/10 dark:to-cyan-900/20"
+
+  # Count badge colors to match tab semantics
+  defp timeline_tab_count_classes("home", true),
+    do: "bg-emerald-100 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200"
+
+  defp timeline_tab_count_classes("connections", true),
+    do: "bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200"
+
+  defp timeline_tab_count_classes("groups", true),
+    do: "bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200"
+
+  defp timeline_tab_count_classes("bookmarks", true),
+    do: "bg-amber-100 dark:bg-amber-800 text-amber-800 dark:text-amber-200"
+
+  defp timeline_tab_count_classes("discover", true),
+    do: "bg-indigo-100 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200"
+
+  defp timeline_tab_count_classes(_, false),
+    do: "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
+
+  defp timeline_tab_count_classes(_, true),
+    do: "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
+
+  # Helper functions for timeline action components
+
+  # Action button color and state classes
+  defp timeline_action_classes(false, "slate") do
+    [
+      "text-slate-500 dark:text-slate-400",
+      "hover:text-emerald-600 dark:hover:text-emerald-400"
+    ]
+  end
+
+  defp timeline_action_classes(false, "emerald") do
+    [
+      "text-slate-500 dark:text-slate-400",
+      "hover:text-emerald-600 dark:hover:text-emerald-400"
+    ]
+  end
+
+  defp timeline_action_classes(false, "amber") do
+    [
+      "text-slate-500 dark:text-slate-400",
+      "hover:text-amber-600 dark:hover:text-amber-400"
+    ]
+  end
+
+  defp timeline_action_classes(false, "rose") do
+    [
+      "text-slate-500 dark:text-slate-400",
+      "hover:text-rose-600 dark:hover:text-rose-400"
+    ]
+  end
+
+  # Active states
+  defp timeline_action_classes(true, "emerald") do
+    [
+      "text-emerald-600 dark:text-emerald-400",
+      "bg-emerald-50/50 dark:bg-emerald-900/20"
+    ]
+  end
+
+  defp timeline_action_classes(true, "amber") do
+    [
+      "text-amber-600 dark:text-amber-400",
+      "bg-amber-50/50 dark:bg-amber-900/20"
+    ]
+  end
+
+  defp timeline_action_classes(true, "rose") do
+    [
+      "text-rose-600 dark:text-rose-400",
+      "bg-rose-50/50 dark:bg-rose-900/20"
+    ]
+  end
+
+  defp timeline_action_classes(true, _) do
+    [
+      "text-emerald-600 dark:text-emerald-400",
+      "bg-emerald-50/50 dark:bg-emerald-900/20"
+    ]
+  end
+
+  # Background hover effects for different actions
+  defp timeline_action_bg_classes("emerald") do
+    "bg-gradient-to-r from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15"
+  end
+
+  defp timeline_action_bg_classes("amber") do
+    "bg-gradient-to-r from-amber-50/30 via-yellow-50/40 to-amber-50/30 dark:from-amber-900/15 dark:via-yellow-900/20 dark:to-amber-900/15"
+  end
+
+  defp timeline_action_bg_classes("rose") do
+    "bg-gradient-to-r from-rose-50/30 via-pink-50/40 to-rose-50/30 dark:from-rose-900/15 dark:via-pink-900/20 dark:to-rose-900/15"
+  end
+
+  defp timeline_action_bg_classes(_) do
+    "bg-gradient-to-r from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15"
+  end
+
+  # Helper functions for timeline components
+
+  # Timeline status styling
+  defp timeline_status_classes("online") do
+    [
+      "bg-emerald-50/80 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
+      "border-emerald-200/60 dark:border-emerald-700/60"
+    ]
+  end
+
+  defp timeline_status_classes("calm") do
+    [
+      "bg-teal-50/80 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300",
+      "border-teal-200/60 dark:border-teal-700/60"
+    ]
+  end
+
+  defp timeline_status_classes("away") do
+    [
+      "bg-amber-50/80 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300",
+      "border-amber-200/60 dark:border-amber-700/60"
+    ]
+  end
+
+  defp timeline_status_classes("busy") do
+    [
+      "bg-rose-50/80 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300",
+      "border-rose-200/60 dark:border-rose-700/60"
+    ]
+  end
+
+  defp timeline_status_dot_size("online"), do: "w-2 h-2"
+  defp timeline_status_dot_size("calm"), do: "w-2.5 h-2.5"
+  defp timeline_status_dot_size("away"), do: "w-2 h-2"
+  defp timeline_status_dot_size("busy"), do: "w-2 h-2"
+
+  defp timeline_status_dot_classes("online"), do: "bg-emerald-500"
+  defp timeline_status_dot_classes("calm"), do: "bg-gradient-to-br from-teal-400 to-emerald-500"
+  defp timeline_status_dot_classes("away"), do: "bg-amber-500"
+  defp timeline_status_dot_classes("busy"), do: "bg-rose-500"
+
+  defp timeline_status_ping_classes("online"), do: "bg-emerald-400"
+  defp timeline_status_ping_classes("calm"), do: "bg-teal-400"
+  defp timeline_status_ping_classes(_), do: ""
+
+  @doc """
   Simple liquid metal FAQ component following our design system.
 
   ## Examples

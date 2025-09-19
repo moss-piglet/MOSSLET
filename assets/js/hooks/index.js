@@ -1,4 +1,5 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
+import CharacterCounter from "./character-counter";
 import ClearFlashHook from "./clear-flash-hook";
 import Flash from "./flash";
 import LiquidFlash from "./liquid-flash";
@@ -18,6 +19,7 @@ import TrixContentReplyHook from "./trix-content-reply-hook";
 import ScrollDown from "./scroll";
 
 export default {
+  CharacterCounter,
   ClearFlashHook,
   Flash,
   LiquidFlash,

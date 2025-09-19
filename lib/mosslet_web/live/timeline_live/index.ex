@@ -4,7 +4,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   require Logger
 
-  import MossletWeb.TimelineLive.Components
+  # import MossletWeb.TimelineLive.Components
 
   alias Phoenix.LiveView.AsyncResult
   alias Mosslet.Accounts
