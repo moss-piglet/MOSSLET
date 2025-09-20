@@ -356,24 +356,40 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_form = socket.assigns.post_form
 
-    IO.inspect(current_form, label: "CURRENT FORM")
+    # Get the existing changeset to preserve its state
+    existing_changeset = current_form.source
 
-    # Merge new params with existing form data to preserve content
-    existing_params = current_form.params || %{}
-    merged_params = Map.merge(existing_params, post_params)
+    # If we have an existing changeset, apply the new changes to it
+    # Otherwise create a new one with complete data
+    updated_changeset =
+      if existing_changeset && match?(%Ecto.Changeset{}, existing_changeset) do
+        # Apply new changes to existing changeset while preserving all existing data
+        existing_changeset
+        |> Ecto.Changeset.cast(post_params, [
+          :body,
+          :content_warning,
+          :content_warning_category,
+          :allow_replies,
+          :allow_shares,
+          :allow_bookmarks
+        ])
+        |> Ecto.Changeset.put_change(:visibility, socket.assigns.selector)
+        |> Ecto.Changeset.put_change(:image_urls, socket.assigns.image_urls)
+      else
+        # Fallback: create new changeset with complete params (preserve everything)
+        complete_params =
+          (current_form.params || %{})
+          |> Map.merge(post_params)
+          |> Map.put("image_urls", socket.assigns.image_urls)
+          |> Map.put("visibility", socket.assigns.selector)
+          |> add_shared_users_list_for_new_post(post_shared_users)
 
-    # Preserve the selector (privacy level) when validating
-    post_params =
-      merged_params
-      |> Map.put("image_urls", socket.assigns.image_urls)
-      |> Map.put("visibility", socket.assigns.selector)
-      |> add_shared_users_list_for_new_post(post_shared_users)
-
-    changeset = Timeline.change_post(%Post{}, post_params, user: current_user)
+        Timeline.change_post(%Post{}, complete_params, user: current_user)
+      end
 
     socket =
       socket
-      |> assign(:post_form, to_form(changeset, action: :validate))
+      |> assign(:post_form, to_form(updated_changeset, action: :validate))
 
     {:noreply, socket}
   end
@@ -655,6 +671,9 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("toggle_privacy_selector", _params, socket) do
     # Cycle through privacy levels: private -> connections -> public -> private
     current_selector = socket.assigns.selector
+    current_form = socket.assigns.post_form
+    current_user = socket.assigns.current_user
+    post_shared_users = socket.assigns.post_shared_users
 
     new_selector =
       case current_selector do
@@ -664,11 +683,31 @@ defmodule MossletWeb.TimelineLive.Index do
         _ -> "private"
       end
 
-    # Update just the selector without touching the form
-    # The form validation will pick up the new selector value
+    # Get the existing changeset and update only the visibility
+    existing_changeset = current_form.source
+
+    updated_changeset =
+      if existing_changeset && match?(%Ecto.Changeset{}, existing_changeset) do
+        # Update existing changeset to preserve all form data
+        existing_changeset
+        |> Ecto.Changeset.put_change(:visibility, new_selector)
+        |> Ecto.Changeset.put_change(:image_urls, socket.assigns.image_urls)
+      else
+        # Fallback: create new changeset with preserved params
+        complete_params =
+          (current_form.params || %{})
+          |> Map.put("visibility", new_selector)
+          |> Map.put("image_urls", socket.assigns.image_urls)
+          |> add_shared_users_list_for_new_post(post_shared_users)
+
+        Timeline.change_post(%Post{}, complete_params, user: current_user)
+      end
+
+    # Update both selector and form in the same operation
     socket =
       socket
       |> assign(:selector, new_selector)
+      |> assign(:post_form, to_form(updated_changeset))
 
     {:noreply, socket}
   end
@@ -1637,10 +1676,13 @@ defmodule MossletWeb.TimelineLive.Index do
       # For posts from other users, we need to get their name via user connection
       if post.user_id == current_user.id do
         # Current user's own post - use their name
-        user_name(current_user, key) || "User"
+        case user_name(current_user, key) do
+          name when is_binary(name) -> name
+          :failed_verification -> "Private Author"  # Graceful fallback for decryption issues
+          _ -> "Private Author"
+        end
       else
         # Other user's post - need to get their name via connection
-        # First try to get the user and their connection info
         post_user = Accounts.get_user(post.user_id)
 
         if post_user do
@@ -1648,16 +1690,19 @@ defmodule MossletWeb.TimelineLive.Index do
           uconn = get_uconn_for_shared_item(post, current_user)
 
           if uconn && uconn.connection do
-            decr_uconn(uconn.connection.name, current_user, uconn.key, key) || "User"
+            case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
+              name when is_binary(name) -> name
+              :failed_verification -> "Private Author"  # User chose to keep identity private
+            end
           else
-            "User"
+            "Private Author"  # No connection or privacy-focused sharing
           end
         else
-          "User"
+          "Private Author"  # User account not found or deactivated
         end
       end
     rescue
-      _ -> "User"
+      _ -> "Private Author"  # Any error defaults to privacy-respecting display
     end
   end
 

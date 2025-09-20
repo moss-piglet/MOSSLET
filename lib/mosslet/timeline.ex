@@ -2583,13 +2583,8 @@ defmodule Mosslet.Timeline do
     changeset =
       if content_warning && String.trim(content_warning) != "" do
         try do
-          # Get the binary result from enacl encryption (handle tuple return)
-          encrypted_warning =
-            case Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: content_warning}) do
-              {:ok, encrypted_binary} -> encrypted_binary
-              encrypted_binary when is_binary(encrypted_binary) -> encrypted_binary
-              _ -> raise "Encryption failed"
-            end
+          # Get the binary result from enacl encryption (returns binary directly)
+          encrypted_warning = Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: content_warning})
 
           # Store the enacl-encrypted binary - Cloak will add the second layer automatically
           Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)

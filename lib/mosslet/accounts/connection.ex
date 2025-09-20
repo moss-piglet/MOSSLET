@@ -224,21 +224,6 @@ defmodule Mosslet.Accounts.Connection do
     end
   end
 
-  # The status_message_hash comes through as a temp clear text
-  # so we go straight ahead and hash it. The `:status_message`
-  # is coming through already encrypted correctly from the user changeset.
-  defp add_status_message_hash(changeset) do
-    if Map.has_key?(changeset.changes, :status_message_hash) do
-      changeset
-      |> put_change(
-        :status_message_hash,
-        String.downcase(get_field(changeset, :status_message_hash))
-      )
-    else
-      changeset
-    end
-  end
-
   defp build_slug(changeset) do
     if temp_username = get_field(changeset, :temp_username) do
       slug = Slug.slugify(temp_username, ignore: ["_"])

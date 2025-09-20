@@ -10,9 +10,6 @@ defmodule MossletWeb.DesignSystem do
   use Phoenix.Component
   use MossletWeb, :verified_routes
 
-  # Import core components to access phx_input
-  import MossletWeb.CoreComponents, only: [phx_input: 1]
-
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
@@ -2501,7 +2498,7 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50 gap-3 sm:gap-0">
           <%!-- Media and formatting actions --%>
           <div class="flex items-center gap-2">
-            <button 
+            <button
               type="button"
               class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
               phx-click="composer_add_photo"
@@ -2511,7 +2508,7 @@ defmodule MossletWeb.DesignSystem do
                 class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
               />
             </button>
-            <button 
+            <button
               type="button"
               class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
               phx-click="composer_add_emoji"
@@ -2522,7 +2519,7 @@ defmodule MossletWeb.DesignSystem do
               />
             </button>
             <%!-- Content warning toggle --%>
-            <button 
+            <button
               type="button"
               class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group"
               phx-click="composer_toggle_content_warning"
@@ -2534,22 +2531,37 @@ defmodule MossletWeb.DesignSystem do
             </button>
           </div>
 
-          <%!-- Privacy controls and post button with mobile-first layout --%>
-          <div class="flex items-center justify-between sm:justify-end gap-3">
-            <%!-- Hidden field for form data integrity --%>
-            <input type="hidden" name={@form[:visibility].name} value={@selector} />
-            
-            <%!-- Privacy selector (icon-only on mobile) --%>
-            <.liquid_privacy_selector 
-              selected={@selector} 
-              phx-click="toggle_privacy_selector"
-            />
+            <%!-- Privacy controls and post button with mobile-first layout --%>
+            <div class="flex items-center justify-between sm:justify-end gap-3">
+              <%!-- Hidden field for form data integrity --%>
+              <input type="hidden" name={@form[:visibility].name} value={@selector} id="privacy-hidden-field" />
 
-            <%!-- Post button with consistent text on all screen sizes --%>
-            <.liquid_button size="sm" disabled class="flex-shrink-0">
-              Share thoughtfully
-            </.liquid_button>
-          </div>
+              <%!-- Privacy selector with simple server-side toggle --%>
+              <div
+                id={"privacy-selector-#{@selector}"}
+                class={[
+                  "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+                  "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                  "border border-slate-200/60 dark:border-slate-600/60",
+                  "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
+                  "transition-all duration-200 ease-out cursor-pointer",
+                ]}
+                phx-click="toggle_privacy_selector"
+              >
+                <.phx_icon
+                  name={privacy_icon(@selector)}
+                  class="h-4 w-4 text-slate-600 dark:text-slate-300 flex-shrink-0"
+                />
+                <span class="font-medium text-slate-700 dark:text-slate-200 privacy-label">
+                  {privacy_label(@selector)}
+                </span>
+              </div>
+
+              <%!-- Post button with consistent text on all screen sizes --%>
+              <.liquid_button size="sm" disabled class="flex-shrink-0">
+                Share thoughtfully
+              </.liquid_button>
+            </div>
         </div>
       </div>
     </div>
@@ -2567,7 +2579,7 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_privacy_selector(assigns) do
     ~H"""
-    <div 
+    <div
       id={"privacy-selector-#{@selected}"}
       class={[
         "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
@@ -2576,8 +2588,8 @@ defmodule MossletWeb.DesignSystem do
         "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
         "transition-all duration-200 ease-out cursor-pointer",
         @class
-      ]} 
-      phx-hook="TippyHook" 
+      ]}
+      phx-hook="TippyHook"
       data-tippy-content="Click to toggle privacy level"
       {@rest}
     >
@@ -2758,7 +2770,7 @@ defmodule MossletWeb.DesignSystem do
           </div>
 
           <%!-- Enhanced bookmark action with amber semantic color (matches Bookmarks tab) --%>
-          <button 
+          <button
             class={[
               "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
               if(@bookmarked, do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20", else: "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20")

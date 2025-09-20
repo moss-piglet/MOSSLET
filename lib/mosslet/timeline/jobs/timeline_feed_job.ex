@@ -231,7 +231,14 @@ defmodule Mosslet.Timeline.Jobs.TimelineFeedJob do
     try do
       # 🔐 PRIVACY: Generate fresh feed data from encrypted DB
       # 🎯 ETHICAL: Maintains chronological order - no algorithmic manipulation
-      options = %{tab: tab, post_per_page: 20, skip_cache: true}
+      options = %{
+        tab: tab, 
+        post_per_page: 20, 
+        skip_cache: true,
+        filter: %{user_id: "", post_per_page: 20},  # Required by filter_by_user_id
+        post_sort_by: :inserted_at,
+        post_sort_order: :desc
+      }
       posts = Timeline.fetch_timeline_posts_from_db(user, options)
 
       # 🔐 PRIVACY: Cache encrypted data (posts remain encrypted in cache)

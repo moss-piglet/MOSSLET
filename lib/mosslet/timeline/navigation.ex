@@ -215,7 +215,7 @@ defmodule Mosslet.Timeline.Navigation do
 
   defp get_fresh_tab_count(user, tab) do
     case tab do
-      "home" -> Timeline.timeline_post_count(user, %{})
+      "home" -> Timeline.timeline_post_count(user, %{filter: %{user_id: "", post_per_page: 25}})
       "connections" -> count_connections_posts(user)
       "groups" -> count_groups_posts(user)
       "bookmarks" -> Timeline.count_user_bookmarks(user)
