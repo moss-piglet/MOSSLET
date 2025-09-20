@@ -10,7 +10,19 @@ defmodule Mosslet.Timeline do
   alias Mosslet.Accounts.{Connection, User, UserConnection}
   alias Mosslet.Groups
   alias Mosslet.Repo
-  alias Mosslet.Timeline.{Post, Reply, UserPost, UserPostReceipt, Bookmark, BookmarkCategory}
+
+  alias Mosslet.Timeline.{
+    Post,
+    Reply,
+    UserPost,
+    UserPostReceipt,
+    Bookmark,
+    BookmarkCategory,
+    PostReport,
+    PostHide
+  }
+
+  alias Mosslet.Accounts.UserBlock
 
   @doc """
   Counts all posts.
@@ -2004,5 +2016,337 @@ defmodule Mosslet.Timeline do
   """
   def get_user_bookmark_category(user, category_id) do
     Repo.get_by(BookmarkCategory, user_id: user.id, id: category_id)
+  end
+
+  ## Content Moderation Functions
+
+  @doc """
+  Reports a post for harmful content.
+
+  ## Examples
+
+      iex> report_post(reporter, reported_user, post, %{
+      ...>   reason: "harassment",
+      ...>   details: "Contains threatening language",
+      ...>   report_type: :harassment,
+      ...>   severity: :high
+      ...> })
+      {:ok, %PostReport{}}
+  """
+  def report_post(reporter, reported_user, post, attrs \\ %{}) do
+    attrs =
+      attrs
+      |> Map.put(:reporter_id, reporter.id)
+      |> Map.put(:reported_user_id, reported_user.id)
+      |> Map.put(:post_id, post.id)
+
+    # Get user key for encryption (simplified - you may need to adjust based on your key management)
+    user_key = get_user_encryption_key(reporter)
+
+    case Repo.transaction_on_primary(fn ->
+           %PostReport{}
+           |> PostReport.changeset(attrs, user: reporter, user_key: user_key)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, report}} ->
+        # Broadcast to admin moderation system
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "moderation:reports",
+          {:report_created, report}
+        )
+
+        {:ok, report}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Updates a post report status (admin function).
+  """
+  def update_post_report(report, attrs, admin_user) do
+    case Repo.transaction_on_primary(fn ->
+           report
+           |> PostReport.changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_report}} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "moderation:reports",
+          {:report_updated, updated_report}
+        )
+
+        {:ok, updated_report}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Gets all reports for admin review.
+  """
+  def list_post_reports(opts \\ []) do
+    query =
+      from r in PostReport,
+        preload: [:reporter, :reported_user, :post],
+        order_by: [desc: r.inserted_at]
+
+    query =
+      case opts[:status] do
+        nil -> query
+        status -> where(query, [r], r.status == ^status)
+      end
+
+    query =
+      case opts[:severity] do
+        nil -> query
+        severity -> where(query, [r], r.severity == ^severity)
+      end
+
+    query =
+      case opts[:limit] do
+        nil -> query
+        limit -> limit(query, ^limit)
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Blocks a user.
+
+  ## Examples
+
+      iex> block_user(blocker, blocked_user, %{
+      ...>   reason: "Inappropriate content",
+      ...>   block_type: :full
+      ...> })
+      {:ok, %UserBlock{}}
+  """
+  def block_user(blocker, blocked_user, attrs \\ %{}) do
+    attrs =
+      attrs
+      |> Map.put(:blocker_id, blocker.id)
+      |> Map.put(:blocked_id, blocked_user.id)
+
+    # Get user key for encryption
+    user_key = get_user_encryption_key(blocker)
+
+    case Repo.transaction_on_primary(fn ->
+           %UserBlock{}
+           |> UserBlock.changeset(attrs, user: blocker, user_key: user_key)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, block}} ->
+        # Broadcast block creation for real-time filtering
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "blocks:#{blocker.id}",
+          {:user_blocked, block}
+        )
+
+        {:ok, block}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Unblocks a user.
+  """
+  def unblock_user(blocker, blocked_user) do
+    block = Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
+
+    if block do
+      case Repo.transaction_on_primary(fn ->
+             Repo.delete(block)
+           end) do
+        {:ok, {:ok, deleted_block}} ->
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "blocks:#{blocker.id}",
+            {:user_unblocked, deleted_block}
+          )
+
+          {:ok, deleted_block}
+
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        error ->
+          error
+      end
+    else
+      {:error, :not_blocked}
+    end
+  end
+
+  @doc """
+  Checks if a user has blocked another user.
+  """
+  def user_blocked?(blocker, blocked_user) do
+    query =
+      from b in UserBlock,
+        where: b.blocker_id == ^blocker.id and b.blocked_id == ^blocked_user.id
+
+    Repo.exists?(query)
+  end
+
+  @doc """
+  Gets all users blocked by a user.
+  """
+  def list_blocked_users(user) do
+    query =
+      from b in UserBlock,
+        where: b.blocker_id == ^user.id,
+        preload: [:blocked],
+        order_by: [desc: b.inserted_at]
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Hides a post from a user's timeline.
+
+  ## Examples
+
+      iex> hide_post(user, post, %{
+      ...>   reason: "Not interested",
+      ...>   hide_type: :similar_content
+      ...> })
+      {:ok, %PostHide{}}
+  """
+  def hide_post(user, post, attrs \\ %{}) do
+    attrs =
+      attrs
+      |> Map.put(:user_id, user.id)
+      |> Map.put(:post_id, post.id)
+
+    # Get user key for encryption
+    user_key = get_user_encryption_key(user)
+
+    case Repo.transaction_on_primary(fn ->
+           %PostHide{}
+           |> PostHide.changeset(attrs, user: user, user_key: user_key)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, hide}} ->
+        # Broadcast hide creation for real-time filtering
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "hides:#{user.id}",
+          {:post_hidden, hide}
+        )
+
+        {:ok, hide}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Unhides a post.
+  """
+  def unhide_post(user, post) do
+    hide = Repo.get_by(PostHide, user_id: user.id, post_id: post.id)
+
+    if hide do
+      case Repo.transaction_on_primary(fn ->
+             Repo.delete(hide)
+           end) do
+        {:ok, {:ok, deleted_hide}} ->
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "hides:#{user.id}",
+            {:post_unhidden, deleted_hide}
+          )
+
+          {:ok, deleted_hide}
+
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        error ->
+          error
+      end
+    else
+      {:error, :not_hidden}
+    end
+  end
+
+  @doc """
+  Checks if a user has hidden a specific post.
+  """
+  def post_hidden?(user, post) do
+    query =
+      from h in PostHide,
+        where: h.user_id == ^user.id and h.post_id == ^post.id
+
+    Repo.exists?(query)
+  end
+
+  @doc """
+  Gets all posts hidden by a user.
+  """
+  def list_hidden_posts(user) do
+    query =
+      from h in PostHide,
+        where: h.user_id == ^user.id,
+        preload: [:post],
+        order_by: [desc: h.inserted_at]
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Filters timeline posts to exclude blocked users and hidden posts.
+  This should be called in your timeline filtering logic.
+  """
+  def apply_moderation_filters(query, user) do
+    # Exclude posts from blocked users
+    blocked_user_ids =
+      from(b in UserBlock,
+        where: b.blocker_id == ^user.id,
+        select: b.blocked_id
+      )
+
+    # Exclude hidden posts
+    hidden_post_ids =
+      from(h in PostHide,
+        where: h.user_id == ^user.id,
+        select: h.post_id
+      )
+
+    query
+    |> where([p], p.user_id not in subquery(blocked_user_ids))
+    |> where([p], p.id not in subquery(hidden_post_ids))
+  end
+
+  # Helper function to get user encryption key (you may need to adjust this)
+  defp get_user_encryption_key(user) do
+    # This is a simplified version - adjust based on your key management system
+    # You may need to decrypt the user's key or generate a temporary key
+    case user.key_pair do
+      %{"private" => private_key} -> private_key
+      _ -> Mosslet.Encrypted.Utils.generate_key()
+    end
   end
 end

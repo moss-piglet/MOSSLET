@@ -209,14 +209,21 @@ This approach gets you:
   - [x] Encryption using existing post_key strategy
   - [x] Cascade deletion when posts are removed
 
+- [x] **1.2 Content Moderation System** - ✅ **COMPLETE** (2025-09-20)
+  - [x] Database migration created and executed (post_reports, user_blocks, post_hides)
+  - [x] `PostReport` schema with enacl encryption for sensitive data
+  - [x] `UserBlock` schema with user-key encryption
+  - [x] `PostHide` schema with user-preference encryption
+  - [x] **transaction_on_primary** implemented for all write operations
+  - [x] Timeline context functions (report, block, hide, list, check)
+  - [x] PubSub broadcasting for real-time moderation updates
+  - [x] Admin functions for report management
+  - [x] Timeline filtering integration (apply_moderation_filters)
+  - [x] Tested and working: hide/unhide posts, block/unblock users
+
 ### 🔄 In Progress Features:
 
 ### ⏳ Pending Features:
-- [ ] **1.2 Content Moderation System** (three-dots menu)
-  - [ ] Post reporting system with encrypted reasons
-  - [ ] User blocking functionality
-  - [ ] Post hiding capabilities
-  - [ ] Admin moderation dashboard
 - [ ] **1.3 Content Warnings System** (triangle exclamation button)
   - [ ] Content warning categories
   - [ ] Warning text encryption
