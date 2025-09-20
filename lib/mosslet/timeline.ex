@@ -10,7 +10,7 @@ defmodule Mosslet.Timeline do
   alias Mosslet.Accounts.{Connection, User, UserConnection}
   alias Mosslet.Groups
   alias Mosslet.Repo
-  alias Mosslet.Timeline.{Post, Reply, UserPost, UserPostReceipt}
+  alias Mosslet.Timeline.{Post, Reply, UserPost, UserPostReceipt, Bookmark, BookmarkCategory}
 
   @doc """
   Counts all posts.
@@ -1762,5 +1762,206 @@ defmodule Mosslet.Timeline do
     )
 
     {:ok, reply}
+  end
+
+  ## Bookmark Functions
+
+  @doc """
+  Creates a bookmark for a user on a specific post.
+  Uses the existing post_key encryption strategy for consistency.
+  
+  ## Examples
+  
+      iex> create_bookmark(user, post, %{notes: "Great article!"})
+      {:ok, %Bookmark{}}
+      
+      iex> create_bookmark(user, post, %{notes: "", category_id: category.id})
+      {:ok, %Bookmark{}}
+  """
+  def create_bookmark(user, post, attrs \\ %{}) do
+    # Get the post_key using existing mechanism (same as post decryption)
+    post_key = MossletWeb.Helpers.get_post_key(post, user)
+    
+    if post_key do
+      attrs = attrs |> Map.put(:user_id, user.id) |> Map.put(:post_id, post.id)
+      
+      %Bookmark{}
+      |> Bookmark.changeset(attrs, post_key: post_key)
+      |> Repo.insert()
+      |> case do
+        {:ok, bookmark} ->
+          # Broadcast bookmark creation for real-time updates
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "bookmarks:#{user.id}",
+            {:bookmark_created, bookmark}
+          )
+          {:ok, bookmark}
+        
+        error -> error
+      end
+    else
+      {:error, :no_access_to_post}
+    end
+  end
+
+  @doc """
+  Updates a bookmark's notes or category.
+  """
+  def update_bookmark(bookmark, attrs, user) do
+    # Get the post_key for re-encryption
+    post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
+    
+    if post_key do
+      bookmark
+      |> Bookmark.changeset(attrs, post_key: post_key)
+      |> Repo.update()
+      |> case do
+        {:ok, updated_bookmark} ->
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "bookmarks:#{user.id}",
+            {:bookmark_updated, updated_bookmark}
+          )
+          {:ok, updated_bookmark}
+        
+        error -> error
+      end
+    else
+      {:error, :no_access_to_post}
+    end
+  end
+
+  @doc """
+  Deletes a bookmark.
+  """
+  def delete_bookmark(bookmark, user) do
+    Repo.delete(bookmark)
+    |> case do
+      {:ok, deleted_bookmark} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "bookmarks:#{user.id}",
+          {:bookmark_deleted, deleted_bookmark}
+        )
+        {:ok, deleted_bookmark}
+      
+      error -> error
+    end
+  end
+
+  @doc """
+  Gets a user's bookmark for a specific post.
+  """
+  def get_bookmark(user, post) do
+    Repo.get_by(Bookmark, user_id: user.id, post_id: post.id)
+  end
+
+  @doc """
+  Checks if a user has bookmarked a specific post.
+  """
+  def bookmarked?(user, post) do
+    query = from b in Bookmark,
+      where: b.user_id == ^user.id and b.post_id == ^post.id
+    
+    Repo.exists?(query)
+  end
+
+  @doc """
+  Gets all bookmarks for a user with optional category filtering.
+  """
+  def list_user_bookmarks(user, opts \\ []) do
+    query = from b in Bookmark,
+      where: b.user_id == ^user.id,
+      preload: [:post, :category],
+      order_by: [desc: b.inserted_at]
+    
+    query = case opts[:category_id] do
+      nil -> query
+      category_id -> where(query, [b], b.category_id == ^category_id)
+    end
+    
+    query = case opts[:limit] do
+      nil -> query
+      limit -> limit(query, ^limit)
+    end
+    
+    Repo.all(query)
+  end
+
+  @doc """
+  Counts a user's bookmarks.
+  """
+  def count_user_bookmarks(user) do
+    query = from b in Bookmark, where: b.user_id == ^user.id
+    Repo.aggregate(query, :count)
+  end
+
+  @doc """
+  Decrypts bookmark notes using the same post_key as the associated post.
+  """
+  def decrypt_bookmark_notes(bookmark, user, key) do
+    if bookmark.notes do
+      # Use the SAME decryption flow as post.body
+      post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
+      
+      if post_key do
+        case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: bookmark.notes}) do
+          {:ok, decrypted_notes} -> decrypted_notes
+          _ -> "Unable to decrypt notes"
+        end
+      else
+        "No access to decrypt notes"
+      end
+    else
+      nil
+    end
+  end
+
+  ## Bookmark Category Functions
+
+  @doc """
+  Creates a bookmark category for a user.
+  """
+  def create_bookmark_category(user, attrs) do
+    %BookmarkCategory{}
+    |> BookmarkCategory.changeset(attrs)
+    |> Ecto.Changeset.put_assoc(:user, user)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a bookmark category.
+  """
+  def update_bookmark_category(category, attrs) do
+    category
+    |> BookmarkCategory.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a bookmark category.
+  Note: This will set category_id to nil for existing bookmarks.
+  """
+  def delete_bookmark_category(category) do
+    Repo.delete(category)
+  end
+
+  @doc """
+  Gets all bookmark categories for a user.
+  """
+  def list_user_bookmark_categories(user) do
+    query = from bc in BookmarkCategory,
+      where: bc.user_id == ^user.id,
+      order_by: [asc: bc.name]
+    
+    Repo.all(query)
+  end
+
+  @doc """
+  Gets a user's bookmark category by ID.
+  """
+  def get_user_bookmark_category(user, category_id) do
+    Repo.get_by(BookmarkCategory, user_id: user.id, id: category_id)
   end
 end
