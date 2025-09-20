@@ -59,6 +59,21 @@ defmodule Mosslet.Accounts.User do
     field :last_signed_in_datetime, :utc_datetime
     field :is_subscribed_to_marketing_notifications, :boolean, default: false
 
+    # User Status System - Personal status (encrypted with user_key)
+    field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
+    # User's custom status message (encrypted with user_key)
+    field :status_message, Encrypted.Binary
+    # Hash for searching status messages
+    field :status_message_hash, Encrypted.HMAC
+    # When status was last updated (plaintext for performance)
+    field :status_updated_at, :naive_datetime
+    # Whether to auto-update status from activity
+    field :auto_status, :boolean, default: true
+    # Last activity timestamp
+    field :last_activity_at, :naive_datetime
+    # Last post creation timestamp
+    field :last_post_at, :naive_datetime
+
     has_one :customer, Customer
 
     has_one :connection, Connection
@@ -315,6 +330,52 @@ defmodule Mosslet.Accounts.User do
     |> put_change(:connection_map, %{
       c_username: c_encrypted_username,
       c_username_hash: username
+    })
+  end
+
+  # Status encryption following the same dual-update pattern
+  defp validate_status(changeset, _opts) do
+    changeset
+    |> validate_inclusion(:status, [:offline, :calm, :active, :busy, :away])
+    |> validate_length(:status_message, max: 160)
+  end
+
+  defp encrypt_status_change(changeset, opts) do
+    if opts[:key] && get_field(changeset, :status_message) do
+      status_message = get_field(changeset, :status_message)
+
+      changeset
+      # Connection table
+      |> encrypt_connection_map_status_change(opts, status_message)
+      # User table
+      |> put_change(:status_message, encrypt_user_data(status_message, opts[:user], opts[:key]))
+      |> put_change(:status_message_hash, String.downcase(status_message))
+    else
+      changeset
+    end
+  end
+
+  defp encrypt_connection_map_status_change(changeset, opts, status_message) do
+    # decrypt the user connection key and encrypt status for sharing
+    {:ok, d_conn_key} =
+      Encrypted.Users.Utils.decrypt_user_attrs_key(
+        opts[:user].conn_key,
+        opts[:user],
+        opts[:key]
+      )
+
+    c_encrypted_status_message =
+      Encrypted.Utils.encrypt(%{key: d_conn_key, payload: status_message})
+
+    changeset
+    |> put_change(:connection_map, %{
+      # Status enum (plaintext)
+      c_status: get_field(changeset, :status),
+      # Encrypted message for connections
+      c_status_message: c_encrypted_status_message,
+      # Hash for connection searching
+      c_status_message_hash: String.downcase(status_message),
+      c_status_updated_at: NaiveDateTime.utc_now()
     })
   end
 
@@ -923,6 +984,36 @@ defmodule Mosslet.Accounts.User do
       %{changes: %{is_forgot_pwd?: _}} = changeset -> changeset
       %{} = changeset -> add_error(changeset, :is_forgot_pwd?, "did not change")
     end
+  end
+
+  @doc """
+  A user changeset for changing the status and status message.
+
+  Follows the dual-update pattern like email/username changes:
+  1. Updates user.status_message (encrypted with user_key) 
+  2. Updates connection.status_message (encrypted with conn_key)
+  """
+  def status_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:status, :status_message])
+    |> validate_status(opts)
+    |> encrypt_status_change(opts)
+    |> case do
+      %{changes: changes} = changeset when map_size(changes) > 0 ->
+        put_change(changeset, :status_updated_at, NaiveDateTime.utc_now())
+
+      %{} = changeset ->
+        add_error(changeset, :status, "did not change")
+    end
+  end
+
+  @doc """
+  A changeset for updating user activity timestamps.
+  Used internally for auto-status logic.
+  """
+  def activity_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:last_activity_at, :last_post_at])
   end
 
   @doc """

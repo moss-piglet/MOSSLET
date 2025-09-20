@@ -2578,4 +2578,27 @@ defmodule Mosslet.Accounts do
         nil
     end
   end
+
+  ## Status Management
+
+  @doc """
+  Updates a user's status and status message following the dual-update pattern.
+  """
+  def update_user_status(user, attrs, opts \\ []) do
+    Mosslet.Accounts.Status.update_user_status(user, attrs, opts)
+  end
+
+  @doc """
+  Tracks user activity and potentially updates auto-status.
+  """
+  def track_user_activity(user, activity_type \\ :general) do
+    Mosslet.Accounts.Status.track_user_activity(user, activity_type)
+  end
+
+  @doc """
+  Gets the visible status for a user as seen by another user.
+  """
+  def get_user_status_for_connection(user, viewing_user, session_key) do
+    Mosslet.Accounts.Status.get_user_status_for_connection(user, viewing_user, session_key)
+  end
 end

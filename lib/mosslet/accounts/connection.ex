@@ -21,6 +21,15 @@ defmodule Mosslet.Accounts.Connection do
     field :avatar_url, Encrypted.Binary
     field :avatar_url_hash, Encrypted.HMAC
 
+    # Status fields - shared with connections (encrypted with conn_key)
+    field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
+    # Status message shared with connections (conn_key)
+    field :status_message, Encrypted.Binary
+    # Hash for searching connection status messages
+    field :status_message_hash, Encrypted.HMAC
+    # When status was last updated
+    field :status_updated_at, :naive_datetime
+
     embeds_one :profile, ConnectionProfile, on_replace: :update do
       field :name, Encrypted.Binary
       field :about, Encrypted.Binary
@@ -116,6 +125,12 @@ defmodule Mosslet.Accounts.Connection do
     |> add_name_hash()
   end
 
+  def update_status_changeset(conn, attrs \\ %{}) do
+    conn
+    |> cast(attrs, [:status, :status_message, :status_message_hash, :status_updated_at])
+    |> add_status_message_hash()
+  end
+
   def update_username_changeset(conn, attrs \\ %{}) do
     conn
     |> cast(attrs, [:username, :username_hash])
@@ -189,6 +204,36 @@ defmodule Mosslet.Accounts.Connection do
 
       changeset
       |> put_change(:username_hash, String.downcase(slug))
+    else
+      changeset
+    end
+  end
+
+  # The status_message_hash comes through as a temp clear text
+  # so we go straight ahead and hash it. The `:status_message`
+  # is coming through already encrypted correctly from the user changeset.
+  defp add_status_message_hash(changeset) do
+    if Map.has_key?(changeset.changes, :status_message_hash) do
+      changeset
+      |> put_change(
+        :status_message_hash,
+        String.downcase(get_field(changeset, :status_message_hash))
+      )
+    else
+      changeset
+    end
+  end
+
+  # The status_message_hash comes through as a temp clear text
+  # so we go straight ahead and hash it. The `:status_message`
+  # is coming through already encrypted correctly from the user changeset.
+  defp add_status_message_hash(changeset) do
+    if Map.has_key?(changeset.changes, :status_message_hash) do
+      changeset
+      |> put_change(
+        :status_message_hash,
+        String.downcase(get_field(changeset, :status_message_hash))
+      )
     else
       changeset
     end

@@ -20,7 +20,8 @@ defmodule Mosslet.Timeline do
     BookmarkCategory,
     PostReport,
     PostHide,
-    ContentWarningCategory
+    ContentWarningCategory,
+    Navigation
   }
 
   alias Mosslet.Accounts.UserBlock
@@ -1935,7 +1936,7 @@ defmodule Mosslet.Timeline do
   @doc """
   Decrypts bookmark notes using the same post_key as the associated post.
   """
-  def decrypt_bookmark_notes(bookmark, user, key) do
+  def decrypt_bookmark_notes(bookmark, user, _key) do
     if bookmark.notes do
       # Use the SAME decryption flow as post.body
       post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
@@ -2070,7 +2071,7 @@ defmodule Mosslet.Timeline do
   @doc """
   Updates a post report status (admin function).
   """
-  def update_post_report(report, attrs, admin_user) do
+  def update_post_report(report, attrs, _admin_user) do
     case Repo.transaction_on_primary(fn ->
            report
            |> PostReport.changeset(attrs)
@@ -2535,7 +2536,7 @@ defmodule Mosslet.Timeline do
   @doc """
   Removes a content warning from a post.
   """
-  def remove_content_warning_from_post(post, user) do
+  def remove_content_warning_from_post(post, _user) do
     case Repo.transaction_on_primary(fn ->
            post
            |> Post.changeset(%{
@@ -2572,7 +2573,7 @@ defmodule Mosslet.Timeline do
   @doc """
   Filters timeline to exclude posts with content warnings (user preference).
   """
-  def apply_content_warning_filters(query, user, opts \\ []) do
+  def apply_content_warning_filters(query, _user, opts \\ []) do
     hide_warnings = opts[:hide_content_warnings] || false
 
     if hide_warnings do
@@ -2668,5 +2669,42 @@ defmodule Mosslet.Timeline do
     end)
 
     :ok
+  end
+
+  ## Timeline Navigation & Preferences
+
+  @doc """
+  Gets timeline data for a specific tab with caching.
+  """
+  def get_timeline_data(user, tab, options \\ %{}) do
+    Navigation.get_timeline_data(user, tab, options)
+  end
+
+  @doc """
+  Gets post counts for all timeline tabs efficiently.
+  """
+  def get_timeline_counts(user) do
+    Navigation.get_timeline_counts(user)
+  end
+
+  @doc """
+  Gets or creates user timeline preferences.
+  """
+  def get_user_timeline_preferences(user) do
+    Navigation.get_user_preferences(user)
+  end
+
+  @doc """
+  Updates user timeline preferences.
+  """
+  def update_user_timeline_preferences(user, attrs, opts \\ []) do
+    Navigation.update_user_preferences(user, attrs, opts)
+  end
+
+  @doc """
+  Invalidates timeline cache when posts are created/updated/deleted.
+  """
+  def invalidate_timeline_cache_for_user(user_id, affecting_tabs \\ nil) do
+    Navigation.invalidate_timeline_cache_for_user(user_id, affecting_tabs)
   end
 end

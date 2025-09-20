@@ -25,7 +25,32 @@ defmodule Mosslet.Timeline.Post do
     field :favs_count, :integer, default: 0
     field :reposts_count, :integer, default: 0
     field :repost, :boolean, default: false
-    field :visibility, Ecto.Enum, values: [:public, :private, :connections], default: :private
+
+    field :visibility, Ecto.Enum,
+      values: [:public, :private, :connections, :specific_groups, :specific_users],
+      default: :private
+
+    # ENHANCED PRIVACY CONTROLS
+    # Connection groups that can see this post
+    field :visibility_groups, {:array, :string}, default: []
+    # Specific users that can see this post
+    field :visibility_users, {:array, :binary_id}, default: []
+    # Whether replies are allowed
+    field :allow_replies, :boolean, default: true
+    # Whether sharing/reposts are allowed
+    field :allow_shares, :boolean, default: true
+    # Whether bookmarking is allowed
+    field :allow_bookmarks, :boolean, default: true
+    # Must be connection to reply
+    field :require_follow_to_reply, :boolean, default: false
+    # Mature content flag
+    field :mature_content, :boolean, default: false
+    # For temporary posts
+    field :is_ephemeral, :boolean, default: false
+    # When post gets auto-deleted
+    field :expires_at, :naive_datetime
+    # Don't federate (future)
+    field :local_only, :boolean, default: false
 
     # CONTENT WARNING FIELDS (encrypted with post_key for consistency)
     # Custom warning text (enacl encrypted with post_key, then Cloak at rest)
@@ -77,15 +102,28 @@ defmodule Mosslet.Timeline.Post do
       :user_group_id,
       :image_urls,
       :image_urls_updated_at,
-      # NEW - Content warning fields (updated names)
+      # Content warning fields
       :content_warning,
       :content_warning_category,
-      :content_warning?
+      :content_warning?,
+      # NEW - Enhanced privacy control fields
+      :visibility_groups,
+      :visibility_users,
+      :allow_replies,
+      :allow_shares,
+      :allow_bookmarks,
+      :require_follow_to_reply,
+      :mature_content,
+      :is_ephemeral,
+      :expires_at,
+      :local_only
     ])
     |> validate_required([:body, :username, :user_id])
     |> validate_length(:body, max: 100_000)
     |> add_username_hash()
     |> validate_visibility(opts)
+    # NEW - Enhanced privacy validation
+    |> validate_enhanced_privacy_controls(opts)
     |> encrypt_attrs(opts)
     |> cast_embed(:shared_users,
       with: &shared_user_changeset/2,
@@ -141,10 +179,21 @@ defmodule Mosslet.Timeline.Post do
       :user_group_id,
       :image_urls,
       :image_urls_updated_at,
-      # NEW - Content warning fields (updated names)
+      # Content warning fields
       :content_warning,
       :content_warning_category,
-      :content_warning?
+      :content_warning?,
+      # Enhanced privacy control fields
+      :visibility_groups,
+      :visibility_users,
+      :allow_replies,
+      :allow_shares,
+      :allow_bookmarks,
+      :require_follow_to_reply,
+      :mature_content,
+      :is_ephemeral,
+      :expires_at,
+      :local_only
     ])
     |> validate_required([:body, :username, :user_id])
     |> add_username_hash()
@@ -229,6 +278,133 @@ defmodule Mosslet.Timeline.Post do
         else
           changeset |> add_error(:body, "Woopsy, first we need to make some connections.")
         end
+
+      :specific_groups ->
+        validate_specific_groups(changeset, opts)
+
+      :specific_users ->
+        validate_specific_users(changeset, opts)
+    end
+  end
+
+  # NEW - Enhanced privacy validation
+  defp validate_enhanced_privacy_controls(changeset, _opts) do
+    changeset
+    |> validate_expiration_date()
+    |> validate_interaction_controls()
+    |> validate_ephemeral_settings()
+  end
+
+  defp validate_specific_groups(changeset, opts) do
+    visibility_groups = get_field(changeset, :visibility_groups)
+
+    cond do
+      !visibility_groups || Enum.empty?(visibility_groups) ->
+        add_error(
+          changeset,
+          :visibility_groups,
+          "must specify at least one group when using specific groups visibility"
+        )
+
+      !Accounts.has_any_user_connections?(opts[:user]) ->
+        add_error(
+          changeset,
+          :visibility_groups,
+          "you need connections before sharing with specific groups"
+        )
+
+      true ->
+        changeset
+    end
+  end
+
+  defp validate_specific_users(changeset, opts) do
+    visibility_users = get_field(changeset, :visibility_users)
+
+    cond do
+      !visibility_users || Enum.empty?(visibility_users) ->
+        add_error(
+          changeset,
+          :visibility_users,
+          "must specify at least one user when using specific users visibility"
+        )
+
+      !Accounts.has_any_user_connections?(opts[:user]) ->
+        add_error(
+          changeset,
+          :visibility_users,
+          "you need connections before sharing with specific users"
+        )
+
+      true ->
+        # Validate that specified users are actual connections
+        validate_users_are_connections(changeset, opts)
+    end
+  end
+
+  defp validate_users_are_connections(changeset, opts) do
+    visibility_users = get_field(changeset, :visibility_users)
+
+    user_connection_ids =
+      Accounts.get_all_confirmed_user_connections(opts[:user])
+      |> Enum.map(& &1.reverse_user_id)
+
+    invalid_users = Enum.reject(visibility_users, &(&1 in user_connection_ids))
+
+    if Enum.empty?(invalid_users) do
+      changeset
+    else
+      add_error(changeset, :visibility_users, "can only share with your confirmed connections")
+    end
+  end
+
+  defp validate_expiration_date(changeset) do
+    expires_at = get_field(changeset, :expires_at)
+
+    if expires_at do
+      now = NaiveDateTime.utc_now()
+
+      cond do
+        NaiveDateTime.compare(expires_at, now) == :lt ->
+          add_error(changeset, :expires_at, "expiration date must be in the future")
+
+        NaiveDateTime.diff(expires_at, now, :day) > 365 ->
+          add_error(
+            changeset,
+            :expires_at,
+            "expiration date cannot be more than 1 year in the future"
+          )
+
+        true ->
+          changeset
+      end
+    else
+      changeset
+    end
+  end
+
+  defp validate_interaction_controls(changeset) do
+    is_ephemeral = get_field(changeset, :is_ephemeral)
+    allow_bookmarks = get_field(changeset, :allow_bookmarks)
+
+    # Ephemeral posts shouldn't allow bookmarks (they'll disappear anyway)
+    if is_ephemeral && allow_bookmarks do
+      add_error(changeset, :allow_bookmarks, "ephemeral posts cannot be bookmarked")
+    else
+      changeset
+    end
+  end
+
+  defp validate_ephemeral_settings(changeset) do
+    is_ephemeral = get_field(changeset, :is_ephemeral)
+    expires_at = get_field(changeset, :expires_at)
+
+    # Ephemeral posts should have expiration
+    if is_ephemeral && !expires_at do
+      # Auto-set expiration for ephemeral posts (24 hours)
+      put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 24, :hour))
+    else
+      changeset
     end
   end
 
