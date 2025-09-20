@@ -198,7 +198,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <button
         @click="open = !open"
         class={[
-          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-hidden",
+          "group relative flex items-center gap-x-2 rounded-full p-1.5",
           "bg-gradient-to-br from-slate-50 via-white to-slate-100",
           "dark:from-slate-800 dark:via-slate-700 dark:to-slate-800",
           "ring-1 ring-slate-200/60 dark:ring-slate-600/40",
@@ -210,9 +210,9 @@ defmodule MossletWeb.ModernSidebarLayout do
       >
         <span class="sr-only">Open user menu</span>
 
-        <%!-- Shimmer effect on hover --%>
+        <%!-- Shimmer effect on hover (with proper clipping for rounded button) --%>
         <div class={[
-          "absolute inset-0 opacity-0 transition-all duration-500",
+          "absolute inset-0 opacity-0 transition-all duration-500 overflow-hidden rounded-full",
           "bg-gradient-to-r from-transparent via-white/30 to-transparent",
           "dark:via-emerald-400/20",
           "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
