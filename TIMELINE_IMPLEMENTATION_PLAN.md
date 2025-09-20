@@ -24,14 +24,57 @@ This plan implements the **complete functional timeline** by:
 ### Your Current Encryption Pattern:
 
 ```elixir
-# Searchable fields (use Cloak symmetric encryption + hashing)
-field :email, Mosslet.Encrypted.Binary          # Encrypted content
-field :email_hash, Mosslet.Encrypted.HMAC       # Searchable hash
+# DEFAULT: Double encryption for all sensitive user data (enacl + Cloak)
+field :email, Mosslet.Encrypted.Binary          # Double encrypted: enacl + Cloak
+field :body, Mosslet.Encrypted.Binary           # Double encrypted: enacl + Cloak  
+field :username, Mosslet.Encrypted.Binary       # Double encrypted: enacl + Cloak
+field :content_warning, Mosslet.Encrypted.Binary # Double encrypted: enacl + Cloak
 
-# Non-searchable fields (use enacl/libsodium asymmetric encryption)  
-field :body, :binary                            # Encrypted with user keys
-field :username, :binary                        # Encrypted with user keys
+# SEARCHABLE HASHES: For finding encrypted data
+field :email_hash, Mosslet.Encrypted.HMAC       # Searchable hash (weak hashing for search)
+field :username_hash, Mosslet.Encrypted.HMAC    # Searchable hash (weak hashing for search)
+
+# SECURE HASHES: For passwords and sensitive authentication
+field :password_hash, :string                   # Argon2 strong hashing (no search needed)
+
+# PLAINTEXT: Only for non-sensitive system data
+field :color, Ecto.Enum                         # System data (colors, enums, etc.)
+field :is_admin?, :boolean                      # System flags
+field :inserted_at, :naive_datetime            # Timestamps
 ```
+
+### 🔐 Double Encryption Strategy (Default for All Sensitive Data):
+
+**🛡️ STANDARD APPROACH**: All sensitive user data uses double encryption unless explicitly noted:
+
+```elixir
+# Double Encryption Flow (Standard):
+# 1. User Input → "My private content"
+# 2. First Layer (enacl) → Asymmetric encryption with user/post keys (zero-knowledge)
+# 3. Second Layer (Cloak) → Symmetric encryption at rest (automatic via Encrypted.Binary)
+# 4. Storage → Double-encrypted binary in database
+
+# Schema definition (Standard):
+field :my_sensitive_field, Mosslet.Encrypted.Binary  # Automatic double encryption
+
+# Implementation:
+encrypted_content = Mosslet.Encrypted.Utils.encrypt(%{key: user_key, payload: content})
+changeset |> put_change(:my_sensitive_field, encrypted_content)
+# ↑ enacl asymmetric encryption (zero-knowledge)
+# ↓ Cloak symmetric encryption (automatic when saved to Encrypted.Binary field)
+```
+
+**Benefits of Standard Double Encryption:**
+- ✅ **Zero-knowledge privacy** - enacl encryption means even server admins can't read content
+- ✅ **At-rest protection** - Cloak encryption protects against database breaches
+- ✅ **Key separation** - Different keys for different security layers
+- ✅ **Compliance ready** - Meets highest security standards
+- ✅ **Default secure** - All sensitive data protected by default
+
+**When to use Single Layer (Exceptions):**
+- **Searchable hashes** - `Mosslet.Encrypted.HMAC` (weak hashing for search functionality)
+- **Secure password hashes** - Argon2 strong hashing (no search needed)
+- **System data** - Colors, enums, timestamps (not sensitive)
 
 ### 🔒 DISTRIBUTED DATABASE WRITE PATTERN (CRITICAL):
 
@@ -223,11 +266,18 @@ This approach gets you:
 
 ### 🔄 In Progress Features:
 
-### ⏳ Pending Features:
-- [ ] **1.3 Content Warnings System** (triangle exclamation button)
-  - [ ] Content warning categories
-  - [ ] Warning text encryption
-  - [ ] UI toggle and display logic
+- [x] **1.3 Content Warnings System** - ✅ **COMPLETE** (2025-09-20)
+  - [x] Database migration created and executed (content warning fields + categories)
+  - [x] `ContentWarningCategory` schema with Cloak encryption
+  - [x] Updated `Post` schema with content warning fields
+  - [x] **transaction_on_primary** implemented for all write operations
+  - [x] Content warning context functions (create categories, add/remove warnings)
+  - [x] **Fail-safe encryption** - Operations fail if encryption fails (no plaintext storage)
+  - [x] Timeline filtering integration (apply_content_warning_filters)
+  - [x] System category seeding with default warning types
+  - [x] User-specific custom categories
+  - [x] Post_key encryption for warning text (consistent with post.body)
+  - [x] Tested and working: create categories, add/remove warnings
 - [ ] **1.4 User Status System**
   - [ ] Status enums (calm, active, busy, away)
   - [ ] Encrypted status messages

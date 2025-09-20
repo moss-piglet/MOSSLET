@@ -9,6 +9,7 @@ defmodule Mosslet.Timeline.PostHide do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Mosslet.Encrypted
   alias Mosslet.Accounts.User
   alias Mosslet.Timeline.Post
 
@@ -17,7 +18,7 @@ defmodule Mosslet.Timeline.PostHide do
   schema "post_hides" do
     # ENCRYPTED FIELDS (user preference data - use enacl with user keys)
     # Why they hid it (enacl encrypted)
-    field :reason, :binary
+    field :reason, Encrypted.Binary
 
     # PLAINTEXT FIELDS (system data)
     field :hide_type, Ecto.Enum,

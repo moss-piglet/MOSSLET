@@ -19,7 +19,8 @@ defmodule Mosslet.Timeline do
     Bookmark,
     BookmarkCategory,
     PostReport,
-    PostHide
+    PostHide,
+    ContentWarningCategory
   }
 
   alias Mosslet.Accounts.UserBlock
@@ -2348,5 +2349,324 @@ defmodule Mosslet.Timeline do
       %{"private" => private_key} -> private_key
       _ -> Mosslet.Encrypted.Utils.generate_key()
     end
+  end
+
+  ## Content Warning Functions
+
+  @doc """
+  Creates a system content warning category (admin function).
+
+  ## Examples
+
+      iex> create_system_content_warning_category(%{
+      ...>   name: "Mental Health",
+      ...>   description: "Content related to mental health topics",
+      ...>   severity_level: :high,
+      ...>   color: "red"
+      ...> })
+      {:ok, %ContentWarningCategory{}}
+  """
+  def create_system_content_warning_category(attrs) do
+    attrs = Map.put(attrs, :is_system_category, true)
+
+    case Repo.transaction_on_primary(fn ->
+           %ContentWarningCategory{}
+           |> ContentWarningCategory.changeset(attrs)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, category}} -> {:ok, category}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @doc """
+  Creates a user-specific content warning category.
+
+  ## Examples
+
+      iex> create_user_content_warning_category(user, %{
+      ...>   name: "Food",
+      ...>   description: "Food content that might be triggering",
+      ...>   severity_level: :medium
+      ...> })
+      {:ok, %ContentWarningCategory{}}
+  """
+  def create_user_content_warning_category(user, attrs) do
+    attrs =
+      attrs
+      |> Map.put(:user_id, user.id)
+      |> Map.put(:is_system_category, false)
+
+    case Repo.transaction_on_primary(fn ->
+           %ContentWarningCategory{}
+           |> ContentWarningCategory.changeset(attrs)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, category}} -> {:ok, category}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
+  end
+
+  @doc """
+  Lists all available content warning categories for a user.
+  Includes both system categories and user's custom categories.
+  """
+  def list_content_warning_categories(user) do
+    query =
+      from c in ContentWarningCategory,
+        where: c.is_system_category == true or c.user_id == ^user.id,
+        order_by: [asc: c.is_system_category, asc: c.name]
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Lists only system content warning categories.
+  """
+  def list_system_content_warning_categories() do
+    query =
+      from c in ContentWarningCategory,
+        where: c.is_system_category == true,
+        order_by: [asc: c.name]
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Adds a content warning to a post.
+
+  ## Examples
+
+      iex> add_content_warning_to_post(post, user, %{
+      ...>   content_warning_category: "Mental Health",
+      ...>   content_warning_text: "Discussion of depression and anxiety"
+      ...> })
+      {:ok, %Post{}}
+  """
+  def add_content_warning_to_post(post, user, attrs) do
+    # Get the post_key for encrypting warning text (same as post body)
+    post_key = MossletWeb.Helpers.get_post_key(post, user)
+
+    if post_key do
+      warning_attrs = %{
+        content_warning_category: attrs[:content_warning_category],
+        content_warning: attrs[:content_warning],
+        content_warning?: true
+      }
+
+      case Repo.transaction_on_primary(fn ->
+             # Use a minimal changeset that only updates content warning fields
+             post
+             |> Ecto.Changeset.cast(warning_attrs, [
+               :content_warning_category,
+               :content_warning,
+               :content_warning?
+             ])
+             |> encrypt_content_warning_fields(post_key)
+             |> Repo.update()
+           end) do
+        {:ok, {:ok, updated_post}} ->
+          # Broadcast content warning added
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "posts",
+            {:post_updated, updated_post}
+          )
+
+          {:ok, updated_post}
+
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        error ->
+          error
+      end
+    else
+      {:error, :no_access_to_post}
+    end
+  end
+
+  # Helper function to encrypt content warning fields
+  defp encrypt_content_warning_fields(changeset, post_key) do
+    content_warning = Ecto.Changeset.get_field(changeset, :content_warning)
+    content_warning_category = Ecto.Changeset.get_field(changeset, :content_warning_category)
+
+    # For content_warning field: First encrypt with enacl (asymmetric), then Cloak handles symmetric encryption at rest
+    changeset =
+      if content_warning && String.trim(content_warning) != "" do
+        try do
+          # Get the binary result from enacl encryption (handle tuple return)
+          encrypted_warning =
+            case Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: content_warning}) do
+              {:ok, encrypted_binary} -> encrypted_binary
+              encrypted_binary when is_binary(encrypted_binary) -> encrypted_binary
+              _ -> raise "Encryption failed"
+            end
+
+          # Store the enacl-encrypted binary - Cloak will add the second layer automatically
+          Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)
+        rescue
+          e ->
+            IO.puts("Encryption error: #{inspect(e)}")
+
+            Ecto.Changeset.add_error(
+              changeset,
+              :content_warning,
+              "Failed to encrypt content warning"
+            )
+        end
+      else
+        changeset
+      end
+
+    if content_warning_category && String.trim(content_warning_category) != "" do
+      Ecto.Changeset.put_change(
+        changeset,
+        :content_warning_hash,
+        String.downcase(String.trim(content_warning_category))
+      )
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Removes a content warning from a post.
+  """
+  def remove_content_warning_from_post(post, user) do
+    case Repo.transaction_on_primary(fn ->
+           post
+           |> Post.changeset(%{
+             content_warning_category: nil,
+             content_warning: nil,
+             content_warning?: false
+           })
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_post}} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "posts",
+          {:post_updated, updated_post}
+        )
+
+        {:ok, updated_post}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Checks if a post has a content warning.
+  """
+  def post_has_content_warning?(post) do
+    !!post.content_warning?
+  end
+
+  @doc """
+  Filters timeline to exclude posts with content warnings (user preference).
+  """
+  def apply_content_warning_filters(query, user, opts \\ []) do
+    hide_warnings = opts[:hide_content_warnings] || false
+
+    if hide_warnings do
+      where(query, [p], p.content_warning? == false)
+    else
+      query
+    end
+  end
+
+  @doc """
+  Decrypts content warning text using the same post_key as the post body.
+  """
+  def decrypt_content_warning_text(post, user, _key) do
+    if post.content_warning do
+      # Use the SAME post_key as post body decryption
+      post_key = MossletWeb.Helpers.get_post_key(post, user)
+
+      if post_key do
+        case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: post.content_warning}) do
+          {:ok, decrypted_text} -> decrypted_text
+          _ -> "Unable to decrypt warning text"
+        end
+      else
+        "No access to decrypt warning"
+      end
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Seeds the database with default system content warning categories.
+  This should be run once during deployment.
+  """
+  def seed_system_content_warning_categories() do
+    default_categories = [
+      %{
+        name: "Mental Health",
+        description: "Content related to mental health, depression, anxiety, self-harm",
+        severity_level: :high,
+        color: "red",
+        icon: "hero-heart"
+      },
+      %{
+        name: "Violence",
+        description: "Content depicting or discussing violence",
+        severity_level: :high,
+        color: "red",
+        icon: "hero-exclamation-triangle"
+      },
+      %{
+        name: "Substance Use",
+        description: "Content related to alcohol, drugs, or substance abuse",
+        severity_level: :medium,
+        color: "orange",
+        icon: "hero-beaker"
+      },
+      %{
+        name: "Food & Body Image",
+        description: "Content that might trigger eating disorders or body image issues",
+        severity_level: :medium,
+        color: "yellow",
+        icon: "hero-heart"
+      },
+      %{
+        name: "Politics",
+        description: "Political content that might be controversial",
+        severity_level: :low,
+        color: "blue",
+        icon: "hero-megaphone"
+      },
+      %{
+        name: "Death & Grief",
+        description: "Content discussing death, loss, or grief",
+        severity_level: :high,
+        color: "purple",
+        icon: "hero-heart"
+      }
+    ]
+
+    Enum.each(default_categories, fn category_attrs ->
+      case create_system_content_warning_category(category_attrs) do
+        {:ok, _category} ->
+          :ok
+
+        {:error, %{errors: errors}} ->
+          # Category might already exist
+          case Keyword.get(errors, :name_hash) do
+            {_, [constraint: :unique, constraint_name: _]} -> :ok
+            _ -> Logger.warning("Failed to create category: #{inspect(errors)}")
+          end
+      end
+    end)
+
+    :ok
   end
 end

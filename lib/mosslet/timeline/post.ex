@@ -27,6 +27,16 @@ defmodule Mosslet.Timeline.Post do
     field :repost, :boolean, default: false
     field :visibility, Ecto.Enum, values: [:public, :private, :connections], default: :private
 
+    # CONTENT WARNING FIELDS (encrypted with post_key for consistency)
+    # Custom warning text (enacl encrypted with post_key, then Cloak at rest)
+    field :content_warning, Encrypted.Binary
+    # Category name (Cloak encrypted)
+    field :content_warning_category, Encrypted.Binary
+    # Searchable hash for filtering
+    field :content_warning_hash, Encrypted.HMAC
+    # Quick filter flag
+    field :content_warning?, :boolean, default: false
+
     field :user_post_map, :map, virtual: true
 
     embeds_many :shared_users, SharedUser, on_replace: :delete do
@@ -66,7 +76,11 @@ defmodule Mosslet.Timeline.Post do
       :group_id,
       :user_group_id,
       :image_urls,
-      :image_urls_updated_at
+      :image_urls_updated_at,
+      # NEW - Content warning fields (updated names)
+      :content_warning,
+      :content_warning_category,
+      :content_warning?
     ])
     |> validate_required([:body, :username, :user_id])
     |> validate_length(:body, max: 100_000)
@@ -126,7 +140,11 @@ defmodule Mosslet.Timeline.Post do
       :group_id,
       :user_group_id,
       :image_urls,
-      :image_urls_updated_at
+      :image_urls_updated_at,
+      # NEW - Content warning fields (updated names)
+      :content_warning,
+      :content_warning_category,
+      :content_warning?
     ])
     |> validate_required([:body, :username, :user_id])
     |> add_username_hash()
@@ -239,6 +257,7 @@ defmodule Mosslet.Timeline.Post do
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
+          |> encrypt_content_warning_if_present(post_key, opts)
 
         :private ->
           changeset
@@ -247,6 +266,7 @@ defmodule Mosslet.Timeline.Post do
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
+          |> encrypt_content_warning_if_present(post_key, opts)
 
         :connections ->
           changeset
@@ -255,6 +275,7 @@ defmodule Mosslet.Timeline.Post do
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
+          |> encrypt_content_warning_if_present(post_key, opts)
 
         _rest ->
           changeset |> add_error(:body, "There was an error determining the visibility.")
@@ -278,6 +299,34 @@ defmodule Mosslet.Timeline.Post do
     Enum.map(image_urls, fn image_url ->
       Utils.encrypt(%{key: post_key, payload: image_url})
     end)
+  end
+
+  # Encrypt content warning text with the same post_key (for consistency)
+  defp encrypt_content_warning_if_present(changeset, post_key, opts) do
+    if opts[:encrypt_warnings] do
+      content_warning_text = get_field(changeset, :content_warning_text)
+      content_warning_category = get_field(changeset, :content_warning_category)
+
+      changeset =
+        if content_warning_text && String.trim(content_warning_text) != "" do
+          encrypted_warning_text = Utils.encrypt(%{key: post_key, payload: content_warning_text})
+          put_change(changeset, :content_warning_text, encrypted_warning_text)
+        else
+          changeset
+        end
+
+      if content_warning_category && String.trim(content_warning_category) != "" do
+        put_change(
+          changeset,
+          :content_warning_hash,
+          String.downcase(String.trim(content_warning_category))
+        )
+      else
+        changeset
+      end
+    else
+      changeset
+    end
   end
 
   defp maybe_generate_post_key(group_id, opts, visibility) do

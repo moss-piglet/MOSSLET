@@ -10,6 +10,7 @@ defmodule Mosslet.Timeline.Bookmark do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Mosslet.Encrypted
   alias Mosslet.Accounts.User
   alias Mosslet.Timeline.{Post, BookmarkCategory}
 
@@ -18,7 +19,7 @@ defmodule Mosslet.Timeline.Bookmark do
   schema "bookmarks" do
     # ENCRYPTED FIELDS (using post_key - same encryption as post.body)
     # User's private notes about this bookmark
-    field :notes, :binary
+    field :notes, Encrypted.Binary
 
     # HASHED FIELDS (for searching bookmark notes)
     # Searchable hash for notes

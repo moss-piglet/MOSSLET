@@ -10,6 +10,7 @@ defmodule Mosslet.Timeline.PostReport do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Mosslet.Encrypted
   alias Mosslet.Accounts.User
   alias Mosslet.Timeline.Post
 
@@ -18,9 +19,9 @@ defmodule Mosslet.Timeline.PostReport do
   schema "post_reports" do
     # ENCRYPTED FIELDS (user-generated sensitive data - use enacl with user keys)
     # Report reason (enacl encrypted)
-    field :reason, :binary
+    field :reason, Encrypted.Binary
     # Additional details (enacl encrypted)
-    field :details, :binary
+    field :details, Encrypted.Binary
 
     # HASHED FIELDS (for admin searching/filtering - use Cloak)
     # Searchable hash for categorizing reports
