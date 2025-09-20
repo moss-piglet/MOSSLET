@@ -490,6 +490,34 @@ defmodule Mosslet.Timeline do
     |> Repo.all()
   end
 
+  @doc """
+  Lists public posts for discover timeline with simple pagination.
+  """
+  def list_discover_posts(limit \\ 25, offset \\ 0) do
+    from(p in Post,
+      inner_join: up in UserPost,
+      on: up.post_id == p.id,
+      where: p.visibility == :public,
+      order_by: [desc: p.inserted_at],
+      limit: ^limit,
+      offset: ^offset,
+      preload: [:user_posts, :replies]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Counts public posts for discover timeline.
+  """
+  def count_discover_posts do
+    from(p in Post,
+      inner_join: up in UserPost,
+      on: up.post_id == p.id,
+      where: p.visibility == :public
+    )
+    |> Repo.aggregate(:count, :id)
+  end
+
   def list_public_replies(post, options) do
     from(r in Reply,
       inner_join: p in Post,

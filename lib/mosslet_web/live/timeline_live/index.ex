@@ -20,7 +20,7 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
 
     changeset =
-      Timeline.change_post(%Post{}, %{}, user: current_user)
+      Timeline.change_post(%Post{}, %{"visibility" => "private"}, user: current_user)
 
     socket =
       socket
@@ -35,6 +35,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:delete_post_from_cloud_message, nil)
       |> assign(:delete_reply_from_cloud_message, nil)
       |> assign(:uploads_in_progress, false)
+      |> assign(:active_tab, "home")
+      |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0})
       |> stream(:posts, [])
 
     {:ok, assign(socket, page_title: "Timeline")}
@@ -85,6 +87,17 @@ defmodule MossletWeb.TimelineLive.Index do
     posts = Timeline.filter_timeline_posts(current_user, options)
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
 
+    # Calculate timeline counts for tabs using proper Timeline functions
+    timeline_counts = %{
+      home: Timeline.timeline_post_count(current_user, options),
+      connections: Timeline.shared_between_users_post_count(current_user.id, current_user.id),
+      groups:
+        Timeline.filter_timeline_posts(current_user, options)
+        |> Enum.count(fn post -> post.group_id != nil end),
+      bookmarks: Timeline.count_user_bookmarks(current_user),
+      discover: Timeline.count_discover_posts()
+    }
+
     socket =
       socket
       |> assign(
@@ -101,6 +114,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:options, options)
       |> assign(:return_url, url)
       |> assign(:filter, filter)
+      |> assign(:timeline_counts, timeline_counts)
       |> stream(:posts, posts, reset: true)
 
     {:noreply, socket}
@@ -340,10 +354,19 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("validate_post", %{"post" => post_params} = _params, socket) do
     post_shared_users = socket.assigns.post_shared_users
     current_user = socket.assigns.current_user
+    current_form = socket.assigns.post_form
 
+    IO.inspect(current_form, label: "CURRENT FORM")
+
+    # Merge new params with existing form data to preserve content
+    existing_params = current_form.params || %{}
+    merged_params = Map.merge(existing_params, post_params)
+
+    # Preserve the selector (privacy level) when validating
     post_params =
-      post_params
+      merged_params
       |> Map.put("image_urls", socket.assigns.image_urls)
+      |> Map.put("visibility", socket.assigns.selector)
       |> add_shared_users_list_for_new_post(post_shared_users)
 
     changeset = Timeline.change_post(%Post{}, post_params, user: current_user)
@@ -629,19 +652,64 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_privacy_selector", _params, socket) do
+    # Cycle through privacy levels: private -> connections -> public -> private
+    current_selector = socket.assigns.selector
+
+    new_selector =
+      case current_selector do
+        "private" -> "connections"
+        "connections" -> "public"
+        "public" -> "private"
+        _ -> "private"
+      end
+
+    # Update just the selector without touching the form
+    # The form validation will pick up the new selector value
+    socket =
+      socket
+      |> assign(:selector, new_selector)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("composer_add_photo", _params, socket) do
+    # Handle photo upload functionality
+    # For now, just show a message that this feature is coming
+    {:noreply, put_flash(socket, :info, "Photo upload feature coming soon!")}
+  end
+
+  def handle_event("composer_add_emoji", _params, socket) do
+    # Handle emoji picker functionality
+    # For now, just show a message that this feature is coming
+    {:noreply, put_flash(socket, :info, "Emoji picker coming soon!")}
+  end
+
+  def handle_event("composer_toggle_content_warning", _params, socket) do
+    # Handle content warning toggle
+    # For now, just show a message that this feature is coming
+    {:noreply, put_flash(socket, :info, "Content warning feature coming soon!")}
+  end
+
+  def handle_event("save_post", params, socket) when not is_map_key(params, "post") do
+    # Handle case when save_post is called without post params (e.g., from button click without form data)
+    {:noreply, socket}
+  end
+
   def handle_event("save_post", %{"post" => post_params}, socket) do
     if connected?(socket) do
       post_shared_users = socket.assigns.post_shared_users
+      current_user = socket.assigns.current_user
+      key = socket.assigns.key
+      trix_key = socket.assigns[:trix_key]
 
       post_params =
         post_params
         |> Map.put("image_urls", socket.assigns.image_urls)
         |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
+        |> Map.put("visibility", socket.assigns.selector)
+        |> Map.put("user_id", current_user.id)
         |> add_shared_users_list_for_new_post(post_shared_users)
-
-      current_user = socket.assigns.current_user
-      key = socket.assigns.key
-      trix_key = socket.assigns[:trix_key]
 
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
@@ -651,7 +719,11 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:trix_key, nil)
               |> assign(
                 :post_form,
-                to_form(Timeline.change_post(%Post{}, %{}, user: current_user))
+                to_form(
+                  Timeline.change_post(%Post{}, %{"visibility" => socket.assigns.selector},
+                    user: current_user
+                  )
+                )
               )
               |> assign(:image_urls, [])
               |> put_flash(:success, "Post created successfully")
@@ -745,6 +817,115 @@ defmodule MossletWeb.TimelineLive.Index do
     send_update(LiveSelect.Component, options: options, id: id)
 
     {:noreply, socket}
+  end
+
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    current_user = socket.assigns.current_user
+    options = Map.put(socket.assigns.options, :timeline_tab, tab)
+
+    # Load posts for the specific tab with proper filtering
+    posts =
+      case tab do
+        "home" ->
+          # Show all posts (private + connections) - existing behavior
+          Timeline.filter_timeline_posts(current_user, options)
+
+        "connections" ->
+          # Show only posts from connected users using the dedicated function
+          Timeline.list_connection_posts(current_user, limit: options.post_per_page, offset: 0)
+
+        "groups" ->
+          # Get all posts from groups the user belongs to
+          # Since list_group_posts expects a specific group, we need a different approach
+          # For now, filter timeline posts to only show posts with group_id
+          Timeline.filter_timeline_posts(current_user, options)
+          |> Enum.filter(fn post -> post.group_id != nil end)
+
+        "bookmarks" ->
+          # Get bookmarked posts - this is working correctly
+          Timeline.list_user_bookmarks(current_user)
+          |> Enum.map(fn bookmark -> bookmark.post end)
+          |> Enum.filter(&(&1 != nil))
+
+        "discover" ->
+          # Show public posts only using dedicated Timeline function
+          Timeline.list_discover_posts(options.post_per_page, 0)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options)
+      end
+
+    # Update tab counts using proper Timeline functions
+    timeline_counts = %{
+      home: Timeline.timeline_post_count(current_user, options),
+      connections: Timeline.shared_between_users_post_count(current_user.id, current_user.id),
+      groups:
+        Timeline.filter_timeline_posts(current_user, options)
+        |> Enum.count(fn post -> post.group_id != nil end),
+      bookmarks: Timeline.count_user_bookmarks(current_user),
+      discover: Timeline.count_discover_posts()
+    }
+
+    socket =
+      socket
+      |> assign(:active_tab, tab)
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:options, options)
+      |> stream(:posts, posts, reset: true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("bookmark_post", %{"id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    try do
+      post = Timeline.get_post!(post_id)
+
+      # Check if post is already bookmarked using Timeline.bookmarked?
+      if Timeline.bookmarked?(current_user, post) do
+        # Remove existing bookmark
+        bookmark = Timeline.get_bookmark(current_user, post)
+
+        case Timeline.delete_bookmark(bookmark, user: current_user) do
+          {:ok, _} ->
+            # Update the post in the stream
+            updated_post = Timeline.get_post!(post_id)
+
+            socket =
+              socket
+              |> stream_insert(:posts, updated_post, at: -1)
+              |> put_flash(:info, "Bookmark removed")
+
+            {:noreply, socket}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to remove bookmark")}
+        end
+      else
+        # Create new bookmark
+        case Timeline.create_bookmark(current_user, post, user: current_user, key: key) do
+          {:ok, _bookmark} ->
+            # Update the post in the stream
+            updated_post = Timeline.get_post!(post_id)
+
+            socket =
+              socket
+              |> stream_insert(:posts, updated_post, at: -1)
+              |> put_flash(:info, "Post bookmarked successfully")
+
+            {:noreply, socket}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Failed to bookmark post")}
+        end
+      end
+    rescue
+      error ->
+        Logger.error("Error handling bookmark: #{inspect(error)}")
+        {:noreply, put_flash(socket, :error, "An error occurred while bookmarking")}
+    end
   end
 
   def handle_event("fav", %{"id" => id}, socket) do
@@ -1448,5 +1629,75 @@ defmodule MossletWeb.TimelineLive.Index do
   defp ext(content_type) do
     [ext | _] = MIME.extensions(content_type)
     ext
+  end
+
+  # Helper function to get the post author's display name
+  defp get_post_author_name(post, current_user, key) do
+    try do
+      # For posts from other users, we need to get their name via user connection
+      if post.user_id == current_user.id do
+        # Current user's own post - use their name
+        user_name(current_user, key) || "User"
+      else
+        # Other user's post - need to get their name via connection
+        # First try to get the user and their connection info
+        post_user = Accounts.get_user(post.user_id)
+
+        if post_user do
+          # Try to get their shared name via connection
+          uconn = get_uconn_for_shared_item(post, current_user)
+
+          if uconn && uconn.connection do
+            decr_uconn(uconn.connection.name, current_user, uconn.key, key) || "User"
+          else
+            "User"
+          end
+        else
+          "User"
+        end
+      end
+    rescue
+      _ -> "User"
+    end
+  end
+
+  # Helper function to check if a post is bookmarked by the current user
+  defp get_post_bookmarked_status(post, current_user) do
+    try do
+      # Use the existing Timeline.bookmarked? function
+      Timeline.bookmarked?(current_user, post)
+    rescue
+      _ -> false
+    end
+  end
+
+  # Helper functions for decrypting and formatting post data
+  defp get_decrypted_post_images(post, current_user, key) do
+    try do
+      if post.image_urls && length(post.image_urls) > 0 do
+        post_key = get_post_key(post, current_user)
+
+        Enum.map(post.image_urls, fn encrypted_url ->
+          decr_item(encrypted_url, current_user, post_key, key, post, "body")
+        end)
+      else
+        []
+      end
+    rescue
+      _ -> []
+    end
+  end
+
+  defp format_post_timestamp(naive_datetime) do
+    now = NaiveDateTime.utc_now()
+    diff_seconds = NaiveDateTime.diff(now, naive_datetime, :second)
+
+    cond do
+      diff_seconds < 60 -> "#{diff_seconds}s ago"
+      diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m ago"
+      diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h ago"
+      diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
+      true -> "#{div(diff_seconds, 604_800)}w ago"
+    end
   end
 end

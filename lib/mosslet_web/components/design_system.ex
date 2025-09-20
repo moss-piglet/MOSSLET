@@ -10,6 +10,9 @@ defmodule MossletWeb.DesignSystem do
   use Phoenix.Component
   use MossletWeb, :verified_routes
 
+  # Import core components to access phx_input
+  import MossletWeb.CoreComponents, only: [phx_input: 1]
+
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
@@ -2431,6 +2434,8 @@ defmodule MossletWeb.DesignSystem do
   attr :placeholder, :string, default: "What's on your mind?"
   attr :character_limit, :integer, default: 500
   attr :privacy_level, :string, default: "connections", values: ~w(public connections private)
+  attr :selector, :string, default: "connections"
+  attr :form, :any, required: true
   attr :class, :any, default: ""
 
   def liquid_timeline_composer_enhanced(assigns) do
@@ -2463,23 +2468,29 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Compose area with character counter --%>
           <div class="flex-1 min-w-0">
             <div class="relative group">
+              <%!-- Custom textarea without phx_input wrapper to maintain our styling --%>
               <textarea
-                id="timeline-composer-textarea"
+                id={@form[:body].id || "timeline-composer-textarea"}
+                name={@form[:body].name}
                 placeholder={@placeholder}
                 rows="3"
                 maxlength={@character_limit}
                 class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-lg leading-relaxed focus:outline-none focus:ring-0"
                 phx-hook="CharacterCounter"
                 data-limit={@character_limit}
+                value={@form[:body].value || ""}
               ></textarea>
 
-              <%!-- Character counter (always visible while typing, with enhanced styling) --%>
+              <%!-- Character counter (shows when textarea has content) --%>
               <div
-                class="absolute bottom-2 right-2 opacity-0 transition-all duration-300 ease-out"
-                id="char-counter-{@user_name}"
+                class={[
+                  "absolute bottom-2 right-2 transition-all duration-300 ease-out",
+                  (@form[:body].value && String.trim(@form[:body].value) != "") && "opacity-100" || "opacity-0"
+                ]}
+                id={"char-counter-#{@character_limit}"}
               >
                 <span class="text-xs text-slate-500 dark:text-slate-400 bg-white/95 dark:bg-slate-800/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg">
-                  <span class="js-char-count">0</span>/{@character_limit}
+                  <span class="js-char-count">{String.length(@form[:body].value || "")}</span>/{@character_limit}
                 </span>
               </div>
             </div>
@@ -2490,20 +2501,32 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50 gap-3 sm:gap-0">
           <%!-- Media and formatting actions --%>
           <div class="flex items-center gap-2">
-            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group">
+            <button 
+              type="button"
+              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
+              phx-click="composer_add_photo"
+            >
               <.phx_icon
                 name="hero-photo"
                 class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
               />
             </button>
-            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group">
+            <button 
+              type="button"
+              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
+              phx-click="composer_add_emoji"
+            >
               <.phx_icon
                 name="hero-face-smile"
                 class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
               />
             </button>
             <%!-- Content warning toggle --%>
-            <button class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group">
+            <button 
+              type="button"
+              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group"
+              phx-click="composer_toggle_content_warning"
+            >
               <.phx_icon
                 name="hero-exclamation-triangle"
                 class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
@@ -2513,8 +2536,14 @@ defmodule MossletWeb.DesignSystem do
 
           <%!-- Privacy controls and post button with mobile-first layout --%>
           <div class="flex items-center justify-between sm:justify-end gap-3">
+            <%!-- Hidden field for form data integrity --%>
+            <input type="hidden" name={@form[:visibility].name} value={@selector} />
+            
             <%!-- Privacy selector (icon-only on mobile) --%>
-            <.liquid_privacy_selector selected={@privacy_level} />
+            <.liquid_privacy_selector 
+              selected={@selector} 
+              phx-click="toggle_privacy_selector"
+            />
 
             <%!-- Post button with consistent text on all screen sizes --%>
             <.liquid_button size="sm" disabled class="flex-shrink-0">
@@ -2534,26 +2563,32 @@ defmodule MossletWeb.DesignSystem do
   attr :selected, :string, default: "connections"
   attr :compact, :boolean, default: false
   attr :class, :any, default: ""
+  attr :rest, :global, include: ~w(phx-click phx-value-privacy)
 
   def liquid_privacy_selector(assigns) do
     ~H"""
-    <div class={[
-      "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
-      "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
-      "border border-slate-200/60 dark:border-slate-600/60",
-      "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
-      "transition-all duration-200 ease-out cursor-pointer",
-      @class
-    ]}>
+    <div 
+      id={"privacy-selector-#{@selected}"}
+      class={[
+        "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+        "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-600/60",
+        "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
+        "transition-all duration-200 ease-out cursor-pointer",
+        @class
+      ]} 
+      phx-hook="TippyHook" 
+      data-tippy-content="Click to toggle privacy level"
+      {@rest}
+    >
       <.phx_icon
         name={privacy_icon(@selected)}
         class="h-4 w-4 text-slate-600 dark:text-slate-300 flex-shrink-0"
       />
-      <%!-- Keep text and chevron on both mobile and desktop now that we have good spacing --%>
+      <%!-- Keep text but remove chevron for cleaner toggle UI --%>
       <span class="font-medium text-slate-700 dark:text-slate-200">
         {privacy_label(@selected)}
       </span>
-      <.phx_icon name="hero-chevron-down" class="h-3 w-3 text-slate-500 dark:text-slate-400" />
     </div>
     """
   end
@@ -2620,6 +2655,10 @@ defmodule MossletWeb.DesignSystem do
   attr :images, :list, default: []
   attr :stats, :map, default: %{}
   attr :verified, :boolean, default: false
+  attr :post_id, :string, required: true
+  attr :current_user_id, :string, required: true
+  attr :liked, :boolean, default: false
+  attr :bookmarked, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_timeline_post(assigns) do
@@ -2697,6 +2736,9 @@ defmodule MossletWeb.DesignSystem do
               count={Map.get(@stats, :replies, 0)}
               label="Reply"
               color="emerald"
+              phx-click="reply"
+              phx-value-id={@post_id}
+              phx-value-url="/app/timeline"
             />
             <.liquid_timeline_action
               icon="hero-arrow-path"
@@ -2705,17 +2747,27 @@ defmodule MossletWeb.DesignSystem do
               color="emerald"
             />
             <.liquid_timeline_action
-              icon="hero-heart"
+              icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}
               count={Map.get(@stats, :likes, 0)}
-              label="Like"
+              label={if @liked, do: "Unlike", else: "Like"}
               color="rose"
+              active={@liked}
+              phx-click={if @liked, do: "unfav", else: "fav"}
+              phx-value-id={@post_id}
             />
           </div>
 
           <%!-- Enhanced bookmark action with amber semantic color (matches Bookmarks tab) --%>
-          <button class="p-2 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2">
+          <button 
+            class={[
+              "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
+              if(@bookmarked, do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20", else: "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20")
+            ]}
+            phx-click="bookmark_post"
+            phx-value-id={@post_id}
+          >
             <.phx_icon
-              name="hero-bookmark"
+              name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
               class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110"
             />
             <span class="sr-only">Bookmark this post</span>
@@ -2814,16 +2866,22 @@ defmodule MossletWeb.DesignSystem do
   attr :active, :boolean, default: false
   attr :color, :string, default: "slate", values: ~w(slate emerald amber rose)
   attr :class, :any, default: ""
+  attr :post_id, :string, default: nil
+  attr :current_user_id, :string, default: nil
+  attr :rest, :global, include: ~w(phx-click phx-value-id phx-value-url data-confirm)
 
   def liquid_timeline_action(assigns) do
     ~H"""
-    <button class={[
-      "group/action relative flex items-center gap-2 px-3 py-2 rounded-xl",
-      "transition-all duration-200 ease-out active:scale-95",
-      "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
-      timeline_action_classes(@active, @color),
-      @class
-    ]}>
+    <button
+      class={[
+        "group/action relative flex items-center gap-2 px-3 py-2 rounded-xl",
+        "transition-all duration-200 ease-out active:scale-95",
+        "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+        timeline_action_classes(@active, @color),
+        @class
+      ]}
+      {@rest}
+    >
       <%!-- Subtle liquid background on hover --%>
       <div class={[
         "absolute inset-0 opacity-0 transition-all duration-300 ease-out rounded-xl",
@@ -2996,6 +3054,8 @@ defmodule MossletWeb.DesignSystem do
               timeline_tab_classes(tab.key, tab.key == @active_tab)
             ]
           }
+          phx-click="switch_tab"
+          phx-value-tab={tab.key}
         >
           <%!-- Active tab enhanced liquid background --%>
           <div
