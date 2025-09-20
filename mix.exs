@@ -45,6 +45,7 @@ defmodule Mosslet.MixProject do
       {:axon, "~> 0.7.0"},
       {:bandit, "~> 1.0"},
       {:blankable, "~> 1.0.0"},
+      {:broadway, "~> 1.1"},
       {:bumblebee, "~> 0.6"},
       {:cloak, "~> 1.1"},
       {:cloak_ecto, "~> 1.2"},

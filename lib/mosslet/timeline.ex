@@ -28,11 +28,34 @@ defmodule Mosslet.Timeline do
   alias Mosslet.Timeline.Performance.TimelineCache
 
   @doc """
-  Counts all posts.
+  Gets recently active users for cache warming.
+  Returns users who have posted within the specified time window.
+  """
+  def get_recently_active_users(time_window_minutes \\ 30, max_users \\ 100) do
+    cutoff = NaiveDateTime.add(NaiveDateTime.utc_now(), -time_window_minutes, :minute)
+
+    from(u in User,
+      inner_join: p in Post,
+      on: p.user_id == u.id,
+      where: p.inserted_at >= ^cutoff,
+      group_by: u.id,
+      select: u,
+      limit: ^max_users,
+      order_by: [desc: max(p.inserted_at)]
+    )
+    |> Repo.all()
+  rescue
+    e ->
+      Logger.error("Failed to get recently active users: #{inspect(e)}")
+      []
+  end
+
+  @doc """
+  Counts all posts for admin dashboard.
   """
   def count_all_posts() do
-    query = from(p in Post)
-    Repo.aggregate(query, :count)
+    from(p in Post)
+    |> Repo.aggregate(:count)
   end
 
   @doc """
@@ -368,18 +391,18 @@ defmodule Mosslet.Timeline do
         {:hit, cached_data} ->
           Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
           cached_data[:posts] || []
-          
+
         :miss ->
           # Cache miss - fetch fresh data
           posts = fetch_timeline_posts_from_db(current_user, options)
-          
+
           # Cache the results (cache encrypted posts safely)
           timeline_data = %{
             posts: posts,
             post_count: length(posts),
             fetched_at: System.system_time(:millisecond)
           }
-          
+
           TimelineCache.cache_timeline_data(current_user.id, tab, timeline_data)
           posts
       end
@@ -388,7 +411,7 @@ defmodule Mosslet.Timeline do
       fetch_timeline_posts_from_db(current_user, options)
     end
   end
-  
+
   @doc """
   Fetches timeline posts directly from database.
   This is the original filter_timeline_posts logic.

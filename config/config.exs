@@ -100,9 +100,25 @@ config :mosslet, Oban,
   notifier: Oban.Notifiers.PG,
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
-    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
+    # Automatic cache maintenance (ethical performance optimization)
+    {Oban.Plugins.Cron,
+     crontab: [
+       # Clean up expired cache entries every 30 minutes
+       {"*/30 * * * *", Mosslet.Timeline.Jobs.CacheMaintenanceJob,
+        args: %{"action" => "cleanup_expired"}},
+       # Warm cache for active users every 15 minutes during peak hours (9 AM - 9 PM UTC)
+       {"*/15 9-21 * * *", Mosslet.Timeline.Jobs.CacheMaintenanceJob,
+        args: %{"action" => "warm_active_users", "time_window_minutes" => 30, "max_users" => 100}},
+       # Cache statistics every 10 minutes for monitoring
+       {"*/10 * * * *", Mosslet.Timeline.Jobs.CacheMaintenanceJob,
+        args: %{"action" => "cache_stats", "include_details" => false}},
+       # Memory optimization every 2 hours during low traffic (2 AM - 6 AM UTC)
+       {"0 2,4,6 * * *", Mosslet.Timeline.Jobs.CacheMaintenanceJob,
+        args: %{"action" => "optimize_cache", "optimization_type" => "memory_cleanup"}}
+     ]}
   ],
-  queues: [default: 10, tokens: 10, invites: 10, storage: 10],
+  queues: [default: 10, tokens: 10, invites: 10, storage: 10, timeline: 5, cache_maintenance: 2],
   peer: Oban.Peers.Global
 
 # Configures cldr
