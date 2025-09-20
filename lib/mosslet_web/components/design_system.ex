@@ -13,6 +13,9 @@ defmodule MossletWeb.DesignSystem do
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
+  # Import phx_input from CoreComponents
+  import MossletWeb.CoreComponents, only: [phx_input: 1]
+
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
     js
@@ -2465,9 +2468,29 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Compose area with character counter --%>
           <div class="flex-1 min-w-0">
             <div class="relative group">
+              <%!-- Hidden fields required for post creation --%>
+              <.phx_input
+                field={@form[:user_id]}
+                type="hidden"
+                name={@form[:user_id].name}
+                value={@form[:user_id].value}
+              />
+              <.phx_input
+                field={@form[:username]}
+                type="hidden"
+                name={@form[:username].name}
+                value={@form[:username].value}
+              />
+              <.phx_input
+                field={@form[:visibility]}
+                type="hidden"
+                name={@form[:visibility].name}
+                value={@selector}
+              />
+
               <%!-- Custom textarea without phx_input wrapper to maintain our styling --%>
               <textarea
-                id={@form[:body].id || "timeline-composer-textarea"}
+                id="new-timeline-composer-textarea"
                 name={@form[:body].name}
                 placeholder={@placeholder}
                 rows="3"
@@ -2475,14 +2498,15 @@ defmodule MossletWeb.DesignSystem do
                 class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-lg leading-relaxed focus:outline-none focus:ring-0"
                 phx-hook="CharacterCounter"
                 data-limit={@character_limit}
-                value={@form[:body].value || ""}
-              ></textarea>
+                value={@form[:body].value}
+              >{@form[:body].value}</textarea>
 
               <%!-- Character counter (shows when textarea has content) --%>
               <div
                 class={[
                   "absolute bottom-2 right-2 transition-all duration-300 ease-out",
-                  (@form[:body].value && String.trim(@form[:body].value) != "") && "opacity-100" || "opacity-0"
+                  (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") ||
+                    "opacity-0"
                 ]}
                 id={"char-counter-#{@character_limit}"}
               >
@@ -2531,37 +2555,44 @@ defmodule MossletWeb.DesignSystem do
             </button>
           </div>
 
-            <%!-- Privacy controls and post button with mobile-first layout --%>
-            <div class="flex items-center justify-between sm:justify-end gap-3">
-              <%!-- Hidden field for form data integrity --%>
-              <input type="hidden" name={@form[:visibility].name} value={@selector} id="privacy-hidden-field" />
+          <%!-- Privacy controls and post button with mobile-first layout --%>
+          <div class="flex items-center justify-between sm:justify-end gap-3">
+            <%!-- Hidden field for form data integrity --%>
+            <input
+              type="hidden"
+              name={@form[:visibility].name}
+              value={@selector}
+              id="privacy-hidden-field"
+            />
 
-              <%!-- Privacy selector with simple server-side toggle --%>
-              <div
-                id={"privacy-selector-#{@selector}"}
-                class={[
-                  "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
-                  "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
-                  "border border-slate-200/60 dark:border-slate-600/60",
-                  "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
-                  "transition-all duration-200 ease-out cursor-pointer",
-                ]}
-                phx-click="toggle_privacy_selector"
-              >
-                <.phx_icon
-                  name={privacy_icon(@selector)}
-                  class="h-4 w-4 text-slate-600 dark:text-slate-300 flex-shrink-0"
-                />
-                <span class="font-medium text-slate-700 dark:text-slate-200 privacy-label">
-                  {privacy_label(@selector)}
-                </span>
-              </div>
-
-              <%!-- Post button with consistent text on all screen sizes --%>
-              <.liquid_button size="sm" disabled class="flex-shrink-0">
-                Share thoughtfully
-              </.liquid_button>
+            <%!-- Privacy selector with simple server-side toggle --%>
+            <div
+              id={"privacy-selector-#{@selector}"}
+              class={[
+                "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+                "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
+                "border border-slate-200/60 dark:border-slate-600/60",
+                "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
+                "transition-all duration-200 ease-out cursor-pointer"
+              ]}
+              phx-click="toggle_privacy_selector"
+              phx-hook="TippyHook"
+              data-tippy-content="Click to toggle privacy level"
+            >
+              <.phx_icon
+                name={privacy_icon(@selector)}
+                class="h-4 w-4 text-slate-600 dark:text-slate-300 flex-shrink-0"
+              />
+              <span class="font-medium text-slate-700 dark:text-slate-200 privacy-label">
+                {privacy_label(@selector)}
+              </span>
             </div>
+
+            <%!-- Post button that submits the form --%>
+            <.liquid_button size="sm" type="submit" class="flex-shrink-0">
+              Share thoughtfully
+            </.liquid_button>
+          </div>
         </div>
       </div>
     </div>
@@ -2773,7 +2804,11 @@ defmodule MossletWeb.DesignSystem do
           <button
             class={[
               "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
-              if(@bookmarked, do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20", else: "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20")
+              if(@bookmarked,
+                do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
+                else:
+                  "text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+              )
             ]}
             phx-click="bookmark_post"
             phx-value-id={@post_id}

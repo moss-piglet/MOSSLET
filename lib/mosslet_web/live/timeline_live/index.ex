@@ -18,15 +18,27 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    initial_selector = "private"
 
+    # Create changeset with all required fields populated
     changeset =
-      Timeline.change_post(%Post{}, %{"visibility" => "private"}, user: current_user)
+      Timeline.change_post(
+        %Post{},
+        %{
+          "visibility" => initial_selector,
+          "user_id" => current_user.id,
+          "username" => user_name(current_user, key) || ""
+        },
+        user: current_user
+      )
 
     socket =
       socket
       |> assign(:post_form, to_form(changeset))
       |> assign(:user_list, [])
-      |> assign(:selector, "private")
+      # Keep selector in sync with form
+      |> assign(:selector, initial_selector)
       |> assign(:post_loading_count, 0)
       |> assign(:post_loading, false)
       |> assign(:post_loading_done, false)
@@ -355,6 +367,8 @@ defmodule MossletWeb.TimelineLive.Index do
     post_shared_users = socket.assigns.post_shared_users
     current_user = socket.assigns.current_user
     current_form = socket.assigns.post_form
+    # Add missing key assignment
+    key = socket.assigns.key
 
     # Get the existing changeset to preserve its state
     existing_changeset = current_form.source
@@ -375,6 +389,8 @@ defmodule MossletWeb.TimelineLive.Index do
         ])
         |> Ecto.Changeset.put_change(:visibility, socket.assigns.selector)
         |> Ecto.Changeset.put_change(:image_urls, socket.assigns.image_urls)
+        |> Ecto.Changeset.put_change(:user_id, current_user.id)
+        |> Ecto.Changeset.put_change(:username, user_name(current_user, key) || "")
       else
         # Fallback: create new changeset with complete params (preserve everything)
         complete_params =
@@ -671,9 +687,6 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("toggle_privacy_selector", _params, socket) do
     # Cycle through privacy levels: private -> connections -> public -> private
     current_selector = socket.assigns.selector
-    current_form = socket.assigns.post_form
-    current_user = socket.assigns.current_user
-    post_shared_users = socket.assigns.post_shared_users
 
     new_selector =
       case current_selector do
@@ -683,33 +696,9 @@ defmodule MossletWeb.TimelineLive.Index do
         _ -> "private"
       end
 
-    # Get the existing changeset and update only the visibility
-    existing_changeset = current_form.source
-
-    updated_changeset =
-      if existing_changeset && match?(%Ecto.Changeset{}, existing_changeset) do
-        # Update existing changeset to preserve all form data
-        existing_changeset
-        |> Ecto.Changeset.put_change(:visibility, new_selector)
-        |> Ecto.Changeset.put_change(:image_urls, socket.assigns.image_urls)
-      else
-        # Fallback: create new changeset with preserved params
-        complete_params =
-          (current_form.params || %{})
-          |> Map.put("visibility", new_selector)
-          |> Map.put("image_urls", socket.assigns.image_urls)
-          |> add_shared_users_list_for_new_post(post_shared_users)
-
-        Timeline.change_post(%Post{}, complete_params, user: current_user)
-      end
-
-    # Update both selector and form in the same operation
-    socket =
-      socket
-      |> assign(:selector, new_selector)
-      |> assign(:post_form, to_form(updated_changeset))
-
-    {:noreply, socket}
+    # Only update the selector assign - don't touch the form!
+    # The form will pick up the new selector value during next validation
+    {:noreply, assign(socket, :selector, new_selector)}
   end
 
   def handle_event("composer_add_photo", _params, socket) do
@@ -730,12 +719,9 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, put_flash(socket, :info, "Content warning feature coming soon!")}
   end
 
-  def handle_event("save_post", params, socket) when not is_map_key(params, "post") do
-    # Handle case when save_post is called without post params (e.g., from button click without form data)
-    {:noreply, socket}
-  end
-
   def handle_event("save_post", %{"post" => post_params}, socket) do
+    IO.inspect(post_params, label: "POST PARAMS")
+
     if connected?(socket) do
       post_shared_users = socket.assigns.post_shared_users
       current_user = socket.assigns.current_user
@@ -774,7 +760,7 @@ defmodule MossletWeb.TimelineLive.Index do
             socket =
               socket
               |> assign(:post_form, to_form(changeset, action: :validate))
-              |> put_flash(:error, "#{changeset.message}")
+              |> put_flash(:error, "Failed to create post. Please check your input.")
               |> push_patch(to: socket.assigns.return_url)
 
             {:noreply, socket}
@@ -982,8 +968,8 @@ defmodule MossletWeb.TimelineLive.Index do
         {:ok, _post} ->
           {:noreply, socket}
 
-        {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
       end
     else
       {:noreply, socket}
@@ -1005,8 +991,8 @@ defmodule MossletWeb.TimelineLive.Index do
         {:ok, _post} ->
           {:noreply, socket}
 
-        {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
       end
     else
       {:noreply, socket}
@@ -1069,8 +1055,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
           {:noreply, push_navigate(socket, to: return_url)}
 
-        {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to repost. Please try again.")}
       end
     else
       {:noreply,
@@ -1139,8 +1125,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
           {:noreply, push_patch(socket, to: return_url)}
 
-        {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to delete post. Please try again.")}
       end
     else
       {:noreply, socket |> put_flash(:error, "You are not authorized to delete this post.")}
@@ -1678,7 +1664,8 @@ defmodule MossletWeb.TimelineLive.Index do
         # Current user's own post - use their name
         case user_name(current_user, key) do
           name when is_binary(name) -> name
-          :failed_verification -> "Private Author"  # Graceful fallback for decryption issues
+          # Graceful fallback for decryption issues
+          :failed_verification -> "Private Author"
           _ -> "Private Author"
         end
       else
@@ -1692,17 +1679,21 @@ defmodule MossletWeb.TimelineLive.Index do
           if uconn && uconn.connection do
             case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
               name when is_binary(name) -> name
-              :failed_verification -> "Private Author"  # User chose to keep identity private
+              # User chose to keep identity private
+              :failed_verification -> "Private Author"
             end
           else
-            "Private Author"  # No connection or privacy-focused sharing
+            # No connection or privacy-focused sharing
+            "Private Author"
           end
         else
-          "Private Author"  # User account not found or deactivated
+          # User account not found or deactivated
+          "Private Author"
         end
       end
     rescue
-      _ -> "Private Author"  # Any error defaults to privacy-respecting display
+      # Any error defaults to privacy-respecting display
+      _ -> "Private Author"
     end
   end
 

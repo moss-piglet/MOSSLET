@@ -39,10 +39,18 @@
         <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl blur-xl">
         </div>
         <%!-- Real functional composer connected to backend --%>
-        <.form for={@post_form} id="timeline-composer" phx-submit="save_post" phx-change="validate_post" class="relative">
+        <.form
+          for={@post_form}
+          id="timeline-composer"
+          phx-submit="save_post"
+          phx-change="validate_post"
+          class="relative"
+        >
           <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
             user_name={user_name(@current_user, @key) || "User"}
-            user_avatar={maybe_get_user_avatar(@current_user, @key) || "/images/default-avatar.png"}
+            user_avatar={
+              maybe_get_user_avatar(@current_user, @key) || "/images/default-avatar.png"
+            }
             placeholder="Share something meaningful with your community..."
             character_limit={500}
             selector={@selector}
@@ -60,16 +68,30 @@
             <MossletWeb.DesignSystem.liquid_timeline_post
               user_name={get_post_author_name(post, @current_user, @key)}
               user_handle={"@" <> (decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") || "user")}
-              user_avatar={maybe_get_avatar_src(post, @current_user, @key, []) || "/images/default-avatar.png"}
+              user_avatar={
+                maybe_get_avatar_src(post, @current_user, @key, []) ||
+                  "/images/default-avatar.png"
+              }
               timestamp={format_post_timestamp(post.inserted_at)}
               verified={false}
-              content={decr_item(post.body, @current_user, get_post_key(post, @current_user), @key, post, "body") || "[Could not decrypt content]"}
+              content={
+                decr_item(
+                  post.body,
+                  @current_user,
+                  get_post_key(post, @current_user),
+                  @key,
+                  post,
+                  "body"
+                ) || "[Could not decrypt content]"
+              }
               images={get_decrypted_post_images(post, @current_user, @key)}
-              stats={%{
-                replies: length(post.replies || []),
-                shares: post.reposts_count || 0,
-                likes: post.favs_count || 0
-              }}
+              stats={
+                %{
+                  replies: length(post.replies || []),
+                  shares: post.reposts_count || 0,
+                  likes: post.favs_count || 0
+                }
+              }
               post_id={post.id}
               current_user_id={@current_user.id}
               liked={@current_user.id in (post.favs_list || [])}
