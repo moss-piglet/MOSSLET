@@ -11,18 +11,127 @@ This plan implements the **complete functional timeline** by:
 - ✅ **Adding Performance Optimizations** - Enhanced with caching and Broadway
 - ✅ **Zero Breaking Changes** - All existing data structures remain intact
 - ✅ **Production Safety** - Safe migration strategies for live users
+- ✅ **Encryption-First Design** - All new features follow existing encryption patterns
 
 **The Problem**: Your timeline template is currently a beautiful design mockup with static data, but your backend is fully functional! We need to connect them.
 
 **The Solution**: Replace the mockup template with real data-driven components while maintaining the exact same beautiful design.
 
+## 🔐 ENCRYPTION COMPLIANCE GUIDELINES
+
+**CRITICAL**: All new features MUST follow your existing encryption patterns to maintain security and consistency.
+
+### Your Current Encryption Pattern:
+
+```elixir
+# Searchable fields (use Cloak symmetric encryption + hashing)
+field :email, Mosslet.Encrypted.Binary          # Encrypted content
+field :email_hash, Mosslet.Encrypted.HMAC       # Searchable hash
+
+# Non-searchable fields (use enacl/libsodium asymmetric encryption)  
+field :body, :binary                            # Encrypted with user keys
+field :username, :binary                        # Encrypted with user keys
+```
+
+### 🔑 Post-Context Encryption Strategy (CRITICAL FOR TIMELINE FEATURES):
+
+**⚠️ IMPORTANT**: All timeline-related content uses the existing `post_key` pattern:
+
+1. **Each post has a `post_key`** that encrypts ALL post-related content
+2. **Users access via `user_post.key`** (post_key encrypted with user's public key)
+3. **Same key encrypts**: `post.body`, `post.username`, `reply.body`, AND new features like `bookmark.notes`
+4. **Automatic cleanup**: When post deleted → `user_posts` deleted → related bookmarks cascade delete
+5. **Consistent decryption**: If user can decrypt the post, they can decrypt ALL related content
+
+**Benefits:**
+- ✅ Consistent encryption across all post-related features
+- ✅ Reuse existing key management and decryption flows
+- ✅ Automatic access control via existing `user_post` relationships
+- ✅ Simplified key lifecycle (one key per post context)
+- ✅ Natural data cleanup when posts are deleted
+
+### Encryption Rules for New Timeline Features:
+
+1. **Post-Related Content** → Use existing `post_key` (same as `post.body`)
+   - Bookmark notes, reply content, post-specific moderation data
+   - Encrypted with the post's existing key via `opts[:post_key]`
+   - Automatic access control via `user_post` relationship
+   - **Example**: `bookmark.notes` encrypted with same key as `post.body`
+
+2. **User-Specific Searchable Content** → `Mosslet.Encrypted.Binary` + `Mosslet.Encrypted.HMAC`
+   - Bookmark category names, content warning types
+   - Cloak symmetric encryption + hash for searching
+   - User-specific but searchable across their own data
+
+3. **User-Generated Non-Post Content** → `:binary` fields + enacl encryption
+   - User status messages, report reasons, block reasons
+   - Encrypted with user-specific keys (not post keys)
+   - Personal data not tied to specific posts
+
+4. **System Data** → Plaintext (`:string`, `Ecto.Enum`, etc.)
+   - Enums (status values, colors, etc.)
+   - Foreign keys, timestamps
+   - Non-sensitive system flags
+
+### Implementation Pattern:
+
+```elixir
+# For Post-Related Content (use existing post_key):
+def encrypt_with_post_key(changeset, field, opts) do
+  if changeset.valid? && opts[:post_key] do
+    content = get_field(changeset, field)
+    if content && String.trim(content) != "" do
+      # Use the SAME encryption as post.body - same post_key!
+      encrypted_content = Mosslet.Encrypted.Utils.encrypt(%{key: opts[:post_key], payload: content})
+      put_change(changeset, field, encrypted_content)
+    else
+      changeset
+    end
+  else
+    changeset
+  end
+end
+
+# For User-Specific Content (separate user keys):
+def encrypt_user_content(changeset, field, user, key) do
+  if changeset.valid? && user && key do
+    content = get_field(changeset, field)
+    if content && String.trim(content) != "" do
+      user_key = generate_content_key()
+      encrypted_content = Encrypted.Utils.encrypt(%{key: user_key, payload: content})
+      put_change(changeset, field, encrypted_content)
+    else
+      changeset
+    end
+  else
+    changeset
+  end
+end
+
+# For Searchable Content (Cloak):
+def encrypt_searchable_content(changeset, field, hash_field) do
+  if changeset.valid? do
+    content = get_field(changeset, field)
+    if content && String.trim(content) != "" do
+      changeset
+      |> put_change(field, content)                    # Cloak encrypts automatically
+      |> put_change(hash_field, String.downcase(content))  # Hash for searching
+    else
+      changeset
+    end
+  else
+    changeset
+  end
+end
+```
+
 ## 🏗️ STREAMLINED PLAN: Architecture → Performance → UI
 
 You're absolutely right! Let's build the architecture to support all the design features first.
 
-### Phase 1: Core Architecture & New Features (Weeks 1-2)
+### Phase 1: Core Architecture & New Features (Weeks 1-2) 🔐
 
-**Goal**: Build missing features shown in design mockup
+**Goal**: Build missing features shown in design mockup with encryption-first approach
 
 ### Phase 2: Performance Infrastructure (Week 3)
 
@@ -41,23 +150,29 @@ You're absolutely right! Let's build the architecture to support all the design 
 
 This approach gets you:
 
-1. **Complete Feature Set** (Weeks 1-2) - All design mockup features working
+1. **Complete Feature Set** (Weeks 1-2) - All design mockup features working with full encryption
 2. **High Performance** (Week 3) - Caching and concurrent processing
 3. **Beautiful Functional UI** (Week 4) - Design connected to robust backend
 4. **Platform Flexibility** - Optimized for performance, not vendor lock-in
 
 ---
 
-# 🏗️ PHASE 1: CORE ARCHITECTURE (WEEKS 1-2)
+# 🏗️ PHASE 1: CORE ARCHITECTURE (WEEKS 1-2) 🔐
 
 ## Missing Features Analysis
 
-Based on your design mockup, here's what needs to be built:
+Based on your design mockup, here's what needs to be built with **encryption-first approach**:
 
-### 1.1 Bookmarks System
+### 1.1 Bookmarks System (Using Existing post_key Architecture) 🔐
 
 **Current**: Only `favs_list` (likes) exists
 **Needed**: Separate bookmarks system with categories
+
+**🔑 CRITICAL DESIGN DECISION**: Use existing `post_key` encryption strategy for consistency:
+- Bookmark notes encrypted with the SAME `post_key` as the associated post
+- Reuse existing `user_post.key` lookup mechanism
+- Automatic cleanup when post is deleted (cascades through user_posts)
+- Same decryption flow as post content
 
 ```elixir
 # New schema: lib/mosslet/timeline/bookmark.ex
@@ -71,12 +186,195 @@ defmodule Mosslet.Timeline.Bookmark do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "bookmarks" do
-    field :notes, Mosslet.Encrypted.Binary  # Optional user notes
-    field :notes_hash, Mosslet.Encrypted.HMAC
+    # ENCRYPTED FIELDS (using SAME post_key as associated post)
+    field :notes, :binary                        # Encrypted with post_key (same as post.body)
+    
+    # HASHED FIELDS (searchable - using Cloak since user-specific)
+    field :notes_hash, Mosslet.Encrypted.HMAC   # For searching bookmark notes
+    
+    # FOREIGN KEYS (not encrypted)
+    belongs_to :user, User                       # User who bookmarked
+    belongs_to :post, Post                       # Post being bookmarked
+    belongs_to :category, BookmarkCategory      # Optional categorization
+
+    timestamps()
+  end
+
+  def changeset(bookmark, attrs, opts \\ []) do
+    bookmark
+    |> cast(attrs, [:notes, :user_id, :post_id, :category_id])
+    |> validate_required([:user_id, :post_id])
+    |> encrypt_notes_with_post_key(opts)  # Use EXISTING post_key!
+    |> unique_constraint([:user_id, :post_id], name: :bookmarks_user_post_index)
+  end
+
+  # Use the SAME post_key that encrypts post.body
+  defp encrypt_notes_with_post_key(changeset, opts) do
+    if changeset.valid? && opts[:post_key] do
+      notes = get_field(changeset, :notes)
+      if notes && String.trim(notes) != "" do
+        # Use SAME encryption as Post.body - same key!
+        encrypted_notes = Mosslet.Encrypted.Utils.encrypt(%{key: opts[:post_key], payload: notes})
+
+        changeset
+        |> put_change(:notes, encrypted_notes)
+        |> put_change(:notes_hash, String.downcase(notes))
+      else
+        changeset
+      end
+    else
+      changeset
+    end
+  end
+end
+
+# New schema: lib/mosslet/timeline/bookmark_category.ex
+defmodule Mosslet.Timeline.BookmarkCategory do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  alias Mosslet.Accounts.User
+  alias Mosslet.Timeline.Bookmark
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "bookmark_categories" do
+    # ENCRYPTED FIELDS (user-specific categories - Cloak encryption)
+    field :name, Mosslet.Encrypted.Binary       # Cloak encrypted (user-specific but searchable)
+    field :name_hash, Mosslet.Encrypted.HMAC    # For searching categories
+    field :description, Mosslet.Encrypted.Binary
+    
+    # PLAINTEXT FIELDS (system data, not sensitive)
+    field :color, Ecto.Enum, values: [:emerald, :blue, :purple, :amber, :rose, :cyan]
+    field :icon, :string                         # hero-icon name
 
     belongs_to :user, User
+    has_many :bookmarks, Bookmark
+
+    timestamps()
+  end
+end
+
+# Context functions (using existing post_key pattern):
+# In lib/mosslet/timeline.ex
+def create_bookmark(user, post, attrs \\ %{}) do
+  # Get post_key using EXISTING mechanism
+  post_key = MossletWeb.Helpers.get_post_key(post, user)
+  
+  %Bookmark{}
+  |> Bookmark.changeset(attrs, post_key: post_key)
+  |> Ecto.Changeset.put_assoc(:user, user)
+  |> Ecto.Changeset.put_assoc(:post, post)
+  |> Repo.insert()
+end
+
+def decrypt_bookmark_notes(bookmark, user, key) do
+  # Use SAME decryption flow as post.body
+  post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
+  
+  case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: bookmark.notes}) do
+    {:ok, decrypted_notes} -> decrypted_notes
+    _ -> "Unable to decrypt"
+  end
+end
+```
+
+### 1.2 Content Moderation System (Encryption-Compliant)
+
+**Current**: Basic visibility controls
+**Needed**: Report, hide, and block functionality with three-dots menu
+
+```elixir
+# New schema: lib/mosslet/timeline/post_report.ex
+defmodule Mosslet.Timeline.PostReport do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "post_reports" do
+    # ENCRYPTED FIELDS (sensitive user data)
+    field :reason, :binary                       # Report reason (enacl encrypted)
+    field :details, :binary                      # Additional details (enacl encrypted)
+    
+    # HASHED FIELDS (for admin searching/filtering)
+    field :reason_hash, Mosslet.Encrypted.HMAC  # For categorizing reports
+    
+    # PLAINTEXT FIELDS (system data)
+    field :status, Ecto.Enum, values: [:pending, :reviewed, :resolved, :dismissed]
+    field :severity, Ecto.Enum, values: [:low, :medium, :high, :critical]
+    
+    belongs_to :reporter, User                   # User who reported
+    belongs_to :reported_user, User             # User being reported  
+    belongs_to :post, Post                      # Post being reported
+
+    timestamps()
+  end
+end
+
+# New schema: lib/mosslet/accounts/user_block.ex
+defmodule Mosslet.Accounts.UserBlock do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "user_blocks" do
+    # ENCRYPTED FIELDS (sensitive)
+    field :reason, :binary                       # Why they blocked (enacl encrypted)
+    
+    # FOREIGN KEYS (not encrypted)
+    belongs_to :blocker, User                    # User doing the blocking
+    belongs_to :blocked, User                    # User being blocked
+
+    timestamps()
+  end
+end
+
+# New schema: lib/mosslet/timeline/post_hide.ex  
+defmodule Mosslet.Timeline.PostHide do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "post_hides" do
+    # ENCRYPTED FIELDS (user preference data)
+    field :reason, :binary                       # Why they hid it (enacl encrypted)
+    
+    # FOREIGN KEYS
+    belongs_to :user, User
     belongs_to :post, Post
-    belongs_to :category, BookmarkCategory, type: :binary_id
+
+    timestamps()
+  end
+end
+```
+
+### 1.3 Content Warnings System (Encryption-Compliant)
+
+**Current**: Basic post content
+**Needed**: Content warning toggle (triangle exclamation button)
+
+```elixir
+# Add to existing Post schema: lib/mosslet/timeline/post.ex
+defmodule Mosslet.Timeline.Post do
+  # ... existing fields ...
+
+  # NEW CONTENT WARNING FIELDS
+  # ENCRYPTED FIELDS (user-generated content)
+  field :content_warning_text, :binary          # Custom warning text (enacl encrypted)
+  
+  # SEARCHABLE FIELDS (for filtering/searching)
+  field :content_warning_category, Mosslet.Encrypted.Binary  # "mental_health", etc (Cloak encrypted)
+  field :content_warning_hash, Mosslet.Encrypted.HMAC       # For searching by warning type
+  
+  # PLAINTEXT FIELDS (system flags)
+  field :has_content_warning, :boolean, default: false      # Quick filter flag
+
+  # ... rest of schema ...
+end
+```
 
     timestamps()
   end
