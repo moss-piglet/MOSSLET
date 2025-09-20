@@ -25,6 +25,7 @@ defmodule Mosslet.Timeline do
   }
 
   alias Mosslet.Accounts.UserBlock
+  alias Mosslet.Timeline.Performance.TimelineCache
 
   @doc """
   Counts all posts.
@@ -357,9 +358,42 @@ defmodule Mosslet.Timeline do
 
   @doc """
   Returns a list of posts for the current_user's
-  timeline. Non public posts.
+  timeline. Non public posts. Now with caching support.
   """
   def filter_timeline_posts(current_user, options) do
+    tab = options[:tab] || "home"
+    # Try cache first (only for non-realtime requests)
+    if !options[:skip_cache] do
+      case TimelineCache.get_timeline_data(current_user.id, tab) do
+        {:hit, cached_data} ->
+          Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
+          cached_data[:posts] || []
+          
+        :miss ->
+          # Cache miss - fetch fresh data
+          posts = fetch_timeline_posts_from_db(current_user, options)
+          
+          # Cache the results (cache encrypted posts safely)
+          timeline_data = %{
+            posts: posts,
+            post_count: length(posts),
+            fetched_at: System.system_time(:millisecond)
+          }
+          
+          TimelineCache.cache_timeline_data(current_user.id, tab, timeline_data)
+          posts
+      end
+    else
+      # Skip cache for real-time updates
+      fetch_timeline_posts_from_db(current_user, options)
+    end
+  end
+  
+  @doc """
+  Fetches timeline posts directly from database.
+  This is the original filter_timeline_posts logic.
+  """
+  def fetch_timeline_posts_from_db(current_user, options) do
     Post
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> where([p, up], up.user_id == ^current_user.id)
