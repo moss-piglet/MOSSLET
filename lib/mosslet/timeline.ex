@@ -1769,9 +1769,9 @@ defmodule Mosslet.Timeline do
   @doc """
   Creates a bookmark for a user on a specific post.
   Uses the existing post_key encryption strategy for consistency.
-  
+
   ## Examples
-  
+
       iex> create_bookmark(user, post, %{notes: "Great article!"})
       {:ok, %Bookmark{}}
       
@@ -1781,24 +1781,30 @@ defmodule Mosslet.Timeline do
   def create_bookmark(user, post, attrs \\ %{}) do
     # Get the post_key using existing mechanism (same as post decryption)
     post_key = MossletWeb.Helpers.get_post_key(post, user)
-    
+
     if post_key do
       attrs = attrs |> Map.put(:user_id, user.id) |> Map.put(:post_id, post.id)
-      
-      %Bookmark{}
-      |> Bookmark.changeset(attrs, post_key: post_key)
-      |> Repo.insert()
-      |> case do
-        {:ok, bookmark} ->
+
+      case Repo.transaction_on_primary(fn ->
+             %Bookmark{}
+             |> Bookmark.changeset(attrs, post_key: post_key)
+             |> Repo.insert()
+           end) do
+        {:ok, {:ok, bookmark}} ->
           # Broadcast bookmark creation for real-time updates
           Phoenix.PubSub.broadcast(
             Mosslet.PubSub,
             "bookmarks:#{user.id}",
             {:bookmark_created, bookmark}
           )
+
           {:ok, bookmark}
-        
-        error -> error
+
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        error ->
+          error
       end
     else
       {:error, :no_access_to_post}
@@ -1811,21 +1817,27 @@ defmodule Mosslet.Timeline do
   def update_bookmark(bookmark, attrs, user) do
     # Get the post_key for re-encryption
     post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
-    
+
     if post_key do
-      bookmark
-      |> Bookmark.changeset(attrs, post_key: post_key)
-      |> Repo.update()
-      |> case do
-        {:ok, updated_bookmark} ->
+      case Repo.transaction_on_primary(fn ->
+             bookmark
+             |> Bookmark.changeset(attrs, post_key: post_key)
+             |> Repo.update()
+           end) do
+        {:ok, {:ok, updated_bookmark}} ->
           Phoenix.PubSub.broadcast(
             Mosslet.PubSub,
             "bookmarks:#{user.id}",
             {:bookmark_updated, updated_bookmark}
           )
+
           {:ok, updated_bookmark}
-        
-        error -> error
+
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        error ->
+          error
       end
     else
       {:error, :no_access_to_post}
@@ -1836,17 +1848,23 @@ defmodule Mosslet.Timeline do
   Deletes a bookmark.
   """
   def delete_bookmark(bookmark, user) do
-    Repo.delete(bookmark)
-    |> case do
-      {:ok, deleted_bookmark} ->
+    case Repo.transaction_on_primary(fn ->
+           Repo.delete(bookmark)
+         end) do
+      {:ok, {:ok, deleted_bookmark}} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "bookmarks:#{user.id}",
           {:bookmark_deleted, deleted_bookmark}
         )
+
         {:ok, deleted_bookmark}
-      
-      error -> error
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
     end
   end
 
@@ -1861,9 +1879,10 @@ defmodule Mosslet.Timeline do
   Checks if a user has bookmarked a specific post.
   """
   def bookmarked?(user, post) do
-    query = from b in Bookmark,
-      where: b.user_id == ^user.id and b.post_id == ^post.id
-    
+    query =
+      from b in Bookmark,
+        where: b.user_id == ^user.id and b.post_id == ^post.id
+
     Repo.exists?(query)
   end
 
@@ -1871,21 +1890,24 @@ defmodule Mosslet.Timeline do
   Gets all bookmarks for a user with optional category filtering.
   """
   def list_user_bookmarks(user, opts \\ []) do
-    query = from b in Bookmark,
-      where: b.user_id == ^user.id,
-      preload: [:post, :category],
-      order_by: [desc: b.inserted_at]
-    
-    query = case opts[:category_id] do
-      nil -> query
-      category_id -> where(query, [b], b.category_id == ^category_id)
-    end
-    
-    query = case opts[:limit] do
-      nil -> query
-      limit -> limit(query, ^limit)
-    end
-    
+    query =
+      from b in Bookmark,
+        where: b.user_id == ^user.id,
+        preload: [:post, :category],
+        order_by: [desc: b.inserted_at]
+
+    query =
+      case opts[:category_id] do
+        nil -> query
+        category_id -> where(query, [b], b.category_id == ^category_id)
+      end
+
+    query =
+      case opts[:limit] do
+        nil -> query
+        limit -> limit(query, ^limit)
+      end
+
     Repo.all(query)
   end
 
@@ -1904,7 +1926,7 @@ defmodule Mosslet.Timeline do
     if bookmark.notes do
       # Use the SAME decryption flow as post.body
       post_key = MossletWeb.Helpers.get_post_key(bookmark.post, user)
-      
+
       if post_key do
         case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: bookmark.notes}) do
           {:ok, decrypted_notes} -> decrypted_notes
@@ -1924,19 +1946,31 @@ defmodule Mosslet.Timeline do
   Creates a bookmark category for a user.
   """
   def create_bookmark_category(user, attrs) do
-    %BookmarkCategory{}
-    |> BookmarkCategory.changeset(attrs)
-    |> Ecto.Changeset.put_assoc(:user, user)
-    |> Repo.insert()
+    case Repo.transaction_on_primary(fn ->
+           %BookmarkCategory{}
+           |> BookmarkCategory.changeset(attrs)
+           |> Ecto.Changeset.put_assoc(:user, user)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, category}} -> {:ok, category}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @doc """
   Updates a bookmark category.
   """
   def update_bookmark_category(category, attrs) do
-    category
-    |> BookmarkCategory.changeset(attrs)
-    |> Repo.update()
+    case Repo.transaction_on_primary(fn ->
+           category
+           |> BookmarkCategory.changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_category}} -> {:ok, updated_category}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @doc """
@@ -1944,17 +1978,24 @@ defmodule Mosslet.Timeline do
   Note: This will set category_id to nil for existing bookmarks.
   """
   def delete_bookmark_category(category) do
-    Repo.delete(category)
+    case Repo.transaction_on_primary(fn ->
+           Repo.delete(category)
+         end) do
+      {:ok, {:ok, deleted_category}} -> {:ok, deleted_category}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      error -> error
+    end
   end
 
   @doc """
   Gets all bookmark categories for a user.
   """
   def list_user_bookmark_categories(user) do
-    query = from bc in BookmarkCategory,
-      where: bc.user_id == ^user.id,
-      order_by: [asc: bc.name]
-    
+    query =
+      from bc in BookmarkCategory,
+        where: bc.user_id == ^user.id,
+        order_by: [asc: bc.name]
+
     Repo.all(query)
   end
 

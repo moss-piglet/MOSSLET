@@ -33,6 +33,43 @@ field :body, :binary                            # Encrypted with user keys
 field :username, :binary                        # Encrypted with user keys
 ```
 
+### 🔒 DISTRIBUTED DATABASE WRITE PATTERN (CRITICAL):
+
+**⚠️ MANDATORY**: All database writes MUST use `Repo.transaction_on_primary/1` for distributed setup:
+
+```elixir
+# ✅ CORRECT - All writes to primary database
+case Repo.transaction_on_primary(fn ->
+  %MySchema{}
+  |> MySchema.changeset(attrs)
+  |> Repo.insert()
+end) do
+  {:ok, {:ok, record}} -> {:ok, record}
+  {:ok, {:error, changeset}} -> {:error, changeset}
+  error -> error
+end
+
+# ❌ INCORRECT - Direct writes may go to read replicas
+%MySchema{}
+|> MySchema.changeset(attrs)
+|> Repo.insert()
+```
+
+**Why this matters:**
+- ✅ **Write consistency** - Ensures all writes go to primary database
+- ✅ **Read replica safety** - Prevents write attempts on read-only replicas
+- ✅ **Fly.io distribution** - Works correctly in distributed Fly.io setup
+- ✅ **Data integrity** - Prevents split-brain scenarios
+
+**Functions requiring transaction_on_primary:**
+- `Repo.insert/1`, `Repo.update/1`, `Repo.delete/1`
+- `Repo.insert_all/2`, `Repo.update_all/2`, `Repo.delete_all/1`
+- Any function that modifies database state
+
+**Functions that DON'T need it:**
+- `Repo.get/2`, `Repo.all/1`, `Repo.one/1` (read operations)
+- `Repo.exists?/1`, `Repo.aggregate/3` (read operations)
+
 ### 🔑 Post-Context Encryption Strategy (CRITICAL FOR TIMELINE FEATURES):
 
 **⚠️ IMPORTANT**: All timeline-related content uses the existing `post_key` pattern:
@@ -162,11 +199,12 @@ This approach gets you:
 ## Implementation Status & Progress Tracking
 
 ### ✅ Completed Features:
-- [x] **1.1 Bookmarks System** - ✅ **COMPLETE** (2025-09-20)
+- [x] **1.1 Bookmarks System** - ✅ **COMPLETE** (2025-09-20) **UPDATED**
   - [x] Database migration created and executed
   - [x] `Bookmark` schema with post_key encryption
   - [x] `BookmarkCategory` schema with Cloak encryption
   - [x] Timeline context functions (create, update, delete, list, count)
+  - [x] **transaction_on_primary** implemented for all write operations
   - [x] PubSub broadcasting for real-time updates
   - [x] Encryption using existing post_key strategy
   - [x] Cascade deletion when posts are removed
