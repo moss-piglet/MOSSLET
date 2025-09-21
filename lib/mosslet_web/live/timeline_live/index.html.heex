@@ -7,7 +7,7 @@
     <div class="relative px-4 sm:px-6 lg:px-8 pt-8 pb-6">
       <div class="mx-auto max-w-2xl text-center">
         <MossletWeb.DesignSystem.liquid_timeline_header
-          user_name="Isabella"
+          user_name={user_name(@current_user, @key)}
           status="calm"
           status_message="Mindfully connected"
         />
@@ -70,7 +70,7 @@
           class="relative"
         >
           <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
-            user_name={user_name(@current_user, @key) || "User"}
+            user_name={user_name(@current_user, @key) || "Private Author"}
             user_avatar={
               maybe_get_user_avatar(@current_user, @key) || "/images/logo_icon_dark.svg"
             }
@@ -91,7 +91,7 @@
             <div class="timeline-post-item new-post">
               <MossletWeb.DesignSystem.liquid_timeline_post
                 user_name={get_post_author_name(post, @current_user, @key)}
-                user_handle={"@" <> (decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") || "user")}
+                user_handle={"@" <> (decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") || "author")}
                 user_avatar={get_post_author_avatar(post, @current_user, @key)}
                 timestamp={format_post_timestamp(post.inserted_at)}
                 verified={false}

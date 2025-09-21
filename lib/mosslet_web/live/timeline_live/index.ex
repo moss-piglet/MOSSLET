@@ -69,6 +69,9 @@ defmodule MossletWeb.TimelineLive.Index do
       Timeline.private_reply_subscribe(current_user)
       Timeline.connections_subscribe(current_user)
       Timeline.connections_reply_subscribe(current_user)
+      # Subscribe to public posts for discover tab realtime updates
+      Timeline.subscribe()
+      Timeline.reply_subscribe()
     end
 
     post_sort_by = valid_sort_by(params)
@@ -1117,7 +1120,7 @@ defmodule MossletWeb.TimelineLive.Index do
             socket =
               socket
               |> assign(:timeline_counts, timeline_counts)
-              |> put_flash(:info, "Bookmark removed")
+              |> put_flash(:info, "Bookmark removed sucessfully.")
 
             # Handle stream updates based on current tab
             socket =
@@ -1145,7 +1148,7 @@ defmodule MossletWeb.TimelineLive.Index do
             socket =
               socket
               |> assign(:timeline_counts, timeline_counts)
-              |> put_flash(:info, "Post bookmarked successfully")
+              |> put_flash(:success, "Post bookmarked successfully.")
 
             # Handle stream updates based on current tab
             socket =
@@ -1185,7 +1188,7 @@ defmodule MossletWeb.TimelineLive.Index do
              user: current_user
            ) do
         {:ok, _post} ->
-          {:noreply, socket}
+          {:noreply, put_flash(socket, :success, "You successfully loved this post!")}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
@@ -1208,7 +1211,7 @@ defmodule MossletWeb.TimelineLive.Index do
              user: current_user
            ) do
         {:ok, _post} ->
-          {:noreply, socket}
+          {:noreply, put_flash(socket, :success, "You successfully removed love from this post.")}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
@@ -1996,7 +1999,7 @@ defmodule MossletWeb.TimelineLive.Index do
       "home" -> "emerald"
       # This maps to blue-cyan gradient
       "connections" -> "teal"
-      # This maps to purple-violet gradient  
+      # This maps to purple-violet gradient
       "groups" -> "blue"
       # This maps to amber-orange gradient
       "bookmarks" -> "purple"

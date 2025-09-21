@@ -345,8 +345,9 @@ trix-editor {
 
 /* Enhanced animation for newly added posts (with .new-post class) */
 .timeline-post-item.new-post {
-  animation: new-post-slide-in-keys 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
-             new-post-highlight-keys 3s ease-out 0.8s forwards;
+  animation: new-post-slide-in-keys 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)
+      forwards,
+    new-post-highlight-keys 3s ease-out 0.8s forwards;
   /* Start hidden for the animation */
   opacity: 0;
   transform: translateY(-30px) scale(0.92);
@@ -371,7 +372,6 @@ trix-editor {
     transform: translateY(0);
   }
 }
-
 
 .fade-out-scale {
   animation: 0.2s ease-in 0s normal forwards 1 fade-out-scale-keys;
@@ -687,4 +687,168 @@ trix-editor {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
+}
+
+/* Phoenix LiveView Data-Confirm Dialog - Liquid Metal Styling */
+dialog[data-confirm] {
+  border: none;
+  border-radius: 1rem; /* rounded-2xl */
+  padding: 2rem;
+  min-width: 320px;
+  max-width: 500px;
+  
+  /* Center the dialog in viewport */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+
+  /* Liquid metal background with backdrop blur */
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+
+  /* Enhanced shadow with liquid metal glow */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(148, 163, 184, 0.05), 0 0 20px rgba(20, 184, 166, 0.1);
+
+  /* Smooth animations */
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate(-50%, -50%) scale(0.95);
+  opacity: 0;
+}
+
+/* Dark mode styling - Updated to use data-theme */
+[data-theme="dark"] dialog[data-confirm] {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(148, 163, 184, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(148, 163, 184, 0.1), 0 0 20px rgba(20, 184, 166, 0.15);
+}
+
+/* Animation when dialog appears */
+dialog[data-confirm][open] {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+/* Style the backdrop with liquid blur effect */
+dialog[data-confirm]::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease-out;
+}
+
+/* Style the content text */
+dialog[data-confirm] p {
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #475569; /* slate-600 */
+  font-weight: 400;
+}
+
+[data-theme="dark"] dialog[data-confirm] p {
+  color: #cbd5e1; /* slate-300 */
+}
+
+/* Button container */
+dialog[data-confirm] .dialog-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+/* Base button styling */
+dialog[data-confirm] button {
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cancel button (secondary) */
+dialog[data-confirm] button[data-confirm-cancel] {
+  background: rgba(255, 255, 255, 0.8);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+dialog[data-confirm] button[data-confirm-cancel]:hover {
+  background: rgba(248, 250, 252, 0.9);
+  border-color: rgba(148, 163, 184, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] dialog[data-confirm] button[data-confirm-cancel] {
+  background: rgba(30, 41, 59, 0.8);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="dark"] dialog[data-confirm] button[data-confirm-cancel]:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Confirm button (destructive with liquid metal effect) */
+dialog[data-confirm] button[data-confirm-accept] {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: white;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+dialog[data-confirm] button[data-confirm-accept]:hover {
+  background: linear-gradient(135deg, #b91c1c, #dc2626);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+dialog[data-confirm] button[data-confirm-accept]:active {
+  transform: translateY(-1px) scale(1.01);
+}
+
+[data-theme="dark"] dialog[data-confirm] button[data-confirm-accept] {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] dialog[data-confirm] button[data-confirm-accept]:hover {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Liquid shimmer effect on confirm button */
+dialog[data-confirm] button[data-confirm-accept]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+
+dialog[data-confirm] button[data-confirm-accept]:hover::before {
+  left: 100%;
 }

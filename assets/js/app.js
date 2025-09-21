@@ -340,6 +340,94 @@ let execJS = (selector, attr) => {
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
+
+// Custom confirmation dialog for Phoenix LiveView data-confirm
+// Intercepts clicks on elements with data-confirm attribute
+document.addEventListener('click', (e) => {
+  const element = e.target.closest('[data-confirm]');
+  if (!element) return;
+  
+  const message = element.getAttribute('data-confirm');
+  if (!message) return;
+  
+  // Prevent the default action
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  
+  // Show our custom confirmation dialog
+  showCustomConfirm(message, () => {
+    // User confirmed - trigger the action without data-confirm
+    const originalConfirm = element.getAttribute('data-confirm');
+    element.removeAttribute('data-confirm');
+    
+    // Create a new click event and dispatch it
+    const newEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    });
+    
+    element.dispatchEvent(newEvent);
+    
+    // Restore data-confirm for future use
+    setTimeout(() => {
+      element.setAttribute('data-confirm', originalConfirm);
+    }, 100);
+  });
+}, true); // Use capture phase to intercept before Phoenix
+
+function showCustomConfirm(message, onConfirm) {
+  // Create dialog element that matches our CSS selectors
+  const dialog = document.createElement('dialog');
+  dialog.setAttribute('data-confirm', '');
+  
+  dialog.innerHTML = `
+    <p>${message}</p>
+    <div class="dialog-buttons">
+      <button type="button" data-confirm-cancel>Cancel</button>
+      <button type="button" data-confirm-accept>Delete</button>
+    </div>
+  `;
+  
+  document.body.appendChild(dialog);
+  
+  // Show dialog with animation
+  dialog.showModal();
+  
+  // Trigger the open state for CSS animations
+  requestAnimationFrame(() => {
+    dialog.setAttribute('open', '');
+  });
+  
+  // Handle button clicks
+  dialog.querySelector('[data-confirm-cancel]').onclick = () => {
+    dialog.close();
+    document.body.removeChild(dialog);
+  };
+  
+  dialog.querySelector('[data-confirm-accept]').onclick = () => {
+    dialog.close();
+    document.body.removeChild(dialog);
+    onConfirm();
+  };
+  
+  // Close on backdrop click
+  dialog.onclick = (e) => {
+    if (e.target === dialog) {
+      dialog.close();
+      document.body.removeChild(dialog);
+    }
+  };
+  
+  // Close on ESC key
+  dialog.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      dialog.close();
+      document.body.removeChild(dialog);
+    }
+  };
+}
+
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   hooks: Object.assign(

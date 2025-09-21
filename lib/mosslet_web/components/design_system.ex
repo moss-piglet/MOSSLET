@@ -2885,10 +2885,25 @@ defmodule MossletWeb.DesignSystem do
             </.liquid_badge>
           </div>
 
-          <%!-- Post menu (subtle) --%>
-          <button class="relative p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out">
-            <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
-          </button>
+          <%!-- Post menu with liquid dropdown - only show if user has actions available --%>
+          <.liquid_dropdown
+            :if={@current_user_id == @post.user_id}
+            id={"post-menu-#{@post.id}"}
+            trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
+            placement="bottom-end"
+          >
+            <:trigger>
+              <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
+            </:trigger>
+            <:item
+              phx_click="delete_post"
+              phx_value_id={@post.id}
+              data_confirm="Are you sure you want to delete this post?"
+              color="red"
+            >
+              <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete Post
+            </:item>
+          </.liquid_dropdown>
         </div>
 
         <%!-- Post content --%>
@@ -3314,7 +3329,8 @@ defmodule MossletWeb.DesignSystem do
             {tab.label}
           </span>
 
-          <%!-- Main count badge (simplified) --%>
+          <%!-- Main count badge (simplified) we hide this for now as it's much more relaxing (and the total remaining is in the load more button) --%>
+          <%!--
           <span
             :if={tab[:count]}
             class={[
@@ -3324,6 +3340,7 @@ defmodule MossletWeb.DesignSystem do
           >
             {tab.count}
           </span>
+          --%>
 
           <%!-- Floating unread indicator badge (positioned absolutely in top-right) --%>
           <span
@@ -3517,26 +3534,26 @@ defmodule MossletWeb.DesignSystem do
       "bg-gradient-to-r from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/20 dark:via-emerald-900/10 dark:to-cyan-900/20"
 
   # Count badge colors to match tab semantics
-  defp timeline_tab_count_classes("home", true),
-    do: "bg-emerald-100 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200"
+  # defp timeline_tab_count_classes("home", true),
+  #  do: "bg-emerald-100 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200"
 
-  defp timeline_tab_count_classes("connections", true),
-    do: "bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200"
+  # defp timeline_tab_count_classes("connections", true),
+  #  do: "bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200"
 
-  defp timeline_tab_count_classes("groups", true),
-    do: "bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200"
+  # defp timeline_tab_count_classes("groups", true),
+  #  do: "bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200"
 
-  defp timeline_tab_count_classes("bookmarks", true),
-    do: "bg-amber-100 dark:bg-amber-800 text-amber-800 dark:text-amber-200"
+  # defp timeline_tab_count_classes("bookmarks", true),
+  #  do: "bg-amber-100 dark:bg-amber-800 text-amber-800 dark:text-amber-200"
 
-  defp timeline_tab_count_classes("discover", true),
-    do: "bg-indigo-100 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200"
+  # defp timeline_tab_count_classes("discover", true),
+  #  do: "bg-indigo-100 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200"
 
-  defp timeline_tab_count_classes(_, false),
-    do: "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
+  # defp timeline_tab_count_classes(_, false),
+  #  do: "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
 
-  defp timeline_tab_count_classes(_, true),
-    do: "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
+  # defp timeline_tab_count_classes(_, true),
+  #  do: "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
 
   # Helper functions for timeline action components
 
@@ -3943,4 +3960,124 @@ defmodule MossletWeb.DesignSystem do
   defp banner_content_classes("error"), do: "text-red-700 dark:text-red-300"
   defp banner_content_classes("success"), do: "text-emerald-700 dark:text-emerald-300"
   defp banner_content_classes("info"), do: "text-blue-700 dark:text-blue-300"
+
+  @doc """
+  A liquid-styled dropdown menu component.
+
+  ## Examples
+
+      <.liquid_dropdown
+        id="post-menu-123"
+        trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600"
+        placement="bottom-end"
+      >
+        <:trigger>
+          <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
+        </:trigger>
+        <:item phx-click="delete_post" phx-value-id="123" color="red">
+          <.phx_icon name="hero-trash" class="h-4 w-4" />
+          Delete Post
+        </:item>
+      </.liquid_dropdown>
+  """
+  attr :id, :string, required: true
+  attr :trigger_class, :string, default: ""
+
+  attr :placement, :string,
+    default: "bottom-end",
+    values: ~w(bottom-start bottom-end top-start top-end)
+
+  attr :class, :string, default: ""
+
+  slot :trigger, required: true
+
+  slot :item do
+    attr :color, :string, values: ~w(slate gray red emerald blue amber purple)
+    attr :phx_click, :string
+    attr :phx_value_id, :string
+    attr :href, :string
+    attr :data_confirm, :string
+  end
+
+  def liquid_dropdown(assigns) do
+    ~H"""
+    <div class={["relative", @class]} phx-click-away={JS.hide(to: "##{@id}-menu")}>
+      <%!-- Trigger button --%>
+      <button
+        type="button"
+        phx-click={JS.toggle(to: "##{@id}-menu")}
+        class={[
+          "relative transition-all duration-200 ease-out",
+          "hover:bg-slate-100/50 dark:hover:bg-slate-700/50",
+          @trigger_class
+        ]}
+        aria-expanded="false"
+        aria-haspopup="true"
+      >
+        {render_slot(@trigger)}
+      </button>
+
+      <%!-- Dropdown menu --%>
+      <div
+        id={"#{@id}-menu"}
+        class={[
+          "absolute z-50 mt-2 w-48 origin-top-right hidden",
+          "rounded-xl border border-slate-200/60 dark:border-slate-700/60",
+          "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+          "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+          "transition-all duration-200 ease-out",
+          "ring-1 ring-slate-200/60 dark:ring-slate-700/60",
+          placement_classes(@placement)
+        ]}
+        role="menu"
+        aria-orientation="vertical"
+      >
+        <%!-- Liquid background effect --%>
+        <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 opacity-50">
+        </div>
+
+        <div class="relative py-2">
+          <div
+            :for={item <- @item}
+            class={[
+              "group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer",
+              "hover:bg-slate-100/80 dark:hover:bg-slate-700/80",
+              "first:rounded-t-lg last:rounded-b-lg",
+              item_color_classes(item[:color] || "slate")
+            ]}
+            role="menuitem"
+            phx-click={item[:phx_click]}
+            phx-value-id={item[:phx_value_id]}
+            {if item[:href], do: ["phx-click": "navigate", "phx-value-href": item[:href]], else: []}
+            data-confirm={item[:data_confirm]}
+          >
+            {render_slot(item)}
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp placement_classes("bottom-start"), do: "left-0"
+  defp placement_classes("bottom-end"), do: "right-0"
+  defp placement_classes("top-start"), do: "left-0 bottom-full mb-2"
+  defp placement_classes("top-end"), do: "right-0 bottom-full mb-2"
+  defp placement_classes(_), do: "right-0"
+
+  defp item_color_classes("red") do
+    "text-red-700 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 hover:bg-red-50/80 dark:hover:bg-red-900/40"
+  end
+
+  defp item_color_classes("emerald") do
+    "text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/40"
+  end
+
+  defp item_color_classes("blue") do
+    "text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 hover:bg-blue-50/80 dark:hover:bg-blue-900/40"
+  end
+
+  defp item_color_classes(_) do
+    "text-slate-700 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-200"
+  end
 end
