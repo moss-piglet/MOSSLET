@@ -23,10 +23,30 @@
       <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 p-2">
         <MossletWeb.DesignSystem.liquid_timeline_tabs
           tabs={[
-            %{key: "home", label: "Home", count: @timeline_counts.home || 12},
-            %{key: "connections", label: "Connections", count: @timeline_counts.connections || 4},
-            %{key: "groups", label: "Groups", count: @timeline_counts.groups || 2},
-            %{key: "bookmarks", label: "Bookmarks", count: @timeline_counts.bookmarks || 8},
+            %{
+              key: "home",
+              label: "Home",
+              count: @timeline_counts.home || 12,
+              unread: @unread_counts.home || 0
+            },
+            %{
+              key: "connections",
+              label: "Connections",
+              count: @timeline_counts.connections || 4,
+              unread: @unread_counts.connections || 0
+            },
+            %{
+              key: "groups",
+              label: "Groups",
+              count: @timeline_counts.groups || 2,
+              unread: @unread_counts.groups || 0
+            },
+            %{
+              key: "bookmarks",
+              label: "Bookmarks",
+              count: @timeline_counts.bookmarks || 8,
+              unread: @unread_counts.bookmarks || 0
+            },
             %{key: "discover", label: "Discover"}
           ]}
           active_tab={@active_tab || "home"}
@@ -97,6 +117,7 @@
               is_repost={post.repost || false}
               liked={@current_user.id in (post.favs_list || [])}
               bookmarked={get_post_bookmarked_status(post, @current_user)}
+              is_unread={get_post_unread_status(post, @current_user)}
               class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
             />
           </div>

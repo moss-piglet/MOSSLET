@@ -2708,6 +2708,8 @@ defmodule MossletWeb.DesignSystem do
   attr :post, :map, required: true
   attr :current_user, :map, required: true
   attr :is_repost, :boolean, default: false
+  # New: unread state
+  attr :is_unread, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_timeline_post(assigns) do
@@ -2725,6 +2727,12 @@ defmodule MossletWeb.DesignSystem do
         if(@is_repost,
           do:
             "ring-2 ring-emerald-400/30 dark:ring-emerald-500/40 shadow-lg shadow-emerald-500/20 dark:shadow-emerald-400/25 border-emerald-200/50 dark:border-emerald-700/50",
+          else: ""
+        ),
+        # Enhanced glow effect for unread posts - teal/cyan glow to distinguish from reposts
+        if(@is_unread,
+          do:
+            "ring-2 ring-teal-400/40 dark:ring-cyan-500/50 shadow-lg shadow-teal-500/25 dark:shadow-cyan-400/30 border-teal-200/60 dark:border-cyan-700/60",
           else: ""
         ),
         @class
@@ -2862,6 +2870,26 @@ defmodule MossletWeb.DesignSystem do
               class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110"
             />
             <span class="sr-only">Bookmark this post</span>
+          </button>
+
+          <%!-- Read/Unread toggle action button --%>
+          <button
+            class={[
+              "p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
+              if(@is_unread,
+                do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
+                else:
+                  "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
+              )
+            ]}
+            phx-click={if @is_unread, do: "toggle-read", else: "toggle-unread"}
+            phx-value-id={@post_id}
+          >
+            <.phx_icon
+              name={if @is_unread, do: "hero-eye-solid", else: "hero-eye"}
+              class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110"
+            />
+            <span class="sr-only">{if @is_unread, do: "Mark as read", else: "Mark as unread"}</span>
           </button>
         </div>
       </div>
@@ -3170,7 +3198,7 @@ defmodule MossletWeb.DesignSystem do
             {tab.label}
           </span>
 
-          <%!-- Count badge with enhanced mobile design --%>
+          <%!-- Main count badge (simplified) --%>
           <span
             :if={tab[:count]}
             class={[
@@ -3179,6 +3207,24 @@ defmodule MossletWeb.DesignSystem do
             ]}
           >
             {tab.count}
+          </span>
+
+          <%!-- Floating unread indicator badge (positioned absolutely in top-right) --%>
+          <span
+            :if={tab[:unread] && tab.unread > 0}
+            class={[
+              "absolute -top-1 -right-1 z-20",
+              "flex items-center justify-center",
+              "min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full",
+              "bg-gradient-to-r from-teal-400 to-cyan-400 text-white",
+              "shadow-lg shadow-teal-500/50 dark:shadow-cyan-400/40",
+              "ring-2 ring-white dark:ring-slate-800",
+              "animate-pulse",
+              "transform scale-90 hover:scale-100 transition-transform duration-200"
+            ]}
+            data-tooltip="Unread posts"
+          >
+            {tab.unread}
           </span>
         </button>
       </div>

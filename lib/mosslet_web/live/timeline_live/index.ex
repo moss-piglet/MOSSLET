@@ -49,6 +49,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:uploads_in_progress, false)
       |> assign(:active_tab, "home")
       |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0})
+      |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0})
       |> stream(:posts, [])
 
     {:ok, assign(socket, page_title: "Timeline")}
@@ -99,16 +100,9 @@ defmodule MossletWeb.TimelineLive.Index do
     posts = Timeline.filter_timeline_posts(current_user, options)
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
 
-    # Calculate timeline counts for tabs using proper Timeline functions
-    timeline_counts = %{
-      home: Timeline.timeline_post_count(current_user, options),
-      connections: Timeline.shared_between_users_post_count(current_user.id, current_user.id),
-      groups:
-        Timeline.filter_timeline_posts(current_user, options)
-        |> Enum.count(fn post -> post.group_id != nil end),
-      bookmarks: Timeline.count_user_bookmarks(current_user),
-      discover: Timeline.count_discover_posts()
-    }
+    # Calculate timeline counts for tabs using the new helper function
+    timeline_counts = calculate_timeline_counts(current_user, options)
+    unread_counts = calculate_unread_counts(current_user, options)
 
     socket =
       socket
@@ -127,6 +121,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:return_url, url)
       |> assign(:filter, filter)
       |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
       |> stream(:posts, posts, reset: true)
 
     {:noreply, socket}
@@ -666,14 +661,46 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("toggle-read", %{"id" => user_post_receipt_id}, socket) do
-    Timeline.update_user_post_receipt_read(user_post_receipt_id)
-    {:noreply, socket}
+  def handle_event("toggle-read", %{"id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+
+    try do
+      # Get the user_post_receipt for this post and user
+      post = Timeline.get_post!(post_id)
+      receipt = Timeline.get_user_post_receipt(current_user, post)
+
+      if receipt do
+        Timeline.update_user_post_receipt_read(receipt.id)
+        {:noreply, socket}
+      else
+        # If no receipt exists, we might need to create one first
+        {:noreply, put_flash(socket, :info, "Post already marked as read")}
+      end
+    rescue
+      _error ->
+        {:noreply, put_flash(socket, :error, "Failed to mark post as read")}
+    end
   end
 
-  def handle_event("toggle-unread", %{"id" => user_post_receipt_id}, socket) do
-    Timeline.update_user_post_receipt_unread(user_post_receipt_id)
-    {:noreply, socket}
+  def handle_event("toggle-unread", %{"id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+
+    try do
+      # Get the user_post_receipt for this post and user
+      post = Timeline.get_post!(post_id)
+      receipt = Timeline.get_user_post_receipt(current_user, post)
+
+      if receipt do
+        Timeline.update_user_post_receipt_unread(receipt.id)
+        {:noreply, socket}
+      else
+        # If no receipt exists, we might need to create one first
+        {:noreply, put_flash(socket, :info, "Post already marked as unread")}
+      end
+    rescue
+      _error ->
+        {:noreply, put_flash(socket, :error, "Failed to mark post as unread")}
+    end
   end
 
   def handle_event("log_error", %{"error" => error} = error_message, socket) do
@@ -857,12 +884,27 @@ defmodule MossletWeb.TimelineLive.Index do
 
         "connections" ->
           # Show only posts from connected users using the dedicated function
-          Timeline.list_connection_posts(current_user, limit: options.post_per_page, offset: 0)
+          # Get connected user IDs and filter timeline posts
+          connection_user_ids =
+            Accounts.get_all_confirmed_user_connections(current_user.id)
+            # Use reverse_user_id for actual connections
+            |> Enum.map(& &1.reverse_user_id)
+            |> Enum.uniq()
+
+          if Enum.empty?(connection_user_ids) do
+            # No connections yet
+            []
+          else
+            # Filter timeline posts to only show posts from connections (exclude current user)
+            Timeline.filter_timeline_posts(current_user, options)
+            |> Enum.filter(fn post ->
+              post.user_id in connection_user_ids and post.user_id != current_user.id
+            end)
+          end
 
         "groups" ->
           # Get all posts from groups the user belongs to
-          # Since list_group_posts expects a specific group, we need a different approach
-          # For now, filter timeline posts to only show posts with group_id
+          # Filter timeline posts to only show posts with group_id
           Timeline.filter_timeline_posts(current_user, options)
           |> Enum.filter(fn post -> post.group_id != nil end)
 
@@ -873,28 +915,22 @@ defmodule MossletWeb.TimelineLive.Index do
           |> Enum.filter(&(&1 != nil))
 
         "discover" ->
-          # Show public posts only using dedicated Timeline function
+          # Show public posts using dedicated Timeline function for discovery
           Timeline.list_discover_posts(options.post_per_page, 0)
 
         _ ->
           Timeline.filter_timeline_posts(current_user, options)
       end
 
-    # Update tab counts using proper Timeline functions
-    timeline_counts = %{
-      home: Timeline.timeline_post_count(current_user, options),
-      connections: Timeline.shared_between_users_post_count(current_user.id, current_user.id),
-      groups:
-        Timeline.filter_timeline_posts(current_user, options)
-        |> Enum.count(fn post -> post.group_id != nil end),
-      bookmarks: Timeline.count_user_bookmarks(current_user),
-      discover: Timeline.count_discover_posts()
-    }
+    # Update tab counts using proper counting logic
+    timeline_counts = calculate_timeline_counts(current_user, options)
+    unread_counts = calculate_unread_counts(current_user, options)
 
     socket =
       socket
       |> assign(:active_tab, tab)
       |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
       |> assign(:options, options)
       |> stream(:posts, posts, reset: true)
 
@@ -1643,6 +1679,72 @@ defmodule MossletWeb.TimelineLive.Index do
     url |> String.split("/") |> List.last()
   end
 
+  # Helper function to calculate timeline counts for all tabs
+  defp calculate_timeline_counts(current_user, options) do
+    # Get connection user IDs once for efficiency - use reverse_user_id for actual connections
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    # Get all timeline posts once for counting
+    all_posts = Timeline.filter_timeline_posts(current_user, options)
+
+    %{
+      home: length(all_posts),
+      connections:
+        if Enum.empty?(connection_user_ids) do
+          0
+        else
+          Enum.count(all_posts, fn post ->
+            post.user_id in connection_user_ids and post.user_id != current_user.id
+          end)
+        end,
+      groups: Enum.count(all_posts, fn post -> post.group_id != nil end),
+      bookmarks: Timeline.count_user_bookmarks(current_user),
+      discover: Timeline.count_discover_posts()
+    }
+  end
+
+  # Helper function to calculate unread counts for all tabs
+  defp calculate_unread_counts(current_user, _options) do
+    # Get unread posts for the current user
+    unread_posts = Timeline.unread_posts(current_user)
+
+    # Get connection user IDs for filtering
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    %{
+      home: length(unread_posts),
+      connections:
+        if Enum.empty?(connection_user_ids) do
+          0
+        else
+          Enum.count(unread_posts, fn post ->
+            post.user_id in connection_user_ids and post.user_id != current_user.id
+          end)
+        end,
+      groups: Enum.count(unread_posts, fn post -> post.group_id != nil end),
+      # Count unread bookmarked posts
+      bookmarks:
+        try do
+          user_bookmarks =
+            Timeline.list_user_bookmarks(current_user)
+            |> Enum.map(fn bookmark -> bookmark.post end)
+            |> Enum.filter(&(&1 != nil))
+
+          Enum.count(user_bookmarks, fn post ->
+            Enum.any?(unread_posts, fn unread_post -> unread_post.id == post.id end)
+          end)
+        rescue
+          _ -> 0
+        end
+    }
+  end
+
   defp get_file_key_from_remove_event(url) do
     url
     |> String.split("/")
@@ -1721,6 +1823,18 @@ defmodule MossletWeb.TimelineLive.Index do
     try do
       # Use the existing Timeline.bookmarked? function
       Timeline.bookmarked?(current_user, post)
+    rescue
+      _ -> false
+    end
+  end
+
+  # Helper function to check if a post is unread by the current user
+  defp get_post_unread_status(post, current_user) do
+    try do
+      # Check if there's a user_post_receipt and if it's marked as read
+      receipt = Timeline.get_user_post_receipt(current_user, post)
+      # Post is unread if there's no receipt or if read? is false
+      !receipt || !receipt.read?
     rescue
       _ -> false
     end
