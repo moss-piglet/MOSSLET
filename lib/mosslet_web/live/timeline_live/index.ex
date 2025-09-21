@@ -220,13 +220,34 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:post_created, post}, socket) do
-    return_url = socket.assigns.return_url
     current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
 
+    # Don't show the user their own posts (they already see them when creating)
     if post.user_id == current_user.id do
       {:noreply, socket}
     else
-      {:noreply, push_patch(socket, to: return_url)}
+      # Check if this post should appear in the current tab
+      should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+
+      if should_show_post do
+        # Add the new post to the top of the stream with smooth animation
+        socket =
+          socket
+          |> stream_insert(:posts, post, at: 0)
+          |> recalculate_counts_after_new_post(current_user, options)
+          |> add_post_slide_in_animation(post.id)
+
+        {:noreply, socket}
+      else
+        # Post doesn't match current tab, but still update counts
+        socket =
+          socket
+          |> recalculate_counts_after_new_post(current_user, options)
+
+        {:noreply, socket}
+      end
     end
   end
 
@@ -977,7 +998,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("bookmark_post", %{"id" => post_id}, socket) do
     current_user = socket.assigns.current_user
-    key = socket.assigns.key
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
 
@@ -1792,6 +1812,55 @@ defmodule MossletWeb.TimelineLive.Index do
       _ ->
         posts
     end
+  end
+
+  # Helper function to check if a new post should appear in the current tab
+  defp post_matches_current_tab?(post, current_tab, current_user) do
+    case current_tab do
+      "home" ->
+        # Home tab shows user's own posts, but we already filtered those out
+        false
+
+      "connections" ->
+        # Show posts from connected users
+        connection_user_ids =
+          Accounts.get_all_confirmed_user_connections(current_user.id)
+          |> Enum.map(& &1.reverse_user_id)
+          |> Enum.uniq()
+
+        post.user_id in connection_user_ids
+
+      "groups" ->
+        # Show posts from groups the user belongs to
+        post.group_id != nil
+
+      "discover" ->
+        # Show public posts
+        post.visibility == :public
+
+      "bookmarks" ->
+        # Don't auto-add to bookmarks (user has to manually bookmark)
+        false
+
+      _ ->
+        false
+    end
+  end
+
+  # Helper function to recalculate counts after a new post arrives
+  defp recalculate_counts_after_new_post(socket, current_user, options) do
+    timeline_counts = calculate_timeline_counts(current_user, options)
+    unread_counts = calculate_unread_counts(current_user, options)
+
+    socket
+    |> assign(:timeline_counts, timeline_counts)
+    |> assign(:unread_counts, unread_counts)
+  end
+
+  # Helper function to add slide-in animation for new posts
+  defp add_post_slide_in_animation(socket, post_id) do
+    # Push event to client to animate the new post sliding in
+    push_event(socket, "animate-new-post", %{post_id: "posts-#{post_id}"})
   end
 
   defp get_file_key(url) do

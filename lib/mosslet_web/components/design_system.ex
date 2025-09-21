@@ -2396,7 +2396,7 @@ defmodule MossletWeb.DesignSystem do
   Timeline realtime update indicator for PubSub notifications.
   Positioned below the topbar to avoid mobile sidebar collision.
   """
-  attr :unread_counts, :integer, default: 0
+  attr :new_posts_count, :integer, default: 0
   attr :class, :any, default: ""
 
   def liquid_timeline_realtime_indicator(assigns) do
@@ -2411,7 +2411,11 @@ defmodule MossletWeb.DesignSystem do
     >
       <button
         class="group inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
-        phx-click={JS.scroll_to("#timeline-posts", duration: 300)}
+        phx-click={
+          JS.exec(
+            "document.getElementById('timeline-posts').scrollIntoView({behavior: 'smooth', block: 'start'})"
+          )
+        }
         title="Scroll to top of timeline"
       >
         <%!-- Gentle pulse indicator --%>

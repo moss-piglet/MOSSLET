@@ -108,6 +108,39 @@ document.addEventListener("trix-initialize", function (event) {
   );
 });
 
+// Add event listener for new post animations
+window.addEventListener("phx:animate-new-post", (event) => {
+  const postElement = document.getElementById(event.detail.post_id);
+  if (postElement) {
+    // Add initial animation classes
+    postElement.classList.add(
+      "animate-in",
+      "slide-in-from-top-2",
+      "fade-in",
+      "duration-500",
+      "ease-out"
+    );
+    
+    // Add a subtle glow effect for new posts
+    postElement.classList.add(
+      "ring-2", 
+      "ring-emerald-400/30", 
+      "ring-offset-2",
+      "dark:ring-emerald-400/20"
+    );
+    
+    // Remove the glow effect after animation completes
+    setTimeout(() => {
+      postElement.classList.remove(
+        "ring-2", 
+        "ring-emerald-400/30", 
+        "ring-offset-2",
+        "dark:ring-emerald-400/20"
+      );
+    }, 2000);
+  }
+});
+
 window.addEventListener("phx:show-el", (e) =>
   document.getElementById(e.detail.id).removeAttribute("style")
 );
