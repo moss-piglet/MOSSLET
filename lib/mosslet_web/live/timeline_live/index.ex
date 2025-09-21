@@ -1993,22 +1993,6 @@ defmodule MossletWeb.TimelineLive.Index do
     max(0, total_posts - loaded_posts_count)
   end
 
-  # Helper function to get tab color for the load more button
-  defp get_tab_color(active_tab) do
-    case active_tab do
-      "home" -> "emerald"
-      # This maps to blue-cyan gradient
-      "connections" -> "teal"
-      # This maps to purple-violet gradient
-      "groups" -> "blue"
-      # This maps to amber-orange gradient
-      "bookmarks" -> "purple"
-      # This maps to indigo-blue gradient
-      "discover" -> "orange"
-      _ -> "slate"
-    end
-  end
-
   # Helper function to calculate timeline counts for all tabs
   defp calculate_timeline_counts(current_user, _options) do
     %{

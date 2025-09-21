@@ -2400,8 +2400,24 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
+  # Helper function to get tab color for the load more button
+  def get_tab_color(active_tab) do
+    case active_tab do
+      "home" -> "emerald"
+      # This maps to blue-cyan gradient
+      "connections" -> "teal"
+      # This maps to purple-violet gradient
+      "groups" -> "blue"
+      # This maps to amber-orange gradient
+      "bookmarks" -> "purple"
+      # This maps to indigo-blue gradient
+      "discover" -> "orange"
+      _ -> "slate"
+    end
+  end
+
   # Helper function to get color classes for different tabs
-  defp get_tab_color_classes(tab_color) do
+  def get_tab_color_classes(tab_color) do
     case tab_color do
       "emerald" ->
         %{
@@ -2456,8 +2472,11 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
 
   def liquid_timeline_realtime_indicator(assigns) do
-    # Define tab-specific icons
+    # Define tab-specific icons and colors
     assigns = assign(assigns, :tab_icon, get_tab_icon(assigns.active_tab))
+
+    assigns =
+      assign(assigns, :color_classes, get_tab_color_classes(get_tab_color(assigns.active_tab)))
 
     ~H"""
     <div
@@ -2469,14 +2488,17 @@ defmodule MossletWeb.DesignSystem do
       ]}
     >
       <button
-        class="group inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+        class={[
+          "group inline-flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2",
+          @color_classes.button
+        ]}
         phx-click="scroll_to_top"
         title="Scroll to top of page"
       >
         <%!-- Gentle pulse indicator --%>
         <div class="relative">
-          <div class="w-2 h-2 bg-white rounded-full"></div>
-          <div class="absolute inset-0 w-2 h-2 bg-white rounded-full animate-ping opacity-75"></div>
+          <div class={["w-2 h-2 rounded-full", @color_classes.indicator]}></div>
+          <div class={["absolute inset-0 w-2 h-2 rounded-full animate-ping opacity-75", @color_classes.indicator]}></div>
         </div>
 
         <%!-- Tab-specific icon --%>
@@ -2486,7 +2508,7 @@ defmodule MossletWeb.DesignSystem do
         />
 
         <span class="text-sm font-medium">
-          {@new_posts_count} new post{if(@new_posts_count == 1, do: "", else: "s")}
+          {@new_posts_count} unread post{if(@new_posts_count == 1, do: "", else: "s")}
         </span>
       </button>
     </div>
