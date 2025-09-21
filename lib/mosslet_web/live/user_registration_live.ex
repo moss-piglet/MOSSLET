@@ -32,7 +32,7 @@ defmodule MossletWeb.UserRegistrationLive do
         <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
       </:logo>
       <:top_right>
-        <%!-- Dark mode toggle removed - will be replaced with updated version --%>
+        <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 
       <%!-- Error banner with improved styling --%>
