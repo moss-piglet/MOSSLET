@@ -187,12 +187,6 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 - ✅ **Clean UX** - No empty/useless menus for users without permissions
 - ✅ **Future-Ready** - Dropdown structure ready for enhanced controls later
 
-**Future Enhancements Planned**:
-
-- [ ] **Content Moderation** - Report/flag posts (Phase 4)
-- [ ] **Personal Filtering** - Hide posts from feed (Phase 4)
-- [ ] **Enhanced Privacy Controls** - Post-creation privacy updates (Phase 5)
-
 ## 🎯 Phase 3.3: Real-time Experience Enhancements - NEXT
 
 **Goal**: Polish the real-time user experience
@@ -204,15 +198,20 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 - [x] **Smooth Animations** - Polished micro-interactions
 - [ ] **Implement Action button Features** - Upload photos (with encryption and decryption on render), emoji picker, and content warning
 
-## 🎯 Phase 3.3: Advanced Features
+## Phase 3.3: Advanced Features
 
 **Goal**: Add sophisticated functionality
 
 - [ ] **Advanced Search** - Full-text search across encrypted content
-- [ ] **Content Filtering** - Keyword filters, content warnings
+- [ ] **Content Filtering** - Keyword filters, content warnings, hide posts from feed
 - [ ] **Reconnect Encrypted Caching Layer** - Functions are all in place, reconnect it back into our timeline features and ensure real-time functionality still working (cache being invalidated and updated in realtime as needed)
 - [ ] **Analytics Dashboard** - User engagement insights
 - [ ] **Mobile Optimizations** - PWA features and mobile-specific UI
+
+## Phase 4: Content Moderation and Enhanced Privacy Controls
+
+- [ ] **Content Moderation** - Report/flag posts (Phase 4)
+- [ ] **Enhanced Privacy Controls** - Post-creation privacy updates
 
 ---
 

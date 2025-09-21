@@ -3534,6 +3534,7 @@ defmodule MossletWeb.DesignSystem do
       "bg-gradient-to-r from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/20 dark:via-emerald-900/10 dark:to-cyan-900/20"
 
   # Count badge colors to match tab semantics
+  # Unused for now because that is a calmer UX
   # defp timeline_tab_count_classes("home", true),
   #  do: "bg-emerald-100 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200"
 

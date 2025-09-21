@@ -749,7 +749,7 @@ defmodule Mosslet.Timeline do
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up], up.user_id == ^current_user.id and p.user_id == ^current_user.id)
-    |> with_any_visibility([:private, :connections])
+    |> with_any_visibility([:private, :connections, :public])
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
       # Unread posts first (false comes before true)
