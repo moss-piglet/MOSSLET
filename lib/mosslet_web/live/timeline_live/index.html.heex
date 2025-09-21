@@ -117,7 +117,7 @@
               is_repost={post.repost || false}
               liked={@current_user.id in (post.favs_list || [])}
               bookmarked={get_post_bookmarked_status(post, @current_user)}
-              is_unread={get_post_unread_status(post, @current_user)}
+              unread?={get_post_unread_status(post, @current_user)}
               class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"
             />
           </div>

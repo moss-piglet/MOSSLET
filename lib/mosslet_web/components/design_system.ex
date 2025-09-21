@@ -2709,7 +2709,7 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user, :map, required: true
   attr :is_repost, :boolean, default: false
   # New: unread state
-  attr :is_unread, :boolean, default: false
+  attr :unread?, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_timeline_post(assigns) do
@@ -2730,7 +2730,7 @@ defmodule MossletWeb.DesignSystem do
           else: ""
         ),
         # Enhanced glow effect for unread posts - teal/cyan glow to distinguish from reposts
-        if(@is_unread,
+        if(@unread?,
           do:
             "ring-2 ring-teal-400/40 dark:ring-cyan-500/50 shadow-lg shadow-teal-500/25 dark:shadow-cyan-400/30 border-teal-200/60 dark:border-cyan-700/60",
           else: ""
@@ -2873,23 +2873,31 @@ defmodule MossletWeb.DesignSystem do
           </button>
 
           <%!-- Read/Unread toggle action button --%>
+          {inspect(@unread?)}
           <button
+            id={
+              if @unread?,
+                do: "mark-read-button-#{@post_id}",
+                else: "mark-as-unread-button-#{@post_id}"
+            }
             class={[
               "p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
-              if(@is_unread,
+              if(@unread?,
                 do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
                 else:
                   "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
               )
             ]}
-            phx-click={if @is_unread, do: "toggle-read", else: "toggle-unread"}
+            phx-hook="TippyHook"
+            data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
+            phx-click="toggle-read-status"
             phx-value-id={@post_id}
           >
             <.phx_icon
-              name={if @is_unread, do: "hero-eye-solid", else: "hero-eye"}
+              name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
               class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110"
             />
-            <span class="sr-only">{if @is_unread, do: "Mark as read", else: "Mark as unread"}</span>
+            <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
           </button>
         </div>
       </div>

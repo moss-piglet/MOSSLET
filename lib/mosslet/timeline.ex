@@ -806,15 +806,76 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Gets the UserPostReceipt for a post and user.
+  Creates or updates a user post receipt.
   """
-  def get_user_post_receipt(post, current_user) do
-    UserPostReceipt
-    |> where([upr], upr.user_id == ^current_user.id)
-    |> join(:inner, [upr], up in UserPost, on: up.id == upr.user_post_id)
-    |> where([upr, up], up.post_id == ^post.id)
-    |> where([upr, up], up.user_id == ^current_user.id)
-    |> Repo.one()
+  def create_or_update_user_post_receipt(user_post, user, is_read?) do
+    # First check if a receipt already exists by querying directly
+    existing_receipt =
+      Repo.get_by(
+        UserPostReceipt,
+        user_id: user.id,
+        user_post_id: user_post.id
+      )
+
+    case existing_receipt do
+      nil ->
+        # No receipt exists, create a new one
+        {:ok, dt} = DateTime.now("Etc/UTC")
+
+        receipt_changeset =
+          UserPostReceipt.changeset(
+            %UserPostReceipt{},
+            %{
+              user_id: user.id,
+              user_post_id: user_post.id,
+              is_read?: is_read?,
+              read_at: if(is_read?, do: DateTime.to_naive(dt), else: nil)
+            }
+          )
+          |> Ecto.Changeset.put_assoc(:user, user)
+          |> Ecto.Changeset.put_assoc(:user_post, user_post)
+
+        case Repo.transaction_on_primary(fn -> Repo.insert(receipt_changeset) end) do
+          {:ok, {:ok, receipt}} -> {:ok, receipt}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+          error -> error
+        end
+
+      receipt ->
+        # Receipt already exists, update it instead
+        {:ok, dt} = DateTime.now("Etc/UTC")
+
+        update_changeset =
+          UserPostReceipt.changeset(
+            receipt,
+            %{
+              is_read?: is_read?,
+              read_at: if(is_read?, do: DateTime.to_naive(dt), else: nil)
+            }
+          )
+
+        case Repo.transaction_on_primary(fn -> Repo.update(update_changeset) end) do
+          {:ok, {:ok, updated_receipt}} -> {:ok, updated_receipt}
+          {:ok, {:error, changeset}} -> {:error, changeset}
+          error -> error
+        end
+    end
+  end
+
+  @doc """
+  Gets the UserPostReceipt for a post and user.
+  Returns nil if no receipt exists.
+  """
+  def get_user_post_receipt(current_user, post) do
+    # First, get the UserPost for this user and post
+    user_post = get_user_post(post, current_user)
+
+    if user_post do
+      # Then get the receipt for this user_post
+      Repo.get_by(UserPostReceipt, user_id: current_user.id, user_post_id: user_post.id)
+    else
+      nil
+    end
   end
 
   @doc """
@@ -851,7 +912,7 @@ defmodule Mosslet.Timeline do
     user = Accounts.get_user!(opts[:user].id)
     p_attrs = post.changes.user_post_map
 
-    {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} =
+    {:ok, %{insert_post: post, insert_user_post: user_post_conn}} =
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:insert_post, post)
       |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
@@ -868,7 +929,27 @@ defmodule Mosslet.Timeline do
         |> Ecto.Changeset.put_assoc(:post, post)
         |> Ecto.Changeset.put_assoc(:user, user)
       end)
+      |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{insert_user_post: user_post} ->
+        # Create receipt for the post creator (marked as read)
+        {:ok, dt} = DateTime.now("Etc/UTC")
+
+        UserPostReceipt.changeset(
+          %UserPostReceipt{},
+          %{
+            user_id: user.id,
+            user_post_id: user_post.id,
+            is_read?: true,
+            read_at: DateTime.to_naive(dt)
+          }
+        )
+        |> Ecto.Changeset.put_assoc(:user, user)
+        |> Ecto.Changeset.put_assoc(:user_post, user_post)
+      end)
       |> Repo.transaction_on_primary()
+
+    # Create user_post_receipts for other users who can see this public post
+    # For public posts, this means all confirmed users in the system
+    create_public_post_receipts_for_other_users(post, user_post_conn, user)
 
     # we do not create multiple user_posts as the post is
     # symmetrically encrypted with the server public key.
@@ -880,6 +961,74 @@ defmodule Mosslet.Timeline do
 
     {:ok, conn, post |> Repo.preload([:user_posts, :group, :user_group, :replies])}
     |> broadcast(:post_created)
+  end
+
+  # Helper function to create user_post_receipts for public posts
+  # This creates receipts for all confirmed users except the post creator
+  defp create_public_post_receipts_for_other_users(post, user_post_conn, creator_user) do
+    # Get all confirmed users except the post creator
+    # We limit this to prevent performance issues on large platforms
+    other_users =
+      from(u in Accounts.User,
+        where: not is_nil(u.confirmed_at),
+        where: u.id != ^creator_user.id,
+        # Limit to recent active users to prevent excessive receipt creation
+        where: u.updated_at >= ago(30, "day"),
+        # Reasonable limit for public post visibility
+        limit: 1000
+      )
+      |> Repo.all()
+
+    # Create receipts in batches to avoid overwhelming the database
+    batch_size = 100
+
+    other_users
+    |> Enum.chunk_every(batch_size)
+    |> Enum.each(fn user_batch ->
+      # Create UserPost entries for each user (they all share the same encrypted key)
+      user_posts_data =
+        Enum.map(user_batch, fn user ->
+          %{
+            id: Ecto.UUID.generate(),
+            # Same encrypted key as creator
+            key: user_post_conn.key,
+            user_id: user.id,
+            post_id: post.id,
+            inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
+            updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+          }
+        end)
+
+      # Batch insert UserPost entries
+      case Repo.insert_all(UserPost, user_posts_data, returning: [:id, :user_id]) do
+        {_count, user_posts_inserted} ->
+          # Create UserPostReceipt entries for the inserted UserPosts
+          receipts_data =
+            Enum.map(user_posts_inserted, fn %{id: user_post_id, user_id: user_id} ->
+              %{
+                id: Ecto.UUID.generate(),
+                user_id: user_id,
+                user_post_id: user_post_id,
+                # Public posts start as unread for other users
+                is_read?: false,
+                read_at: nil,
+                inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
+                updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+              }
+            end)
+
+          # Batch insert UserPostReceipt entries
+          Repo.insert_all(UserPostReceipt, receipts_data)
+
+        _error ->
+          Logger.error("Failed to create user_posts for public post #{post.id}")
+      end
+    end)
+  rescue
+    error ->
+      Logger.error("Error creating public post receipts: #{inspect(error)}")
+      # Don't fail the post creation if receipt creation fails
+      :ok
   end
 
   @doc """
@@ -1380,8 +1529,11 @@ defmodule Mosslet.Timeline do
 
         conn = Accounts.get_connection_from_item(post, user_post_receipt.user)
 
+        # Broadcast the update (this returns {:ok, post} but we ignore it)
+        broadcast({:ok, conn, post}, :post_updated)
+
+        # Return the expected tuple for the LiveView
         {:ok, conn, post}
-        |> broadcast(:post_updated)
 
       rest ->
         Logger.warning("Error updating post read user_post_receipt")
@@ -1403,8 +1555,11 @@ defmodule Mosslet.Timeline do
 
         conn = Accounts.get_connection_from_item(post, user_post_receipt.user)
 
+        # Broadcast the update (this returns {:ok, post} but we ignore it)
+        broadcast({:ok, conn, post}, :post_updated)
+
+        # Return the expected tuple for the LiveView
         {:ok, conn, post}
-        |> broadcast(:post_updated)
 
       rest ->
         Logger.warning("Error updating post unread user_post_receipt")
@@ -1873,7 +2028,7 @@ defmodule Mosslet.Timeline do
 
       iex> create_bookmark(user, post, %{notes: "Great article!"})
       {:ok, %Bookmark{}}
-      
+
       iex> create_bookmark(user, post, %{notes: "", category_id: category.id})
       {:ok, %Bookmark{}}
   """
