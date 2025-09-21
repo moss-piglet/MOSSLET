@@ -2396,7 +2396,7 @@ defmodule MossletWeb.DesignSystem do
   Timeline realtime update indicator for PubSub notifications.
   Positioned below the topbar to avoid mobile sidebar collision.
   """
-  attr :new_posts_count, :integer, default: 0
+  attr :unread_counts, :integer, default: 0
   attr :class, :any, default: ""
 
   def liquid_timeline_realtime_indicator(assigns) do
@@ -2409,7 +2409,11 @@ defmodule MossletWeb.DesignSystem do
         @class
       ]}
     >
-      <button class="group inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2">
+      <button
+        class="group inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+        phx-click={JS.scroll_to("#timeline-posts", duration: 300)}
+        title="Scroll to top of timeline"
+      >
         <%!-- Gentle pulse indicator --%>
         <div class="relative">
           <div class="w-2 h-2 bg-white rounded-full"></div>
@@ -2821,6 +2825,33 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
           <%!-- Action buttons with semantic color coding --%>
           <div class="flex items-center gap-1">
+            <%!-- Read/Unread toggle action button (moved to left section) --%>
+            <button
+              id={
+                if @unread?,
+                  do: "mark-read-button-#{@post_id}",
+                  else: "mark-as-unread-button-#{@post_id}"
+              }
+              class={[
+                "p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
+                if(@unread?,
+                  do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
+                  else:
+                    "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
+                )
+              ]}
+              phx-hook="TippyHook"
+              data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
+              phx-click="toggle-read-status"
+              phx-value-id={@post_id}
+            >
+              <.phx_icon
+                name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
+                class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110"
+              />
+              <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
+            </button>
+
             <.liquid_timeline_action
               icon="hero-chat-bubble-oval-left"
               count={Map.get(@stats, :replies, 0)}
@@ -2870,34 +2901,6 @@ defmodule MossletWeb.DesignSystem do
               class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110"
             />
             <span class="sr-only">Bookmark this post</span>
-          </button>
-
-          <%!-- Read/Unread toggle action button --%>
-          {inspect(@unread?)}
-          <button
-            id={
-              if @unread?,
-                do: "mark-read-button-#{@post_id}",
-                else: "mark-as-unread-button-#{@post_id}"
-            }
-            class={[
-              "p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
-              if(@unread?,
-                do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
-                else:
-                  "text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
-              )
-            ]}
-            phx-hook="TippyHook"
-            data-tippy-content={if @unread?, do: "Mark post as read.", else: "Mark post as unread."}
-            phx-click="toggle-read-status"
-            phx-value-id={@post_id}
-          >
-            <.phx_icon
-              name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
-              class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110"
-            />
-            <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
           </button>
         </div>
       </div>

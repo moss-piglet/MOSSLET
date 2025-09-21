@@ -97,7 +97,13 @@ defmodule MossletWeb.TimelineLive.Index do
     # create the return_url with memory and post pagination options
     url = construct_return_url(options)
 
-    posts = Timeline.filter_timeline_posts(current_user, options)
+    posts =
+      apply_tab_filtering(
+        Timeline.filter_timeline_posts(current_user, options),
+        "home",
+        current_user
+      )
+
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
 
     # Calculate timeline counts for tabs using the new helper function
@@ -663,6 +669,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("toggle-read-status", %{"id" => post_id}, socket) do
     current_user = socket.assigns.current_user
+    options = socket.assigns.options
 
     # Get the post and its current receipt
     post = Timeline.get_post!(post_id)
@@ -688,9 +695,13 @@ defmodule MossletWeb.TimelineLive.Index do
                 Timeline.get_post!(post_id)
                 |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
+              # Recalculate unread counts after toggling read status
+              unread_counts = calculate_unread_counts(current_user, options)
+
               socket =
                 socket
                 |> stream_insert(:posts, updated_post, at: -1)
+                |> assign(:unread_counts, unread_counts)
                 |> put_flash(:info, "Post marked as read")
 
               {:noreply, socket}
@@ -716,9 +727,13 @@ defmodule MossletWeb.TimelineLive.Index do
               Timeline.get_post!(post_id)
               |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
+            # Recalculate unread counts after toggling read status
+            unread_counts = calculate_unread_counts(current_user, options)
+
             socket =
               socket
               |> stream_insert(:posts, updated_post, at: -1)
+              |> assign(:unread_counts, unread_counts)
               |> put_flash(:info, "Post marked as unread")
 
             {:noreply, socket}
@@ -742,9 +757,13 @@ defmodule MossletWeb.TimelineLive.Index do
               Timeline.get_post!(post_id)
               |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
+            # Recalculate unread counts after toggling read status
+            unread_counts = calculate_unread_counts(current_user, options)
+
             socket =
               socket
               |> stream_insert(:posts, updated_post, at: -1)
+              |> assign(:unread_counts, unread_counts)
               |> put_flash(:info, "Post marked as read")
 
             {:noreply, socket}
@@ -931,48 +950,14 @@ defmodule MossletWeb.TimelineLive.Index do
     # Load posts for the specific tab with proper filtering
     posts =
       case tab do
-        "home" ->
-          # Show only posts made BY the current user (private + connections + public)
-          Timeline.filter_timeline_posts(current_user, options)
-          |> Enum.filter(fn post -> post.user_id == current_user.id end)
-
-        "connections" ->
-          # Show only posts FROM connected users (excluding current user's own posts)
-          # Get connected user IDs
-          connection_user_ids =
-            Accounts.get_all_confirmed_user_connections(current_user.id)
-            |> Enum.map(& &1.reverse_user_id)
-            |> Enum.uniq()
-
-          if Enum.empty?(connection_user_ids) do
-            # No connections yet
-            []
-          else
-            # Show posts from connections only (exclude current user)
-            Timeline.filter_timeline_posts(current_user, options)
-            |> Enum.filter(fn post ->
-              post.user_id in connection_user_ids and post.user_id != current_user.id
-            end)
-          end
-
-        "groups" ->
-          # Get all posts from groups the user belongs to
-          # Filter timeline posts to only show posts with group_id
-          Timeline.filter_timeline_posts(current_user, options)
-          |> Enum.filter(fn post -> post.group_id != nil end)
-
-        "bookmarks" ->
-          # Get bookmarked posts - this is working correctly
-          Timeline.list_user_bookmarks(current_user)
-          |> Enum.map(fn bookmark -> bookmark.post end)
-          |> Enum.filter(&(&1 != nil))
-
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
           Timeline.list_discover_posts(options.post_per_page, 0)
 
         _ ->
+          # Use the helper function for consistent filtering
           Timeline.filter_timeline_posts(current_user, options)
+          |> apply_tab_filtering(tab, current_user)
       end
 
     # Update tab counts using proper counting logic
@@ -993,6 +978,8 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("bookmark_post", %{"id" => post_id}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
 
     try do
       post = Timeline.get_post!(post_id)
@@ -1002,15 +989,26 @@ defmodule MossletWeb.TimelineLive.Index do
         # Remove existing bookmark
         bookmark = Timeline.get_bookmark(current_user, post)
 
-        case Timeline.delete_bookmark(bookmark, user: current_user) do
+        case Timeline.delete_bookmark(bookmark, current_user) do
           {:ok, _} ->
-            # Update the post in the stream
-            updated_post = Timeline.get_post!(post_id)
+            # Recalculate bookmark count
+            timeline_counts = calculate_timeline_counts(current_user, options)
 
             socket =
               socket
-              |> stream_insert(:posts, updated_post, at: -1)
+              |> assign(:timeline_counts, timeline_counts)
               |> put_flash(:info, "Bookmark removed")
+
+            # Handle stream updates based on current tab
+            socket =
+              if current_tab == "bookmarks" do
+                # On bookmarks tab: remove the post from stream since it's no longer bookmarked
+                stream_delete(socket, :posts, post)
+              else
+                # On other tabs: update the post with new bookmark status
+                updated_post = Timeline.get_post!(post_id)
+                stream_insert(socket, :posts, updated_post, at: -1)
+              end
 
             {:noreply, socket}
 
@@ -1019,15 +1017,27 @@ defmodule MossletWeb.TimelineLive.Index do
         end
       else
         # Create new bookmark
-        case Timeline.create_bookmark(current_user, post, %{user: current_user, key: key}) do
+        case Timeline.create_bookmark(current_user, post, %{}) do
           {:ok, _bookmark} ->
-            # Update the post in the stream
-            updated_post = Timeline.get_post!(post_id)
+            # Recalculate bookmark count
+            timeline_counts = calculate_timeline_counts(current_user, options)
 
             socket =
               socket
-              |> stream_insert(:posts, updated_post, at: -1)
+              |> assign(:timeline_counts, timeline_counts)
               |> put_flash(:info, "Post bookmarked successfully")
+
+            # Handle stream updates based on current tab
+            socket =
+              if current_tab == "bookmarks" do
+                # On bookmarks tab: add the newly bookmarked post to the top of the stream
+                updated_post = Timeline.get_post!(post_id)
+                stream_insert(socket, :posts, updated_post, at: 0)
+              else
+                # On other tabs: update the post with new bookmark status
+                updated_post = Timeline.get_post!(post_id)
+                stream_insert(socket, :posts, updated_post, at: -1)
+              end
 
             {:noreply, socket}
 
@@ -1726,6 +1736,62 @@ defmodule MossletWeb.TimelineLive.Index do
          options.filter.post_per_page == @post_per_page_default,
        do: ~p"/app/timeline",
        else: ~p"/app/timeline?#{options}"
+  end
+
+  # Helper function to apply tab-specific filtering
+  defp apply_tab_filtering(posts, tab, current_user) do
+    case tab do
+      "home" ->
+        # Show only posts made BY the current user (private + connections + public)
+        Enum.filter(posts, fn post -> post.user_id == current_user.id end)
+
+      "connections" ->
+        # Show only posts FROM connected users (excluding current user's own posts)
+        connection_user_ids =
+          Accounts.get_all_confirmed_user_connections(current_user.id)
+          |> Enum.map(& &1.reverse_user_id)
+          |> Enum.uniq()
+
+        if Enum.empty?(connection_user_ids) do
+          []
+        else
+          Enum.filter(posts, fn post ->
+            post.user_id in connection_user_ids and post.user_id != current_user.id
+          end)
+        end
+
+      "groups" ->
+        # Filter timeline posts to only show posts with group_id
+        Enum.filter(posts, fn post -> post.group_id != nil end)
+
+      "bookmarks" ->
+        # Get bookmarked posts - need to handle both public and private/connection posts
+        bookmarked_posts =
+          Timeline.list_user_bookmarks(current_user)
+          |> Enum.map(fn bookmark -> bookmark.post end)
+          |> Enum.filter(&(&1 != nil))
+
+        # For bookmarked posts, we need to ensure they have proper associations
+        # Public posts need user_posts loaded for get_post_key to work
+        bookmarked_posts
+        |> Enum.map(fn post ->
+          if post.visibility == :public do
+            # For public posts, preload user_posts association
+            Timeline.get_post!(post.id)
+          else
+            # For private/connection posts, they should already be accessible via user timeline
+            post
+          end
+        end)
+
+      "discover" ->
+        # Show public posts using dedicated Timeline function for discovery
+        # Note: This should probably use Timeline.list_discover_posts instead
+        posts
+
+      _ ->
+        posts
+    end
   end
 
   defp get_file_key(url) do

@@ -1530,7 +1530,8 @@ defmodule Mosslet.Timeline do
         conn = Accounts.get_connection_from_item(post, user_post_receipt.user)
 
         # Broadcast the update (this returns {:ok, post} but we ignore it)
-        broadcast({:ok, conn, post}, :post_updated)
+        # Note: Broadcast disabled for receipt updates to prevent double updates
+        # broadcast({:ok, conn, post}, :post_updated)
 
         # Return the expected tuple for the LiveView
         {:ok, conn, post}
@@ -1556,7 +1557,8 @@ defmodule Mosslet.Timeline do
         conn = Accounts.get_connection_from_item(post, user_post_receipt.user)
 
         # Broadcast the update (this returns {:ok, post} but we ignore it)
-        broadcast({:ok, conn, post}, :post_updated)
+        # Note: Broadcast disabled for receipt updates to prevent double updates
+        # broadcast({:ok, conn, post}, :post_updated)
 
         # Return the expected tuple for the LiveView
         {:ok, conn, post}
