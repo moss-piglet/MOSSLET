@@ -2359,9 +2359,15 @@ defmodule MossletWeb.DesignSystem do
   attr :remaining_count, :integer, default: 0
   attr :load_count, :integer, default: 10
   attr :loading, :boolean, default: false
+  attr :tab_color, :string, default: "slate"
   attr :class, :any, default: ""
+  attr :rest, :global, include: ~w(phx-click)
 
   def liquid_timeline_scroll_indicator(assigns) do
+    # Define color variants based on tab
+    assigns =
+      assign(assigns, :color_classes, get_tab_color_classes(assigns.tab_color))
+
     ~H"""
     <div class={[
       "text-center py-8",
@@ -2372,24 +2378,73 @@ defmodule MossletWeb.DesignSystem do
         :if={@loading}
         class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400"
       >
-        <div class="w-2 h-2 bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full animate-pulse">
-        </div>
+        <div class={["w-2 h-2 rounded-full animate-pulse", @color_classes.indicator]}></div>
         <span class="text-sm font-medium">Loading more posts...</span>
       </div>
 
-      <%!-- Load more button (back to original simple design with added transparency) --%>
-      <div
+      <%!-- Load more button with tab-specific colors and clickable --%>
+      <button
         :if={!@loading && @remaining_count > 0}
-        class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 transition-all duration-200 ease-out cursor-pointer group"
+        class={[
+          "inline-flex items-center gap-3 px-6 py-3 rounded-xl backdrop-blur-sm transition-all duration-200 ease-out cursor-pointer group text-sm font-medium",
+          @color_classes.button
+        ]}
+        {@rest}
       >
-        <div class="w-2 h-2 bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full animate-pulse">
-        </div>
-        <span class="text-sm font-medium">
+        <div class={["w-2 h-2 rounded-full animate-pulse", @color_classes.indicator]}></div>
+        <span>
           Load {@load_count} more posts ({@remaining_count} remaining)
         </span>
-      </div>
+      </button>
     </div>
     """
+  end
+
+  # Helper function to get color classes for different tabs
+  defp get_tab_color_classes(tab_color) do
+    case tab_color do
+      "emerald" ->
+        %{
+          button:
+            "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:from-emerald-600 hover:to-teal-600",
+          indicator: "bg-white/80"
+        }
+
+      "teal" ->
+        %{
+          button:
+            "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:from-blue-600 hover:to-cyan-600",
+          indicator: "bg-white/80"
+        }
+
+      "blue" ->
+        %{
+          button:
+            "bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md hover:from-purple-600 hover:to-violet-600",
+          indicator: "bg-white/80"
+        }
+
+      "purple" ->
+        %{
+          button:
+            "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:from-amber-600 hover:to-orange-600",
+          indicator: "bg-white/80"
+        }
+
+      "orange" ->
+        %{
+          button:
+            "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-md hover:from-indigo-600 hover:to-blue-600",
+          indicator: "bg-white/80"
+        }
+
+      _ ->
+        %{
+          button:
+            "bg-slate-50/80 dark:bg-slate-800/80 border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/80",
+          indicator: "bg-gradient-to-r from-slate-400 to-slate-500"
+        }
+    end
   end
 
   @doc """
@@ -2818,6 +2873,16 @@ defmodule MossletWeb.DesignSystem do
               <span class="text-slate-400 dark:text-slate-500">•</span>
               <time class="flex-shrink-0">{@timestamp}</time>
             </div>
+
+            <%!-- Visibility badge --%>
+            <.liquid_badge
+              variant="soft"
+              color={visibility_badge_color(@post.visibility)}
+              size="xs"
+              class="ml-2"
+            >
+              {visibility_badge_text(@post.visibility)}
+            </.liquid_badge>
           </div>
 
           <%!-- Post menu (subtle) --%>
@@ -2923,6 +2988,29 @@ defmodule MossletWeb.DesignSystem do
       </div>
     </article>
     """
+  end
+
+  # Helper functions for post visibility badges
+  defp visibility_badge_color(visibility) do
+    case visibility do
+      :private -> "slate"
+      :connections -> "emerald"
+      :public -> "blue"
+      :specific_groups -> "purple"
+      :specific_users -> "amber"
+      _ -> "slate"
+    end
+  end
+
+  defp visibility_badge_text(visibility) do
+    case visibility do
+      :private -> "Private"
+      :connections -> "Connections"
+      :public -> "Public"
+      :specific_groups -> "Groups"
+      :specific_users -> "Specific"
+      _ -> "Private"
+    end
   end
 
   @doc """
@@ -3290,9 +3378,9 @@ defmodule MossletWeb.DesignSystem do
     ]}>
       <%!-- Meaningful header about community and privacy --%>
       <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-        Your words
+        {@user_name}'s
         <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-          create community
+          community
         </span>
       </h1>
 

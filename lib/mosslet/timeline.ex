@@ -7,7 +7,7 @@ defmodule Mosslet.Timeline do
   import Ecto.Query, warn: false
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.{Connection, User, UserConnection}
+  alias Mosslet.Accounts.{User, UserConnection}
   alias Mosslet.Groups
   alias Mosslet.Repo
 
@@ -25,7 +25,7 @@ defmodule Mosslet.Timeline do
   }
 
   alias Mosslet.Accounts.UserBlock
-  alias Mosslet.Timeline.Performance.TimelineCache
+  # alias Mosslet.Timeline.Performance.TimelineCache
 
   @doc """
   Gets recently active users for cache warming.
@@ -270,6 +270,155 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Gets the total count of posts created BY the current user (for Home tab).
+  This counts only posts where the user is the author, regardless of visibility.
+  """
+  def count_user_own_posts(user) do
+    query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: up.user_id == ^user.id and p.user_id == ^user.id
+      )
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil ->
+        0
+
+      count ->
+        count
+    end
+  end
+
+  @doc """
+  Gets the total count of group posts accessible to the current user (for Groups tab).
+  This counts posts with group_id that the user has access to.
+  """
+  def count_user_group_posts(user) do
+    query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: up.user_id == ^user.id and not is_nil(p.group_id)
+      )
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil ->
+        0
+
+      count ->
+        count
+    end
+  end
+
+  @doc """
+  Gets the total count of posts FROM connected users accessible to current user (for Connections tab).
+  This matches the filtering logic used in apply_tab_filtering.
+  """
+  def count_user_connection_posts(current_user) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    if Enum.empty?(connection_user_ids) do
+      0
+    else
+      query =
+        from(p in Post,
+          inner_join: up in UserPost,
+          on: up.post_id == p.id,
+          where: up.user_id == ^current_user.id,
+          where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
+          where: p.visibility != :private
+        )
+
+      count = Repo.aggregate(query, :count, :id)
+
+      case count do
+        nil -> 0
+        count -> count
+      end
+    end
+  end
+
+  @doc """
+  Gets the count of unread posts created BY the current user (for Home tab unread indicator).
+  """
+  def count_unread_user_own_posts(user) do
+    query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        inner_join: upr in UserPostReceipt,
+        on: upr.user_post_id == up.id,
+        where: up.user_id == ^user.id and p.user_id == ^user.id,
+        where: upr.user_id == ^user.id,
+        where: not upr.is_read? and is_nil(upr.read_at)
+      )
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  @doc """
+  Gets the count of unread group posts accessible to the current user (for Groups tab unread indicator).
+  """
+  def count_unread_group_posts(user) do
+    query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        inner_join: upr in UserPostReceipt,
+        on: upr.user_post_id == up.id,
+        where: up.user_id == ^user.id and not is_nil(p.group_id),
+        where: upr.user_id == ^user.id,
+        where: not upr.is_read? and is_nil(upr.read_at)
+      )
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  @doc """
+  Gets the count of unread bookmarked posts (for Bookmarks tab unread indicator).
+  """
+  def count_unread_bookmarked_posts(user) do
+    query =
+      from(p in Post,
+        inner_join: b in Bookmark,
+        on: b.post_id == p.id,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        inner_join: upr in UserPostReceipt,
+        on: upr.user_post_id == up.id,
+        where: b.user_id == ^user.id,
+        where: up.user_id == ^user.id,
+        where: upr.user_id == ^user.id,
+        where: not upr.is_read? and is_nil(upr.read_at)
+      )
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  @doc """
   Returns all post for a user. Used when
   deleting data in settings.
   """
@@ -384,7 +533,6 @@ defmodule Mosslet.Timeline do
   timeline. Non public posts. Now with caching support.
   """
   def filter_timeline_posts(current_user, options) do
-    tab = options[:tab] || "home"
     # TEMPORARILY DISABLE CACHE TO TEST REAL-TIME UPDATES
     # Try cache first (only for non-realtime requests)
     # if !options[:skip_cache] do
@@ -492,6 +640,77 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Returns posts FROM connected users for the Connections tab.
+  This function is specifically designed to match the filtering logic
+  used in the timeline and provide consistent results.
+  """
+  def list_connection_posts(current_user, options \\ %{})
+
+  def list_connection_posts(current_user, options) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    if Enum.empty?(connection_user_ids) do
+      []
+    else
+      Post
+      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+      |> join(:inner, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
+      |> where([p, up], up.user_id == ^current_user.id)
+      |> where([p, up], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
+      |> where([p], p.visibility != :private)
+      |> preload([:user_posts, :user, :replies, :user_post_receipts])
+      |> order_by([p, up, upr],
+        # Unread posts first (false comes before true)
+        asc: upr.is_read?,
+        # Most recent posts first within each group
+        desc: p.inserted_at,
+        # Secondary sort on read_at
+        asc: upr.read_at
+      )
+      |> paginate(options)
+      |> Repo.all()
+    end
+  end
+
+  @doc """
+  Counts unread posts FROM connected users for the Connections tab.
+  This matches exactly with list_connection_posts/2 but only counts unread ones.
+  """
+  def count_unread_connection_posts(current_user) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    if Enum.empty?(connection_user_ids) do
+      0
+    else
+      query =
+        from(p in Post,
+          inner_join: up in UserPost,
+          on: up.post_id == p.id,
+          inner_join: upr in UserPostReceipt,
+          on: upr.user_post_id == up.id,
+          where: up.user_id == ^current_user.id,
+          where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
+          where: p.visibility != :private,
+          where: upr.user_id == ^current_user.id,
+          where: not upr.is_read? and is_nil(upr.read_at)
+        )
+
+      count = Repo.aggregate(query, :count, :id)
+
+      case count do
+        nil -> 0
+        count -> count
+      end
+    end
+  end
+
+  @doc """
   Lists public posts for discover timeline with simple pagination.
   """
   def list_discover_posts(limit \\ 25, offset \\ 0) do
@@ -517,6 +736,31 @@ defmodule Mosslet.Timeline do
       where: p.visibility == :public
     )
     |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Returns posts created BY the current user for the Home tab.
+  This function is specifically designed to show only the user's own posts.
+  """
+  def list_user_own_posts(current_user, options \\ %{})
+
+  def list_user_own_posts(current_user, options) do
+    Post
+    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+    |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
+    |> where([p, up], up.user_id == ^current_user.id and p.user_id == ^current_user.id)
+    |> with_any_visibility([:private, :connections])
+    |> preload([:user_posts, :user, :replies, :user_post_receipts])
+    |> order_by([p, up, upr],
+      # Unread posts first (false comes before true)
+      asc: upr.is_read?,
+      # Most recent posts first within each group
+      desc: p.inserted_at,
+      # Secondary sort on read_at
+      asc: upr.read_at
+    )
+    |> paginate(options)
+    |> Repo.all()
   end
 
   def list_public_replies(post, options) do
@@ -661,36 +905,6 @@ defmodule Mosslet.Timeline do
       preload: [:user_posts, :group, :user_group]
     )
     |> Repo.all()
-  end
-
-  def list_connection_posts(user, opts) do
-    limit = Keyword.fetch!(opts, :limit)
-    offset = Keyword.get(opts, :offset, 0)
-
-    from(p in Post,
-      join: up in UserPost,
-      on: up.post_id == p.id,
-      join: u in User,
-      on: up.user_id == u.id,
-      join: c in Connection,
-      on: c.user_id == u.id,
-      join: uc in UserConnection,
-      on: uc.connection_id == c.id,
-      where: uc.user_id == ^user.id or uc.reverse_user_id == ^user.id,
-      where: is_nil(p.group_id),
-      where: not is_nil(uc.confirmed_at),
-      where: p.visibility == :connections,
-      offset: ^offset,
-      limit: ^limit,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group]
-    )
-    |> Repo.all()
-    |> Enum.filter(fn post ->
-      Enum.empty?(post.shared_users) ||
-        Enum.any?(post.shared_users, fn x -> x.user_id == user.id end)
-    end)
-    |> Enum.sort_by(fn p -> p.inserted_at end, :desc)
   end
 
   def inc_favs(%Post{id: id}) do

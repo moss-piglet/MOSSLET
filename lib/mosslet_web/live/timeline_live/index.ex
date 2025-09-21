@@ -13,7 +13,7 @@ defmodule MossletWeb.TimelineLive.Index do
   alias Mosslet.Timeline.{Post, Reply}
 
   @post_page_default 1
-  @post_per_page_default 25
+  @post_per_page_default 10
   @folder "uploads/trix"
 
   def mount(_params, _session, socket) do
@@ -50,6 +50,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:active_tab, "home")
       |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0})
       |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0})
+      |> assign(:loaded_posts_count, 0)
+      |> assign(:current_page, 1)
+      |> assign(:load_more_loading, false)
       |> stream(:posts, [])
 
     {:ok, assign(socket, page_title: "Timeline")}
@@ -97,18 +100,39 @@ defmodule MossletWeb.TimelineLive.Index do
     # create the return_url with memory and post pagination options
     url = construct_return_url(options)
 
+    # Get the current active tab from socket assigns or default to "home"
+    current_tab = socket.assigns[:active_tab] || "home"
+
+    # Load posts for the current active tab
     posts =
-      apply_tab_filtering(
-        Timeline.filter_timeline_posts(current_user, options),
-        "home",
-        current_user
-      )
+      case current_tab do
+        "discover" ->
+          # Show public posts using dedicated Timeline function for discovery
+          Timeline.list_discover_posts(options.post_per_page, 0)
+
+        "connections" ->
+          # Use dedicated Timeline function for connections
+          Timeline.list_connection_posts(current_user, options)
+
+        "home" ->
+          # Use dedicated Timeline function for user's own posts
+          Timeline.list_user_own_posts(current_user, options)
+
+        _ ->
+          # Use the helper function for other tabs (groups, bookmarks)
+          Timeline.filter_timeline_posts(current_user, options)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
 
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
 
     # Calculate timeline counts for tabs using the new helper function
     timeline_counts = calculate_timeline_counts(current_user, options)
     unread_counts = calculate_unread_counts(current_user, options)
+
+    # Track pagination state for load more functionality
+    loaded_posts_count = length(posts)
+    current_page = options.post_page
 
     socket =
       socket
@@ -128,6 +152,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:filter, filter)
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
+      |> assign(:loaded_posts_count, loaded_posts_count)
+      |> assign(:current_page, current_page)
+      |> assign(:load_more_loading, false)
       |> stream(:posts, posts, reset: true)
 
     {:noreply, socket}
@@ -970,9 +997,62 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, push_event(socket, "scroll-to-top", %{})}
   end
 
+  def handle_event("load_more_posts", _params, socket) do
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    current_options = socket.assigns.options
+    current_page = socket.assigns.current_page
+    loaded_count = socket.assigns.loaded_posts_count
+
+    # Set loading state
+    socket = assign(socket, :load_more_loading, true)
+
+    # Calculate next page parameters
+    next_page = current_page + 1
+    updated_options = Map.put(current_options, :post_page, next_page)
+
+    # Load more posts for the current tab using pagination
+    new_posts =
+      case current_tab do
+        "discover" ->
+          offset = loaded_count
+          Timeline.list_discover_posts(current_options.post_per_page, offset)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, updated_options)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, updated_options)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, updated_options)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
+
+    # Calculate updated counts
+    new_loaded_count = loaded_count + length(new_posts)
+
+    # Add new posts to the existing stream (at the end)
+    socket =
+      new_posts
+      |> Enum.reduce(socket, fn post, acc_socket ->
+        stream_insert(acc_socket, :posts, post, at: -1)
+      end)
+      |> assign(:options, updated_options)
+      |> assign(:loaded_posts_count, new_loaded_count)
+      |> assign(:current_page, next_page)
+      |> assign(:load_more_loading, false)
+
+    {:noreply, socket}
+  end
+
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     current_user = socket.assigns.current_user
-    options = Map.put(socket.assigns.options, :timeline_tab, tab)
+    # Reset pagination when switching tabs
+    options =
+      socket.assigns.options
+      |> Map.put(:timeline_tab, tab)
+      |> Map.put(:post_page, 1)
 
     # Load posts for the specific tab with proper filtering
     posts =
@@ -981,8 +1061,16 @@ defmodule MossletWeb.TimelineLive.Index do
           # Show public posts using dedicated Timeline function for discovery
           Timeline.list_discover_posts(options.post_per_page, 0)
 
+        "connections" ->
+          # Use dedicated Timeline function for connections
+          Timeline.list_connection_posts(current_user, options)
+
+        "home" ->
+          # Use dedicated Timeline function for user's own posts
+          Timeline.list_user_own_posts(current_user, options)
+
         _ ->
-          # Use the helper function for consistent filtering
+          # Use the helper function for other tabs (groups, bookmarks)
           Timeline.filter_timeline_posts(current_user, options)
           |> apply_tab_filtering(tab, current_user)
       end
@@ -991,12 +1079,18 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options)
     unread_counts = calculate_unread_counts(current_user, options)
 
+    # Reset pagination state when switching tabs
+    loaded_posts_count = length(posts)
+
     socket =
       socket
       |> assign(:active_tab, tab)
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
       |> assign(:options, options)
+      |> assign(:loaded_posts_count, loaded_posts_count)
+      |> assign(:current_page, 1)
+      |> assign(:load_more_loading, false)
       |> stream(:posts, posts, reset: true)
 
     {:noreply, socket}
@@ -1772,19 +1866,9 @@ defmodule MossletWeb.TimelineLive.Index do
         Enum.filter(posts, fn post -> post.user_id == current_user.id end)
 
       "connections" ->
-        # Show only posts FROM connected users (excluding current user's own posts)
-        connection_user_ids =
-          Accounts.get_all_confirmed_user_connections(current_user.id)
-          |> Enum.map(& &1.reverse_user_id)
-          |> Enum.uniq()
-
-        if Enum.empty?(connection_user_ids) do
-          []
-        else
-          Enum.filter(posts, fn post ->
-            post.user_id in connection_user_ids and post.user_id != current_user.id
-          end)
-        end
+        # Use dedicated Timeline function instead of filtering here
+        # This case should not be reached when using the switch_tab event
+        Timeline.list_connection_posts(current_user, %{})
 
       "groups" ->
         # Filter timeline posts to only show posts with group_id
@@ -1828,13 +1912,13 @@ defmodule MossletWeb.TimelineLive.Index do
         post.user_id == current_user.id
 
       "connections" ->
-        # Show posts from connected users
+        # Show posts from connected users, but exclude private posts
         connection_user_ids =
           Accounts.get_all_confirmed_user_connections(current_user.id)
           |> Enum.map(& &1.reverse_user_id)
           |> Enum.uniq()
 
-        post.user_id in connection_user_ids
+        post.user_id in connection_user_ids and post.visibility != :private
 
       "groups" ->
         # Show posts from groups the user belongs to
@@ -1865,30 +1949,27 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to add a subtle new post notification
   defp add_new_post_notification(socket, post, current_user) do
-    # Use a safe pattern to get author name without try/rescue
-    author_name =
-      case get_safe_post_author_name(post, current_user, socket.assigns.key) do
-        {:ok, name} -> name
-        {:error, _reason} -> "Someone"
-      end
+    # Get author name safely
+    author_name = get_safe_post_author_name(post, current_user, socket.assigns.key)
 
     # Add a gentle flash message for the new post
     put_flash(socket, :info, "New post from #{author_name}")
   end
 
-  # Safe version of get_post_author_name that returns {:ok, name} or {:error, reason}
+  # Safe version of get_post_author_name that returns the author name string
   defp get_safe_post_author_name(post, current_user, key) do
     if post.user_id == current_user.id do
       # Current user's own post - use their name
       case user_name(current_user, key) do
-        name when is_binary(name) -> {:ok, name}
-        :failed_verification -> {:ok, "You"}
-        _ -> {:ok, "You"}
+        name when is_binary(name) -> name
+        :failed_verification -> "You"
+        _ -> "You"
       end
     else
-      # For simplicity in notifications, just say "Someone" for other users
-      # This avoids complex decryption during real-time updates
-      {:ok, "Someone"}
+      # For other users' posts, respect privacy - use "Private Author"
+      # This applies even to public posts where the author hasn't shared
+      # their identity with the current user (e.g., group posts, discover posts)
+      "Private Author"
     end
   end
 
@@ -1903,29 +1984,40 @@ defmodule MossletWeb.TimelineLive.Index do
     url |> String.split("/") |> List.last()
   end
 
+  # Helper function to calculate remaining posts for the current tab
+  defp calculate_remaining_posts(timeline_counts, active_tab, loaded_posts_count) do
+    total_posts = Map.get(timeline_counts, String.to_atom(active_tab), 0)
+    max(0, total_posts - loaded_posts_count)
+  end
+
+  # Helper function to get tab color for the load more button
+  defp get_tab_color(active_tab) do
+    case active_tab do
+      "home" -> "emerald"
+      # This maps to blue-cyan gradient
+      "connections" -> "teal"
+      # This maps to purple-violet gradient  
+      "groups" -> "blue"
+      # This maps to amber-orange gradient
+      "bookmarks" -> "purple"
+      # This maps to indigo-blue gradient
+      "discover" -> "orange"
+      _ -> "slate"
+    end
+  end
+
   # Helper function to calculate timeline counts for all tabs
-  defp calculate_timeline_counts(current_user, options) do
-    # Get connection user IDs once for efficiency - use reverse_user_id for actual connections
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    # Get all timeline posts once for counting
-    all_posts = Timeline.filter_timeline_posts(current_user, options)
-
+  defp calculate_timeline_counts(current_user, _options) do
     %{
-      home: length(all_posts),
-      connections:
-        if Enum.empty?(connection_user_ids) do
-          0
-        else
-          Enum.count(all_posts, fn post ->
-            post.user_id in connection_user_ids and post.user_id != current_user.id
-          end)
-        end,
-      groups: Enum.count(all_posts, fn post -> post.group_id != nil end),
+      # Home tab: count TOTAL posts created BY the current user only
+      home: Timeline.count_user_own_posts(current_user),
+      # Connections tab: count TOTAL posts FROM connected users shared with current user
+      connections: Timeline.count_user_connection_posts(current_user),
+      # Groups tab: count TOTAL group posts accessible to current user
+      groups: Timeline.count_user_group_posts(current_user),
+      # Bookmarks tab: count TOTAL bookmarked posts
       bookmarks: Timeline.count_user_bookmarks(current_user),
+      # Discover tab: count TOTAL public posts
       discover: Timeline.count_discover_posts()
     }
   end
@@ -1935,24 +2027,11 @@ defmodule MossletWeb.TimelineLive.Index do
     # Get unread posts for the current user
     unread_posts = Timeline.unread_posts(current_user)
 
-    # Get connection user IDs for filtering
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
     %{
       # Home tab: only show unread posts from the current user (since home only shows user's own posts)
-      home: Enum.count(unread_posts, fn post -> post.user_id == current_user.id end),
+      home: Timeline.count_unread_user_own_posts(current_user),
       # Connections tab: only show unread posts from connected users (excluding current user)
-      connections:
-        if Enum.empty?(connection_user_ids) do
-          0
-        else
-          Enum.count(unread_posts, fn post ->
-            post.user_id in connection_user_ids and post.user_id != current_user.id
-          end)
-        end,
+      connections: Timeline.count_unread_connection_posts(current_user),
       # Groups tab: only show unread posts with group_id
       groups: Enum.count(unread_posts, fn post -> post.group_id != nil end),
       # Bookmarks tab: only show unread bookmarked posts

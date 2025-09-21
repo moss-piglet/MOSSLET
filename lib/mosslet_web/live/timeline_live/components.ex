@@ -381,15 +381,18 @@ defmodule MossletWeb.TimelineLive.Components do
 
       <div class="flex flex-col">
         <div class="px-3 sm:px-6 mb-3">
-          <div class="font-semibold text-lg text-gray-900 dark:text-white">
-            {decr_item(
-              @post.username,
-              @current_user,
-              get_post_key(@post, @current_user),
-              @key,
-              @post,
-              "username"
-            )}
+          <%!-- Post header info --%>
+          <div class="flex items-center justify-between">
+            <div class="font-semibold text-lg text-gray-900 dark:text-white">
+              {decr_item(
+                @post.username,
+                @current_user,
+                get_post_key(@post, @current_user),
+                @key,
+                @post,
+                "username"
+              )}
+            </div>
           </div>
 
           <%!-- Timestamp --%>

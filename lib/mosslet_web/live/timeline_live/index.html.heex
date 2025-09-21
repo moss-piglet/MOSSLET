@@ -143,11 +143,15 @@
           </div>
         </div>
 
-        <%!-- Enhanced load more button with remaining count and load count transparency --%>
+        <%!-- Enhanced load more button with dynamic remaining count and tab colors --%>
         <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
-          remaining_count={23}
-          load_count={10}
-          loading={false}
+          remaining_count={
+            calculate_remaining_posts(@timeline_counts, @active_tab, @loaded_posts_count)
+          }
+          load_count={@options.post_per_page}
+          loading={@load_more_loading}
+          tab_color={get_tab_color(@active_tab)}
+          phx-click="load_more_posts"
         />
       </div>
 
