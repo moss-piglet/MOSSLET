@@ -16,6 +16,9 @@ defmodule MossletWeb.DesignSystem do
   # Import phx_input from CoreComponents
   import MossletWeb.CoreComponents, only: [phx_input: 1]
 
+  # Import helper functions
+  import MossletWeb.Helpers, only: [can_repost?: 2]
+
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
     js
@@ -2702,26 +2705,62 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user_id, :string, required: true
   attr :liked, :boolean, default: false
   attr :bookmarked, :boolean, default: false
+  attr :post, :map, required: true
+  attr :current_user, :map, required: true
+  attr :is_repost, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_timeline_post(assigns) do
     ~H"""
-    <article class={[
-      "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-      "border border-slate-200/60 dark:border-slate-700/60",
-      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
-      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
-      "hover:border-slate-300/60 dark:hover:border-slate-600/60",
-      "transform-gpu will-change-transform",
-      @class
-    ]}>
-      <%!-- Subtle liquid background on hover --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 group-hover:opacity-100">
+    <article class={
+      [
+        "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+        "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+        "hover:border-slate-300/60 dark:hover:border-slate-600/60",
+        "transform-gpu will-change-transform",
+        # Enhanced glow effect for reposts - more prominent emerald glow
+        if(@is_repost,
+          do:
+            "ring-2 ring-emerald-400/30 dark:ring-emerald-500/40 shadow-lg shadow-emerald-500/20 dark:shadow-emerald-400/25 border-emerald-200/50 dark:border-emerald-700/50",
+          else: ""
+        ),
+        @class
+      ]
+    }>
+      <%!-- Enhanced liquid background on hover with repost-specific styling --%>
+      <div class={[
+        "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
+        "group-hover:opacity-100",
+        if(@is_repost,
+          do:
+            "bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/10 dark:to-emerald-900/15",
+          else:
+            "bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"
+        )
+      ]}>
       </div>
 
       <%!-- Post content --%>
       <div class="relative p-6">
+        <%!-- Enhanced repost indicator badge with better visual hierarchy --%>
+        <div
+          :if={@is_repost}
+          class="flex items-center gap-2 mb-4 px-3 py-2 bg-gradient-to-r from-emerald-50/80 via-teal-50/60 to-emerald-50/80 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30 rounded-xl border border-emerald-200/50 dark:border-emerald-700/40 shadow-sm shadow-emerald-500/10 dark:shadow-emerald-400/15"
+        >
+          <.phx_icon
+            name="hero-arrow-path"
+            class="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+          />
+          <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+            Reposted
+          </span>
+          <%!-- Optional: Add subtle pulse animation --%>
+          <div class="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-pulse ml-auto">
+          </div>
+        </div>
         <%!-- User header --%>
         <div class="flex items-start gap-4 mb-4">
           <%!-- Enhanced liquid metal avatar --%>
@@ -2784,10 +2823,15 @@ defmodule MossletWeb.DesignSystem do
               phx-value-url="/app/timeline"
             />
             <.liquid_timeline_action
+              :if={can_repost?(@current_user, @post)}
               icon="hero-arrow-path"
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
+              phx-click="repost"
+              phx-value-id={@post_id}
+              phx-value-body={@content}
+              phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
               icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}

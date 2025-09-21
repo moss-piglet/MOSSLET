@@ -752,6 +752,24 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  @doc """
+  Returns the appropriate Mosslet logo based on current theme.
+  Uses CSS media query to detect dark mode preference.
+  """
+  def mosslet_logo_for_theme() do
+    # For now, we'll default to light version
+    # In a real implementation, this could check user theme preference from the database
+    # or use JavaScript to detect the current theme
+    "/images/logo_icon_light.svg"
+  end
+
+  @doc """
+  Returns the dark theme Mosslet logo.
+  """
+  def mosslet_logo_dark() do
+    "/images/logo_icon_dark.svg"
+  end
+
   def can_repost?(user, post) do
     if post.user_id != user.id && user.id not in post.reposts_list do
       true

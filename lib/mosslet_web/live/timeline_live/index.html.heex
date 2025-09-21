@@ -15,7 +15,7 @@
     </div>
 
     <%!-- Content container with improved spacing --%>
-    <MossletWeb.DesignSystem.liquid_container max_width="lg" class="space-y-4">
+    <MossletWeb.DesignSystem.liquid_container max_width="lg" class="space-y-6">
       <%!-- Realtime update indicator (sticky at top when new posts arrive) --%>
       <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator new_posts_count={5} />
 
@@ -49,7 +49,7 @@
           <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
             user_name={user_name(@current_user, @key) || "User"}
             user_avatar={
-              maybe_get_user_avatar(@current_user, @key) || "/images/default-avatar.png"
+              maybe_get_user_avatar(@current_user, @key) || "/images/logo_icon_dark.svg"
             }
             placeholder="Share something meaningful with your community..."
             character_limit={500}
@@ -61,17 +61,14 @@
       </div>
 
       <%!-- Timeline feed with improved visual hierarchy --%>
-      <div class="space-y-4">
+      <div class="space-y-3">
         <%!-- Real timeline posts from encrypted backend --%>
-        <div id="timeline-posts" phx-update="stream">
-          <div :for={{dom_id, post} <- @streams.posts} id={dom_id}>
+        <div id="timeline-posts" phx-update="stream" class="space-y-3">
+          <div :for={{dom_id, post} <- @streams.posts} id={dom_id} class="">
             <MossletWeb.DesignSystem.liquid_timeline_post
               user_name={get_post_author_name(post, @current_user, @key)}
               user_handle={"@" <> (decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") || "user")}
-              user_avatar={
-                maybe_get_avatar_src(post, @current_user, @key, []) ||
-                  "/images/default-avatar.png"
-              }
+              user_avatar={get_post_author_avatar(post, @current_user, @key)}
               timestamp={format_post_timestamp(post.inserted_at)}
               verified={false}
               content={
@@ -87,13 +84,17 @@
               images={get_decrypted_post_images(post, @current_user, @key)}
               stats={
                 %{
-                  replies: length(post.replies || []),
+                  replies:
+                    if(Ecto.assoc_loaded?(post.replies), do: length(post.replies), else: 0),
                   shares: post.reposts_count || 0,
                   likes: post.favs_count || 0
                 }
               }
               post_id={post.id}
               current_user_id={@current_user.id}
+              post={post}
+              current_user={@current_user}
+              is_repost={post.repost || false}
               liked={@current_user.id in (post.favs_list || [])}
               bookmarked={get_post_bookmarked_status(post, @current_user)}
               class="shadow-xl shadow-slate-900/8 dark:shadow-slate-900/25 hover:shadow-2xl hover:shadow-slate-900/12 dark:hover:shadow-slate-900/35"

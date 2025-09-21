@@ -198,7 +198,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <button
         @click="open = !open"
         class={[
-          "group relative flex items-center gap-x-2 rounded-full p-1.5",
+          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-hidden",
           "bg-gradient-to-br from-slate-50 via-white to-slate-100",
           "dark:from-slate-800 dark:via-slate-700 dark:to-slate-800",
           "ring-1 ring-slate-200/60 dark:ring-slate-600/40",

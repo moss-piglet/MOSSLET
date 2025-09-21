@@ -930,7 +930,7 @@ defmodule MossletWeb.TimelineLive.Index do
         end
       else
         # Create new bookmark
-        case Timeline.create_bookmark(current_user, post, user: current_user, key: key) do
+        case Timeline.create_bookmark(current_user, post, %{user: current_user, key: key}) do
           {:ok, _bookmark} ->
             # Update the post in the stream
             updated_post = Timeline.get_post!(post_id)
@@ -1654,6 +1654,25 @@ defmodule MossletWeb.TimelineLive.Index do
   defp ext(content_type) do
     [ext | _] = MIME.extensions(content_type)
     ext
+  end
+
+  # Helper function to get the post author's avatar
+  defp get_post_author_avatar(post, current_user, key) do
+    try do
+      if post.user_id == current_user.id do
+        # Current user's own post - use their avatar
+        maybe_get_user_avatar(current_user, key) || mosslet_logo_for_theme()
+      else
+        # Other user's post - get their avatar via connection
+        case maybe_get_avatar_src(post, current_user, key, []) do
+          avatar when is_binary(avatar) and avatar != "" -> avatar
+          _ -> mosslet_logo_for_theme()
+        end
+      end
+    rescue
+      # Fallback to Mosslet logo for any errors
+      _ -> mosslet_logo_for_theme()
+    end
   end
 
   # Helper function to get the post author's display name
