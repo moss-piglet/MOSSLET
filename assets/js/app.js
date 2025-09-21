@@ -135,56 +135,53 @@ window.addEventListener("phx:scroll-to-top", (event) => {
   requestAnimationFrame(animation);
 });
 
-// Add event listener for new post animations
-window.addEventListener("phx:animate-new-post", (event) => {
-  const postElement = document.getElementById(event.detail.post_id);
-  if (postElement) {
-    // First, set initial hidden state if not already animated
-    if (!postElement.classList.contains('new-post-animated')) {
-      postElement.style.opacity = '0';
-      postElement.style.transform = 'translateY(-20px) scale(0.95)';
-      
-      // Mark as being animated to prevent duplicate animations
-      postElement.classList.add('new-post-animated');
-      
-      // Trigger the slide-in animation after a brief delay
-      requestAnimationFrame(() => {
-        postElement.classList.add('new-post-slide-in');
-        
-        // Add highlight effect
-        setTimeout(() => {
-          postElement.classList.add('new-post-highlight');
-        }, 100);
-        
-        // Clean up animation classes after completion
-        setTimeout(() => {
-          postElement.classList.remove(
-            'new-post-slide-in',
-            'new-post-highlight'
-          );
-          // Reset inline styles
-          postElement.style.opacity = '';
-          postElement.style.transform = '';
-        }, 2600); // 600ms slide + 2000ms highlight
-      });
-      
-      // Optional: Smooth scroll to new post (if desired)
-      setTimeout(() => {
-        if (isElementInViewport(postElement)) {
-          // Post is already visible, no need to scroll
-        } else {
-          // Gently scroll new post into view
-          postElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-            inline: 'nearest'
-          });
-        }
-      }, 300);
-    }
-  }
+// Mark existing posts as loaded to prevent animation on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const existingPosts = document.querySelectorAll('.timeline-post-item.new-post');
+  existingPosts.forEach(function(post) {
+    post.classList.add('loaded');
+  });
+  console.log(`🔧 Marked ${existingPosts.length} existing posts as loaded`);
 });
 
+// Auto-cleanup new post animations for truly new posts
+const observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+    mutation.addedNodes.forEach(function(node) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        // Check if this is a new timeline post container
+        const isNewPostContainer = node.classList && node.classList.contains('timeline-post-container');
+        const newPostContainers = isNewPostContainer ? [node] : 
+          (node.querySelectorAll && node.querySelectorAll('.timeline-post-container') || []);
+        
+        newPostContainers.forEach(function(container) {
+          const postItem = container.querySelector('.timeline-post-item.new-post');
+          if (postItem && !postItem.classList.contains('loaded')) {
+            console.log('🎯 New post detected, will animate:', container.id);
+            
+            // Clean up animation classes after completion
+            setTimeout(function() {
+              postItem.classList.remove('new-post');
+              console.log('✅ Animation completed for:', container.id);
+            }, 3800); // 0.8s slide + 3s highlight
+          }
+        });
+      }
+    });
+  });
+});
+
+// Start observing the timeline posts container
+const timelineContainer = document.getElementById('timeline-posts');
+if (timelineContainer) {
+  observer.observe(timelineContainer, {
+    childList: true,
+    subtree: false // Only watch direct children
+  });
+  console.log('📡 Timeline animation observer started');
+}
+
+// Remove the targeted animation approach
 // Add event listener for tab count updates to show notification badges
 window.addEventListener("phx:update-tab-counts", (event) => {
   const { tabCounts, activeTab } = event.detail;

@@ -385,31 +385,32 @@ defmodule Mosslet.Timeline do
   """
   def filter_timeline_posts(current_user, options) do
     tab = options[:tab] || "home"
+    # TEMPORARILY DISABLE CACHE TO TEST REAL-TIME UPDATES
     # Try cache first (only for non-realtime requests)
-    if !options[:skip_cache] do
-      case TimelineCache.get_timeline_data(current_user.id, tab) do
-        {:hit, cached_data} ->
-          Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
-          cached_data[:posts] || []
+    # if !options[:skip_cache] do
+    #   case TimelineCache.get_timeline_data(current_user.id, tab) do
+    #     {:hit, cached_data} ->
+    #       Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
+    #       cached_data[:posts] || []
 
-        :miss ->
-          # Cache miss - fetch fresh data
-          posts = fetch_timeline_posts_from_db(current_user, options)
+    #     :miss ->
+    #       # Cache miss - fetch fresh data
+    #       posts = fetch_timeline_posts_from_db(current_user, options)
 
-          # Cache the results (cache encrypted posts safely)
-          timeline_data = %{
-            posts: posts,
-            post_count: length(posts),
-            fetched_at: System.system_time(:millisecond)
-          }
+    #       # Cache the results (cache encrypted posts safely)
+    #       timeline_data = %{
+    #         posts: posts,
+    #         post_count: length(posts),
+    #         fetched_at: System.system_time(:millisecond)
+    #       }
 
-          TimelineCache.cache_timeline_data(current_user.id, tab, timeline_data)
-          posts
-      end
-    else
-      # Skip cache for real-time updates
-      fetch_timeline_posts_from_db(current_user, options)
-    end
+    #       TimelineCache.cache_timeline_data(current_user.id, tab, timeline_data)
+    #       posts
+    #   end
+    # else
+    # Skip cache for real-time updates
+    fetch_timeline_posts_from_db(current_user, options)
+    # end
   end
 
   @doc """

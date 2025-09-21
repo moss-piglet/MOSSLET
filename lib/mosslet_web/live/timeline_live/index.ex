@@ -224,32 +224,34 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
 
-    # Don't show the user their own posts (they already see them when creating)
-    if post.user_id == current_user.id do
+    # Debug logging
+    require Logger
+    Logger.info("🎯 POST CREATED: #{post.id} by user #{post.user_id}")
+    Logger.info("   Current tab: #{current_tab}, Current user: #{current_user.id}")
+
+    # Check if this post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+    Logger.info("   Should show post: #{should_show_post}")
+
+    if should_show_post do
+      Logger.info("   Adding post to stream with animations...")
+      # Add the new post to the top of the stream - CSS animations will trigger automatically
+      socket =
+        socket
+        |> stream_insert(:posts, post, at: 0)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_new_post_notification(post, current_user)
+
       {:noreply, socket}
     else
-      # Check if this post should appear in the current tab
-      should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+      Logger.info("   Post doesn't match current tab, updating counts only")
+      # Post doesn't match current tab, but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_subtle_tab_indicator(current_user, options)
 
-      if should_show_post do
-        # Add the new post to the top of the stream with smooth animation
-        socket =
-          socket
-          |> stream_insert(:posts, post, at: 0)
-          |> recalculate_counts_after_new_post(current_user, options)
-          |> add_post_slide_in_animation(post.id)
-          |> add_new_post_notification(post, current_user)
-
-        {:noreply, socket}
-      else
-        # Post doesn't match current tab, but still update counts
-        socket =
-          socket
-          |> recalculate_counts_after_new_post(current_user, options)
-          |> add_subtle_tab_indicator(current_user, options)
-
-        {:noreply, socket}
-      end
+      {:noreply, socket}
     end
   end
 
@@ -842,8 +844,6 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("save_post", %{"post" => post_params}, socket) do
-    IO.inspect(post_params, label: "POST PARAMS")
-
     if connected?(socket) do
       post_shared_users = socket.assigns.post_shared_users
       current_user = socket.assigns.current_user
@@ -1863,18 +1863,33 @@ defmodule MossletWeb.TimelineLive.Index do
     |> assign(:unread_counts, unread_counts)
   end
 
-  # Helper function to add slide-in animation for new posts
-  defp add_post_slide_in_animation(socket, post_id) do
-    # Push event to client to animate the new post sliding in
-    push_event(socket, "animate-new-post", %{post_id: "posts-#{post_id}"})
-  end
-
   # Helper function to add a subtle new post notification
   defp add_new_post_notification(socket, post, current_user) do
-    author_name = get_post_author_name(post, current_user, socket.assigns.key)
+    # Use a safe pattern to get author name without try/rescue
+    author_name =
+      case get_safe_post_author_name(post, current_user, socket.assigns.key) do
+        {:ok, name} -> name
+        {:error, _reason} -> "Someone"
+      end
 
     # Add a gentle flash message for the new post
     put_flash(socket, :info, "New post from #{author_name}")
+  end
+
+  # Safe version of get_post_author_name that returns {:ok, name} or {:error, reason}
+  defp get_safe_post_author_name(post, current_user, key) do
+    if post.user_id == current_user.id do
+      # Current user's own post - use their name
+      case user_name(current_user, key) do
+        name when is_binary(name) -> {:ok, name}
+        :failed_verification -> {:ok, "You"}
+        _ -> {:ok, "You"}
+      end
+    else
+      # For simplicity in notifications, just say "Someone" for other users
+      # This avoids complex decryption during real-time updates
+      {:ok, "Someone"}
+    end
   end
 
   # Helper function to add subtle tab indicators for new posts in other tabs
