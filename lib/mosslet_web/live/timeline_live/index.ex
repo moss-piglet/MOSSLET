@@ -238,6 +238,7 @@ defmodule MossletWeb.TimelineLive.Index do
           |> stream_insert(:posts, post, at: 0)
           |> recalculate_counts_after_new_post(current_user, options)
           |> add_post_slide_in_animation(post.id)
+          |> add_new_post_notification(post, current_user)
 
         {:noreply, socket}
       else
@@ -245,6 +246,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket =
           socket
           |> recalculate_counts_after_new_post(current_user, options)
+          |> add_subtle_tab_indicator(current_user, options)
 
         {:noreply, socket}
       end
@@ -962,6 +964,10 @@ defmodule MossletWeb.TimelineLive.Index do
     send_update(LiveSelect.Component, options: options, id: id)
 
     {:noreply, socket}
+  end
+
+  def handle_event("scroll_to_top", _params, socket) do
+    {:noreply, push_event(socket, "scroll-to-top", %{})}
   end
 
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
@@ -1818,8 +1824,8 @@ defmodule MossletWeb.TimelineLive.Index do
   defp post_matches_current_tab?(post, current_tab, current_user) do
     case current_tab do
       "home" ->
-        # Home tab shows user's own posts, but we already filtered those out
-        false
+        # Home tab shows user's own posts - so their new posts should appear
+        post.user_id == current_user.id
 
       "connections" ->
         # Show posts from connected users
@@ -1861,6 +1867,21 @@ defmodule MossletWeb.TimelineLive.Index do
   defp add_post_slide_in_animation(socket, post_id) do
     # Push event to client to animate the new post sliding in
     push_event(socket, "animate-new-post", %{post_id: "posts-#{post_id}"})
+  end
+
+  # Helper function to add a subtle new post notification
+  defp add_new_post_notification(socket, post, current_user) do
+    author_name = get_post_author_name(post, current_user, socket.assigns.key)
+
+    # Add a gentle flash message for the new post
+    put_flash(socket, :info, "New post from #{author_name}")
+  end
+
+  # Helper function to add subtle tab indicators for new posts in other tabs
+  defp add_subtle_tab_indicator(socket, current_user, options) do
+    # Update unread counts to show there are new posts in other tabs
+    unread_counts = calculate_unread_counts(current_user, options)
+    assign(socket, :unread_counts, unread_counts)
   end
 
   defp get_file_key(url) do
@@ -1906,7 +1927,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Enum.uniq()
 
     %{
-      home: length(unread_posts),
+      # Home tab: only show unread posts from the current user (since home only shows user's own posts)
+      home: Enum.count(unread_posts, fn post -> post.user_id == current_user.id end),
+      # Connections tab: only show unread posts from connected users (excluding current user)
       connections:
         if Enum.empty?(connection_user_ids) do
           0
@@ -1915,8 +1938,9 @@ defmodule MossletWeb.TimelineLive.Index do
             post.user_id in connection_user_ids and post.user_id != current_user.id
           end)
         end,
+      # Groups tab: only show unread posts with group_id
       groups: Enum.count(unread_posts, fn post -> post.group_id != nil end),
-      # Count unread bookmarked posts
+      # Bookmarks tab: only show unread bookmarked posts
       bookmarks:
         try do
           user_bookmarks =

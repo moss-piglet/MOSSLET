@@ -2397,9 +2397,13 @@ defmodule MossletWeb.DesignSystem do
   Positioned below the topbar to avoid mobile sidebar collision.
   """
   attr :new_posts_count, :integer, default: 0
+  attr :active_tab, :string, default: "home"
   attr :class, :any, default: ""
 
   def liquid_timeline_realtime_indicator(assigns) do
+    # Define tab-specific icons
+    assigns = assign(assigns, :tab_icon, get_tab_icon(assigns.active_tab))
+
     ~H"""
     <div
       :if={@new_posts_count > 0}
@@ -2411,12 +2415,8 @@ defmodule MossletWeb.DesignSystem do
     >
       <button
         class="group inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
-        phx-click={
-          JS.exec(
-            "document.getElementById('timeline-posts').scrollIntoView({behavior: 'smooth', block: 'start'})"
-          )
-        }
-        title="Scroll to top of timeline"
+        phx-click="scroll_to_top"
+        title="Scroll to top of page"
       >
         <%!-- Gentle pulse indicator --%>
         <div class="relative">
@@ -2424,17 +2424,30 @@ defmodule MossletWeb.DesignSystem do
           <div class="absolute inset-0 w-2 h-2 bg-white rounded-full animate-ping opacity-75"></div>
         </div>
 
+        <%!-- Tab-specific icon --%>
+        <.phx_icon
+          name={@tab_icon}
+          class="h-4 w-4 opacity-90"
+        />
+
         <span class="text-sm font-medium">
           {@new_posts_count} new post{if(@new_posts_count == 1, do: "", else: "s")}
         </span>
-
-        <.phx_icon
-          name="hero-arrow-up"
-          class="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-1"
-        />
       </button>
     </div>
     """
+  end
+
+  # Helper function to get tab-specific icons
+  defp get_tab_icon(tab) do
+    case tab do
+      "home" -> "hero-home"
+      "connections" -> "hero-user-group"
+      "groups" -> "hero-squares-2x2"
+      "bookmarks" -> "hero-bookmark"
+      "discover" -> "hero-globe-alt"
+      _ -> "hero-home"
+    end
   end
 
   @doc """
@@ -3733,4 +3746,113 @@ defmodule MossletWeb.DesignSystem do
     </div>
     """
   end
+
+  @doc """
+  Liquid metal banner notification component.
+
+  ## Examples
+
+      <.liquid_banner type="warning" icon="hero-exclamation-triangle">
+        <:title>Important notice</:title>
+        This is a warning message.
+      </.liquid_banner>
+
+      <.liquid_banner type="info" icon="hero-information-circle">
+        <:title>Information</:title>
+        This is an informational message.
+      </.liquid_banner>
+  """
+  attr :type, :string, default: "info", values: ~w(info warning error success)
+  attr :icon, :string, default: nil
+  attr :class, :any, default: ""
+  slot :title
+  slot :inner_block, required: true
+
+  def liquid_banner(assigns) do
+    ~H"""
+    <div class={[
+      "relative overflow-hidden rounded-xl backdrop-blur-sm p-6",
+      "border shadow-lg transition-all duration-300 ease-out",
+      banner_type_classes(@type),
+      @class
+    ]}>
+      <%!-- Liquid background shimmer effect --%>
+      <div class="absolute inset-0 opacity-30">
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 -translate-x-full animate-[shimmer_3s_ease-in-out_infinite]">
+        </div>
+      </div>
+
+      <%!-- Banner content --%>
+      <div class="relative flex items-start gap-4">
+        <%!-- Icon --%>
+        <div :if={@icon} class="flex-shrink-0">
+          <.phx_icon name={@icon} class={["h-6 w-6", banner_icon_classes(@type)]} />
+        </div>
+
+        <%!-- Content --%>
+        <div class="flex-1 min-w-0">
+          <%!-- Title --%>
+          <div :if={render_slot(@title)} class="mb-2">
+            <h3 class={["font-medium", banner_title_classes(@type)]}>
+              {render_slot(@title)}
+            </h3>
+          </div>
+
+          <%!-- Message content --%>
+          <div class={["text-sm leading-relaxed", banner_content_classes(@type)]}>
+            {render_slot(@inner_block)}
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Banner styling helpers
+  defp banner_type_classes("warning") do
+    [
+      "bg-amber-50/95 dark:bg-amber-900/20",
+      "border-amber-200/60 dark:border-amber-800/30",
+      "shadow-amber-500/10 dark:shadow-amber-900/20"
+    ]
+  end
+
+  defp banner_type_classes("error") do
+    [
+      "bg-red-50/95 dark:bg-red-900/20",
+      "border-red-200/60 dark:border-red-800/30",
+      "shadow-red-500/10 dark:shadow-red-900/20"
+    ]
+  end
+
+  defp banner_type_classes("success") do
+    [
+      "bg-emerald-50/95 dark:bg-emerald-900/20",
+      "border-emerald-200/60 dark:border-emerald-800/30",
+      "shadow-emerald-500/10 dark:shadow-emerald-900/20"
+    ]
+  end
+
+  defp banner_type_classes("info") do
+    [
+      "bg-blue-50/95 dark:bg-blue-900/20",
+      "border-blue-200/60 dark:border-blue-800/30",
+      "shadow-blue-500/10 dark:shadow-blue-900/20"
+    ]
+  end
+
+  defp banner_icon_classes("warning"), do: "text-amber-600 dark:text-amber-400"
+  defp banner_icon_classes("error"), do: "text-red-600 dark:text-red-400"
+  defp banner_icon_classes("success"), do: "text-emerald-600 dark:text-emerald-400"
+  defp banner_icon_classes("info"), do: "text-blue-600 dark:text-blue-400"
+
+  defp banner_title_classes("warning"), do: "text-amber-800 dark:text-amber-200"
+  defp banner_title_classes("error"), do: "text-red-800 dark:text-red-200"
+  defp banner_title_classes("success"), do: "text-emerald-800 dark:text-emerald-200"
+  defp banner_title_classes("info"), do: "text-blue-800 dark:text-blue-200"
+
+  defp banner_content_classes("warning"), do: "text-amber-700 dark:text-amber-300"
+  defp banner_content_classes("error"), do: "text-red-700 dark:text-red-300"
+  defp banner_content_classes("success"), do: "text-emerald-700 dark:text-emerald-300"
+  defp banner_content_classes("info"), do: "text-blue-700 dark:text-blue-300"
 end

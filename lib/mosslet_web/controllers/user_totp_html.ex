@@ -8,7 +8,7 @@ defmodule MossletWeb.UserTOTPHTML do
         <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
       </:logo>
       <:top_right>
-      <MossletWeb.Layouts.theme_toggle />
+        <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 
       <%!-- Header with improved visual hierarchy --%>
@@ -17,7 +17,9 @@ defmodule MossletWeb.UserTOTPHTML do
         <div class="mb-6">
           <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/30 mb-4">
             <span class="text-2xl">🔐</span>
-            <span class="text-sm font-medium text-teal-700 dark:text-teal-300">Secure verification</span>
+            <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
+              Secure verification
+            </span>
           </div>
         </div>
 
@@ -152,8 +154,7 @@ defmodule MossletWeb.UserTOTPHTML do
                 "transition-colors duration-200"
               ]}
             >
-              <.phx_icon name="hero-arrow-left-start-on-rectangle" class="w-4 h-4" />
-              Sign out
+              <.phx_icon name="hero-arrow-left-start-on-rectangle" class="w-4 h-4" /> Sign out
             </.link>
           </div>
         </div>

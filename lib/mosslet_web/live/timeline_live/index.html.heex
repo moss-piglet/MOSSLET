@@ -17,9 +17,10 @@
     <%!-- Content container with improved spacing --%>
     <MossletWeb.DesignSystem.liquid_container max_width="lg" class="space-y-6">
       <%!-- Realtime update indicator (sticky at top when new posts arrive) --%>
-      <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator new_posts_count={
-        Map.get(@unread_counts, String.to_atom(@active_tab || "home"), 0)
-      } />
+      <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator
+        new_posts_count={Map.get(@unread_counts, String.to_atom(@active_tab || "home"), 0)}
+        active_tab={@active_tab || "home"}
+      />
 
       <%!-- Timeline navigation tabs with Bookmarks --%>
       <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 p-2">

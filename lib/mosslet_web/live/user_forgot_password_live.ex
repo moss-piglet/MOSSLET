@@ -10,7 +10,6 @@ defmodule MossletWeb.UserForgotPasswordLive do
         <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
       </:logo>
       <:top_right>
-
         <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 

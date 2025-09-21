@@ -108,37 +108,168 @@ document.addEventListener("trix-initialize", function (event) {
   );
 });
 
+// Add event listener for scroll to top
+window.addEventListener("phx:scroll-to-top", (event) => {
+  // Use a custom smooth scroll with easing for better animation
+  const startPosition = window.pageYOffset;
+  const targetPosition = 0;
+  const distance = targetPosition - startPosition;
+  const duration = Math.min(1200, Math.max(800, Math.abs(distance) * 2)); // Dynamic duration based on distance
+  let start = null;
+
+  function ease(t, b, c, d) {
+    // easeOutQuart easing function for smooth deceleration
+    t /= d;
+    t--;
+    return -c * (t * t * t * t - 1) + b;
+  }
+
+  function animation(currentTime) {
+    if (start === null) start = currentTime;
+    const timeElapsed = currentTime - start;
+    const run = ease(timeElapsed, startPosition, distance, duration);
+    window.scrollTo(0, run);
+    if (timeElapsed < duration) requestAnimationFrame(animation);
+  }
+
+  requestAnimationFrame(animation);
+});
+
 // Add event listener for new post animations
 window.addEventListener("phx:animate-new-post", (event) => {
   const postElement = document.getElementById(event.detail.post_id);
   if (postElement) {
-    // Add initial animation classes
-    postElement.classList.add(
-      "animate-in",
-      "slide-in-from-top-2",
-      "fade-in",
-      "duration-500",
-      "ease-out"
-    );
-    
-    // Add a subtle glow effect for new posts
-    postElement.classList.add(
-      "ring-2", 
-      "ring-emerald-400/30", 
-      "ring-offset-2",
-      "dark:ring-emerald-400/20"
-    );
-    
-    // Remove the glow effect after animation completes
-    setTimeout(() => {
-      postElement.classList.remove(
-        "ring-2", 
-        "ring-emerald-400/30", 
-        "ring-offset-2",
-        "dark:ring-emerald-400/20"
-      );
-    }, 2000);
+    // First, set initial hidden state if not already animated
+    if (!postElement.classList.contains('new-post-animated')) {
+      postElement.style.opacity = '0';
+      postElement.style.transform = 'translateY(-20px) scale(0.95)';
+      
+      // Mark as being animated to prevent duplicate animations
+      postElement.classList.add('new-post-animated');
+      
+      // Trigger the slide-in animation after a brief delay
+      requestAnimationFrame(() => {
+        postElement.classList.add('new-post-slide-in');
+        
+        // Add highlight effect
+        setTimeout(() => {
+          postElement.classList.add('new-post-highlight');
+        }, 100);
+        
+        // Clean up animation classes after completion
+        setTimeout(() => {
+          postElement.classList.remove(
+            'new-post-slide-in',
+            'new-post-highlight'
+          );
+          // Reset inline styles
+          postElement.style.opacity = '';
+          postElement.style.transform = '';
+        }, 2600); // 600ms slide + 2000ms highlight
+      });
+      
+      // Optional: Smooth scroll to new post (if desired)
+      setTimeout(() => {
+        if (isElementInViewport(postElement)) {
+          // Post is already visible, no need to scroll
+        } else {
+          // Gently scroll new post into view
+          postElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      }, 300);
+    }
   }
+});
+
+// Add event listener for tab count updates to show notification badges
+window.addEventListener("phx:update-tab-counts", (event) => {
+  const { tabCounts, activeTab } = event.detail;
+  
+  // Update tab badges with new counts
+  Object.entries(tabCounts).forEach(([tab, count]) => {
+    const tabElement = document.querySelector(`[data-tab="${tab}"]`);
+    if (tabElement && tab !== activeTab) {
+      const badge = tabElement.querySelector('.unread-badge');
+      if (badge && count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+        
+        // Add a subtle pulse animation to indicate new content
+        badge.classList.add('animate-pulse');
+        setTimeout(() => {
+          badge.classList.remove('animate-pulse');
+        }, 2000);
+      }
+    }
+  });
+});
+
+// Add event listener for new post banner notifications
+window.addEventListener("phx:show-new-posts-banner", (event) => {
+  const { count, tab } = event.detail;
+  
+  // Find or create the new posts banner
+  let banner = document.getElementById('new-posts-banner');
+  
+  if (!banner) {
+    // Create new banner element
+    banner = document.createElement('div');
+    banner.id = 'new-posts-banner';
+    banner.className = `
+      fixed top-20 left-1/2 transform -translate-x-1/2 z-50
+      bg-emerald-500 dark:bg-emerald-600 text-white px-6 py-3 rounded-full
+      shadow-lg border border-emerald-400 dark:border-emerald-500
+      cursor-pointer transition-all duration-300 ease-out
+      hover:bg-emerald-600 dark:hover:bg-emerald-700
+      hover:scale-105 active:scale-95
+    `;
+    
+    // Add click handler to scroll to top and refresh
+    banner.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      banner.remove();
+      // Trigger a refresh of the timeline
+      window.dispatchEvent(new CustomEvent('phx:refresh-timeline'));
+    });
+    
+    document.body.appendChild(banner);
+  }
+  
+  // Update banner content
+  const postText = count === 1 ? 'post' : 'posts';
+  banner.innerHTML = `
+    <div class="flex items-center gap-2 text-sm font-medium">
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+      </svg>
+      <span>${count} new ${postText}</span>
+      <svg class="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+      </svg>
+    </div>
+  `;
+  
+  // Animate in
+  banner.style.transform = 'translateX(-50%) translateY(-20px)';
+  banner.style.opacity = '0';
+  
+  requestAnimationFrame(() => {
+    banner.style.transform = 'translateX(-50%) translateY(0)';
+    banner.style.opacity = '1';
+  });
+  
+  // Auto-hide after 10 seconds
+  setTimeout(() => {
+    if (banner.parentNode) {
+      banner.style.transform = 'translateX(-50%) translateY(-20px)';
+      banner.style.opacity = '0';
+      setTimeout(() => banner.remove(), 300);
+    }
+  }, 10000);
 });
 
 window.addEventListener("phx:show-el", (e) =>
