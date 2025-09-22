@@ -1536,40 +1536,124 @@ defmodule Mosslet.Timeline do
     user = Accounts.get_user!(opts[:user].id)
     p_attrs = post.changes.user_post_map
 
-    case Ecto.Multi.new()
-         |> Ecto.Multi.insert(:insert_post, post)
-         |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
-           UserPost.changeset(
-             %UserPost{},
-             %{
-               key: p_attrs.temp_key,
-               user_id: user.id,
-               post_id: post.id
-             },
-             user: user,
-             visibility: attrs["visibility"] || attrs[:visibility]
-           )
-           |> Ecto.Changeset.put_assoc(:post, post)
-           |> Ecto.Changeset.put_assoc(:user, user)
-         end)
-         |> Repo.transaction_on_primary() do
-      {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} ->
-        # we create user_posts for everyone being shared with
-        create_shared_user_reposts(post, attrs, p_attrs, user)
+    case attrs["visibility"] || attrs[:visibility] do
+      :public ->
+        # For public reposts, only create the Post record, not UserPost records
+        # Public posts should reuse the original post's UserPost with public key
+        case Ecto.Multi.new()
+             |> Ecto.Multi.insert(:insert_post, post)
+             |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
+               # For public reposts, create a UserPost with the same public key
+               UserPost.changeset(
+                 %UserPost{},
+                 %{
+                   # This should be the original public key
+                   key: p_attrs.temp_key,
+                   user_id: user.id,
+                   post_id: post.id
+                 },
+                 user: user,
+                 visibility: :public
+               )
+               |> Ecto.Changeset.put_assoc(:post, post)
+               |> Ecto.Changeset.put_assoc(:user, user)
+             end)
+             |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{
+                                                                          insert_user_post:
+                                                                            user_post
+                                                                        } ->
+               # Create receipt for the repost creator (marked as read)
+               {:ok, dt} = DateTime.now("Etc/UTC")
 
-      {:error, :insert_post, changeset, _map} ->
-        {:error, changeset}
+               UserPostReceipt.changeset(
+                 %UserPostReceipt{},
+                 %{
+                   user_id: user.id,
+                   user_post_id: user_post.id,
+                   is_read?: true,
+                   read_at: DateTime.to_naive(dt)
+                 }
+               )
+               |> Ecto.Changeset.put_assoc(:user, user)
+               |> Ecto.Changeset.put_assoc(:user_post, user_post)
+             end)
+             |> Repo.transaction_on_primary() do
+          {:ok, %{insert_post: post, insert_user_post: user_post}} ->
+            # For public posts, we also need to create receipts for other users
+            # But we don't need to create additional UserPost records
+            post_with_associations = post |> Repo.preload([:user_posts, :replies])
+            create_public_post_receipts_for_other_users(post_with_associations, user_post, user)
 
-      {:error, :insert_user_post, changeset, _map} ->
-        {:error, changeset}
+            conn = Accounts.get_connection_from_item(post, user)
 
-      {:error, :insert_post, _, :update_user_post, changeset, _map} ->
-        {:error, changeset}
+            {:ok, conn, post_with_associations}
+            |> broadcast(:post_reposted)
 
-      rest ->
-        Logger.warning("Error creating repost")
-        Logger.debug("Error creating repost: #{inspect(rest)}")
-        {:error, "error"}
+          {:error, :insert_post, changeset, _map} ->
+            {:error, changeset}
+
+          rest ->
+            Logger.warning("Error creating public repost")
+            Logger.debug("Error creating public repost: #{inspect(rest)}")
+            {:error, "error"}
+        end
+
+      _ ->
+        # For private/connections reposts, create UserPost records as before
+        case Ecto.Multi.new()
+             |> Ecto.Multi.insert(:insert_post, post)
+             |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
+               UserPost.changeset(
+                 %UserPost{},
+                 %{
+                   key: p_attrs.temp_key,
+                   user_id: user.id,
+                   post_id: post.id
+                 },
+                 user: user,
+                 visibility: attrs["visibility"] || attrs[:visibility]
+               )
+               |> Ecto.Changeset.put_assoc(:post, post)
+               |> Ecto.Changeset.put_assoc(:user, user)
+             end)
+             |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{
+                                                                          insert_user_post:
+                                                                            user_post
+                                                                        } ->
+               # Create receipt for the repost creator (marked as read)
+               {:ok, dt} = DateTime.now("Etc/UTC")
+
+               UserPostReceipt.changeset(
+                 %UserPostReceipt{},
+                 %{
+                   user_id: user.id,
+                   user_post_id: user_post.id,
+                   is_read?: true,
+                   read_at: DateTime.to_naive(dt)
+                 }
+               )
+               |> Ecto.Changeset.put_assoc(:user, user)
+               |> Ecto.Changeset.put_assoc(:user_post, user_post)
+             end)
+             |> Repo.transaction_on_primary() do
+          {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} ->
+            # we create user_posts for everyone being shared with
+            create_shared_user_reposts(post, attrs, p_attrs, user)
+
+          {:error, :insert_post, changeset, _map} ->
+            {:error, changeset}
+
+          {:error, :insert_user_post, changeset, _map} ->
+            {:error, changeset}
+
+          {:error, :insert_post, _, :update_user_post, changeset, _map} ->
+            {:error, changeset}
+
+          rest ->
+            Logger.warning("Error creating repost")
+            Logger.debug("Error creating repost: #{inspect(rest)}")
+            {:error, "error"}
+        end
     end
   end
 

@@ -101,7 +101,14 @@
                 content={
                   case post.visibility do
                     :public ->
-                      decr_public_item(post.body, get_post_key(post))
+                      decr_item(
+                        post.body,
+                        @current_user,
+                        get_post_key(post),
+                        @key,
+                        post,
+                        "body"
+                      ) || "[Could not decrypt content]"
 
                     _ ->
                       decr_item(

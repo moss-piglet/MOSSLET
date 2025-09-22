@@ -2825,12 +2825,9 @@ defmodule MossletWeb.DesignSystem do
         "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
         "hover:border-slate-300/60 dark:hover:border-slate-600/60",
         "transform-gpu will-change-transform",
-        # Enhanced glow effect for reposts - more prominent emerald glow
-        if(@is_repost,
-          do:
-            "ring-2 ring-emerald-400/30 dark:ring-emerald-500/40 shadow-lg shadow-emerald-500/20 dark:shadow-emerald-400/25 border-emerald-200/50 dark:border-emerald-700/50",
-          else: ""
-        ),
+        # Remove enhanced styling for reposts - just use the label
+        # No special ring or border for reposts to avoid confusion with unread posts
+        "",
         # Enhanced glow effect for unread posts - teal/cyan glow to distinguish from reposts
         if(@unread?,
           do:
@@ -2840,16 +2837,11 @@ defmodule MossletWeb.DesignSystem do
         @class
       ]
     }>
-      <%!-- Enhanced liquid background on hover with repost-specific styling --%>
+      <%!-- Enhanced liquid background on hover with subtle styling --%>
       <div class={[
         "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
         "group-hover:opacity-100",
-        if(@is_repost,
-          do:
-            "bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/10 dark:to-emerald-900/15",
-          else:
-            "bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"
-        )
+        "bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"
       ]}>
       </div>
 
