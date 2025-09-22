@@ -541,7 +541,17 @@ defmodule Mosslet.Timeline.Post do
         # For public posts that are reposts, preserve the original public key
         :public ->
           if opts[:trix_key] do
-            Encrypted.Users.Utils.decrypt_public_item_key(opts[:trix_key])
+            # For new public posts with images, the trix_key is asymmetrically encrypted
+            # (encrypted with user's public key), so we need to decrypt it like
+            # connections/private posts, then use the decrypted key for public encryption
+            {:ok, d_trix_key} =
+              Encrypted.Users.Utils.decrypt_user_attrs_key(
+                opts[:trix_key],
+                opts[:user],
+                opts[:key]
+              )
+
+            d_trix_key
           else
             Encrypted.Utils.generate_key()
           end
