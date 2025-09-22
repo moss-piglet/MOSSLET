@@ -2885,22 +2885,21 @@ defmodule MossletWeb.DesignSystem do
                 name="hero-check-badge"
                 class="h-5 w-5 text-emerald-500 flex-shrink-0"
               />
+              <%!-- Visibility badge moved inline with user name for better hierarchy --%>
+              <.liquid_badge
+                variant="soft"
+                color={visibility_badge_color(@post.visibility)}
+                size="xs"
+                class="ml-2"
+              >
+                {visibility_badge_text(@post.visibility)}
+              </.liquid_badge>
             </div>
             <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
               <span class="truncate">{@user_handle}</span>
               <span class="text-slate-400 dark:text-slate-500">•</span>
               <time class="flex-shrink-0">{@timestamp}</time>
             </div>
-
-            <%!-- Visibility badge --%>
-            <.liquid_badge
-              variant="soft"
-              color={visibility_badge_color(@post.visibility)}
-              size="xs"
-              class="ml-2"
-            >
-              {visibility_badge_text(@post.visibility)}
-            </.liquid_badge>
           </div>
 
           <%!-- Post menu with liquid dropdown - only show if user has actions available --%>
