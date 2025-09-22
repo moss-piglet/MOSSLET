@@ -1447,8 +1447,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-
-
   def handle_event("edit_reply", %{"id" => id, "url" => return_url}, socket) do
     reply = Timeline.get_reply!(id)
 

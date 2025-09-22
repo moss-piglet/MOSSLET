@@ -17,7 +17,8 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.CoreComponents, only: [phx_input: 1]
 
   # Import helper functions
-  import MossletWeb.Helpers, only: [can_repost?: 2, photos?: 1, user_name: 2, maybe_get_user_avatar: 2]
+  import MossletWeb.Helpers,
+    only: [can_repost?: 2, photos?: 1, user_name: 2, maybe_get_user_avatar: 2]
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
@@ -2709,7 +2710,12 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <%!-- Post button that submits the form --%>
-            <.liquid_button size="sm" type="submit" class="flex-shrink-0" phx-disable-with="Sharing...">
+            <.liquid_button
+              size="sm"
+              type="submit"
+              class="flex-shrink-0"
+              phx-disable-with="Sharing..."
+            >
               Share thoughtfully
             </.liquid_button>
           </div>
@@ -3184,7 +3190,18 @@ defmodule MossletWeb.DesignSystem do
               count={Map.get(@stats, :replies, 0)}
               label="Reply"
               color="emerald"
-              phx-click={JS.toggle(to: "#reply-composer-#{@post_id}") |> JS.add_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")}
+              phx-click={
+                JS.toggle(to: "#reply-composer-#{@post_id}")
+                |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")
+                |> JS.toggle_class("hidden", to: "#reply-button-#{@post_id} .reply-icon-filled")
+                |> JS.toggle_attribute({"data-composer-open", "true", "false"},
+                  to: "#reply-button-#{@post_id}"
+                )
+              }
+              id={"reply-button-#{@post_id}"}
+              data-composer-open="false"
+              phx-hook="TippyHook"
+              data-tippy-content="Start a new reply"
             />
             <.liquid_timeline_action
               :if={can_repost?(@current_user, @post)}
@@ -3230,12 +3247,18 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </div>
     </article>
-    
+
     <%!-- Collapsible reply composer (hidden by default, toggled by JS) --%>
     <.liquid_collapsible_reply_composer
       post_id={@post_id}
       current_user={@current_user}
-      form={%{body: %{value: "", name: "reply[body]"}, post_id: %{value: @post_id, name: "reply[post_id]"}, user_id: %{value: @current_user.id, name: "reply[user_id]"}}}
+      form={
+        %{
+          body: %{value: "", name: "reply[body]"},
+          post_id: %{value: @post_id, name: "reply[post_id]"},
+          user_id: %{value: @current_user.id, name: "reply[user_id]"}
+        }
+      }
       user_name={user_name(@current_user, @key) || "You"}
       user_avatar={maybe_get_user_avatar(@current_user, @key) || "/images/default_avatar.svg"}
       character_limit={280}
@@ -3356,7 +3379,10 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :post_id, :string, default: nil
   attr :current_user_id, :string, default: nil
-  attr :rest, :global, include: ~w(phx-click phx-value-id phx-value-url data-confirm)
+
+  attr :rest, :global,
+    include:
+      ~w(phx-click phx-value-id phx-value-url data-confirm id data-composer-open phx-hook data-tippy-content)
 
   def liquid_timeline_action(assigns) do
     ~H"""
@@ -3378,9 +3404,14 @@ defmodule MossletWeb.DesignSystem do
       ]}>
       </div>
 
+      <%!-- Dual icons for toggle effect --%>
       <.phx_icon
         name={@icon}
-        class="relative h-4 w-4 transition-transform duration-200 ease-out group-hover/action:scale-110"
+        class="relative h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-outline"
+      />
+      <.phx_icon
+        name={@icon <> "-solid"}
+        class="absolute h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-filled hidden"
       />
       <span :if={@count > 0} class="relative text-sm font-medium">
         {@count}
@@ -4322,9 +4353,9 @@ defmodule MossletWeb.DesignSystem do
 
   @doc """
   Collapsible reply composer that expands under posts.
-  
+
   ## Examples
-  
+
       <.liquid_collapsible_reply_composer
         post_id="123"
         show={@show_reply_composer}
@@ -4340,7 +4371,7 @@ defmodule MossletWeb.DesignSystem do
   attr :user_avatar, :string, default: nil
   attr :character_limit, :integer, default: 280
   attr :class, :any, default: ""
-  
+
   def liquid_collapsible_reply_composer(assigns) do
     ~H"""
     <div
@@ -4358,11 +4389,17 @@ defmodule MossletWeb.DesignSystem do
       <div class="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
         <%!-- Reply context indicator --%>
         <div class="flex items-center gap-2 mb-4 pl-4">
-          <div class="w-6 h-px bg-gradient-to-r from-emerald-300 to-teal-300 dark:from-emerald-600 dark:to-teal-600"></div>
-          <.phx_icon name="hero-arrow-turn-down-right" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">Reply to this post</span>
+          <div class="w-6 h-px bg-gradient-to-r from-emerald-300 to-teal-300 dark:from-emerald-600 dark:to-teal-600">
+          </div>
+          <.phx_icon
+            name="hero-arrow-turn-down-right"
+            class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+          />
+          <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            Reply to this post
+          </span>
         </div>
-        
+
         <%!-- Compact reply composer with liquid styling --%>
         <div class={[
           "relative rounded-xl overflow-hidden",
@@ -4376,7 +4413,7 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Subtle liquid background animation on focus --%>
           <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-emerald-100/30 via-teal-100/20 to-emerald-100/30 dark:from-emerald-800/20 dark:via-teal-800/15 dark:to-emerald-800/20 focus-within:opacity-100">
           </div>
-          
+
           <div class="relative p-4">
             <div class="flex items-start gap-3">
               <%!-- User avatar (smaller for replies) --%>
@@ -4386,7 +4423,7 @@ defmodule MossletWeb.DesignSystem do
                 size="sm"
                 class="flex-shrink-0"
               />
-              
+
               <div class="flex-1 min-w-0">
                 <%!-- Hidden form fields --%>
                 <.phx_input
@@ -4401,7 +4438,7 @@ defmodule MossletWeb.DesignSystem do
                   name={@form[:user_id].name}
                   value={@current_user.id}
                 />
-                
+
                 <%!-- Reply textarea --%>
                 <div class="relative">
                   <textarea
@@ -4416,12 +4453,13 @@ defmodule MossletWeb.DesignSystem do
                     value={@form[:body].value}
                     phx-debounce="300"
                   >{@form[:body].value}</textarea>
-                  
+
                   <%!-- Character counter for replies --%>
                   <div
                     class={[
                       "absolute bottom-1 right-1 transition-all duration-300 ease-out",
-                      (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") || "opacity-0"
+                      (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") ||
+                        "opacity-0"
                     ]}
                     id={"reply-char-counter-#{@post_id}"}
                   >
@@ -4430,7 +4468,7 @@ defmodule MossletWeb.DesignSystem do
                     </span>
                   </div>
                 </div>
-                
+
                 <%!-- Reply actions --%>
                 <div class="flex items-center justify-between mt-3">
                   <div class="flex items-center gap-2">
@@ -4439,7 +4477,7 @@ defmodule MossletWeb.DesignSystem do
                       Reply visibility: Same as post
                     </span>
                   </div>
-                  
+
                   <div class="flex items-center gap-2">
                     <%!-- Cancel button --%>
                     <.liquid_button
@@ -4453,7 +4491,7 @@ defmodule MossletWeb.DesignSystem do
                     >
                       Cancel
                     </.liquid_button>
-                    
+
                     <%!-- Reply submit button --%>
                     <.liquid_button
                       type="submit"
@@ -4479,9 +4517,9 @@ defmodule MossletWeb.DesignSystem do
 
   @doc """
   Collapsible reply thread display component.
-  
+
   ## Examples
-  
+
       <.liquid_collapsible_reply_thread
         post_id="123"
         replies={@replies}
@@ -4496,7 +4534,7 @@ defmodule MossletWeb.DesignSystem do
   attr :key, :string, default: nil
   attr :reply_count, :integer, default: 0
   attr :class, :any, default: ""
-  
+
   def liquid_collapsible_reply_thread(assigns) do
     ~H"""
     <div
@@ -4510,13 +4548,17 @@ defmodule MossletWeb.DesignSystem do
       <div class="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
         <%!-- Thread header --%>
         <div class="flex items-center gap-2 mb-4 pl-4">
-          <div class="w-6 h-px bg-gradient-to-r from-emerald-300 to-teal-300 dark:from-emerald-600 dark:to-teal-600"></div>
-          <.phx_icon name="hero-chat-bubble-left-ellipsis" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <div class="w-6 h-px bg-gradient-to-r from-emerald-300 to-teal-300 dark:from-emerald-600 dark:to-teal-600">
+          </div>
+          <.phx_icon
+            name="hero-chat-bubble-left-ellipsis"
+            class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+          />
           <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
             {if @reply_count == 1, do: "1 reply", else: "#{@reply_count} replies"}
           </span>
         </div>
-        
+
         <%!-- Reply list with threading --%>
         <div class="space-y-3 pl-6">
           <div :for={reply <- @replies} class="reply-item">
@@ -4526,7 +4568,7 @@ defmodule MossletWeb.DesignSystem do
               key={@key}
             />
           </div>
-          
+
           <%!-- Load more replies if needed --%>
           <div :if={@reply_count > length(@replies)} class="pt-2">
             <.liquid_button
@@ -4553,7 +4595,7 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
   attr :class, :any, default: ""
-  
+
   def liquid_reply_item(assigns) do
     ~H"""
     <div class={[
@@ -4567,7 +4609,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Reply connection line --%>
       <div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-400 to-teal-400 dark:from-emerald-500 dark:to-teal-500">
       </div>
-      
+
       <div class="p-4 pl-6">
         <div class="flex items-start gap-3">
           <%!-- Reply author avatar (small) --%>
@@ -4577,7 +4619,7 @@ defmodule MossletWeb.DesignSystem do
             size="xs"
             class="flex-shrink-0 mt-0.5"
           />
-          
+
           <div class="flex-1 min-w-0">
             <%!-- Reply header --%>
             <div class="flex items-center gap-2 mb-2">
@@ -4588,12 +4630,12 @@ defmodule MossletWeb.DesignSystem do
                 {format_reply_timestamp(@reply.inserted_at)}
               </span>
             </div>
-            
+
             <%!-- Reply content --%>
             <div class="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
               {get_decrypted_reply_content(@reply, @current_user, @key)}
             </div>
-            
+
             <%!-- Reply actions (minimal) --%>
             <div class="flex items-center gap-4 mt-2">
               <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
@@ -4613,21 +4655,25 @@ defmodule MossletWeb.DesignSystem do
   # Helper functions for reply data extraction
   defp get_reply_author_name(_reply, _current_user, _key) do
     # Implement decryption logic similar to posts
-    "Reply Author" # Placeholder
+    # Placeholder
+    "Reply Author"
   end
-  
+
   defp get_reply_author_avatar(_reply, _current_user, _key) do
     # Implement avatar logic similar to posts
-    "/images/default_avatar.svg" # Placeholder
+    # Placeholder
+    "/images/default_avatar.svg"
   end
-  
+
   defp get_decrypted_reply_content(_reply, _current_user, _key) do
     # Implement content decryption similar to posts
-    "Reply content..." # Placeholder
+    # Placeholder
+    "Reply content..."
   end
-  
+
   defp format_reply_timestamp(_timestamp) do
     # Implement timestamp formatting
-    "just now" # Placeholder
+    # Placeholder
+    "just now"
   end
 end
