@@ -5,6 +5,7 @@ defmodule MossletWeb.TimelineLive.Index do
   require Logger
 
   # import MossletWeb.TimelineLive.Components
+  import MossletWeb.Helpers
 
   alias Phoenix.LiveView.AsyncResult
   alias Mosslet.Accounts
@@ -16,10 +17,14 @@ defmodule MossletWeb.TimelineLive.Index do
   @post_per_page_default 10
   @folder "uploads/trix"
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
     initial_selector = "private"
+
+    # Store the user token from session for later use in uploads
+    user_token = session["user_token"]
+    Logger.info("📷 MOUNT: Storing user_token in socket: #{inspect(!!user_token)}")
 
     # Create changeset with all required fields populated
     changeset =
@@ -53,7 +58,20 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loaded_posts_count, 0)
       |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
+      # Store user token for uploads
+      |> assign(:user_token, user_token)
       |> stream(:posts, [])
+      # Configure photo uploads with proper constraints and encryption-ready settings
+      |> allow_upload(:photos,
+        accept: ~w(.jpg .jpeg .png),
+        max_entries: 4,
+        # 10MB to accommodate modern phone photos
+        max_file_size: 10_000_000,
+        # 64KB chunks for smooth progress
+        chunk_size: 64_000,
+        # Upload immediately when selected
+        auto_upload: true
+      )
 
     {:ok, assign(socket, page_title: "Timeline")}
   end
@@ -533,6 +551,19 @@ defmodule MossletWeb.TimelineLive.Index do
     {:reply, %{response: "success", trix_key: trix_key}, socket}
   end
 
+  def handle_event("get_post_image_urls", %{"post_id" => post_id}, socket) do
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        # Return the encrypted image URLs for the post
+        image_urls = post.image_urls || []
+        {:reply, %{response: "success", image_urls: image_urls}, socket}
+
+      nil ->
+        Logger.error("Post not found: #{post_id}")
+        {:reply, %{response: "error", message: "Post not found"}, socket}
+    end
+  end
+
   def handle_event(
         "decrypt_post_images",
         %{"sources" => sources, "post_id" => post_id} = _params,
@@ -856,9 +887,23 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("composer_add_photo", _params, socket) do
-    # Handle photo upload functionality
-    # For now, just show a message that this feature is coming
-    {:noreply, put_flash(socket, :info, "Photo upload feature coming soon!")}
+    # Trigger the file input dialog by pushing a JavaScript event
+    {:noreply, push_event(socket, "trigger-photo-upload", %{})}
+  end
+
+  def handle_event("validate_photos", _params, socket) do
+    # Validate uploads - this runs automatically when files are selected
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    # Cancel a specific upload
+    {:noreply, cancel_upload(socket, :photos, ref)}
+  end
+
+  def handle_event("remove_photo", %{"ref" => ref}, socket) do
+    # Remove a photo that has already been uploaded
+    {:noreply, cancel_upload(socket, :photos, ref)}
   end
 
   def handle_event("composer_add_emoji", _params, socket) do
@@ -880,13 +925,27 @@ defmodule MossletWeb.TimelineLive.Index do
       key = socket.assigns.key
       trix_key = socket.assigns[:trix_key]
 
+      # Debug logging for upload entries
+      upload_entries = socket.assigns.uploads.photos.entries
+      Logger.info("🔍 SAVE_POST DEBUG: Upload entries count: #{length(upload_entries)}")
+
+      Enum.each(upload_entries, fn entry ->
+        Logger.info("   Entry #{entry.ref}: #{entry.client_name} (#{entry.client_type})")
+      end)
+
+      # Process uploaded photos and get their URLs
+      uploaded_photo_urls = process_uploaded_photos(socket, current_user, key)
+      Logger.info("🔍 SAVE_POST DEBUG: Uploaded photo URLs: #{inspect(uploaded_photo_urls)}")
+
       post_params =
         post_params
-        |> Map.put("image_urls", socket.assigns.image_urls)
+        |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
         |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
         |> add_shared_users_list_for_new_post(post_shared_users)
+
+      Logger.info("🔍 SAVE_POST DEBUG: Final image_urls: #{inspect(post_params["image_urls"])}")
 
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
@@ -1104,74 +1163,73 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
 
-    try do
-      post = Timeline.get_post!(post_id)
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        # Check if post is already bookmarked using Timeline.bookmarked?
+        if Timeline.bookmarked?(current_user, post) do
+          # Remove existing bookmark
+          bookmark = Timeline.get_bookmark(current_user, post)
 
-      # Check if post is already bookmarked using Timeline.bookmarked?
-      if Timeline.bookmarked?(current_user, post) do
-        # Remove existing bookmark
-        bookmark = Timeline.get_bookmark(current_user, post)
+          case Timeline.delete_bookmark(bookmark, current_user) do
+            {:ok, _} ->
+              # Recalculate bookmark count
+              timeline_counts = calculate_timeline_counts(current_user, options)
 
-        case Timeline.delete_bookmark(bookmark, current_user) do
-          {:ok, _} ->
-            # Recalculate bookmark count
-            timeline_counts = calculate_timeline_counts(current_user, options)
+              socket =
+                socket
+                |> assign(:timeline_counts, timeline_counts)
+                |> put_flash(:info, "Bookmark removed sucessfully.")
 
-            socket =
-              socket
-              |> assign(:timeline_counts, timeline_counts)
-              |> put_flash(:info, "Bookmark removed sucessfully.")
+              # Handle stream updates based on current tab
+              socket =
+                if current_tab == "bookmarks" do
+                  # On bookmarks tab: remove the post from stream since it's no longer bookmarked
+                  stream_delete(socket, :posts, post)
+                else
+                  # On other tabs: update the post with new bookmark status
+                  updated_post = Timeline.get_post!(post_id)
+                  stream_insert(socket, :posts, updated_post, at: -1)
+                end
 
-            # Handle stream updates based on current tab
-            socket =
-              if current_tab == "bookmarks" do
-                # On bookmarks tab: remove the post from stream since it's no longer bookmarked
-                stream_delete(socket, :posts, post)
-              else
-                # On other tabs: update the post with new bookmark status
-                updated_post = Timeline.get_post!(post_id)
-                stream_insert(socket, :posts, updated_post, at: -1)
-              end
+              {:noreply, socket}
 
-            {:noreply, socket}
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Failed to remove bookmark")}
+          end
+        else
+          # Create new bookmark
+          case Timeline.create_bookmark(current_user, post, %{}) do
+            {:ok, _bookmark} ->
+              # Recalculate bookmark count
+              timeline_counts = calculate_timeline_counts(current_user, options)
 
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to remove bookmark")}
+              socket =
+                socket
+                |> assign(:timeline_counts, timeline_counts)
+                |> put_flash(:success, "Post bookmarked successfully.")
+
+              # Handle stream updates based on current tab
+              socket =
+                if current_tab == "bookmarks" do
+                  # On bookmarks tab: add the newly bookmarked post to the top of the stream
+                  updated_post = Timeline.get_post!(post_id)
+                  stream_insert(socket, :posts, updated_post, at: 0)
+                else
+                  # On other tabs: update the post with new bookmark status
+                  updated_post = Timeline.get_post!(post_id)
+                  stream_insert(socket, :posts, updated_post, at: -1)
+                end
+
+              {:noreply, socket}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Failed to bookmark post")}
+          end
         end
-      else
-        # Create new bookmark
-        case Timeline.create_bookmark(current_user, post, %{}) do
-          {:ok, _bookmark} ->
-            # Recalculate bookmark count
-            timeline_counts = calculate_timeline_counts(current_user, options)
 
-            socket =
-              socket
-              |> assign(:timeline_counts, timeline_counts)
-              |> put_flash(:success, "Post bookmarked successfully.")
-
-            # Handle stream updates based on current tab
-            socket =
-              if current_tab == "bookmarks" do
-                # On bookmarks tab: add the newly bookmarked post to the top of the stream
-                updated_post = Timeline.get_post!(post_id)
-                stream_insert(socket, :posts, updated_post, at: 0)
-              else
-                # On other tabs: update the post with new bookmark status
-                updated_post = Timeline.get_post!(post_id)
-                stream_insert(socket, :posts, updated_post, at: -1)
-              end
-
-            {:noreply, socket}
-
-          {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, "Failed to bookmark post")}
-        end
-      end
-    rescue
-      error ->
-        Logger.error("Error handling bookmark: #{inspect(error)}")
-        {:noreply, put_flash(socket, :error, "An error occurred while bookmarking")}
+      nil ->
+        Logger.error("Post not found for bookmarking: #{post_id}")
+        {:noreply, put_flash(socket, :error, "Post not found")}
     end
   end
 
@@ -2025,17 +2083,19 @@ defmodule MossletWeb.TimelineLive.Index do
       discover: Timeline.count_unread_discover_posts(current_user),
       # Bookmarks tab: only show unread bookmarked posts
       bookmarks:
-        try do
-          user_bookmarks =
-            Timeline.list_user_bookmarks(current_user)
-            |> Enum.map(fn bookmark -> bookmark.post end)
-            |> Enum.filter(&(&1 != nil))
+        case Timeline.list_user_bookmarks(current_user) do
+          bookmarks when is_list(bookmarks) ->
+            user_bookmarks =
+              bookmarks
+              |> Enum.map(fn bookmark -> bookmark.post end)
+              |> Enum.filter(&(&1 != nil))
 
-          Enum.count(user_bookmarks, fn post ->
-            Enum.any?(unread_posts, fn unread_post -> unread_post.id == post.id end)
-          end)
-        rescue
-          _ -> 0
+            Enum.count(user_bookmarks, fn post ->
+              Enum.any?(unread_posts, fn unread_post -> unread_post.id == post.id end)
+            end)
+
+          _ ->
+            0
         end
     }
   end
@@ -2055,28 +2115,24 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to get the post author's avatar
   defp get_post_author_avatar(post, current_user, key) do
-    try do
-      if post.user_id == current_user.id do
+    cond do
+      post.user_id == current_user.id ->
         # Current user's own post - use their avatar
         maybe_get_user_avatar(current_user, key) || mosslet_logo_for_theme()
-      else
+
+      true ->
         # Other user's post - get their avatar via connection
         case maybe_get_avatar_src(post, current_user, key, []) do
           avatar when is_binary(avatar) and avatar != "" -> avatar
           _ -> mosslet_logo_for_theme()
         end
-      end
-    rescue
-      # Fallback to Mosslet logo for any errors
-      _ -> mosslet_logo_for_theme()
     end
   end
 
   # Helper function to get the post author's display name
   defp get_post_author_name(post, current_user, key) do
-    try do
-      # For posts from other users, we need to get their name via user connection
-      if post.user_id == current_user.id do
+    cond do
+      post.user_id == current_user.id ->
         # Current user's own post - use their name
         case user_name(current_user, key) do
           name when is_binary(name) -> name
@@ -2084,50 +2140,45 @@ defmodule MossletWeb.TimelineLive.Index do
           :failed_verification -> "Private Author"
           _ -> "Private Author"
         end
-      else
+
+      true ->
         # Other user's post - need to get their name via connection
-        post_user = Accounts.get_user(post.user_id)
+        case Accounts.get_user(post.user_id) do
+          %{} = post_user ->
+            # Try to get their shared name via connection
+            uconn = get_uconn_for_shared_item(post, current_user)
 
-        if post_user do
-          # Try to get their shared name via connection
-          uconn = get_uconn_for_shared_item(post, current_user)
-
-          if uconn && uconn.connection do
-            case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
-              name when is_binary(name) -> name
-              # User chose to keep identity private
-              :failed_verification -> "Private Author"
+            if uconn && uconn.connection do
+              case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
+                name when is_binary(name) -> name
+                # User chose to keep identity private
+                :failed_verification -> "Private Author"
+              end
+            else
+              # No connection or privacy-focused sharing
+              "Private Author"
             end
-          else
-            # No connection or privacy-focused sharing
+
+          nil ->
+            # User account not found or deactivated
             "Private Author"
-          end
-        else
-          # User account not found or deactivated
-          "Private Author"
         end
-      end
-    rescue
-      # Any error defaults to privacy-respecting display
-      _ -> "Private Author"
     end
   end
 
   # Helper function to check if a post is bookmarked by the current user
   defp get_post_bookmarked_status(post, current_user) do
-    try do
-      # Use the existing Timeline.bookmarked? function
-      Timeline.bookmarked?(current_user, post)
-    rescue
+    # Use the existing Timeline.bookmarked? function with fallback
+    case Timeline.bookmarked?(current_user, post) do
+      result when is_boolean(result) -> result
       _ -> false
     end
   end
 
   # Helper function to check if a post is unread by the current user
   defp get_post_unread_status(post, current_user) do
-    try do
-      # First try to use preloaded user_post_receipts if available
-      if Ecto.assoc_loaded?(post.user_post_receipts) do
+    cond do
+      Ecto.assoc_loaded?(post.user_post_receipts) ->
         # Find the receipt for the current user from preloaded association
         receipt =
           Enum.find(post.user_post_receipts, fn receipt ->
@@ -2144,11 +2195,10 @@ defmodule MossletWeb.TimelineLive.Index do
           # Default to unread for any other case
           _ -> true
         end
-      else
+      
+      true ->
         # Fallback to database query if receipts not preloaded
-        receipt = Timeline.get_user_post_receipt(current_user, post)
-
-        case receipt do
+        case Timeline.get_user_post_receipt(current_user, post) do
           # No receipt = unread
           nil -> true
           # Receipt exists and marked as read = read
@@ -2158,27 +2208,119 @@ defmodule MossletWeb.TimelineLive.Index do
           # Default to unread for any other case
           _ -> true
         end
-      end
-    rescue
-      # Default to unread on any error
-      _ -> true
+    end
+  end
+
+  # Helper function to process uploaded photos using Tigris.ex encryption
+  defp process_uploaded_photos(socket, current_user, key) do
+    upload_entries = socket.assigns.uploads.photos.entries
+    Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Starting with #{length(upload_entries)} entries")
+
+    if length(upload_entries) == 0 do
+      []
+    else
+      # Process uploads directly in LiveView process - NO TASKS!
+      upload_results =
+        for entry <- upload_entries do
+          Logger.info(
+            "📷 PROCESS_UPLOADED_PHOTOS: Processing entry #{entry.ref}: #{entry.client_name}"
+          )
+
+          consume_uploaded_entry(socket, entry, fn %{path: tmp_path} ->
+            Logger.info(
+              "📷 PROCESS_UPLOADED_PHOTOS: Consuming entry #{entry.ref}, tmp_path: #{tmp_path}"
+            )
+
+            # Generate a unique storage key for this photo
+            storage_key = Ecto.UUID.generate()
+            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated storage_key: #{storage_key}")
+
+            # Get or generate the trix_key for encryption (same as posts use)
+            trix_key =
+              socket.assigns[:trix_key] || generate_and_encrypt_trix_key(current_user, nil)
+
+            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated trix_key")
+
+            # Use your existing Tigris.ex upload system
+            upload_params = %{
+              "Content-Type" => entry.client_type,
+              "storage_key" => storage_key,
+              "file" => %Plug.Upload{
+                path: tmp_path,
+                content_type: entry.client_type,
+                filename: entry.client_name
+              },
+              "trix_key" => trix_key
+            }
+
+            Logger.info(
+              "📷 PROCESS_UPLOADED_PHOTOS: Prepared upload_params for #{entry.client_name}"
+            )
+
+            # Get session for Tigris.ex (use stored user token from mount)
+            session = %{
+              "user_token" => socket.assigns.user_token,
+              "key" => key
+            }
+
+            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Prepared session")
+
+            Logger.info(
+              "📷 PROCESS_UPLOADED_PHOTOS: user_token: #{inspect(session["user_token"])}"
+            )
+
+            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: current_user.id: #{inspect(current_user.id)}")
+
+            case Mosslet.FileUploads.Tigris.upload(session, upload_params) do
+              {:ok, _presigned_url} ->
+                Logger.info(
+                  "📷 PROCESS_UPLOADED_PHOTOS: Upload successful for #{entry.client_name}"
+                )
+
+                # Build the file path the same way Tigris.ex does internally
+                [file_ext | _] = MIME.extensions(entry.client_type)
+                file_path = "#{@folder}/#{storage_key}.#{file_ext}"
+                Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Built file_path: #{file_path}")
+                # Return the path directly since consume_uploaded_entry expects the return value
+                file_path
+
+              {:error, {:nsfw, message}} ->
+                Logger.error("📷 PROCESS_UPLOADED_PHOTOS: NSFW content detected: #{message}")
+                nil
+
+              {:error, reason} ->
+                Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
+                nil
+            end
+          end)
+        end
+
+      Logger.info(
+        "📷 PROCESS_UPLOADED_PHOTOS: All uploads processed. Raw results: #{inspect(upload_results)}"
+      )
+
+      # Filter out nil values (failed uploads)
+      successful_paths =
+        upload_results
+        |> Enum.filter(&(&1 != nil))
+
+      Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Successful paths: #{inspect(successful_paths)}")
+      successful_paths
     end
   end
 
   # Helper functions for decrypting and formatting post data
   defp get_decrypted_post_images(post, current_user, key) do
-    try do
-      if post.image_urls && length(post.image_urls) > 0 do
+    cond do
+      is_list(post.image_urls) and length(post.image_urls) > 0 ->
         post_key = get_post_key(post, current_user)
 
         Enum.map(post.image_urls, fn encrypted_url ->
           decr_item(encrypted_url, current_user, post_key, key, post, "body")
         end)
-      else
+      
+      true ->
         []
-      end
-    rescue
-      _ -> []
     end
   end
 

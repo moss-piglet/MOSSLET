@@ -17,7 +17,7 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.CoreComponents, only: [phx_input: 1]
 
   # Import helper functions
-  import MossletWeb.Helpers, only: [can_repost?: 2]
+  import MossletWeb.Helpers, only: [can_repost?: 2, photos?: 1]
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
@@ -2541,6 +2541,7 @@ defmodule MossletWeb.DesignSystem do
   attr :privacy_level, :string, default: "connections", values: ~w(public connections private)
   attr :selector, :string, default: "connections"
   attr :form, :any, required: true
+  attr :uploads, :any, default: nil
   attr :class, :any, default: ""
 
   def liquid_timeline_composer_enhanced(assigns) do
@@ -2623,20 +2624,34 @@ defmodule MossletWeb.DesignSystem do
           </div>
         </div>
 
+        <%!-- Photo upload preview section --%>
+        <.liquid_photo_upload_preview :if={@uploads} uploads={@uploads} class="" />
+
         <%!-- Actions row with responsive layout --%>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50 gap-3 sm:gap-0">
           <%!-- Media and formatting actions --%>
           <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
-              phx-click="composer_add_photo"
+            <%!-- Photo upload button --%>
+            <label
+              for={@uploads.photos.ref}
+              id="photo-upload-trigger"
+              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group cursor-pointer"
+              phx-hook="TippyHook"
+              data-tippy-content="Add photos (JPG, PNG up to 10MB each)"
             >
               <.phx_icon
                 name="hero-photo"
                 class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
               />
-            </button>
+            </label>
+
+            <%!-- Hidden file input for photo uploads --%>
+            <.live_file_input
+              upload={@uploads.photos}
+              class="hidden"
+              accept="image/*"
+            />
+
             <button
               type="button"
               class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
@@ -2742,7 +2757,196 @@ defmodule MossletWeb.DesignSystem do
   end
 
   # Privacy helper functions
-  defp privacy_icon("public"), do: "hero-globe-alt"
+  # Helper function to humanize upload errors
+  defp humanize_upload_error(:too_large), do: "File is too large (max 5MB)"
+  defp humanize_upload_error(:too_many_files), do: "Too many files (max 4 photos)"
+  defp humanize_upload_error(:not_accepted), do: "File type not supported (JPG, PNG only)"
+  defp humanize_upload_error(error), do: "Upload error: #{error}"
+
+  @doc """
+  Liquid metal photo gallery component for timeline posts.
+  Integrates with existing TrixContentPostHook and encrypted image system.
+  """
+  attr :post, :any, required: true
+  attr :current_user, :any, required: true
+  attr :class, :any, default: ""
+
+  def liquid_post_photo_gallery(assigns) do
+    ~H"""
+    <div
+      :if={photos?(@post.image_urls)}
+      class={[
+        "mt-4 overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60",
+        "bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-800/50 dark:to-slate-900/30",
+        @class
+      ]}
+    >
+      <%!-- Photo gallery header --%>
+      <div class="flex items-center justify-between p-3 border-b border-slate-200/50 dark:border-slate-700/50">
+        <div class="flex items-center gap-2">
+          <.phx_icon name="hero-photo" class="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
+            {length(@post.image_urls)} {if length(@post.image_urls) == 1, do: "photo", else: "photos"}
+          </span>
+        </div>
+
+        <%!-- Show photos button integrated with existing hook system --%>
+        <button
+          id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          phx-click={
+            JS.dispatch("mosslet:show-post-photos-#{@post.id}",
+              to: "#timeline-card-#{@post.id}",
+              detail: %{post_id: @post.id, user_id: @current_user.id}
+            )
+          }
+          phx-hook="TippyHook"
+          data-tippy-content="Decrypt and display photos"
+        >
+          <.phx_icon name="hero-eye" class="h-4 w-4" /> View photos
+        </button>
+      </div>
+
+      <%!-- Photos will be decrypted and displayed here by TrixContentPostHook --%>
+      <div
+        id={"post-body-#{@post.id}"}
+        phx-hook="TrixContentPostHook"
+        class="photos-container p-3"
+      >
+        <%!-- Placeholder while photos load --%>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div
+            :for={_image_url <- @post.image_urls}
+            class="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-lg flex items-center justify-center animate-pulse"
+          >
+            <.phx_icon name="hero-photo" class="h-8 w-8 text-slate-400 dark:text-slate-500" />
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Enhanced photo upload preview with liquid metal styling for the composer.
+  """
+  attr :uploads, :any, required: true
+  attr :class, :any, default: ""
+
+  def liquid_photo_upload_preview(assigns) do
+    ~H"""
+    <div
+      :if={@uploads && @uploads.photos && length(@uploads.photos.entries) > 0}
+      class={[
+        "mt-4 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60",
+        "bg-gradient-to-br from-emerald-50/30 to-teal-50/20 dark:from-emerald-900/10 dark:to-teal-900/5",
+        @class
+      ]}
+    >
+      <%!-- Upload preview header --%>
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <.phx_icon
+            name="hero-cloud-arrow-up"
+            class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+          />
+          <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            {length(@uploads.photos.entries)} {if length(@uploads.photos.entries) == 1,
+              do: "photo",
+              else: "photos"} ready
+          </span>
+        </div>
+
+        <%!-- Progress indicator --%>
+        <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+          {if Enum.all?(@uploads.photos.entries, &(&1.progress == 100)),
+            do: "✓ Ready",
+            else: "Uploading..."}
+        </div>
+      </div>
+
+      <%!-- Photo preview grid --%>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <%= for entry <- @uploads.photos.entries do %>
+          <div class="relative group overflow-hidden rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 bg-white dark:bg-slate-800">
+            <%!-- Photo preview --%>
+            <.live_img_preview
+              entry={entry}
+              class="w-full h-24 object-cover transition-all duration-200 group-hover:scale-105"
+            />
+
+            <%!-- Upload progress overlay --%>
+            <div
+              :if={entry.progress < 100}
+              class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-2"
+            >
+              <div class="text-center">
+                <div class="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-1 mx-auto">
+                </div>
+                <div class="text-xs text-white font-medium">{entry.progress}%</div>
+              </div>
+            </div>
+
+            <%!-- Success indicator --%>
+            <div
+              :if={entry.progress == 100}
+              class="absolute top-1 left-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center"
+            >
+              <.phx_icon name="hero-check" class="h-3 w-3 text-white" />
+            </div>
+
+            <%!-- Remove button --%>
+            <button
+              type="button"
+              id={"remove-photo-#{entry.ref}"}
+              phx-click="cancel_upload"
+              phx-value-ref={entry.ref}
+              class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+              phx-hook="TippyHook"
+              data-tippy-content="Remove photo"
+            >
+              <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+            </button>
+
+            <%!-- Upload errors --%>
+            <div
+              :if={length(upload_errors(@uploads.photos, entry)) > 0}
+              class="absolute inset-0 bg-red-500/90 flex items-center justify-center p-2"
+            >
+              <div class="text-center">
+                <.phx_icon name="hero-exclamation-triangle" class="h-5 w-5 text-white mx-auto mb-1" />
+                <div class="text-xs text-white font-medium">
+                  <%= for error <- upload_errors(@uploads.photos, entry) do %>
+                    <div>{humanize_upload_error(error)}</div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Upload errors for the upload config itself --%>
+      <div
+        :if={length(upload_errors(@uploads.photos)) > 0}
+        class="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+      >
+        <div class="flex items-start gap-2">
+          <.phx_icon
+            name="hero-exclamation-triangle"
+            class="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0"
+          />
+          <div class="text-sm text-red-700 dark:text-red-300">
+            <%= for error <- upload_errors(@uploads.photos) do %>
+              <div>{humanize_upload_error(error)}</div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   defp privacy_icon("connections"), do: "hero-user-group"
   defp privacy_icon("private"), do: "hero-lock-closed"
 
@@ -2809,6 +3013,7 @@ defmodule MossletWeb.DesignSystem do
   attr :bookmarked, :boolean, default: false
   attr :post, :map, required: true
   attr :current_user, :map, required: true
+  attr :key, :string, default: nil
   attr :is_repost, :boolean, default: false
   # New: unread state
   attr :unread?, :boolean, default: false
@@ -2930,9 +3135,13 @@ defmodule MossletWeb.DesignSystem do
           </p>
         </div>
 
-        <%!-- Images (if any) --%>
-        <div :if={length(@images) > 0} class="mb-4">
-          <.liquid_timeline_images images={@images} />
+        <%!-- Images with enhanced encrypted display system --%>
+        <div :if={@post && photos?(@post.image_urls)} class="mb-4">
+          <.liquid_post_photo_gallery
+            post={@post}
+            current_user={@current_user}
+            class=""
+          />
         </div>
 
         <%!-- Engagement actions (calm and minimal) with semantic colors --%>

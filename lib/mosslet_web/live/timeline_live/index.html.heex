@@ -1,4 +1,4 @@
-<.layout current_page={:timeline} current_user={@current_user} key={@key} type="sidebar">
+<.layout current_user={@current_user} current_page={:timeline} key={@key} type="sidebar">
   <%!-- Fresh Timeline Mockup --%>
 
   <%!-- Main timeline container with improved visual flow --%>
@@ -72,6 +72,7 @@
           id="timeline-composer"
           phx-submit="save_post"
           phx-change="validate_post"
+          phx-drop-target={@uploads.photos.ref}
           class="relative"
         >
           <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
@@ -83,6 +84,7 @@
             character_limit={500}
             selector={@selector}
             form={@post_form}
+            uploads={@uploads}
             class="relative"
           />
         </.form>
@@ -127,6 +129,9 @@
                   end
                 }
                 images={get_decrypted_post_images(post, @current_user, @key)}
+                post={post}
+                current_user={@current_user}
+                key={@key}
                 stats={
                   %{
                     replies:

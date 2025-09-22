@@ -136,33 +136,37 @@ window.addEventListener("phx:scroll-to-top", (event) => {
 });
 
 // Mark existing posts as loaded to prevent animation on page load
-document.addEventListener('DOMContentLoaded', function() {
-  const existingPosts = document.querySelectorAll('.timeline-post-item.new-post');
-  existingPosts.forEach(function(post) {
-    post.classList.add('loaded');
+document.addEventListener("DOMContentLoaded", function () {
+  const existingPosts = document.querySelectorAll(
+    ".timeline-post-item.new-post"
+  );
+  existingPosts.forEach(function (post) {
+    post.classList.add("loaded");
   });
-  console.log(`🔧 Marked ${existingPosts.length} existing posts as loaded`);
 });
 
 // Auto-cleanup new post animations for truly new posts
-const observer = new MutationObserver(function(mutations) {
-  mutations.forEach(function(mutation) {
-    mutation.addedNodes.forEach(function(node) {
+const observer = new MutationObserver(function (mutations) {
+  mutations.forEach(function (mutation) {
+    mutation.addedNodes.forEach(function (node) {
       if (node.nodeType === Node.ELEMENT_NODE) {
         // Check if this is a new timeline post container
-        const isNewPostContainer = node.classList && node.classList.contains('timeline-post-container');
-        const newPostContainers = isNewPostContainer ? [node] : 
-          (node.querySelectorAll && node.querySelectorAll('.timeline-post-container') || []);
-        
-        newPostContainers.forEach(function(container) {
-          const postItem = container.querySelector('.timeline-post-item.new-post');
-          if (postItem && !postItem.classList.contains('loaded')) {
-            console.log('🎯 New post detected, will animate:', container.id);
-            
+        const isNewPostContainer =
+          node.classList && node.classList.contains("timeline-post-container");
+        const newPostContainers = isNewPostContainer
+          ? [node]
+          : (node.querySelectorAll &&
+              node.querySelectorAll(".timeline-post-container")) ||
+            [];
+
+        newPostContainers.forEach(function (container) {
+          const postItem = container.querySelector(
+            ".timeline-post-item.new-post"
+          );
+          if (postItem && !postItem.classList.contains("loaded")) {
             // Clean up animation classes after completion
-            setTimeout(function() {
-              postItem.classList.remove('new-post');
-              console.log('✅ Animation completed for:', container.id);
+            setTimeout(function () {
+              postItem.classList.remove("new-post");
             }, 3800); // 0.8s slide + 3s highlight
           }
         });
@@ -172,33 +176,32 @@ const observer = new MutationObserver(function(mutations) {
 });
 
 // Start observing the timeline posts container
-const timelineContainer = document.getElementById('timeline-posts');
+const timelineContainer = document.getElementById("timeline-posts");
 if (timelineContainer) {
   observer.observe(timelineContainer, {
     childList: true,
-    subtree: false // Only watch direct children
+    subtree: false, // Only watch direct children
   });
-  console.log('📡 Timeline animation observer started');
 }
 
 // Remove the targeted animation approach
 // Add event listener for tab count updates to show notification badges
 window.addEventListener("phx:update-tab-counts", (event) => {
   const { tabCounts, activeTab } = event.detail;
-  
+
   // Update tab badges with new counts
   Object.entries(tabCounts).forEach(([tab, count]) => {
     const tabElement = document.querySelector(`[data-tab="${tab}"]`);
     if (tabElement && tab !== activeTab) {
-      const badge = tabElement.querySelector('.unread-badge');
+      const badge = tabElement.querySelector(".unread-badge");
       if (badge && count > 0) {
         badge.textContent = count;
-        badge.classList.remove('hidden');
-        
+        badge.classList.remove("hidden");
+
         // Add a subtle pulse animation to indicate new content
-        badge.classList.add('animate-pulse');
+        badge.classList.add("animate-pulse");
         setTimeout(() => {
-          badge.classList.remove('animate-pulse');
+          badge.classList.remove("animate-pulse");
         }, 2000);
       }
     }
@@ -208,14 +211,14 @@ window.addEventListener("phx:update-tab-counts", (event) => {
 // Add event listener for new post banner notifications
 window.addEventListener("phx:show-new-posts-banner", (event) => {
   const { count, tab } = event.detail;
-  
+
   // Find or create the new posts banner
-  let banner = document.getElementById('new-posts-banner');
-  
+  let banner = document.getElementById("new-posts-banner");
+
   if (!banner) {
     // Create new banner element
-    banner = document.createElement('div');
-    banner.id = 'new-posts-banner';
+    banner = document.createElement("div");
+    banner.id = "new-posts-banner";
     banner.className = `
       fixed top-20 left-1/2 transform -translate-x-1/2 z-50
       bg-emerald-500 dark:bg-emerald-600 text-white px-6 py-3 rounded-full
@@ -224,20 +227,20 @@ window.addEventListener("phx:show-new-posts-banner", (event) => {
       hover:bg-emerald-600 dark:hover:bg-emerald-700
       hover:scale-105 active:scale-95
     `;
-    
+
     // Add click handler to scroll to top and refresh
-    banner.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    banner.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
       banner.remove();
       // Trigger a refresh of the timeline
-      window.dispatchEvent(new CustomEvent('phx:refresh-timeline'));
+      window.dispatchEvent(new CustomEvent("phx:refresh-timeline"));
     });
-    
+
     document.body.appendChild(banner);
   }
-  
+
   // Update banner content
-  const postText = count === 1 ? 'post' : 'posts';
+  const postText = count === 1 ? "post" : "posts";
   banner.innerHTML = `
     <div class="flex items-center gap-2 text-sm font-medium">
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -249,21 +252,21 @@ window.addEventListener("phx:show-new-posts-banner", (event) => {
       </svg>
     </div>
   `;
-  
+
   // Animate in
-  banner.style.transform = 'translateX(-50%) translateY(-20px)';
-  banner.style.opacity = '0';
-  
+  banner.style.transform = "translateX(-50%) translateY(-20px)";
+  banner.style.opacity = "0";
+
   requestAnimationFrame(() => {
-    banner.style.transform = 'translateX(-50%) translateY(0)';
-    banner.style.opacity = '1';
+    banner.style.transform = "translateX(-50%) translateY(0)";
+    banner.style.opacity = "1";
   });
-  
+
   // Auto-hide after 10 seconds
   setTimeout(() => {
     if (banner.parentNode) {
-      banner.style.transform = 'translateX(-50%) translateY(-20px)';
-      banner.style.opacity = '0';
+      banner.style.transform = "translateX(-50%) translateY(-20px)";
+      banner.style.opacity = "0";
       setTimeout(() => banner.remove(), 300);
     }
   }, 10000);
@@ -313,16 +316,16 @@ window.addEventListener("phx:clipcopy", (event) => {
     navigator.clipboard.writeText(text).then(() => {
       // Generate client-side timestamp for flash message
       const now = new Date();
-      const timeString = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
+      const timeString = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
       });
-      
+
       // Send a custom event with timestamp that the LiveView can handle
-      const timestampEvent = new CustomEvent('phx:clipcopy-timestamp', {
-        detail: { timestamp: timeString, dispatcher: event.detail.dispatcher }
+      const timestampEvent = new CustomEvent("phx:clipcopy-timestamp", {
+        detail: { timestamp: timeString, dispatcher: event.detail.dispatcher },
       });
       document.dispatchEvent(timestampEvent);
     });
@@ -343,44 +346,48 @@ let csrfToken = document
 
 // Custom confirmation dialog for Phoenix LiveView data-confirm
 // Intercepts clicks on elements with data-confirm attribute
-document.addEventListener('click', (e) => {
-  const element = e.target.closest('[data-confirm]');
-  if (!element) return;
-  
-  const message = element.getAttribute('data-confirm');
-  if (!message) return;
-  
-  // Prevent the default action
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  
-  // Show our custom confirmation dialog
-  showCustomConfirm(message, () => {
-    // User confirmed - trigger the action without data-confirm
-    const originalConfirm = element.getAttribute('data-confirm');
-    element.removeAttribute('data-confirm');
-    
-    // Create a new click event and dispatch it
-    const newEvent = new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      view: window
+document.addEventListener(
+  "click",
+  (e) => {
+    const element = e.target.closest("[data-confirm]");
+    if (!element) return;
+
+    const message = element.getAttribute("data-confirm");
+    if (!message) return;
+
+    // Prevent the default action
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    // Show our custom confirmation dialog
+    showCustomConfirm(message, () => {
+      // User confirmed - trigger the action without data-confirm
+      const originalConfirm = element.getAttribute("data-confirm");
+      element.removeAttribute("data-confirm");
+
+      // Create a new click event and dispatch it
+      const newEvent = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      });
+
+      element.dispatchEvent(newEvent);
+
+      // Restore data-confirm for future use
+      setTimeout(() => {
+        element.setAttribute("data-confirm", originalConfirm);
+      }, 100);
     });
-    
-    element.dispatchEvent(newEvent);
-    
-    // Restore data-confirm for future use
-    setTimeout(() => {
-      element.setAttribute('data-confirm', originalConfirm);
-    }, 100);
-  });
-}, true); // Use capture phase to intercept before Phoenix
+  },
+  true
+); // Use capture phase to intercept before Phoenix
 
 function showCustomConfirm(message, onConfirm) {
   // Create dialog element that matches our CSS selectors
-  const dialog = document.createElement('dialog');
-  dialog.setAttribute('data-confirm', '');
-  
+  const dialog = document.createElement("dialog");
+  dialog.setAttribute("data-confirm", "");
+
   dialog.innerHTML = `
     <p>${message}</p>
     <div class="dialog-buttons">
@@ -388,29 +395,29 @@ function showCustomConfirm(message, onConfirm) {
       <button type="button" data-confirm-accept>Delete</button>
     </div>
   `;
-  
+
   document.body.appendChild(dialog);
-  
+
   // Show dialog with animation
   dialog.showModal();
-  
+
   // Trigger the open state for CSS animations
   requestAnimationFrame(() => {
-    dialog.setAttribute('open', '');
+    dialog.setAttribute("open", "");
   });
-  
+
   // Handle button clicks
-  dialog.querySelector('[data-confirm-cancel]').onclick = () => {
+  dialog.querySelector("[data-confirm-cancel]").onclick = () => {
     dialog.close();
     document.body.removeChild(dialog);
   };
-  
-  dialog.querySelector('[data-confirm-accept]').onclick = () => {
+
+  dialog.querySelector("[data-confirm-accept]").onclick = () => {
     dialog.close();
     document.body.removeChild(dialog);
     onConfirm();
   };
-  
+
   // Close on backdrop click
   dialog.onclick = (e) => {
     if (e.target === dialog) {
@@ -418,10 +425,10 @@ function showCustomConfirm(message, onConfirm) {
       document.body.removeChild(dialog);
     }
   };
-  
+
   // Close on ESC key
   dialog.onkeydown = (e) => {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       dialog.close();
       document.body.removeChild(dialog);
     }
