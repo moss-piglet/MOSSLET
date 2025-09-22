@@ -17,7 +17,7 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.CoreComponents, only: [phx_input: 1]
 
   # Import helper functions
-  import MossletWeb.Helpers, only: [can_repost?: 2, photos?: 1]
+  import MossletWeb.Helpers, only: [can_repost?: 2, photos?: 1, user_name: 2, maybe_get_user_avatar: 2]
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
@@ -3184,9 +3184,7 @@ defmodule MossletWeb.DesignSystem do
               count={Map.get(@stats, :replies, 0)}
               label="Reply"
               color="emerald"
-              phx-click="reply"
-              phx-value-id={@post_id}
-              phx-value-url="/app/timeline"
+              phx-click={JS.toggle(to: "#reply-composer-#{@post_id}") |> JS.add_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")}
             />
             <.liquid_timeline_action
               :if={can_repost?(@current_user, @post)}
@@ -3232,6 +3230,16 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </div>
     </article>
+    
+    <%!-- Collapsible reply composer (hidden by default, toggled by JS) --%>
+    <.liquid_collapsible_reply_composer
+      post_id={@post_id}
+      current_user={@current_user}
+      form={%{body: %{value: "", name: "reply[body]"}, post_id: %{value: @post_id, name: "reply[post_id]"}, user_id: %{value: @current_user.id, name: "reply[user_id]"}}}
+      user_name={user_name(@current_user, @key) || "You"}
+      user_avatar={maybe_get_user_avatar(@current_user, @key) || "/images/default_avatar.svg"}
+      character_limit={280}
+    />
     """
   end
 
@@ -4310,5 +4318,316 @@ defmodule MossletWeb.DesignSystem do
 
   defp item_color_classes(_) do
     "text-slate-700 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-200"
+  end
+
+  @doc """
+  Collapsible reply composer that expands under posts.
+  
+  ## Examples
+  
+      <.liquid_collapsible_reply_composer
+        post_id="123"
+        show={@show_reply_composer}
+        current_user={@current_user}
+        form={@reply_form}
+      />
+  """
+  attr :post_id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :current_user, :map, required: true
+  attr :form, :any, required: true
+  attr :user_name, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :character_limit, :integer, default: 280
+  attr :class, :any, default: ""
+  
+  def liquid_collapsible_reply_composer(assigns) do
+    ~H"""
+    <div
+      id={"reply-composer-#{@post_id}"}
+      class={[
+        "hidden overflow-hidden transition-all duration-300 ease-out",
+        "bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40",
+        "dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/20",
+        "border border-emerald-200/60 dark:border-emerald-700/50",
+        "rounded-xl shadow-lg shadow-emerald-500/10 dark:shadow-emerald-400/15",
+        "mt-4 p-4",
+        @class
+      ]}
+    >
+      <div class="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+        <%!-- Reply context indicator --%>
+        <div class="flex items-center gap-2 mb-4 pl-4">
+          <div class="w-6 h-px bg-gradient-to-r from-emerald-300 to-teal-300 dark:from-emerald-600 dark:to-teal-600"></div>
+          <.phx_icon name="hero-arrow-turn-down-right" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">Reply to this post</span>
+        </div>
+        
+        <%!-- Compact reply composer with liquid styling --%>
+        <div class={[
+          "relative rounded-xl overflow-hidden",
+          "bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40",
+          "dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/20",
+          "border border-emerald-200/60 dark:border-emerald-700/50",
+          "shadow-lg shadow-emerald-500/10 dark:shadow-emerald-400/15",
+          "focus-within:border-emerald-400/80 dark:focus-within:border-emerald-500/70",
+          "focus-within:shadow-xl focus-within:shadow-emerald-500/20"
+        ]}>
+          <%!-- Subtle liquid background animation on focus --%>
+          <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-emerald-100/30 via-teal-100/20 to-emerald-100/30 dark:from-emerald-800/20 dark:via-teal-800/15 dark:to-emerald-800/20 focus-within:opacity-100">
+          </div>
+          
+          <div class="relative p-4">
+            <div class="flex items-start gap-3">
+              <%!-- User avatar (smaller for replies) --%>
+              <.liquid_avatar
+                src={@user_avatar}
+                name={@user_name}
+                size="sm"
+                class="flex-shrink-0"
+              />
+              
+              <div class="flex-1 min-w-0">
+                <%!-- Hidden form fields --%>
+                <.phx_input
+                  field={@form[:post_id]}
+                  type="hidden"
+                  name={@form[:post_id].name}
+                  value={@post_id}
+                />
+                <.phx_input
+                  field={@form[:user_id]}
+                  type="hidden"
+                  name={@form[:user_id].name}
+                  value={@current_user.id}
+                />
+                
+                <%!-- Reply textarea --%>
+                <div class="relative">
+                  <textarea
+                    id={"reply-textarea-#{@post_id}"}
+                    name={@form[:body].name}
+                    placeholder="Write a thoughtful reply..."
+                    rows="2"
+                    maxlength={@character_limit}
+                    class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-emerald-600/70 dark:placeholder:text-emerald-400/70 text-base leading-relaxed focus:outline-none focus:ring-0"
+                    phx-hook="CharacterCounter"
+                    data-limit={@character_limit}
+                    value={@form[:body].value}
+                    phx-debounce="300"
+                  >{@form[:body].value}</textarea>
+                  
+                  <%!-- Character counter for replies --%>
+                  <div
+                    class={[
+                      "absolute bottom-1 right-1 transition-all duration-300 ease-out",
+                      (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") || "opacity-0"
+                    ]}
+                    id={"reply-char-counter-#{@post_id}"}
+                  >
+                    <span class="text-xs text-emerald-600 dark:text-emerald-400 bg-white/95 dark:bg-slate-800/95 px-2 py-1 rounded-full backdrop-blur-sm border border-emerald-200/60 dark:border-emerald-700/60 shadow-sm">
+                      <span class="js-char-count">{String.length(@form[:body].value || "")}</span>/{@character_limit}
+                    </span>
+                  </div>
+                </div>
+                
+                <%!-- Reply actions --%>
+                <div class="flex items-center justify-between mt-3">
+                  <div class="flex items-center gap-2">
+                    <%!-- Optional: Reply privacy indicator --%>
+                    <span class="text-xs text-emerald-600/80 dark:text-emerald-400/80 font-medium">
+                      Reply visibility: Same as post
+                    </span>
+                  </div>
+                  
+                  <div class="flex items-center gap-2">
+                    <%!-- Cancel button --%>
+                    <.liquid_button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      color="slate"
+                      phx-click="cancel_reply"
+                      phx-value-id={@post_id}
+                      class="text-slate-600 dark:text-slate-400"
+                    >
+                      Cancel
+                    </.liquid_button>
+                    
+                    <%!-- Reply submit button --%>
+                    <.liquid_button
+                      type="submit"
+                      size="sm"
+                      color="emerald"
+                      icon="hero-paper-airplane"
+                      phx-click="save_reply"
+                      phx-value-id={@post_id}
+                      disabled={!@form[:body].value || String.trim(@form[:body].value) == ""}
+                    >
+                      Reply
+                    </.liquid_button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Collapsible reply thread display component.
+  
+  ## Examples
+  
+      <.liquid_collapsible_reply_thread
+        post_id="123"
+        replies={@replies}
+        show={@show_replies}
+        current_user={@current_user}
+      />
+  """
+  attr :post_id, :string, required: true
+  attr :replies, :list, default: []
+  attr :show, :boolean, default: false
+  attr :current_user, :map, required: true
+  attr :key, :string, default: nil
+  attr :reply_count, :integer, default: 0
+  attr :class, :any, default: ""
+  
+  def liquid_collapsible_reply_thread(assigns) do
+    ~H"""
+    <div
+      id={"reply-thread-#{@post_id}"}
+      class={[
+        "overflow-hidden transition-all duration-300 ease-out",
+        if(@show && @reply_count > 0, do: "max-h-[600px] opacity-100", else: "max-h-0 opacity-0"),
+        @class
+      ]}
+    >
+      <div class="pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
+        <%!-- Thread header --%>
+        <div class="flex items-center gap-2 mb-4 pl-4">
+          <div class="w-6 h-px bg-gradient-to-r from-emerald-300 to-teal-300 dark:from-emerald-600 dark:to-teal-600"></div>
+          <.phx_icon name="hero-chat-bubble-left-ellipsis" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            {if @reply_count == 1, do: "1 reply", else: "#{@reply_count} replies"}
+          </span>
+        </div>
+        
+        <%!-- Reply list with threading --%>
+        <div class="space-y-3 pl-6">
+          <div :for={reply <- @replies} class="reply-item">
+            <.liquid_reply_item
+              reply={reply}
+              current_user={@current_user}
+              key={@key}
+            />
+          </div>
+          
+          <%!-- Load more replies if needed --%>
+          <div :if={@reply_count > length(@replies)} class="pt-2">
+            <.liquid_button
+              variant="ghost"
+              size="sm"
+              color="emerald"
+              phx-click="load_more_replies"
+              phx-value-id={@post_id}
+              class="text-emerald-600 dark:text-emerald-400"
+            >
+              Load {min(@reply_count - length(@replies), 5)} more replies
+            </.liquid_button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Individual reply item with liquid styling.
+  """
+  attr :reply, :map, required: true
+  attr :current_user, :map, required: true
+  attr :key, :string, default: nil
+  attr :class, :any, default: ""
+  
+  def liquid_reply_item(assigns) do
+    ~H"""
+    <div class={[
+      "relative rounded-lg overflow-hidden transition-all duration-200 ease-out",
+      "bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm",
+      "border border-slate-200/40 dark:border-slate-700/40",
+      "hover:border-emerald-200/60 dark:hover:border-emerald-700/60",
+      "hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10",
+      @class
+    ]}>
+      <%!-- Reply connection line --%>
+      <div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-400 to-teal-400 dark:from-emerald-500 dark:to-teal-500">
+      </div>
+      
+      <div class="p-4 pl-6">
+        <div class="flex items-start gap-3">
+          <%!-- Reply author avatar (small) --%>
+          <.liquid_avatar
+            src={get_reply_author_avatar(@reply, @current_user, @key)}
+            name={get_reply_author_name(@reply, @current_user, @key)}
+            size="xs"
+            class="flex-shrink-0 mt-0.5"
+          />
+          
+          <div class="flex-1 min-w-0">
+            <%!-- Reply header --%>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {get_reply_author_name(@reply, @current_user, @key)}
+              </span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">
+                {format_reply_timestamp(@reply.inserted_at)}
+              </span>
+            </div>
+            
+            <%!-- Reply content --%>
+            <div class="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+              {get_decrypted_reply_content(@reply, @current_user, @key)}
+            </div>
+            
+            <%!-- Reply actions (minimal) --%>
+            <div class="flex items-center gap-4 mt-2">
+              <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
+                Like
+              </button>
+              <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
+                Reply
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper functions for reply data extraction
+  defp get_reply_author_name(_reply, _current_user, _key) do
+    # Implement decryption logic similar to posts
+    "Reply Author" # Placeholder
+  end
+  
+  defp get_reply_author_avatar(_reply, _current_user, _key) do
+    # Implement avatar logic similar to posts
+    "/images/default_avatar.svg" # Placeholder
+  end
+  
+  defp get_decrypted_reply_content(_reply, _current_user, _key) do
+    # Implement content decryption similar to posts
+    "Reply content..." # Placeholder
+  end
+  
+  defp format_reply_timestamp(_timestamp) do
+    # Implement timestamp formatting
+    "just now" # Placeholder
   end
 end

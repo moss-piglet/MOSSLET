@@ -15,37 +15,38 @@ const TrixContentPostHook = {
     postId = this.el.getAttribute("id").split("post-body-")[1];
 
     // Check if this post has image placeholders that need decryption
-    const hasImages = this.el.querySelector('.grid') && this.el.querySelector('.grid').children.length > 0;
-    
+    const hasImages =
+      this.el.querySelector(".grid") &&
+      this.el.querySelector(".grid").children.length > 0;
+
     if (hasImages && postId) {
-      console.log(`📷 Setting up photo viewer for post ${postId}`);
       // Set up event listener for the "View photos" button
       window.addEventListener(`mosslet:show-post-photos-${postId}`, (event) => {
-        console.log(`📷 Event received for post ${postId}:`, event.detail);
         if (event && event.detail.post_id === postId) {
           const userId = event.detail.user_id;
           this.load_and_decrypt_images(postId, userId);
         }
       });
     } else {
-      console.log(`📷 No images found for post ${postId}, hasImages: ${hasImages}`);
     }
   },
 
   load_and_decrypt_images(postId, userId) {
     // First, request the encrypted image URLs from the server
-    console.log(`📷 Requesting encrypted image URLs for post ${postId}`);
     this.pushEvent(
       "get_post_image_urls",
       { post_id: postId },
       (reply, _ref) => {
-        console.log(`📷 Server response:`, reply);
-        if (reply.response === "success" && reply.image_urls && reply.image_urls.length > 0) {
+        if (
+          reply.response === "success" &&
+          reply.image_urls &&
+          reply.image_urls.length > 0
+        ) {
           // Replace placeholders with spinners
           this.show_loading_state();
-          
+
           // Now decrypt the images through the server-side decrypt process
-          console.log(`📷 Sending URLs for decryption:`, reply.image_urls);
+
           this.decrypt_images(reply.image_urls, postId, userId);
         } else {
           console.error("Failed to get image URLs for post", postId, reply);
@@ -57,11 +58,11 @@ const TrixContentPostHook = {
 
   show_loading_state() {
     // Replace placeholder grid with loading spinners
-    const placeholderGrid = this.el.querySelector('.grid');
+    const placeholderGrid = this.el.querySelector(".grid");
     if (placeholderGrid) {
       const imageCount = placeholderGrid.children.length;
-      placeholderGrid.innerHTML = '';
-      
+      placeholderGrid.innerHTML = "";
+
       for (let i = 0; i < imageCount; i++) {
         const spinner = this.createSpinner();
         placeholderGrid.appendChild(spinner);
@@ -70,26 +71,21 @@ const TrixContentPostHook = {
   },
 
   decrypt_images(imageUrls, postId, userId) {
-    console.log(`📷 Sending ${imageUrls.length} URLs for decryption:`, imageUrls);
     this.pushEvent(
       "decrypt_post_images",
       { sources: imageUrls, post_id: postId },
       (reply, _ref) => {
-        console.log('📷 Decrypt response received');
-        console.log('📷 Response type:', typeof reply);
-        console.log('📷 Response.response:', reply?.response);
-        console.log('📷 Has decrypted_binaries:', !!reply?.decrypted_binaries);
-        console.log('📷 Decrypted_binaries length:', reply?.decrypted_binaries?.length);
-        
-        if (reply.response === "success" && reply.decrypted_binaries && reply.decrypted_binaries.length > 0) {
-          console.log(`📷 SUCCESS: Received ${reply.decrypted_binaries.length} decrypted images`);
-          this.display_decrypted_images(reply.decrypted_binaries, postId, userId);
+        if (
+          reply.response === "success" &&
+          reply.decrypted_binaries &&
+          reply.decrypted_binaries.length > 0
+        ) {
+          this.display_decrypted_images(
+            reply.decrypted_binaries,
+            postId,
+            userId
+          );
         } else {
-          console.log(`📷 FAILURE: Condition failed`);
-          console.log('📷 - reply.response === "success":', reply.response === "success");
-          console.log('📷 - reply.decrypted_binaries truthy:', !!reply.decrypted_binaries);
-          console.log('📷 - reply.decrypted_binaries.length > 0:', reply?.decrypted_binaries?.length > 0);
-          console.error("Failed to decrypt images for post", postId);
           this.show_error_state();
         }
       }
@@ -97,45 +93,64 @@ const TrixContentPostHook = {
   },
 
   display_decrypted_images(decryptedBinaries, postId, userId) {
-    const container = this.el.querySelector('.grid');
+    const container = this.el.querySelector(".grid");
     if (container) {
-      container.innerHTML = '';
-      container.classList.remove('grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
-      container.classList.add('grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
-      
+      container.innerHTML = "";
+      container.classList.remove(
+        "grid-cols-1",
+        "sm:grid-cols-2",
+        "lg:grid-cols-3"
+      );
+      container.classList.add(
+        "grid-cols-1",
+        "sm:grid-cols-2",
+        "lg:grid-cols-3"
+      );
+
       decryptedBinaries.forEach((imageBinary, index) => {
-        const imageContainer = document.createElement('div');
-        imageContainer.classList.add('relative', 'group', 'overflow-hidden', 'rounded-lg');
-        
-        const link = document.createElement('a');
+        const imageContainer = document.createElement("div");
+        imageContainer.classList.add(
+          "relative",
+          "group",
+          "overflow-hidden",
+          "rounded-lg"
+        );
+
+        const link = document.createElement("a");
         link.href = imageBinary;
-        link.classList.add('cursor-not-allowed'); // Prevent downloads as per existing behavior
-        link.addEventListener('click', (e) => e.preventDefault());
-        link.addEventListener('contextmenu', (e) => e.preventDefault());
-        
-        const img = document.createElement('img');
+        link.classList.add("cursor-not-allowed"); // Prevent downloads as per existing behavior
+        link.addEventListener("click", (e) => e.preventDefault());
+        link.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        const img = document.createElement("img");
         img.src = imageBinary;
         img.alt = `Photo ${index + 1}`;
         img.classList.add(
-          'w-full', 'aspect-square', 'object-cover', 
-          'transition-all', 'duration-200', 'group-hover:scale-105'
+          "w-full",
+          "aspect-square",
+          "object-cover",
+          "transition-all",
+          "duration-200",
+          "group-hover:scale-105"
         );
-        
+
         link.appendChild(img);
         imageContainer.appendChild(link);
         container.appendChild(imageContainer);
       });
-      
+
       // Hide the "View photos" button after successful load
-      const photoButton = document.querySelector(`#post-${postId}-show-photos-${userId}`);
+      const photoButton = document.querySelector(
+        `#post-${postId}-show-photos-${userId}`
+      );
       if (photoButton) {
-        photoButton.style.display = 'none';
+        photoButton.style.display = "none";
       }
     }
   },
 
   show_error_state() {
-    const container = this.el.querySelector('.grid');
+    const container = this.el.querySelector(".grid");
     if (container) {
       container.innerHTML = `
         <div class="col-span-full text-center py-8">

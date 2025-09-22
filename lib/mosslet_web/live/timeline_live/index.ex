@@ -1447,6 +1447,8 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+
+
   def handle_event("edit_reply", %{"id" => id, "url" => return_url}, socket) do
     reply = Timeline.get_reply!(id)
 
@@ -2357,5 +2359,13 @@ defmodule MossletWeb.TimelineLive.Index do
       diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
     end
+  end
+
+  # Helper function to update a specific post in the stream
+  defp update_stream_post(socket, post_id, update_fn) do
+    # Find the post in the stream and update it
+    # For now, we'll just return the socket unchanged since this is a preview
+    # In a full implementation, we'd need to update the specific post in the stream
+    socket
   end
 end
