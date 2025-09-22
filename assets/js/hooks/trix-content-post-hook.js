@@ -14,34 +14,42 @@ const TrixContentPostHook = {
     // Get the post's id from the element ID
     postId = this.el.getAttribute("id").split("post-body-")[1];
 
-    // Check if this post has image URLs that need decryption
-    const hasImages = this.el.hasAttribute('data-has-images') || this.el.querySelector('.photos-container');
+    // Check if this post has image placeholders that need decryption
+    const hasImages = this.el.querySelector('.grid') && this.el.querySelector('.grid').children.length > 0;
     
     if (hasImages && postId) {
+      console.log(`📷 Setting up photo viewer for post ${postId}`);
       // Set up event listener for the "View photos" button
       window.addEventListener(`mosslet:show-post-photos-${postId}`, (event) => {
+        console.log(`📷 Event received for post ${postId}:`, event.detail);
         if (event && event.detail.post_id === postId) {
           const userId = event.detail.user_id;
           this.load_and_decrypt_images(postId, userId);
         }
       });
+    } else {
+      console.log(`📷 No images found for post ${postId}, hasImages: ${hasImages}`);
     }
   },
 
   load_and_decrypt_images(postId, userId) {
     // First, request the encrypted image URLs from the server
+    console.log(`📷 Requesting encrypted image URLs for post ${postId}`);
     this.pushEvent(
       "get_post_image_urls",
       { post_id: postId },
       (reply, _ref) => {
+        console.log(`📷 Server response:`, reply);
         if (reply.response === "success" && reply.image_urls && reply.image_urls.length > 0) {
           // Replace placeholders with spinners
           this.show_loading_state();
           
-          // Now decrypt the images
+          // Now decrypt the images through the server-side decrypt process
+          console.log(`📷 Sending URLs for decryption:`, reply.image_urls);
           this.decrypt_images(reply.image_urls, postId, userId);
         } else {
-          console.error("Failed to get image URLs for post", postId);
+          console.error("Failed to get image URLs for post", postId, reply);
+          this.show_error_state();
         }
       }
     );
@@ -62,13 +70,25 @@ const TrixContentPostHook = {
   },
 
   decrypt_images(imageUrls, postId, userId) {
+    console.log(`📷 Sending ${imageUrls.length} URLs for decryption:`, imageUrls);
     this.pushEvent(
       "decrypt_post_images",
       { sources: imageUrls, post_id: postId },
       (reply, _ref) => {
+        console.log('📷 Decrypt response received');
+        console.log('📷 Response type:', typeof reply);
+        console.log('📷 Response.response:', reply?.response);
+        console.log('📷 Has decrypted_binaries:', !!reply?.decrypted_binaries);
+        console.log('📷 Decrypted_binaries length:', reply?.decrypted_binaries?.length);
+        
         if (reply.response === "success" && reply.decrypted_binaries && reply.decrypted_binaries.length > 0) {
+          console.log(`📷 SUCCESS: Received ${reply.decrypted_binaries.length} decrypted images`);
           this.display_decrypted_images(reply.decrypted_binaries, postId, userId);
         } else {
+          console.log(`📷 FAILURE: Condition failed`);
+          console.log('📷 - reply.response === "success":', reply.response === "success");
+          console.log('📷 - reply.decrypted_binaries truthy:', !!reply.decrypted_binaries);
+          console.log('📷 - reply.decrypted_binaries.length > 0:', reply?.decrypted_binaries?.length > 0);
           console.error("Failed to decrypt images for post", postId);
           this.show_error_state();
         }
@@ -120,8 +140,8 @@ const TrixContentPostHook = {
       container.innerHTML = `
         <div class="col-span-full text-center py-8">
           <div class="text-red-500 dark:text-red-400">
-            <svg class="h-8 w-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
+            <svg class="h-8 w-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
             <p class="text-sm">Unable to load photos</p>
           </div>

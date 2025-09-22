@@ -2796,7 +2796,7 @@ defmodule MossletWeb.DesignSystem do
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
           phx-click={
             JS.dispatch("mosslet:show-post-photos-#{@post.id}",
-              to: "#timeline-card-#{@post.id}",
+              to: "#post-body-#{@post.id}",
               detail: %{post_id: @post.id, user_id: @current_user.id}
             )
           }
@@ -2947,6 +2947,7 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
+  defp privacy_icon("public"), do: "hero-globe-alt"
   defp privacy_icon("connections"), do: "hero-user-group"
   defp privacy_icon("private"), do: "hero-lock-closed"
 
@@ -3021,27 +3022,30 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_timeline_post(assigns) do
     ~H"""
-    <article class={
-      [
-        "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-        "border border-slate-200/60 dark:border-slate-700/60",
-        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
-        "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
-        "hover:border-slate-300/60 dark:hover:border-slate-600/60",
-        "transform-gpu will-change-transform",
-        # Remove enhanced styling for reposts - just use the label
-        # No special ring or border for reposts to avoid confusion with unread posts
-        "",
-        # Enhanced glow effect for unread posts - teal/cyan glow to distinguish from reposts
-        if(@unread?,
-          do:
-            "ring-2 ring-teal-400/40 dark:ring-cyan-500/50 shadow-lg shadow-teal-500/25 dark:shadow-cyan-400/30 border-teal-200/60 dark:border-cyan-700/60",
-          else: ""
-        ),
-        @class
-      ]
-    }>
+    <article
+      id={"timeline-card-#{@post.id}"}
+      class={
+        [
+          "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+          "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+          "border border-slate-200/60 dark:border-slate-700/60",
+          "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+          "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+          "hover:border-slate-300/60 dark:hover:border-slate-600/60",
+          "transform-gpu will-change-transform",
+          # Remove enhanced styling for reposts - just use the label
+          # No special ring or border for reposts to avoid confusion with unread posts
+          "",
+          # Enhanced glow effect for unread posts - teal/cyan glow to distinguish from reposts
+          if(@unread?,
+            do:
+              "ring-2 ring-teal-400/40 dark:ring-cyan-500/50 shadow-lg shadow-teal-500/25 dark:shadow-cyan-400/30 border-teal-200/60 dark:border-cyan-700/60",
+            else: ""
+          ),
+          @class
+        ]
+      }
+    >
       <%!-- Enhanced liquid background on hover with subtle styling --%>
       <div class={[
         "absolute inset-0 opacity-0 transition-all duration-500 ease-out",

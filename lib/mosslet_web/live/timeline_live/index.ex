@@ -552,11 +552,29 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("get_post_image_urls", %{"post_id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
     case Timeline.get_post(post_id) do
       %Post{} = post ->
-        # Return the encrypted image URLs for the post
-        image_urls = post.image_urls || []
-        {:reply, %{response: "success", image_urls: image_urls}, socket}
+        # Get the encrypted image URLs and decrypt them to get actual S3 paths for decrypt_post_images
+        case post.image_urls do
+          urls when is_list(urls) and length(urls) > 0 ->
+            post_key = get_post_key(post, current_user)
+
+            # Decrypt each URL to get the actual S3 file path for the decrypt_post_images handler
+            decrypted_urls =
+              Enum.map(urls, fn encrypted_url ->
+                decr_item(encrypted_url, current_user, post_key, key, post, "body")
+              end)
+
+            Logger.info("📷 GET_POST_IMAGE_URLS: Decrypted S3 paths: #{inspect(decrypted_urls)}")
+            {:reply, %{response: "success", image_urls: decrypted_urls}, socket}
+
+          _ ->
+            Logger.info("📷 GET_POST_IMAGE_URLS: No image URLs found for post #{post_id}")
+            {:reply, %{response: "success", image_urls: []}, socket}
+        end
 
       nil ->
         Logger.error("Post not found: #{post_id}")
@@ -582,13 +600,14 @@ defmodule MossletWeb.TimelineLive.Index do
     post_key = get_post_key(post, current_user)
 
     images =
-      Enum.map(sources, fn source ->
-        file_key = get_file_key_from_remove_event(source)
-        ext = get_ext_from_file_key(source)
-        file_path = "#{@folder}/#{file_key}.#{ext}"
+      Enum.map(sources, fn file_path ->
+        # Since we now receive the full file path directly, use it as-is
+        Logger.info("📷 DECRYPT_POST_IMAGES: Processing file path: #{file_path}")
 
         case get_s3_object(memories_bucket, file_path) do
           {:ok, %{body: e_obj}} ->
+            # Extract extension from the file path
+            ext = Path.extname(file_path) |> String.trim_leading(".")
             decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
 
           {:error, error} ->
@@ -600,6 +619,8 @@ defmodule MossletWeb.TimelineLive.Index do
       end)
       |> List.flatten()
       |> Enum.filter(fn source -> !is_nil(source) end)
+
+    Logger.info("📷 DECRYPT_POST_IMAGES: Successfully decrypted #{length(images)} images")
 
     if decrypted_image_binaries_for_trix?(images) do
       {:reply, %{response: "success", decrypted_binaries: images}, socket}
@@ -923,7 +944,6 @@ defmodule MossletWeb.TimelineLive.Index do
       post_shared_users = socket.assigns.post_shared_users
       current_user = socket.assigns.current_user
       key = socket.assigns.key
-      trix_key = socket.assigns[:trix_key]
 
       # Debug logging for upload entries
       upload_entries = socket.assigns.uploads.photos.entries
@@ -933,9 +953,9 @@ defmodule MossletWeb.TimelineLive.Index do
         Logger.info("   Entry #{entry.ref}: #{entry.client_name} (#{entry.client_type})")
       end)
 
-      # Process uploaded photos and get their URLs
-      uploaded_photo_urls = process_uploaded_photos(socket, current_user, key)
-      Logger.info("🔍 SAVE_POST DEBUG: Uploaded photo URLs: #{inspect(uploaded_photo_urls)}")
+      # Process uploaded photos and get their URLs with trix_key
+      {uploaded_photo_urls, trix_key} =
+        process_uploaded_photos(socket, current_user, key)
 
       post_params =
         post_params
@@ -2195,7 +2215,7 @@ defmodule MossletWeb.TimelineLive.Index do
           # Default to unread for any other case
           _ -> true
         end
-      
+
       true ->
         # Fallback to database query if receipts not preloaded
         case Timeline.get_user_post_receipt(current_user, post) do
@@ -2212,13 +2232,20 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to process uploaded photos using Tigris.ex encryption
+  # Returns {upload_paths, trix_key} tuple for idiomatic Elixir/Phoenix
   defp process_uploaded_photos(socket, current_user, key) do
     upload_entries = socket.assigns.uploads.photos.entries
     Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Starting with #{length(upload_entries)} entries")
 
     if length(upload_entries) == 0 do
-      []
+      {[], nil}
     else
+      # Get or generate the trix_key for encryption (same as posts use)
+      trix_key =
+        socket.assigns[:trix_key] || generate_and_encrypt_trix_key(current_user, nil)
+
+      Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated/retrieved trix_key")
+
       # Process uploads directly in LiveView process - NO TASKS!
       upload_results =
         for entry <- upload_entries do
@@ -2234,12 +2261,6 @@ defmodule MossletWeb.TimelineLive.Index do
             # Generate a unique storage key for this photo
             storage_key = Ecto.UUID.generate()
             Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated storage_key: #{storage_key}")
-
-            # Get or generate the trix_key for encryption (same as posts use)
-            trix_key =
-              socket.assigns[:trix_key] || generate_and_encrypt_trix_key(current_user, nil)
-
-            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated trix_key")
 
             # Use your existing Tigris.ex upload system
             upload_params = %{
@@ -2305,7 +2326,8 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Enum.filter(&(&1 != nil))
 
       Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Successful paths: #{inspect(successful_paths)}")
-      successful_paths
+
+      {successful_paths, trix_key}
     end
   end
 
@@ -2318,7 +2340,7 @@ defmodule MossletWeb.TimelineLive.Index do
         Enum.map(post.image_urls, fn encrypted_url ->
           decr_item(encrypted_url, current_user, post_key, key, post, "body")
         end)
-      
+
       true ->
         []
     end

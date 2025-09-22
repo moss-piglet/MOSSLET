@@ -137,23 +137,32 @@ defmodule MossletWeb.Helpers do
   end
 
   def decrypt_image_for_trix(e_obj, current_user, e_item_key, key, item, content_name, ext) do
-    case decr_item(e_obj, current_user, e_item_key, key, item, content_name) do
+    result = decr_item(e_obj, current_user, e_item_key, key, item, content_name)
+    Logger.info("📷 DECR_ITEM RESULT: #{inspect(result)}")
+
+    case result do
+      :failed_verification ->
+        Logger.info("Failed verification decrypting images from cloud in TimelineLive.Index")
+        Logger.warning("failed_verification decrypting images (atom)")
+        nil
+
       "failed_verification" ->
         Logger.info("Failed verification decrypting images from cloud in TimelineLive.Index")
-
-        Logger.warning("failed_verification decrypting images (line 395) in TimelineLive.Index")
-
-        "failed_verification"
+        Logger.warning("failed_verification decrypting images (string)")
+        nil
 
       "did not work" ->
         Logger.info("Did not work decrypting images from cloud in TimelineLive.Index")
+        Logger.warning("did not work decrypting images")
+        nil
 
-        Logger.warning("did not work decrypting images (line 395) in TimelineLive.Index")
-
-        "failed_verification"
-
-      image ->
+      image when is_binary(image) ->
+        Logger.info("📷 SUCCESS: Got binary image of size #{byte_size(image)}")
         build_image_from_binary_for_trix(image, ext)
+
+      _ ->
+        Logger.warning("Unknown result from decr_item for image decryption: #{inspect(result)}")
+        nil
     end
   end
 
@@ -177,12 +186,22 @@ defmodule MossletWeb.Helpers do
   end
 
   def build_image_from_binary_for_trix(image, ext) do
-    image = image |> Base.encode64()
-    "data:image/#{ext};base64," <> image
+    case image do
+      "failed_verification" ->
+        nil
+
+      binary when is_binary(binary) ->
+        image = image |> Base.encode64()
+        "data:image/#{ext};base64," <> image
+
+      _ ->
+        nil
+    end
   end
 
   def decrypted_image_binaries_for_trix?(images) when is_list(images) do
-    !Enum.empty?(images) && "failed_verification" not in images
+    !Enum.empty?(images) &&
+      Enum.all?(images, &(is_binary(&1) && String.starts_with?(&1, "data:image/")))
   end
 
   ## Customers

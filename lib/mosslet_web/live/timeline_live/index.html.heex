@@ -95,7 +95,7 @@
         <%!-- Real timeline posts from encrypted backend --%>
         <div id="timeline-posts" phx-update="stream" class="space-y-3">
           <div :for={{dom_id, post} <- @streams.posts} id={dom_id} class="timeline-post-container">
-            <div class="timeline-post-item new-post">
+            <div id={"timeline-card-container-#{post.id}"} class="timeline-post-item new-post">
               <MossletWeb.DesignSystem.liquid_timeline_post
                 user_name={get_post_author_name(post, @current_user, @key)}
                 user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
