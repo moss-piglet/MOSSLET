@@ -187,18 +187,76 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 - ✅ **Clean UX** - No empty/useless menus for users without permissions
 - ✅ **Future-Ready** - Dropdown structure ready for enhanced controls later
 
-## 🎯 Phase 3.3: Real-time Experience Enhancements - NEXT
+## 🎯 Phase 3.3: Action Button Features Implementation - IN PROGRESS
 
-**Goal**: Polish the real-time user experience
+**Goal**: Complete composer and interaction functionality with production-ready features
 
-- [x] **Live Post Appearance** - New posts slide in automatically
-- [x] **Live Interaction Updates** - See likes/replies update in real-time
-- [x] **Real-time Indicators** - "5 new posts" notification banner
-- [x] **Optimistic UI** - Instant feedback on all actions
-- [x] **Smooth Animations** - Polished micro-interactions
-- [ ] **Implement Action button Features** - Upload photos (with encryption and decryption on render), emoji picker, and content warning
+- [x] **Live Post Appearance** - New posts slide in automatically ✅
+- [x] **Live Interaction Updates** - See likes/replies update in real-time ✅
+- [x] **Real-time Indicators** - "5 new posts" notification banner ✅
+- [x] **Optimistic UI** - Instant feedback on all actions ✅
+- [x] **Smooth Animations** - Polished micro-interactions ✅
+- [ ] **Implement Action Button Features** - 🚧 **CURRENT FOCUS**:
 
-## Phase 3.3: Advanced Features
+### 📸 **Priority 1: Photo Upload System** (NEXT - Starting Now)
+
+**Why First:** Most user-demanded feature. We have all infrastructure ready.
+
+**Technical Implementation:**
+- [ ] **LiveView Upload Configuration** - Add photo upload to timeline LiveView
+- [ ] **Wire Photo Button** - Connect existing photo button to file picker
+- [ ] **Upload Progress UI** - Show progress in composer with liquid styling
+- [ ] **Tigris.ex Integration** - Use existing S3 + encryption system
+- [ ] **Timeline Display** - Beautiful image gallery in posts
+- [ ] **Mobile Responsive** - Touch-friendly upload experience
+
+**Infrastructure Ready:**
+- ✅ **Tigris.ex** - Production S3 + encryption system
+- ✅ **FileUploadComponents.ex** - Upload UI components
+- ✅ **Content Safety** - AI-powered image moderation
+- ✅ **Action Buttons** - Photo button already in composer
+
+### 💬 **Priority 2: Reply Modal System** (Next)
+
+**Why Second:** Critical for engagement and conversations.
+
+**Technical Implementation:**
+- [ ] **Reply Modal** - Use existing liquid_modal from design_system.ex
+- [ ] **Reply Composer** - Reuse composer component in modal context
+- [ ] **Threaded Display** - Collapsible replies under posts
+- [ ] **Visual Hierarchy** - Indented replies with liquid styling
+- [ ] **Real-time Updates** - New replies appear instantly via PubSub
+- [ ] **Mobile UX** - Touch-friendly reply interactions
+
+**Infrastructure Ready:**
+- ✅ **liquid_modal** - Beautiful modal component in design_system.ex
+- ✅ **Reply Backend** - Existing reply handlers and PubSub
+- ✅ **Timeline Integration** - Reply counts and threading logic
+- ✅ **Action Buttons** - Reply button already in timeline posts
+
+### ⚠️ **Priority 3: Content Warning System** (Future)
+
+**Why Third:** Important for community safety and moderation.
+
+**Technical Implementation:**
+- [ ] **Content Warning Toggle** - Expandable content with warnings
+- [ ] **Warning Types** - Configurable warning categories
+- [ ] **Composer Integration** - Content warning field in composer
+- [ ] **Timeline Display** - Collapsible content with warning labels
+- [ ] **User Preferences** - Show/hide content warning options
+
+### 😊 **Priority 4: Emoji Picker** (Polish)
+
+**Why Last:** Nice-to-have polish feature.
+
+**Technical Implementation:**
+- [ ] **Emoji Picker Modal** - Beautiful emoji selector
+- [ ] **Emoji Categories** - Organized emoji selection
+- [ ] **Search Functionality** - Find emojis quickly
+- [ ] **Composer Integration** - Insert emojis at cursor position
+- [ ] **Custom Reactions** - Beyond basic like/heart reactions
+
+## Phase 3.4: Advanced Features
 
 **Goal**: Add sophisticated functionality
 
@@ -217,15 +275,15 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 
 ---
 
-## 🏆 **Current Status: Phase 3.1.5 COMPLETE!**
+## 🏆 **Current Status: Phase 3.3 STARTING - ACTION BUTTON FEATURES!**
 
-### 🎆 **MAJOR MILESTONE ACHIEVED**
+### 🚀 **READY TO LAUNCH ACTION BUTTONS**
 
-Your beautiful liquid metal timeline now has **complete tab navigation** and **read/unread management**!
+Your beautiful liquid metal timeline now has **complete foundational features** and we're ready to add the **action button functionality** that users expect!
 
-### 🔥 **What We've Built**
+### 🔥 **What We've Built (Foundation Complete)**
 
-**Complete Social Media Platform with Advanced Timeline Features**:
+**Complete Social Media Platform Core**:
 
 - ✅ **All 6 Core Features** - Bookmarks, moderation, content warnings, status, privacy, navigation
 - ✅ **Zero-Knowledge Encryption** - Three-layer architecture with context-specific keys
@@ -240,8 +298,22 @@ Your beautiful liquid metal timeline now has **complete tab navigation** and **r
 - ✅ **Visual Polish** - Repost indicators, semantic colors, liquid metal effects
 - ✅ **Real-time Updates** - PubSub broadcasting throughout
 
-### 🎯 **Recommended Next Step**
+### 🎯 **Current Sprint: Photo Upload Implementation**
 
-**Start Phase 3.2: Real-time Experience Enhancements** - Add live post appearance, optimistic UI, and smooth animations!
+**Starting Now:** Photo upload system using our production-ready Tigris.ex infrastructure
 
-The timeline navigation and read/unread functionality is now **perfect**. Let's make it feel alive with real-time enhancements! 🚀
+**Next Up:** Reply modal system with threaded conversations
+
+**Infrastructure Advantage:** We're building on rock-solid foundations:
+- Production-ready S3 + encryption (Tigris.ex)
+- Beautiful liquid metal UI components
+- Real-time PubSub system
+- Mobile-responsive design system
+
+### 🛣️ **Implementation Strategy**
+
+**Focus:** Keep it simple, leverage existing infrastructure, maintain great UX and performance
+
+**Philosophy:** Build incrementally, test thoroughly, maintain the beautiful liquid metal aesthetic throughout
+
+Let's make these action buttons **amazing**! 🎆
