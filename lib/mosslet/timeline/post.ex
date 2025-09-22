@@ -538,6 +538,14 @@ defmodule Mosslet.Timeline.Post do
     else
       # creating a new post
       case visibility do
+        # For public posts that are reposts, preserve the original public key
+        :public ->
+          if opts[:trix_key] do
+            Encrypted.Users.Utils.decrypt_public_item_key(opts[:trix_key])
+          else
+            Encrypted.Utils.generate_key()
+          end
+
         # use the group_key if associated with a group
         :connections ->
           if not is_nil(group_id) do

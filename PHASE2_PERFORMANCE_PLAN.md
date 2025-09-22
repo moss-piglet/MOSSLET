@@ -205,13 +205,15 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 - [ ] **Advanced Search** - Full-text search across encrypted content
 - [ ] **Content Filtering** - Keyword filters, content warnings, hide posts from feed
 - [ ] **Reconnect Encrypted Caching Layer** - Functions are all in place, reconnect it back into our timeline features and ensure real-time functionality still working (cache being invalidated and updated in realtime as needed)
-- [ ] **Analytics Dashboard** - User engagement insights
-- [ ] **Mobile Optimizations** - PWA features and mobile-specific UI
 
 ## Phase 4: Content Moderation and Enhanced Privacy Controls
 
-- [ ] **Content Moderation** - Report/flag posts (Phase 4)
+- [ ] **Content Moderation** - Report/flag posts
 - [ ] **Enhanced Privacy Controls** - Post-creation privacy updates
+
+## Phase 5: User Status System
+
+- [ ] **Live User Status System** - Implement live user-status system (fields in user.ex) with Phoenix Presence
 
 ---
 

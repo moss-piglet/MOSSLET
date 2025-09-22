@@ -91,19 +91,28 @@
             <div class="timeline-post-item new-post">
               <MossletWeb.DesignSystem.liquid_timeline_post
                 user_name={get_post_author_name(post, @current_user, @key)}
-                user_handle={"@" <> (decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") || "author")}
+                user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
+                  result when is_binary(result) -> result
+                  _ -> "author"
+                end)}
                 user_avatar={get_post_author_avatar(post, @current_user, @key)}
                 timestamp={format_post_timestamp(post.inserted_at)}
                 verified={false}
                 content={
-                  decr_item(
-                    post.body,
-                    @current_user,
-                    get_post_key(post, @current_user),
-                    @key,
-                    post,
-                    "body"
-                  ) || "[Could not decrypt content]"
+                  case post.visibility do
+                    :public ->
+                      decr_public_item(post.body, get_post_key(post))
+
+                    _ ->
+                      decr_item(
+                        post.body,
+                        @current_user,
+                        get_post_key(post, @current_user),
+                        @key,
+                        post,
+                        "body"
+                      ) || "[Could not decrypt content]"
+                  end
                 }
                 images={get_decrypted_post_images(post, @current_user, @key)}
                 stats={

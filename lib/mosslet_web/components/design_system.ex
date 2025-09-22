@@ -2498,7 +2498,11 @@ defmodule MossletWeb.DesignSystem do
         <%!-- Gentle pulse indicator --%>
         <div class="relative">
           <div class={["w-2 h-2 rounded-full", @color_classes.indicator]}></div>
-          <div class={["absolute inset-0 w-2 h-2 rounded-full animate-ping opacity-75", @color_classes.indicator]}></div>
+          <div class={[
+            "absolute inset-0 w-2 h-2 rounded-full animate-ping opacity-75",
+            @color_classes.indicator
+          ]}>
+          </div>
         </div>
 
         <%!-- Tab-specific icon --%>

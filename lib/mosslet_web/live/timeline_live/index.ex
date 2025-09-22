@@ -1188,7 +1188,7 @@ defmodule MossletWeb.TimelineLive.Index do
              user: current_user
            ) do
         {:ok, _post} ->
-          {:noreply, put_flash(socket, :success, "You successfully loved this post!")}
+          {:noreply, put_flash(socket, :success, "You loved this post!")}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
@@ -1211,7 +1211,7 @@ defmodule MossletWeb.TimelineLive.Index do
              user: current_user
            ) do
         {:ok, _post} ->
-          {:noreply, put_flash(socket, :success, "You successfully removed love from this post.")}
+          {:noreply, put_flash(socket, :success, "You removed love from this post.")}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
