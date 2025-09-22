@@ -2709,7 +2709,7 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <%!-- Post button that submits the form --%>
-            <.liquid_button size="sm" type="submit" class="flex-shrink-0">
+            <.liquid_button size="sm" type="submit" class="flex-shrink-0" phx-disable-with="Sharing...">
               Share thoughtfully
             </.liquid_button>
           </div>
