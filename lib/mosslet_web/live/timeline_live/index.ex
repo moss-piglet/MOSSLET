@@ -111,7 +111,7 @@ defmodule MossletWeb.TimelineLive.Index do
       case current_tab do
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(options.post_per_page, 0)
+          Timeline.list_discover_posts(options.post_per_page, 0, current_user)
 
         "connections" ->
           # Use dedicated Timeline function for connections
@@ -1019,7 +1019,7 @@ defmodule MossletWeb.TimelineLive.Index do
       case current_tab do
         "discover" ->
           offset = loaded_count
-          Timeline.list_discover_posts(current_options.post_per_page, offset)
+          Timeline.list_discover_posts(current_options.post_per_page, offset, current_user)
 
         "connections" ->
           Timeline.list_connection_posts(current_user, updated_options)
@@ -1062,7 +1062,7 @@ defmodule MossletWeb.TimelineLive.Index do
       case tab do
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(options.post_per_page, 0)
+          Timeline.list_discover_posts(options.post_per_page, 0, current_user)
 
         "connections" ->
           # Use dedicated Timeline function for connections
@@ -2021,6 +2021,8 @@ defmodule MossletWeb.TimelineLive.Index do
       connections: Timeline.count_unread_connection_posts(current_user),
       # Groups tab: only show unread posts with group_id
       groups: Enum.count(unread_posts, fn post -> post.group_id != nil end),
+      # Discover tab: only show unread public posts
+      discover: Timeline.count_unread_discover_posts(current_user),
       # Bookmarks tab: only show unread bookmarked posts
       bookmarks:
         try do

@@ -50,7 +50,12 @@
               count: @timeline_counts.bookmarks || 8,
               unread: @unread_counts.bookmarks || 0
             },
-            %{key: "discover", label: "Discover"}
+            %{
+              key: "discover",
+              label: "Discover",
+              count: @timeline_counts.discover || 0,
+              unread: @unread_counts.discover || 0
+            }
           ]}
           active_tab={@active_tab || "home"}
         />

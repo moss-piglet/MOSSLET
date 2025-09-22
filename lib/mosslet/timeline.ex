@@ -713,17 +713,39 @@ defmodule Mosslet.Timeline do
   @doc """
   Lists public posts for discover timeline with simple pagination.
   """
-  def list_discover_posts(limit \\ 25, offset \\ 0) do
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.visibility == :public,
-      order_by: [desc: p.inserted_at],
-      limit: ^limit,
-      offset: ^offset,
-      preload: [:user_posts, :replies]
-    )
-    |> Repo.all()
+  def list_discover_posts(limit \\ 25, offset \\ 0, current_user \\ nil) do
+    if current_user do
+      # With user context - show unread posts first
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        left_join: upr in UserPostReceipt,
+        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
+        where: p.visibility == :public,
+        order_by: [
+          # Unread posts first (false comes before true)
+          asc: upr.is_read?,
+          # Most recent posts first within each group
+          desc: p.inserted_at
+        ],
+        limit: ^limit,
+        offset: ^offset,
+        preload: [:user_posts, :replies, :user_post_receipts]
+      )
+      |> Repo.all()
+    else
+      # Without user context - just show by date
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: p.visibility == :public,
+        order_by: [desc: p.inserted_at],
+        limit: ^limit,
+        offset: ^offset,
+        preload: [:user_posts, :replies]
+      )
+      |> Repo.all()
+    end
   end
 
   @doc """
@@ -734,6 +756,21 @@ defmodule Mosslet.Timeline do
       inner_join: up in UserPost,
       on: up.post_id == p.id,
       where: p.visibility == :public
+    )
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Counts unread public posts for discover timeline.
+  """
+  def count_unread_discover_posts(current_user) do
+    from(p in Post,
+      inner_join: up in UserPost,
+      on: up.post_id == p.id,
+      inner_join: upr in UserPostReceipt,
+      on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
+      where: p.visibility == :public,
+      where: not upr.is_read?
     )
     |> Repo.aggregate(:count, :id)
   end
@@ -1188,7 +1225,8 @@ defmodule Mosslet.Timeline do
         where: not is_nil(u.confirmed_at),
         where: u.id != ^creator_user.id,
         # Limit to recent active users to prevent excessive receipt creation
-        where: u.updated_at >= ago(30, "day"),
+        # Temporarily removing the 30-day filter to ensure all users get receipts
+        # where: u.updated_at >= ago(30, "day"),
         # Reasonable limit for public post visibility
         limit: 1000
       )
@@ -1224,9 +1262,10 @@ defmodule Mosslet.Timeline do
                 id: Ecto.UUID.generate(),
                 user_id: user_id,
                 user_post_id: user_post_id,
-                # Public posts start as unread for other users
-                is_read?: false,
-                read_at: nil,
+                # Public posts start as read for other users to avoid overwhelming them
+                # Users can manually mark posts as unread to prioritize them
+                is_read?: true,
+                read_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
                 inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
                 updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
               }
@@ -1398,13 +1437,22 @@ defmodule Mosslet.Timeline do
           Ecto.Multi.new()
           |> Ecto.Multi.insert(:insert_user_post, user_post)
           |> Ecto.Multi.insert(:inser_user_post_receipt, fn %{insert_user_post: user_post} ->
+            # For public posts, mark receipts as read to avoid overwhelming users
+            # For private/connections posts, mark as unread for notifications
+            {is_read, read_at} =
+              if attrs["visibility"] == "public" or attrs[:visibility] == :public do
+                {true, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)}
+              else
+                {false, nil}
+              end
+
             UserPostReceipt.changeset(
               %UserPostReceipt{},
               %{
                 user_id: user.id,
                 user_post_id: user_post.id,
-                is_read?: false,
-                read_at: nil
+                is_read?: is_read,
+                read_at: read_at
               }
             )
             |> Ecto.Changeset.put_assoc(:user, user)
