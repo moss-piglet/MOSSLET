@@ -244,6 +244,51 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  def handle_info({:create_reply, reply_params, post_id}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Timeline.get_post(post_id) do
+      %Mosslet.Timeline.Post{} = post ->
+        # Extract the post_key for encryption
+        post_key = get_post_key(post, current_user)
+
+        # Create the reply using existing Timeline functions
+        case Timeline.create_reply(reply_params,
+               user: current_user,
+               key: key,
+               post: post,
+               post_key: post_key
+             ) do
+          {:ok, _reply} ->
+            # Update the post with new reply count in the stream
+            # Get fresh post with updated reply count
+            updated_post = Timeline.get_post(post_id)
+
+            socket =
+              socket
+              |> put_flash(:success, "Reply posted successfully!")
+              |> stream_insert(:posts, updated_post)
+              |> push_event("hide-reply-composer", %{post_id: post_id})
+
+            {:noreply, socket}
+
+          {:error, changeset} ->
+            # Update the specific reply composer with validation errors
+            send_update(MossletWeb.TimelineLive.ReplyComposerComponent,
+              id: "reply-composer-#{post_id}",
+              form: to_form(changeset, action: :validate)
+            )
+
+            {:noreply,
+             put_flash(socket, :error, "Failed to post reply. Please check your input.")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
   def handle_info({:reply_created, _post, reply}, socket) do
     current_user = socket.assigns.current_user
     return_url = socket.assigns.return_url

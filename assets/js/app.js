@@ -108,6 +108,34 @@ document.addEventListener("trix-initialize", function (event) {
   );
 });
 
+// Add event listener for closing reply composer after successful submission
+window.addEventListener("phx:close-reply-composer", (event) => {
+  const { post_id } = event.detail;
+  const composerId = `reply-composer-${post_id}`;
+  const cardId = `timeline-card-${post_id}`;
+  const buttonId = `reply-button-${post_id}`;
+  
+  // Use the same toggle logic as the original JS.toggle command
+  const composer = document.getElementById(composerId);
+  const card = document.getElementById(cardId);
+  const button = document.getElementById(buttonId);
+  
+  if (composer && composer.classList.contains('block') || !composer.classList.contains('hidden')) {
+    // Close the composer
+    composer.classList.add('hidden');
+    
+    // Remove ring from card
+    if (card) {
+      card.classList.remove('ring-2', 'ring-emerald-300');
+    }
+    
+    // Reset button state
+    if (button) {
+      button.setAttribute('data-composer-open', 'false');
+    }
+  }
+});
+
 // Add event listener for scroll to top
 window.addEventListener("phx:scroll-to-top", (event) => {
   // Use a custom smooth scroll with easing for better animation

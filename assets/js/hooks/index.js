@@ -12,6 +12,7 @@ import * as LocalTimeHooks from "./local-time-hooks";
 import { LocalTimeTooltip } from "./local-time-tooltip";
 import Menu from "./dropdown-menu";
 import ModalPortal from "./modal-portal";
+import ReplyComposer from "./reply-composer";
 import TippyHook from "./tippy-hook";
 import TrixEditor from "./trix";
 import TrixContentPostHook from "./trix-content-post-hook";
@@ -33,6 +34,7 @@ export default {
   Menu,
   ModalPortal,
   MossletFrameworkHooks,
+  ReplyComposer,
   ScrollDown,
   TippyHook,
   TrixEditor,

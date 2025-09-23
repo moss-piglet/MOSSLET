@@ -2,7 +2,11 @@
   <%!-- Fresh Timeline Mockup --%>
 
   <%!-- Main timeline container with improved visual flow --%>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
+  <div
+    class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10"
+    phx-hook="ReplyComposer"
+    id="timeline-container"
+  >
     <%!-- Timeline header with better integration --%>
     <div class="relative px-4 sm:px-6 lg:px-8 pt-8 pb-6">
       <div class="mx-auto max-w-2xl text-center">
