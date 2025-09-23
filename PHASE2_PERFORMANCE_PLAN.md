@@ -232,9 +232,8 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 
 **Technical Implementation:**
 
-- [ ] **Reply Modal** - Use existing liquid_modal from design_system.ex
-- [ ] **Reply Composer** - Reuse composer component in modal context
-- [ ] **Threaded Display** - Collapsible replies under posts
+- [x] **Reply Composer** - Reuse composer component in modal context
+- [ ] **Threaded Display** - Collapsible replies under posts (use existing functions)
 - [ ] **Visual Hierarchy** - Indented replies with liquid styling
 - [ ] **Real-time Updates** - New replies appear instantly via PubSub
 - [ ] **Mobile UX** - Touch-friendly reply interactions
