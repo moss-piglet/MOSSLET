@@ -233,10 +233,17 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 **Technical Implementation:**
 
 - [x] **Reply Composer** - Reuse composer component in modal context
-- [ ] **Threaded Display** - Collapsible replies under posts (use existing functions)
-- [ ] **Visual Hierarchy** - Indented replies with liquid styling
-- [ ] **Real-time Updates** - New replies appear instantly via PubSub
+- [x] **Threaded Display** - Collapsible replies under posts (use existing functions)
+- [x] **Visual Hierarchy** - Indented replies with liquid styling
+- [x] **Reply Encryption** - Updated helper functions for reply decryption using existing encryption architecture
+- [x] **JS Toggle Integration** - Fixed reply button icon switching (outline → filled)
+- [x] **Visibility Handling** - Replies inherit post visibility and work across all visibility types
+- [x] **Association Preloading** - Fixed post.user_posts preloading for reply key access
+- [ ] **Reply Favorites System** - Implement "Love" button functionality similar to posts
+- [x] **Real-time Updates** - New replies appear instantly via PubSub
 - [ ] **Mobile UX** - Touch-friendly reply interactions
+- [ ] **Enhanced Visual Hierarchy** - Fine-tune reply indentation and connection lines
+- [ ] **Reply-to-Reply Threading** - Nested conversation support
 
 **Infrastructure Ready:**
 
@@ -244,6 +251,23 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 - ✅ **Reply Backend** - Existing reply handlers and PubSub
 - ✅ **Timeline Integration** - Reply counts and threading logic
 - ✅ **Action Buttons** - Reply button already in timeline posts
+- ✅ **liquid_collapsible_reply_thread** - Threaded reply display component
+- ✅ **liquid_reply_item** - Individual reply item component
+- ✅ **Encryption Helpers** - get_reply_post_key, get_decrypted_reply_content, etc.
+
+**🎉 Status Update:** Core threaded reply functionality is now **WORKING**!
+
+- Reply composer toggles properly
+- Reply threads display with beautiful liquid styling
+- Encryption/decryption working across all visibility types
+- Reply content, usernames, and timestamps displaying correctly
+- "Love" and "Reply" buttons present (need functionality)
+
+**Next Steps:**
+
+1. Implement reply favorites/love system
+2. Add real-time reply updates via PubSub
+3. Fine-tune visual hierarchy and mobile UX
 
 ### ⚠️ **Priority 3: Content Warning System** (Future)
 

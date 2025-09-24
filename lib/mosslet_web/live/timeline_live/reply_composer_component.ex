@@ -216,8 +216,9 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
 
   def handle_event("save_reply", %{"reply" => reply_params}, socket) do
     post_id = socket.assigns.post_id
+    visibility = socket.assigns.visibility
     # Send the reply creation to the parent LiveView
-    send(self(), {:create_reply, reply_params, post_id})
+    send(self(), {:create_reply, reply_params, post_id, visibility})
 
     # Reset the form
     changeset =
@@ -226,7 +227,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
         "post_id" => post_id,
         "user_id" => socket.assigns.current_user.id,
         "username" => socket.assigns.username,
-        "visibility" => socket.assigns.visibility
+        "visibility" => visibility
       })
 
     form = to_form(changeset)

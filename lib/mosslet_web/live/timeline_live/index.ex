@@ -244,7 +244,7 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_info({:create_reply, reply_params, post_id}, socket) do
+  def handle_info({:create_reply, reply_params, post_id, visibility}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
@@ -258,7 +258,8 @@ defmodule MossletWeb.TimelineLive.Index do
                user: current_user,
                key: key,
                post: post,
-               post_key: post_key
+               post_key: post_key,
+               visibility: visibility
              ) do
           {:ok, _reply} ->
             # Update the post with new reply count in the stream

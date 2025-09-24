@@ -4585,8 +4585,8 @@ defmodule MossletWeb.DesignSystem do
 
   # Helper to get the post_key for a reply (same as the post it belongs to)
   defp get_reply_post_key(reply, current_user, key) do
-    # Get the post this reply belongs to
-    post = Mosslet.Repo.preload(reply, :post).post
+    # Get the post this reply belongs to with user_posts preloaded
+    post = Mosslet.Repo.preload(reply, post: :user_posts).post
 
     # Use the existing get_post_key helper function
     case get_post_key(post, current_user) do
