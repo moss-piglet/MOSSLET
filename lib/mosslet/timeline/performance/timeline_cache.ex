@@ -160,6 +160,13 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     # Subscribe to user-specific events for targeted invalidation
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "users")
 
+    # Subscribe to recently active users' private post topics for cache invalidation
+    subscribe_to_active_users_private_topics()
+
+    # Subscribe to all user-specific private post topics for cache invalidation
+    # We'll dynamically subscribe to "priv_posts:#{user_id}" when users are active
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "private_posts_cache")
+
     Logger.info("Timeline cache started with table: #{table}")
 
     # Schedule periodic cleanup
@@ -248,6 +255,34 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     {:noreply, state}
   end
 
+  # Handle private post events - these come on user-specific topics
+  def handle_info({:post_created, post}, state) when is_map(post) do
+    Logger.debug("Cache invalidation: private post created #{post.id}")
+
+    # This handles both public posts (from "posts" topic) and private posts (from "priv_posts:user_id" topics)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
+  def handle_info({:post_updated, post}, state) when is_map(post) do
+    Logger.debug("Cache invalidation: private post updated #{post.id}")
+
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
+  def handle_info({:post_deleted, post}, state) when is_map(post) do
+    Logger.debug("Cache invalidation: private post deleted #{post.id}")
+
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
   # Catch-all for unknown events
   def handle_info(msg, state) do
     Logger.debug("Timeline cache received unknown message: #{inspect(msg)}")
@@ -255,6 +290,22 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   end
 
   ## Private Functions
+
+  # Subscribe to private post topics for recently active users
+  defp subscribe_to_active_users_private_topics() do
+    # Get recently active users (those who posted in the last hour)
+    recently_active_users = Mosslet.Timeline.get_recently_active_users(60, 50)
+
+    Enum.each(recently_active_users, fn user ->
+      topic = "priv_posts:#{user.id}"
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, topic)
+      Logger.debug("Timeline cache subscribed to private posts for user #{user.id}")
+    end)
+
+    Logger.info(
+      "Timeline cache subscribed to #{length(recently_active_users)} active users' private post topics"
+    )
+  end
 
   defp invalidate_timelines_for_post(post) do
     case post.visibility do

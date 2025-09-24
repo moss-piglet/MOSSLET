@@ -140,7 +140,10 @@ defmodule MossletWeb.TimelineLive.Index do
 
         _ ->
           # Use the helper function for other tabs (groups, bookmarks)
-          Timeline.filter_timeline_posts(current_user, options)
+          # Pass tab information to caching system
+          options_with_tab = Map.put(options, :tab, current_tab)
+
+          Timeline.filter_timeline_posts(current_user, options_with_tab)
           |> apply_tab_filtering(current_tab, current_user)
       end
 

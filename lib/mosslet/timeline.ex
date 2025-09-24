@@ -25,7 +25,7 @@ defmodule Mosslet.Timeline do
   }
 
   alias Mosslet.Accounts.UserBlock
-  # alias Mosslet.Timeline.Performance.TimelineCache
+  alias Mosslet.Timeline.Performance.TimelineCache
 
   @doc """
   Gets recently active users for cache warming.
@@ -533,32 +533,33 @@ defmodule Mosslet.Timeline do
   timeline. Non public posts. Now with caching support.
   """
   def filter_timeline_posts(current_user, options) do
-    # TEMPORARILY DISABLE CACHE TO TEST REAL-TIME UPDATES
+    tab = options[:tab] || "home"
+
     # Try cache first (only for non-realtime requests)
-    # if !options[:skip_cache] do
-    #   case TimelineCache.get_timeline_data(current_user.id, tab) do
-    #     {:hit, cached_data} ->
-    #       Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
-    #       cached_data[:posts] || []
+    if !options[:skip_cache] do
+      case TimelineCache.get_timeline_data(current_user.id, tab) do
+        {:hit, cached_data} ->
+          Logger.debug("Timeline cache hit for user #{current_user.id}, tab #{tab}")
+          cached_data[:posts] || []
 
-    #     :miss ->
-    #       # Cache miss - fetch fresh data
-    #       posts = fetch_timeline_posts_from_db(current_user, options)
+        :miss ->
+          # Cache miss - fetch fresh data
+          posts = fetch_timeline_posts_from_db(current_user, options)
 
-    #       # Cache the results (cache encrypted posts safely)
-    #       timeline_data = %{
-    #         posts: posts,
-    #         post_count: length(posts),
-    #         fetched_at: System.system_time(:millisecond)
-    #       }
+          # Cache the results (cache encrypted posts safely)
+          timeline_data = %{
+            posts: posts,
+            post_count: length(posts),
+            fetched_at: System.system_time(:millisecond)
+          }
 
-    #       TimelineCache.cache_timeline_data(current_user.id, tab, timeline_data)
-    #       posts
-    #   end
-    # else
-    # Skip cache for real-time updates
-    fetch_timeline_posts_from_db(current_user, options)
-    # end
+          TimelineCache.cache_timeline_data(current_user.id, tab, timeline_data)
+          posts
+      end
+    else
+      # Skip cache for real-time updates
+      fetch_timeline_posts_from_db(current_user, options)
+    end
   end
 
   @doc """
@@ -649,6 +650,31 @@ defmodule Mosslet.Timeline do
   def list_connection_posts(current_user, options \\ %{})
 
   def list_connection_posts(current_user, options) do
+    # Try cache first (for first page only)
+    if !options[:skip_cache] && (options[:page] || 1) == 1 do
+      case TimelineCache.get_timeline_data(current_user.id, "connections") do
+        {:hit, cached_data} ->
+          Logger.debug("Connections timeline cache hit for user #{current_user.id}")
+          cached_data[:posts] || []
+
+        :miss ->
+          posts = fetch_connection_posts_from_db(current_user, options)
+
+          timeline_data = %{
+            posts: posts,
+            post_count: length(posts),
+            fetched_at: System.system_time(:millisecond)
+          }
+
+          TimelineCache.cache_timeline_data(current_user.id, "connections", timeline_data)
+          posts
+      end
+    else
+      fetch_connection_posts_from_db(current_user, options)
+    end
+  end
+
+  defp fetch_connection_posts_from_db(current_user, options) do
     connection_user_ids =
       Accounts.get_all_confirmed_user_connections(current_user.id)
       |> Enum.map(& &1.reverse_user_id)
@@ -716,7 +742,32 @@ defmodule Mosslet.Timeline do
   @doc """
   Lists public posts for discover timeline with simple pagination.
   """
-  def list_discover_posts(limit \\ 25, offset \\ 0, current_user \\ nil) do
+  def list_discover_posts(limit \\ 25, offset \\ 0, current_user \\ nil, skip_cache \\ false) do
+    if current_user && !skip_cache && offset == 0 do
+      # Try cache for first page of discover posts
+      case TimelineCache.get_timeline_data(current_user.id, "discover") do
+        {:hit, cached_data} ->
+          Logger.debug("Discover timeline cache hit for user #{current_user.id}")
+          cached_data[:posts] || []
+
+        :miss ->
+          posts = fetch_discover_posts_from_db(current_user, limit, offset)
+
+          timeline_data = %{
+            posts: posts,
+            post_count: length(posts),
+            fetched_at: System.system_time(:millisecond)
+          }
+
+          TimelineCache.cache_timeline_data(current_user.id, "discover", timeline_data)
+          posts
+      end
+    else
+      fetch_discover_posts_from_db(current_user, limit, offset)
+    end
+  end
+
+  defp fetch_discover_posts_from_db(current_user, limit, offset) do
     if current_user do
       # With user context - show unread posts first
       from(p in Post,
@@ -787,6 +838,31 @@ defmodule Mosslet.Timeline do
   def list_user_own_posts(current_user, options \\ %{})
 
   def list_user_own_posts(current_user, options) do
+    # Try cache first (for first page only)
+    if !options[:skip_cache] && (options[:page] || 1) == 1 do
+      case TimelineCache.get_timeline_data(current_user.id, "home") do
+        {:hit, cached_data} ->
+          Logger.debug("Home timeline cache hit for user #{current_user.id}")
+          cached_data[:posts] || []
+
+        :miss ->
+          posts = fetch_user_own_posts_from_db(current_user, options)
+
+          timeline_data = %{
+            posts: posts,
+            post_count: length(posts),
+            fetched_at: System.system_time(:millisecond)
+          }
+
+          TimelineCache.cache_timeline_data(current_user.id, "home", timeline_data)
+          posts
+      end
+    else
+      fetch_user_own_posts_from_db(current_user, options)
+    end
+  end
+
+  defp fetch_user_own_posts_from_db(current_user, options) do
     Post
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
