@@ -118,7 +118,7 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 ### 🎯 Reply Functionality ✅
 
 - ✅ Connected reply buttons to existing `reply` handler
-- ✅ Modal/inline composer opens for replies
+- ✅ Inline composer opens for replies
 - ✅ Real-time reply count updates
 - ✅ Threaded reply display working
 
@@ -226,7 +226,7 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 
 **Photo Upload System is PRODUCTION READY! 📷✨**
 
-### 💬 **Priority 2: Reply Modal System** (Next)
+### 💬 **Priority 2: Reply Threaded System** (Next)
 
 **Why Second:** Critical for engagement and conversations.
 
@@ -287,7 +287,7 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 
 **Technical Implementation:**
 
-- [ ] **Emoji Picker Modal** - Beautiful emoji selector
+- [ ] **Emoji Picker Dropdown** - Beautiful emoji selector (we have emojimart, consider using)
 - [ ] **Emoji Categories** - Organized emoji selection
 - [ ] **Search Functionality** - Find emojis quickly
 - [ ] **Composer Integration** - Insert emojis at cursor position
@@ -337,9 +337,9 @@ We just completed the **most user-demanded feature** with production-quality imp
 - ✅ **Real-time Processing** - LiveView uploads with progress feedback
 - ✅ **Performance Optimized** - ETS cache integration maintains speed
 
-### 🎯 **Next Sprint: Reply Modal System**
+### 🎯 **Next Sprint: Reply System**
 
-**Starting Now:** Threaded conversations with beautiful modal interface
+**Starting Now:** Threaded conversations with beautiful interface and visual hiearchy
 
 **Infrastructure Advantage:** Building on proven photo upload patterns
 
