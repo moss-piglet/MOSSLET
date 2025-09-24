@@ -509,6 +509,35 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  # Note: Since we moved to JS.toggle for nested reply composers,
+  # the reply_to_reply event handler is no longer needed - the composer
+  # is toggled client-side just like the main reply composer
+
+  def handle_info({:nested_reply_created, post_id, parent_reply_id}, socket) do
+    # Update the post stream to reflect the new nested reply
+    updated_post = Timeline.get_post!(post_id)
+
+    socket =
+      socket
+      |> put_flash(:success, "Reply posted!")
+      |> stream_insert(:posts, updated_post, at: -1)
+      |> push_event("hide-nested-composer", %{reply_id: parent_reply_id})
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:nested_reply_error, error_message}, socket) do
+    {:noreply, put_flash(socket, :error, error_message)}
+  end
+
+  def handle_info({:nested_reply_cancelled, parent_reply_id}, socket) do
+    socket =
+      socket
+      |> push_event("hide-nested-composer", %{reply_id: parent_reply_id})
+
+    {:noreply, socket}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
@@ -2499,34 +2528,5 @@ defmodule MossletWeb.TimelineLive.Index do
       diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
     end
-  end
-
-  # Note: Since we moved to JS.toggle for nested reply composers,
-  # the reply_to_reply event handler is no longer needed - the composer
-  # is toggled client-side just like the main reply composer
-
-  def handle_info({:nested_reply_created, post_id, parent_reply_id}, socket) do
-    # Update the post stream to reflect the new nested reply
-    updated_post = Timeline.get_post!(post_id)
-
-    socket =
-      socket
-      |> put_flash(:success, "Reply posted!")
-      |> stream_insert(:posts, updated_post, at: -1)
-      |> push_event("hide-nested-composer", %{reply_id: parent_reply_id})
-
-    {:noreply, socket}
-  end
-
-  def handle_info({:nested_reply_error, error_message}, socket) do
-    {:noreply, put_flash(socket, :error, error_message)}
-  end
-
-  def handle_info({:nested_reply_cancelled, parent_reply_id}, socket) do
-    socket =
-      socket
-      |> push_event("hide-nested-composer", %{reply_id: parent_reply_id})
-
-    {:noreply, socket}
   end
 end

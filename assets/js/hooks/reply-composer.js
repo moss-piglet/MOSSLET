@@ -1,5 +1,38 @@
 export default {
   mounted() {
+    // Restore icon state on mount/update (after LiveView re-renders)
+    this.restoreIconState();
+  },
+
+  updated() {
+    // Restore icon state after LiveView updates (like after successful reply submission)
+    this.restoreIconState();
+  },
+
+  restoreIconState() {
+    // Find all reply buttons and restore their icon state based on composer open status
+    const replyButtons = document.querySelectorAll('[id^="reply-button-"][data-composer-open]');
+    
+    replyButtons.forEach(button => {
+      const isOpen = button.getAttribute('data-composer-open') === 'true';
+      const iconOutline = button.querySelector('.reply-icon-outline');
+      const iconFilled = button.querySelector('.reply-icon-filled');
+      
+      if (iconOutline && iconFilled) {
+        if (isOpen) {
+          // Composer is open - show filled icon, hide outline
+          iconOutline.classList.add('hidden');
+          iconFilled.classList.remove('hidden');
+        } else {
+          // Composer is closed - show outline icon, hide filled
+          iconOutline.classList.remove('hidden');
+          iconFilled.classList.add('hidden');
+        }
+      }
+    });
+  },
+
+  initialize() {
     // Add event listener for hiding the reply composer
     this.handleEvent("hide-reply-composer", ({ post_id }) => {
       // Explicitly close the composer (don't toggle, actually close it)
