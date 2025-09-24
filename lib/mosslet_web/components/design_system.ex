@@ -4441,10 +4441,12 @@ defmodule MossletWeb.DesignSystem do
             <div class="absolute -left-4 sm:-left-6 top-6 w-3 sm:w-4 h-px bg-gradient-to-r from-emerald-300/60 to-transparent dark:from-emerald-400/60">
             </div>
 
-            <.liquid_reply_item
+            <.liquid_nested_reply_item
               reply={reply}
               current_user={@current_user}
               key={@key}
+              depth={0}
+              max_depth={3}
             />
           </div>
 
@@ -4468,29 +4470,122 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
-  Individual reply item with liquid styling.
+  Nested reply item with recursive rendering for threading.
   """
   attr :reply, :map, required: true
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
+  attr :depth, :integer, default: 0
+  attr :max_depth, :integer, default: 3
+  attr :class, :any, default: ""
+
+  def liquid_nested_reply_item(assigns) do
+    ~H"""
+    <div class={[
+      "nested-reply-container",
+      @class
+    ]}>
+      <%!-- Render the current reply --%>
+      <.liquid_reply_item
+        reply={@reply}
+        current_user={@current_user}
+        key={@key}
+        depth={@depth}
+      />
+
+      <%!-- Render nested child replies if they exist and we haven't hit max depth --%>
+      <div
+        :if={@depth < @max_depth and has_child_replies?(@reply)}
+        class={[
+          "nested-children ml-4 sm:ml-6 mt-2 relative",
+          "border-l border-emerald-200/30 dark:border-emerald-700/30"
+        ]}
+      >
+        <%!-- Nested thread connection --%>
+        <div class="absolute -left-px top-0 bottom-0 w-px bg-gradient-to-b from-emerald-300/40 via-teal-400/20 to-transparent dark:from-emerald-400/40 dark:via-teal-500/20">
+        </div>
+
+        <div :for={child_reply <- get_child_replies(@reply)} class="nested-reply-item pt-3">
+          <%!-- Connection line to child --%>
+          <div class="absolute -left-1 top-5 w-3 h-px bg-gradient-to-r from-emerald-300/40 to-transparent dark:from-emerald-400/40">
+          </div>
+
+          <.liquid_nested_reply_item
+            reply={child_reply}
+            current_user={@current_user}
+            key={@key}
+            depth={@depth + 1}
+            max_depth={@max_depth}
+          />
+        </div>
+      </div>
+
+      <%!-- Show "Load more replies" for deeply nested threads --%>
+      <div
+        :if={@depth >= @max_depth and has_child_replies?(@reply)}
+        class="ml-4 sm:ml-6 mt-2"
+      >
+        <.liquid_button
+          variant="ghost"
+          size="xs"
+          color="emerald"
+          class="text-xs text-emerald-600 dark:text-emerald-400"
+        >
+          View {length(get_child_replies(@reply))} more replies
+        </.liquid_button>
+      </div>
+
+      <%!-- Nested reply composer (shown when replying to this specific reply) --%>
+      <div
+        :if={
+          @current_user && Map.get(assigns, :nested_reply_open) &&
+            Map.get(assigns, :nested_reply_parent) &&
+            Map.get(assigns, :nested_reply_parent).id == @reply.id
+        }
+        class="ml-4 sm:ml-6 mt-3"
+      >
+        <.liquid_nested_reply_composer
+          form={Map.get(assigns, :nested_reply_form)}
+          parent_reply={Map.get(assigns, :nested_reply_parent)}
+          post={Map.get(assigns, :nested_reply_post)}
+          author_name={Map.get(assigns, :nested_reply_author)}
+          current_user={@current_user}
+        />
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Individual reply item with liquid styling (updated for nesting support).
+  """
+  attr :reply, :map, required: true
+  attr :current_user, :map, required: true
+  attr :key, :string, default: nil
+  attr :depth, :integer, default: 0
   attr :class, :any, default: ""
 
   def liquid_reply_item(assigns) do
     ~H"""
     <div class={[
       "relative rounded-xl overflow-hidden transition-all duration-200 ease-out",
-      "bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm",
-      "border border-slate-200/50 dark:border-slate-700/50",
-      "hover:border-emerald-200/70 dark:hover:border-emerald-700/70",
-      "hover:bg-emerald-50/40 dark:hover:bg-emerald-900/15",
+      reply_background_classes(@depth),
+      reply_border_classes(@depth),
+      reply_hover_classes(@depth),
       "shadow-sm hover:shadow-md dark:shadow-slate-900/20",
       @class
     ]}>
-      <%!-- Subtle reply accent --%>
-      <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400/80 via-teal-400/60 to-emerald-300/40 dark:from-emerald-500/80 dark:via-teal-500/60 dark:to-emerald-400/40 rounded-r-full">
+      <%!-- Depth-aware reply accent --%>
+      <div class={[
+        "absolute left-0 top-0 bottom-0 rounded-r-full",
+        reply_accent_classes(@depth)
+      ]}>
       </div>
 
-      <div class="p-4 sm:p-4 pl-5 sm:pl-6">
+      <div class={[
+        "p-4 sm:p-4",
+        reply_padding_classes(@depth)
+      ]}>
         <div class="flex items-start gap-3">
           <%!-- Reply author avatar (small) --%>
           <.liquid_avatar
@@ -4541,8 +4636,16 @@ defmodule MossletWeb.DesignSystem do
                 }
                 class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
               />
-              <button class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 rounded-lg sm:rounded-none">
-                Reply
+              <button
+                id={"reply-button-#{@reply.id}"}
+                phx-click="reply_to_reply"
+                phx-value-reply-id={@reply.id}
+                phx-value-post-id={@reply.post_id}
+                class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 rounded-lg sm:rounded-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-1"
+                phx-hook="TippyHook"
+                data-tippy-content="Reply to this comment"
+              >
+                <.phx_icon name="hero-arrow-uturn-left" class="h-3 w-3 mr-1 inline" /> Reply
               </button>
             </div>
           </div>
@@ -4553,7 +4656,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   # Helper functions for reply data extraction
-  defp get_reply_author_name(reply, current_user, key) do
+  def get_reply_author_name(reply, current_user, key) do
     cond do
       reply.user_id == current_user.id ->
         # Current user's own reply - use their name
@@ -4609,7 +4712,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   # Helper to get the post_key for a reply (same as the post it belongs to)
-  defp get_reply_post_key(reply, current_user) do
+  def get_reply_post_key(reply, current_user) do
     # Get the post this reply belongs to with user_posts preloaded
     post = Mosslet.Repo.preload(reply, post: :user_posts).post
 
@@ -4641,5 +4744,181 @@ defmodule MossletWeb.DesignSystem do
       _ ->
         "Unknown time"
     end
+  end
+
+  # Helper functions for depth-based reply styling
+  defp reply_background_classes(depth) do
+    case depth do
+      0 -> "bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm"
+      1 -> "bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm"
+      2 -> "bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
+      _ -> "bg-white/40 dark:bg-slate-800/40 backdrop-blur-sm"
+    end
+  end
+
+  defp reply_border_classes(depth) do
+    case depth do
+      0 -> "border border-slate-200/50 dark:border-slate-700/50"
+      1 -> "border border-slate-200/40 dark:border-slate-700/40"
+      2 -> "border border-slate-200/30 dark:border-slate-700/30"
+      _ -> "border border-slate-200/20 dark:border-slate-700/20"
+    end
+  end
+
+  defp reply_hover_classes(depth) do
+    case depth do
+      0 ->
+        "hover:border-emerald-200/70 dark:hover:border-emerald-700/70 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/15"
+
+      1 ->
+        "hover:border-emerald-200/60 dark:hover:border-emerald-700/60 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/12"
+
+      2 ->
+        "hover:border-emerald-200/50 dark:hover:border-emerald-700/50 hover:bg-emerald-50/20 dark:hover:bg-emerald-900/10"
+
+      _ ->
+        "hover:border-emerald-200/40 dark:hover:border-emerald-700/40 hover:bg-emerald-50/15 dark:hover:bg-emerald-900/8"
+    end
+  end
+
+  defp reply_accent_classes(depth) do
+    case depth do
+      0 ->
+        "w-1 bg-gradient-to-b from-emerald-400/80 via-teal-400/60 to-emerald-300/40 dark:from-emerald-500/80 dark:via-teal-500/60 dark:to-emerald-400/40"
+
+      1 ->
+        "w-0.5 bg-gradient-to-b from-teal-400/70 via-emerald-400/50 to-teal-300/30 dark:from-teal-500/70 dark:via-emerald-500/50 dark:to-teal-400/30"
+
+      2 ->
+        "w-0.5 bg-gradient-to-b from-cyan-400/60 via-teal-400/40 to-cyan-300/20 dark:from-cyan-500/60 dark:via-teal-500/40 dark:to-cyan-400/20"
+
+      _ ->
+        "w-px bg-gradient-to-b from-slate-400/50 via-slate-300/30 to-transparent dark:from-slate-500/50 dark:via-slate-400/30"
+    end
+  end
+
+  defp reply_padding_classes(depth) do
+    case depth do
+      0 -> "pl-5 sm:pl-6"
+      1 -> "pl-4 sm:pl-5"
+      2 -> "pl-3 sm:pl-4"
+      _ -> "pl-2 sm:pl-3"
+    end
+  end
+
+  # Helper functions to safely handle child_replies association
+  defp has_child_replies?(reply) do
+    case Map.get(reply, :child_replies) do
+      %Ecto.Association.NotLoaded{} -> false
+      nil -> false
+      [] -> false
+      list when is_list(list) -> length(list) > 0
+      _ -> false
+    end
+  end
+
+  defp get_child_replies(reply) do
+    case Map.get(reply, :child_replies) do
+      %Ecto.Association.NotLoaded{} -> []
+      nil -> []
+      list when is_list(list) -> list
+      _ -> []
+    end
+  end
+
+  @doc """
+  Nested reply composer for replying to specific replies
+  """
+  attr :form, :map, required: true
+  attr :parent_reply, :map, required: true
+  attr :post, :map, required: true
+  attr :author_name, :string, required: true
+  attr :current_user, :map, required: true
+  attr :class, :any, default: ""
+
+  def liquid_nested_reply_composer(assigns) do
+    ~H"""
+    <div class={[
+      "nested-reply-composer relative",
+      "bg-gradient-to-br from-emerald-50/80 via-teal-50/60 to-cyan-50/40",
+      "dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/10",
+      "border border-emerald-200/60 dark:border-emerald-700/40",
+      "rounded-xl p-4 backdrop-blur-sm",
+      "shadow-sm hover:shadow-md transition-all duration-200",
+      @class
+    ]}>
+      <%!-- Reply context header --%>
+      <div class="flex items-center gap-2 mb-3 pb-2 border-b border-emerald-200/40 dark:border-emerald-700/30">
+        <.phx_icon
+          name="hero-arrow-uturn-left"
+          class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+        />
+        <span class="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
+          Replying to {"@#{@author_name}"}
+        </span>
+        <button
+          phx-click="cancel_nested_reply"
+          class="ml-auto p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-800/50 text-emerald-600 dark:text-emerald-400 transition-colors duration-200"
+        >
+          <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+        </button>
+      </div>
+
+      <%!-- Nested reply form --%>
+      <.form
+        for={@form}
+        id="nested-reply-form"
+        phx-submit="submit_nested_reply"
+        phx-change="validate_nested_reply"
+        class="space-y-3"
+      >
+        <%!-- Hidden fields --%>
+        <input type="hidden" name="nested_reply[parent_reply_id]" value={@parent_reply.id} />
+        <input type="hidden" name="nested_reply[post_id]" value={@post.id} />
+        <input type="hidden" name="nested_reply[visibility]" value={@post.visibility} />
+
+        <%!-- Reply textarea --%>
+        <div class="relative">
+          <.phx_input
+            field={@form[:body]}
+            type="textarea"
+            placeholder="Write your reply..."
+            rows="3"
+            class="resize-none border-emerald-200/60 dark:border-emerald-700/40 focus:border-emerald-400 dark:focus:border-emerald-500 focus:ring-emerald-500/30 bg-white/80 dark:bg-slate-800/80"
+          />
+        </div>
+
+        <%!-- Action buttons --%>
+        <div class="flex items-center justify-between pt-2">
+          <div class="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+            <.phx_icon name="hero-lock-closed" class="h-3 w-3" />
+            <span>Reply will be {String.capitalize(to_string(@post.visibility))}</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <.liquid_button
+              type="button"
+              variant="ghost"
+              size="sm"
+              color="slate"
+              phx-click="cancel_nested_reply"
+              class="text-xs"
+            >
+              Cancel
+            </.liquid_button>
+
+            <.liquid_button
+              type="submit"
+              size="sm"
+              color="emerald"
+              class="text-xs px-4"
+            >
+              <.phx_icon name="hero-paper-airplane" class="h-3 w-3 mr-1" /> Reply
+            </.liquid_button>
+          </div>
+        </div>
+      </.form>
+    </div>
+    """
   end
 end

@@ -175,6 +175,11 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loaded_posts_count, loaded_posts_count)
       |> assign(:current_page, current_page)
       |> assign(:load_more_loading, false)
+      |> assign(:nested_reply_open, false)
+      |> assign(:nested_reply_form, nil)
+      |> assign(:nested_reply_parent, nil)
+      |> assign(:nested_reply_post, nil)
+      |> assign(:nested_reply_author, nil)
       |> stream(:posts, posts, reset: true)
 
     {:noreply, socket}
@@ -362,6 +367,21 @@ defmodule MossletWeb.TimelineLive.Index do
     # When a reply is favorited, we need to update the post that contains it
     # so the reply thread reflects the new favorite state
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
+  end
+
+  def handle_info({:reply_created, post, reply}, socket) do
+    # When a new reply (including nested replies) is created, update the post
+    # This handles both top-level and nested reply creation
+    current_user = socket.assigns.current_user
+
+    # Only update if this isn't the user's own reply to prevent double updates
+    if reply.user_id != current_user.id do
+      # Get the updated post with the new nested reply structure
+      updated_post = Timeline.get_post!(post.id)
+      {:noreply, socket |> stream_insert(:posts, updated_post, at: -1)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:post_deleted, post}, socket) do
@@ -1401,6 +1421,139 @@ defmodule MossletWeb.TimelineLive.Index do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  def handle_event("reply_to_reply", %{"reply-id" => reply_id, "post-id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Get the parent reply and post for context
+    parent_reply = Timeline.get_reply!(reply_id)
+    post = Timeline.get_post!(post_id)
+
+    # Check if user can reply (same visibility rules as posts)
+    case post.visibility do
+      :public ->
+        # Anyone can reply to public posts
+        open_nested_reply_composer(socket, parent_reply, post)
+
+      :private ->
+        # Only post author can reply to private posts
+        if current_user.id == post.user_id do
+          open_nested_reply_composer(socket, parent_reply, post)
+        else
+          {:noreply, put_flash(socket, :error, "You cannot reply to this private post")}
+        end
+
+      :connections ->
+        # Only connections can reply
+        if current_user.id == post.user_id or Accounts.has_connection?(current_user, post.user_id) do
+          open_nested_reply_composer(socket, parent_reply, post)
+        else
+          {:noreply, put_flash(socket, :error, "You must be connected to reply to this post")}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Cannot reply to this post")}
+    end
+  end
+
+  # Helper function to open nested reply composer
+  defp open_nested_reply_composer(socket, parent_reply, post) do
+    current_user = socket.assigns.current_user
+
+    # Create a nested reply form with parent_reply_id
+    nested_reply_form =
+      to_form(%{
+        "body" => "",
+        "visibility" => to_string(post.visibility),
+        "parent_reply_id" => parent_reply.id,
+        "post_id" => post.id
+      })
+
+    # Set up the nested reply context
+    socket =
+      socket
+      |> assign(:nested_reply_form, nested_reply_form)
+      |> assign(:nested_reply_parent, parent_reply)
+      |> assign(:nested_reply_post, post)
+      |> assign(:nested_reply_open, true)
+      |> assign(
+        :nested_reply_author,
+        MossletWeb.DesignSystem.get_reply_author_name(
+          parent_reply,
+          current_user,
+          socket.assigns.key
+        )
+      )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_nested_reply", _params, socket) do
+    socket =
+      socket
+      |> assign(:nested_reply_open, false)
+      |> assign(:nested_reply_form, nil)
+      |> assign(:nested_reply_parent, nil)
+      |> assign(:nested_reply_post, nil)
+      |> assign(:nested_reply_author, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("validate_nested_reply", %{"nested_reply" => reply_params}, socket) do
+    # Validate the nested reply form
+    nested_reply_form = to_form(reply_params)
+    socket = assign(socket, :nested_reply_form, nested_reply_form)
+    {:noreply, socket}
+  end
+
+  def handle_event("submit_nested_reply", %{"nested_reply" => reply_params}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    parent_reply = socket.assigns.nested_reply_parent
+    post = socket.assigns.nested_reply_post
+
+    # Get the post_key for encryption (same as parent post)
+    post_key = get_post_key(post, current_user)
+
+    # Create nested reply with parent_reply_id
+    reply_attrs =
+      Map.merge(reply_params, %{
+        "user_id" => current_user.id,
+        "username" => user_name(current_user, key),
+        "post_id" => post.id,
+        "parent_reply_id" => parent_reply.id,
+        "visibility" => post.visibility
+      })
+
+    case Timeline.create_reply(reply_attrs,
+           user: current_user,
+           key: key,
+           post: post,
+           post_key: post_key,
+           visibility: post.visibility
+         ) do
+      {:ok, reply} ->
+        # Update the post stream to reflect the new nested reply
+        updated_post = Timeline.get_post!(post.id)
+
+        socket =
+          socket
+          |> assign(:nested_reply_open, false)
+          |> assign(:nested_reply_form, nil)
+          |> assign(:nested_reply_parent, nil)
+          |> assign(:nested_reply_post, nil)
+          |> assign(:nested_reply_author, nil)
+          |> put_flash(:success, "Reply posted!")
+          |> stream_insert(:posts, updated_post, at: -1)
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to post reply. Please try again.")}
     end
   end
 

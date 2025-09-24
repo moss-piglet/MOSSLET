@@ -1030,13 +1030,73 @@ defmodule Mosslet.Timeline do
       ** (Ecto.NoResultsError)
 
   """
-  def get_post!(id),
-    do:
+  def get_post!(id) do
+    post =
       Repo.get!(Post, id)
-      |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
+      |> Repo.preload([:user_posts, :user, :user_post_receipts])
+
+    # Load nested replies structure
+    nested_replies = get_nested_replies_for_post(id)
+    Map.put(post, :replies, nested_replies)
+  end
 
   def get_reply!(id),
-    do: Repo.get!(Reply, id) |> Repo.preload([:user, :post])
+    do: Repo.get!(Reply, id) |> Repo.preload([:user, :post, :parent_reply, :child_replies])
+
+  # Helper function to calculate thread depth for nested replies
+  defp calculate_thread_depth(attrs) do
+    case attrs["parent_reply_id"] || attrs[:parent_reply_id] do
+      nil ->
+        Map.put(attrs, "thread_depth", 0)
+
+      parent_id when is_binary(parent_id) ->
+        parent_reply = get_reply!(parent_id)
+        Map.put(attrs, "thread_depth", parent_reply.thread_depth + 1)
+
+      _ ->
+        attrs
+    end
+  end
+
+  @doc """
+  Gets replies for a post with proper nesting structure.
+  Returns a tree structure with top-level replies and their children.
+  """
+  def get_nested_replies_for_post(post_id) do
+    # Get all replies for the post
+    replies =
+      from(r in Reply,
+        where: r.post_id == ^post_id,
+        order_by: [asc: r.inserted_at],
+        preload: [:user, :parent_reply]
+      )
+      |> Repo.all()
+
+    # Build nested structure
+    build_reply_tree(replies)
+  end
+
+  # Helper to build nested reply structure
+  defp build_reply_tree(replies) do
+    # Group replies by parent_reply_id
+    grouped = Enum.group_by(replies, & &1.parent_reply_id)
+
+    # Get top-level replies (no parent)
+    top_level = Map.get(grouped, nil, [])
+
+    # Recursively build tree
+    Enum.map(top_level, fn reply ->
+      Map.put(reply, :child_replies, build_children(reply.id, grouped))
+    end)
+  end
+
+  defp build_children(parent_id, grouped) do
+    children = Map.get(grouped, parent_id, [])
+
+    Enum.map(children, fn child ->
+      Map.put(child, :child_replies, build_children(child.id, grouped))
+    end)
+  end
 
   def get_post(id) do
     if :new == id || "new" == id do
@@ -2049,12 +2109,15 @@ defmodule Mosslet.Timeline do
   def create_reply(attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 
+    # Calculate thread depth for nested replies
+    attrs = calculate_thread_depth(attrs)
+
     case Repo.transaction_on_primary(fn ->
            Reply.changeset(%Reply{}, attrs, opts)
            |> Repo.insert()
          end) do
       {:ok, {:ok, reply}} ->
-        reply = reply |> Repo.preload([:user, :post])
+        reply = reply |> Repo.preload([:user, :post, :parent_reply])
         conn = Accounts.get_connection_from_item(reply.post, user)
 
         {:ok, conn, reply}

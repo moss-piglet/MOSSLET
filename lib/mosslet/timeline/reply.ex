@@ -20,9 +20,12 @@ defmodule Mosslet.Timeline.Reply do
     field :image_urls_updated_at, :naive_datetime
     field :favs_list, {:array, :binary_id}, default: []
     field :favs_count, :integer, default: 0
+    field :thread_depth, :integer, default: 0
 
     belongs_to :post, Post
     belongs_to :user, User
+    belongs_to :parent_reply, __MODULE__, foreign_key: :parent_reply_id
+    has_many :child_replies, __MODULE__, foreign_key: :parent_reply_id
 
     timestamps()
   end
@@ -39,7 +42,9 @@ defmodule Mosslet.Timeline.Reply do
       :image_urls,
       :image_urls_updated_at,
       :favs_list,
-      :favs_count
+      :favs_count,
+      :parent_reply_id,
+      :thread_depth
     ])
     |> cast_assoc(:post)
     |> cast_assoc(:user)
