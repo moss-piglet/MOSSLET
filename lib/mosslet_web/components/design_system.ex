@@ -944,7 +944,7 @@ defmodule MossletWeb.DesignSystem do
             id={"save-badge-#{String.downcase(@title)}"}
             variant="soft"
             color="amber"
-            size="xs"
+            size="sm"
             class="ml-2"
             data-tippy-content={@save_tooltip}
             phx-hook={if @save_tooltip, do: "TippyHook", else: nil}
@@ -3114,7 +3114,7 @@ defmodule MossletWeb.DesignSystem do
               <.liquid_badge
                 variant="soft"
                 color={visibility_badge_color(@post.visibility)}
-                size="xs"
+                size="sm"
                 class="ml-2"
               >
                 {visibility_badge_text(@post.visibility)}
@@ -4430,13 +4430,14 @@ defmodule MossletWeb.DesignSystem do
           </span>
         </div>
 
-        <%!-- Reply list with enhanced threading --%>
-        <div class="space-y-3 pl-4 sm:pl-6 relative">
-          <%!-- Enhanced thread connection line --%>
+        <%!-- Reply list with proper nested threading (only top-level replies) --%>
+        <div class="space-y-4 pl-4 sm:pl-6 relative">
+          <%!-- Main thread connection line --%>
           <div class="absolute left-0 sm:left-2 top-0 bottom-0 w-px bg-gradient-to-b from-emerald-300/60 via-teal-400/40 to-transparent dark:from-emerald-400/60 dark:via-teal-500/40">
           </div>
 
-          <div :for={reply <- @replies} class="reply-item relative">
+          <%!-- Render only top-level replies (those without a parent) --%>
+          <div :for={reply <- filter_top_level_replies(@replies)} class="reply-item relative">
             <%!-- Individual reply connection --%>
             <div class="absolute -left-4 sm:-left-6 top-6 w-3 sm:w-4 h-px bg-gradient-to-r from-emerald-300/60 to-transparent dark:from-emerald-400/60">
             </div>
@@ -4447,6 +4448,7 @@ defmodule MossletWeb.DesignSystem do
               key={@key}
               depth={0}
               max_depth={3}
+              post_id={@post_id}
             />
           </div>
 
@@ -4477,6 +4479,7 @@ defmodule MossletWeb.DesignSystem do
   attr :key, :string, default: nil
   attr :depth, :integer, default: 0
   attr :max_depth, :integer, default: 3
+  attr :post_id, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_nested_reply_item(assigns) do
@@ -4493,30 +4496,39 @@ defmodule MossletWeb.DesignSystem do
         depth={@depth}
       />
 
-      <%!-- Render nested child replies if they exist and we haven't hit max depth --%>
+      <%!-- Render nested child replies with improved visual hierarchy --%>
       <div
         :if={@depth < @max_depth and has_child_replies?(@reply)}
-        class={[
-          "nested-children ml-4 sm:ml-6 mt-2 relative",
-          "border-l border-emerald-200/30 dark:border-emerald-700/30"
-        ]}
+        class={
+          [
+            "nested-children mt-3 relative",
+            # Increase indentation for deeper nesting
+            if(@depth == 0, do: "ml-6 sm:ml-8", else: "ml-4 sm:ml-6"),
+            # Add visual separator for nested levels
+            "border-l-2 border-emerald-200/40 dark:border-emerald-700/40 pl-4 sm:pl-6"
+          ]
+        }
       >
-        <%!-- Nested thread connection --%>
-        <div class="absolute -left-px top-0 bottom-0 w-px bg-gradient-to-b from-emerald-300/40 via-teal-400/20 to-transparent dark:from-emerald-400/40 dark:via-teal-500/20">
+        <%!-- Enhanced nested thread connection --%>
+        <div class="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-300/60 via-teal-400/40 to-transparent dark:from-emerald-400/60 dark:via-teal-500/40">
         </div>
 
-        <div :for={child_reply <- get_child_replies(@reply)} class="nested-reply-item pt-3">
-          <%!-- Connection line to child --%>
-          <div class="absolute -left-1 top-5 w-3 h-px bg-gradient-to-r from-emerald-300/40 to-transparent dark:from-emerald-400/40">
-          </div>
+        <%!-- Child replies with better spacing --%>
+        <div class="space-y-3">
+          <div :for={child_reply <- get_child_replies(@reply)} class="nested-reply-item relative">
+            <%!-- Connection line to child --%>
+            <div class="absolute -left-4 sm:-left-6 top-6 w-3 sm:w-4 h-px bg-gradient-to-r from-emerald-300/50 to-transparent dark:from-emerald-400/50">
+            </div>
 
-          <.liquid_nested_reply_item
-            reply={child_reply}
-            current_user={@current_user}
-            key={@key}
-            depth={@depth + 1}
-            max_depth={@max_depth}
-          />
+            <.liquid_nested_reply_item
+              reply={child_reply}
+              current_user={@current_user}
+              key={@key}
+              depth={@depth + 1}
+              max_depth={@max_depth}
+              post_id={@post_id}
+            />
+          </div>
         </div>
       </div>
 
@@ -4527,7 +4539,7 @@ defmodule MossletWeb.DesignSystem do
       >
         <.liquid_button
           variant="ghost"
-          size="xs"
+          size="sm"
           color="emerald"
           class="text-xs text-emerald-600 dark:text-emerald-400"
         >
@@ -4535,21 +4547,22 @@ defmodule MossletWeb.DesignSystem do
         </.liquid_button>
       </div>
 
-      <%!-- Nested reply composer (shown when replying to this specific reply) --%>
+      <%!-- Nested reply composer LiveComponent (hidden by default, toggled by JS) --%>
       <div
-        :if={
-          @current_user && Map.get(assigns, :nested_reply_open) &&
-            Map.get(assigns, :nested_reply_parent) &&
-            Map.get(assigns, :nested_reply_parent).id == @reply.id
-        }
-        class="ml-4 sm:ml-6 mt-3"
+        :if={@current_user}
+        id={"nested-composer-#{@reply.id}"}
+        class="ml-4 sm:ml-6 mt-3 hidden"
+        phx-hook="HideNestedReplyComposer"
       >
-        <.liquid_nested_reply_composer
-          form={Map.get(assigns, :nested_reply_form)}
-          parent_reply={Map.get(assigns, :nested_reply_parent)}
-          post={Map.get(assigns, :nested_reply_post)}
-          author_name={Map.get(assigns, :nested_reply_author)}
+        <.live_component
+          module={MossletWeb.TimelineLive.NestedReplyComposerComponent}
+          id={"nested-composer-component-#{@reply.id}"}
+          parent_reply={@reply}
+          post_id={@post_id}
           current_user={@current_user}
+          key={Map.get(assigns, :key)}
+          author_name={get_reply_author_name(@reply, @current_user, Map.get(assigns, :key))}
+          class=""
         />
       </div>
     </div>
@@ -4591,7 +4604,7 @@ defmodule MossletWeb.DesignSystem do
           <.liquid_avatar
             src={get_reply_author_avatar(@reply, @current_user, @key)}
             name={get_reply_author_name(@reply, @current_user, @key)}
-            size="xs"
+            size="sm"
             class="flex-shrink-0 mt-0.5"
           />
 
@@ -4638,9 +4651,16 @@ defmodule MossletWeb.DesignSystem do
               />
               <button
                 id={"reply-button-#{@reply.id}"}
-                phx-click="reply_to_reply"
-                phx-value-reply-id={@reply.id}
-                phx-value-post-id={@reply.post_id}
+                phx-click={
+                  JS.toggle(to: "#nested-composer-#{@reply.id}")
+                  |> JS.toggle_class("text-emerald-600 dark:text-emerald-400",
+                    to: "#reply-button-#{@reply.id}"
+                  )
+                  |> JS.toggle_attribute({"data-composer-open", "true", "false"},
+                    to: "#reply-button-#{@reply.id}"
+                  )
+                }
+                data-composer-open="false"
                 class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 rounded-lg sm:rounded-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-1"
                 phx-hook="TippyHook"
                 data-tippy-content="Reply to this comment"
@@ -4804,6 +4824,14 @@ defmodule MossletWeb.DesignSystem do
       2 -> "pl-3 sm:pl-4"
       _ -> "pl-2 sm:pl-3"
     end
+  end
+
+  # Filter to show only top-level replies (not nested replies)
+  defp filter_top_level_replies(replies) do
+    Enum.filter(replies, fn reply ->
+      # Top-level replies have no parent_reply_id
+      is_nil(reply.parent_reply_id)
+    end)
   end
 
   # Helper functions to safely handle child_replies association
