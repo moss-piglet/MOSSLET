@@ -7,7 +7,6 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
 
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Reply
-  import MossletWeb.Helpers
 
   def mount(socket) do
     {:ok, socket}

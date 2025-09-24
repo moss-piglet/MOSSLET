@@ -1982,17 +1982,23 @@ defmodule Mosslet.Timeline do
   def create_reply(attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 
-    {:ok, {:ok, reply}} =
-      Repo.transaction_on_primary(fn ->
-        Reply.changeset(%Reply{}, attrs, opts)
-        |> Repo.insert()
-      end)
+    case Repo.transaction_on_primary(fn ->
+           Reply.changeset(%Reply{}, attrs, opts)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, reply}} ->
+        reply = reply |> Repo.preload([:user, :post])
+        conn = Accounts.get_connection_from_item(reply.post, user)
 
-    reply = reply |> Repo.preload([:user, :post])
-    conn = Accounts.get_connection_from_item(reply.post, user)
+        {:ok, conn, reply}
+        |> broadcast_reply(:reply_created)
 
-    {:ok, conn, reply}
-    |> broadcast_reply(:reply_created)
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -2496,7 +2502,7 @@ defmodule Mosslet.Timeline do
     query =
       from b in Bookmark,
         where: b.user_id == ^user.id,
-        preload: [:post, :category],
+        preload: [:category, post: :replies],
         order_by: [desc: b.inserted_at]
 
     query =

@@ -24,7 +24,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Store the user token from session for later use in uploads
     user_token = session["user_token"]
-    Logger.info("📷 MOUNT: Storing user_token in socket: #{inspect(!!user_token)}")
 
     # Create changeset with all required fields populated
     changeset =
@@ -2210,7 +2209,7 @@ defmodule MossletWeb.TimelineLive.Index do
       true ->
         # Other user's post - need to get their name via connection
         case Accounts.get_user(post.user_id) do
-          %{} = post_user ->
+          %{} = _post_user ->
             # Try to get their shared name via connection
             uconn = get_uconn_for_shared_item(post, current_user)
 
@@ -2403,13 +2402,5 @@ defmodule MossletWeb.TimelineLive.Index do
       diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
     end
-  end
-
-  # Helper function to update a specific post in the stream
-  defp update_stream_post(socket, post_id, update_fn) do
-    # Find the post in the stream and update it
-    # For now, we'll just return the socket unchanged since this is a preview
-    # In a full implementation, we'd need to update the specific post in the stream
-    socket
   end
 end

@@ -4378,29 +4378,18 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
-  Collapsible reply composer that expands under posts.
-
-  ## Examples
-
-      # This usees our reply_composer_component.ex now
-      <.liquid_collapsible_reply_composer
-        post_id="123"
-        show={@show_reply_composer}
-        current_user={@current_user}
-        form={@reply_form}
-      />
-  """
-
-  @doc """
   Collapsible reply thread display component.
 
   ## Examples
 
       <.liquid_collapsible_reply_thread
-        post_id="123"
-        replies={@replies}
-        show={@show_replies}
+        post_id={@post.id}
+        replies={@post.replies || []}
+        reply_count={Map.get(@stats, :replies, 0)}
+        show={true}
         current_user={@current_user}
+        key={@key}
+        class="mt-3"
       />
   """
   attr :post_id, :string, required: true
@@ -4542,7 +4531,7 @@ defmodule MossletWeb.DesignSystem do
       true ->
         # Other user's reply - decrypt their username from reply
         # Replies store username encrypted with same post_key as the post content
-        case get_reply_post_key(reply, current_user, key) do
+        case get_reply_post_key(reply, current_user) do
           {:ok, post_key} ->
             case decr_item(reply.username, current_user, post_key, key, reply, "username") do
               name when is_binary(name) -> name
@@ -4570,7 +4559,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   defp get_decrypted_reply_content(reply, current_user, key) do
-    case get_reply_post_key(reply, current_user, key) do
+    case get_reply_post_key(reply, current_user) do
       {:ok, post_key} ->
         case decr_item(reply.body, current_user, post_key, key, reply, "body") do
           content when is_binary(content) -> content
@@ -4584,7 +4573,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   # Helper to get the post_key for a reply (same as the post it belongs to)
-  defp get_reply_post_key(reply, current_user, key) do
+  defp get_reply_post_key(reply, current_user) do
     # Get the post this reply belongs to with user_posts preloaded
     post = Mosslet.Repo.preload(reply, post: :user_posts).post
 
