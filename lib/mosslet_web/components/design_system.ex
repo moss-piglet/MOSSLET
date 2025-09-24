@@ -4430,9 +4430,17 @@ defmodule MossletWeb.DesignSystem do
           </span>
         </div>
 
-        <%!-- Reply list with threading --%>
-        <div class="space-y-3 pl-6">
-          <div :for={reply <- @replies} class="reply-item">
+        <%!-- Reply list with enhanced threading --%>
+        <div class="space-y-3 pl-4 sm:pl-6 relative">
+          <%!-- Enhanced thread connection line --%>
+          <div class="absolute left-0 sm:left-2 top-0 bottom-0 w-px bg-gradient-to-b from-emerald-300/60 via-teal-400/40 to-transparent dark:from-emerald-400/60 dark:via-teal-500/40">
+          </div>
+
+          <div :for={reply <- @replies} class="reply-item relative">
+            <%!-- Individual reply connection --%>
+            <div class="absolute -left-4 sm:-left-6 top-6 w-3 sm:w-4 h-px bg-gradient-to-r from-emerald-300/60 to-transparent dark:from-emerald-400/60">
+            </div>
+
             <.liquid_reply_item
               reply={reply}
               current_user={@current_user}
@@ -4470,18 +4478,19 @@ defmodule MossletWeb.DesignSystem do
   def liquid_reply_item(assigns) do
     ~H"""
     <div class={[
-      "relative rounded-lg overflow-hidden transition-all duration-200 ease-out",
-      "bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm",
-      "border border-slate-200/40 dark:border-slate-700/40",
-      "hover:border-emerald-200/60 dark:hover:border-emerald-700/60",
-      "hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10",
+      "relative rounded-xl overflow-hidden transition-all duration-200 ease-out",
+      "bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm",
+      "border border-slate-200/50 dark:border-slate-700/50",
+      "hover:border-emerald-200/70 dark:hover:border-emerald-700/70",
+      "hover:bg-emerald-50/40 dark:hover:bg-emerald-900/15",
+      "shadow-sm hover:shadow-md dark:shadow-slate-900/20",
       @class
     ]}>
-      <%!-- Reply connection line --%>
-      <div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-400 to-teal-400 dark:from-emerald-500 dark:to-teal-500">
+      <%!-- Subtle reply accent --%>
+      <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400/80 via-teal-400/60 to-emerald-300/40 dark:from-emerald-500/80 dark:via-teal-500/60 dark:to-emerald-400/40 rounded-r-full">
       </div>
 
-      <div class="p-4 pl-6">
+      <div class="p-4 sm:p-4 pl-5 sm:pl-6">
         <div class="flex items-start gap-3">
           <%!-- Reply author avatar (small) --%>
           <.liquid_avatar
@@ -4507,9 +4516,14 @@ defmodule MossletWeb.DesignSystem do
               {get_decrypted_reply_content(@reply, @current_user, @key)}
             </div>
 
-            <%!-- Reply actions (minimal) --%>
-            <div class="flex items-center gap-4 mt-2">
+            <%!-- Reply actions (mobile-optimized) --%>
+            <div class="flex items-center gap-3 sm:gap-4 mt-3 sm:mt-2">
               <.liquid_timeline_action
+                id={
+                  if @current_user.id in @reply.favs_list,
+                    do: "hero-heart-solid-reply-button-#{@reply.id}",
+                    else: "hero-heart-reply-button-#{@reply.id}"
+                }
                 icon={
                   if @current_user.id in @reply.favs_list, do: "hero-heart-solid", else: "hero-heart"
                 }
@@ -4521,9 +4535,13 @@ defmodule MossletWeb.DesignSystem do
                   if @current_user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
                 }
                 phx-value-id={@reply.id}
-                class="text-xs scale-75 origin-left"
+                phx-hook="TippyHook"
+                data-tippy-content={
+                  if @current_user.id in @reply.favs_list, do: "Remove love", else: "Show love"
+                }
+                class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
               />
-              <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
+              <button class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 rounded-lg sm:rounded-none">
                 Reply
               </button>
             </div>
