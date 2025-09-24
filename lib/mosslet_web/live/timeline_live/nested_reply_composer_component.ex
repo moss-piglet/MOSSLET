@@ -151,30 +151,35 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
         class="space-y-3"
         as={:reply}
       >
-        <%!-- Hidden fields --%>
+        <%!-- Hidden fields with unique IDs --%>
         <.phx_input
           field={@form[:parent_reply_id]}
           type="hidden"
+          id={"nested_reply_parent_reply_id_#{@parent_reply.id}"}
           value={@parent_reply.id}
         />
         <.phx_input
           field={@form[:post_id]}
           type="hidden"
+          id={"nested_reply_post_id_#{@parent_reply.id}"}
           value={@post.id}
         />
         <.phx_input
           field={@form[:user_id]}
           type="hidden"
+          id={"nested_reply_user_id_#{@parent_reply.id}"}
           value={@current_user.id}
         />
         <.phx_input
           field={@form[:username]}
           type="hidden"
+          id={"nested_reply_username_#{@parent_reply.id}"}
           value={MossletWeb.Helpers.user_name(@current_user, @key)}
         />
         <.phx_input
           field={@form[:visibility]}
           type="hidden"
+          id={"nested_reply_visibility_#{@parent_reply.id}"}
           value={@post.visibility}
         />
 

@@ -583,6 +583,7 @@ defmodule Mosslet.Timeline do
     )
     |> paginate(options)
     |> Repo.all()
+    |> add_nested_replies_to_posts()
   end
 
   @doc """
@@ -606,6 +607,7 @@ defmodule Mosslet.Timeline do
     )
     |> preload([:user_posts, :user, :replies])
     |> Repo.all()
+    |> add_nested_replies_to_posts()
   end
 
   defp with_any_visibility(query, visibility_list) do
@@ -672,6 +674,7 @@ defmodule Mosslet.Timeline do
       )
       |> paginate(options)
       |> Repo.all()
+      |> add_nested_replies_to_posts()
     end
   end
 
@@ -733,6 +736,7 @@ defmodule Mosslet.Timeline do
         preload: [:user_posts, :replies, :user_post_receipts]
       )
       |> Repo.all()
+      |> add_nested_replies_to_posts()
     else
       # Without user context - just show by date
       from(p in Post,
@@ -745,6 +749,7 @@ defmodule Mosslet.Timeline do
         preload: [:user_posts, :replies]
       )
       |> Repo.all()
+      |> add_nested_replies_to_posts()
     end
   end
 
@@ -798,6 +803,7 @@ defmodule Mosslet.Timeline do
     )
     |> paginate(options)
     |> Repo.all()
+    |> add_nested_replies_to_posts()
   end
 
   def list_public_replies(post, options) do
@@ -1074,6 +1080,14 @@ defmodule Mosslet.Timeline do
 
     # Build nested structure
     build_reply_tree(replies)
+  end
+
+  # Helper function to add nested replies to a list of posts
+  defp add_nested_replies_to_posts(posts) when is_list(posts) do
+    Enum.map(posts, fn post ->
+      nested_replies = get_nested_replies_for_post(post.id)
+      Map.put(post, :replies, nested_replies)
+    end)
   end
 
   # Helper to build nested reply structure

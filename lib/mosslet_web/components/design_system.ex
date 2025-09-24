@@ -2264,7 +2264,7 @@ defmodule MossletWeb.DesignSystem do
   attr :rest, :global
 
   def liquid_avatar(assigns) do
-    assigns = assign(assigns, :avatar_url, assigns.src || "/images/default-avatar.svg")
+    assigns = assign(assigns, :avatar_url, assigns.src || "/images/logo.svg")
 
     ~H"""
     <div
@@ -3279,7 +3279,7 @@ defmodule MossletWeb.DesignSystem do
       visibility={@post.visibility}
       current_user={@current_user}
       user_name={user_name(@current_user, @key) || "You"}
-      user_avatar={maybe_get_user_avatar(@current_user, @key) || "/images/default_avatar.svg"}
+      user_avatar={maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg"}
       character_limit={280}
       username={decr(@current_user.username, @current_user, @key)}
       key={@key}
