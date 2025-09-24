@@ -18,7 +18,15 @@ defmodule MossletWeb.DesignSystem do
 
   # Import helper functions
   import MossletWeb.Helpers,
-    only: [can_repost?: 2, decr: 3, photos?: 1, user_name: 2, maybe_get_user_avatar: 2]
+    only: [
+      can_repost?: 2,
+      decr: 3,
+      photos?: 1,
+      user_name: 2,
+      maybe_get_user_avatar: 2,
+      decr_item: 6,
+      get_post_key: 2
+    ]
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
@@ -3020,6 +3028,7 @@ defmodule MossletWeb.DesignSystem do
   attr :liked, :boolean, default: false
   attr :bookmarked, :boolean, default: false
   attr :post, :map, required: true
+  attr :post_id, :string, default: nil
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
   attr :is_repost, :boolean, default: false
@@ -4381,6 +4390,7 @@ defmodule MossletWeb.DesignSystem do
         form={@reply_form}
       />
   """
+
   @doc """
   Collapsible reply thread display component.
 
@@ -4518,27 +4528,93 @@ defmodule MossletWeb.DesignSystem do
   end
 
   # Helper functions for reply data extraction
-  defp get_reply_author_name(_reply, _current_user, _key) do
-    # Implement decryption logic similar to posts
-    # Placeholder
-    "Reply Author"
+  defp get_reply_author_name(reply, current_user, key) do
+    cond do
+      reply.user_id == current_user.id ->
+        # Current user's own reply - use their name
+        case user_name(current_user, key) do
+          name when is_binary(name) -> name
+          # Graceful fallback for decryption issues
+          :failed_verification -> "You"
+          _ -> "You"
+        end
+
+      true ->
+        # Other user's reply - decrypt their username from reply
+        # Replies store username encrypted with same post_key as the post content
+        case get_reply_post_key(reply, current_user, key) do
+          {:ok, post_key} ->
+            case decr_item(reply.username, current_user, post_key, key, reply, "username") do
+              name when is_binary(name) -> name
+              :failed_verification -> "Private Author"
+              _ -> "Private Author"
+            end
+
+          _ ->
+            "Private Author"
+        end
+    end
   end
 
-  defp get_reply_author_avatar(_reply, _current_user, _key) do
-    # Implement avatar logic similar to posts
-    # Placeholder
-    "/images/default_avatar.svg"
+  defp get_reply_author_avatar(reply, current_user, key) do
+    cond do
+      reply.user_id == current_user.id ->
+        # Current user's own reply - use their avatar
+        maybe_get_user_avatar(current_user, key) || "/images/logo.svg"
+
+      true ->
+        # Other user's reply - use default avatar for now
+        # TODO: Could implement avatar sharing through connections later
+        "/images/logo.svg"
+    end
   end
 
-  defp get_decrypted_reply_content(_reply, _current_user, _key) do
-    # Implement content decryption similar to posts
-    # Placeholder
-    "Reply content..."
+  defp get_decrypted_reply_content(reply, current_user, key) do
+    case get_reply_post_key(reply, current_user, key) do
+      {:ok, post_key} ->
+        case decr_item(reply.body, current_user, post_key, key, reply, "body") do
+          content when is_binary(content) -> content
+          :failed_verification -> "[Could not decrypt reply]"
+          _ -> "[Could not decrypt reply]"
+        end
+
+      _ ->
+        "[Could not decrypt reply]"
+    end
   end
 
-  defp format_reply_timestamp(_timestamp) do
-    # Implement timestamp formatting
-    # Placeholder
-    "just now"
+  # Helper to get the post_key for a reply (same as the post it belongs to)
+  defp get_reply_post_key(reply, current_user, key) do
+    # Get the post this reply belongs to
+    post = Mosslet.Repo.preload(reply, :post).post
+
+    # Use the existing get_post_key helper function
+    case get_post_key(post, current_user) do
+      encrypted_post_key when is_binary(encrypted_post_key) ->
+        {:ok, encrypted_post_key}
+
+      _ ->
+        {:error, :no_access}
+    end
+  end
+
+  defp format_reply_timestamp(timestamp) do
+    # Use same formatting as posts for consistency
+    case timestamp do
+      %NaiveDateTime{} ->
+        # Import the format_post_timestamp function or use a simple relative time
+        relative_time = NaiveDateTime.diff(NaiveDateTime.utc_now(), timestamp)
+
+        cond do
+          relative_time < 60 -> "now"
+          relative_time < 3600 -> "#{div(relative_time, 60)}m"
+          relative_time < 86400 -> "#{div(relative_time, 3600)}h"
+          relative_time < 2_592_000 -> "#{div(relative_time, 86400)}d"
+          true -> "#{div(relative_time, 2_592_000)}mo"
+        end
+
+      _ ->
+        "Unknown time"
+    end
   end
 end
