@@ -18,6 +18,8 @@ defmodule Mosslet.Timeline.Reply do
     field :visibility, Ecto.Enum, values: [:public, :private, :connections]
     field :image_urls, Encrypted.StringList, default: [], skip_default_validation: true
     field :image_urls_updated_at, :naive_datetime
+    field :favs_list, {:array, :binary_id}, default: []
+    field :favs_count, :integer, default: 0
 
     belongs_to :post, Post
     belongs_to :user, User
@@ -35,7 +37,9 @@ defmodule Mosslet.Timeline.Reply do
       :username,
       :username_hash,
       :image_urls,
-      :image_urls_updated_at
+      :image_urls_updated_at,
+      :favs_list,
+      :favs_count
     ])
     |> cast_assoc(:post)
     |> cast_assoc(:user)
@@ -43,6 +47,15 @@ defmodule Mosslet.Timeline.Reply do
     |> validate_length(:body, max: 100_000)
     |> add_username_hash()
     |> encrypt_attrs(opts)
+  end
+
+  def favs_changeset(reply, attrs, _opts \\ []) do
+    reply
+    |> cast(attrs, [
+      :favs_count,
+      :favs_list
+    ])
+    |> validate_required([:favs_count, :favs_list])
   end
 
   defp add_username_hash(changeset) do

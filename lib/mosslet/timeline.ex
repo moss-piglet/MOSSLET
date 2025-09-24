@@ -945,23 +945,67 @@ defmodule Mosslet.Timeline do
   end
 
   def inc_favs(%Post{id: id}) do
-    {:ok, {1, [post]}} =
-      Repo.transaction_on_primary(fn ->
-        from(p in Post, where: p.id == ^id, select: p)
-        |> Repo.update_all(inc: [favs_count: 1])
-      end)
+    case Repo.transaction_on_primary(fn ->
+           from(p in Post, where: p.id == ^id, select: p)
+           |> Repo.update_all(inc: [favs_count: 1])
+         end) do
+      {:ok, {1, [post]}} ->
+        {:ok, post |> Repo.preload([:user_posts, :replies])}
 
-    {:ok, post |> Repo.preload([:user_posts, :replies])}
+      {:ok, {0, []}} ->
+        {:error, :post_not_found}
+
+      error ->
+        {:error, error}
+    end
   end
 
   def decr_favs(%Post{id: id}) do
-    {:ok, {1, [post]}} =
-      Repo.transaction_on_primary(fn ->
-        from(p in Post, where: p.id == ^id, select: p)
-        |> Repo.update_all(inc: [favs_count: -1])
-      end)
+    case Repo.transaction_on_primary(fn ->
+           from(p in Post, where: p.id == ^id, select: p)
+           |> Repo.update_all(inc: [favs_count: -1])
+         end) do
+      {:ok, {1, [post]}} ->
+        {:ok, post |> Repo.preload([:user_posts, :replies])}
 
-    {:ok, post |> Repo.preload([:user_posts, :replies])}
+      {:ok, {0, []}} ->
+        {:error, :post_not_found}
+
+      error ->
+        {:error, error}
+    end
+  end
+
+  def inc_reply_favs(%Reply{id: id}) do
+    case Repo.transaction_on_primary(fn ->
+           from(r in Reply, where: r.id == ^id, select: r)
+           |> Repo.update_all(inc: [favs_count: 1])
+         end) do
+      {:ok, {1, [reply]}} ->
+        {:ok, reply |> Repo.preload([:post, :user])}
+
+      {:ok, {0, []}} ->
+        {:error, :reply_not_found}
+
+      error ->
+        {:error, error}
+    end
+  end
+
+  def decr_reply_favs(%Reply{id: id}) do
+    case Repo.transaction_on_primary(fn ->
+           from(r in Reply, where: r.id == ^id, select: r)
+           |> Repo.update_all(inc: [favs_count: -1])
+         end) do
+      {:ok, {1, [reply]}} ->
+        {:ok, reply |> Repo.preload([:post, :user])}
+
+      {:ok, {0, []}} ->
+        {:error, :reply_not_found}
+
+      error ->
+        {:error, error}
+    end
   end
 
   def inc_reposts(%Post{id: id}) do
@@ -1936,6 +1980,29 @@ defmodule Mosslet.Timeline do
       rest ->
         Logger.warning("Error updating post fav")
         Logger.debug("Error updating post fav: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
+  def update_reply_fav(%Reply{} = reply, attrs, opts \\ []) do
+    user = Accounts.get_user!(opts[:user].id)
+
+    case Repo.transaction_on_primary(fn ->
+           Reply.favs_changeset(reply, attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, reply}} ->
+        conn = Accounts.get_connection_from_item(reply, user)
+
+        {:ok, conn, reply |> Repo.preload([:post, :user])}
+        |> broadcast_reply(:reply_updated_fav)
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error updating reply fav")
+        Logger.debug("Error updating reply fav: #{inspect(rest)}")
         {:error, "error"}
     end
   end

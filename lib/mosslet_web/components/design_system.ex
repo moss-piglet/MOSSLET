@@ -3231,11 +3231,18 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
+              id={
+                if @liked,
+                  do: "hero-heart-solid-button-#{@post_id}",
+                  else: "hero-heart-button=#{@post_id}"
+              }
               icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}
               count={Map.get(@stats, :likes, 0)}
               label={if @liked, do: "Unlike", else: "Like"}
               color="rose"
               active={@liked}
+              phx-hook="TippyHook"
+              data-tippy-content={if @liked, do: "Remove love", else: "Show love"}
               phx-click={if @liked, do: "unfav", else: "fav"}
               phx-value-id={@post_id}
             />
@@ -4502,9 +4509,20 @@ defmodule MossletWeb.DesignSystem do
 
             <%!-- Reply actions (minimal) --%>
             <div class="flex items-center gap-4 mt-2">
-              <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
-                Love
-              </button>
+              <.liquid_timeline_action
+                icon={
+                  if @current_user.id in @reply.favs_list, do: "hero-heart-solid", else: "hero-heart"
+                }
+                count={@reply.favs_count}
+                label={if @current_user.id in @reply.favs_list, do: "Unlike", else: "Love"}
+                color="rose"
+                active={@current_user.id in @reply.favs_list}
+                phx-click={
+                  if @current_user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
+                }
+                phx-value-id={@reply.id}
+                class="text-xs scale-75 origin-left"
+              />
               <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
                 Reply
               </button>

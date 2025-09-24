@@ -162,47 +162,13 @@ defmodule Mosslet.Timeline.Post do
     )
   end
 
-  def favs_changeset(post, attrs, opts \\ []) do
+  def favs_changeset(post, attrs, _opts \\ []) do
     post
     |> cast(attrs, [
-      :avatar_url,
-      :body,
-      :username,
-      :username_hash,
       :favs_count,
-      :reposts_count,
-      :reposts_list,
-      :favs_list,
-      :user_id,
-      :visibility,
-      :group_id,
-      :user_group_id,
-      :image_urls,
-      :image_urls_updated_at,
-      # Content warning fields
-      :content_warning,
-      :content_warning_category,
-      :content_warning?,
-      # Enhanced privacy control fields
-      :visibility_groups,
-      :visibility_users,
-      :allow_replies,
-      :allow_shares,
-      :allow_bookmarks,
-      :require_follow_to_reply,
-      :mature_content,
-      :is_ephemeral,
-      :expires_at,
-      :local_only
+      :favs_list
     ])
-    |> validate_required([:body, :username, :user_id])
-    |> add_username_hash()
-    |> encrypt_attrs(opts)
-    |> cast_embed(:shared_users,
-      with: &shared_user_changeset/2,
-      sort_param: :shared_users_order,
-      drop_param: :shared_users_delete
-    )
+    |> validate_required([:favs_count, :favs_list])
   end
 
   def shared_user_changeset(shared_user, attrs \\ %{}, _opts \\ []) do

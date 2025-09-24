@@ -358,6 +358,12 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
 
+  def handle_info({:reply_updated_fav, post, _reply}, socket) do
+    # When a reply is favorited, we need to update the post that contains it
+    # so the reply thread reflects the new favorite state
+    {:noreply, socket |> stream_insert(:posts, post, at: -1)}
+  end
+
   def handle_info({:post_deleted, post}, socket) do
     return_url = socket.assigns.return_url
     current_user = socket.assigns.current_user
@@ -1338,6 +1344,60 @@ defmodule MossletWeb.TimelineLive.Index do
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("fav_reply", %{"id" => id}, socket) do
+    reply = Timeline.get_reply!(id)
+    current_user = socket.assigns.current_user
+
+    if current_user.id not in reply.favs_list do
+      case Timeline.inc_reply_favs(reply) do
+        {:ok, reply} ->
+          case Timeline.update_reply_fav(
+                 reply,
+                 %{favs_list: List.insert_at(reply.favs_list, 0, current_user.id)},
+                 user: current_user
+               ) do
+            {:ok, _reply} ->
+              {:noreply, put_flash(socket, :success, "You loved this reply!")}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
+          end
+
+        {:error, _error} ->
+          {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("unfav_reply", %{"id" => id}, socket) do
+    reply = Timeline.get_reply!(id)
+    current_user = socket.assigns.current_user
+
+    if current_user.id in reply.favs_list do
+      case Timeline.decr_reply_favs(reply) do
+        {:ok, reply} ->
+          case Timeline.update_reply_fav(
+                 reply,
+                 %{favs_list: List.delete(reply.favs_list, current_user.id)},
+                 user: current_user
+               ) do
+            {:ok, _reply} ->
+              {:noreply, put_flash(socket, :success, "You removed love from this reply.")}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
+          end
+
+        {:error, _error} ->
+          {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
       end
     else
       {:noreply, socket}
