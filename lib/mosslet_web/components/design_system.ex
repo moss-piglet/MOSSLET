@@ -3193,8 +3193,14 @@ defmodule MossletWeb.DesignSystem do
               color="emerald"
               phx-click={
                 JS.toggle(to: "#reply-composer-#{@post_id}")
+                |> JS.toggle(to: "#reply-thread-#{@post_id}")
                 |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")
-                |> JS.toggle_class("hidden", to: "#reply-button-#{@post_id} .reply-icon-filled")
+                |> JS.toggle_class("hidden",
+                  to: "#reply-button-#{@post_id} .reply-icon-outline"
+                )
+                |> JS.toggle_class("hidden",
+                  to: "#reply-button-#{@post_id} .reply-icon-filled"
+                )
                 |> JS.toggle_attribute({"data-composer-open", "true", "false"},
                   to: "#reply-button-#{@post_id}"
                 )
@@ -3262,6 +3268,17 @@ defmodule MossletWeb.DesignSystem do
       username={decr(@current_user.username, @current_user, @key)}
       key={@key}
       class=""
+    />
+
+    <%!-- Collapsible reply thread (uses existing liquid components) --%>
+    <.liquid_collapsible_reply_thread
+      post_id={@post.id}
+      replies={@post.replies || []}
+      reply_count={Map.get(@stats, :replies, 0)}
+      show={true}
+      current_user={@current_user}
+      key={@key}
+      class="mt-3"
     />
     """
   end
@@ -3411,7 +3428,7 @@ defmodule MossletWeb.DesignSystem do
       />
       <.phx_icon
         name={@icon <> "-solid"}
-        class="absolute h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-filled hidden"
+        class="relative h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-filled hidden"
       />
       <span :if={@count > 0} class="relative text-sm font-medium">
         {@count}
@@ -4356,6 +4373,7 @@ defmodule MossletWeb.DesignSystem do
 
   ## Examples
 
+      # This usees our reply_composer_component.ex now
       <.liquid_collapsible_reply_composer
         post_id="123"
         show={@show_reply_composer}
@@ -4388,8 +4406,7 @@ defmodule MossletWeb.DesignSystem do
     <div
       id={"reply-thread-#{@post_id}"}
       class={[
-        "overflow-hidden transition-all duration-300 ease-out",
-        if(@show && @reply_count > 0, do: "max-h-[600px] opacity-100", else: "max-h-0 opacity-0"),
+        "overflow-hidden transition-all duration-300 ease-out hidden",
         @class
       ]}
     >
@@ -4487,7 +4504,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Reply actions (minimal) --%>
             <div class="flex items-center gap-4 mt-2">
               <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
-                Like
+                Love
               </button>
               <button class="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200">
                 Reply
