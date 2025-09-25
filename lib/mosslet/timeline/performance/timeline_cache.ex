@@ -297,13 +297,19 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     recently_active_users = Mosslet.Timeline.get_recently_active_users(60, 50)
 
     Enum.each(recently_active_users, fn user ->
-      topic = "priv_posts:#{user.id}"
-      Phoenix.PubSub.subscribe(Mosslet.PubSub, topic)
+      # Subscribe to private posts
+      private_topic = "priv_posts:#{user.id}"
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
       Logger.debug("Timeline cache subscribed to private posts for user #{user.id}")
+      
+      # Subscribe to connections posts
+      connections_topic = "conn_posts:#{user.id}"
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_topic)
+      Logger.debug("Timeline cache subscribed to connections posts for user #{user.id}")
     end)
 
     Logger.info(
-      "Timeline cache subscribed to #{length(recently_active_users)} active users' private post topics"
+      "Timeline cache subscribed to #{length(recently_active_users)} active users' private and connections post topics"
     )
   end
 

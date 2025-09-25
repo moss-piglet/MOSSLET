@@ -2552,6 +2552,9 @@ defmodule MossletWeb.DesignSystem do
   attr :form, :any, required: true
   attr :uploads, :any, default: nil
   attr :class, :any, default: ""
+  attr :content_warning_enabled, :boolean, default: false
+  attr :content_warning_text, :string, default: ""
+  attr :content_warning_category, :string, default: ""
 
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
@@ -2674,12 +2677,21 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Content warning toggle --%>
             <button
               type="button"
-              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-200 ease-out group"
+              class={[
+                "p-2 rounded-lg transition-all duration-200 ease-out group",
+                if(@content_warning_enabled,
+                  do: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700",
+                  else: "text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+                )
+              ]}
               phx-click="composer_toggle_content_warning"
             >
               <.phx_icon
                 name="hero-exclamation-triangle"
-                class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
+                class={[
+                  "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
+                  @content_warning_enabled && "fill-current"
+                ]}
               />
             </button>
           </div>
@@ -2723,11 +2735,62 @@ defmodule MossletWeb.DesignSystem do
               type="submit"
               class="flex-shrink-0"
               phx-disable-with="Sharing..."
+              disabled={is_nil(@form[:body].value) || String.trim(@form[:body].value || "") == "" || (@content_warning_enabled && String.trim(@content_warning_text) == "")}
             >
               Share thoughtfully
             </.liquid_button>
           </div>
         </div>
+        
+        <%!-- Content Warning Section (conditionally shown) --%>
+        <%= if @content_warning_enabled do %>
+          <div class="mt-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50">
+            <div class="flex items-center gap-2 mb-3">
+              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span class="text-sm font-medium text-amber-700 dark:text-amber-300">Content Warning</span>
+            </div>
+            
+            <div class="space-y-3">
+              <%!-- Content warning text input --%>
+              <div>
+                <label class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">
+                  Warning description
+                </label>
+                <textarea
+                  placeholder="e.g., Discussion of mental health, sensitive content..."
+                  rows="2"
+                  maxlength="100"
+                  class="w-full text-sm rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-amber-600/70 dark:placeholder:text-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                  phx-change="update_content_warning"
+                  name="content_warning_text"
+                ><%= @content_warning_text %></textarea>
+                <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  <%= String.length(@content_warning_text) %>/100 characters
+                </div>
+              </div>
+              
+              <%!-- Content warning category dropdown --%>
+              <div>
+                <label class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">
+                  Category (optional)
+                </label>
+                <select
+                  class="w-full text-sm rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                  phx-change="update_content_warning_category"
+                  name="category"
+                >
+                  <option value="" selected={@content_warning_category == ""}>Select category...</option>
+                  <option value="mental_health" selected={@content_warning_category == "mental_health"}>Mental Health</option>
+                  <option value="violence" selected={@content_warning_category == "violence"}>Violence</option>
+                  <option value="substance_use" selected={@content_warning_category == "substance_use"}>Substance Use</option>
+                  <option value="politics" selected={@content_warning_category == "politics"}>Politics</option>
+                  <option value="personal" selected={@content_warning_category == "personal"}>Personal/Sensitive</option>
+                  <option value="other" selected={@content_warning_category == "other"}>Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        <% end %>
       </div>
     </div>
     """

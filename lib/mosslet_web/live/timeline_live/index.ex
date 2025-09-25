@@ -59,6 +59,14 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:load_more_loading, false)
       # Store user token for uploads
       |> assign(:user_token, user_token)
+      # Content warning state
+      |> assign(:content_warning_enabled, false)
+      |> assign(:content_warning_text, "")
+      |> assign(:content_warning_category, "")
+      # Content warning system state
+      |> assign(:content_warning_enabled, false)
+      |> assign(:content_warning_text, "")
+      |> assign(:content_warning_category, nil)
       |> stream(:posts, [])
       # Configure photo uploads with proper constraints and encryption-ready settings
       |> allow_upload(:photos,
@@ -1054,9 +1062,26 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("composer_toggle_content_warning", _params, socket) do
-    # Handle content warning toggle
-    # For now, just show a message that this feature is coming
-    {:noreply, put_flash(socket, :info, "Content warning feature coming soon!")}
+    # Toggle content warning state
+    current_state = socket.assigns.content_warning_enabled
+    new_state = !current_state
+    
+    socket = 
+      socket
+      |> assign(:content_warning_enabled, new_state)
+      # Clear content warning data when disabled
+      |> assign(:content_warning_text, if(new_state, do: socket.assigns.content_warning_text, else: ""))
+      |> assign(:content_warning_category, if(new_state, do: socket.assigns.content_warning_category, else: ""))
+    
+    {:noreply, socket}
+  end
+
+  def handle_event("update_content_warning", %{"content_warning_text" => text}, socket) do
+    {:noreply, assign(socket, :content_warning_text, text)}
+  end
+
+  def handle_event("update_content_warning_category", %{"category" => category}, socket) do
+    {:noreply, assign(socket, :content_warning_category, category)}
   end
 
   def handle_event("save_post", %{"post" => post_params}, socket) do
@@ -1084,6 +1109,7 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
         |> add_shared_users_list_for_new_post(post_shared_users)
+        |> add_content_warning_data(socket.assigns)
 
       Logger.info("🔍 SAVE_POST DEBUG: Final image_urls: #{inspect(post_params["image_urls"])}")
 
@@ -2530,6 +2556,21 @@ defmodule MossletWeb.TimelineLive.Index do
       diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h ago"
       diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
+    end
+  end
+
+  # Helper function to add content warning data to post params
+  defp add_content_warning_data(post_params, assigns) do
+    if assigns.content_warning_enabled && String.trim(assigns.content_warning_text) != "" do
+      post_params
+      |> Map.put("content_warning", String.trim(assigns.content_warning_text))
+      |> Map.put("content_warning_category", assigns.content_warning_category)
+      |> Map.put("content_warning?", true)
+    else
+      post_params
+      |> Map.put("content_warning", nil)
+      |> Map.put("content_warning_category", nil)
+      |> Map.put("content_warning?", false)
     end
   end
 end

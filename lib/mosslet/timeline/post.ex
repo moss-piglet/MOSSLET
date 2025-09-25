@@ -124,6 +124,7 @@ defmodule Mosslet.Timeline.Post do
     |> validate_visibility(opts)
     # NEW - Enhanced privacy validation
     |> validate_enhanced_privacy_controls(opts)
+    |> validate_content_warning()
     |> encrypt_attrs(opts)
     |> cast_embed(:shared_users,
       with: &shared_user_changeset/2,
@@ -369,6 +370,23 @@ defmodule Mosslet.Timeline.Post do
     if is_ephemeral && !expires_at do
       # Auto-set expiration for ephemeral posts (24 hours)
       put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 24, :hour))
+    else
+      changeset
+    end
+  end
+
+  # Content warning validation
+  defp validate_content_warning(changeset) do
+    content_warning_enabled = get_field(changeset, :content_warning?)
+    content_warning_text = get_field(changeset, :content_warning)
+
+    if content_warning_enabled &&
+         (is_nil(content_warning_text) or String.trim(content_warning_text) == "") do
+      add_error(
+        changeset,
+        :content_warning,
+        "Warning description is required when content warning is enabled"
+      )
     else
       changeset
     end
