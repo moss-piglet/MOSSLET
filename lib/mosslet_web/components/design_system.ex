@@ -2966,7 +2966,11 @@ defmodule MossletWeb.DesignSystem do
             </button>
             <%!-- Content warning toggle --%>
             <button
-              id="add-content-warning-composer-button"
+              id={
+                if @content_warning_enabled?,
+                  do: "remove-content-warning-composer-button",
+                  else: "add-content-warning-composer-button"
+              }
               type="button"
               class={[
                 "p-2 rounded-lg transition-all duration-200 ease-out group",
@@ -2980,13 +2984,15 @@ defmodule MossletWeb.DesignSystem do
               phx-hook="TippyHook"
               data-tippy-content={
                 if @content_warning_enabled?,
-                  do: "Remove Content Warning",
-                  else: "Add Content Warning"
+                  do: "Remove content warning",
+                  else: "Add content warning"
               }
               phx-click="composer_toggle_content_warning"
             >
               <.phx_icon
-                name="hero-hand-raised"
+                name={
+                  if @content_warning_enabled?, do: "hero-hand-raised-solid", else: "hero-hand-raised"
+                }
                 class={[
                   "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
                   @content_warning_enabled? && "fill-current"
@@ -3107,8 +3113,6 @@ defmodule MossletWeb.DesignSystem do
                   </span>
                 </div>
               </div>
-
-              {@form.source.valid?}
 
               <%!-- Content warning category dropdown using liquid metal component --%>
               <.liquid_select_custom
