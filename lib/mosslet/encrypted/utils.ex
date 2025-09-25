@@ -38,6 +38,8 @@ defmodule Mosslet.Encrypted.Utils do
     end
   end
 
+  def decrypt(%{key: key, payload: nil}), do: {:ok, nil}
+  def decrypt(%{key: key, payload: ""}), do: {:ok, ""}
   def decrypt(_), do: nil
 
   @spec update_key_hash(binary, binary, binary) :: {:error, binary} | %{key_hash: binary}
