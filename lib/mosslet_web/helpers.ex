@@ -881,15 +881,23 @@ defmodule MossletWeb.Helpers do
     cond do
       post.group_id ->
         # there's only one UserPost for group posts
-        Enum.at(post.user_posts, 0).key
+        case Enum.at(post.user_posts, 0) do
+          %{key: key} -> key
+          nil -> nil
+        end
 
       post.visibility == :connections || post.visibility == :private ->
-        user_post = Timeline.get_user_post(post, current_user)
-        user_post.key
+        case Timeline.get_user_post(post, current_user) do
+          %{key: key} -> key
+          nil -> nil
+        end
 
       true ->
         # there's only one UserPost for public posts
-        Enum.at(post.user_posts, 0).key
+        case Enum.at(post.user_posts, 0) do
+          %{key: key} -> key
+          nil -> nil
+        end
     end
   end
 

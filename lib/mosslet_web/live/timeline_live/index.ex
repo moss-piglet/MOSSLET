@@ -394,6 +394,10 @@ defmodule MossletWeb.TimelineLive.Index do
     return_url = socket.assigns.return_url
     current_user = socket.assigns.current_user
 
+    # Always invalidate cache when receiving post_deleted message
+    # This ensures fresh data when switching tabs or refreshing
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
     if post.user_id == current_user.id do
       {:noreply, socket}
     else
@@ -1607,6 +1611,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
       case Timeline.delete_post(post, user: current_user) do
         {:ok, post} ->
+          # Invalidate cache for the post creator (since they don't receive the PubSub message)
+          Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
           socket =
             socket
             |> put_flash(:success, "Post deleted successfully.")

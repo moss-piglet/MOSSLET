@@ -57,8 +57,8 @@ defmodule Mosslet.Timeline.Post do
     field :content_warning, Encrypted.Binary
     # Category name (Cloak encrypted)
     field :content_warning_category, Encrypted.Binary
-    # Searchable hash for filtering
-    field :content_warning_hash, Encrypted.HMAC
+    # Searchable hash for filtering (hash of the category)
+    field :content_warning_category_hash, Encrypted.HMAC
     # Quick filter flag
     field :content_warning?, :boolean, default: false
 
@@ -462,31 +462,35 @@ defmodule Mosslet.Timeline.Post do
   end
 
   # Encrypt content warning text with the same post_key (for consistency)
-  defp encrypt_content_warning_if_present(changeset, post_key, opts) do
-    if opts[:encrypt_warnings] do
-      content_warning_text = get_field(changeset, :content_warning_text)
-      content_warning_category = get_field(changeset, :content_warning_category)
+  defp encrypt_content_warning_if_present(changeset, post_key, _opts) do
+    content_warning = get_field(changeset, :content_warning)
+    content_warning_category = get_field(changeset, :content_warning_category)
+    content_warning_flag = get_field(changeset, :content_warning?)
 
-      changeset =
-        if content_warning_text && String.trim(content_warning_text) != "" do
-          encrypted_warning_text = Utils.encrypt(%{key: post_key, payload: content_warning_text})
-          put_change(changeset, :content_warning_text, encrypted_warning_text)
-        else
-          changeset
-        end
+    changeset =
+      if content_warning && String.trim(content_warning) != "" do
+        encrypted_warning = Utils.encrypt(%{key: post_key, payload: content_warning})
 
+        changeset
+        |> put_change(:content_warning, encrypted_warning)
+        |> put_change(:content_warning?, true)
+      else
+        changeset
+        |> put_change(:content_warning?, false)
+      end
+
+    changeset =
       if content_warning_category && String.trim(content_warning_category) != "" do
-        put_change(
-          changeset,
-          :content_warning_hash,
-          String.downcase(String.trim(content_warning_category))
-        )
+        encrypted_category = Utils.encrypt(%{key: post_key, payload: content_warning_category})
+
+        changeset
+        |> put_change(:content_warning_category, encrypted_category)
+        |> put_change(:content_warning_category_hash, String.downcase(content_warning_category))
       else
         changeset
       end
-    else
-      changeset
-    end
+
+    changeset
   end
 
   defp maybe_generate_post_key(group_id, opts, visibility) do

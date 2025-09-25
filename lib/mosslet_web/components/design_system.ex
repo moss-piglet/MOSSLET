@@ -3242,28 +3242,28 @@ defmodule MossletWeb.DesignSystem do
         <%!-- Content Warning Display (if post has content warning) --%>
         <%= if @post.content_warning? && @post.content_warning do %>
           <div
-            class="mb-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50"
+            class="mb-4 p-4 rounded-xl bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/50"
             id={"content-warning-#{@post.id}"}
           >
             <div class="flex items-center gap-2 mb-3">
               <.phx_icon
-                name="hero-exclamation-triangle"
-                class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                name="hero-hand-raised"
+                class="h-4 w-4 text-teal-600 dark:text-teal-400"
               />
-              <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                Content Warning
+              <span class="text-sm font-semibold text-teal-700 dark:text-teal-300">
+                Please Note
               </span>
               <%= if @post.content_warning_category do %>
-                <span class="text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                <span class="text-xs px-2 py-1 rounded-full bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-700">
                   {format_content_warning_category(@post.content_warning_category)}
                 </span>
               <% end %>
             </div>
-            <p class="text-sm text-amber-700 dark:text-amber-300 mb-3">
+            <p class="text-sm text-teal-700 dark:text-teal-300 mb-3">
               {@post.content_warning}
             </p>
             <button
-              class="w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-800/30 hover:bg-amber-200/50 dark:hover:bg-amber-700/30 border border-amber-200 dark:border-amber-700 rounded-lg transition-all duration-200 ease-out"
+              class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-100/50 dark:bg-teal-800/30 hover:bg-teal-200/50 dark:hover:bg-teal-700/30 border border-teal-200 dark:border-teal-700 rounded-lg transition-all duration-200 ease-out"
               phx-click="toggle_content_warning"
               phx-value-post-id={@post.id}
             >
