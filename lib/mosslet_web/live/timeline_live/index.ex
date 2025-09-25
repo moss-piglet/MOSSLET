@@ -1094,12 +1094,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, :content_warning_category, category)}
   end
 
-  def handle_event("toggle_content_warning", %{"post-id" => post_id}, socket) do
-    # This is handled client-side via JavaScript for immediate toggle
-    # No server-side state needed - just toggle visibility
-    {:noreply, socket}
-  end
-
   def handle_event("save_post", %{"post" => post_params}, socket) do
     if connected?(socket) do
       post_shared_users = socket.assigns.post_shared_users

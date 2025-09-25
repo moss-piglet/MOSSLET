@@ -3126,6 +3126,10 @@ defmodule MossletWeb.DesignSystem do
   # New: unread state
   attr :unread?, :boolean, default: false
   attr :class, :any, default: ""
+  # Content warning
+  attr :content_warning?, :boolean, default: false
+  attr :content_warning, :string, default: nil
+  attr :content_warning_category, :string, default: nil
 
   def liquid_timeline_post(assigns) do
     ~H"""
@@ -3240,7 +3244,7 @@ defmodule MossletWeb.DesignSystem do
         </div>
 
         <%!-- Content Warning Display (if post has content warning) --%>
-        <%= if @post.content_warning? && @post.content_warning do %>
+        <%= if @content_warning? && @content_warning do %>
           <div
             class="mb-4 p-4 rounded-xl bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/50"
             id={"content-warning-#{@post.id}"}
@@ -3253,19 +3257,20 @@ defmodule MossletWeb.DesignSystem do
               <span class="text-sm font-semibold text-teal-700 dark:text-teal-300">
                 Please Note
               </span>
-              <%= if @post.content_warning_category do %>
+              <%= if @content_warning_category do %>
                 <span class="text-xs px-2 py-1 rounded-full bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-700">
-                  {format_content_warning_category(@post.content_warning_category)}
+                  {format_content_warning_category(@content_warning_category)}
                 </span>
               <% end %>
             </div>
             <p class="text-sm text-teal-700 dark:text-teal-300 mb-3">
-              {@post.content_warning}
+              {@content_warning}
             </p>
             <button
+              id={"content-warning-button-#{@post.id}"}
               class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-100/50 dark:bg-teal-800/30 hover:bg-teal-200/50 dark:hover:bg-teal-700/30 border border-teal-200 dark:border-teal-700 rounded-lg transition-all duration-200 ease-out"
-              phx-click="toggle_content_warning"
-              phx-value-post-id={@post.id}
+              phx-hook="ContentWarningHook"
+              data-post-id={@post.id}
             >
               <span class="toggle-text">Show content</span>
             </button>

@@ -112,6 +112,57 @@
                 user_avatar={get_post_author_avatar(post, @current_user, @key)}
                 timestamp={format_post_timestamp(post.inserted_at)}
                 verified={false}
+                content_warning?={post.content_warning?}
+                content_warning={
+                  if post.content_warning? do
+                    case post.visibility do
+                      :public ->
+                        decr_item(
+                          post.content_warning,
+                          @current_user,
+                          get_post_key(post),
+                          @key,
+                          post,
+                          "body"
+                        ) || "[Could not decrypt content]"
+
+                      _ ->
+                        decr_item(
+                          post.content_warning,
+                          @current_user,
+                          get_post_key(post, @current_user),
+                          @key,
+                          post,
+                          "body"
+                        ) || "[Could not decrypt content]"
+                    end
+                  end
+                }
+                content_warning_category={
+                  if post.content_warning? do
+                    case post.visibility do
+                      :public ->
+                        decr_item(
+                          post.content_warning_category,
+                          @current_user,
+                          get_post_key(post),
+                          @key,
+                          post,
+                          "body"
+                        ) || "[Could not decrypt content]"
+
+                      _ ->
+                        decr_item(
+                          post.content_warning_category,
+                          @current_user,
+                          get_post_key(post, @current_user),
+                          @key,
+                          post,
+                          "body"
+                        ) || "[Could not decrypt content]"
+                    end
+                  end
+                }
                 content={
                   case post.visibility do
                     :public ->
