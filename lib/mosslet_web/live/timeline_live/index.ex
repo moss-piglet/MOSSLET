@@ -1065,14 +1065,20 @@ defmodule MossletWeb.TimelineLive.Index do
     # Toggle content warning state
     current_state = socket.assigns.content_warning_enabled
     new_state = !current_state
-    
-    socket = 
+
+    socket =
       socket
       |> assign(:content_warning_enabled, new_state)
       # Clear content warning data when disabled
-      |> assign(:content_warning_text, if(new_state, do: socket.assigns.content_warning_text, else: ""))
-      |> assign(:content_warning_category, if(new_state, do: socket.assigns.content_warning_category, else: ""))
-    
+      |> assign(
+        :content_warning_text,
+        if(new_state, do: socket.assigns.content_warning_text, else: "")
+      )
+      |> assign(
+        :content_warning_category,
+        if(new_state, do: socket.assigns.content_warning_category, else: "")
+      )
+
     {:noreply, socket}
   end
 
@@ -1082,6 +1088,12 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("update_content_warning_category", %{"category" => category}, socket) do
     {:noreply, assign(socket, :content_warning_category, category)}
+  end
+
+  def handle_event("toggle_content_warning", %{"post-id" => post_id}, socket) do
+    # This is handled client-side via JavaScript for immediate toggle
+    # No server-side state needed - just toggle visibility
+    {:noreply, socket}
   end
 
   def handle_event("save_post", %{"post" => post_params}, socket) do

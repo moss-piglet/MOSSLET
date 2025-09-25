@@ -18,6 +18,7 @@ import TippyHook from "./tippy-hook";
 import TrixEditor from "./trix";
 import TrixContentPostHook from "./trix-content-post-hook";
 import TrixContentReplyHook from "./trix-content-reply-hook";
+import { ContentWarningHook } from "./content_warning_hook";
 import ScrollDown from "./scroll";
 
 export default {
@@ -42,4 +43,5 @@ export default {
   TrixEditor,
   TrixContentPostHook,
   TrixContentReplyHook,
+  ContentWarningHook,
 };

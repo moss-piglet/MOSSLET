@@ -301,7 +301,7 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
       private_topic = "priv_posts:#{user.id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
       Logger.debug("Timeline cache subscribed to private posts for user #{user.id}")
-      
+
       # Subscribe to connections posts
       connections_topic = "conn_posts:#{user.id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_topic)

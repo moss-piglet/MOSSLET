@@ -2680,8 +2680,10 @@ defmodule MossletWeb.DesignSystem do
               class={[
                 "p-2 rounded-lg transition-all duration-200 ease-out group",
                 if(@content_warning_enabled,
-                  do: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700",
-                  else: "text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+                  do:
+                    "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700",
+                  else:
+                    "text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
                 )
               ]}
               phx-click="composer_toggle_content_warning"
@@ -2735,21 +2737,29 @@ defmodule MossletWeb.DesignSystem do
               type="submit"
               class="flex-shrink-0"
               phx-disable-with="Sharing..."
-              disabled={is_nil(@form[:body].value) || String.trim(@form[:body].value || "") == "" || (@content_warning_enabled && String.trim(@content_warning_text) == "")}
+              disabled={
+                is_nil(@form[:body].value) || String.trim(@form[:body].value || "") == "" ||
+                  (@content_warning_enabled && String.trim(@content_warning_text) == "")
+              }
             >
               Share thoughtfully
             </.liquid_button>
           </div>
         </div>
-        
+
         <%!-- Content Warning Section (conditionally shown) --%>
         <%= if @content_warning_enabled do %>
           <div class="mt-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50">
             <div class="flex items-center gap-2 mb-3">
-              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <span class="text-sm font-medium text-amber-700 dark:text-amber-300">Content Warning</span>
+              <.phx_icon
+                name="hero-exclamation-triangle"
+                class="h-4 w-4 text-amber-600 dark:text-amber-400"
+              />
+              <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
+                Content Warning
+              </span>
             </div>
-            
+
             <div class="space-y-3">
               <%!-- Content warning text input --%>
               <div>
@@ -2765,10 +2775,10 @@ defmodule MossletWeb.DesignSystem do
                   name="content_warning_text"
                 ><%= @content_warning_text %></textarea>
                 <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  <%= String.length(@content_warning_text) %>/100 characters
+                  {String.length(@content_warning_text)}/100 characters
                 </div>
               </div>
-              
+
               <%!-- Content warning category dropdown --%>
               <div>
                 <label class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">
@@ -2779,12 +2789,30 @@ defmodule MossletWeb.DesignSystem do
                   phx-change="update_content_warning_category"
                   name="category"
                 >
-                  <option value="" selected={@content_warning_category == ""}>Select category...</option>
-                  <option value="mental_health" selected={@content_warning_category == "mental_health"}>Mental Health</option>
-                  <option value="violence" selected={@content_warning_category == "violence"}>Violence</option>
-                  <option value="substance_use" selected={@content_warning_category == "substance_use"}>Substance Use</option>
-                  <option value="politics" selected={@content_warning_category == "politics"}>Politics</option>
-                  <option value="personal" selected={@content_warning_category == "personal"}>Personal/Sensitive</option>
+                  <option value="" selected={@content_warning_category == ""}>
+                    Select category...
+                  </option>
+                  <option
+                    value="mental_health"
+                    selected={@content_warning_category == "mental_health"}
+                  >
+                    Mental Health
+                  </option>
+                  <option value="violence" selected={@content_warning_category == "violence"}>
+                    Violence
+                  </option>
+                  <option
+                    value="substance_use"
+                    selected={@content_warning_category == "substance_use"}
+                  >
+                    Substance Use
+                  </option>
+                  <option value="politics" selected={@content_warning_category == "politics"}>
+                    Politics
+                  </option>
+                  <option value="personal" selected={@content_warning_category == "personal"}>
+                    Personal/Sensitive
+                  </option>
                   <option value="other" selected={@content_warning_category == "other"}>Other</option>
                 </select>
               </div>
@@ -3211,12 +3239,51 @@ defmodule MossletWeb.DesignSystem do
           </.liquid_dropdown>
         </div>
 
-        <%!-- Post content --%>
-        <div class="mb-4">
-          <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
-            {@content}
-          </p>
-        </div>
+        <%!-- Content Warning Display (if post has content warning) --%>
+        <%= if @post.content_warning? && @post.content_warning do %>
+          <div
+            class="mb-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50"
+            id={"content-warning-#{@post.id}"}
+          >
+            <div class="flex items-center gap-2 mb-3">
+              <.phx_icon
+                name="hero-exclamation-triangle"
+                class="h-4 w-4 text-amber-600 dark:text-amber-400"
+              />
+              <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                Content Warning
+              </span>
+              <%= if @post.content_warning_category do %>
+                <span class="text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                  {format_content_warning_category(@post.content_warning_category)}
+                </span>
+              <% end %>
+            </div>
+            <p class="text-sm text-amber-700 dark:text-amber-300 mb-3">
+              {@post.content_warning}
+            </p>
+            <button
+              class="w-full px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-800/30 hover:bg-amber-200/50 dark:hover:bg-amber-700/30 border border-amber-200 dark:border-amber-700 rounded-lg transition-all duration-200 ease-out"
+              phx-click="toggle_content_warning"
+              phx-value-post-id={@post.id}
+            >
+              <span class="toggle-text">Show content</span>
+            </button>
+          </div>
+          <%!-- Post content (initially hidden if content warning) --%>
+          <div class="mb-4 hidden content-warning-hidden" id={"post-content-#{@post.id}"}>
+            <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
+              {@content}
+            </p>
+          </div>
+        <% else %>
+          <%!-- Post content (normal display when no content warning) --%>
+          <div class="mb-4">
+            <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
+              {@content}
+            </p>
+          </div>
+        <% end %>
 
         <%!-- Images with enhanced encrypted display system --%>
         <div :if={@post && photos?(@post.image_urls)} class="mb-4">
@@ -4808,6 +4875,21 @@ defmodule MossletWeb.DesignSystem do
         {:error, :no_access}
     end
   end
+
+  # Format content warning category for display
+  defp format_content_warning_category(category) when is_binary(category) do
+    case category do
+      "mental_health" -> "Mental Health"
+      "violence" -> "Violence"
+      "substance_use" -> "Substance Use"
+      "politics" -> "Politics"
+      "personal" -> "Personal/Sensitive"
+      "other" -> "Other"
+      _ -> String.capitalize(category)
+    end
+  end
+
+  defp format_content_warning_category(_), do: "Sensitive Content"
 
   defp format_reply_timestamp(timestamp) do
     # Use same formatting as posts for consistency
