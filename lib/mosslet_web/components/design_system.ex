@@ -2552,7 +2552,7 @@ defmodule MossletWeb.DesignSystem do
   attr :form, :any, required: true
   attr :uploads, :any, default: nil
   attr :class, :any, default: ""
-  attr :content_warning_enabled, :boolean, default: false
+  attr :content_warning_enabled?, :boolean, default: false
   attr :content_warning_text, :string, default: ""
   attr :content_warning_category, :string, default: ""
 
@@ -2676,23 +2676,30 @@ defmodule MossletWeb.DesignSystem do
             </button>
             <%!-- Content warning toggle --%>
             <button
+              id="add-content-warning-composer-button"
               type="button"
               class={[
                 "p-2 rounded-lg transition-all duration-200 ease-out group",
-                if(@content_warning_enabled,
+                if(@content_warning_enabled?,
                   do:
                     "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700",
                   else:
                     "text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
                 )
               ]}
+              phx-hook="TippyHook"
+              data-tippy-content={
+                if @content_warning_enabled?,
+                  do: "Remove Content Warning",
+                  else: "Add Content Warning"
+              }
               phx-click="composer_toggle_content_warning"
             >
               <.phx_icon
                 name="hero-exclamation-triangle"
                 class={[
                   "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
-                  @content_warning_enabled && "fill-current"
+                  @content_warning_enabled? && "fill-current"
                 ]}
               />
             </button>
@@ -2739,7 +2746,7 @@ defmodule MossletWeb.DesignSystem do
               phx-disable-with="Sharing..."
               disabled={
                 is_nil(@form[:body].value) || String.trim(@form[:body].value || "") == "" ||
-                  (@content_warning_enabled && String.trim(@content_warning_text) == "")
+                  (@content_warning_enabled? && String.trim(@content_warning_text) == "")
               }
             >
               Share thoughtfully
@@ -2748,7 +2755,7 @@ defmodule MossletWeb.DesignSystem do
         </div>
 
         <%!-- Content Warning Section (conditionally shown) --%>
-        <%= if @content_warning_enabled do %>
+        <%= if @content_warning_enabled? do %>
           <div class="mt-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50">
             <div class="flex items-center gap-2 mb-3">
               <.phx_icon

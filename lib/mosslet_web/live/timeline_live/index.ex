@@ -60,11 +60,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Store user token for uploads
       |> assign(:user_token, user_token)
       # Content warning state
-      |> assign(:content_warning_enabled, false)
-      |> assign(:content_warning_text, "")
-      |> assign(:content_warning_category, "")
-      # Content warning system state
-      |> assign(:content_warning_enabled, false)
+      |> assign(:content_warning_enabled?, false)
       |> assign(:content_warning_text, "")
       |> assign(:content_warning_category, nil)
       |> stream(:posts, [])
@@ -1067,12 +1063,12 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("composer_toggle_content_warning", _params, socket) do
     # Toggle content warning state
-    current_state = socket.assigns.content_warning_enabled
+    current_state = socket.assigns.content_warning_enabled?
     new_state = !current_state
 
     socket =
       socket
-      |> assign(:content_warning_enabled, new_state)
+      |> assign(:content_warning_enabled?, new_state)
       # Clear content warning data when disabled
       |> assign(
         :content_warning_text,
@@ -2574,7 +2570,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to add content warning data to post params
   defp add_content_warning_data(post_params, assigns) do
-    if assigns.content_warning_enabled && String.trim(assigns.content_warning_text) != "" do
+    if assigns.content_warning_enabled? && String.trim(assigns.content_warning_text) != "" do
       post_params
       |> Map.put("content_warning", String.trim(assigns.content_warning_text))
       |> Map.put("content_warning_category", assigns.content_warning_category)
