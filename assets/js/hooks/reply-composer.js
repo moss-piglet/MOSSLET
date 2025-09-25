@@ -15,18 +15,15 @@ export default {
     
     replyButtons.forEach(button => {
       const isOpen = button.getAttribute('data-composer-open') === 'true';
-      const iconOutline = button.querySelector('.reply-icon-outline');
-      const iconFilled = button.querySelector('.reply-icon-filled');
+      const icon = button.querySelector('[class*="hero-chat-bubble-oval-left"]');
       
-      if (iconOutline && iconFilled) {
+      if (icon) {
         if (isOpen) {
-          // Composer is open - show filled icon, hide outline
-          iconOutline.classList.add('hidden');
-          iconFilled.classList.remove('hidden');
+          // Composer is open - use solid icon
+          icon.className = icon.className.replace('hero-chat-bubble-oval-left', 'hero-chat-bubble-oval-left-solid');
         } else {
-          // Composer is closed - show outline icon, hide filled
-          iconOutline.classList.remove('hidden');
-          iconFilled.classList.add('hidden');
+          // Composer is closed - use outline icon
+          icon.className = icon.className.replace('hero-chat-bubble-oval-left-solid', 'hero-chat-bubble-oval-left');
         }
       }
     });
@@ -50,13 +47,11 @@ export default {
         card.classList.remove("ring-2", "ring-emerald-300");
       }
       
-      // 3. Hide any filled icons (close state)
+      // 3. Update reply button icon to outline state
       const button = document.getElementById(`reply-button-${post_id}`);
-      if (button) {
-        const iconFilled = button.querySelector(".reply-icon-filled");
-        if (iconFilled) {
-          iconFilled.classList.add("hidden");
-        }
+      const icon = button?.querySelector('[class*="hero-chat-bubble-oval-left"]');
+      if (icon) {
+        icon.className = icon.className.replace('hero-chat-bubble-oval-left-solid', 'hero-chat-bubble-oval-left');
       }
       
       // 4. Set composer to closed state

@@ -3654,11 +3654,11 @@ defmodule MossletWeb.DesignSystem do
                 JS.toggle(to: "#reply-composer-#{@post_id}")
                 |> JS.toggle(to: "#reply-thread-#{@post_id}")
                 |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")
-                |> JS.toggle_class("hidden",
-                  to: "#reply-button-#{@post_id} .reply-icon-outline"
+                |> JS.toggle_class("hero-chat-bubble-oval-left-solid",
+                  to: "#reply-button-#{@post_id} [class*='hero-chat-bubble-oval-left']"
                 )
-                |> JS.toggle_class("hidden",
-                  to: "#reply-button-#{@post_id} .reply-icon-filled"
+                |> JS.toggle_class("hero-chat-bubble-oval-left",
+                  to: "#reply-button-#{@post_id} [class*='hero-chat-bubble-oval-left']"
                 )
                 |> JS.toggle_attribute({"data-composer-open", "true", "false"},
                   to: "#reply-button-#{@post_id}"
@@ -3887,15 +3887,12 @@ defmodule MossletWeb.DesignSystem do
       ]}>
       </div>
 
-      <%!-- Dual icons for toggle effect --%>
+      <%!-- Single icon with conditional state --%>
       <.phx_icon
         name={@icon}
         class="relative h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-outline"
       />
-      <.phx_icon
-        name={@icon <> "-solid"}
-        class="relative h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-filled hidden"
-      />
+
       <span :if={@count > 0} class="relative text-sm font-medium">
         {@count}
       </span>
