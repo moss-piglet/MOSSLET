@@ -1911,6 +1911,297 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
+  @doc """
+  Custom liquid metal textarea component with amber color scheme for content warnings.
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+  attr :placeholder, :string, default: ""
+  attr :rows, :integer, default: 3
+  attr :maxlength, :integer, default: nil
+  attr :help, :string, default: nil
+  attr :required, :boolean, default: false
+  attr :color, :string, default: "amber"
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_textarea_custom(assigns) do
+    # Extract field information
+    assigns = assign(assigns, :id, assigns.field.id)
+    assigns = assign(assigns, :name, assigns.field.name)
+    # Use provided value or fallback to field value
+    assigns = assign(assigns, :textarea_value, assigns.field.value || "")
+
+    # Check for errors
+    errors = if Phoenix.Component.used_input?(assigns.field), do: assigns.field.errors, else: []
+    assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
+
+    # Color-specific classes
+    focus_colors = get_custom_focus_colors(assigns.color)
+
+    ~H"""
+    <div phx-feedback-for={@name} class={["space-y-3", @class]}>
+      <%!-- Label --%>
+      <label
+        for={@id}
+        class={[
+          "block text-xs font-medium transition-colors duration-200 ease-out",
+          focus_colors.label
+        ]}
+      >
+        {@label}
+        <span :if={@required} class="text-rose-500 ml-1">*</span>
+      </label>
+
+      <%!-- Textarea container with custom color liquid effects --%>
+      <div class="group relative">
+        <%!-- Enhanced liquid background effect on focus --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-300 ease-out group-focus-within:opacity-100 rounded-xl",
+          focus_colors.background
+        ]}>
+        </div>
+
+        <%!-- Enhanced shimmer effect on focus --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-700 ease-out group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl",
+          focus_colors.shimmer
+        ]}>
+        </div>
+
+        <%!-- Focus ring with custom color --%>
+        <div class={[
+          "absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl group-focus-within:opacity-100 blur-sm",
+          focus_colors.focus_ring
+        ]}>
+        </div>
+
+        <%!-- Secondary focus ring for better definition --%>
+        <div class={[
+          "absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 group-focus-within:opacity-100",
+          focus_colors.focus_border
+        ]}>
+        </div>
+
+        <%!-- Textarea input with enhanced contrast --%>
+        <textarea
+          id={@id}
+          name={@name}
+          rows={@rows}
+          maxlength={@maxlength}
+          placeholder={@placeholder}
+          class={[
+            "relative block w-full rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100",
+            "bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400",
+            focus_colors.border,
+            focus_colors.hover_border,
+            focus_colors.focus_border_input,
+            "focus:outline-none focus:ring-0",
+            "resize-none transition-all duration-200 ease-out",
+            "sm:text-sm sm:leading-6",
+            "shadow-sm focus:shadow-lg",
+            focus_colors.focus_shadow,
+            "focus:bg-white dark:focus:bg-slate-800",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          {@rest}
+        ><%= Phoenix.HTML.Form.normalize_value("textarea", @textarea_value) %></textarea>
+      </div>
+
+      <%!-- Help text --%>
+      <p
+        :if={@help}
+        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+      >
+        {@help}
+      </p>
+
+      <%!-- Error messages --%>
+      <div :if={@errors != []} class="space-y-1">
+        <p :for={error <- @errors} class="text-sm text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Custom liquid metal select component with amber color scheme for content warnings.
+  """
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+  attr :options, :list, required: true
+  attr :prompt, :string, default: nil
+  attr :help, :string, default: nil
+  attr :required, :boolean, default: false
+  attr :color, :string, default: "amber"
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_select_custom(assigns) do
+    # Extract field information
+    assigns = assign(assigns, :id, assigns.field.id)
+    assigns = assign(assigns, :name, assigns.field.name)
+    assigns = assign(assigns, :value, assigns.field.value)
+
+    # Check for errors
+    errors = if Phoenix.Component.used_input?(assigns.field), do: assigns.field.errors, else: []
+    assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
+
+    # Color-specific classes
+    focus_colors = get_custom_focus_colors(assigns.color)
+
+    ~H"""
+    <div phx-feedback-for={@name} class={["space-y-3", @class]}>
+      <%!-- Label --%>
+      <label
+        for={@id}
+        class={[
+          "block text-xs font-medium transition-colors duration-200 ease-out",
+          focus_colors.label
+        ]}
+      >
+        {@label}
+        <span :if={@required} class="text-rose-500 ml-1">*</span>
+      </label>
+
+      <%!-- Select container with custom color liquid effects --%>
+      <div class="group relative">
+        <%!-- Enhanced liquid background effect on focus --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-300 ease-out group-focus-within:opacity-100 rounded-xl",
+          focus_colors.background
+        ]}>
+        </div>
+
+        <%!-- Enhanced shimmer effect on focus --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-700 ease-out group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl",
+          focus_colors.shimmer
+        ]}>
+        </div>
+
+        <%!-- Focus ring with custom color --%>
+        <div class={[
+          "absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl group-focus-within:opacity-100 blur-sm",
+          focus_colors.focus_ring
+        ]}>
+        </div>
+
+        <%!-- Secondary focus ring for better definition --%>
+        <div class={[
+          "absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 group-focus-within:opacity-100",
+          focus_colors.focus_border
+        ]}>
+        </div>
+
+        <%!-- Select field with enhanced contrast --%>
+        <select
+          id={@id}
+          name={@name}
+          class={[
+            "relative block w-full rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-slate-100",
+            "bg-white dark:bg-slate-800",
+            focus_colors.border,
+            focus_colors.hover_border,
+            focus_colors.focus_border_input,
+            "focus:outline-none focus:ring-0",
+            "transition-all duration-200 ease-out",
+            "sm:text-sm sm:leading-6",
+            "shadow-sm focus:shadow-lg",
+            focus_colors.focus_shadow,
+            "focus:bg-white dark:focus:bg-slate-800",
+            "appearance-none cursor-pointer",
+            @errors != [] && "border-rose-400 focus:border-rose-400"
+          ]}
+          {@rest}
+        >
+          <option :if={@prompt} value="">{@prompt}</option>
+          <option :for={{label, value} <- @options} value={value} selected={value == @value}>
+            {label}
+          </option>
+        </select>
+
+        <%!-- Custom dropdown arrow with color-specific styling --%>
+        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <svg
+            class={[
+              "h-5 w-5 transition-colors duration-200",
+              focus_colors.arrow
+            ]}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <%!-- Help text --%>
+      <p
+        :if={@help}
+        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+      >
+        {@help}
+      </p>
+
+      <%!-- Error messages --%>
+      <div :if={@errors != []} class="space-y-1">
+        <p :for={error <- @errors} class="text-sm text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper function to get custom focus colors for different color schemes
+  defp get_custom_focus_colors("amber") do
+    %{
+      label: "text-amber-700 dark:text-amber-300",
+      background:
+        "bg-gradient-to-br from-amber-50/30 via-orange-50/40 to-amber-50/30 dark:from-amber-900/15 dark:via-orange-900/20 dark:to-amber-900/15",
+      shimmer:
+        "bg-gradient-to-r from-transparent via-amber-200/30 to-transparent dark:via-amber-400/15",
+      focus_ring:
+        "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 dark:from-amber-400 dark:via-orange-400 dark:to-amber-400",
+      focus_border: "border-amber-500 dark:border-amber-400",
+      border: "border-2 border-amber-200 dark:border-amber-700",
+      hover_border: "hover:border-amber-300 dark:hover:border-amber-600",
+      focus_border_input: "focus:border-amber-500 dark:focus:border-amber-400",
+      focus_shadow: "focus:shadow-amber-500/10",
+      arrow:
+        "text-slate-400 dark:text-slate-500 group-focus-within:text-amber-500 dark:group-focus-within:text-amber-400"
+    }
+  end
+
+  defp get_custom_focus_colors("emerald") do
+    %{
+      label: "text-slate-900 dark:text-slate-100",
+      background:
+        "bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15",
+      shimmer:
+        "bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15",
+      focus_ring:
+        "bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400",
+      focus_border: "border-emerald-500 dark:border-emerald-400",
+      border: "border-2 border-slate-200 dark:border-slate-700",
+      hover_border: "hover:border-slate-300 dark:hover:border-slate-600",
+      focus_border_input: "focus:border-emerald-500 dark:focus:border-emerald-400",
+      focus_shadow: "focus:shadow-emerald-500/10",
+      arrow:
+        "text-slate-400 dark:text-slate-500 group-focus-within:text-emerald-500 dark:group-focus-within:text-emerald-400"
+    }
+  end
+
+  # Fallback to emerald for unknown colors
+  defp get_custom_focus_colors(_), do: get_custom_focus_colors("emerald")
+
   # Private helper functions for badges
   defp badge_size_classes("xs"), do: "px-2 py-0.5 text-xs rounded-md"
   defp badge_size_classes("sm"), do: "px-2.5 py-0.5 text-xs rounded-lg"
@@ -2553,8 +2844,6 @@ defmodule MossletWeb.DesignSystem do
   attr :uploads, :any, default: nil
   attr :class, :any, default: ""
   attr :content_warning_enabled?, :boolean, default: false
-  attr :content_warning_text, :string, default: ""
-  attr :content_warning_category, :string, default: ""
 
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
@@ -2615,6 +2904,7 @@ defmodule MossletWeb.DesignSystem do
                 maxlength={@character_limit}
                 class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-lg leading-relaxed focus:outline-none focus:ring-0"
                 phx-hook="CharacterCounter"
+                phx-debounce="500"
                 data-limit={@character_limit}
                 value={@form[:body].value}
               >{@form[:body].value}</textarea>
@@ -2696,7 +2986,7 @@ defmodule MossletWeb.DesignSystem do
               phx-click="composer_toggle_content_warning"
             >
               <.phx_icon
-                name="hero-exclamation-triangle"
+                name="hero-hand-raised"
                 class={[
                   "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
                   @content_warning_enabled? && "fill-current"
@@ -2740,14 +3030,11 @@ defmodule MossletWeb.DesignSystem do
 
             <%!-- Post button that submits the form --%>
             <.liquid_button
-              size="sm"
+              size="md"
               type="submit"
               class="flex-shrink-0"
               phx-disable-with="Sharing..."
-              disabled={
-                is_nil(@form[:body].value) || String.trim(@form[:body].value || "") == "" ||
-                  (@content_warning_enabled? && String.trim(@content_warning_text) == "")
-              }
+              disabled={true}
             >
               Share thoughtfully
             </.liquid_button>
@@ -2759,7 +3046,7 @@ defmodule MossletWeb.DesignSystem do
           <div class="mt-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50">
             <div class="flex items-center gap-2 mb-3">
               <.phx_icon
-                name="hero-exclamation-triangle"
+                name="hero-hand-raised"
                 class="h-4 w-4 text-amber-600 dark:text-amber-400"
               />
               <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -2767,62 +3054,78 @@ defmodule MossletWeb.DesignSystem do
               </span>
             </div>
 
-            <div class="space-y-3">
-              <%!-- Content warning text input --%>
-              <div>
-                <label class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">
+            <div class="space-y-4">
+              <%!-- Content warning text input using liquid metal component --%>
+              <div class="relative">
+                <%!-- Custom textarea matching main composer pattern exactly --%>
+                <label
+                  for={@form[:content_warning].id}
+                  class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-2"
+                >
                   Warning description
                 </label>
-                <textarea
-                  placeholder="e.g., Discussion of mental health, sensitive content..."
-                  rows="2"
-                  maxlength="100"
-                  class="w-full text-sm rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder:text-amber-600/70 dark:placeholder:text-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
-                  phx-change="update_content_warning"
-                  name="content_warning_text"
-                ><%= @content_warning_text %></textarea>
-                <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  {String.length(@content_warning_text)}/100 characters
+
+                <div class="group relative">
+                  <%!-- Liquid effects --%>
+                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-amber-50/30 via-orange-50/40 to-amber-50/30 dark:from-amber-900/15 dark:via-orange-900/20 dark:to-amber-900/15 group-focus-within:opacity-100 rounded-xl">
+                  </div>
+                  <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-amber-200/30 to-transparent dark:via-amber-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+                  </div>
+                  <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 dark:from-amber-400 dark:via-orange-400 dark:to-amber-400 group-focus-within:opacity-100 blur-sm">
+                  </div>
+                  <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-amber-500 dark:border-amber-400 group-focus-within:opacity-100">
+                  </div>
+
+                  <%!-- Textarea with proper hook setup --%>
+                  <textarea
+                    id="content-warning-textarea"
+                    name={@form[:content_warning].name}
+                    placeholder="e.g., Discussion of mental health, sensitive content..."
+                    rows="2"
+                    maxlength="100"
+                    class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-amber-600/70 dark:placeholder:text-amber-400/70 text-sm leading-relaxed focus:outline-none focus:ring-0 relative block rounded-xl px-4 py-3 bg-white dark:bg-slate-800 border-2 border-amber-200 dark:border-amber-700 hover:border-amber-300 dark:hover:border-amber-600 focus:border-amber-500 dark:focus:border-amber-400 transition-all duration-200 ease-out shadow-sm focus:shadow-lg focus:shadow-amber-500/10"
+                    phx-hook="CharacterCounter"
+                    phx-debounce="300"
+                    data-limit="100"
+                    value={@form[:content_warning].value}
+                  >{@form[:content_warning].value}</textarea>
+                </div>
+
+                <%!-- Character counter with liquid metal styling --%>
+                <%!-- Character counter with unique ID matching main composer pattern --%>
+                <div
+                  class={[
+                    "absolute bottom-2 right-2 transition-all duration-300 ease-out",
+                    (@form[:content_warning].value && String.trim(@form[:content_warning].value) != "" &&
+                       "opacity-100") ||
+                      "opacity-0"
+                  ]}
+                  id="char-counter-100"
+                >
+                  <span class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50/95 dark:bg-amber-900/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-amber-200/60 dark:border-amber-700/60 shadow-lg">
+                    <span class="js-char-count">{String.length(@form[:content_warning].value || "")}</span>/100
+                  </span>
                 </div>
               </div>
 
-              <%!-- Content warning category dropdown --%>
-              <div>
-                <label class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">
-                  Category (optional)
-                </label>
-                <select
-                  class="w-full text-sm rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
-                  phx-change="update_content_warning_category"
-                  name="category"
-                >
-                  <option value="" selected={@content_warning_category == ""}>
-                    Select category...
-                  </option>
-                  <option
-                    value="mental_health"
-                    selected={@content_warning_category == "mental_health"}
-                  >
-                    Mental Health
-                  </option>
-                  <option value="violence" selected={@content_warning_category == "violence"}>
-                    Violence
-                  </option>
-                  <option
-                    value="substance_use"
-                    selected={@content_warning_category == "substance_use"}
-                  >
-                    Substance Use
-                  </option>
-                  <option value="politics" selected={@content_warning_category == "politics"}>
-                    Politics
-                  </option>
-                  <option value="personal" selected={@content_warning_category == "personal"}>
-                    Personal/Sensitive
-                  </option>
-                  <option value="other" selected={@content_warning_category == "other"}>Other</option>
-                </select>
-              </div>
+              {@form.source.valid?}
+
+              <%!-- Content warning category dropdown using liquid metal component --%>
+              <.liquid_select_custom
+                field={@form[:content_warning_category]}
+                label="Category (optional)"
+                prompt="Select category..."
+                color="amber"
+                class="text-sm"
+                options={[
+                  {"Mental Health", "mental_health"},
+                  {"Violence", "violence"},
+                  {"Substance Use", "substance_use"},
+                  {"Politics", "politics"},
+                  {"Personal/Sensitive", "personal"},
+                  {"Other", "other"}
+                ]}
+              />
             </div>
           </div>
         <% end %>
@@ -3287,6 +3590,11 @@ defmodule MossletWeb.DesignSystem do
             <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
               {@content}
             </p>
+
+            <%!-- Images with enhanced encrypted display system --%>
+            <div :if={@post && photos?(@post.image_urls)} class="mb-4">
+              <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
+            </div>
           </div>
         <% else %>
           <%!-- Post content (normal display when no content warning) --%>
@@ -3294,17 +3602,13 @@ defmodule MossletWeb.DesignSystem do
             <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
               {@content}
             </p>
+
+            <%!-- Images with enhanced encrypted display system --%>
+            <div :if={@post && photos?(@post.image_urls)} class="mb-4">
+              <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
+            </div>
           </div>
         <% end %>
-
-        <%!-- Images with enhanced encrypted display system --%>
-        <div :if={@post && photos?(@post.image_urls)} class="mb-4">
-          <.liquid_post_photo_gallery
-            post={@post}
-            current_user={@current_user}
-            class=""
-          />
-        </div>
 
         <%!-- Engagement actions (calm and minimal) with semantic colors --%>
         <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">

@@ -119,7 +119,7 @@ defmodule Mosslet.Timeline.Post do
       :local_only
     ])
     |> validate_required([:body, :username, :user_id])
-    |> validate_length(:body, max: 100_000)
+    |> validate_length(:body, max: 500)
     |> add_username_hash()
     |> validate_visibility(opts)
     # NEW - Enhanced privacy validation
@@ -377,16 +377,12 @@ defmodule Mosslet.Timeline.Post do
 
   # Content warning validation
   defp validate_content_warning(changeset) do
-    content_warning_enabled = get_field(changeset, :content_warning?)
-    content_warning_text = get_field(changeset, :content_warning)
+    content_warning_enabled? = get_field(changeset, :content_warning?)
+    content_warning = get_field(changeset, :content_warning)
 
-    if content_warning_enabled &&
-         (is_nil(content_warning_text) or String.trim(content_warning_text) == "") do
-      add_error(
-        changeset,
-        :content_warning,
-        "Warning description is required when content warning is enabled"
-      )
+    if content_warning_enabled? do
+      changeset
+      |> validate_required(:content_warning)
     else
       changeset
     end

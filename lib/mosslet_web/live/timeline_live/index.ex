@@ -32,7 +32,9 @@ defmodule MossletWeb.TimelineLive.Index do
         %{
           "visibility" => initial_selector,
           "user_id" => current_user.id,
-          "username" => user_name(current_user, key) || ""
+          "username" => user_name(current_user, key) || "",
+          "content_warning" => "",
+          "content_warning_category" => ""
         },
         user: current_user
       )
@@ -61,8 +63,6 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:user_token, user_token)
       # Content warning state
       |> assign(:content_warning_enabled?, false)
-      |> assign(:content_warning_text, "")
-      |> assign(:content_warning_category, nil)
       |> stream(:posts, [])
       # Configure photo uploads with proper constraints and encryption-ready settings
       |> allow_upload(:photos,
@@ -568,46 +568,24 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("validate_post", %{"post" => post_params} = _params, socket) do
     post_shared_users = socket.assigns.post_shared_users
     current_user = socket.assigns.current_user
-    current_form = socket.assigns.post_form
-    # Add missing key assignment
     key = socket.assigns.key
 
-    # Get the existing changeset to preserve its state
-    existing_changeset = current_form.source
+    # Build complete params for validation
+    complete_params =
+      post_params
+      |> Map.put("image_urls", socket.assigns.image_urls)
+      |> Map.put("visibility", socket.assigns.selector)
+      |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
+      |> Map.put("user_id", current_user.id)
+      |> Map.put("username", user_name(current_user, key) || "")
+      |> add_shared_users_list_for_new_post(post_shared_users)
 
-    # If we have an existing changeset, apply the new changes to it
-    # Otherwise create a new one with complete data
-    updated_changeset =
-      if existing_changeset && match?(%Ecto.Changeset{}, existing_changeset) do
-        # Apply new changes to existing changeset while preserving all existing data
-        existing_changeset
-        |> Ecto.Changeset.cast(post_params, [
-          :body,
-          :content_warning,
-          :content_warning_category,
-          :allow_replies,
-          :allow_shares,
-          :allow_bookmarks
-        ])
-        |> Ecto.Changeset.put_change(:visibility, socket.assigns.selector)
-        |> Ecto.Changeset.put_change(:image_urls, socket.assigns.image_urls)
-        |> Ecto.Changeset.put_change(:user_id, current_user.id)
-        |> Ecto.Changeset.put_change(:username, user_name(current_user, key) || "")
-      else
-        # Fallback: create new changeset with complete params (preserve everything)
-        complete_params =
-          (current_form.params || %{})
-          |> Map.merge(post_params)
-          |> Map.put("image_urls", socket.assigns.image_urls)
-          |> Map.put("visibility", socket.assigns.selector)
-          |> add_shared_users_list_for_new_post(post_shared_users)
-
-        Timeline.change_post(%Post{}, complete_params, user: current_user)
-      end
+    # Let Timeline.change_post handle all the changeset logic
+    changeset = Timeline.change_post(%Post{}, complete_params, user: current_user)
 
     socket =
       socket
-      |> assign(:post_form, to_form(updated_changeset, action: :validate))
+      |> assign(:post_form, to_form(changeset, action: :validate))
 
     {:noreply, socket}
   end
@@ -1066,28 +1044,37 @@ defmodule MossletWeb.TimelineLive.Index do
     current_state = socket.assigns.content_warning_enabled?
     new_state = !current_state
 
+    # Get current form values
+    current_form = socket.assigns.post_form
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    post_shared_users = socket.assigns.post_shared_users
+
+    # Build params with updated content warning state
+    params =
+      %{
+        "body" => current_form[:body].value || "",
+        "content_warning" =>
+          if(new_state, do: current_form[:content_warning].value || "", else: ""),
+        "content_warning_category" =>
+          if(new_state, do: current_form[:content_warning_category].value || "", else: ""),
+        "content_warning?" => new_state,
+        "visibility" => socket.assigns.selector,
+        "image_urls" => socket.assigns.image_urls,
+        "user_id" => current_user.id,
+        "username" => user_name(current_user, key) || ""
+      }
+      |> add_shared_users_list_for_new_post(post_shared_users)
+
+    # Let Timeline.change_post handle the changeset
+    changeset = Timeline.change_post(%Post{}, params, user: current_user)
+
     socket =
       socket
       |> assign(:content_warning_enabled?, new_state)
-      # Clear content warning data when disabled
-      |> assign(
-        :content_warning_text,
-        if(new_state, do: socket.assigns.content_warning_text, else: "")
-      )
-      |> assign(
-        :content_warning_category,
-        if(new_state, do: socket.assigns.content_warning_category, else: "")
-      )
+      |> assign(:post_form, to_form(changeset, action: :validate))
 
     {:noreply, socket}
-  end
-
-  def handle_event("update_content_warning", %{"content_warning_text" => text}, socket) do
-    {:noreply, assign(socket, :content_warning_text, text)}
-  end
-
-  def handle_event("update_content_warning_category", %{"category" => category}, socket) do
-    {:noreply, assign(socket, :content_warning_category, category)}
   end
 
   def handle_event("save_post", %{"post" => post_params}, socket) do
@@ -1114,26 +1101,34 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
+        |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
         |> add_shared_users_list_for_new_post(post_shared_users)
-        |> add_content_warning_data(socket.assigns)
 
       Logger.info("🔍 SAVE_POST DEBUG: Final image_urls: #{inspect(post_params["image_urls"])}")
 
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
           {:ok, _post} ->
+            # Reset form to clean state after successful post creation
+            clean_changeset =
+              Timeline.change_post(
+                %Post{},
+                %{
+                  "visibility" => socket.assigns.selector,
+                  "user_id" => current_user.id,
+                  "username" => user_name(current_user, key) || "",
+                  "content_warning" => "",
+                  "content_warning_category" => ""
+                },
+                user: current_user
+              )
+
             socket =
               socket
               |> assign(:trix_key, nil)
-              |> assign(
-                :post_form,
-                to_form(
-                  Timeline.change_post(%Post{}, %{"visibility" => socket.assigns.selector},
-                    user: current_user
-                  )
-                )
-              )
+              |> assign(:post_form, to_form(clean_changeset))
               |> assign(:image_urls, [])
+              |> assign(:content_warning_enabled?, false)
               |> put_flash(:success, "Post created successfully")
               |> push_navigate(to: socket.assigns.return_url)
 
@@ -2565,21 +2560,6 @@ defmodule MossletWeb.TimelineLive.Index do
       diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h ago"
       diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
-    end
-  end
-
-  # Helper function to add content warning data to post params
-  defp add_content_warning_data(post_params, assigns) do
-    if assigns.content_warning_enabled? && String.trim(assigns.content_warning_text) != "" do
-      post_params
-      |> Map.put("content_warning", String.trim(assigns.content_warning_text))
-      |> Map.put("content_warning_category", assigns.content_warning_category)
-      |> Map.put("content_warning?", true)
-    else
-      post_params
-      |> Map.put("content_warning", nil)
-      |> Map.put("content_warning_category", nil)
-      |> Map.put("content_warning?", false)
     end
   end
 end
