@@ -146,6 +146,7 @@ defmodule MossletWeb.TimelineContentFilter do
         <div class="absolute inset-0 opacity-0 group-focus-within/input:opacity-100 transition-all duration-300 bg-gradient-to-r from-emerald-50/50 via-teal-50/30 to-cyan-50/50 dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/20 rounded-xl blur-sm">
         </div>
         <input
+          id="keyword-filter-input"
           type="text"
           placeholder="Type keyword and press Enter..."
           class={[
@@ -160,7 +161,7 @@ defmodule MossletWeb.TimelineContentFilter do
           ]}
           phx-keydown="add_keyword_filter"
           phx-key="Enter"
-          phx-value-input-id="keyword-filter-input"
+          phx-hook="KeywordFilterInput"
         />
       </div>
 

@@ -8,7 +8,7 @@ defmodule Mosslet.Timeline.ContentFilter do
 
   import Ecto.Query
   alias Mosslet.{Repo, Accounts}
-  alias Mosslet.Timeline.{Post, Performance.TimelineCache}
+  alias Mosslet.Timeline.{Post, Performance.TimelineCache, UserTimelinePreferences}
   alias Mosslet.Utils
   require Logger
 
@@ -69,14 +69,23 @@ defmodule Mosslet.Timeline.ContentFilter do
   def add_keyword_filter(user_id, keyword) when is_binary(keyword) do
     keyword = String.trim(keyword) |> String.downcase()
 
+    Logger.info("Adding keyword filter: #{keyword} for user #{user_id}")
+
     if keyword != "" do
       current_prefs = get_user_filter_preferences(user_id)
       current_keywords = current_prefs.keywords || []
 
+      Logger.info("Current keywords: #{inspect(current_keywords)}")
+
       if keyword not in current_keywords do
         new_keywords = [keyword | current_keywords]
-        update_filter_preferences(user_id, %{keywords: new_keywords})
+        Logger.info("New keywords list: #{inspect(new_keywords)}")
+
+        result = update_filter_preferences(user_id, %{keywords: new_keywords})
+        Logger.info("Update result: #{inspect(result)}")
+        result
       else
+        Logger.info("Keyword already exists, skipping")
         {:ok, current_prefs}
       end
     else
@@ -233,22 +242,94 @@ defmodule Mosslet.Timeline.ContentFilter do
   end
 
   defp load_user_filter_preferences(user_id) do
-    # Load from user preferences or return defaults
-    # This could be stored in a separate user_preferences table or in user settings
-    %{
-      keywords: [],
-      content_warnings: %{
-        hide_all: false
-      },
-      hidden_users: []
-    }
+    Logger.info("Loading user filter preferences for user #{user_id}")
+
+    case Repo.get_by(UserTimelinePreferences, user_id: user_id) do
+      nil ->
+        Logger.info("No preferences found, returning defaults")
+
+        %{
+          keywords: [],
+          content_warnings: %{
+            hide_all: false
+          },
+          hidden_users: []
+        }
+
+      prefs ->
+        Logger.info("Found preferences record")
+
+        # Decrypt keywords if they exist
+        keywords =
+          if prefs.mute_keywords do
+            try do
+              # Get the user and key for decryption
+              user = Accounts.get_user!(user_id)
+              # Decrypt using user's key - this follows the encryption architecture
+              decrypted = Utils.decrypt(%{key: user.key, payload: prefs.mute_keywords})
+              Jason.decode!(decrypted)
+            rescue
+              e ->
+                Logger.error("Failed to decrypt mute keywords: #{inspect(e)}")
+                []
+            end
+          else
+            []
+          end
+
+        %{
+          keywords: keywords,
+          content_warnings: %{
+            hide_all: prefs.hide_mature_content || false
+          },
+          hidden_users: []
+        }
+    end
   end
 
   defp save_user_filter_preferences(user_id, preferences) do
-    # Save to database - could be user_preferences table or user settings JSON field
-    # For now, we'll rely on caching and implement persistent storage later
     Logger.info("Saving filter preferences for user #{user_id}: #{inspect(preferences)}")
-    :ok
+
+    # Get or create user timeline preferences
+    prefs =
+      case Repo.get_by(UserTimelinePreferences, user_id: user_id) do
+        nil -> %UserTimelinePreferences{user_id: user_id}
+        existing -> existing
+      end
+
+    # Get user and key for encryption
+    user = Accounts.get_user!(user_id)
+
+    # Encrypt keywords using user's key (follows encryption architecture)
+    encrypted_keywords =
+      if length(preferences.keywords) > 0 do
+        json_keywords = Jason.encode!(preferences.keywords)
+        Utils.encrypt(%{key: user.key, payload: json_keywords})
+      else
+        nil
+      end
+
+    # Update preferences with encrypted data
+    changeset =
+      UserTimelinePreferences.changeset(
+        prefs,
+        %{
+          mute_keywords: encrypted_keywords,
+          hide_mature_content: preferences.content_warnings[:hide_all] || false
+        },
+        user: user,
+        key: user.key
+      )
+
+    case Repo.insert_or_update(changeset) do
+      {:ok, _updated_prefs} ->
+        Logger.info("Successfully saved filter preferences")
+        :ok
+
+      {:error, changeset} ->
+        Logger.error("Failed to save filter preferences: #{inspect(changeset.errors)}")
+        {:error, changeset}
+    end
   end
 
   defp invalidate_user_timeline_cache(user_id) do

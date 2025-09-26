@@ -1178,14 +1178,25 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("add_keyword_filter", %{"value" => keyword}, socket) do
     current_user = socket.assigns.current_user
 
-    case ContentFilter.add_keyword_filter(current_user.id, keyword) do
-      {:ok, new_prefs} ->
-        # Refresh timeline with new filters
-        socket = refresh_timeline_with_filters(socket, new_prefs)
-        {:noreply, socket}
+    # Get the keyword from the input value
+    keyword_to_add = String.trim(keyword)
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Invalid keyword")}
+    if keyword_to_add != "" do
+      case ContentFilter.add_keyword_filter(current_user.id, keyword_to_add) do
+        {:ok, new_prefs} ->
+          # Refresh timeline with new filters and clear input
+          socket =
+            socket
+            |> refresh_timeline_with_filters(new_prefs)
+            |> push_event("clear-input", %{id: "keyword-filter-input"})
+
+          {:noreply, socket}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Invalid keyword")}
+      end
+    else
+      {:noreply, socket}
     end
   end
 
