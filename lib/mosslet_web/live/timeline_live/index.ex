@@ -1033,12 +1033,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, cancel_upload(socket, :photos, ref)}
   end
 
-  def handle_event("composer_add_emoji", _params, socket) do
-    # Handle emoji picker functionality
-    # For now, just show a message that this feature is coming
-    {:noreply, put_flash(socket, :info, "Emoji picker coming soon!")}
-  end
-
   def handle_event("composer_toggle_content_warning", _params, socket) do
     # Toggle content warning state
     current_state = socket.assigns.content_warning_enabled?

@@ -1,5 +1,6 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import CharacterCounter from "./character-counter";
+import ComposerEmojiPicker from "./composer-emoji-picker";
 import ClearFlashHook from "./clear-flash-hook";
 import Flash from "./flash";
 import LiquidFlash from "./liquid-flash";
@@ -23,6 +24,7 @@ import ScrollDown from "./scroll";
 
 export default {
   CharacterCounter,
+  ComposerEmojiPicker,
   ClearFlashHook,
   Flash,
   LiquidFlash,
