@@ -275,11 +275,11 @@ Now that Phase 1 (Core Architecture) is complete, we're implementing the perform
 
 **Technical Implementation:**
 
-- [ ] **Content Warning Toggle** - Expandable content with warnings
-- [ ] **Warning Types** - Configurable warning categories
-- [ ] **Composer Integration** - Content warning field in composer
-- [ ] **Timeline Display** - Collapsible content with warning labels
-- [ ] **User Preferences** - Show/hide content warning options
+- [x] **Content Warning Toggle** - Expandable content with warnings
+- [x] **Warning Types** - Configurable warning categories
+- [x] **Composer Integration** - Content warning field in composer
+- [x] **Timeline Display** - Collapsible content with warning labels
+- [x] **User Preferences** - Show/hide content warning options
 
 ### 😊 **Priority 4: Emoji Picker** (Polish)
 

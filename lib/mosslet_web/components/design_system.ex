@@ -2976,9 +2976,9 @@ defmodule MossletWeb.DesignSystem do
                 "p-2 rounded-lg transition-all duration-200 ease-out group",
                 if(@content_warning_enabled?,
                   do:
-                    "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700",
+                    "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700",
                   else:
-                    "text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20"
+                    "text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
                 )
               ]}
               phx-hook="TippyHook"
@@ -3049,13 +3049,13 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Content Warning Section (conditionally shown) --%>
         <%= if @content_warning_enabled? do %>
-          <div class="mt-4 p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/50">
+          <div class="mt-4 p-4 rounded-xl bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/50">
             <div class="flex items-center gap-2 mb-3">
               <.phx_icon
                 name="hero-hand-raised"
-                class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                class="h-4 w-4 text-teal-600 dark:text-teal-400"
               />
-              <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
+              <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
                 Content Warning
               </span>
             </div>
@@ -3066,20 +3066,20 @@ defmodule MossletWeb.DesignSystem do
                 <%!-- Custom textarea matching main composer pattern exactly --%>
                 <label
                   for={@form[:content_warning].id}
-                  class="block text-xs font-medium text-amber-700 dark:text-amber-300 mb-2"
+                  class="block text-xs font-medium text-teal-700 dark:text-teal-300 mb-2"
                 >
                   Warning description
                 </label>
 
                 <div class="group relative">
                   <%!-- Liquid effects --%>
-                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-amber-50/30 via-orange-50/40 to-amber-50/30 dark:from-amber-900/15 dark:via-orange-900/20 dark:to-amber-900/15 group-focus-within:opacity-100 rounded-xl">
+                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/30 via-orange-50/40 to-teal-50/30 dark:from-teal-900/15 dark:via-orange-900/20 dark:to-teal-900/15 group-focus-within:opacity-100 rounded-xl">
                   </div>
-                  <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-amber-200/30 to-transparent dark:via-amber-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
+                  <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-teal-200/30 to-transparent dark:via-teal-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
                   </div>
-                  <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 dark:from-amber-400 dark:via-orange-400 dark:to-amber-400 group-focus-within:opacity-100 blur-sm">
+                  <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-orange-500 to-teal-500 dark:from-teal-400 dark:via-orange-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
                   </div>
-                  <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-amber-500 dark:border-amber-400 group-focus-within:opacity-100">
+                  <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-teal-500 dark:border-teal-400 group-focus-within:opacity-100">
                   </div>
 
                   <%!-- Textarea with proper hook setup --%>
@@ -3089,7 +3089,7 @@ defmodule MossletWeb.DesignSystem do
                     placeholder="e.g., Discussion of mental health, sensitive content..."
                     rows="2"
                     maxlength="100"
-                    class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-amber-600/70 dark:placeholder:text-amber-400/70 text-sm leading-relaxed focus:outline-none focus:ring-0 relative block rounded-xl px-4 py-3 bg-white dark:bg-slate-800 border-2 border-amber-200 dark:border-amber-700 hover:border-amber-300 dark:hover:border-amber-600 focus:border-amber-500 dark:focus:border-amber-400 transition-all duration-200 ease-out shadow-sm focus:shadow-lg focus:shadow-amber-500/10"
+                    class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-teal-600/70 dark:placeholder:text-teal-400/70 text-sm leading-relaxed focus:outline-none focus:ring-0 relative block rounded-xl px-4 py-3 bg-white dark:bg-slate-800 border-2 border-teal-200 dark:border-teal-700 hover:border-teal-300 dark:hover:border-teal-600 focus:border-teal-500 dark:focus:border-teal-400 transition-all duration-200 ease-out shadow-sm focus:shadow-lg focus:shadow-teal-500/10"
                     phx-hook="CharacterCounter"
                     phx-debounce="300"
                     data-limit="100"
@@ -3108,7 +3108,7 @@ defmodule MossletWeb.DesignSystem do
                   ]}
                   id="char-counter-100"
                 >
-                  <span class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50/95 dark:bg-amber-900/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-amber-200/60 dark:border-amber-700/60 shadow-lg">
+                  <span class="text-xs text-teal-600 dark:text-teal-400 bg-teal-50/95 dark:bg-teal-900/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-teal-200/60 dark:border-teal-700/60 shadow-lg">
                     <span class="js-char-count">{String.length(@form[:content_warning].value || "")}</span>/100
                   </span>
                 </div>
@@ -3119,7 +3119,7 @@ defmodule MossletWeb.DesignSystem do
                 field={@form[:content_warning_category]}
                 label="Category (optional)"
                 prompt="Select category..."
-                color="amber"
+                color="teal"
                 class="text-sm"
                 options={[
                   {"Mental Health", "mental_health"},
