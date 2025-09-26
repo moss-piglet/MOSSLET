@@ -189,7 +189,11 @@
                 stats={
                   %{
                     replies:
-                      if(Ecto.assoc_loaded?(post.replies), do: length(post.replies), else: 0),
+                      cond do
+                        is_list(post.replies) -> length(post.replies)
+                        Ecto.assoc_loaded?(post.replies) -> length(post.replies)
+                        true -> 0
+                      end,
                     shares: post.reposts_count || 0,
                     likes: post.favs_count || 0
                   }

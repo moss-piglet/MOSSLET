@@ -270,7 +270,7 @@ defmodule MossletWeb.TimelineLive.Index do
           {:ok, _reply} ->
             # Update the post with new reply count in the stream
             # Get fresh post with updated reply count
-            updated_post = Timeline.get_post(post_id)
+            updated_post = Timeline.get_post!(post_id)
 
             socket =
               socket
