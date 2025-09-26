@@ -29,10 +29,14 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
     field :hide_mature_content, :boolean, default: false
 
     # Content filtering preferences (encrypted - potentially sensitive)
-    # Encrypted list of muted keywords
+    # Encrypted list of muted keywords (JSON array of strings)
     field :mute_keywords, Mosslet.Encrypted.Binary
     # Hash for keyword matching
     field :mute_keywords_hash, Mosslet.Encrypted.HMAC
+
+    # Encrypted list of muted user IDs (JSON array of binary_ids)
+    field :muted_users, Mosslet.Encrypted.Binary
+    field :muted_users_hash, Mosslet.Encrypted.HMAC
 
     belongs_to :user, User
 
@@ -52,6 +56,7 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
       :hide_reposts,
       :hide_mature_content,
       :mute_keywords,
+      :muted_users,
       :user_id
     ])
     |> validate_required([:user_id])
@@ -59,6 +64,7 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
     |> validate_number(:posts_per_page, greater_than: 0, less_than_or_equal_to: 100)
     |> validate_tab_order()
     |> encrypt_mute_keywords(opts)
+    |> encrypt_muted_users(opts)
     |> unique_constraint(:user_id)
   end
 
@@ -89,6 +95,34 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
         changeset
         |> put_change(:mute_keywords, encrypted_keywords)
         |> put_change(:mute_keywords_hash, String.downcase(mute_keywords))
+      else
+        changeset
+      end
+    else
+      changeset
+    end
+  end
+
+  defp encrypt_muted_users(changeset, opts) do
+    if changeset.valid? && opts[:user] && opts[:key] do
+      muted_users = get_field(changeset, :muted_users)
+
+      if muted_users && String.trim(muted_users) != "" do
+        # Encrypt with user_key (same as other personal data)
+        encrypted_users =
+          Mosslet.Encrypted.Users.Utils.encrypt_user_data(
+            muted_users,
+            opts[:user],
+            opts[:key]
+          )
+
+        # Create hash for all user IDs (for search/cache invalidation)
+        user_ids = Jason.decode!(muted_users)
+        hash_value = Enum.join(user_ids, ",") |> String.downcase()
+
+        changeset
+        |> put_change(:muted_users, encrypted_users)
+        |> put_change(:muted_users_hash, hash_value)
       else
         changeset
       end

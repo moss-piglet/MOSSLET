@@ -87,8 +87,8 @@ defmodule MossletWeb.TimelineContentFilter do
 
         <%!-- Hidden Users Filter --%>
         <.filter_section title="Hidden Users" icon="hero-eye-slash">
-          <.hidden_users_list
-            hidden_users={@filters.hidden_users || []}
+          <.muted_users_list
+            muted_users={@filters.muted_users || []}
             mobile_friendly={@mobile_friendly}
           />
         </.filter_section>
@@ -230,24 +230,24 @@ defmodule MossletWeb.TimelineContentFilter do
   end
 
   @doc """
-  Hidden users management interface.
+  Muted users management interface.
   """
-  attr :hidden_users, :list, default: []
+  attr :muted_users, :list, default: []
   attr :mobile_friendly, :boolean, default: true
 
-  def hidden_users_list(assigns) do
+  def muted_users_list(assigns) do
     ~H"""
     <div class="space-y-3">
       <div
-        :if={@hidden_users == []}
+        :if={@muted_users == []}
         class="text-sm text-slate-500 dark:text-slate-400 py-4 text-center"
       >
         No hidden users
       </div>
 
-      <div :if={@hidden_users != []} class="space-y-2">
+      <div :if={@muted_users != []} class="space-y-2">
         <div
-          :for={user <- @hidden_users}
+          :for={user <- @muted_users}
           class="flex items-center justify-between py-2 px-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg"
         >
           <div class="flex items-center gap-2">

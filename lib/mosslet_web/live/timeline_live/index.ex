@@ -178,7 +178,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:options, options)
       |> assign(:return_url, url)
       |> assign(:filter, filter)
-      |> assign(:content_filters, ContentFilter.get_user_filter_preferences(current_user.id))
+      |> assign(:content_filters, load_and_decrypt_content_filters(current_user, key))
       |> assign(:show_content_filter, false)
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
@@ -1177,12 +1177,20 @@ defmodule MossletWeb.TimelineLive.Index do
   # Content filtering event handlers
   def handle_event("add_keyword_filter", %{"value" => keyword}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
     # Get the keyword from the input value
     keyword_to_add = String.trim(keyword)
 
     if keyword_to_add != "" do
-      case ContentFilter.add_keyword_filter(current_user.id, keyword_to_add) do
+      # Get current decrypted keywords
+      current_filters = socket.assigns.content_filters
+      current_keywords = current_filters.keywords || []
+
+      case ContentFilter.add_keyword_filter(current_user.id, keyword_to_add, current_keywords,
+             user: current_user,
+             key: key
+           ) do
         {:ok, new_prefs} ->
           # Refresh timeline with new filters and clear input
           socket =
@@ -1202,18 +1210,32 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("remove_keyword_filter", %{"keyword" => keyword}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
-    {:ok, new_prefs} = ContentFilter.remove_keyword_filter(current_user.id, keyword)
+    # Get current decrypted keywords
+    current_filters = socket.assigns.content_filters
+    current_keywords = current_filters.keywords || []
+
+    {:ok, new_prefs} =
+      ContentFilter.remove_keyword_filter(current_user.id, keyword, current_keywords,
+        user: current_user,
+        key: key
+      )
+
     socket = refresh_timeline_with_filters(socket, new_prefs)
     {:noreply, socket}
   end
 
   def handle_event("toggle_content_warning_filter", %{"type" => filter_type}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
     filter_type_atom = String.to_atom(filter_type)
 
     {:ok, new_prefs} =
-      ContentFilter.toggle_content_warning_filter(current_user.id, filter_type_atom)
+      ContentFilter.toggle_content_warning_filter(current_user.id, filter_type_atom,
+        user: current_user,
+        key: key
+      )
 
     socket = refresh_timeline_with_filters(socket, new_prefs)
     {:noreply, socket}
@@ -1221,32 +1243,58 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("hide_user", %{"user_id" => user_id}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
     target_user_id = String.to_integer(user_id)
 
-    {:ok, new_prefs} = ContentFilter.hide_user(current_user.id, target_user_id)
+    # Get current decrypted muted users
+    current_filters = socket.assigns.content_filters
+    current_muted_users = current_filters.muted_users || []
+
+    {:ok, new_prefs} =
+      ContentFilter.mute_user(current_user.id, target_user_id, current_muted_users,
+        user: current_user,
+        key: key
+      )
+
     socket = refresh_timeline_with_filters(socket, new_prefs)
     {:noreply, put_flash(socket, :info, "User hidden from timeline")}
   end
 
   def handle_event("unhide_user", %{"user_id" => user_id}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
     target_user_id = String.to_integer(user_id)
 
-    {:ok, new_prefs} = ContentFilter.unhide_user(current_user.id, target_user_id)
+    # Get current decrypted muted users
+    current_filters = socket.assigns.content_filters
+    current_muted_users = current_filters.muted_users || []
+
+    {:ok, new_prefs} =
+      ContentFilter.unmute_user(current_user.id, target_user_id, current_muted_users,
+        user: current_user,
+        key: key
+      )
+
     socket = refresh_timeline_with_filters(socket, new_prefs)
     {:noreply, put_flash(socket, :info, "User unhidden from timeline")}
   end
 
   def handle_event("clear_all_filters", _params, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
     clear_prefs = %{
       keywords: [],
       content_warnings: %{hide_all: false},
-      hidden_users: []
+      muted_users: []
     }
 
-    {:ok, new_prefs} = ContentFilter.update_filter_preferences(current_user.id, clear_prefs)
+    {:ok, new_prefs} =
+      ContentFilter.update_filter_preferences(current_user.id, clear_prefs,
+        user: current_user,
+        key: key
+      )
+
     socket = refresh_timeline_with_filters(socket, new_prefs)
     {:noreply, put_flash(socket, :info, "All filters cleared")}
   end
@@ -2646,15 +2694,20 @@ defmodule MossletWeb.TimelineLive.Index do
   defp has_active_filters?(filters) do
     keywords_active = length(filters.keywords || []) > 0
     cw_active = Map.get(filters.content_warnings || %{}, :hide_all, false)
-    users_active = length(filters.hidden_users || []) > 0
+    users_active = length(filters.muted_users || []) > 0
+    reposts_active = Map.get(filters, :hide_reposts, false)
 
-    keywords_active || cw_active || users_active
+    keywords_active || cw_active || users_active || reposts_active
   end
 
   # Helper function to refresh timeline with new filters
-  defp refresh_timeline_with_filters(socket, new_prefs) do
-    # Update content filters assign
-    socket = assign(socket, :content_filters, new_prefs)
+  defp refresh_timeline_with_filters(socket, _new_prefs) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Reload and decrypt content filters to get fresh state
+    fresh_filters = load_and_decrypt_content_filters(current_user, key)
+    socket = assign(socket, :content_filters, fresh_filters)
 
     # Refresh current timeline posts with new filters applied
     current_user = socket.assigns.current_user
@@ -2678,5 +2731,55 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Update the posts stream
     stream(socket, :posts, posts, reset: true)
+  end
+
+  # Helper function to load and decrypt content filters
+  defp load_and_decrypt_content_filters(user, key) do
+    # Get raw preferences from ContentFilter context
+    raw_prefs = ContentFilter.get_user_filter_preferences(user.id)
+
+    # Decrypt keywords if they exist
+    decrypted_keywords =
+      case raw_prefs do
+        %{raw_preferences: %{mute_keywords: encrypted_keywords}}
+        when not is_nil(encrypted_keywords) ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keywords, user, key) do
+            {:ok, decrypted_json} ->
+              Jason.decode!(decrypted_json)
+
+            decrypted_json when is_binary(decrypted_json) ->
+              Jason.decode!(decrypted_json)
+
+            _ ->
+              []
+          end
+
+        _ ->
+          []
+      end
+
+    # Decrypt muted users if they exist
+    decrypted_muted_users =
+      case raw_prefs do
+        %{raw_preferences: %{muted_users: encrypted_users}} when not is_nil(encrypted_users) ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_users, user, key) do
+            {:ok, decrypted_json} ->
+              Jason.decode!(decrypted_json)
+
+            decrypted_json when is_binary(decrypted_json) ->
+              Jason.decode!(decrypted_json)
+
+            _ ->
+              []
+          end
+
+        _ ->
+          []
+      end
+
+    # Return decrypted preferences
+    raw_prefs
+    |> Map.put(:keywords, decrypted_keywords)
+    |> Map.put(:muted_users, decrypted_muted_users)
   end
 end
