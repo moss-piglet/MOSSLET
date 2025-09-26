@@ -238,8 +238,7 @@ defmodule Mosslet.Timeline.ContentFilter do
     %{
       keywords: [],
       content_warnings: %{
-        hide_all: false,
-        auto_expand: false
+        hide_all: false
       },
       hidden_users: []
     }

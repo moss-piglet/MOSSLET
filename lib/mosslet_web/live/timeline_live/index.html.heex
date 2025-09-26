@@ -67,7 +67,7 @@
           <button
             type="button"
             class={[
-              "p-2.5 rounded-xl transition-all duration-200 ease-out group relative overflow-hidden",
+              "p-2.5 rounded-xl transition-all duration-200 ease-out group relative",
               if(@show_content_filter,
                 do:
                   "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
@@ -83,12 +83,19 @@
               class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
             />
 
-            <%!-- Filter count badge --%>
+            <%!-- Enhanced filter indicator badge --%>
             <div
               :if={has_active_filters?(@content_filters)}
-              class="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full flex items-center justify-center"
+              class={[
+                "absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center",
+                "bg-gradient-to-br from-emerald-500 to-teal-600",
+                "border-2 border-white dark:border-slate-800",
+                "shadow-lg shadow-emerald-500/30",
+                "animate-pulse",
+                "z-10"
+              ]}
             >
-              <div class="h-1.5 w-1.5 bg-white rounded-full"></div>
+              <div class="h-1.5 w-1.5 bg-white rounded-full opacity-90"></div>
             </div>
           </button>
         </div>

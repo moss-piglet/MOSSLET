@@ -1231,7 +1231,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     clear_prefs = %{
       keywords: [],
-      content_warnings: %{hide_all: false, auto_expand: false},
+      content_warnings: %{hide_all: false},
       hidden_users: []
     }
 

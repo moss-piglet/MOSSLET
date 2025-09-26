@@ -20,30 +20,52 @@ defmodule MossletWeb.TimelineContentFilter do
   def liquid_content_filter(assigns) do
     ~H"""
     <div class={[
-      "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+      "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
       "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
       "border border-slate-200/60 dark:border-slate-700/60",
-      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/25",
+      "hover:shadow-2xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/5",
+      "hover:border-emerald-200/70 dark:hover:border-emerald-700/50",
       @class
     ]}>
-      <%!-- Liquid background on focus --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-cyan-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 group-focus-within:opacity-100">
+      <%!-- Enhanced liquid background on hover --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-cyan-50/30 dark:from-emerald-900/15 dark:via-teal-900/10 dark:to-cyan-900/15 group-hover:opacity-100">
       </div>
 
-      <div class="relative p-4 space-y-4">
-        <%!-- Filter Header --%>
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <.phx_icon name="hero-funnel" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            Content Filters
-          </h3>
+      <%!-- Subtle shimmer effect --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent dark:via-emerald-400/10 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+      </div>
+
+      <div class="relative p-6 space-y-6">
+        <%!-- Enhanced Filter Header with liquid styling --%>
+        <div class="flex items-center justify-between pb-4 border-b border-slate-200/50 dark:border-slate-700/50">
+          <div class="flex items-center gap-3">
+            <div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-cyan-900/30">
+              <.phx_icon name="hero-funnel" class="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Content Filters
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Customize your timeline experience
+              </p>
+            </div>
+          </div>
 
           <button
             type="button"
-            class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200"
+            class={[
+              "inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg",
+              "text-slate-500 dark:text-slate-400",
+              "hover:text-emerald-600 dark:hover:text-emerald-400",
+              "hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20",
+              "transition-all duration-200 ease-out",
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2"
+            ]}
             phx-click="clear_all_filters"
           >
-            <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+            <.phx_icon name="hero-arrow-path" class="h-4 w-4" /> Reset
           </button>
         </div>
 
@@ -84,19 +106,27 @@ defmodule MossletWeb.TimelineContentFilter do
 
   def filter_section(assigns) do
     ~H"""
-    <div class="space-y-3">
-      <div class="flex items-center gap-2">
-        <.phx_icon
-          name={@icon}
-          class="h-4 w-4 text-slate-600 dark:text-slate-400"
-        />
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">
-          {@title}
-        </h4>
+    <div class="relative group/section">
+      <%!-- Section background with liquid styling --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-slate-50/30 via-transparent to-slate-50/30 dark:from-slate-700/20 dark:via-transparent dark:to-slate-700/20 group-hover/section:opacity-100 rounded-xl">
       </div>
 
-      <div class="pl-6">
-        {render_slot(@inner_block)}
+      <div class="relative p-4 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/section:from-teal-100 group-hover/section:via-emerald-50 group-hover/section:to-cyan-100 dark:group-hover/section:from-teal-900/30 dark:group-hover/section:via-emerald-900/25 dark:group-hover/section:to-cyan-900/30 transition-all duration-200">
+            <.phx_icon
+              name={@icon}
+              class="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 group-hover/section:text-emerald-700 dark:group-hover/section:text-emerald-300 transition-colors duration-200"
+            />
+          </div>
+          <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover/section:text-slate-900 dark:group-hover/section:text-slate-100 transition-colors duration-200">
+            {@title}
+          </h4>
+        </div>
+
+        <div class="pl-0">
+          {render_slot(@inner_block)}
+        </div>
       </div>
     </div>
     """
@@ -111,18 +141,22 @@ defmodule MossletWeb.TimelineContentFilter do
   def keyword_filter_input(assigns) do
     ~H"""
     <div class="space-y-3">
-      <%!-- Add keyword input --%>
-      <div class="relative">
+      <%!-- Enhanced keyword input with liquid styling --%>
+      <div class="relative group/input">
+        <div class="absolute inset-0 opacity-0 group-focus-within/input:opacity-100 transition-all duration-300 bg-gradient-to-r from-emerald-50/50 via-teal-50/30 to-cyan-50/50 dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/20 rounded-xl blur-sm">
+        </div>
         <input
           type="text"
-          placeholder="Add keyword to filter..."
+          placeholder="Type keyword and press Enter..."
           class={[
-            "w-full px-3 py-2 text-sm",
-            "bg-slate-50/80 dark:bg-slate-700/80",
+            "relative w-full px-4 py-3 text-sm",
+            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
             "border border-slate-200/60 dark:border-slate-600/60",
-            "rounded-lg transition-all duration-200",
+            "rounded-xl transition-all duration-200",
             "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/60",
-            "placeholder:text-slate-500 dark:placeholder:text-slate-400"
+            "focus:bg-white/95 dark:focus:bg-slate-800/95",
+            "placeholder:text-slate-500 dark:placeholder:text-slate-400",
+            "hover:border-emerald-300/50 dark:hover:border-emerald-600/50"
           ]}
           phx-keydown="add_keyword_filter"
           phx-key="Enter"
@@ -130,16 +164,31 @@ defmodule MossletWeb.TimelineContentFilter do
         />
       </div>
 
-      <%!-- Current keywords --%>
-      <div :if={@current_keywords != []} class="flex flex-wrap gap-2">
+      <%!-- Enhanced keyword tags with liquid styling --%>
+      <div :if={@current_keywords != []} class="flex flex-wrap gap-2.5">
         <div
           :for={keyword <- @current_keywords}
-          class="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 text-sm rounded-full"
+          class={[
+            "group relative inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full",
+            "bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-100",
+            "dark:from-emerald-900/30 dark:via-teal-900/20 dark:to-emerald-900/30",
+            "text-emerald-800 dark:text-emerald-200",
+            "border border-emerald-200/60 dark:border-emerald-700/40",
+            "hover:from-emerald-200 hover:via-teal-100 hover:to-emerald-200",
+            "dark:hover:from-emerald-800/40 dark:hover:via-teal-800/30 dark:hover:to-emerald-800/40",
+            "transition-all duration-200 ease-out",
+            "shadow-sm hover:shadow-md hover:shadow-emerald-500/20"
+          ]}
         >
-          <span>{keyword}</span>
+          <span class="font-medium">{keyword}</span>
           <button
             type="button"
-            class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            class={[
+              "ml-1 p-1 rounded-full transition-all duration-200",
+              "text-emerald-600 dark:text-emerald-400",
+              "hover:text-emerald-800 dark:hover:text-emerald-200",
+              "hover:bg-emerald-200/50 dark:hover:bg-emerald-700/30"
+            ]}
             phx-click="remove_keyword_filter"
             phx-value-keyword={keyword}
           >
@@ -163,27 +212,17 @@ defmodule MossletWeb.TimelineContentFilter do
 
   def content_warning_toggles(assigns) do
     ~H"""
-    <div class="space-y-3">
-      <div class="space-y-2">
-        <.liquid_toggle
-          name="hide_all_warnings"
-          label="Hide all content warnings"
-          checked={@current_settings[:hide_all] || false}
-          phx_click="toggle_content_warning_filter"
-          phx_value_type="hide_all"
-        />
+    <div class="space-y-4">
+      <.liquid_toggle
+        name="hide_all_warnings"
+        label="Hide all content warnings"
+        checked={@current_settings[:hide_all] || false}
+        phx_click="toggle_content_warning_filter"
+        phx_value_type="hide_all"
+      />
 
-        <.liquid_toggle
-          name="auto_expand_warnings"
-          label="Always show content behind warnings"
-          checked={@current_settings[:auto_expand] || false}
-          phx_click="toggle_content_warning_filter"
-          phx_value_type="auto_expand"
-        />
-      </div>
-
-      <p class="text-xs text-slate-500 dark:text-slate-400">
-        Control how content warnings are displayed in your timeline
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
+        Posts with content warnings will be completely hidden from your timeline
       </p>
     </div>
     """
@@ -246,19 +285,22 @@ defmodule MossletWeb.TimelineContentFilter do
 
   def liquid_toggle(assigns) do
     ~H"""
-    <label class="flex items-center justify-between cursor-pointer group">
-      <span class="text-sm text-slate-700 dark:text-slate-300">
-        {@label}
-      </span>
+    <label class="flex items-center justify-between cursor-pointer group/toggle p-3 rounded-xl hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-all duration-200">
+      <div class="flex-1">
+        <span class="text-sm font-medium text-slate-800 dark:text-slate-200 group-hover/toggle:text-slate-900 dark:group-hover/toggle:text-slate-100 transition-colors">
+          {@label}
+        </span>
+      </div>
 
       <button
         type="button"
         class={[
-          "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-in-out",
-          "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+          "relative inline-flex h-6 w-11 shrink-0 rounded-full transition-all duration-300 ease-out",
+          "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800",
+          "shadow-inner",
           if(@checked,
-            do: "bg-emerald-600 dark:bg-emerald-500",
-            else: "bg-slate-200 dark:bg-slate-600"
+            do: "bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30",
+            else: "bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-500"
           )
         ]}
         phx-click={@phx_click}
@@ -267,9 +309,13 @@ defmodule MossletWeb.TimelineContentFilter do
         aria-checked={@checked}
       >
         <span class={[
-          "pointer-events-none inline-block h-4 w-4 transform rounded-full shadow-lg ring-0 transition duration-200 ease-in-out",
+          "pointer-events-none inline-block h-4 w-4 transform rounded-full shadow-lg transition-all duration-300 ease-out",
           "bg-white dark:bg-slate-100",
-          if(@checked, do: "translate-x-4", else: "translate-x-0")
+          "border-2 my-1",
+          if(@checked,
+            do: "border-emerald-100 dark:border-emerald-200 translate-x-6",
+            else: "border-slate-300 dark:border-slate-400 translate-x-1"
+          )
         ]}>
         </span>
       </button>
