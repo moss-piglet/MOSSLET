@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.19.8
+
+### ✨ Features
+
+- Encode international domain names (IDNA) @jiegillet (#1070)
+
+## 1.19.7
+
+### 🐛 Bug Fixes
+
+- Fix special "TEMPLATE" from option in CustomerIO adapter @maltoe (#1069)
+
+## 1.19.6
+
+### ✨ Features
+
+- Add Lettermint adapter @olivermt (#1064)
+
 ## 1.19.5
 
 ### 🐛 Bug Fixes

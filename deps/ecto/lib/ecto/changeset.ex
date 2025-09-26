@@ -17,7 +17,7 @@ defmodule Ecto.Changeset do
     
     * **type casting** - a web form sends most of its data as strings.
       When the user types the number "100", Ecto will receive it as
-      as the string "100", which must then be converted to 100.
+      the string "100", which must then be converted to 100.
       Changesets are responsible for converting these values to the
       types defined in your `Ecto.Schema`, support even complex types
       such as datetimes
@@ -382,7 +382,7 @@ defmodule Ecto.Changeset do
   alias Ecto.Changeset.Relation
   alias Ecto.Schema.Metadata
 
-  @empty_values [&Ecto.Type.empty_trimmed_string?/1]
+  @empty_values [&Ecto.Type.empty_trimmed?/2]
 
   # If a new field is added here, def merge must be adapted
   defstruct valid?: false,
@@ -656,7 +656,10 @@ defmodule Ecto.Changeset do
 
   ## Options
 
-    * `:empty_values` - a list of values to be considered as empty when casting.
+    * `:empty_values` - a list containing elements of type `t:empty_value/0`. Those are
+      either values, which will be considered empty if they match, or a function that must
+      return a boolean if the value is empty or not. 1-arity functions will receive the value
+      being casted and 2-arity functions will receive the value being casted and its field type.
       Empty values are always replaced by the default value of the respective field.
       If the field is an array type, any empty value inside of the array will be removed.
       To set this option while keeping the current default, use `empty_values/0` and add
@@ -961,24 +964,31 @@ defmodule Ecto.Changeset do
     end
   end
 
-  defp filter_empty_values(_type, value, empty_values) do
-    filter_empty_value(empty_values, value)
+  defp filter_empty_values(type, value, empty_values) do
+    filter_empty_value(empty_values, value, type)
   end
 
-  defp filter_empty_value([head | tail], value) when is_function(head) do
+  defp filter_empty_value([head | tail], value, type) when is_function(head, 1) do
     case head.(value) do
       true -> :empty
-      false -> filter_empty_value(tail, value)
+      false -> filter_empty_value(tail, value, type)
     end
   end
 
-  defp filter_empty_value([value | _tail], value),
+  defp filter_empty_value([head | tail], value, type) when is_function(head, 2) do
+    case head.(value, type) do
+      true -> :empty
+      false -> filter_empty_value(tail, value, type)
+    end
+  end
+
+  defp filter_empty_value([value | _tail], value, _type),
     do: :empty
 
-  defp filter_empty_value([_head | tail], value),
-    do: filter_empty_value(tail, value)
+  defp filter_empty_value([_head | tail], value, type),
+    do: filter_empty_value(tail, value, type)
 
-  defp filter_empty_value([], value),
+  defp filter_empty_value([], value, _type),
     do: {:ok, value}
 
   # We only look at the first element because traversing the whole map
@@ -1955,7 +1965,7 @@ defmodule Ecto.Changeset do
   comments at once, automatically computing inserts/updates/deletes by
   comparing the data that you gave with the one already in the database.
   If your goal is to manage individual resources, such as adding a new
-  comment to a post, or update post linked to a comment, tnen it is not
+  comment to a post, or update post linked to a comment, then it is not
   necessary to use this function. We will explore this later in the
   ["Example: Adding a comment to a post" section](#put_assoc/4-example-adding-a-comment-to-a-post).
 

@@ -30,7 +30,8 @@ defmodule Ecto.Repo do
   for more information. In spite of this, the following configuration values
   are common across all adapters:
 
-    * `:name`- The name of the Repo supervisor process
+    * `:name`- The name of the Repo supervisor process. Notice that
+      it must be unique across **all repo modules**
 
     * `:priv` - the directory where to keep repository data, like
       migrations, schema and more. Defaults to "priv/YOUR_REPO".
@@ -214,6 +215,24 @@ defmodule Ecto.Repo do
 
   """
 
+  @moduledoc groups: [
+               %{title: "Query API", description: "Functions that operate on an `Ecto.Query`."},
+               %{
+                 title: "Schema API",
+                 description: "Functions that operate on an `Ecto.Schema` or a `Ecto.Changeset`."
+               },
+               %{
+                 title: "Transaction API",
+                 description: "Functions to work with database transactions and connections."
+               },
+               %{
+                 title: "Process API",
+                 description: "Functions to work with repository processes."
+               },
+               "Config API",
+               "User callbacks"
+             ]
+
   @type t :: module
 
   @doc """
@@ -223,6 +242,7 @@ defmodule Ecto.Repo do
   contains either atoms, for named Ecto repositories, or
   PIDs.
   """
+  @doc group: "Process API"
   @spec all_running() :: [atom() | pid()]
   defdelegate all_running(), to: Ecto.Repo.Registry
 
@@ -754,15 +774,15 @@ defmodule Ecto.Repo do
 
   ## Examples
 
-      MyRepo.checked_out?
+      MyRepo.checked_out?()
       #=> false
 
       MyRepo.transact(fn ->
-        MyRepo.checked_out? #=> true
+        MyRepo.checked_out?() #=> true
       end)
 
       MyRepo.checkout(fn ->
-        MyRepo.checked_out? #=> true
+        MyRepo.checked_out?() #=> true
       end)
 
   """
@@ -854,6 +874,21 @@ defmodule Ecto.Repo do
 
   From this moment on, all future queries done by the current process will
   run on `:tenant_foo`.
+
+  > ### Global repo names {: .warning}
+  >
+  > The repo name resolution is global across all repo modules. When using
+  > `put_dynamic_repo/1`, ensure you're referencing the intended repo, as
+  > it is possible to accidentally reference repos from other modules:
+  >
+  > ```elixir
+  > Repo.start_link(name: :primary)
+  > AnalyticstRepo.start_link(name: :analytics)
+  >
+  > # This works but may not be intended - queries will use AnalyticsRepo's connection
+  > Repo.put_dynamic_repo(:analytics)
+  > Repo.all(User)  # Executes against AnalyticsRepo's connection!
+  > ```
   """
   @doc group: "Process API"
   @callback put_dynamic_repo(name_or_pid :: atom() | pid()) :: atom() | pid()
@@ -1821,7 +1856,7 @@ defmodule Ecto.Repo do
   A typical example is calling `MyRepo.insert/1` with a struct
   and acting on the return value:
 
-      case MyRepo.insert %Post{title: "Ecto is great"} do
+      case MyRepo.insert(%Post{title: "Ecto is great"}) do
         {:ok, struct}       -> # Inserted with success
         {:error, changeset} -> # Something went wrong
       end
@@ -2020,8 +2055,8 @@ defmodule Ecto.Repo do
   ## Example
 
       post = MyRepo.get!(Post, 42)
-      post = Ecto.Changeset.change post, title: "New title"
-      case MyRepo.update post do
+      post = Ecto.Changeset.change(post, title: "New title")
+      case MyRepo.update(post) do
         {:ok, struct}       -> # Updated with success
         {:error, changeset} -> # Something went wrong
       end
@@ -2042,7 +2077,7 @@ defmodule Ecto.Repo do
   the database. So even if the struct exists, this won't work:
 
       struct = %Post{id: "existing_id", ...}
-      MyRepo.insert_or_update changeset
+      MyRepo.insert_or_update(changeset)
       # => {:error, changeset} # id already exists
 
   ## Options
@@ -2072,7 +2107,7 @@ defmodule Ecto.Repo do
           post -> post          # Post exists, let's use it
         end
         |> Post.changeset(changes)
-        |> MyRepo.insert_or_update
+        |> MyRepo.insert_or_update()
 
       case result do
         {:ok, struct}       -> # Inserted or updated with success
@@ -2131,7 +2166,7 @@ defmodule Ecto.Repo do
   ## Example
 
       post = MyRepo.get!(Post, 42)
-      case MyRepo.delete post do
+      case MyRepo.delete(post) do
         {:ok, struct}       -> # Deleted with success
         {:error, changeset} -> # Something went wrong
       end
@@ -2228,7 +2263,7 @@ defmodule Ecto.Repo do
       # With Ecto.Multi
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:post, %Post{})
-      |> MyRepo.transaction
+      |> MyRepo.transaction()
 
   In case of any errors the transaction will be rolled back and
   `{:error, failed_operation, failed_value, changes_so_far}` will be returned.
@@ -2479,11 +2514,11 @@ defmodule Ecto.Repo do
 
   ## Examples
 
-      MyRepo.in_transaction?
+      MyRepo.in_transaction?()
       #=> false
 
       MyRepo.transact(fn ->
-        MyRepo.in_transaction? #=> true
+        MyRepo.in_transaction?() #=> true
       end)
 
   """

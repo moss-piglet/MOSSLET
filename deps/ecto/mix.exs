@@ -2,7 +2,7 @@ defmodule Ecto.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/elixir-ecto/ecto"
-  @version "3.13.2"
+  @version "3.13.3"
 
   def project do
     [
@@ -35,7 +35,7 @@ defmodule Ecto.MixProject do
       {:telemetry, "~> 0.4 or ~> 1.0"},
       {:decimal, "~> 2.0"},
       {:jason, "~> 1.0", optional: true},
-      {:ex_doc, "~> 0.20", only: :docs}
+      {:ex_doc, "~> 0.38", only: :docs}
     ]
   end
 
@@ -43,7 +43,10 @@ defmodule Ecto.MixProject do
     [
       maintainers: ["Eric Meadows-Jönsson", "José Valim", "Felipe Stival", "Greg Rychlewski"],
       licenses: ["Apache-2.0"],
-      links: %{"GitHub" => @source_url},
+      links: %{
+        "GitHub" => @source_url,
+        "Changelog" => "https://hexdocs.pm/ecto/changelog.html"
+      },
       files:
         ~w(.formatter.exs mix.exs README.md CHANGELOG.md lib) ++
           ~w(integration_test/cases integration_test/support)
@@ -60,14 +63,6 @@ defmodule Ecto.MixProject do
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: extras(),
       groups_for_extras: groups_for_extras(),
-      groups_for_docs: [
-        group_for_function("Query API"),
-        group_for_function("Schema API"),
-        group_for_function("Transaction API"),
-        group_for_function("Process API"),
-        group_for_function("Config API"),
-        group_for_function("User callbacks")
-      ],
       groups_for_modules: [
         # Ecto,
         # Ecto.Changeset,
@@ -161,8 +156,6 @@ defmodule Ecto.MixProject do
       "CHANGELOG.md"
     ]
   end
-
-  defp group_for_function(group), do: {String.to_atom(group), &(&1[:group] == group)}
 
   defp groups_for_extras do
     [

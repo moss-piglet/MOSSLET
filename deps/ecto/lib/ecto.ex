@@ -238,7 +238,7 @@ defmodule Ecto do
       # Returns maps as defined in select
       Repo.all(query)
 
-  Queries are defined and extended with the `from` macro. The supported
+  Queries are defined and extended with the [`from`](`Ecto.Query.from/2`) macro. The supported
   keywords are:
 
     * `:distinct`
@@ -265,10 +265,10 @@ defmodule Ecto do
         from u in User, where: u.age > ^min
       end
 
-  Besides `Repo.all/1` which returns all entries, repositories also
-  provide `Repo.one/1` which returns one entry or nil, `Repo.one!/1`
-  which returns one entry or raises, `Repo.get/2` which fetches
-  entries for a particular ID and more.
+  Besides [`Repo.all/1`](`c:Ecto.Repo.all/2`) which returns all entries, repositories
+  also provide [`Repo.one/1`](`c:Ecto.Repo.one/2`) which returns one entry or `nil`,
+  [`Repo.one!/1`](`c:Ecto.Repo.one!/2`)) which returns one entry or raises,
+  [`Repo.get/2`](`c:Ecto.Repo.get/3`) which fetches entries for a particular ID and more.
 
   Finally, if you need an escape hatch, Ecto provides fragments
   (see `Ecto.Query.API.fragment/1`) to inject SQL (and non-SQL)
@@ -602,6 +602,13 @@ defmodule Ecto do
 
   @doc """
   Gets the metadata from the given struct.
+
+  For example, to check whether it has been persisted:
+
+      iex> Ecto.get_meta(changeset.data, :state)
+      :built
+
+  See `Ecto.Schema.Metadata`.
   """
   def get_meta(struct, :context),
     do: struct.__meta__.context
@@ -625,7 +632,7 @@ defmodule Ecto do
     * `:context` - changes the struct meta context
     * `:state` - changes the struct state
 
-  Please refer to the `Ecto.Schema.Metadata` module for more information.
+  See `Ecto.Schema.Metadata`.
   """
   @spec put_meta(Ecto.Schema.schema(), meta) :: Ecto.Schema.schema()
         when meta: [

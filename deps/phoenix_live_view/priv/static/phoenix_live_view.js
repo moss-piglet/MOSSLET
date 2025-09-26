@@ -3417,7 +3417,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
         apply: (fromEl, toEl) => {
           Array.from(fromEl.attributes).forEach((attr) => {
             if (attrs.some(
-              (toIgnore) => attr.name == toIgnore || toIgnore.includes("*") && attr.name.match(toIgnore) != null
+              (toIgnore) => attr.name == toIgnore || toIgnore === "*" || toIgnore.includes("*") && attr.name.match(toIgnore) != null
             )) {
               toEl.setAttribute(attr.name, attr.value);
             }
@@ -5032,7 +5032,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
               finish(null);
             }
           },
-          error: (reason) => reject(new Error(`failed with reason: ${reason}`)),
+          error: (reason) => reject(new Error(`failed with reason: ${JSON.stringify(reason)}`)),
           timeout: () => {
             reject(new Error("timeout"));
             if (this.joinCount === oldJoinCount) {
@@ -5811,7 +5811,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
     }
     // public
     version() {
-      return "1.1.12";
+      return "1.1.13";
     }
     isProfileEnabled() {
       return this.sessionStorage.getItem(PHX_LV_PROFILE) === "true";

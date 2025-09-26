@@ -164,7 +164,7 @@ defmodule Ecto.Query.API do
             )
           )
 
-  This is best used in conjunction with `parent_as` to correlate the subquery
+  This is best used in conjunction with `parent_as/1` to correlate the subquery
   with the parent query to test some condition on related rows in a different table.
   In the above example the query returns posts which have at least one comment that
   has more than 5 replies.
@@ -875,7 +875,7 @@ defmodule Ecto.Query.API do
   @doc """
   Refer to a named atom binding.
 
-  See the "Named bindings" section in `Ecto.Query` for more information.
+  See [Named Bindings](Ecto.Query.html#module-named-bindings) for more information.
   """
   def as(binding), do: doc!([binding])
 
@@ -884,7 +884,7 @@ defmodule Ecto.Query.API do
 
   This is available only inside subqueries.
 
-  See the "Named bindings" section in `Ecto.Query` for more information.
+  See [Named Bindings](Ecto.Query.html#module-named-bindings) for more information.
   """
   def parent_as(binding), do: doc!([binding])
 
