@@ -378,7 +378,6 @@ defmodule Mosslet.Timeline.Post do
   # Content warning validation
   defp validate_content_warning(changeset) do
     content_warning_enabled? = get_field(changeset, :content_warning?)
-    content_warning = get_field(changeset, :content_warning)
 
     if content_warning_enabled? do
       changeset
@@ -461,7 +460,6 @@ defmodule Mosslet.Timeline.Post do
   defp encrypt_content_warning_if_present(changeset, post_key, _opts) do
     content_warning = get_field(changeset, :content_warning)
     content_warning_category = get_field(changeset, :content_warning_category)
-    content_warning_flag = get_field(changeset, :content_warning?)
 
     changeset =
       if content_warning && String.trim(content_warning) != "" do

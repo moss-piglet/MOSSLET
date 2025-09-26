@@ -1937,7 +1937,7 @@ defmodule MossletWeb.DesignSystem do
     assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
 
     # Color-specific classes
-    focus_colors = get_custom_focus_colors(assigns.color)
+    assigns = assign(assigns, :focus_colors, get_custom_focus_colors(assigns.color))
 
     ~H"""
     <div phx-feedback-for={@name} class={["space-y-3", @class]}>
@@ -1946,7 +1946,7 @@ defmodule MossletWeb.DesignSystem do
         for={@id}
         class={[
           "block text-xs font-medium transition-colors duration-200 ease-out",
-          focus_colors.label
+          @focus_colors.label
         ]}
       >
         {@label}
@@ -1958,28 +1958,28 @@ defmodule MossletWeb.DesignSystem do
         <%!-- Enhanced liquid background effect on focus --%>
         <div class={[
           "absolute inset-0 opacity-0 transition-all duration-300 ease-out group-focus-within:opacity-100 rounded-xl",
-          focus_colors.background
+          @focus_colors.background
         ]}>
         </div>
 
         <%!-- Enhanced shimmer effect on focus --%>
         <div class={[
           "absolute inset-0 opacity-0 transition-all duration-700 ease-out group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl",
-          focus_colors.shimmer
+          @focus_colors.shimmer
         ]}>
         </div>
 
         <%!-- Focus ring with custom color --%>
         <div class={[
           "absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl group-focus-within:opacity-100 blur-sm",
-          focus_colors.focus_ring
+          @focus_colors.focus_ring
         ]}>
         </div>
 
         <%!-- Secondary focus ring for better definition --%>
         <div class={[
           "absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 group-focus-within:opacity-100",
-          focus_colors.focus_border
+          @focus_colors.focus_border
         ]}>
         </div>
 
@@ -1993,14 +1993,14 @@ defmodule MossletWeb.DesignSystem do
           class={[
             "relative block w-full rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100",
             "bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400",
-            focus_colors.border,
-            focus_colors.hover_border,
-            focus_colors.focus_border_input,
+            @focus_colors.border,
+            @focus_colors.hover_border,
+            @focus_colors.focus_border_input,
             "focus:outline-none focus:ring-0",
             "resize-none transition-all duration-200 ease-out",
             "sm:text-sm sm:leading-6",
             "shadow-sm focus:shadow-lg",
-            focus_colors.focus_shadow,
+            @focus_colors.focus_shadow,
             "focus:bg-white dark:focus:bg-slate-800",
             @errors != [] && "border-rose-400 focus:border-rose-400"
           ]}
@@ -2050,7 +2050,7 @@ defmodule MossletWeb.DesignSystem do
     assigns = assign(assigns, :errors, Enum.map(errors, &translate_error(&1)))
 
     # Color-specific classes
-    focus_colors = get_custom_focus_colors(assigns.color)
+    assigns = assign(assigns, :focus_colors, get_custom_focus_colors(assigns.color))
 
     ~H"""
     <div phx-feedback-for={@name} class={["space-y-3", @class]}>
@@ -2059,7 +2059,7 @@ defmodule MossletWeb.DesignSystem do
         for={@id}
         class={[
           "block text-xs font-medium transition-colors duration-200 ease-out",
-          focus_colors.label
+          @focus_colors.label
         ]}
       >
         {@label}
@@ -2071,28 +2071,28 @@ defmodule MossletWeb.DesignSystem do
         <%!-- Enhanced liquid background effect on focus --%>
         <div class={[
           "absolute inset-0 opacity-0 transition-all duration-300 ease-out group-focus-within:opacity-100 rounded-xl",
-          focus_colors.background
+          @focus_colors.background
         ]}>
         </div>
 
         <%!-- Enhanced shimmer effect on focus --%>
         <div class={[
           "absolute inset-0 opacity-0 transition-all duration-700 ease-out group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl",
-          focus_colors.shimmer
+          @focus_colors.shimmer
         ]}>
         </div>
 
         <%!-- Focus ring with custom color --%>
         <div class={[
           "absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl group-focus-within:opacity-100 blur-sm",
-          focus_colors.focus_ring
+          @focus_colors.focus_ring
         ]}>
         </div>
 
         <%!-- Secondary focus ring for better definition --%>
         <div class={[
           "absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 group-focus-within:opacity-100",
-          focus_colors.focus_border
+          @focus_colors.focus_border
         ]}>
         </div>
 
@@ -2103,14 +2103,14 @@ defmodule MossletWeb.DesignSystem do
           class={[
             "relative block w-full rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-slate-100",
             "bg-white dark:bg-slate-800",
-            focus_colors.border,
-            focus_colors.hover_border,
-            focus_colors.focus_border_input,
+            @focus_colors.border,
+            @focus_colors.hover_border,
+            @focus_colors.focus_border_input,
             "focus:outline-none focus:ring-0",
             "transition-all duration-200 ease-out",
             "sm:text-sm sm:leading-6",
             "shadow-sm focus:shadow-lg",
-            focus_colors.focus_shadow,
+            @focus_colors.focus_shadow,
             "focus:bg-white dark:focus:bg-slate-800",
             "appearance-none cursor-pointer",
             @errors != [] && "border-rose-400 focus:border-rose-400"
@@ -2128,7 +2128,7 @@ defmodule MossletWeb.DesignSystem do
           <svg
             class={[
               "h-5 w-5 transition-colors duration-200",
-              focus_colors.arrow
+              @focus_colors.arrow
             ]}
             viewBox="0 0 20 20"
             fill="currentColor"
