@@ -155,13 +155,15 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
     # Subscribe to timeline events for cache invalidation
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "posts")
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "replies")
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "timeline_cache")
 
     # Subscribe to user-specific events for targeted invalidation
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "users")
 
-    # Subscribe to recently active users' private post topics for cache invalidation
+    # Subscribe to recently active users' private post and reply topics for cache invalidation
     subscribe_to_active_users_private_topics()
+    subscribe_to_active_users_reply_topics()
 
     # Subscribe to all user-specific private post topics for cache invalidation
     # We'll dynamically subscribe to "priv_posts:#{user_id}" when users are active
@@ -238,6 +240,50 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     {:noreply, state}
   end
 
+  # Handle reply creation - invalidate timelines since reply counts changed
+  def handle_info({:reply_created, post, _reply}, state) do
+    Logger.debug("Cache invalidation: reply created for post #{post.id}")
+
+    # Invalidate post cache and timelines so new reply count shows immediately
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
+  # Handle reply updates
+  def handle_info({:reply_updated, post, _reply}, state) do
+    Logger.debug("Cache invalidation: reply updated for post #{post.id}")
+
+    # Invalidate post cache so changes show immediately
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
+  # Handle reply deletion
+  def handle_info({:reply_deleted, post, _reply}, state) do
+    Logger.debug("Cache invalidation: reply deleted for post #{post.id}")
+
+    # Invalidate post cache and timelines so updated reply count shows immediately
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
+  # Handle reply favorites
+  def handle_info({:reply_updated_fav, post, _reply}, state) do
+    Logger.debug("Cache invalidation: reply fav updated for post #{post.id}")
+
+    # Invalidate post cache so reply changes show immediately
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
   # Periodic cleanup of expired entries
   def handle_info(:cleanup, state) do
     Logger.debug("Running timeline cache cleanup")
@@ -310,6 +356,28 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
     Logger.info(
       "Timeline cache subscribed to #{length(recently_active_users)} active users' private and connections post topics"
+    )
+  end
+
+  # Subscribe to reply topics for recently active users
+  defp subscribe_to_active_users_reply_topics() do
+    # Get recently active users (those who posted in the last hour)
+    recently_active_users = Mosslet.Timeline.get_recently_active_users(60, 50)
+
+    Enum.each(recently_active_users, fn user ->
+      # Subscribe to private replies
+      private_reply_topic = "priv_replies:#{user.id}"
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, private_reply_topic)
+      Logger.debug("Timeline cache subscribed to private replies for user #{user.id}")
+
+      # Subscribe to connections replies
+      connections_reply_topic = "conn_replies:#{user.id}"
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_reply_topic)
+      Logger.debug("Timeline cache subscribed to connections replies for user #{user.id}")
+    end)
+
+    Logger.info(
+      "Timeline cache subscribed to #{length(recently_active_users)} active users' reply topics"
     )
   end
 
