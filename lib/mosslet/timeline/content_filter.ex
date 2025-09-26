@@ -18,11 +18,17 @@ defmodule Mosslet.Timeline.ContentFilter do
   Expects decrypted filter preferences from LiveView or Timeline context.
   """
   def filter_timeline_posts(posts, user, filter_prefs \\ %{}) do
-    posts
+    Logger.info("🔍 ContentFilter.filter_timeline_posts called with #{length(posts)} posts for user #{user.id}")
+    Logger.info("🔍 Filter preferences: #{inspect(filter_prefs)}")
+    
+    filtered_posts = posts
     |> filter_by_keywords(filter_prefs[:keywords] || [], user)
     |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
     |> filter_by_muted_users(filter_prefs[:muted_users] || [])
     |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
+    
+    Logger.info("🔍 Filtering result: #{length(posts)} -> #{length(filtered_posts)} posts")
+    filtered_posts
   end
 
   @doc """
@@ -149,16 +155,41 @@ defmodule Mosslet.Timeline.ContentFilter do
   # Private functions for filtering
 
   defp filter_by_keywords(posts, [], _user), do: posts
-
-  defp filter_by_keywords(posts, keywords, _user) do
-    # TODO: Implement keyword filtering with post content decryption
-    # For now, this is a placeholder - would need access to decrypted post content
-    Logger.info(
-      "Keyword filtering with #{length(keywords)} keywords - placeholder implementation"
-    )
-
-    posts
+  defp filter_by_keywords(posts, keywords, user) do
+    # Filter posts by content warning category (easier than decrypting post body)
+    Logger.info("Filtering #{length(posts)} posts with #{length(keywords)} keyword filters")
+    
+    # Convert keywords to lowercase MapSet for O(1) lookup performance
+    keyword_set = keywords |> Enum.map(&String.downcase/1) |> MapSet.new()
+    
+    Enum.filter(posts, fn post ->
+      not post_content_warning_matches_keywords?(post, keyword_set, user)
+    end)
   end
+  
+  # Check if post's content warning category matches any filter keywords
+  # Uses hash-based exact matching for performance and to avoid decryption
+  defp post_content_warning_matches_keywords?(post, keyword_set, _user) do
+    Logger.info("🔍 Checking post #{post.id} - content_warning?: #{post.content_warning?}, has category_hash?: #{not is_nil(post.content_warning_category_hash)}")
+    
+    cond do
+      # No content warning - doesn't match keyword filters
+      not post.content_warning? or is_nil(post.content_warning_category_hash) ->
+        Logger.info("📝 Post #{post.id} has no content warning or hash, skipping")
+        false
+        
+      # Has content warning hash - check if it matches any keyword (O(1) lookup)
+      true ->
+        Logger.info("🔎 Post #{post.id} has content warning hash: #{post.content_warning_category_hash}")
+        
+        # Direct O(1) lookup in MapSet - much faster than Enum.any?
+        match_found = MapSet.member?(keyword_set, post.content_warning_category_hash)
+        
+        Logger.info("✅ Post #{post.id} keyword match result: #{match_found}")
+        match_found
+    end
+  end
+
 
   defp filter_by_content_warnings(posts, cw_settings) do
     hide_all = Map.get(cw_settings, :hide_all, false)

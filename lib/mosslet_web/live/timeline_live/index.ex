@@ -127,29 +127,35 @@ defmodule MossletWeb.TimelineLive.Index do
     # Get the current active tab from socket assigns or default to "home"
     current_tab = socket.assigns[:active_tab] || "home"
 
-    # Load posts for the current active tab
+    # Load posts for the current active tab with content filtering applied in Timeline context
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+    
     posts =
       case current_tab do
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(options.post_per_page, 0, current_user)
+          Timeline.list_discover_posts(options.post_per_page, 0, current_user, false, content_filter_prefs)
 
         "connections" ->
           # Use dedicated Timeline function for connections
-          Timeline.list_connection_posts(current_user, options)
+          Timeline.list_connection_posts(current_user, options_with_filters)
 
         "home" ->
           # Use dedicated Timeline function for user's own posts
-          Timeline.list_user_own_posts(current_user, options)
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          # Load bookmarks with filtering applied
+          Timeline.list_user_bookmarks(current_user, filter_prefs: content_filter_prefs)
 
         _ ->
-          # Use the helper function for other tabs (groups, bookmarks)
+          # Use the helper function for other tabs (groups)
           # Pass tab information to caching system
-          options_with_tab = Map.put(options, :tab, current_tab)
+          options_with_tab = Map.put(options_with_filters, :tab, current_tab)
 
           Timeline.filter_timeline_posts(current_user, options_with_tab)
           |> apply_tab_filtering(current_tab, current_user)
-          |> ContentFilter.filter_timeline_posts(current_user)
       end
 
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
@@ -1367,21 +1373,25 @@ defmodule MossletWeb.TimelineLive.Index do
     next_page = current_page + 1
     updated_options = Map.put(current_options, :post_page, next_page)
 
-    # Load more posts for the current tab using pagination
+    # Load more posts for the current tab using pagination with content filtering
+    key = socket.assigns.key
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    updated_options_with_filters = Map.put(updated_options, :filter_prefs, content_filter_prefs)
+    
     new_posts =
       case current_tab do
         "discover" ->
           offset = loaded_count
-          Timeline.list_discover_posts(current_options.post_per_page, offset, current_user)
+          Timeline.list_discover_posts(current_options.post_per_page, offset, current_user, false, content_filter_prefs)
 
         "connections" ->
-          Timeline.list_connection_posts(current_user, updated_options)
+          Timeline.list_connection_posts(current_user, updated_options_with_filters)
 
         "home" ->
-          Timeline.list_user_own_posts(current_user, updated_options)
+          Timeline.list_user_own_posts(current_user, updated_options_with_filters)
 
         _ ->
-          Timeline.filter_timeline_posts(current_user, updated_options)
+          Timeline.filter_timeline_posts(current_user, updated_options_with_filters)
           |> apply_tab_filtering(current_tab, current_user)
       end
 
@@ -1410,24 +1420,32 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put(:timeline_tab, tab)
       |> Map.put(:post_page, 1)
 
-    # Load posts for the specific tab with proper filtering
+    # Load posts for the specific tab with content filtering applied in Timeline context
+    key = socket.assigns.key
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+    
     posts =
       case tab do
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(options.post_per_page, 0, current_user)
+          Timeline.list_discover_posts(options.post_per_page, 0, current_user, false, content_filter_prefs)
 
         "connections" ->
           # Use dedicated Timeline function for connections
-          Timeline.list_connection_posts(current_user, options)
+          Timeline.list_connection_posts(current_user, options_with_filters)
 
         "home" ->
           # Use dedicated Timeline function for user's own posts
-          Timeline.list_user_own_posts(current_user, options)
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          # Load bookmarks with filtering applied
+          Timeline.list_user_bookmarks(current_user, filter_prefs: content_filter_prefs)
 
         _ ->
-          # Use the helper function for other tabs (groups, bookmarks)
-          Timeline.filter_timeline_posts(current_user, options)
+          # Use the helper function for other tabs (groups)
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
           |> apply_tab_filtering(tab, current_user)
       end
 
@@ -2309,7 +2327,7 @@ defmodule MossletWeb.TimelineLive.Index do
       "discover" ->
         # Show public posts using dedicated Timeline function for discovery
         # Note: This should probably use Timeline.list_discover_posts instead
-        posts
+        Timeline.list_discover_posts(current_user)
 
       _ ->
         posts
@@ -2714,19 +2732,26 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
 
-    # Get fresh posts and apply filtering
+    # Get fresh posts with content filtering applied in Timeline context
+    options_with_filters = Map.put(options, :filter_prefs, fresh_filters)
+    
     posts =
       case current_tab do
         "discover" ->
-          Timeline.list_discover_posts(options.post_per_page, 0, current_user)
+          Timeline.list_discover_posts(options.post_per_page, 0, current_user, false, fresh_filters)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, options_with_filters)
 
         "home" ->
-          Timeline.list_user_own_posts(current_user, options)
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          Timeline.list_user_bookmarks(current_user, filter_prefs: fresh_filters)
 
         _ ->
-          Timeline.filter_timeline_posts(current_user, options)
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
           |> apply_tab_filtering(current_tab, current_user)
-          |> ContentFilter.filter_timeline_posts(current_user)
       end
 
     # Update the posts stream

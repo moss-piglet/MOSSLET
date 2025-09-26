@@ -21,6 +21,7 @@ defmodule Mosslet.Timeline do
     PostReport,
     PostHide,
     ContentWarningCategory,
+    ContentFilter,
     Navigation
   }
 
@@ -651,7 +652,7 @@ defmodule Mosslet.Timeline do
 
   def list_connection_posts(current_user, options) do
     # Try cache first (for first page only)
-    if !options[:skip_cache] && (options[:page] || 1) == 1 do
+    posts = if !options[:skip_cache] && (options[:page] || 1) == 1 do
       case TimelineCache.get_timeline_data(current_user.id, "connections") do
         {:hit, cached_data} ->
           Logger.debug("Connections timeline cache hit for user #{current_user.id}")
@@ -672,6 +673,9 @@ defmodule Mosslet.Timeline do
     else
       fetch_connection_posts_from_db(current_user, options)
     end
+    
+    # Always apply content filters to both cached and fresh data
+    apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
   end
 
   defp fetch_connection_posts_from_db(current_user, options) do
@@ -742,8 +746,14 @@ defmodule Mosslet.Timeline do
   @doc """
   Lists public posts for discover timeline with simple pagination.
   """
-  def list_discover_posts(limit \\ 25, offset \\ 0, current_user \\ nil, skip_cache \\ false) do
-    if current_user && !skip_cache && offset == 0 do
+  def list_discover_posts(
+        limit \\ 25,
+        offset \\ 0,
+        current_user \\ nil,
+        skip_cache \\ false,
+        filter_prefs \\ %{}
+      ) do
+    posts = if current_user && !skip_cache && offset == 0 do
       # Try cache for first page of discover posts
       case TimelineCache.get_timeline_data(current_user.id, "discover") do
         {:hit, cached_data} ->
@@ -765,6 +775,9 @@ defmodule Mosslet.Timeline do
     else
       fetch_discover_posts_from_db(current_user, limit, offset)
     end
+    
+    # Always apply content filters to both cached and fresh data
+    apply_content_filters(posts, current_user, filter_prefs)
   end
 
   defp fetch_discover_posts_from_db(current_user, limit, offset) do
@@ -801,6 +814,8 @@ defmodule Mosslet.Timeline do
       )
       |> Repo.all()
       |> add_nested_replies_to_posts()
+
+      # No filtering without user context
     end
   end
 
@@ -839,7 +854,7 @@ defmodule Mosslet.Timeline do
 
   def list_user_own_posts(current_user, options) do
     # Try cache first (for first page only)
-    if !options[:skip_cache] && (options[:page] || 1) == 1 do
+    posts = if !options[:skip_cache] && (options[:page] || 1) == 1 do
       case TimelineCache.get_timeline_data(current_user.id, "home") do
         {:hit, cached_data} ->
           Logger.debug("Home timeline cache hit for user #{current_user.id}")
@@ -860,6 +875,9 @@ defmodule Mosslet.Timeline do
     else
       fetch_user_own_posts_from_db(current_user, options)
     end
+    
+    # Always apply content filters to both cached and fresh data
+    apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
   end
 
   defp fetch_user_own_posts_from_db(current_user, options) do
@@ -2737,7 +2755,13 @@ defmodule Mosslet.Timeline do
         limit -> limit(query, ^limit)
       end
 
-    Repo.all(query)
+    posts = query
+    |> Repo.all()
+    |> Enum.map(fn bookmark -> bookmark.post end)
+    |> Enum.filter(&(&1 != nil))
+    
+    # Apply content filters to bookmarked posts
+    apply_content_filters(posts, user, opts[:filter_prefs] || %{})
   end
 
   @doc """
@@ -3517,5 +3541,23 @@ defmodule Mosslet.Timeline do
   """
   def invalidate_timeline_cache_for_user(user_id, affecting_tabs \\ nil) do
     Navigation.invalidate_timeline_cache_for_user(user_id, affecting_tabs)
+  end
+
+  @doc """
+  Applies content filters to a list of posts.
+
+  This function accepts already-decrypted filter preferences from the LiveView
+  and applies them to the posts list. It's designed to be called at the
+  end of Timeline context functions to ensure consistent filtering across
+  all timeline tabs and cached/fresh data.
+  """
+  defp apply_content_filters(posts, user, filter_prefs \\ %{}) do
+    # Skip filtering if no filter preferences provided or explicitly disabled
+    if is_nil(filter_prefs) || filter_prefs[:skip_content_filters] do
+      posts
+    else
+      # Apply filters using the ContentFilter module with already-decrypted prefs
+      ContentFilter.filter_timeline_posts(posts, user, filter_prefs)
+    end
   end
 end
