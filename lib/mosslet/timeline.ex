@@ -274,22 +274,27 @@ defmodule Mosslet.Timeline do
   Gets the total count of posts created BY the current user (for Home tab).
   This counts only posts where the user is the author, regardless of visibility.
   """
-  def count_user_own_posts(user) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: up.user_id == ^user.id and p.user_id == ^user.id
-      )
+  def count_user_own_posts(user, filter_prefs \\ %{}) do
+    if has_active_filters?(filter_prefs) do
+      # When filters are active, get posts and count after filtering
+      posts = fetch_user_own_posts_from_db(user, %{})
+      filtered_posts = apply_content_filters(posts, user, filter_prefs)
+      length(filtered_posts)
+    else
+      # When no filters, use fast database count
+      query =
+        from(p in Post,
+          inner_join: up in UserPost,
+          on: up.post_id == p.id,
+          where: up.user_id == ^user.id and p.user_id == ^user.id
+        )
 
-    count = Repo.aggregate(query, :count, :id)
+      count = Repo.aggregate(query, :count, :id)
 
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
+      case count do
+        nil -> 0
+        count -> count
+      end
     end
   end
 
@@ -320,29 +325,37 @@ defmodule Mosslet.Timeline do
   Gets the total count of posts FROM connected users accessible to current user (for Connections tab).
   This matches the filtering logic used in apply_tab_filtering.
   """
-  def count_user_connection_posts(current_user) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    if Enum.empty?(connection_user_ids) do
-      0
+  def count_user_connection_posts(current_user, filter_prefs \\ %{}) do
+    if has_active_filters?(filter_prefs) do
+      # When filters are active, get posts and count after filtering
+      posts = fetch_connection_posts_from_db(current_user, %{})
+      filtered_posts = apply_content_filters(posts, current_user, filter_prefs)
+      length(filtered_posts)
     else
-      query =
-        from(p in Post,
-          inner_join: up in UserPost,
-          on: up.post_id == p.id,
-          where: up.user_id == ^current_user.id,
-          where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-          where: p.visibility != :private
-        )
+      # When no filters, use fast database count
+      connection_user_ids =
+        Accounts.get_all_confirmed_user_connections(current_user.id)
+        |> Enum.map(& &1.reverse_user_id)
+        |> Enum.uniq()
 
-      count = Repo.aggregate(query, :count, :id)
+      if Enum.empty?(connection_user_ids) do
+        0
+      else
+        query =
+          from(p in Post,
+            inner_join: up in UserPost,
+            on: up.post_id == p.id,
+            where: up.user_id == ^current_user.id,
+            where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
+            where: p.visibility != :private
+          )
 
-      case count do
-        nil -> 0
-        count -> count
+        count = Repo.aggregate(query, :count, :id)
+
+        case count do
+          nil -> 0
+          count -> count
+        end
       end
     end
   end
@@ -652,28 +665,29 @@ defmodule Mosslet.Timeline do
 
   def list_connection_posts(current_user, options) do
     # Try cache first (for first page only)
-    posts = if !options[:skip_cache] && (options[:page] || 1) == 1 do
-      case TimelineCache.get_timeline_data(current_user.id, "connections") do
-        {:hit, cached_data} ->
-          Logger.debug("Connections timeline cache hit for user #{current_user.id}")
-          cached_data[:posts] || []
+    posts =
+      if !options[:skip_cache] && (options[:page] || 1) == 1 do
+        case TimelineCache.get_timeline_data(current_user.id, "connections") do
+          {:hit, cached_data} ->
+            Logger.debug("Connections timeline cache hit for user #{current_user.id}")
+            cached_data[:posts] || []
 
-        :miss ->
-          posts = fetch_connection_posts_from_db(current_user, options)
+          :miss ->
+            posts = fetch_connection_posts_from_db(current_user, options)
 
-          timeline_data = %{
-            posts: posts,
-            post_count: length(posts),
-            fetched_at: System.system_time(:millisecond)
-          }
+            timeline_data = %{
+              posts: posts,
+              post_count: length(posts),
+              fetched_at: System.system_time(:millisecond)
+            }
 
-          TimelineCache.cache_timeline_data(current_user.id, "connections", timeline_data)
-          posts
+            TimelineCache.cache_timeline_data(current_user.id, "connections", timeline_data)
+            posts
+        end
+      else
+        fetch_connection_posts_from_db(current_user, options)
       end
-    else
-      fetch_connection_posts_from_db(current_user, options)
-    end
-    
+
     # Always apply content filters to both cached and fresh data
     apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
   end
@@ -753,29 +767,30 @@ defmodule Mosslet.Timeline do
         skip_cache \\ false,
         filter_prefs \\ %{}
       ) do
-    posts = if current_user && !skip_cache && offset == 0 do
-      # Try cache for first page of discover posts
-      case TimelineCache.get_timeline_data(current_user.id, "discover") do
-        {:hit, cached_data} ->
-          Logger.debug("Discover timeline cache hit for user #{current_user.id}")
-          cached_data[:posts] || []
+    posts =
+      if current_user && !skip_cache && offset == 0 do
+        # Try cache for first page of discover posts
+        case TimelineCache.get_timeline_data(current_user.id, "discover") do
+          {:hit, cached_data} ->
+            Logger.debug("Discover timeline cache hit for user #{current_user.id}")
+            cached_data[:posts] || []
 
-        :miss ->
-          posts = fetch_discover_posts_from_db(current_user, limit, offset)
+          :miss ->
+            posts = fetch_discover_posts_from_db(current_user, limit, offset)
 
-          timeline_data = %{
-            posts: posts,
-            post_count: length(posts),
-            fetched_at: System.system_time(:millisecond)
-          }
+            timeline_data = %{
+              posts: posts,
+              post_count: length(posts),
+              fetched_at: System.system_time(:millisecond)
+            }
 
-          TimelineCache.cache_timeline_data(current_user.id, "discover", timeline_data)
-          posts
+            TimelineCache.cache_timeline_data(current_user.id, "discover", timeline_data)
+            posts
+        end
+      else
+        fetch_discover_posts_from_db(current_user, limit, offset)
       end
-    else
-      fetch_discover_posts_from_db(current_user, limit, offset)
-    end
-    
+
     # Always apply content filters to both cached and fresh data
     apply_content_filters(posts, current_user, filter_prefs)
   end
@@ -822,13 +837,22 @@ defmodule Mosslet.Timeline do
   @doc """
   Counts public posts for discover timeline.
   """
-  def count_discover_posts do
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.visibility == :public
-    )
-    |> Repo.aggregate(:count, :id)
+  def count_discover_posts(current_user \\ nil, filter_prefs \\ %{}) do
+    if current_user && has_active_filters?(filter_prefs) do
+      # When filters are active, get posts and count after filtering
+      # Get large sample for counting
+      posts = fetch_discover_posts_from_db(current_user, 1000, 0)
+      filtered_posts = apply_content_filters(posts, current_user, filter_prefs)
+      length(filtered_posts)
+    else
+      # When no filters, use fast database count
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: p.visibility == :public
+      )
+      |> Repo.aggregate(:count, :id)
+    end
   end
 
   @doc """
@@ -854,28 +878,29 @@ defmodule Mosslet.Timeline do
 
   def list_user_own_posts(current_user, options) do
     # Try cache first (for first page only)
-    posts = if !options[:skip_cache] && (options[:page] || 1) == 1 do
-      case TimelineCache.get_timeline_data(current_user.id, "home") do
-        {:hit, cached_data} ->
-          Logger.debug("Home timeline cache hit for user #{current_user.id}")
-          cached_data[:posts] || []
+    posts =
+      if !options[:skip_cache] && (options[:page] || 1) == 1 do
+        case TimelineCache.get_timeline_data(current_user.id, "home") do
+          {:hit, cached_data} ->
+            Logger.debug("Home timeline cache hit for user #{current_user.id}")
+            cached_data[:posts] || []
 
-        :miss ->
-          posts = fetch_user_own_posts_from_db(current_user, options)
+          :miss ->
+            posts = fetch_user_own_posts_from_db(current_user, options)
 
-          timeline_data = %{
-            posts: posts,
-            post_count: length(posts),
-            fetched_at: System.system_time(:millisecond)
-          }
+            timeline_data = %{
+              posts: posts,
+              post_count: length(posts),
+              fetched_at: System.system_time(:millisecond)
+            }
 
-          TimelineCache.cache_timeline_data(current_user.id, "home", timeline_data)
-          posts
+            TimelineCache.cache_timeline_data(current_user.id, "home", timeline_data)
+            posts
+        end
+      else
+        fetch_user_own_posts_from_db(current_user, options)
       end
-    else
-      fetch_user_own_posts_from_db(current_user, options)
-    end
-    
+
     # Always apply content filters to both cached and fresh data
     apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
   end
@@ -2755,11 +2780,12 @@ defmodule Mosslet.Timeline do
         limit -> limit(query, ^limit)
       end
 
-    posts = query
-    |> Repo.all()
-    |> Enum.map(fn bookmark -> bookmark.post end)
-    |> Enum.filter(&(&1 != nil))
-    
+    posts =
+      query
+      |> Repo.all()
+      |> Enum.map(fn bookmark -> bookmark.post end)
+      |> Enum.filter(&(&1 != nil))
+
     # Apply content filters to bookmarked posts
     apply_content_filters(posts, user, opts[:filter_prefs] || %{})
   end
@@ -2767,9 +2793,26 @@ defmodule Mosslet.Timeline do
   @doc """
   Counts a user's bookmarks.
   """
-  def count_user_bookmarks(user) do
-    query = from b in Bookmark, where: b.user_id == ^user.id
-    Repo.aggregate(query, :count)
+  def count_user_bookmarks(user, filter_prefs \\ %{}) do
+    if has_active_filters?(filter_prefs) do
+      # When filters are active, get bookmarked posts and count after filtering
+      posts =
+        from(b in Bookmark,
+          where: b.user_id == ^user.id,
+          preload: [post: :replies],
+          order_by: [desc: b.inserted_at]
+        )
+        |> Repo.all()
+        |> Enum.map(fn bookmark -> bookmark.post end)
+        |> Enum.filter(&(&1 != nil))
+
+      filtered_posts = apply_content_filters(posts, user, filter_prefs)
+      length(filtered_posts)
+    else
+      # When no filters, use fast database count
+      query = from b in Bookmark, where: b.user_id == ^user.id
+      Repo.aggregate(query, :count)
+    end
   end
 
   @doc """
@@ -3559,5 +3602,19 @@ defmodule Mosslet.Timeline do
       # Apply filters using the ContentFilter module with already-decrypted prefs
       ContentFilter.filter_timeline_posts(posts, user, filter_prefs)
     end
+  end
+
+  @doc """
+  Checks if the user has active content filters.
+  """
+  defp has_active_filters?(filter_prefs) when is_nil(filter_prefs), do: false
+
+  defp has_active_filters?(filter_prefs) do
+    keywords_active = length(filter_prefs[:keywords] || []) > 0
+    cw_active = Map.get(filter_prefs[:content_warnings] || %{}, :hide_all, false)
+    users_active = length(filter_prefs[:muted_users] || []) > 0
+    reposts_active = Map.get(filter_prefs, :hide_reposts, false)
+
+    keywords_active || cw_active || users_active || reposts_active
   end
 end

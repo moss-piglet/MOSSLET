@@ -130,12 +130,18 @@ defmodule MossletWeb.TimelineLive.Index do
     # Load posts for the current active tab with content filtering applied in Timeline context
     content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
-    
+
     posts =
       case current_tab do
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(options.post_per_page, 0, current_user, false, content_filter_prefs)
+          Timeline.list_discover_posts(
+            options.post_per_page,
+            0,
+            current_user,
+            false,
+            content_filter_prefs
+          )
 
         "connections" ->
           # Use dedicated Timeline function for connections
@@ -161,8 +167,9 @@ defmodule MossletWeb.TimelineLive.Index do
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
 
     # Calculate timeline counts for tabs using the new helper function
-    timeline_counts = calculate_timeline_counts(current_user, options)
-    unread_counts = calculate_unread_counts(current_user, options)
+    options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
     # Track pagination state for load more functionality
     loaded_posts_count = length(posts)
@@ -918,7 +925,10 @@ defmodule MossletWeb.TimelineLive.Index do
                 |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
               # Recalculate unread counts after toggling read status
-              unread_counts = calculate_unread_counts(current_user, options)
+              key = socket.assigns.key
+              content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+              options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
+              unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
               socket =
                 socket
@@ -1377,12 +1387,19 @@ defmodule MossletWeb.TimelineLive.Index do
     key = socket.assigns.key
     content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
     updated_options_with_filters = Map.put(updated_options, :filter_prefs, content_filter_prefs)
-    
+
     new_posts =
       case current_tab do
         "discover" ->
           offset = loaded_count
-          Timeline.list_discover_posts(current_options.post_per_page, offset, current_user, false, content_filter_prefs)
+
+          Timeline.list_discover_posts(
+            current_options.post_per_page,
+            offset,
+            current_user,
+            false,
+            content_filter_prefs
+          )
 
         "connections" ->
           Timeline.list_connection_posts(current_user, updated_options_with_filters)
@@ -1424,12 +1441,18 @@ defmodule MossletWeb.TimelineLive.Index do
     key = socket.assigns.key
     content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
-    
+
     posts =
       case tab do
         "discover" ->
           # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(options.post_per_page, 0, current_user, false, content_filter_prefs)
+          Timeline.list_discover_posts(
+            options.post_per_page,
+            0,
+            current_user,
+            false,
+            content_filter_prefs
+          )
 
         "connections" ->
           # Use dedicated Timeline function for connections
@@ -1449,9 +1472,10 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(tab, current_user)
       end
 
-    # Update tab counts using proper counting logic
-    timeline_counts = calculate_timeline_counts(current_user, options)
-    unread_counts = calculate_unread_counts(current_user, options)
+    # Update tab counts using proper counting logic with filter support
+    options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
     # Reset pagination state when switching tabs
     loaded_posts_count = length(posts)
@@ -2414,25 +2438,30 @@ defmodule MossletWeb.TimelineLive.Index do
     url |> String.split("/") |> List.last()
   end
 
-  # Helper function to calculate remaining posts for the current tab
+  # Helper function to calculate remaining posts for the current tab (accounts for content filtering)
   defp calculate_remaining_posts(timeline_counts, active_tab, loaded_posts_count) do
-    total_posts = Map.get(timeline_counts, String.to_atom(active_tab), 0)
-    max(0, total_posts - loaded_posts_count)
+    # Use filtered_total_posts instead of raw database counts
+    # This ensures the "load more" button reflects actual available posts after filtering
+    filtered_total_posts = Map.get(timeline_counts, String.to_atom(active_tab), 0)
+    max(0, filtered_total_posts - loaded_posts_count)
   end
 
   # Helper function to calculate timeline counts for all tabs
-  defp calculate_timeline_counts(current_user, _options) do
+  # Now supports accurate filtered counts for "load more" functionality
+  defp calculate_timeline_counts(current_user, options) do
+    # Get content filter preferences if available in assigns
+    content_filter_prefs =
+      options[:content_filter_prefs] ||
+        load_and_decrypt_content_filters(current_user, options[:key])
+
     %{
-      # Home tab: count TOTAL posts created BY the current user only
-      home: Timeline.count_user_own_posts(current_user),
-      # Connections tab: count TOTAL posts FROM connected users shared with current user
-      connections: Timeline.count_user_connection_posts(current_user),
-      # Groups tab: count TOTAL group posts accessible to current user
+      # All counts now support filtering for accurate "load more" estimates
+      home: Timeline.count_user_own_posts(current_user, content_filter_prefs),
+      connections: Timeline.count_user_connection_posts(current_user, content_filter_prefs),
+      # TODO: Add filter support
       groups: Timeline.count_user_group_posts(current_user),
-      # Bookmarks tab: count TOTAL bookmarked posts
-      bookmarks: Timeline.count_user_bookmarks(current_user),
-      # Discover tab: count TOTAL public posts
-      discover: Timeline.count_discover_posts()
+      bookmarks: Timeline.count_user_bookmarks(current_user, content_filter_prefs),
+      discover: Timeline.count_discover_posts(current_user, content_filter_prefs)
     }
   end
 
@@ -2734,11 +2763,17 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Get fresh posts with content filtering applied in Timeline context
     options_with_filters = Map.put(options, :filter_prefs, fresh_filters)
-    
+
     posts =
       case current_tab do
         "discover" ->
-          Timeline.list_discover_posts(options.post_per_page, 0, current_user, false, fresh_filters)
+          Timeline.list_discover_posts(
+            options.post_per_page,
+            0,
+            current_user,
+            false,
+            fresh_filters
+          )
 
         "connections" ->
           Timeline.list_connection_posts(current_user, options_with_filters)
