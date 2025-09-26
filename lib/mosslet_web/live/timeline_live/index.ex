@@ -11,7 +11,7 @@ defmodule MossletWeb.TimelineLive.Index do
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
   alias Mosslet.Timeline
-  alias Mosslet.Timeline.{Post, Reply}
+  alias Mosslet.Timeline.{Post, Reply, ContentFilter}
 
   @post_page_default 1
   @post_per_page_default 10
@@ -149,6 +149,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
           Timeline.filter_timeline_posts(current_user, options_with_tab)
           |> apply_tab_filtering(current_tab, current_user)
+          |> ContentFilter.filter_timeline_posts(current_user)
       end
 
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
@@ -177,6 +178,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:options, options)
       |> assign(:return_url, url)
       |> assign(:filter, filter)
+      |> assign(:content_filters, ContentFilter.get_user_filter_preferences(current_user.id))
+      |> assign(:show_content_filter, false)
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
       |> assign(:loaded_posts_count, loaded_posts_count)
@@ -1033,6 +1036,11 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, cancel_upload(socket, :photos, ref)}
   end
 
+  def handle_event("toggle_content_filter", _params, socket) do
+    current_state = socket.assigns.show_content_filter
+    {:noreply, assign(socket, :show_content_filter, !current_state)}
+  end
+
   def handle_event("composer_toggle_content_warning", _params, socket) do
     # Toggle content warning state
     current_state = socket.assigns.content_warning_enabled?
@@ -1164,6 +1172,72 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:post, %Post{})
 
     {:noreply, socket}
+  end
+
+  # Content filtering event handlers
+  def handle_event("add_keyword_filter", %{"value" => keyword}, socket) do
+    current_user = socket.assigns.current_user
+
+    case ContentFilter.add_keyword_filter(current_user.id, keyword) do
+      {:ok, new_prefs} ->
+        # Refresh timeline with new filters
+        socket = refresh_timeline_with_filters(socket, new_prefs)
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Invalid keyword")}
+    end
+  end
+
+  def handle_event("remove_keyword_filter", %{"keyword" => keyword}, socket) do
+    current_user = socket.assigns.current_user
+
+    {:ok, new_prefs} = ContentFilter.remove_keyword_filter(current_user.id, keyword)
+    socket = refresh_timeline_with_filters(socket, new_prefs)
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_content_warning_filter", %{"type" => filter_type}, socket) do
+    current_user = socket.assigns.current_user
+    filter_type_atom = String.to_atom(filter_type)
+
+    {:ok, new_prefs} =
+      ContentFilter.toggle_content_warning_filter(current_user.id, filter_type_atom)
+
+    socket = refresh_timeline_with_filters(socket, new_prefs)
+    {:noreply, socket}
+  end
+
+  def handle_event("hide_user", %{"user_id" => user_id}, socket) do
+    current_user = socket.assigns.current_user
+    target_user_id = String.to_integer(user_id)
+
+    {:ok, new_prefs} = ContentFilter.hide_user(current_user.id, target_user_id)
+    socket = refresh_timeline_with_filters(socket, new_prefs)
+    {:noreply, put_flash(socket, :info, "User hidden from timeline")}
+  end
+
+  def handle_event("unhide_user", %{"user_id" => user_id}, socket) do
+    current_user = socket.assigns.current_user
+    target_user_id = String.to_integer(user_id)
+
+    {:ok, new_prefs} = ContentFilter.unhide_user(current_user.id, target_user_id)
+    socket = refresh_timeline_with_filters(socket, new_prefs)
+    {:noreply, put_flash(socket, :info, "User unhidden from timeline")}
+  end
+
+  def handle_event("clear_all_filters", _params, socket) do
+    current_user = socket.assigns.current_user
+
+    clear_prefs = %{
+      keywords: [],
+      content_warnings: %{hide_all: false, auto_expand: false},
+      hidden_users: []
+    }
+
+    {:ok, new_prefs} = ContentFilter.update_filter_preferences(current_user.id, clear_prefs)
+    socket = refresh_timeline_with_filters(socket, new_prefs)
+    {:noreply, put_flash(socket, :info, "All filters cleared")}
   end
 
   def handle_event("live_select_change", %{"id" => id, "text" => text}, socket) do
@@ -2555,5 +2629,43 @@ defmodule MossletWeb.TimelineLive.Index do
       diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
     end
+  end
+
+  # Helper function to check if user has active content filters
+  defp has_active_filters?(filters) do
+    keywords_active = length(filters.keywords || []) > 0
+    cw_active = Map.get(filters.content_warnings || %{}, :hide_all, false)
+    users_active = length(filters.hidden_users || []) > 0
+
+    keywords_active || cw_active || users_active
+  end
+
+  # Helper function to refresh timeline with new filters
+  defp refresh_timeline_with_filters(socket, new_prefs) do
+    # Update content filters assign
+    socket = assign(socket, :content_filters, new_prefs)
+
+    # Refresh current timeline posts with new filters applied
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+
+    # Get fresh posts and apply filtering
+    posts =
+      case current_tab do
+        "discover" ->
+          Timeline.list_discover_posts(options.post_per_page, 0, current_user)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, options)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options)
+          |> apply_tab_filtering(current_tab, current_user)
+          |> ContentFilter.filter_timeline_posts(current_user)
+      end
+
+    # Update the posts stream
+    stream(socket, :posts, posts, reset: true)
   end
 end

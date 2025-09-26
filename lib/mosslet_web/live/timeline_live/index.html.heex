@@ -26,40 +26,79 @@
 
       <%!-- Timeline navigation tabs with Bookmarks --%>
       <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 p-2">
-        <MossletWeb.DesignSystem.liquid_timeline_tabs
-          tabs={[
-            %{
-              key: "home",
-              label: "Home",
-              count: @timeline_counts.home || 12,
-              unread: @unread_counts.home || 0
-            },
-            %{
-              key: "connections",
-              label: "Connections",
-              count: @timeline_counts.connections || 4,
-              unread: @unread_counts.connections || 0
-            },
-            %{
-              key: "groups",
-              label: "Groups",
-              count: @timeline_counts.groups || 2,
-              unread: @unread_counts.groups || 0
-            },
-            %{
-              key: "bookmarks",
-              label: "Bookmarks",
-              count: @timeline_counts.bookmarks || 8,
-              unread: @unread_counts.bookmarks || 0
-            },
-            %{
-              key: "discover",
-              label: "Discover",
-              count: @timeline_counts.discover || 0,
-              unread: @unread_counts.discover || 0
-            }
-          ]}
-          active_tab={@active_tab || "home"}
+        <div class="flex items-center justify-between sm:justify-center gap-4 lg:gap-6">
+          <MossletWeb.DesignSystem.liquid_timeline_tabs
+            tabs={[
+              %{
+                key: "home",
+                label: "Home",
+                count: @timeline_counts.home || 12,
+                unread: @unread_counts.home || 0
+              },
+              %{
+                key: "connections",
+                label: "Connections",
+                count: @timeline_counts.connections || 4,
+                unread: @unread_counts.connections || 0
+              },
+              %{
+                key: "groups",
+                label: "Groups",
+                count: @timeline_counts.groups || 2,
+                unread: @unread_counts.groups || 0
+              },
+              %{
+                key: "bookmarks",
+                label: "Bookmarks",
+                count: @timeline_counts.bookmarks || 8,
+                unread: @unread_counts.bookmarks || 0
+              },
+              %{
+                key: "discover",
+                label: "Discover",
+                count: @timeline_counts.discover || 0,
+                unread: @unread_counts.discover || 0
+              }
+            ]}
+            active_tab={@active_tab || "home"}
+          />
+
+          <%!-- Content Filter Toggle --%>
+          <button
+            type="button"
+            class={[
+              "p-2.5 rounded-xl transition-all duration-200 ease-out group relative overflow-hidden",
+              if(@show_content_filter,
+                do:
+                  "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+                else:
+                  "text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20"
+              )
+            ]}
+            phx-click="toggle_content_filter"
+            title="Content Filters"
+          >
+            <.phx_icon
+              name="hero-funnel"
+              class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
+            />
+
+            <%!-- Filter count badge --%>
+            <div
+              :if={has_active_filters?(@content_filters)}
+              class="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full flex items-center justify-center"
+            >
+              <div class="h-1.5 w-1.5 bg-white rounded-full"></div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <%!-- Content Filtering Panel --%>
+      <div :if={@show_content_filter} class="mb-6">
+        <MossletWeb.TimelineContentFilter.liquid_content_filter
+          filters={@content_filters}
+          class="animate-in slide-in-from-top-2 duration-300"
         />
       </div>
 
