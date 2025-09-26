@@ -3594,7 +3594,7 @@ defmodule Mosslet.Timeline do
   end of Timeline context functions to ensure consistent filtering across
   all timeline tabs and cached/fresh data.
   """
-  defp apply_content_filters(posts, user, filter_prefs \\ %{}) do
+  def apply_content_filters(posts, user, filter_prefs \\ %{}) do
     # Skip filtering if no filter preferences provided or explicitly disabled
     if is_nil(filter_prefs) || filter_prefs[:skip_content_filters] do
       posts
@@ -3607,9 +3607,9 @@ defmodule Mosslet.Timeline do
   @doc """
   Checks if the user has active content filters.
   """
-  defp has_active_filters?(filter_prefs) when is_nil(filter_prefs), do: false
+  def has_active_filters?(filter_prefs) when is_nil(filter_prefs), do: false
 
-  defp has_active_filters?(filter_prefs) do
+  def has_active_filters?(filter_prefs) do
     keywords_active = length(filter_prefs[:keywords] || []) > 0
     cw_active = Map.get(filter_prefs[:content_warnings] || %{}, :hide_all, false)
     users_active = length(filter_prefs[:muted_users] || []) > 0

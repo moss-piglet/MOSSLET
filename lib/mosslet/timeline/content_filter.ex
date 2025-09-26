@@ -8,7 +8,6 @@ defmodule Mosslet.Timeline.ContentFilter do
   """
 
   alias Mosslet.Timeline.{Performance.TimelineCache, UserTimelinePreferences}
-  alias Mosslet.Encrypted.Users.Utils, as: EncryptionUtils
   require Logger
 
   @doc """
@@ -251,7 +250,7 @@ defmodule Mosslet.Timeline.ContentFilter do
         %{
           # Will be decrypted in LiveView
           keywords: [],
-          # Will be decrypted in LiveView  
+          # Will be decrypted in LiveView
           muted_users: [],
           content_warnings: %{hide_all: prefs.hide_mature_content || false},
           hide_reposts: prefs.hide_reposts || false,
