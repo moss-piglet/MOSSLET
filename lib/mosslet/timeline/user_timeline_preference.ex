@@ -1,4 +1,4 @@
-defmodule Mosslet.Timeline.USerTimelinePreference do
+defmodule Mosslet.Timeline.UserTimelinePreference do
   @moduledoc """
   User preferences for timeline navigation and display.
 

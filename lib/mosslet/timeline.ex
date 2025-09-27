@@ -16,7 +16,7 @@ defmodule Mosslet.Timeline do
     Reply,
     UserPost,
     UserPostReceipt,
-    USerTimelinePreference,
+    UserTimelinePreference,
     Bookmark,
     BookmarkCategory,
     PostReport,
@@ -3631,26 +3631,26 @@ defmodule Mosslet.Timeline do
   @doc """
   Gets or creates user timeline preferences.
   """
-  def get_user_timeline_preferences(user) do
+  def get_user_timeline_preference(user) do
     Navigation.get_user_preferences(user)
   end
 
   @doc """
   Updates user timeline preferences.
   """
-  def update_user_timeline_preferences(user, attrs, opts \\ []) do
+  def update_user_timeline_preference(user, attrs, opts \\ []) do
     Navigation.update_user_preferences(user, attrs, opts)
   end
 
   @doc """
-  Creates a changeset for USerTimelinePreference.
+  Creates a changeset for UserTimelinePreference.
   """
-  def change_user_timeline_preferences(
-        preferences \\ %USerTimelinePreference{},
+  def change_user_timeline_preference(
+        preferences \\ %UserTimelinePreference{},
         attrs \\ %{},
         opts \\ []
       ) do
-    USerTimelinePreference.changeset(preferences, attrs, opts)
+    UserTimelinePreference.changeset(preferences, attrs, opts)
   end
 
   @doc """

@@ -3,11 +3,11 @@ defmodule Mosslet.Timeline.ContentFilter do
   Content filtering system for timeline posts.
 
   Provides keyword filtering, content warning management, and user muting
-  functionality. Aligns with USerTimelinePreference schema and integrates
+  functionality. Aligns with UserTimelinePreference schema and integrates
   with Timeline functions for actual post filtering.
   """
 
-  alias Mosslet.Timeline.{Performance.TimelineCache, USerTimelinePreference}
+  alias Mosslet.Timeline.{Performance.TimelineCache, UserTimelinePreference}
   require Logger
 
   @doc """
@@ -231,7 +231,7 @@ defmodule Mosslet.Timeline.ContentFilter do
   defp load_user_filter_preferences(user_id) do
     Logger.info("Loading user filter preferences for user #{user_id}")
 
-    case Mosslet.Repo.get_by(USerTimelinePreference, user_id: user_id) do
+    case Mosslet.Repo.get_by(UserTimelinePreference, user_id: user_id) do
       nil ->
         Logger.info("No preferences found, returning defaults")
 
@@ -265,8 +265,8 @@ defmodule Mosslet.Timeline.ContentFilter do
 
     # Get or create user timeline preferences
     prefs =
-      case Mosslet.Repo.get_by(USerTimelinePreference, user_id: user_id) do
-        nil -> %USerTimelinePreference{user_id: user_id}
+      case Mosslet.Repo.get_by(UserTimelinePreference, user_id: user_id) do
+        nil -> %UserTimelinePreference{user_id: user_id}
         existing -> existing
       end
 
@@ -321,7 +321,7 @@ defmodule Mosslet.Timeline.ContentFilter do
       end
 
     # Update preferences using schema encryption
-    changeset = USerTimelinePreference.changeset(prefs, attrs, opts)
+    changeset = UserTimelinePreference.changeset(prefs, attrs, opts)
 
     case Mosslet.Repo.transaction_on_primary(fn ->
            Mosslet.Repo.insert_or_update(changeset)

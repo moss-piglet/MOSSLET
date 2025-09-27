@@ -1192,7 +1192,7 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Content filtering event handlers
-  def handle_event("add_keyword_filter", %{"user_timeline_preferences" => params}, socket) do
+  def handle_event("add_keyword_filter", %{"user_timeline_preference" => params}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
@@ -2844,8 +2844,8 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper function to load and decrypt content filters
   defp load_and_decrypt_content_filters(user, _key) do
     # Get preferences - StringList handles decryption automatically
-    case Timeline.get_user_timeline_preferences(user) do
-      %Timeline.USerTimelinePreference{} = prefs ->
+    case Timeline.get_user_timeline_preference(user) do
+      %Timeline.UserTimelinePreference{} = prefs ->
         # StringList type handles decryption automatically, so keywords are already a list
         decrypted_keywords = prefs.mute_keywords || []
 
@@ -2886,11 +2886,11 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Get existing preferences or create a new struct for the form
     preferences =
-      Timeline.get_user_timeline_preferences(current_user) ||
-        %Timeline.USerTimelinePreference{user_id: current_user.id}
+      Timeline.get_user_timeline_preference(current_user) ||
+        %Timeline.UserTimelinePreference{user_id: current_user.id}
 
     # Create changeset for form with empty mute_keywords selection using Timeline context
-    changeset = Timeline.change_user_timeline_preferences(preferences, %{"mute_keywords" => ""})
+    changeset = Timeline.change_user_timeline_preference(preferences, %{"mute_keywords" => ""})
 
     # Create an updated content_filters map with the form
     current_filters = socket.assigns[:content_filters] || %{}
