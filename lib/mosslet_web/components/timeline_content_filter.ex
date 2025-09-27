@@ -74,6 +74,7 @@ defmodule MossletWeb.TimelineContentFilter do
           <.keyword_filter_input
             current_keywords={@filters.keywords || []}
             mobile_friendly={@mobile_friendly}
+            form={@filters.keyword_form}
           />
         </.filter_section>
 
@@ -133,37 +134,40 @@ defmodule MossletWeb.TimelineContentFilter do
   end
 
   @doc """
-  Keyword filter input with tag-style interface.
+  Keyword filter using form-based liquid_select_custom component for proper sanitization.
   """
   attr :current_keywords, :list, default: []
   attr :mobile_friendly, :boolean, default: true
+  attr :form, :any, required: true
 
   def keyword_filter_input(assigns) do
     ~H"""
-    <div class="space-y-3">
-      <%!-- Enhanced keyword input with liquid styling --%>
-      <div class="relative group/input">
-        <div class="absolute inset-0 opacity-0 group-focus-within/input:opacity-100 transition-all duration-300 bg-gradient-to-r from-emerald-50/50 via-teal-50/30 to-cyan-50/50 dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/20 rounded-xl blur-sm">
-        </div>
-        <input
-          id="keyword-filter-input"
-          type="text"
-          placeholder="Type keyword and press Enter..."
-          class={[
-            "relative w-full px-4 py-3 text-sm",
-            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
-            "border border-slate-200/60 dark:border-slate-600/60",
-            "rounded-xl transition-all duration-200",
-            "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/60",
-            "focus:bg-white/95 dark:focus:bg-slate-800/95",
-            "placeholder:text-slate-500 dark:placeholder:text-slate-400",
-            "hover:border-emerald-300/50 dark:hover:border-emerald-600/50"
+    <div class="space-y-4">
+      <%!-- Form for adding keywords with proper validation --%>
+      <.form for={@form} id="keyword-filter-form" phx-submit="add_keyword_filter">
+        <.liquid_select_custom
+          field={@form[:mute_keywords]}
+          label="Add keyword filter"
+          prompt="Select a category to filter..."
+          color="emerald"
+          class="text-sm"
+          options={[
+            {"Mental Health", "mental_health"},
+            {"Violence", "violence"},
+            {"Substance Use", "substance_use"},
+            {"Politics", "politics"},
+            {"Personal/Sensitive", "personal"},
+            {"Other", "other"}
           ]}
-          phx-keydown="add_keyword_filter"
-          phx-key="Enter"
-          phx-hook="KeywordFilterInput"
+          help="Select content categories to hide from your timeline"
         />
-      </div>
+        
+        <div class="flex justify-end mt-3">
+          <.liquid_button type="submit" size="sm" color="emerald">
+            Add Filter
+          </.liquid_button>
+        </div>
+      </.form>
 
       <%!-- Enhanced keyword tags with liquid styling --%>
       <div :if={@current_keywords != []} class="flex flex-wrap gap-2.5">
@@ -181,7 +185,7 @@ defmodule MossletWeb.TimelineContentFilter do
             "shadow-sm hover:shadow-md hover:shadow-emerald-500/20"
           ]}
         >
-          <span class="font-medium">{keyword}</span>
+          <span class="font-medium">{format_keyword_label(keyword)}</span>
           <button
             type="button"
             class={[
@@ -199,7 +203,7 @@ defmodule MossletWeb.TimelineContentFilter do
       </div>
 
       <p class="text-xs text-slate-500 dark:text-slate-400">
-        Posts containing these keywords will be hidden from your timeline
+        Posts containing content in these categories will be hidden from your timeline
       </p>
     </div>
     """
@@ -323,4 +327,20 @@ defmodule MossletWeb.TimelineContentFilter do
     </label>
     """
   end
+
+  # Helper function to format keyword labels for display.
+  # Uses the same categories as content warning functionality.
+  defp format_keyword_label(keyword) when is_binary(keyword) do
+    case keyword do
+      "mental_health" -> "Mental Health"
+      "violence" -> "Violence"
+      "substance_use" -> "Substance Use"
+      "politics" -> "Politics"
+      "personal" -> "Personal/Sensitive"
+      "other" -> "Other"
+      _ -> String.capitalize(keyword)
+    end
+  end
+
+  defp format_keyword_label(_), do: "Unknown Category"
 end

@@ -187,6 +187,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:filter, filter)
       |> assign(:content_filters, load_and_decrypt_content_filters(current_user, key))
       |> assign(:show_content_filter, false)
+      |> assign_keyword_filter_form()
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
       |> assign(:loaded_posts_count, loaded_posts_count)
@@ -1190,37 +1191,45 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  # Content filtering event handlers
-  def handle_event("add_keyword_filter", %{"value" => keyword}, socket) do
+  # Content filtering event handlers  
+  def handle_event("add_keyword_filter", %{"user_timeline_preferences" => params}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # Get the keyword from the input value
-    keyword_to_add = String.trim(keyword)
+    # Get the selected category from the form
+    mute_keyword = params["mute_keywords"]
 
-    if keyword_to_add != "" do
+    if mute_keyword != "" do
       # Get current decrypted keywords
       current_filters = socket.assigns.content_filters
       current_keywords = current_filters.keywords || []
 
-      case ContentFilter.add_keyword_filter(current_user.id, keyword_to_add, current_keywords,
-             user: current_user,
-             key: key
-           ) do
-        {:ok, new_prefs} ->
-          # Refresh timeline with new filters and clear input
-          socket =
-            socket
-            |> refresh_timeline_with_filters(new_prefs)
-            |> push_event("clear-input", %{id: "keyword-filter-input"})
+      # Check if category is already in the list
+      if mute_keyword not in current_keywords do
+        case ContentFilter.add_keyword_filter(current_user.id, mute_keyword, current_keywords,
+               user: current_user,
+               key: key
+             ) do
+          {:ok, new_prefs} ->
+            # Refresh timeline with new filters and reset form
+            socket =
+              socket
+              |> refresh_timeline_with_filters(new_prefs)
+              |> assign_keyword_filter_form()
+              |> put_flash(:success, "Filter added successfully")
 
-          {:noreply, socket}
+            {:noreply, socket}
 
-        {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, "Invalid keyword")}
+          {:error, reason} ->
+            require Logger
+            Logger.error("Failed to add keyword filter: #{inspect(reason)}")
+            {:noreply, put_flash(socket, :error, "Failed to add filter")}
+        end
+      else
+        {:noreply, put_flash(socket, :info, "This category is already filtered")}
       end
     else
-      {:noreply, socket}
+      {:noreply, put_flash(socket, :error, "Please select a category")}
     end
   end
 
@@ -2774,7 +2783,10 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Reload and decrypt content filters to get fresh state
     fresh_filters = load_and_decrypt_content_filters(current_user, key)
-    socket = assign(socket, :content_filters, fresh_filters)
+    socket = 
+      socket
+      |> assign(:content_filters, fresh_filters)
+      |> assign_keyword_filter_form()
 
     # Refresh current timeline posts with new filters applied
     current_user = socket.assigns.current_user
@@ -2830,52 +2842,58 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to load and decrypt content filters
-  defp load_and_decrypt_content_filters(user, key) do
-    # Get raw preferences from ContentFilter context
-    raw_prefs = ContentFilter.get_user_filter_preferences(user.id)
-
-    # Decrypt keywords if they exist
-    decrypted_keywords =
-      case raw_prefs do
-        %{raw_preferences: %{mute_keywords: encrypted_keywords}}
-        when not is_nil(encrypted_keywords) ->
-          case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keywords, user, key) do
-            {:ok, decrypted_json} ->
-              Jason.decode!(decrypted_json)
-
-            decrypted_json when is_binary(decrypted_json) ->
-              Jason.decode!(decrypted_json)
-
-            _ ->
-              []
+  defp load_and_decrypt_content_filters(user, _key) do
+    # Get preferences - StringList handles decryption automatically
+    case Timeline.get_user_timeline_preferences(user) do
+      %Timeline.UserTimelinePreferences{} = prefs ->
+        # StringList type handles decryption automatically, so keywords are already a list
+        decrypted_keywords = prefs.mute_keywords || []
+        
+        # Decrypt muted users (still using manual approach for now)
+        decrypted_muted_users =
+          if prefs.muted_users && String.trim(prefs.muted_users) != "" do
+            case Jason.decode(prefs.muted_users) do
+              {:ok, users_list} -> users_list
+              {:error, _} -> []
+            end
+          else
+            []
           end
 
-        _ ->
-          []
-      end
+        %{
+          keywords: decrypted_keywords,
+          muted_users: decrypted_muted_users,
+          content_warnings: %{hide_all: prefs.hide_mature_content || false},
+          hide_reposts: prefs.hide_reposts || false,
+          raw_preferences: prefs
+        }
+      
+      nil ->
+        # No preferences found - return defaults
+        %{
+          keywords: [],
+          muted_users: [],
+          content_warnings: %{hide_all: false},
+          hide_reposts: false,
+          raw_preferences: nil
+        }
+    end
+  end
 
-    # Decrypt muted users if they exist
-    decrypted_muted_users =
-      case raw_prefs do
-        %{raw_preferences: %{muted_users: encrypted_users}} when not is_nil(encrypted_users) ->
-          case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_users, user, key) do
-            {:ok, decrypted_json} ->
-              Jason.decode!(decrypted_json)
-
-            decrypted_json when is_binary(decrypted_json) ->
-              Jason.decode!(decrypted_json)
-
-            _ ->
-              []
-          end
-
-        _ ->
-          []
-      end
-
-    # Return decrypted preferences
-    raw_prefs
-    |> Map.put(:keywords, decrypted_keywords)
-    |> Map.put(:muted_users, decrypted_muted_users)
+  # Helper function to assign keyword filter form
+  defp assign_keyword_filter_form(socket) do
+    current_user = socket.assigns.current_user
+    
+    # Get existing preferences or create a new struct for the form
+    preferences = Timeline.get_user_timeline_preferences(current_user) || %Timeline.UserTimelinePreferences{user_id: current_user.id}
+    
+    # Create changeset for form with empty mute_keywords selection using Timeline context
+    changeset = Timeline.change_user_timeline_preferences(preferences, %{"mute_keywords" => ""})
+    
+    # Create an updated content_filters map with the form
+    current_filters = socket.assigns[:content_filters] || %{}
+    filters_with_form = Map.put(current_filters, :keyword_form, to_form(changeset))
+    
+    assign(socket, :content_filters, filters_with_form)
   end
 end

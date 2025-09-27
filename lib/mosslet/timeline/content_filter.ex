@@ -273,22 +273,23 @@ defmodule Mosslet.Timeline.ContentFilter do
     # Prepare data for schema encryption
     attrs = %{}
 
-    # Keywords (JSON encode for encryption)
+    # Keywords (StringList handles encoding/encryption automatically)
     attrs =
       if Map.has_key?(preferences, :keywords) do
-        keywords_json =
+        # StringList type accepts list directly, no need for JSON encoding
+        keywords_list = 
           if length(preferences.keywords) > 0 do
-            Jason.encode!(preferences.keywords)
+            preferences.keywords
           else
-            nil
+            []
           end
 
-        Map.put(attrs, :mute_keywords, keywords_json)
+        Map.put(attrs, :mute_keywords, keywords_list)
       else
         attrs
       end
 
-    # Muted users (JSON encode for encryption)
+    # Muted users (still using manual encoding for now - could be converted to IntegerList later)
     attrs =
       if Map.has_key?(preferences, :muted_users) do
         muted_users_json =
