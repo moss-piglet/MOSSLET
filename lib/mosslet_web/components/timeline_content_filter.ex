@@ -387,20 +387,6 @@ defmodule MossletWeb.TimelineContentFilter do
     """
   end
 
-  # Helper function to format keyword labels for display.
-  # Uses the same categories as content warning functionality.
-  defp format_keyword_label(keyword) when is_binary(keyword) do
-    case keyword do
-      "mental_health" -> "Mental Health"
-      "violence" -> "Violence"
-      "substance_use" -> "Substance Use"
-      "politics" -> "Politics"
-      "personal" -> "Personal/Sensitive"
-      "other" -> "Other"
-      _ -> String.capitalize(keyword)
-    end
-  end
-
   # Helper function for toggle checked state styling based on color
   defp toggle_checked_classes(color) do
     case color do
@@ -414,6 +400,20 @@ defmodule MossletWeb.TimelineContentFilter do
       "indigo" -> "bg-gradient-to-r from-indigo-500 to-blue-500 shadow-indigo-500/30"
       "slate" -> "bg-gradient-to-r from-slate-500 to-slate-600 shadow-slate-500/30"
       _ -> "bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30"
+    end
+  end
+
+  # Helper function to format keyword labels for display.
+  # Uses the same categories as content warning functionality.
+  defp format_keyword_label(keyword) when is_binary(keyword) do
+    case keyword do
+      "mental_health" -> "Mental Health"
+      "violence" -> "Violence"
+      "substance_use" -> "Substance Use"
+      "politics" -> "Politics"
+      "personal" -> "Personal/Sensitive"
+      "other" -> "Other"
+      _ -> String.capitalize(keyword)
     end
   end
 
