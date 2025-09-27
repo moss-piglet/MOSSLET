@@ -2837,7 +2837,7 @@ defmodule Mosslet.Timeline do
         on: b.post_id == p.id,
         where: b.user_id == ^user.id,
         order_by: [desc: b.inserted_at],
-        preload: [:category, post: :replies],
+        preload: [:category, post: [:user_posts, :replies, :user_post_receipts]],
         select: b
 
     query =

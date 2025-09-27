@@ -2513,7 +2513,7 @@ defmodule MossletWeb.TimelineLive.Index do
           bookmarks when is_list(bookmarks) ->
             user_bookmarks =
               bookmarks
-              |> Enum.map(fn bookmark -> bookmark.post end)
+              |> Enum.map(fn bookmark -> bookmark end)
               |> Enum.filter(&(&1 != nil))
 
             Enum.count(user_bookmarks, fn post ->
