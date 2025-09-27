@@ -27,7 +27,7 @@ erl_crash.dump
 # Implementation plan files
 ENCRYPTION_ARCHITECTURE.md
 PHASE2_PERFORMANCE_PLAN.md
-TIMELINE_IMPLEMENTATION_PLAN.md
+PHASE2_IMPLEMENTATION_PLAN.md
 
 # Ignore package tarball (built via "mix hex.build").
 Mosslet-*.tar
