@@ -1,55 +1,13 @@
 defmodule Mosslet.Timeline.ContentFilter do
   @moduledoc """
-  Content filtering system for timeline posts.
+  Content filtering preference management system.
 
-  Provides keyword filtering, content warning management, and user muting
-  functionality. Aligns with UserTimelinePreference schema and integrates
-  with Timeline functions for actual post filtering.
+  Handles user filter preferences for keywords, content warnings, and user muting.
+  All actual post filtering is now done at the database level in Timeline.ex for better performance.
   """
 
   alias Mosslet.Timeline.{Performance.TimelineCache, UserTimelinePreference}
   require Logger
-
-  @doc """
-  Filters timeline posts based on user preferences.
-
-  This is called from Timeline functions to apply content filtering.
-  Expects decrypted filter preferences from LiveView or Timeline context.
-  """
-  def filter_timeline_posts(posts, user, filter_prefs \\ %{}) do
-    Logger.info(
-      "🔍 ContentFilter.filter_timeline_posts called with #{length(posts)} posts for user #{user.id}"
-    )
-
-    Logger.info("🔍 Filter preferences: #{inspect(filter_prefs)}")
-
-    filtered_posts =
-      posts
-      |> filter_by_keywords(filter_prefs[:keywords] || [], user)
-      |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
-      |> filter_by_muted_users(filter_prefs[:muted_users] || [])
-      |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
-
-    Logger.info("🔍 Filtering result: #{length(posts)} -> #{length(filtered_posts)} posts")
-    filtered_posts
-  end
-
-  @doc """
-  Gets user's content filter preferences (with encrypted data).
-
-  Returns preferences that need decryption by caller.
-  """
-  def get_user_filter_preferences(user_id) do
-    case TimelineCache.get_timeline_data(user_id, "content_filters") do
-      {:hit, cached_prefs} ->
-        cached_prefs
-
-      :miss ->
-        prefs = load_user_filter_preferences(user_id)
-        TimelineCache.cache_timeline_data(user_id, "content_filters", prefs)
-        prefs
-    end
-  end
 
   @doc """
   Updates user's content filter preferences.
@@ -57,7 +15,7 @@ defmodule Mosslet.Timeline.ContentFilter do
   Expects plaintext data - encryption handled by schema.
   """
   def update_filter_preferences(user_id, updates, opts \\ []) do
-    current_prefs = get_user_filter_preferences(user_id)
+    current_prefs = load_user_filter_preferences(user_id)
     new_prefs = Map.merge(current_prefs, updates)
 
     case save_user_filter_preferences(user_id, new_prefs, opts) do
@@ -93,7 +51,7 @@ defmodule Mosslet.Timeline.ContentFilter do
 
       true ->
         Logger.info("Keyword already exists, skipping")
-        current_prefs = get_user_filter_preferences(user_id)
+        current_prefs = load_user_filter_preferences(user_id)
         {:ok, current_prefs}
     end
   end
@@ -119,7 +77,7 @@ defmodule Mosslet.Timeline.ContentFilter do
       update_filter_preferences(user_id, %{muted_users: new_muted_users}, opts)
     else
       Logger.info("User already muted, skipping")
-      current_prefs = get_user_filter_preferences(user_id)
+      current_prefs = load_user_filter_preferences(user_id)
       {:ok, current_prefs}
     end
   end
@@ -137,93 +95,13 @@ defmodule Mosslet.Timeline.ContentFilter do
   Toggles content warning filter settings.
   """
   def toggle_content_warning_filter(user_id, filter_type, opts \\ []) do
-    current_prefs = get_user_filter_preferences(user_id)
+    current_prefs = load_user_filter_preferences(user_id)
     current_cw_settings = current_prefs.content_warnings || %{}
 
     new_setting = not Map.get(current_cw_settings, filter_type, false)
     new_cw_settings = Map.put(current_cw_settings, filter_type, new_setting)
 
     update_filter_preferences(user_id, %{content_warnings: new_cw_settings}, opts)
-  end
-
-  @doc """
-  Toggles repost hiding.
-  """
-  def toggle_repost_filter(user_id, opts \\ []) do
-    current_prefs = get_user_filter_preferences(user_id)
-    new_setting = not Map.get(current_prefs, :hide_reposts, false)
-    update_filter_preferences(user_id, %{hide_reposts: new_setting}, opts)
-  end
-
-  # Private functions for filtering
-
-  defp filter_by_keywords(posts, [], _user), do: posts
-
-  defp filter_by_keywords(posts, keywords, user) do
-    # Filter posts by content warning category (easier than decrypting post body)
-    Logger.info("Filtering #{length(posts)} posts with #{length(keywords)} keyword filters")
-
-    # Convert keywords to lowercase MapSet for O(1) lookup performance
-    keyword_set = keywords |> Enum.map(&String.downcase/1) |> MapSet.new()
-
-    Enum.filter(posts, fn post ->
-      not post_content_warning_matches_keywords?(post, keyword_set, user)
-    end)
-  end
-
-  # Check if post's content warning category matches any filter keywords
-  # Uses hash-based exact matching for performance and to avoid decryption
-  defp post_content_warning_matches_keywords?(post, keyword_set, _user) do
-    Logger.info(
-      "🔍 Checking post #{post.id} - content_warning?: #{post.content_warning?}, has category_hash?: #{not is_nil(post.content_warning_category_hash)}"
-    )
-
-    cond do
-      # No content warning - doesn't match keyword filters
-      not post.content_warning? or is_nil(post.content_warning_category_hash) ->
-        Logger.info("📝 Post #{post.id} has no content warning or hash, skipping")
-        false
-
-      # Has content warning hash - check if it matches any keyword (O(1) lookup)
-      true ->
-        Logger.info(
-          "🔎 Post #{post.id} has content warning hash: #{post.content_warning_category_hash}"
-        )
-
-        # Direct O(1) lookup in MapSet - much faster than Enum.any?
-        match_found = MapSet.member?(keyword_set, post.content_warning_category_hash)
-
-        Logger.info("✅ Post #{post.id} keyword match result: #{match_found}")
-        match_found
-    end
-  end
-
-  defp filter_by_content_warnings(posts, cw_settings) do
-    hide_all = Map.get(cw_settings, :hide_all, false)
-
-    if hide_all do
-      Enum.filter(posts, fn post ->
-        not Map.get(post, :content_warning?, false)
-      end)
-    else
-      posts
-    end
-  end
-
-  defp filter_by_muted_users(posts, []), do: posts
-
-  defp filter_by_muted_users(posts, muted_user_ids) do
-    Enum.filter(posts, fn post ->
-      post.user_id not in muted_user_ids
-    end)
-  end
-
-  defp filter_by_reposts(posts, false), do: posts
-
-  defp filter_by_reposts(posts, true) do
-    Enum.filter(posts, fn post ->
-      not Map.get(post, :repost, false)
-    end)
   end
 
   # Private functions for data persistence
