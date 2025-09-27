@@ -66,16 +66,26 @@
 
           <%!-- Content Filter Toggle --%>
           <button
+            id={
+              if @show_content_filter,
+                do: "close-content-filter-button-timeline",
+                else: "open-content-filter-button-timeline"
+            }
             type="button"
             class={[
               "p-2.5 rounded-xl transition-all duration-200 ease-out group relative",
               if(@show_content_filter,
-                do:
-                  "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
+                do: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
                 else:
                   "text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
               )
             ]}
+            phx-hook="TippyHook"
+            data-tippy-content={
+              if @show_content_filter,
+                do: "Close content filter controls",
+                else: "Open content filter controls"
+            }
             phx-click="toggle_content_filter"
             title="Content Filters"
           >

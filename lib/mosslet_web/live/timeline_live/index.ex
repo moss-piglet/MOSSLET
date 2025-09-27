@@ -1281,7 +1281,24 @@ defmodule MossletWeb.TimelineLive.Index do
         key: key
       )
 
-    socket = refresh_timeline_with_filters(socket, new_prefs)
+    # Generate flash message based on the toggle state
+    flash_message =
+      case {filter_type_atom, get_in(new_prefs, [:content_warnings, :hide_all])} do
+        {:hide_all, true} ->
+          "All posts with content warnings will now be hidden from your timeline."
+
+        {:hide_all, false} ->
+          "All posts with content warnings will now be visible in your timeline."
+
+        _ ->
+          "All content warning preferences updated."
+      end
+
+    socket =
+      socket
+      |> refresh_timeline_with_filters(new_prefs)
+      |> put_flash(:info, flash_message)
+
     {:noreply, socket}
   end
 

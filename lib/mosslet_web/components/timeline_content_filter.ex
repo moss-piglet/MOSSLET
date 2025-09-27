@@ -341,7 +341,10 @@ defmodule MossletWeb.TimelineContentFilter do
   attr :checked, :boolean, default: false
   attr :phx_click, :string, required: true
   attr :phx_value_type, :string, default: nil
-  attr :color, :string, default: "emerald", values: ~w(teal emerald blue purple amber rose cyan indigo slate)
+
+  attr :color, :string,
+    default: "emerald",
+    values: ~w(teal emerald blue purple amber rose cyan indigo slate)
 
   def liquid_toggle(assigns) do
     ~H"""
