@@ -687,6 +687,63 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  # Helper function to apply database-level filters to bookmark queries
+  # Since bookmarks join with posts, we need to reference the Post table (p1)
+  defp apply_bookmark_database_filters(query, options) do
+    case options do
+      %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
+        query
+        |> filter_by_muted_keywords_bookmark(filter_prefs[:keywords] || [])
+        |> filter_by_content_warnings_bookmark(filter_prefs[:content_warnings] || %{})
+        |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
+        |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
+
+      _ ->
+        query
+    end
+  end
+
+  # Bookmark-specific filter functions that reference the Post table (p1)
+  defp filter_by_muted_keywords_bookmark(query, muted_keywords)
+       when is_list(muted_keywords) and length(muted_keywords) > 0 do
+    Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
+      muted_hash = String.downcase(muted_keyword)
+
+      where(
+        acc_query,
+        # b = bookmark, p = post (from the join)
+        [b, p],
+        is_nil(p.content_warning_category_hash) or
+          p.content_warning_category_hash != ^muted_hash
+      )
+    end)
+  end
+
+  defp filter_by_muted_keywords_bookmark(query, _muted_keywords), do: query
+
+  defp filter_by_content_warnings_bookmark(query, cw_settings) do
+    hide_all = Map.get(cw_settings || %{}, :hide_all, false)
+
+    if hide_all do
+      where(query, [b, p], not p.content_warning? or is_nil(p.content_warning?))
+    else
+      query
+    end
+  end
+
+  defp filter_by_muted_users_bookmark(query, muted_user_ids)
+       when is_list(muted_user_ids) and length(muted_user_ids) > 0 do
+    where(query, [b, p], p.user_id not in ^muted_user_ids)
+  end
+
+  defp filter_by_muted_users_bookmark(query, _muted_user_ids), do: query
+
+  defp filter_by_reposts_bookmark(query, true) do
+    where(query, [b, p], not p.repost or is_nil(p.repost))
+  end
+
+  defp filter_by_reposts_bookmark(query, _hide_reposts), do: query
+
   # Helper function to extract muted keywords from options.
   defp get_muted_keywords_from_options(options) do
     case options do
@@ -2846,8 +2903,9 @@ defmodule Mosslet.Timeline do
         category_id -> where(query, [b], b.category_id == ^category_id)
       end
 
-    # Apply database-level content filtering
-    query = apply_database_filters(query, opts)
+    # Apply database-level content filtering on the joined Post table (p1)
+    # Since we're filtering posts through bookmarks, we need to reference the Post alias
+    query = apply_bookmark_database_filters(query, opts)
 
     # Apply consistent pagination using post_page and post_per_page
     query = paginate_bookmarks(query, opts)

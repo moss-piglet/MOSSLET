@@ -1472,8 +1472,8 @@ defmodule MossletWeb.TimelineLive.Index do
           Timeline.list_user_own_posts(current_user, options_with_filters)
 
         "bookmarks" ->
-          # Load bookmarks with filtering applied
-          Timeline.list_user_bookmarks(current_user, filter_prefs: content_filter_prefs)
+          # Load bookmarks with filtering applied and pagination
+          Timeline.list_user_bookmarks(current_user, options_with_filters)
 
         _ ->
           # Use the helper function for other tabs (groups)
