@@ -592,6 +592,7 @@ defmodule Mosslet.Timeline do
     |> join(:left, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> with_any_visibility([:private, :connections])
     |> filter_by_user_id(options)
+    |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
       # Unread posts first (fals comes before true)
@@ -632,6 +633,38 @@ defmodule Mosslet.Timeline do
 
   defp with_any_visibility(query, visibility_list) do
     where(query, [p], p.visibility in ^visibility_list)
+  end
+
+  @doc """
+  Filters out posts based on content warning categories that the user has muted.
+  Uses the content_warning_category_hash for efficient database-level filtering.
+  For each muted keyword, we add a condition to exclude posts with that category.
+  """
+  defp filter_by_muted_keywords(query, muted_keywords) when is_list(muted_keywords) and length(muted_keywords) > 0 do
+    # For each muted keyword, add a condition to exclude posts with that category hash
+    Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
+      # Convert to lowercase to match hash storage format
+      muted_hash = String.downcase(muted_keyword)
+      
+      # Filter out posts where content_warning_category_hash matches this muted keyword
+      # Keep posts that either have no content warning OR have a different category
+      where(acc_query, [p], 
+        is_nil(p.content_warning_category_hash) or 
+        p.content_warning_category_hash != ^muted_hash
+      )
+    end)
+  end
+  
+  defp filter_by_muted_keywords(query, _muted_keywords), do: query
+
+  @doc """
+  Helper function to extract muted keywords from options.
+  """
+  defp get_muted_keywords_from_options(options) do
+    case options do
+      %{filter_prefs: %{keywords: keywords}} when is_list(keywords) -> keywords
+      _ -> []
+    end
   end
 
   @doc """
@@ -709,10 +742,13 @@ defmodule Mosslet.Timeline do
       Post
       |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
       # FIXED: Use LEFT JOIN to include posts without receipts (like Home tab)
-      |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id and upr.user_id == ^current_user.id)
+      |> join(:left, [p, up], upr in UserPostReceipt,
+        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
+      )
       |> where([p, up], up.user_id == ^current_user.id)
       |> where([p, up], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
       |> where([p], p.visibility != :private)
+      |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
       |> preload([:user_posts, :user, :replies, :user_post_receipts])
       |> order_by([p, up, upr],
         # Unread posts first (false comes before true)
@@ -794,11 +830,11 @@ defmodule Mosslet.Timeline do
 
     # Always apply content filters to both cached and fresh data
     filtered_posts = apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
-    
+
     Logger.info(
       "🔄 List discover: #{length(posts)} raw posts -> #{length(filtered_posts)} after filtering"
     )
-    
+
     filtered_posts
   end
 
@@ -820,6 +856,7 @@ defmodule Mosslet.Timeline do
         preload: [:user_posts, :replies, :user_post_receipts]
       )
       # Use consistent pagination helper
+      |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
       |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
@@ -833,6 +870,7 @@ defmodule Mosslet.Timeline do
         preload: [:user_posts, :replies]
       )
       # Use consistent pagination helper
+      |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
       |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
@@ -847,17 +885,17 @@ defmodule Mosslet.Timeline do
       # CRITICAL FIX: When filters are active, use same logic as list function
       # Get all posts without pagination, then apply same filtering
       posts = fetch_discover_posts_from_db(current_user, %{})
-      
+
       # Remove duplicates first (same as DISTINCT in database)
       unique_posts = Enum.uniq_by(posts, & &1.id)
-      
+
       # Then apply content filters
       filtered_posts = apply_content_filters(unique_posts, current_user, filter_prefs)
-      
+
       Logger.info(
         "🔢 Count with filters: #{length(posts)} raw -> #{length(unique_posts)} unique -> #{length(filtered_posts)} filtered"
       )
-      
+
       length(filtered_posts)
     else
       # FIXED: Count unique posts, not UserPost entries
@@ -928,6 +966,7 @@ defmodule Mosslet.Timeline do
     |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up], up.user_id == ^current_user.id and p.user_id == ^current_user.id)
     |> with_any_visibility([:private, :connections, :public])
+    |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
       # Unread posts first (false comes before true)
@@ -3603,7 +3642,11 @@ defmodule Mosslet.Timeline do
   @doc """
   Creates a changeset for UserTimelinePreferences.
   """
-  def change_user_timeline_preferences(preferences \\ %UserTimelinePreferences{}, attrs \\ %{}, opts \\ []) do
+  def change_user_timeline_preferences(
+        preferences \\ %UserTimelinePreferences{},
+        attrs \\ %{},
+        opts \\ []
+      ) do
     UserTimelinePreferences.changeset(preferences, attrs, opts)
   end
 

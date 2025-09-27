@@ -85,12 +85,12 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
   defp validate_mute_keywords_category(changeset) do
     # With StringList type, mute_keywords is already a list at this point
     mute_keywords = get_field(changeset, :mute_keywords)
-    
+
     cond do
       # Empty list or nil - valid
       is_nil(mute_keywords) or mute_keywords == [] ->
         changeset
-      
+
       # List of keywords - validate each one
       is_list(mute_keywords) ->
         if Enum.all?(mute_keywords, &(&1 in @valid_content_warning_categories)) do
@@ -98,17 +98,18 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
         else
           add_error(changeset, :mute_keywords, "contains invalid content warning categories")
         end
-      
+
       # Single string - convert to list format for StringList
       is_binary(mute_keywords) and String.trim(mute_keywords) != "" ->
         category = String.trim(mute_keywords)
+
         if category in @valid_content_warning_categories do
           # Convert single category to list for StringList field
           put_change(changeset, :mute_keywords, [category])
         else
           add_error(changeset, :mute_keywords, "must be a valid content warning category")
         end
-      
+
       # Invalid type
       true ->
         add_error(changeset, :mute_keywords, "must be a list of valid content warning categories")
@@ -123,7 +124,7 @@ defmodule Mosslet.Timeline.UserTimelinePreferences do
         # StringList type handles encryption automatically, but we need the hash for searching
         # Create hash from all keywords for search/cache invalidation
         hash_value = mute_keywords |> Enum.join(",") |> String.downcase()
-        
+
         changeset
         |> put_change(:mute_keywords_hash, hash_value)
       else

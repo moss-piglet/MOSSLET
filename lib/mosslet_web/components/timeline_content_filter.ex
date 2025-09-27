@@ -161,7 +161,7 @@ defmodule MossletWeb.TimelineContentFilter do
           ]}
           help="Select content categories to hide from your timeline"
         />
-        
+
         <div class="flex justify-end mt-3">
           <.liquid_button type="submit" size="sm" color="emerald">
             Add Filter

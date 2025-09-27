@@ -277,7 +277,7 @@ defmodule Mosslet.Timeline.ContentFilter do
     attrs =
       if Map.has_key?(preferences, :keywords) do
         # StringList type accepts list directly, no need for JSON encoding
-        keywords_list = 
+        keywords_list =
           if length(preferences.keywords) > 0 do
             preferences.keywords
           else

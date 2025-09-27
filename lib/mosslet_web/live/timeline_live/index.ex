@@ -2783,7 +2783,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Reload and decrypt content filters to get fresh state
     fresh_filters = load_and_decrypt_content_filters(current_user, key)
-    socket = 
+
+    socket =
       socket
       |> assign(:content_filters, fresh_filters)
       |> assign_keyword_filter_form()
@@ -2848,7 +2849,7 @@ defmodule MossletWeb.TimelineLive.Index do
       %Timeline.UserTimelinePreferences{} = prefs ->
         # StringList type handles decryption automatically, so keywords are already a list
         decrypted_keywords = prefs.mute_keywords || []
-        
+
         # Decrypt muted users (still using manual approach for now)
         decrypted_muted_users =
           if prefs.muted_users && String.trim(prefs.muted_users) != "" do
@@ -2867,7 +2868,7 @@ defmodule MossletWeb.TimelineLive.Index do
           hide_reposts: prefs.hide_reposts || false,
           raw_preferences: prefs
         }
-      
+
       nil ->
         # No preferences found - return defaults
         %{
@@ -2883,17 +2884,19 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper function to assign keyword filter form
   defp assign_keyword_filter_form(socket) do
     current_user = socket.assigns.current_user
-    
+
     # Get existing preferences or create a new struct for the form
-    preferences = Timeline.get_user_timeline_preferences(current_user) || %Timeline.UserTimelinePreferences{user_id: current_user.id}
-    
+    preferences =
+      Timeline.get_user_timeline_preferences(current_user) ||
+        %Timeline.UserTimelinePreferences{user_id: current_user.id}
+
     # Create changeset for form with empty mute_keywords selection using Timeline context
     changeset = Timeline.change_user_timeline_preferences(preferences, %{"mute_keywords" => ""})
-    
+
     # Create an updated content_filters map with the form
     current_filters = socket.assigns[:content_filters] || %{}
     filters_with_form = Map.put(current_filters, :keyword_form, to_form(changeset))
-    
+
     assign(socket, :content_filters, filters_with_form)
   end
 end
