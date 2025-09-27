@@ -23,7 +23,7 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
     test "renders reset password with valid token", %{conn: conn, token: token} do
       {:ok, _lv, html} = live(conn, ~p"/auth/reset-password/#{token}")
 
-      assert html =~ "Reset Password"
+      assert html =~ "Reset your password"
     end
 
     test "does not render reset password with invalid token", %{conn: conn} do
@@ -106,7 +106,7 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
         )
         |> render_submit()
 
-      assert result =~ "Reset Password"
+      assert result =~ "Reset your password"
       assert result =~ "should be at least 12 character(s)"
       assert result =~ "does not match password"
     end
