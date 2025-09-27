@@ -282,11 +282,13 @@ defmodule Mosslet.Timeline do
       length(filtered_posts)
     else
       # When no filters, use fast database count
+      # FIXED: Count unique posts, not UserPost entries
       query =
         from(p in Post,
           inner_join: up in UserPost,
           on: up.post_id == p.id,
-          where: up.user_id == ^user.id and p.user_id == ^user.id
+          where: up.user_id == ^user.id and p.user_id == ^user.id,
+          distinct: p.id
         )
 
       count = Repo.aggregate(query, :count, :id)
@@ -341,13 +343,15 @@ defmodule Mosslet.Timeline do
       if Enum.empty?(connection_user_ids) do
         0
       else
+        # FIXED: Count unique posts, not UserPost entries
         query =
           from(p in Post,
             inner_join: up in UserPost,
             on: up.post_id == p.id,
             where: up.user_id == ^current_user.id,
             where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-            where: p.visibility != :private
+            where: p.visibility != :private,
+            distinct: p.id
           )
 
         count = Repo.aggregate(query, :count, :id)
@@ -652,7 +656,7 @@ defmodule Mosslet.Timeline do
     )
     |> filter_by_user_id(options)
     |> sort(options)
-    |> paginate_public(options)
+    |> paginate(options)
     |> Repo.all()
   end
 
@@ -666,7 +670,7 @@ defmodule Mosslet.Timeline do
   def list_connection_posts(current_user, options) do
     # Try cache first (for first page only)
     posts =
-      if !options[:skip_cache] && (options[:page] || 1) == 1 do
+      if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "connections") do
           {:hit, cached_data} ->
             Logger.debug("Connections timeline cache hit for user #{current_user.id}")
@@ -703,7 +707,8 @@ defmodule Mosslet.Timeline do
     else
       Post
       |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> join(:inner, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
+      # FIXED: Use LEFT JOIN to include posts without receipts (like Home tab)
+      |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id and upr.user_id == ^current_user.id)
       |> where([p, up], up.user_id == ^current_user.id)
       |> where([p, up], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
       |> where([p], p.visibility != :private)
@@ -716,6 +721,7 @@ defmodule Mosslet.Timeline do
         # Secondary sort on read_at
         asc: upr.read_at
       )
+      # Uses post_page and post_per_page
       |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
@@ -760,15 +766,9 @@ defmodule Mosslet.Timeline do
   @doc """
   Lists public posts for discover timeline with simple pagination.
   """
-  def list_discover_posts(
-        limit \\ 25,
-        offset \\ 0,
-        current_user \\ nil,
-        skip_cache \\ false,
-        filter_prefs \\ %{}
-      ) do
+  def list_discover_posts(current_user \\ nil, options \\ %{}) do
     posts =
-      if current_user && !skip_cache && offset == 0 do
+      if current_user && !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         # Try cache for first page of discover posts
         case TimelineCache.get_timeline_data(current_user.id, "discover") do
           {:hit, cached_data} ->
@@ -776,7 +776,7 @@ defmodule Mosslet.Timeline do
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_discover_posts_from_db(current_user, limit, offset)
+            posts = fetch_discover_posts_from_db(current_user, options)
 
             timeline_data = %{
               posts: posts,
@@ -788,14 +788,20 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_discover_posts_from_db(current_user, limit, offset)
+        fetch_discover_posts_from_db(current_user, options)
       end
 
     # Always apply content filters to both cached and fresh data
-    apply_content_filters(posts, current_user, filter_prefs)
+    filtered_posts = apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
+    
+    Logger.info(
+      "🔄 List discover: #{length(posts)} raw posts -> #{length(filtered_posts)} after filtering"
+    )
+    
+    filtered_posts
   end
 
-  defp fetch_discover_posts_from_db(current_user, limit, offset) do
+  defp fetch_discover_posts_from_db(current_user, options) do
     if current_user do
       # With user context - show unread posts first
       from(p in Post,
@@ -810,10 +816,10 @@ defmodule Mosslet.Timeline do
           # Most recent posts first within each group
           desc: p.inserted_at
         ],
-        limit: ^limit,
-        offset: ^offset,
         preload: [:user_posts, :replies, :user_post_receipts]
       )
+      # Use consistent pagination helper
+      |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
     else
@@ -823,14 +829,12 @@ defmodule Mosslet.Timeline do
         on: up.post_id == p.id,
         where: p.visibility == :public,
         order_by: [desc: p.inserted_at],
-        limit: ^limit,
-        offset: ^offset,
         preload: [:user_posts, :replies]
       )
+      # Use consistent pagination helper
+      |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
-
-      # No filtering without user context
     end
   end
 
@@ -839,17 +843,29 @@ defmodule Mosslet.Timeline do
   """
   def count_discover_posts(current_user \\ nil, filter_prefs \\ %{}) do
     if current_user && has_active_filters?(filter_prefs) do
-      # When filters are active, get posts and count after filtering
-      # Get large sample for counting
-      posts = fetch_discover_posts_from_db(current_user, 1000, 0)
-      filtered_posts = apply_content_filters(posts, current_user, filter_prefs)
+      # CRITICAL FIX: When filters are active, use same logic as list function
+      # Get all posts without pagination, then apply same filtering
+      posts = fetch_discover_posts_from_db(current_user, %{})
+      
+      # Remove duplicates first (same as DISTINCT in database)
+      unique_posts = Enum.uniq_by(posts, & &1.id)
+      
+      # Then apply content filters
+      filtered_posts = apply_content_filters(unique_posts, current_user, filter_prefs)
+      
+      Logger.info(
+        "🔢 Count with filters: #{length(posts)} raw -> #{length(unique_posts)} unique -> #{length(filtered_posts)} filtered"
+      )
+      
       length(filtered_posts)
     else
-      # When no filters, use fast database count
+      # FIXED: Count unique posts, not UserPost entries
+      # Use DISTINCT to avoid counting duplicate posts from multiple UserPost entries
       from(p in Post,
         inner_join: up in UserPost,
         on: up.post_id == p.id,
-        where: p.visibility == :public
+        where: p.visibility == :public,
+        distinct: p.id
       )
       |> Repo.aggregate(:count, :id)
     end
@@ -879,7 +895,7 @@ defmodule Mosslet.Timeline do
   def list_user_own_posts(current_user, options) do
     # Try cache first (for first page only)
     posts =
-      if !options[:skip_cache] && (options[:page] || 1) == 1 do
+      if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "home") do
           {:hit, cached_data} ->
             Logger.debug("Home timeline cache hit for user #{current_user.id}")
@@ -936,7 +952,7 @@ defmodule Mosslet.Timeline do
     )
     |> filter_by_user_id(options)
     |> sort(options)
-    |> paginate_public(options)
+    |> paginate(options)
     |> Repo.all()
   end
 
@@ -963,7 +979,7 @@ defmodule Mosslet.Timeline do
       preload: [:user_posts, :group, :user_group, :replies]
     )
     |> sort(options)
-    |> paginate_public(options)
+    |> paginate(options)
     |> Repo.all()
   end
 
@@ -1008,7 +1024,7 @@ defmodule Mosslet.Timeline do
 
   defp paginate(query, _options), do: query
 
-  defp paginate_public(query, %{post_page: page, post_per_page: per_page}) do
+  defp paginate_bookmarks(query, %{post_page: page, post_per_page: per_page}) do
     offset = max((page - 1) * per_page, 0)
 
     query
@@ -1016,7 +1032,13 @@ defmodule Mosslet.Timeline do
     |> offset(^offset)
   end
 
-  defp paginate_public(query, _options), do: query
+  defp paginate_bookmarks(query, opts) when is_list(opts) do
+    # Convert list opts to map for consistency
+    options = Enum.into(opts, %{})
+    paginate_bookmarks(query, options)
+  end
+
+  defp paginate_bookmarks(query, _options), do: query
 
   @doc """
   Used only in group's show page.
@@ -2774,11 +2796,8 @@ defmodule Mosslet.Timeline do
         category_id -> where(query, [b], b.category_id == ^category_id)
       end
 
-    query =
-      case opts[:limit] do
-        nil -> query
-        limit -> limit(query, ^limit)
-      end
+    # Apply consistent pagination using post_page and post_per_page
+    query = paginate_bookmarks(query, opts)
 
     posts =
       query
@@ -2810,6 +2829,7 @@ defmodule Mosslet.Timeline do
       length(filtered_posts)
     else
       # When no filters, use fast database count
+      # NOTE: Bookmarks are 1:1 with posts, so no need for DISTINCT here
       query = from b in Bookmark, where: b.user_id == ^user.id
       Repo.aggregate(query, :count)
     end
