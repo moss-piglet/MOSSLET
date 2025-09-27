@@ -1194,20 +1194,20 @@ defmodule MossletWeb.TimelineLive.Index do
   # Content filtering event handlers
   def handle_event("validate_keyword_filter", %{"user_timeline_preference" => params}, socket) do
     current_user = socket.assigns.current_user
-    
+
     # Get existing preferences or create a new struct for the form
     preferences =
       Timeline.get_user_timeline_preference(current_user) ||
         %Timeline.UserTimelinePreference{user_id: current_user.id}
-    
+
     # Create changeset for form validation with the current selection
     changeset = Timeline.change_user_timeline_preference(preferences, params)
-    
+
     # Update the form with the new changeset to reflect selection state
     filters_with_form = Map.put(socket.assigns.content_filters, :keyword_form, to_form(changeset))
-    
+
     socket = assign(socket, :content_filters, filters_with_form)
-    
+
     {:noreply, socket}
   end
 

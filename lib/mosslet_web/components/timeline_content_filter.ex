@@ -24,24 +24,24 @@ defmodule MossletWeb.TimelineContentFilter do
       "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
       "border border-slate-200/60 dark:border-slate-700/60",
       "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/25",
-      "hover:shadow-2xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/5",
-      "hover:border-emerald-200/70 dark:hover:border-emerald-700/50",
+      "hover:shadow-2xl hover:shadow-teal-500/10 dark:hover:shadow-teal-500/5",
+      "hover:border-teal-200/70 dark:hover:border-teal-700/50",
       @class
     ]}>
       <%!-- Enhanced liquid background on hover --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-cyan-50/30 dark:from-emerald-900/15 dark:via-teal-900/10 dark:to-cyan-900/15 group-hover:opacity-100">
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-teal-50/30 via-cyan-50/20 to-teal-50/30 dark:from-teal-900/15 dark:via-cyan-900/10 dark:to-teal-900/15 group-hover:opacity-100">
       </div>
 
       <%!-- Subtle shimmer effect --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent dark:via-emerald-400/10 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-teal-200/20 to-transparent dark:via-teal-400/10 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
       </div>
 
       <div class="relative p-6 space-y-8">
         <%!-- Enhanced Filter Header with improved hierarchy --%>
         <div class="flex items-start justify-between pb-6 border-b border-slate-200/60 dark:border-slate-700/60">
           <div class="flex items-center gap-4">
-            <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-cyan-900/30 shadow-sm">
-              <.phx_icon name="hero-funnel" class="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+            <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-100 via-cyan-50 to-teal-100 dark:from-teal-900/30 dark:via-cyan-900/25 dark:to-teal-900/30 shadow-sm">
+              <.phx_icon name="hero-funnel" class="h-5 w-5 text-teal-700 dark:text-teal-300" />
             </div>
             <div class="space-y-1">
               <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
@@ -53,22 +53,26 @@ defmodule MossletWeb.TimelineContentFilter do
             </div>
           </div>
 
-          <.liquid_button
-            variant="ghost"
-            size="sm"
-            color="emerald"
-            icon="hero-arrow-path"
-            phx-click="clear_all_filters"
-          >
-            Reset All
-          </.liquid_button>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <.liquid_button
+              variant="secondary"
+              size="sm"
+              color="teal"
+              icon="hero-arrow-path"
+              phx-click="clear_all_filters"
+              class="w-full sm:w-auto shadow-sm hover:shadow-md transition-shadow duration-200"
+            >
+              <span class="sm:hidden">Reset Filters</span>
+              <span class="hidden sm:inline">Reset All</span>
+            </.liquid_button>
+          </div>
         </div>
 
         <%!-- Filter sections with improved spacing --%>
         <div class="space-y-6">
           <%!-- Priority: Keywords (most common use case) --%>
-          <.filter_section 
-            title="Keywords" 
+          <.filter_section
+            title="Keywords"
             icon="hero-hashtag"
             description="Hide posts containing specific content categories"
           >
@@ -80,8 +84,8 @@ defmodule MossletWeb.TimelineContentFilter do
           </.filter_section>
 
           <%!-- Content Warnings (moderate complexity) --%>
-          <.filter_section 
-            title="Content Warnings" 
+          <.filter_section
+            title="Content Warnings"
             icon="hero-hand-raised"
             description="Control visibility of sensitive content"
           >
@@ -92,8 +96,8 @@ defmodule MossletWeb.TimelineContentFilter do
           </.filter_section>
 
           <%!-- Muted Users (least common, but important) --%>
-          <.filter_section 
-            title="Muted Users" 
+          <.filter_section
+            title="Muted Users"
             icon="hero-bell-slash"
             description="Manage blocked or hidden user content"
           >
@@ -127,17 +131,20 @@ defmodule MossletWeb.TimelineContentFilter do
         <%!-- Section header with better hierarchy --%>
         <div class="space-y-2">
           <div class="flex items-center gap-3">
-            <div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/section:from-teal-100 group-hover/section:via-emerald-50 group-hover/section:to-cyan-100 dark:group-hover/section:from-teal-900/30 dark:group-hover/section:via-emerald-900/25 dark:group-hover/section:to-cyan-900/30 transition-all duration-200 shadow-sm">
+            <div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/section:from-teal-100 group-hover/section:via-cyan-50 group-hover/section:to-teal-100 dark:group-hover/section:from-teal-900/30 dark:group-hover/section:via-cyan-900/25 dark:group-hover/section:to-teal-900/30 transition-all duration-200 shadow-sm">
               <.phx_icon
                 name={@icon}
-                class="h-4 w-4 text-slate-600 dark:text-slate-400 group-hover/section:text-emerald-700 dark:group-hover/section:text-emerald-300 transition-colors duration-200"
+                class="h-4 w-4 text-slate-600 dark:text-slate-400 group-hover/section:text-teal-700 dark:group-hover/section:text-teal-300 transition-colors duration-200"
               />
             </div>
             <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 group-hover/section:text-slate-900 dark:group-hover/section:text-slate-50 transition-colors duration-200">
               {@title}
             </h4>
           </div>
-          <p :if={@description} class="text-sm text-slate-600 dark:text-slate-400 ml-11 leading-relaxed">
+          <p
+            :if={@description}
+            class="text-sm text-slate-600 dark:text-slate-400 ml-11 leading-relaxed"
+          >
             {@description}
           </p>
         </div>
@@ -163,12 +170,18 @@ defmodule MossletWeb.TimelineContentFilter do
     <div class="space-y-6">
       <%!-- Form for adding keywords with improved layout --%>
       <div class="bg-white/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200/50 dark:border-slate-700/30">
-        <.form for={@form} id="keyword-filter-form" phx-submit="add_keyword_filter" phx-change="validate_keyword_filter" class="space-y-4">
+        <.form
+          for={@form}
+          id="keyword-filter-form"
+          phx-submit="add_keyword_filter"
+          phx-change="validate_keyword_filter"
+          class="space-y-4"
+        >
           <.liquid_select_custom
             field={@form[:mute_keywords]}
             label="Add Content Filter"
             prompt="Choose a content category to filter..."
-            color="emerald"
+            color="teal"
             class="text-sm"
             options={[
               {"Mental Health", "mental_health"},
@@ -182,10 +195,10 @@ defmodule MossletWeb.TimelineContentFilter do
           />
 
           <div class="flex justify-end">
-            <.liquid_button 
-              type="submit" 
-              size="sm" 
-              color="emerald"
+            <.liquid_button
+              type="submit"
+              size="sm"
+              color="teal"
               icon="hero-plus"
               disabled={is_nil(@form[:mute_keywords].value) || @form[:mute_keywords].value == ""}
             >
@@ -199,24 +212,24 @@ defmodule MossletWeb.TimelineContentFilter do
       <div :if={@current_keywords != []} class="space-y-3">
         <div class="flex items-center gap-2">
           <h5 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Active Filters:</h5>
-          <span class="px-2 py-1 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 rounded-full">
+          <span class="px-2 py-1 text-xs font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 rounded-full">
             {length(@current_keywords)}
           </span>
         </div>
-        
+
         <div class="flex flex-wrap gap-2">
           <div
             :for={keyword <- @current_keywords}
             class={[
               "group relative inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl",
-              "bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-100",
-              "dark:from-emerald-900/30 dark:via-teal-900/20 dark:to-emerald-900/30",
-              "text-emerald-800 dark:text-emerald-200",
-              "border border-emerald-200/60 dark:border-emerald-700/40",
-              "hover:from-emerald-200 hover:via-teal-100 hover:to-emerald-200",
-              "dark:hover:from-emerald-800/40 dark:hover:via-teal-800/30 dark:hover:to-emerald-800/40",
+              "bg-gradient-to-r from-teal-100 via-cyan-50 to-teal-100",
+              "dark:from-teal-900/30 dark:via-cyan-900/20 dark:to-teal-900/30",
+              "text-teal-800 dark:text-teal-200",
+              "border border-teal-200/60 dark:border-teal-700/40",
+              "hover:from-teal-200 hover:via-cyan-100 hover:to-teal-200",
+              "dark:hover:from-teal-800/40 dark:hover:via-cyan-800/30 dark:hover:to-teal-800/40",
               "transition-all duration-200 ease-out",
-              "shadow-sm hover:shadow-md hover:shadow-emerald-500/20"
+              "shadow-sm hover:shadow-md hover:shadow-teal-500/20"
             ]}
           >
             <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
@@ -225,7 +238,7 @@ defmodule MossletWeb.TimelineContentFilter do
               type="button"
               class={[
                 "ml-1 p-1 rounded-full transition-all duration-200",
-                "text-emerald-600 dark:text-emerald-400",
+                "text-teal-600 dark:text-teal-400",
                 "hover:text-red-600 dark:hover:text-red-400",
                 "hover:bg-red-100/80 dark:hover:bg-red-900/30"
               ]}
