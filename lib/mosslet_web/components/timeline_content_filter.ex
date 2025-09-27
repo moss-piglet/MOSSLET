@@ -144,7 +144,7 @@ defmodule MossletWeb.TimelineContentFilter do
     ~H"""
     <div class="space-y-4">
       <%!-- Form for adding keywords with proper validation --%>
-      <.form for={@form} id="keyword-filter-form" phx-submit="add_keyword_filter">
+      <.form for={@form} id="keyword-filter-form" phx-submit="add_keyword_filter" phx-change="validate_keyword_filter">
         <.liquid_select_custom
           field={@form[:mute_keywords]}
           label="Add keyword filter"
@@ -163,7 +163,12 @@ defmodule MossletWeb.TimelineContentFilter do
         />
 
         <div class="flex justify-end mt-3">
-          <.liquid_button type="submit" size="sm" color="emerald">
+          <.liquid_button 
+            type="submit" 
+            size="sm" 
+            color="emerald"
+            disabled={is_nil(@form[:mute_keywords].value) || @form[:mute_keywords].value == ""}
+          >
             Add Filter
           </.liquid_button>
         </div>
