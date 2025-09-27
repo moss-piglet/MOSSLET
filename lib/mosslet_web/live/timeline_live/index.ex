@@ -1191,7 +1191,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  # Content filtering event handlers  
+  # Content filtering event handlers
   def handle_event("add_keyword_filter", %{"user_timeline_preferences" => params}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
@@ -2484,8 +2484,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # All counts now support filtering for accurate "load more" estimates
       home: Timeline.count_user_own_posts(current_user, content_filter_prefs),
       connections: Timeline.count_user_connection_posts(current_user, content_filter_prefs),
-      # TODO: Add filter support
-      groups: Timeline.count_user_group_posts(current_user),
+      groups: Timeline.count_user_group_posts(current_user, content_filter_prefs),
       bookmarks: Timeline.count_user_bookmarks(current_user, content_filter_prefs),
       discover: Timeline.count_discover_posts(current_user, content_filter_prefs)
     }
@@ -2846,7 +2845,7 @@ defmodule MossletWeb.TimelineLive.Index do
   defp load_and_decrypt_content_filters(user, _key) do
     # Get preferences - StringList handles decryption automatically
     case Timeline.get_user_timeline_preferences(user) do
-      %Timeline.UserTimelinePreferences{} = prefs ->
+      %Timeline.USerTimelinePreference{} = prefs ->
         # StringList type handles decryption automatically, so keywords are already a list
         decrypted_keywords = prefs.mute_keywords || []
 
@@ -2888,7 +2887,7 @@ defmodule MossletWeb.TimelineLive.Index do
     # Get existing preferences or create a new struct for the form
     preferences =
       Timeline.get_user_timeline_preferences(current_user) ||
-        %Timeline.UserTimelinePreferences{user_id: current_user.id}
+        %Timeline.USerTimelinePreference{user_id: current_user.id}
 
     # Create changeset for form with empty mute_keywords selection using Timeline context
     changeset = Timeline.change_user_timeline_preferences(preferences, %{"mute_keywords" => ""})

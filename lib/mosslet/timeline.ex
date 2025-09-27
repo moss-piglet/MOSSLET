@@ -16,7 +16,7 @@ defmodule Mosslet.Timeline do
     Reply,
     UserPost,
     UserPostReceipt,
-    UserTimelinePreferences,
+    USerTimelinePreference,
     Bookmark,
     BookmarkCategory,
     PostReport,
@@ -276,28 +276,21 @@ defmodule Mosslet.Timeline do
   This counts only posts where the user is the author, regardless of visibility.
   """
   def count_user_own_posts(user, filter_prefs \\ %{}) do
-    if has_active_filters?(filter_prefs) do
-      # When filters are active, get posts and count after filtering
-      posts = fetch_user_own_posts_from_db(user, %{})
-      filtered_posts = apply_content_filters(posts, user, filter_prefs)
-      length(filtered_posts)
-    else
-      # When no filters, use fast database count
-      # FIXED: Count unique posts, not UserPost entries
-      query =
-        from(p in Post,
-          inner_join: up in UserPost,
-          on: up.post_id == p.id,
-          where: up.user_id == ^user.id and p.user_id == ^user.id,
-          distinct: p.id
-        )
+    # Always use database-level filtering for consistency and performance
+    query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: up.user_id == ^user.id and p.user_id == ^user.id,
+        distinct: p.id
+      )
+      |> apply_database_filters(%{filter_prefs: filter_prefs})
 
-      count = Repo.aggregate(query, :count, :id)
+    count = Repo.aggregate(query, :count, :id)
 
-      case count do
-        nil -> 0
-        count -> count
-      end
+    case count do
+      nil -> 0
+      count -> count
     end
   end
 
@@ -305,13 +298,15 @@ defmodule Mosslet.Timeline do
   Gets the total count of group posts accessible to the current user (for Groups tab).
   This counts posts with group_id that the user has access to.
   """
-  def count_user_group_posts(user) do
+  def count_user_group_posts(user, filter_prefs \\ %{}) do
+    # Always use database-level filtering for consistency and performance
     query =
       from(p in Post,
         inner_join: up in UserPost,
         on: up.post_id == p.id,
         where: up.user_id == ^user.id and not is_nil(p.group_id)
       )
+      |> apply_database_filters(%{filter_prefs: filter_prefs})
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -329,38 +324,31 @@ defmodule Mosslet.Timeline do
   This matches the filtering logic used in apply_tab_filtering.
   """
   def count_user_connection_posts(current_user, filter_prefs \\ %{}) do
-    if has_active_filters?(filter_prefs) do
-      # When filters are active, get posts and count after filtering
-      posts = fetch_connection_posts_from_db(current_user, %{})
-      filtered_posts = apply_content_filters(posts, current_user, filter_prefs)
-      length(filtered_posts)
+    # Always use database-level filtering for consistency and performance
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    if Enum.empty?(connection_user_ids) do
+      0
     else
-      # When no filters, use fast database count
-      connection_user_ids =
-        Accounts.get_all_confirmed_user_connections(current_user.id)
-        |> Enum.map(& &1.reverse_user_id)
-        |> Enum.uniq()
+      query =
+        from(p in Post,
+          inner_join: up in UserPost,
+          on: up.post_id == p.id,
+          where: up.user_id == ^current_user.id,
+          where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
+          where: p.visibility != :private,
+          distinct: p.id
+        )
+        |> apply_database_filters(%{filter_prefs: filter_prefs})
 
-      if Enum.empty?(connection_user_ids) do
-        0
-      else
-        # FIXED: Count unique posts, not UserPost entries
-        query =
-          from(p in Post,
-            inner_join: up in UserPost,
-            on: up.post_id == p.id,
-            where: up.user_id == ^current_user.id,
-            where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-            where: p.visibility != :private,
-            distinct: p.id
-          )
+      count = Repo.aggregate(query, :count, :id)
 
-        count = Repo.aggregate(query, :count, :id)
-
-        case count do
-          nil -> 0
-          count -> count
-        end
+      case count do
+        nil -> 0
+        count -> count
       end
     end
   end
@@ -592,7 +580,7 @@ defmodule Mosslet.Timeline do
     |> join(:left, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> with_any_visibility([:private, :connections])
     |> filter_by_user_id(options)
-    |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
+    |> apply_database_filters(options)
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
       # Unread posts first (fals comes before true)
@@ -635,31 +623,71 @@ defmodule Mosslet.Timeline do
     where(query, [p], p.visibility in ^visibility_list)
   end
 
-  @doc """
-  Filters out posts based on content warning categories that the user has muted.
-  Uses the content_warning_category_hash for efficient database-level filtering.
-  For each muted keyword, we add a condition to exclude posts with that category.
-  """
-  defp filter_by_muted_keywords(query, muted_keywords) when is_list(muted_keywords) and length(muted_keywords) > 0 do
+  # Filters out posts based on content warning categories that the user has muted.
+  # Uses the content_warning_category_hash for efficient database-level filtering.
+  defp filter_by_muted_keywords(query, muted_keywords)
+       when is_list(muted_keywords) and length(muted_keywords) > 0 do
     # For each muted keyword, add a condition to exclude posts with that category hash
     Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
       # Convert to lowercase to match hash storage format
       muted_hash = String.downcase(muted_keyword)
-      
+
       # Filter out posts where content_warning_category_hash matches this muted keyword
       # Keep posts that either have no content warning OR have a different category
-      where(acc_query, [p], 
-        is_nil(p.content_warning_category_hash) or 
-        p.content_warning_category_hash != ^muted_hash
+      where(
+        acc_query,
+        [p],
+        is_nil(p.content_warning_category_hash) or
+          p.content_warning_category_hash != ^muted_hash
       )
     end)
   end
-  
+
   defp filter_by_muted_keywords(query, _muted_keywords), do: query
 
-  @doc """
-  Helper function to extract muted keywords from options.
-  """
+  # Filters out posts based on content warning settings.
+  # Hides all content warning posts if hide_all is true.
+  defp filter_by_content_warnings(query, cw_settings) do
+    hide_all = Map.get(cw_settings || %{}, :hide_all, false)
+
+    if hide_all do
+      where(query, [p], not p.content_warning? or is_nil(p.content_warning?))
+    else
+      query
+    end
+  end
+
+  # Filters out posts from muted users.
+  defp filter_by_muted_users(query, muted_user_ids)
+       when is_list(muted_user_ids) and length(muted_user_ids) > 0 do
+    where(query, [p], p.user_id not in ^muted_user_ids)
+  end
+
+  defp filter_by_muted_users(query, _muted_user_ids), do: query
+
+  # Filters out reposted posts if hide_reposts is true.
+  defp filter_by_reposts(query, true) do
+    where(query, [p], not p.repost or is_nil(p.repost))
+  end
+
+  defp filter_by_reposts(query, _hide_reposts), do: query
+
+  # Helper function to extract filter preferences from options and apply all database-level filters.
+  defp apply_database_filters(query, options) do
+    case options do
+      %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
+        query
+        |> filter_by_muted_keywords(filter_prefs[:keywords] || [])
+        |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
+        |> filter_by_muted_users(filter_prefs[:muted_users] || [])
+        |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
+
+      _ ->
+        query
+    end
+  end
+
+  # Helper function to extract muted keywords from options.
   defp get_muted_keywords_from_options(options) do
     case options do
       %{filter_prefs: %{keywords: keywords}} when is_list(keywords) -> keywords
@@ -726,8 +754,8 @@ defmodule Mosslet.Timeline do
         fetch_connection_posts_from_db(current_user, options)
       end
 
-    # Always apply content filters to both cached and fresh data
-    apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
+    # Database filtering is already applied in fetch functions, no need for additional filtering
+    posts
   end
 
   defp fetch_connection_posts_from_db(current_user, options) do
@@ -748,7 +776,7 @@ defmodule Mosslet.Timeline do
       |> where([p, up], up.user_id == ^current_user.id)
       |> where([p, up], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
       |> where([p], p.visibility != :private)
-      |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
+      |> apply_database_filters(options)
       |> preload([:user_posts, :user, :replies, :user_post_receipts])
       |> order_by([p, up, upr],
         # Unread posts first (false comes before true)
@@ -828,14 +856,10 @@ defmodule Mosslet.Timeline do
         fetch_discover_posts_from_db(current_user, options)
       end
 
-    # Always apply content filters to both cached and fresh data
-    filtered_posts = apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
+    # Database filtering is already applied in fetch functions, no need for additional filtering
+    Logger.info("🔄 List discover: #{length(posts)} posts after database filtering")
 
-    Logger.info(
-      "🔄 List discover: #{length(posts)} raw posts -> #{length(filtered_posts)} after filtering"
-    )
-
-    filtered_posts
+    posts
   end
 
   defp fetch_discover_posts_from_db(current_user, options) do
@@ -856,7 +880,7 @@ defmodule Mosslet.Timeline do
         preload: [:user_posts, :replies, :user_post_receipts]
       )
       # Use consistent pagination helper
-      |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
+      |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
@@ -870,7 +894,7 @@ defmodule Mosslet.Timeline do
         preload: [:user_posts, :replies]
       )
       # Use consistent pagination helper
-      |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
+      |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts()
@@ -880,34 +904,16 @@ defmodule Mosslet.Timeline do
   @doc """
   Counts public posts for discover timeline.
   """
-  def count_discover_posts(current_user \\ nil, filter_prefs \\ %{}) do
-    if current_user && has_active_filters?(filter_prefs) do
-      # CRITICAL FIX: When filters are active, use same logic as list function
-      # Get all posts without pagination, then apply same filtering
-      posts = fetch_discover_posts_from_db(current_user, %{})
-
-      # Remove duplicates first (same as DISTINCT in database)
-      unique_posts = Enum.uniq_by(posts, & &1.id)
-
-      # Then apply content filters
-      filtered_posts = apply_content_filters(unique_posts, current_user, filter_prefs)
-
-      Logger.info(
-        "🔢 Count with filters: #{length(posts)} raw -> #{length(unique_posts)} unique -> #{length(filtered_posts)} filtered"
-      )
-
-      length(filtered_posts)
-    else
-      # FIXED: Count unique posts, not UserPost entries
-      # Use DISTINCT to avoid counting duplicate posts from multiple UserPost entries
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.visibility == :public,
-        distinct: p.id
-      )
-      |> Repo.aggregate(:count, :id)
-    end
+  def count_discover_posts(_current_user \\ nil, filter_prefs \\ %{}) do
+    # Always use database-level filtering for consistency and performance
+    from(p in Post,
+      inner_join: up in UserPost,
+      on: up.post_id == p.id,
+      where: p.visibility == :public,
+      distinct: p.id
+    )
+    |> apply_database_filters(%{filter_prefs: filter_prefs})
+    |> Repo.aggregate(:count, :id)
   end
 
   @doc """
@@ -956,8 +962,8 @@ defmodule Mosslet.Timeline do
         fetch_user_own_posts_from_db(current_user, options)
       end
 
-    # Always apply content filters to both cached and fresh data
-    apply_content_filters(posts, current_user, options[:filter_prefs] || %{})
+    # Database filtering is already applied in fetch functions, no need for additional filtering
+    posts
   end
 
   defp fetch_user_own_posts_from_db(current_user, options) do
@@ -966,7 +972,7 @@ defmodule Mosslet.Timeline do
     |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up], up.user_id == ^current_user.id and p.user_id == ^current_user.id)
     |> with_any_visibility([:private, :connections, :public])
-    |> filter_by_muted_keywords(get_muted_keywords_from_options(options))
+    |> apply_database_filters(options)
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
       # Unread posts first (false comes before true)
@@ -2824,11 +2830,15 @@ defmodule Mosslet.Timeline do
   Gets all bookmarks for a user with optional category filtering.
   """
   def list_user_bookmarks(user, opts \\ []) do
+    # Use database-level filtering by joining with posts table
     query =
       from b in Bookmark,
+        inner_join: p in Post,
+        on: b.post_id == p.id,
         where: b.user_id == ^user.id,
+        order_by: [desc: b.inserted_at],
         preload: [:category, post: :replies],
-        order_by: [desc: b.inserted_at]
+        select: b
 
     query =
       case opts[:category_id] do
@@ -2836,43 +2846,36 @@ defmodule Mosslet.Timeline do
         category_id -> where(query, [b], b.category_id == ^category_id)
       end
 
+    # Apply database-level content filtering
+    query = apply_database_filters(query, opts)
+
     # Apply consistent pagination using post_page and post_per_page
     query = paginate_bookmarks(query, opts)
 
-    posts =
-      query
-      |> Repo.all()
-      |> Enum.map(fn bookmark -> bookmark.post end)
-      |> Enum.filter(&(&1 != nil))
-
-    # Apply content filters to bookmarked posts
-    apply_content_filters(posts, user, opts[:filter_prefs] || %{})
+    # Get bookmarks and extract posts
+    query
+    |> Repo.all()
+    |> Enum.map(fn bookmark -> bookmark.post end)
+    |> Enum.filter(&(&1 != nil))
   end
 
   @doc """
   Counts a user's bookmarks.
   """
   def count_user_bookmarks(user, filter_prefs \\ %{}) do
-    if has_active_filters?(filter_prefs) do
-      # When filters are active, get bookmarked posts and count after filtering
-      posts =
-        from(b in Bookmark,
-          where: b.user_id == ^user.id,
-          preload: [post: :replies],
-          order_by: [desc: b.inserted_at]
-        )
-        |> Repo.all()
-        |> Enum.map(fn bookmark -> bookmark.post end)
-        |> Enum.filter(&(&1 != nil))
+    # Always use database-level filtering for consistency and performance
+    # Use subquery to count bookmarks that match filter criteria
+    bookmark_post_ids =
+      from(b in Bookmark,
+        where: b.user_id == ^user.id,
+        select: b.post_id
+      )
 
-      filtered_posts = apply_content_filters(posts, user, filter_prefs)
-      length(filtered_posts)
-    else
-      # When no filters, use fast database count
-      # NOTE: Bookmarks are 1:1 with posts, so no need for DISTINCT here
-      query = from b in Bookmark, where: b.user_id == ^user.id
-      Repo.aggregate(query, :count)
-    end
+    from(p in Post,
+      where: p.id in subquery(bookmark_post_ids)
+    )
+    |> apply_database_filters(%{filter_prefs: filter_prefs})
+    |> Repo.aggregate(:count, :id)
   end
 
   @doc """
@@ -3640,14 +3643,14 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Creates a changeset for UserTimelinePreferences.
+  Creates a changeset for USerTimelinePreference.
   """
   def change_user_timeline_preferences(
-        preferences \\ %UserTimelinePreferences{},
+        preferences \\ %USerTimelinePreference{},
         attrs \\ %{},
         opts \\ []
       ) do
-    UserTimelinePreferences.changeset(preferences, attrs, opts)
+    USerTimelinePreference.changeset(preferences, attrs, opts)
   end
 
   @doc """
@@ -3658,21 +3661,12 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Applies content filters to a list of posts.
-
-  This function accepts already-decrypted filter preferences from the LiveView
-  and applies them to the posts list. It's designed to be called at the
-  end of Timeline context functions to ensure consistent filtering across
-  all timeline tabs and cached/fresh data.
+  DEPRECATED: Application-level filtering has been moved to database level for better performance.
+  All filtering is now done in queries using apply_database_filters/2.
   """
-  def apply_content_filters(posts, user, filter_prefs \\ %{}) do
-    # Skip filtering if no filter preferences provided or explicitly disabled
-    if is_nil(filter_prefs) || filter_prefs[:skip_content_filters] do
-      posts
-    else
-      # Apply filters using the ContentFilter module with already-decrypted prefs
-      ContentFilter.filter_timeline_posts(posts, user, filter_prefs)
-    end
+  def apply_content_filters(posts, _user, _filter_prefs) do
+    # Return posts as-is since filtering is now done at database level
+    posts
   end
 
   @doc """

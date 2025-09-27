@@ -8,7 +8,7 @@ defmodule Mosslet.Timeline.Navigation do
 
   import Ecto.Query, warn: false
   alias Mosslet.{Accounts, Timeline, Groups, Repo}
-  alias Mosslet.Timeline.{Post, UserTimelinePreferences, TimelineViewCache}
+  alias Mosslet.Timeline.{Post, USerTimelinePreference, TimelineViewCache}
 
   @default_tabs ["home", "connections", "groups", "bookmarks", "discover"]
 
@@ -66,7 +66,7 @@ defmodule Mosslet.Timeline.Navigation do
   Gets or creates user timeline preferences.
   """
   def get_user_preferences(user) do
-    case Repo.get_by(UserTimelinePreferences, user_id: user.id) do
+    case Repo.get_by(USerTimelinePreference, user_id: user.id) do
       nil -> create_default_preferences(user)
       preferences -> preferences
     end
@@ -80,7 +80,7 @@ defmodule Mosslet.Timeline.Navigation do
 
     case Repo.transaction_on_primary(fn ->
            preferences
-           |> UserTimelinePreferences.changeset(attrs, opts)
+           |> USerTimelinePreference.changeset(attrs, opts)
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_preferences}} -> {:ok, updated_preferences}
@@ -292,8 +292,8 @@ defmodule Mosslet.Timeline.Navigation do
 
   defp create_default_preferences(user) do
     case Repo.transaction_on_primary(fn ->
-           %UserTimelinePreferences{}
-           |> UserTimelinePreferences.changeset(%{user_id: user.id})
+           %USerTimelinePreference{}
+           |> USerTimelinePreference.changeset(%{user_id: user.id})
            |> Repo.insert()
          end) do
       {:ok, {:ok, preferences}} -> preferences
