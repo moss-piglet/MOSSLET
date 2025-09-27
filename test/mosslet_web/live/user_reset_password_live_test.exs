@@ -123,7 +123,7 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
       assert html =~ "cannot reset your password using this method"
     end
 
-    test "redirects to password reset page when the Register button is clicked", %{
+    test "redirects to the Register page when Register button is clicked", %{
       conn: conn,
       token: token
     } do
@@ -131,11 +131,11 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
 
       {:ok, _lv, html} =
         lv
-        |> element("a", "Register")
+        |> element("a", "Create account")
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/register")
 
-      assert html =~ "Register"
+      assert html =~ "Take back your privacy"
     end
   end
 
