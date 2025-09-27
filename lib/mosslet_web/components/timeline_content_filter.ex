@@ -277,6 +277,7 @@ defmodule MossletWeb.TimelineContentFilter do
         checked={@current_settings[:hide_all] || false}
         phx_click="toggle_content_warning_filter"
         phx_value_type="hide_all"
+        color="teal"
       />
 
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
@@ -333,13 +334,14 @@ defmodule MossletWeb.TimelineContentFilter do
   end
 
   @doc """
-  Liquid metal toggle switch component.
+  Liquid metal toggle switch component with configurable colors.
   """
   attr :name, :string, required: true
   attr :label, :string, required: true
   attr :checked, :boolean, default: false
   attr :phx_click, :string, required: true
   attr :phx_value_type, :string, default: nil
+  attr :color, :string, default: "emerald", values: ~w(teal emerald blue purple amber rose cyan indigo slate)
 
   def liquid_toggle(assigns) do
     ~H"""
@@ -354,12 +356,13 @@ defmodule MossletWeb.TimelineContentFilter do
         type="button"
         class={[
           "relative inline-flex h-6 w-11 shrink-0 rounded-full transition-all duration-300 ease-out",
-          "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800",
+          "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800",
           "shadow-inner",
           if(@checked,
-            do: "bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30",
+            do: toggle_checked_classes(@color),
             else: "bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-500"
-          )
+          ),
+          "focus:ring-#{@color}-500/50"
         ]}
         phx-click={@phx_click}
         phx-value-type={@phx_value_type}
@@ -371,7 +374,7 @@ defmodule MossletWeb.TimelineContentFilter do
           "bg-white dark:bg-slate-100",
           "border-2 my-1",
           if(@checked,
-            do: "border-emerald-100 dark:border-emerald-200 translate-x-6",
+            do: "border-#{@color}-100 dark:border-#{@color}-200 translate-x-6",
             else: "border-slate-300 dark:border-slate-400 translate-x-1"
           )
         ]}>
@@ -392,6 +395,22 @@ defmodule MossletWeb.TimelineContentFilter do
       "personal" -> "Personal/Sensitive"
       "other" -> "Other"
       _ -> String.capitalize(keyword)
+    end
+  end
+
+  # Helper function for toggle checked state styling based on color
+  defp toggle_checked_classes(color) do
+    case color do
+      "teal" -> "bg-gradient-to-r from-teal-500 to-cyan-500 shadow-teal-500/30"
+      "emerald" -> "bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30"
+      "blue" -> "bg-gradient-to-r from-blue-500 to-cyan-500 shadow-blue-500/30"
+      "purple" -> "bg-gradient-to-r from-purple-500 to-violet-500 shadow-purple-500/30"
+      "amber" -> "bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-500/30"
+      "rose" -> "bg-gradient-to-r from-rose-500 to-pink-500 shadow-rose-500/30"
+      "cyan" -> "bg-gradient-to-r from-cyan-500 to-teal-500 shadow-cyan-500/30"
+      "indigo" -> "bg-gradient-to-r from-indigo-500 to-blue-500 shadow-indigo-500/30"
+      "slate" -> "bg-gradient-to-r from-slate-500 to-slate-600 shadow-slate-500/30"
+      _ -> "bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30"
     end
   end
 
