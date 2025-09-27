@@ -2199,6 +2199,25 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
+  defp get_custom_focus_colors("teal") do
+    %{
+      label: "text-slate-900 dark:text-slate-100",
+      background:
+        "bg-gradient-to-br from-teal-50/30 via-teal-50/40 to-teal-50/30 dark:from-teal-900/15 dark:via-teal-900/20 dark:to-teal-900/15",
+      shimmer:
+        "bg-gradient-to-r from-transparent via-teal-200/30 to-transparent dark:via-teal-400/15",
+      focus_ring:
+        "bg-gradient-to-r from-teal-500 via-teal-500 to-teal-500 dark:from-teal-400 dark:via-teal-400 dark:to-teal-400",
+      focus_border: "border-teal-500 dark:border-teal-400",
+      border: "border-2 border-slate-200 dark:border-slate-700",
+      hover_border: "hover:border-slate-300 dark:hover:border-slate-600",
+      focus_border_input: "focus:border-teal-500 dark:focus:border-teal-400",
+      focus_shadow: "focus:shadow-teal-500/10",
+      arrow:
+        "text-slate-400 dark:text-slate-500 group-focus-within:text-teal-500 dark:group-focus-within:text-teal-400"
+    }
+  end
+
   # Fallback to emerald for unknown colors
   defp get_custom_focus_colors(_), do: get_custom_focus_colors("emerald")
 
