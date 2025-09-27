@@ -22,7 +22,6 @@ defmodule Mosslet.Timeline do
     PostReport,
     PostHide,
     ContentWarningCategory,
-    ContentFilter,
     Navigation
   }
 
@@ -743,14 +742,6 @@ defmodule Mosslet.Timeline do
   end
 
   defp filter_by_reposts_bookmark(query, _hide_reposts), do: query
-
-  # Helper function to extract muted keywords from options.
-  defp get_muted_keywords_from_options(options) do
-    case options do
-      %{filter_prefs: %{keywords: keywords}} when is_list(keywords) -> keywords
-      _ -> []
-    end
-  end
 
   @doc """
   Returns the list of public posts.

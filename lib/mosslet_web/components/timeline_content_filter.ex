@@ -86,8 +86,8 @@ defmodule MossletWeb.TimelineContentFilter do
           />
         </.filter_section>
 
-        <%!-- Hidden Users Filter --%>
-        <.filter_section title="Hidden Users" icon="hero-eye-slash">
+        <%!-- Muted Users Filter --%>
+        <.filter_section title="Muted Users" icon="hero-bell-slash">
           <.muted_users_list
             muted_users={@filters.muted_users || []}
             mobile_friendly={@mobile_friendly}
@@ -246,7 +246,7 @@ defmodule MossletWeb.TimelineContentFilter do
         :if={@muted_users == []}
         class="text-sm text-slate-500 dark:text-slate-400 py-4 text-center"
       >
-        No hidden users
+        No muted users
       </div>
 
       <div :if={@muted_users != []} class="space-y-2">
@@ -273,7 +273,7 @@ defmodule MossletWeb.TimelineContentFilter do
       </div>
 
       <p class="text-xs text-slate-500 dark:text-slate-400">
-        Posts from hidden users won't appear in your timeline
+        Posts from muted users won't appear in your timeline
       </p>
     </div>
     """
