@@ -1,6 +1,5 @@
 defmodule Mosslet.FileUploads.Tigris do
   @moduledoc false
-  require Logger
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
 
@@ -19,8 +18,7 @@ defmodule Mosslet.FileUploads.Tigris do
     s3_host = Encrypted.Session.s3_host()
 
     user = Accounts.get_user_by_session_token(session["user_token"])
-    Logger.info("📷 TIGRIS: get_user_by_session_token returned: #{inspect(user)}")
-    Logger.info("📷 TIGRIS: session user_token was: #{inspect(session["user_token"])}")
+
     file_ext = ext(content_type)
     file_key = get_file_key(storage_key)
     file_path = "#{@folder}/#{file_key}.#{file_ext}"

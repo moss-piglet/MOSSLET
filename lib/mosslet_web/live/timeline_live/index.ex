@@ -335,17 +335,10 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
 
-    # Debug logging
-    require Logger
-    Logger.info("🎯 POST CREATED: #{post.id} by user #{post.user_id}")
-    Logger.info("   Current tab: #{current_tab}, Current user: #{current_user.id}")
-
     # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
-    Logger.info("   Should show post: #{should_show_post}")
 
     if should_show_post do
-      Logger.info("   Adding post to stream with animations...")
       # Add the new post to the top of the stream - CSS animations will trigger automatically
       socket =
         socket
@@ -355,7 +348,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
       {:noreply, socket}
     else
-      Logger.info("   Post doesn't match current tab, updating counts only")
       # Post doesn't match current tab, but still update counts
       socket =
         socket
@@ -685,16 +677,13 @@ defmodule MossletWeb.TimelineLive.Index do
                 decr_item(encrypted_url, current_user, post_key, key, post, "body")
               end)
 
-            Logger.info("📷 GET_POST_IMAGE_URLS: Decrypted S3 paths: #{inspect(decrypted_urls)}")
             {:reply, %{response: "success", image_urls: decrypted_urls}, socket}
 
           _ ->
-            Logger.info("📷 GET_POST_IMAGE_URLS: No image URLs found for post #{post_id}")
             {:reply, %{response: "success", image_urls: []}, socket}
         end
 
       nil ->
-        Logger.error("Post not found: #{post_id}")
         {:reply, %{response: "error", message: "Post not found"}, socket}
     end
   end
@@ -719,7 +708,6 @@ defmodule MossletWeb.TimelineLive.Index do
     images =
       Enum.map(sources, fn file_path ->
         # Since we now receive the full file path directly, use it as-is
-        Logger.info("📷 DECRYPT_POST_IMAGES: Processing file path: #{file_path}")
 
         case get_s3_object(memories_bucket, file_path) do
           {:ok, %{body: e_obj}} ->
@@ -736,8 +724,6 @@ defmodule MossletWeb.TimelineLive.Index do
       end)
       |> List.flatten()
       |> Enum.filter(fn source -> !is_nil(source) end)
-
-    Logger.info("📷 DECRYPT_POST_IMAGES: Successfully decrypted #{length(images)} images")
 
     if decrypted_image_binaries_for_trix?(images) do
       {:reply, %{response: "success", decrypted_binaries: images}, socket}
@@ -941,11 +927,9 @@ defmodule MossletWeb.TimelineLive.Index do
         end
 
       %{is_read?: true} ->
-        Logger.info("Receipt exists and is read - marking as unread")
         # Receipt exists and is marked as read - mark as unread
         case Timeline.update_user_post_receipt_unread(receipt.id) do
           {:ok, _conn, _post} ->
-            Logger.info("Successfully marked as unread")
             # Invalidate timeline cache to ensure fresh data
             Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
@@ -974,11 +958,9 @@ defmodule MossletWeb.TimelineLive.Index do
         end
 
       %{is_read?: false} ->
-        Logger.info("Receipt exists and is unread - marking as read")
         # Receipt exists and is marked as unread - mark as read
         case Timeline.update_user_post_receipt_read(receipt.id) do
           {:ok, _conn, _post} ->
-            Logger.info("Successfully marked as read")
             # Invalidate timeline cache to ensure fresh data
             Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
@@ -1102,14 +1084,6 @@ defmodule MossletWeb.TimelineLive.Index do
       current_user = socket.assigns.current_user
       key = socket.assigns.key
 
-      # Debug logging for upload entries
-      upload_entries = socket.assigns.uploads.photos.entries
-      Logger.info("🔍 SAVE_POST DEBUG: Upload entries count: #{length(upload_entries)}")
-
-      Enum.each(upload_entries, fn entry ->
-        Logger.info("   Entry #{entry.ref}: #{entry.client_name} (#{entry.client_type})")
-      end)
-
       # Process uploaded photos and get their URLs with trix_key
       {uploaded_photo_urls, trix_key} =
         process_uploaded_photos(socket, current_user, key)
@@ -1122,8 +1096,6 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("user_id", current_user.id)
         |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
         |> add_shared_users_list_for_new_post(post_shared_users)
-
-      Logger.info("🔍 SAVE_POST DEBUG: Final image_urls: #{inspect(post_params["image_urls"])}")
 
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
@@ -1421,10 +1393,6 @@ defmodule MossletWeb.TimelineLive.Index do
     current_page = socket.assigns.current_page
     loaded_count = socket.assigns.loaded_posts_count
 
-    Logger.info(
-      "🔄 Loading more posts: tab=#{current_tab}, page=#{current_page}, loaded=#{loaded_count}"
-    )
-
     # Set loading state
     socket = assign(socket, :load_more_loading, true)
 
@@ -1455,8 +1423,6 @@ defmodule MossletWeb.TimelineLive.Index do
           Timeline.filter_timeline_posts(current_user, updated_options_with_filters)
           |> apply_tab_filtering(current_tab, current_user)
       end
-
-    Logger.info("🔄 Loaded #{length(new_posts)} more posts")
 
     # Calculate updated counts
     new_loaded_count = loaded_count + length(new_posts)
@@ -2512,10 +2478,6 @@ defmodule MossletWeb.TimelineLive.Index do
       options[:content_filter_prefs] ||
         load_and_decrypt_content_filters(current_user, options[:key])
 
-    Logger.info(
-      "🔢 Calculating timeline counts for user #{current_user.id} with filters: #{inspect(Map.keys(content_filter_prefs))}"
-    )
-
     counts = %{
       # All counts now support filtering for accurate "load more" estimates
       home: Timeline.count_user_own_posts(current_user, content_filter_prefs),
@@ -2525,7 +2487,6 @@ defmodule MossletWeb.TimelineLive.Index do
       discover: Timeline.count_discover_posts(current_user, content_filter_prefs)
     }
 
-    Logger.info("🔢 Final timeline counts: #{inspect(counts)}")
     counts
   end
 
@@ -2677,7 +2638,6 @@ defmodule MossletWeb.TimelineLive.Index do
   # Returns {upload_paths, trix_key} tuple for idiomatic Elixir/Phoenix
   defp process_uploaded_photos(socket, current_user, key) do
     upload_entries = socket.assigns.uploads.photos.entries
-    Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Starting with #{length(upload_entries)} entries")
 
     if length(upload_entries) == 0 do
       {[], nil}
@@ -2686,23 +2646,12 @@ defmodule MossletWeb.TimelineLive.Index do
       trix_key =
         socket.assigns[:trix_key] || generate_and_encrypt_trix_key(current_user, nil)
 
-      Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated/retrieved trix_key")
-
       # Process uploads directly in LiveView process - NO TASKS!
       upload_results =
         for entry <- upload_entries do
-          Logger.info(
-            "📷 PROCESS_UPLOADED_PHOTOS: Processing entry #{entry.ref}: #{entry.client_name}"
-          )
-
           consume_uploaded_entry(socket, entry, fn %{path: tmp_path} ->
-            Logger.info(
-              "📷 PROCESS_UPLOADED_PHOTOS: Consuming entry #{entry.ref}, tmp_path: #{tmp_path}"
-            )
-
             # Generate a unique storage key for this photo
             storage_key = Ecto.UUID.generate()
-            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Generated storage_key: #{storage_key}")
 
             # Use your existing Tigris.ex upload system
             upload_params = %{
@@ -2716,34 +2665,18 @@ defmodule MossletWeb.TimelineLive.Index do
               "trix_key" => trix_key
             }
 
-            Logger.info(
-              "📷 PROCESS_UPLOADED_PHOTOS: Prepared upload_params for #{entry.client_name}"
-            )
-
             # Get session for Tigris.ex (use stored user token from mount)
             session = %{
               "user_token" => socket.assigns.user_token,
               "key" => key
             }
 
-            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Prepared session")
-
-            Logger.info(
-              "📷 PROCESS_UPLOADED_PHOTOS: user_token: #{inspect(session["user_token"])}"
-            )
-
-            Logger.info("📷 PROCESS_UPLOADED_PHOTOS: current_user.id: #{inspect(current_user.id)}")
-
             case Mosslet.FileUploads.Tigris.upload(session, upload_params) do
               {:ok, _presigned_url} ->
-                Logger.info(
-                  "📷 PROCESS_UPLOADED_PHOTOS: Upload successful for #{entry.client_name}"
-                )
-
                 # Build the file path the same way Tigris.ex does internally
                 [file_ext | _] = MIME.extensions(entry.client_type)
                 file_path = "#{@folder}/#{storage_key}.#{file_ext}"
-                Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Built file_path: #{file_path}")
+
                 # Return the path directly since consume_uploaded_entry expects the return value
                 file_path
 
@@ -2758,16 +2691,10 @@ defmodule MossletWeb.TimelineLive.Index do
           end)
         end
 
-      Logger.info(
-        "📷 PROCESS_UPLOADED_PHOTOS: All uploads processed. Raw results: #{inspect(upload_results)}"
-      )
-
       # Filter out nil values (failed uploads)
       successful_paths =
         upload_results
         |> Enum.filter(&(&1 != nil))
-
-      Logger.info("📷 PROCESS_UPLOADED_PHOTOS: Successful paths: #{inspect(successful_paths)}")
 
       {successful_paths, trix_key}
     end
@@ -2869,10 +2796,6 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
       |> stream(:posts, posts, reset: true)
-
-    Logger.info(
-      "🔄 Refreshed #{current_tab} timeline with #{length(posts)} posts, new counts: #{inspect(timeline_counts)}"
-    )
 
     socket
   end

@@ -138,7 +138,6 @@ defmodule MossletWeb.Helpers do
 
   def decrypt_image_for_trix(e_obj, current_user, e_item_key, key, item, content_name, ext) do
     result = decr_item(e_obj, current_user, e_item_key, key, item, content_name)
-    Logger.info("📷 DECR_ITEM RESULT: #{inspect(result)}")
 
     case result do
       :failed_verification ->
@@ -157,11 +156,9 @@ defmodule MossletWeb.Helpers do
         nil
 
       image when is_binary(image) ->
-        Logger.info("📷 SUCCESS: Got binary image of size #{byte_size(image)}")
         build_image_from_binary_for_trix(image, ext)
 
       _ ->
-        Logger.warning("Unknown result from decr_item for image decryption: #{inspect(result)}")
         nil
     end
   end

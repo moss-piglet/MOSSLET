@@ -12,11 +12,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
-  require Logger
-
   def call(%Stripe.Subscription{} = stripe_subscription) do
-    Logger.info("Syncing #{stripe_subscription.id}")
-
     with {:customer, %Customer{} = customer} <-
            {:customer,
             Customers.get_customer_by_provider_customer_id!(stripe_subscription.customer)},

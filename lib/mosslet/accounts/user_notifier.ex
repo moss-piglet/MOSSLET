@@ -98,15 +98,12 @@ defmodule Mosslet.Accounts.UserNotifier do
   def can_receive_mail?(user) do
     cond do
       is_nil(user.confirmed_at) ->
-        Logger.info("Mail not delivered. User ##{user.id} has not confirmed their email")
         false
 
       user.is_suspended? ->
-        Logger.info("Mail not delivered. User ##{user.id} is suspended")
         false
 
       user.is_deleted? ->
-        Logger.info("Mail not delivered. User ##{user.id} has been deleted")
         false
 
       true ->

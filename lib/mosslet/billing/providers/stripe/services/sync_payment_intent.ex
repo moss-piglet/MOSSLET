@@ -13,11 +13,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncPaymentIntent do
   alias Mosslet.Billing.PaymentIntents.PaymentIntent
   alias Mosslet.Orgs
 
-  require Logger
-
   def call(%Stripe.PaymentIntent{} = stripe_payment_intent) do
-    Logger.info("Syncing #{stripe_payment_intent.id}")
-
     with {:customer, %Customer{} = customer} <-
            {:customer,
             Customers.get_customer_by_provider_customer_id!(stripe_payment_intent.customer)},

@@ -905,7 +905,6 @@ defmodule Mosslet.Timeline do
       end
 
     # Database filtering is already applied in fetch functions, no need for additional filtering
-    Logger.info("🔄 List discover: #{length(posts)} posts after database filtering")
 
     posts
   end

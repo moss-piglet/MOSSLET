@@ -177,16 +177,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     {:ok, %{table: table}}
   end
 
-  # Handle post creation - invalidate relevant timeline caches
-  def handle_info({:post_created, post}, state) do
-    Logger.debug("Cache invalidation: post created #{post.id}")
-
-    # Invalidate timeline caches for all affected users
-    invalidate_timelines_for_post(post)
-
-    {:noreply, state}
-  end
-
   # Handle post updates - invalidate specific post and related timelines
   def handle_info({:post_updated, post}, state) do
     Logger.debug("Cache invalidation: post updated #{post.id}")
@@ -303,8 +293,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle private post events - these come on user-specific topics
   def handle_info({:post_created, post}, state) when is_map(post) do
-    Logger.debug("Cache invalidation: private post created #{post.id}")
-
     # This handles both public posts (from "posts" topic) and private posts (from "priv_posts:user_id" topics)
     invalidate_timelines_for_post(post)
 

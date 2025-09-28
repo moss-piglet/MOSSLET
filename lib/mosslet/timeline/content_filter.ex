@@ -38,19 +38,16 @@ defmodule Mosslet.Timeline.ContentFilter do
       when is_binary(keyword) do
     keyword = String.trim(keyword) |> String.downcase()
 
-    Logger.info("Adding keyword filter: #{keyword} for user #{user_id}")
-
     cond do
       keyword == "" ->
         {:error, :invalid_keyword}
 
       keyword not in current_keywords ->
         new_keywords = [keyword | current_keywords]
-        Logger.info("New keywords list: #{inspect(new_keywords)}")
+
         update_filter_preferences(user_id, %{keywords: new_keywords}, opts)
 
       true ->
-        Logger.info("Keyword already exists, skipping")
         current_prefs = load_user_filter_preferences(user_id)
         {:ok, current_prefs}
     end
@@ -70,13 +67,10 @@ defmodule Mosslet.Timeline.ContentFilter do
   Mutes a user by adding their user_id to the muted users list.
   """
   def mute_user(user_id, target_user_id, current_muted_users \\ [], opts \\ []) do
-    Logger.info("Muting user #{target_user_id} for user #{user_id}")
-
     if target_user_id not in current_muted_users do
       new_muted_users = [target_user_id | current_muted_users]
       update_filter_preferences(user_id, %{muted_users: new_muted_users}, opts)
     else
-      Logger.info("User already muted, skipping")
       current_prefs = load_user_filter_preferences(user_id)
       {:ok, current_prefs}
     end
@@ -86,7 +80,6 @@ defmodule Mosslet.Timeline.ContentFilter do
   Unmutes a user by removing their user_id from the muted users list.
   """
   def unmute_user(user_id, target_user_id, current_muted_users \\ [], opts \\ []) do
-    Logger.info("Unmuting user #{target_user_id} for user #{user_id}")
     new_muted_users = List.delete(current_muted_users, target_user_id)
     update_filter_preferences(user_id, %{muted_users: new_muted_users}, opts)
   end
@@ -107,12 +100,8 @@ defmodule Mosslet.Timeline.ContentFilter do
   # Private functions for data persistence
 
   defp load_user_filter_preferences(user_id) do
-    Logger.info("Loading user filter preferences for user #{user_id}")
-
     case Mosslet.Repo.get_by(UserTimelinePreference, user_id: user_id) do
       nil ->
-        Logger.info("No preferences found, returning defaults")
-
         %{
           keywords: [],
           muted_users: [],
@@ -122,7 +111,6 @@ defmodule Mosslet.Timeline.ContentFilter do
         }
 
       prefs ->
-        Logger.info("Found preferences record")
         # Return structure that matches our filtering expectations
         # Decryption will be handled by LiveView with session key
         %{
@@ -139,8 +127,6 @@ defmodule Mosslet.Timeline.ContentFilter do
   end
 
   defp save_user_filter_preferences(user_id, preferences, opts) do
-    Logger.info("Saving filter preferences for user #{user_id}: #{inspect(preferences)}")
-
     # Get or create user timeline preferences
     prefs =
       case Mosslet.Repo.get_by(UserTimelinePreference, user_id: user_id) do
@@ -205,15 +191,12 @@ defmodule Mosslet.Timeline.ContentFilter do
            Mosslet.Repo.insert_or_update(changeset)
          end) do
       {:ok, {:ok, _updated_prefs}} ->
-        Logger.info("Successfully saved filter preferences")
         :ok
 
       {:ok, {:error, changeset}} ->
-        Logger.error("Failed to save filter preferences: #{inspect(changeset.errors)}")
         {:error, changeset}
 
-      error ->
-        Logger.error("Transaction failed: #{inspect(error)}")
+      _error ->
         {:error, :transaction_failed}
     end
   end

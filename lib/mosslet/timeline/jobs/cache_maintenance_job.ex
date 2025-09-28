@@ -107,7 +107,7 @@ defmodule Mosslet.Timeline.Jobs.CacheMaintenanceJob do
     # Wait a moment for cleanup to complete
     Process.sleep(1000)
 
-    # Get stats after cleanup  
+    # Get stats after cleanup
     %{size: after_size, memory: after_memory} = TimelineCache.get_cache_stats()
 
     end_time = System.monotonic_time(:millisecond)
@@ -209,12 +209,19 @@ defmodule Mosslet.Timeline.Jobs.CacheMaintenanceJob do
         priority_tabs = ["home", "connections"]
 
         Enum.each(priority_tabs, fn tab ->
-          try do
-            options = %{tab: tab, post_per_page: 10}
-            Timeline.filter_timeline_posts(user, options)
-          rescue
-            e ->
-              Logger.debug("Failed to warm cache for user #{user.id}, tab #{tab}: #{inspect(e)}")
+          options = %{tab: tab, post_per_page: 10}
+
+          case Timeline.filter_timeline_posts(user, options) do
+            {:ok, _result} ->
+              :ok
+
+            {:error, reason} ->
+              Logger.debug(
+                "Failed to warm cache for user #{user.id}, tab #{tab}: #{inspect(reason)}"
+              )
+
+            _unexpected_result ->
+              Logger.debug("Unexpected result warming cache for user #{user.id}, tab #{tab}")
           end
         end)
       end,

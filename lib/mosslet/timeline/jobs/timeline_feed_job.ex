@@ -125,7 +125,7 @@ defmodule Mosslet.Timeline.Jobs.TimelineFeedJob do
   # Job implementations - ALL sensitive data fetched from encrypted DB during execution
 
   defp regenerate_user_feed(%{"user_id" => user_id, "tabs" => tabs}) do
-    # 🔐 PRIVACY: User ID is just a UUID (safe), sensitive data fetched here
+    # 🔐 PRIVACY: User ID is just a UUID (safe), nonsensitive data fetched here
     case Mosslet.Accounts.get_user(user_id) do
       nil ->
         Logger.warning("User not found for feed regeneration: #{user_id}")

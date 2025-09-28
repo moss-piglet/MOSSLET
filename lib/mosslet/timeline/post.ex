@@ -557,6 +557,20 @@ defmodule Mosslet.Timeline.Post do
             end
           end
 
+        :private ->
+          if opts[:trix_key] do
+            {:ok, d_post_key} =
+              Encrypted.Users.Utils.decrypt_user_attrs_key(
+                opts[:trix_key],
+                opts[:user],
+                opts[:key]
+              )
+
+            d_post_key
+          else
+            Encrypted.Utils.generate_key()
+          end
+
         _rest ->
           Encrypted.Utils.generate_key()
       end
