@@ -31,6 +31,8 @@ defmodule Mosslet.Application do
         MossletWeb.Telemetry,
         # Start the PubSub system
         {Phoenix.PubSub, name: Mosslet.PubSub},
+        # Start Phoenix Presence for privacy-first activity tracking
+        MossletWeb.Presence,
         # Start BackgroundTask
         {Task.Supervisor, name: Mosslet.BackgroundTask},
         # Start Finch

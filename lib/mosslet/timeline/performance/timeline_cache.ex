@@ -161,6 +161,9 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     # Subscribe to user-specific events for targeted invalidation
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "users")
 
+    # Subscribe to Presence events for privacy-first active user tracking
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "timeline_cache_presence")
+
     # Subscribe to recently active users' private post and reply topics for cache invalidation
     subscribe_to_active_users_private_topics()
     subscribe_to_active_users_reply_topics()
@@ -317,6 +320,30 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     {:noreply, state}
   end
 
+  # Handle user joining timeline (via Presence) - subscribe to their topics
+  def handle_info({:user_joined_timeline, user_id}, state) do
+    Logger.debug("User joined timeline - subscribing to their private/connections topics for cache optimization")
+    
+    # Subscribe to their private posts
+    private_topic = "priv_posts:#{user_id}"
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
+    
+    # Subscribe to their connections posts
+    connections_topic = "conn_posts:#{user_id}"
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_topic)
+    
+    # Subscribe to their reply topics
+    private_reply_topic = "priv_replies:#{user_id}"
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, private_reply_topic)
+    
+    connections_reply_topic = "conn_replies:#{user_id}"
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_reply_topic)
+    
+    Logger.info("Timeline cache now tracking active user for cache optimization")
+    
+    {:noreply, state}
+  end
+
   # Catch-all for unknown events
   def handle_info(msg, state) do
     Logger.debug("Timeline cache received unknown message: #{inspect(msg)}")
@@ -326,24 +353,32 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   ## Private Functions
 
   # Subscribe to private post topics for recently active users
+  # PRIVACY: Uses Presence-based activity tracking (privacy-first)
   defp subscribe_to_active_users_private_topics() do
-    # Get recently active users (those who posted in the last hour)
-    recently_active_users = Mosslet.Timeline.get_recently_active_users(60, 50)
+    # Get users active on timeline (privacy-first approach via Presence)
+    active_user_ids = MossletWeb.Presence.get_active_timeline_user_ids()
+    
+    # Also include recently posted users for better cache coverage
+    recently_active_users = Mosslet.Timeline.get_recently_active_users(60, 30)
+    recently_active_user_ids = Enum.map(recently_active_users, & &1.id)
+    
+    # Combine both for optimal cache subscriptions
+    all_active_user_ids = (active_user_ids ++ recently_active_user_ids) |> Enum.uniq()
 
-    Enum.each(recently_active_users, fn user ->
+    Enum.each(all_active_user_ids, fn user_id ->
       # Subscribe to private posts
-      private_topic = "priv_posts:#{user.id}"
+      private_topic = "priv_posts:#{user_id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
-      Logger.debug("Timeline cache subscribed to private posts for user #{user.id}")
+      Logger.debug("Timeline cache subscribed to private posts for active user")
 
       # Subscribe to connections posts
-      connections_topic = "conn_posts:#{user.id}"
+      connections_topic = "conn_posts:#{user_id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_topic)
-      Logger.debug("Timeline cache subscribed to connections posts for user #{user.id}")
+      Logger.debug("Timeline cache subscribed to connections posts for active user")
     end)
 
     Logger.info(
-      "Timeline cache subscribed to #{length(recently_active_users)} active users' private and connections post topics"
+      "Timeline cache subscribed to #{length(all_active_user_ids)} active users' private and connections post topics (presence + recent activity)"
     )
   end
 

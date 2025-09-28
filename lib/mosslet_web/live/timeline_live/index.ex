@@ -24,6 +24,16 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Store the user token from session for later use in uploads
     user_token = session["user_token"]
+    
+    # PRIVACY-FIRST: Track user presence for cache optimization only
+    # No usernames or identifying info shared - just for performance
+    if connected?(socket) do
+      MossletWeb.Presence.track_timeline_activity(
+        self(), 
+        current_user.id
+      )
+      Logger.debug("User timeline activity tracked for cache optimization")
+    end
 
     # Create changeset with all required fields populated
     changeset =
