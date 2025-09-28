@@ -1291,9 +1291,10 @@ defmodule MossletWeb.Helpers do
                    user.conn_key,
                    key
                  ) do
-            # Put the encrypted avatar binary in ets.
-
-            AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+            # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+            unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
+              AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+            end
 
             # We return this tuple to pattern match on our handle info and
             # pull the encrypted memory binary out of ets
@@ -1352,9 +1353,10 @@ defmodule MossletWeb.Helpers do
                        user.conn_key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-
-                AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted avatar binary out of ets
@@ -1407,9 +1409,10 @@ defmodule MossletWeb.Helpers do
                        user.conn_key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-
-                AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted avatar binary out of ets
@@ -1462,9 +1465,10 @@ defmodule MossletWeb.Helpers do
                        user.conn_key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-
-                AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted avatar binary out of ets
@@ -1517,9 +1521,10 @@ defmodule MossletWeb.Helpers do
                        user.conn_key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-
-                AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted avatar binary out of ets
@@ -1571,8 +1576,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
@@ -1625,8 +1632,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
@@ -1676,8 +1685,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
@@ -1713,8 +1724,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
                 {"get_user_avatar", item.id, item_list, current_user.id}
@@ -1763,8 +1776,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
@@ -1800,8 +1815,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
                 {"get_user_avatar_reply", item.id, item_list, current_user.id}
@@ -1848,8 +1865,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
@@ -1897,8 +1916,10 @@ defmodule MossletWeb.Helpers do
                        uconn.key,
                        key
                      ) do
-                # Put the encrypted avatar binary in ets.
-                AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+                unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
+                  AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
+                end
 
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
@@ -1938,9 +1959,10 @@ defmodule MossletWeb.Helpers do
                    obj,
                    profile.profile_key
                  ) do
-            # Put the encrypted avatar binary in ets.
-
-            AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+            # Only cache if avatar wasn't recently updated (prevents replica lag issues)
+            unless AvatarProcessor.avatar_recently_updated?(user.connection.id) do
+              AvatarProcessor.put_ets_avatar("profile-#{user.connection.id}", obj)
+            end
 
             # We return this tuple to pattern match on our handle info and
             # pull the encrypted memory binary out of ets

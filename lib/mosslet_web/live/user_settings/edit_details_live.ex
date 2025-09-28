@@ -310,11 +310,16 @@ defmodule MossletWeb.EditDetailsLive do
       {:ok, {e_blob, user_params}} ->
         case Accounts.update_user_avatar(user, user_params, user: user, key: key) do
           {:ok, user, conn} ->
-            # Put the encrypted avatar blob in ets under the
-            # user's connection id.
-            Accounts.user_lifecycle_action("after_update_profile", user)
+            # ATOMIC: Delete old cache and immediately put new avatar
+            # This prevents any race condition where avatar helper fetches old data
+            AvatarProcessor.delete_ets_avatar(conn.id)
             AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
             AvatarProcessor.put_ets_avatar("profile-#{conn.id}", e_blob)
+            
+            # Prevent S3 re-fetch for 60 seconds to avoid replica lag issues
+            AvatarProcessor.mark_avatar_recently_updated(conn.id)
+            
+            Accounts.user_lifecycle_action("after_update_profile", user)
             info = "Your avatar has been updated successfully."
 
             {:noreply,
@@ -349,9 +354,11 @@ defmodule MossletWeb.EditDetailsLive do
       profile_avatar_url = decr_avatar(profile.avatar_url, user, user.conn_key, key)
 
       with {:ok, _user, conn} <-
-             Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true),
-           true <- AvatarProcessor.delete_ets_avatar(conn.id),
-           true <- AvatarProcessor.delete_ets_avatar("profile-#{conn.id}") do
+             Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true) do
+        # Clear ALL avatar cache entries for this user
+        AvatarProcessor.delete_ets_avatar(conn.id)
+        AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
+        
         Storj.make_async_aws_requests(avatars_bucket, url, profile_avatar_url, user, key)
 
         Accounts.user_lifecycle_action("after_update_profile", user)
@@ -378,9 +385,11 @@ defmodule MossletWeb.EditDetailsLive do
       end
     else
       with {:ok, _user, conn} <-
-             Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true),
-           true <- AvatarProcessor.delete_ets_avatar(conn.id),
-           true <- AvatarProcessor.delete_ets_avatar("profile-#{conn.id}") do
+             Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true) do
+        # Clear ALL avatar cache entries for this user
+        AvatarProcessor.delete_ets_avatar(conn.id)
+        AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
+        
         Storj.make_async_aws_requests(avatars_bucket, url, user, key)
 
         Accounts.user_lifecycle_action("after_update_profile", user)
