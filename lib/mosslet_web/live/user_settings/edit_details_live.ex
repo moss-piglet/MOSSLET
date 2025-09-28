@@ -315,10 +315,17 @@ defmodule MossletWeb.EditDetailsLive do
             AvatarProcessor.delete_ets_avatar(conn.id)
             AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
             AvatarProcessor.put_ets_avatar("profile-#{conn.id}", e_blob)
-            
+
             # Prevent S3 re-fetch for 60 seconds to avoid replica lag issues
             AvatarProcessor.mark_avatar_recently_updated(conn.id)
-            
+
+            # CRITICAL: Broadcast to ALL Fly.io app instances globally to clear their ETS caches
+            Phoenix.PubSub.broadcast(
+              Mosslet.PubSub,
+              "avatar_cache_global",
+              {:avatar_updated, conn.id, e_blob}
+            )
+
             Accounts.user_lifecycle_action("after_update_profile", user)
             info = "Your avatar has been updated successfully."
 
@@ -358,7 +365,14 @@ defmodule MossletWeb.EditDetailsLive do
         # Clear ALL avatar cache entries for this user
         AvatarProcessor.delete_ets_avatar(conn.id)
         AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
-        
+
+        # CRITICAL: Broadcast to ALL Fly.io app instances globally
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "avatar_cache_global",
+          {:avatar_deleted, conn.id}
+        )
+
         Storj.make_async_aws_requests(avatars_bucket, url, profile_avatar_url, user, key)
 
         Accounts.user_lifecycle_action("after_update_profile", user)
@@ -389,7 +403,14 @@ defmodule MossletWeb.EditDetailsLive do
         # Clear ALL avatar cache entries for this user
         AvatarProcessor.delete_ets_avatar(conn.id)
         AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
-        
+
+        # CRITICAL: Broadcast to ALL Fly.io app instances globally
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "avatar_cache_global",
+          {:avatar_deleted, conn.id}
+        )
+
         Storj.make_async_aws_requests(avatars_bucket, url, user, key)
 
         Accounts.user_lifecycle_action("after_update_profile", user)

@@ -5,6 +5,8 @@ defmodule Mosslet.Extensions.AvatarProcessor do
   """
   use GenServer
 
+  require Logger
+
   ## Client
 
   def start_link(_) do
@@ -25,17 +27,18 @@ defmodule Mosslet.Extensions.AvatarProcessor do
   def delete_ets_avatar(key) do
     :ets.delete(__MODULE__, key)
   end
-  
+
   @doc """
   Mark an avatar as recently updated to prevent stale S3 fetches
   during database replication lag (especially during deployments).
   """
   def mark_avatar_recently_updated(connection_id) do
     key = "no_fetch:#{connection_id}"
-    expires_at = System.system_time(:second) + 60  # 60 second buffer
+    # 60 second buffer
+    expires_at = System.system_time(:second) + 60
     :ets.insert(__MODULE__, {key, expires_at})
   end
-  
+
   @doc """
   Check if an avatar was recently updated and should not be fetched from S3.
   This prevents showing old avatars due to database replication lag.
@@ -43,13 +46,17 @@ defmodule Mosslet.Extensions.AvatarProcessor do
   def avatar_recently_updated?(connection_id) do
     key = "no_fetch:#{connection_id}"
     now = System.system_time(:second)
-    
+
     case :ets.lookup(__MODULE__, key) do
-      [{^key, expires_at}] when expires_at > now -> true
-      [{^key, _expired}] -> 
+      [{^key, expires_at}] when expires_at > now ->
+        true
+
+      [{^key, _expired}] ->
         :ets.delete(__MODULE__, key)
         false
-      [] -> false
+
+      [] ->
+        false
     end
   end
 
@@ -63,17 +70,44 @@ defmodule Mosslet.Extensions.AvatarProcessor do
       write_concurrency: true
     ])
 
+    # Subscribe to global avatar cache invalidation (for multi-instance deployments)
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "avatar_cache_global")
+
     # schedule_sweep()
     {:ok, nil}
   end
 
-  # def handle_info(:sweep, state) do
-  #  :ets.delete_all_objects(@tab)
-  #  schedule_sweep()
-  #  {:noreply, state}
-  # end
+  # Handle global avatar update - clear local cache and update with new data
+  def handle_info({:avatar_updated, connection_id, encrypted_blob}, state) do
+    # Clear both possible cache keys
+    delete_ets_avatar(connection_id)
+    delete_ets_avatar("profile-#{connection_id}")
 
-  # defp schedule_sweep do
-  #  Process.send_after(self(), :sweep, @sweep_after)
-  # end
+    # Put the new avatar in local cache
+    put_ets_avatar("profile-#{connection_id}", encrypted_blob)
+
+    # Mark as recently updated to prevent S3 re-fetch
+    mark_avatar_recently_updated(connection_id)
+
+    Logger.info("Global avatar cache updated for connection #{connection_id}")
+    {:noreply, state}
+  end
+
+  # Handle global avatar deletion - clear local cache
+  def handle_info({:avatar_deleted, connection_id}, state) do
+    # Clear both possible cache keys
+    delete_ets_avatar(connection_id)
+    delete_ets_avatar("profile-#{connection_id}")
+
+    # Mark as recently updated to prevent S3 re-fetch of deleted avatar
+    mark_avatar_recently_updated(connection_id)
+
+    Logger.info("Global avatar cache cleared for connection #{connection_id}")
+    {:noreply, state}
+  end
+
+  # Catch-all for unknown messages
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
 end

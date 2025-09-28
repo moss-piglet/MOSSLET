@@ -1728,6 +1728,7 @@ defmodule MossletWeb.Helpers do
                 unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
                   AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
                 end
+
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
                 {"get_user_avatar", item.id, item_list, current_user.id}
@@ -1819,6 +1820,7 @@ defmodule MossletWeb.Helpers do
                 unless AvatarProcessor.avatar_recently_updated?(uconn.connection.id) do
                   AvatarProcessor.put_ets_avatar("profile-#{uconn.connection.id}", obj)
                 end
+
                 # We return this tuple to pattern match on our handle info and
                 # pull the encrypted memory binary out of ets
                 {"get_user_avatar_reply", item.id, item_list, current_user.id}

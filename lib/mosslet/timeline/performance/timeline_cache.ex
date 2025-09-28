@@ -322,25 +322,27 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle user joining timeline (via Presence) - subscribe to their topics
   def handle_info({:user_joined_timeline, user_id}, state) do
-    Logger.debug("User joined timeline - subscribing to their private/connections topics for cache optimization")
-    
+    Logger.debug(
+      "User joined timeline - subscribing to their private/connections topics for cache optimization"
+    )
+
     # Subscribe to their private posts
     private_topic = "priv_posts:#{user_id}"
     Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
-    
+
     # Subscribe to their connections posts
     connections_topic = "conn_posts:#{user_id}"
     Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_topic)
-    
+
     # Subscribe to their reply topics
     private_reply_topic = "priv_replies:#{user_id}"
     Phoenix.PubSub.subscribe(Mosslet.PubSub, private_reply_topic)
-    
+
     connections_reply_topic = "conn_replies:#{user_id}"
     Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_reply_topic)
-    
+
     Logger.info("Timeline cache now tracking active user for cache optimization")
-    
+
     {:noreply, state}
   end
 
@@ -357,11 +359,11 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   defp subscribe_to_active_users_private_topics() do
     # Get users active on timeline (privacy-first approach via Presence)
     active_user_ids = MossletWeb.Presence.get_active_timeline_user_ids()
-    
+
     # Also include recently posted users for better cache coverage
     recently_active_users = Mosslet.Timeline.get_recently_active_users(60, 30)
     recently_active_user_ids = Enum.map(recently_active_users, & &1.id)
-    
+
     # Combine both for optimal cache subscriptions
     all_active_user_ids = (active_user_ids ++ recently_active_user_ids) |> Enum.uniq()
 
