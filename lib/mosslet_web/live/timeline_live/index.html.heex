@@ -139,7 +139,9 @@
           <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
             user_name={user_name(@current_user, @key) || "Private Author"}
             user_avatar={
-              maybe_get_user_avatar(@current_user, @key) || "/images/logo_icon_dark.svg"
+              if show_avatar?(@current_user),
+                do: maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg",
+                else: "/images/logo.svg"
             }
             placeholder="Share something meaningful with your community..."
             character_limit={500}

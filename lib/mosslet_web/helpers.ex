@@ -556,19 +556,41 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
-  Display Trix-Editor content formatted by Trix in the browser.
-
-  Trix sanitizes the editor content with DOMPurify, so we can safely render the HTML
-  from the user.
-  https://github.com/basecamp/trix#html-sanitization
+  Display legacy Trix-Editor content formatted by Trix in the browser.
   """
-  def html_block(html) do
+  def html_block(content) when is_binary(content) do
+    # Legacy posts with HTML - sanitize for security and render safely
+    sanitized_html = HtmlSanitizeEx.html5(content)
+
     Phoenix.HTML.raw("""
     <div class="trix-content">
-    #{html}
+    #{sanitized_html}
     </div>
     """)
   end
+
+  def html_block(nil), do: ""
+  def html_block(""), do: ""
+
+  # Fast HTML detection for legacy Trix posts
+  def contains_html?(content) when is_binary(content) do
+    # Quick check for common HTML patterns from legacy Trix editor
+    String.contains?(content, [
+      "<div",
+      "<a",
+      "<p>",
+      "<br",
+      "<strong",
+      "<em>",
+      "<ul>",
+      "<li>",
+      "<blockquote"
+    ]) or
+      String.match?(content, ~r/<[a-zA-Z!][^>]*>/)
+  end
+
+  def contains_html?(nil), do: false
+  def contains_html?(""), do: false
 
   def initials(name) do
     case HumanName.initials(name) do
@@ -776,7 +798,7 @@ defmodule MossletWeb.Helpers do
     # For now, we'll default to light version
     # In a real implementation, this could check user theme preference from the database
     # or use JavaScript to detect the current theme
-    "/images/logo_icon_light.svg"
+    "/images/logo.svg"
   end
 
   @doc """

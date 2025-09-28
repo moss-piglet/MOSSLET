@@ -20,12 +20,17 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.Helpers,
     only: [
       can_repost?: 2,
+      contains_html?: 1,
       decr: 3,
+      html_block: 1,
       photos?: 1,
       user_name: 2,
       maybe_get_user_avatar: 2,
       decr_item: 6,
-      get_post_key: 2
+      get_post_key: 2,
+      show_avatar?: 1,
+      maybe_get_avatar_src: 4,
+      get_uconn_for_shared_item: 2
     ]
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
@@ -3612,7 +3617,19 @@ defmodule MossletWeb.DesignSystem do
           </div>
           <%!-- Post content (initially hidden if content warning) --%>
           <div class="mb-4 hidden content-warning-hidden" id={"post-content-#{@post.id}"}>
-            <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
+            <%!-- Legacy posts with HTML (sanitized and rendered) --%>
+            <p
+              :if={contains_html?(@content)}
+              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+            >
+              {html_block(@content)}
+            </p>
+
+            <%!-- Modern posts with plain text (escaped automatically by HEEx) --%>
+            <p
+              :if={!contains_html?(@content)}
+              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+            >
               {@content}
             </p>
 
@@ -3624,7 +3641,19 @@ defmodule MossletWeb.DesignSystem do
         <% else %>
           <%!-- Post content (normal display when no content warning) --%>
           <div class="mb-4">
-            <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
+            <%!-- Legacy posts with HTML (sanitized and rendered) --%>
+            <p
+              :if={contains_html?(@content)}
+              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+            >
+              {html_block(@content)}
+            </p>
+
+            <%!-- Modern posts with plain text (escaped automatically by HEEx) --%>
+            <p
+              :if={!contains_html?(@content)}
+              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+            >
               {@content}
             </p>
 
@@ -3750,7 +3779,11 @@ defmodule MossletWeb.DesignSystem do
       visibility={@post.visibility}
       current_user={@current_user}
       user_name={user_name(@current_user, @key) || "You"}
-      user_avatar={maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg"}
+      user_avatar={
+        if show_avatar?(@current_user),
+          do: maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg",
+          else: "/images/logo.svg"
+      }
       character_limit={280}
       username={decr(@current_user.username, @current_user, @key)}
       key={@key}
@@ -5176,12 +5209,22 @@ defmodule MossletWeb.DesignSystem do
     cond do
       reply.user_id == current_user.id ->
         # Current user's own reply - use their avatar
-        maybe_get_user_avatar(current_user, key) || "/images/logo.svg"
+        if show_avatar?(current_user),
+          do: maybe_get_user_avatar(current_user, key) || "/images/logo.svg",
+          else: "/images/logo.svg"
 
       true ->
-        # Other user's reply - use default avatar for now
-        # TODO: Could implement avatar sharing through connections later
-        "/images/logo.svg"
+        # Other user's reply
+        user_connection = get_uconn_for_shared_item(reply, current_user)
+
+        if show_avatar?(user_connection) do
+          case maybe_get_avatar_src(reply, current_user, key, []) do
+            avatar when is_binary(avatar) and avatar != "" -> avatar
+            _ -> "/images/logo.svg"
+          end
+        else
+          "/images/logo.svg"
+        end
     end
   end
 

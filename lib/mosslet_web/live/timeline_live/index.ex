@@ -2541,13 +2541,21 @@ defmodule MossletWeb.TimelineLive.Index do
     cond do
       post.user_id == current_user.id ->
         # Current user's own post - use their avatar
-        maybe_get_user_avatar(current_user, key) || mosslet_logo_for_theme()
+        if show_avatar?(current_user),
+          do: maybe_get_user_avatar(current_user, key) || mosslet_logo_for_theme(),
+          else: "/images/logo.svg"
 
       true ->
         # Other user's post - get their avatar via connection
-        case maybe_get_avatar_src(post, current_user, key, []) do
-          avatar when is_binary(avatar) and avatar != "" -> avatar
-          _ -> mosslet_logo_for_theme()
+        user_connection = get_uconn_for_shared_item(post, current_user)
+
+        if show_avatar?(user_connection) do
+          case maybe_get_avatar_src(post, current_user, key, []) do
+            avatar when is_binary(avatar) and avatar != "" -> avatar
+            _ -> mosslet_logo_for_theme()
+          end
+        else
+          "/images/logo.svg"
         end
     end
   end
