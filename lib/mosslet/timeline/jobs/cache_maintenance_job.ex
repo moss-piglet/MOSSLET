@@ -212,7 +212,7 @@ defmodule Mosslet.Timeline.Jobs.CacheMaintenanceJob do
           options = %{tab: tab, post_per_page: 10}
 
           case Timeline.filter_timeline_posts(user, options) do
-            {:ok, _result} ->
+            posts when is_list(posts) ->
               :ok
 
             {:error, reason} ->
