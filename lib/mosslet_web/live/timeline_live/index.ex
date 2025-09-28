@@ -24,14 +24,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Store the user token from session for later use in uploads
     user_token = session["user_token"]
-    
+
     # PRIVACY-FIRST: Track user presence for cache optimization only
     # No usernames or identifying info shared - just for performance
     if connected?(socket) do
       MossletWeb.Presence.track_timeline_activity(
-        self(), 
+        self(),
         current_user.id
       )
+
       Logger.debug("User timeline activity tracked for cache optimization")
     end
 
@@ -895,11 +896,8 @@ defmodule MossletWeb.TimelineLive.Index do
     post = Timeline.get_post!(post_id)
     receipt = Timeline.get_user_post_receipt(current_user, post)
 
-    IO.inspect(receipt, label: "USER POST RECEIPT")
-
     case receipt do
       nil ->
-        Logger.info("No receipt exists - creating one and marking as read")
         # No receipt exists - create one and mark as read
         # First, get the user_post for this post and user
         user_post = Timeline.get_user_post(post, current_user)
