@@ -45,7 +45,22 @@ defmodule Mosslet.Timeline.ContentFilter do
       keyword not in current_keywords ->
         new_keywords = [keyword | current_keywords]
 
-        update_filter_preferences(user_id, %{keywords: new_keywords}, opts)
+        # If user is adding individual keywords while "hide all" is enabled,
+        # turn off "hide all" to show granular control
+        current_prefs = load_user_filter_preferences(user_id)
+
+        updates =
+          if current_prefs.content_warnings[:hide_all] == true do
+            %{
+              keywords: new_keywords,
+              # Turn off hide_all
+              content_warnings: %{hide_all: false}
+            }
+          else
+            %{keywords: new_keywords}
+          end
+
+        update_filter_preferences(user_id, updates, opts)
 
       true ->
         current_prefs = load_user_filter_preferences(user_id)

@@ -2812,20 +2812,32 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to load and decrypt content filters
-  defp load_and_decrypt_content_filters(user, _key) do
-    # Get preferences - StringList handles decryption automatically
+  defp load_and_decrypt_content_filters(user, key) do
+    # Get preferences
     case Timeline.get_user_timeline_preference(user) do
       %Timeline.UserTimelinePreference{} = prefs ->
-        # StringList type handles decryption automatically, so keywords are already a list
-        decrypted_keywords = prefs.mute_keywords || []
+        # Decrypt keywords - StringList gives us list of asymmetrically encrypted keywords
+        decrypted_keywords =
+          if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
+            Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
+              # decrypt_user_data returns the decrypted string directly
+              Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, user, key)
+            end)
+            # Remove failed decryptions
+            |> Enum.reject(&is_nil/1)
+          else
+            []
+          end
 
-        # Decrypt muted users (still using manual approach for now)
+        # Decrypt muted users - StringList gives us list of asymmetrically encrypted user_ids
         decrypted_muted_users =
-          if prefs.muted_users && String.trim(prefs.muted_users) != "" do
-            case Jason.decode(prefs.muted_users) do
-              {:ok, users_list} -> users_list
-              {:error, _} -> []
-            end
+          if prefs.muted_users && length(prefs.muted_users) > 0 do
+            Enum.map(prefs.muted_users, fn encrypted_user_id ->
+              # decrypt_user_data returns the decrypted string directly
+              Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, user, key)
+            end)
+            # Remove failed decryptions
+            |> Enum.reject(&is_nil/1)
           else
             []
           end
