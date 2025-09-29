@@ -137,10 +137,11 @@ defmodule MossletWeb.PublicLive.Features do
 
                     <%!-- Post content matching component --%>
                     <div class="mb-4">
-                      <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
-    Just finished sharing peacefully without any anxiety! 🧘‍♀️
-
-    MOSSLET's design actually helps me focus instead of pulling me into endless scrolling. The content filters are keeping my timeline calm and positive. Finally, a social experience that respects my time and mental health! ✨
+                      <p class="text-slate-900 dark:text-slate-100 leading-relaxed text-base">
+                        Just finished sharing peacefully without any anxiety! 🧘‍♀️
+                      </p>
+                      <p class="text-slate-900 dark:text-slate-100 leading-relaxed text-base mt-4">
+                        MOSSLET's design actually helps me focus instead of pulling me into endless scrolling. The content filters are keeping my timeline calm and positive. Finally, a social experience that respects my time and mental health! ✨
                       </p>
                     </div>
 
@@ -206,7 +207,10 @@ defmodule MossletWeb.PublicLive.Features do
                   <:title>
                     <div class="flex items-center gap-3 mb-4">
                       <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/25 dark:to-purple-900/30 shadow-sm">
-                        <.phx_icon name="hero-shield-check" class="h-5 w-5 text-purple-700 dark:text-purple-300" />
+                        <.phx_icon
+                          name="hero-shield-check"
+                          class="h-5 w-5 text-purple-700 dark:text-purple-300"
+                        />
                       </div>
                       <span class="text-base font-bold text-slate-900 dark:text-slate-100">
                         Privacy You Control
@@ -223,25 +227,35 @@ defmodule MossletWeb.PublicLive.Features do
                       <div class="flex flex-wrap gap-2">
                         <%!-- Inactive privacy options --%>
                         <div class="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-slate-100/60 dark:bg-slate-700/60 backdrop-blur-sm border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 ease-out">
-                          <.phx_icon name="hero-lock-closed" class="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                          <.phx_icon
+                            name="hero-lock-closed"
+                            class="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0"
+                          />
                           <span class="font-medium text-slate-600 dark:text-slate-400">Private</span>
                         </div>
 
                         <%!-- Active privacy option with emerald styling --%>
                         <div class="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-emerald-100/80 dark:bg-emerald-700/80 backdrop-blur-sm border border-emerald-200/60 dark:border-emerald-600/60 transition-all duration-200 ease-out">
-                          <.phx_icon name="hero-user-group" class="h-4 w-4 text-emerald-600 dark:text-emerald-300 flex-shrink-0" />
-                          <span class="font-medium text-emerald-700 dark:text-emerald-200">Connections</span>
+                          <.phx_icon
+                            name="hero-user-group"
+                            class="h-4 w-4 text-emerald-600 dark:text-emerald-300 flex-shrink-0"
+                          />
+                          <span class="font-medium text-emerald-700 dark:text-emerald-200">
+                            Connections
+                          </span>
                         </div>
 
                         <%!-- Inactive privacy option --%>
                         <div class="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-slate-100/60 dark:bg-slate-700/60 backdrop-blur-sm border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 ease-out">
-                          <.phx_icon name="hero-globe-alt" class="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                          <.phx_icon
+                            name="hero-globe-alt"
+                            class="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0"
+                          />
                           <span class="font-medium text-slate-600 dark:text-slate-400">Public</span>
                         </div>
                       </div>
                       <div class="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 font-medium">
-                        <.phx_icon name="hero-shield-check" class="h-3 w-3" />
-                        End-to-end encrypted
+                        <.phx_icon name="hero-shield-check" class="h-3 w-3" /> End-to-end encrypted
                       </div>
                     </div>
                   </div>
@@ -259,7 +273,10 @@ defmodule MossletWeb.PublicLive.Features do
                   <:title>
                     <div class="flex items-center gap-3 mb-4">
                       <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30 shadow-sm">
-                        <.phx_icon name="hero-funnel" class="h-5 w-5 text-amber-700 dark:text-amber-300" />
+                        <.phx_icon
+                          name="hero-funnel"
+                          class="h-5 w-5 text-amber-700 dark:text-amber-300"
+                        />
                       </div>
                       <span class="text-base font-bold text-slate-900 dark:text-slate-100">
                         Wellbeing Filters
@@ -271,7 +288,9 @@ defmodule MossletWeb.PublicLive.Features do
                   <div class="mb-4">
                     <div class="space-y-3">
                       <div class="flex items-center gap-2">
-                        <div class="text-sm font-medium text-slate-700 dark:text-slate-300">Active Filters:</div>
+                        <div class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Active Filters:
+                        </div>
                         <span class="px-2 py-1 text-xs font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 rounded-full">
                           3
                         </span>
@@ -296,8 +315,7 @@ defmodule MossletWeb.PublicLive.Features do
                       </div>
 
                       <div class="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                        <.phx_icon name="hero-sparkles" class="h-3 w-3" />
-                        Your timeline, your rules
+                        <.phx_icon name="hero-sparkles" class="h-3 w-3" /> Your timeline, your rules
                       </div>
                     </div>
                   </div>
@@ -315,7 +333,10 @@ defmodule MossletWeb.PublicLive.Features do
                   <:title>
                     <div class="flex items-center gap-3 mb-4">
                       <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30 shadow-sm">
-                        <.phx_icon name="hero-heart" class="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+                        <.phx_icon
+                          name="hero-heart"
+                          class="h-5 w-5 text-emerald-700 dark:text-emerald-300"
+                        />
                       </div>
                       <span class="text-base font-bold text-slate-900 dark:text-slate-100">
                         Healthy by Design
