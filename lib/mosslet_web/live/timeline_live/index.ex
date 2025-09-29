@@ -1606,7 +1606,9 @@ defmodule MossletWeb.TimelineLive.Index do
              %{favs_list: List.insert_at(post.favs_list, 0, current_user.id)},
              user: current_user
            ) do
-        {:ok, _post} ->
+        {:ok, updated_post} ->
+          # FIXED: Use the returned post which now has the correct nested reply structure
+          socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You loved this post!")}
 
         {:error, _changeset} ->
@@ -1629,7 +1631,9 @@ defmodule MossletWeb.TimelineLive.Index do
              %{favs_list: List.delete(post.favs_list, current_user.id)},
              user: current_user
            ) do
-        {:ok, _post} ->
+        {:ok, updated_post} ->
+          # FIXED: Use the returned post which now has the correct nested reply structure
+          socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You removed love from this post.")}
 
         {:error, _changeset} ->

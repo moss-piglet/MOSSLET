@@ -2279,7 +2279,15 @@ defmodule Mosslet.Timeline do
       {:ok, {:ok, post}} ->
         conn = Accounts.get_connection_from_item(post, user)
 
-        {:ok, conn, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
+        # FIXED: Add nested replies structure like get_post! does to maintain consistency
+        post_with_preloads =
+          post
+          |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
+
+        nested_replies = get_nested_replies_for_post(post.id)
+        post_with_nested_replies = Map.put(post_with_preloads, :replies, nested_replies)
+
+        {:ok, conn, post_with_nested_replies}
         |> broadcast(:post_updated_fav)
 
       {:ok, {:error, changeset}} ->
