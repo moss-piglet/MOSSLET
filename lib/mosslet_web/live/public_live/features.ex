@@ -138,9 +138,9 @@ defmodule MossletWeb.PublicLive.Features do
                     <%!-- Post content matching component --%>
                     <div class="mb-4">
                       <p class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base">
-    Just finished a peaceful coding session without any social media anxiety! 🧘‍♀️
+    Just finished sharing peacefully without any anxiety! 🧘‍♀️
 
-    MOSSLET's design actually helps me focus instead of pulling me into endless scrolling. The content filters are keeping my timeline calm and positive. Finally, a platform that respects my time and mental health! ✨
+    MOSSLET's design actually helps me focus instead of pulling me into endless scrolling. The content filters are keeping my timeline calm and positive. Finally, a social experience that respects my time and mental health! ✨
                       </p>
                     </div>
 
