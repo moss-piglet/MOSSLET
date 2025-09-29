@@ -1383,8 +1383,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
     end
   end
 
-  defp delete_replies_from_cloud(nil, _user_post, _current_user, _key), do: :ok
-
   defp delete_object_storage_post_worker(params) do
     params
     |> Mosslet.Workers.DeleteObjectStoragePostWorker.new()

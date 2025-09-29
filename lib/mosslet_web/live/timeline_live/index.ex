@@ -2225,8 +2225,6 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  defp delete_replies_from_cloud(nil, _user_post, _current_user, _key), do: :ok
-
   defp delete_object_storage_post_worker(params) do
     params
     |> Mosslet.Workers.DeleteObjectStoragePostWorker.new()
@@ -2524,9 +2522,6 @@ defmodule MossletWeb.TimelineLive.Index do
             Enum.count(user_bookmarks, fn post ->
               Enum.any?(unread_posts, fn unread_post -> unread_post.id == post.id end)
             end)
-
-          _ ->
-            0
         end
     }
   end

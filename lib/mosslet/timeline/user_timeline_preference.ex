@@ -29,13 +29,16 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     field :hide_mature_content, :boolean, default: false
 
     # Content filtering preferences (encrypted - potentially sensitive)
-    # Encrypted list of muted keywords using StringList type (handles JSON automatically)
+    # Encrypted list of muted keywords - double encryption:
+    # 1. Each keyword asymmetrically encrypted with user_key (enacl)
+    # 2. List of encrypted values symmetrically encrypted for storage (Cloak StringList)
     field :mute_keywords, Mosslet.Encrypted.StringList
-    # Hash for keyword matching
     field :mute_keywords_hash, Mosslet.Encrypted.HMAC
 
-    # Encrypted list of muted user IDs (JSON array of binary_ids)
-    field :muted_users, Mosslet.Encrypted.Binary
+    # Encrypted list of muted user IDs - double encryption:
+    # 1. Each user_id asymmetrically encrypted with user_key (enacl)
+    # 2. List of encrypted values symmetrically encrypted for storage (Cloak StringList)
+    field :muted_users, Mosslet.Encrypted.StringList
     field :muted_users_hash, Mosslet.Encrypted.HMAC
 
     belongs_to :user, User
@@ -121,11 +124,23 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
       mute_keywords = get_field(changeset, :mute_keywords)
 
       if mute_keywords && length(mute_keywords) > 0 do
-        # StringList type handles encryption automatically, but we need the hash for searching
+        # Asymmetrically encrypt each keyword individually with user_key
+        encrypted_keywords =
+          Enum.map(mute_keywords, fn keyword ->
+            Mosslet.Encrypted.Users.Utils.encrypt_user_data(
+              # Encrypt each keyword separately
+              keyword,
+              opts[:user],
+              opts[:key]
+            )
+          end)
+
         # Create hash from all keywords for search/cache invalidation
         hash_value = mute_keywords |> Enum.join(",") |> String.downcase()
 
         changeset
+        # StringList will symmetrically encrypt this list of asymmetrically encrypted values
+        |> put_change(:mute_keywords, encrypted_keywords)
         |> put_change(:mute_keywords_hash, hash_value)
       else
         changeset
@@ -139,21 +154,24 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     if changeset.valid? && opts[:user] && opts[:key] do
       muted_users = get_field(changeset, :muted_users)
 
-      if muted_users && String.trim(muted_users) != "" do
-        # Encrypt with user_key (same as other personal data)
-        encrypted_users =
-          Mosslet.Encrypted.Users.Utils.encrypt_user_data(
-            muted_users,
-            opts[:user],
-            opts[:key]
-          )
+      if muted_users && length(muted_users) > 0 do
+        # Asymmetrically encrypt each user_id individually with user_key
+        encrypted_user_ids =
+          Enum.map(muted_users, fn user_id ->
+            Mosslet.Encrypted.Users.Utils.encrypt_user_data(
+              # Encrypt each user_id separately
+              user_id,
+              opts[:user],
+              opts[:key]
+            )
+          end)
 
         # Create hash for all user IDs (for search/cache invalidation)
-        user_ids = Jason.decode!(muted_users)
-        hash_value = Enum.join(user_ids, ",") |> String.downcase()
+        hash_value = Enum.join(muted_users, ",") |> String.downcase()
 
         changeset
-        |> put_change(:muted_users, encrypted_users)
+        # StringList will symmetrically encrypt this list of asymmetrically encrypted values
+        |> put_change(:muted_users, encrypted_user_ids)
         |> put_change(:muted_users_hash, hash_value)
       else
         changeset

@@ -89,7 +89,8 @@ defmodule Mosslet.Timeline.ContentFilter do
   """
   def toggle_content_warning_filter(user_id, filter_type, opts \\ []) do
     current_prefs = load_user_filter_preferences(user_id)
-    current_cw_settings = current_prefs.content_warnings || %{}
+    # load_user_filter_preferences/1 always provides content_warnings key
+    current_cw_settings = current_prefs.content_warnings
 
     new_setting = not Map.get(current_cw_settings, filter_type, false)
     new_cw_settings = Map.put(current_cw_settings, filter_type, new_setting)
@@ -135,54 +136,21 @@ defmodule Mosslet.Timeline.ContentFilter do
       end
 
     # Prepare data for schema encryption
-    attrs = %{}
+    # load_user_preferences/1 always provides all keys, so no Map.has_key? checks needed
 
     # Keywords (StringList handles encoding/encryption automatically)
-    attrs =
-      if Map.has_key?(preferences, :keywords) do
-        # StringList type accepts list directly, no need for JSON encoding
-        keywords_list =
-          if length(preferences.keywords) > 0 do
-            preferences.keywords
-          else
-            []
-          end
+    keywords_list = if length(preferences.keywords) > 0, do: preferences.keywords, else: []
 
-        Map.put(attrs, :mute_keywords, keywords_list)
-      else
-        attrs
-      end
+    # Muted users (binary_ids are strings, so StringList is perfect)
+    muted_users_list = preferences.muted_users
 
-    # Muted users (still using manual encoding for now - could be converted to IntegerList later)
-    attrs =
-      if Map.has_key?(preferences, :muted_users) do
-        muted_users_json =
-          if length(preferences.muted_users) > 0 do
-            Jason.encode!(preferences.muted_users)
-          else
-            nil
-          end
-
-        Map.put(attrs, :muted_users, muted_users_json)
-      else
-        attrs
-      end
-
-    # Content warning settings
-    attrs =
-      if Map.has_key?(preferences, :content_warnings) do
-        Map.put(attrs, :hide_mature_content, preferences.content_warnings[:hide_all] || false)
-      else
-        attrs
-      end
-
-    # Repost settings
-    attrs =
-      if Map.has_key?(preferences, :hide_reposts) do
-        Map.put(attrs, :hide_reposts, preferences.hide_reposts)
-      else
-        attrs
-      end
+    # Build attrs map with all preferences
+    attrs = %{
+      mute_keywords: keywords_list,
+      muted_users: muted_users_list,
+      hide_mature_content: preferences.content_warnings[:hide_all] || false,
+      hide_reposts: preferences.hide_reposts
+    }
 
     # Update preferences using schema encryption
     changeset = UserTimelinePreference.changeset(prefs, attrs, opts)
