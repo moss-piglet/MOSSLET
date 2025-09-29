@@ -60,7 +60,7 @@ defmodule MossletWeb.Components.LandingPage do
           %{
             title: "Data Destroyer",
             description:
-              "When you delete something, it's gone instantly (and forever after 7 days). Easy and under your control.",
+              "When you delete something, it's gone instantly (and forever). Easy and under your control.",
             icon: :trash,
             early_access: false
           },

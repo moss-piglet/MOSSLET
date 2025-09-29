@@ -99,7 +99,7 @@ defmodule MossletWeb.PublicLive.Pricing do
                   description="Coming soon. Privacy and peace of mind for your whole family with one lifetime payment."
                   cta_text="Notify Me"
                   cta_href="mailto:support@mosslet.com?subject=Family Plan Interest"
-                  disabled={true}
+                  disabled={false}
                   features={[
                     "Priority support",
                     "Multiple accounts",

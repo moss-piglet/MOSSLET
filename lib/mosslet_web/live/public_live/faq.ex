@@ -64,7 +64,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Can I delete my account and data?",
             a:
-              "Yes! You have complete control over your data. You can delete your account at any time, and all your data will be permanently removed from our servers within 7 days."
+              "Yes! You have complete control over your data. You can delete your account at any time, and all your data will be permanently removed from our servers immediately and in real-time."
           },
           %{
             q: "Where is my data stored?",
