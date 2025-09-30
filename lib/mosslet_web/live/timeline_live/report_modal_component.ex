@@ -49,7 +49,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   Report this post
                 </h3>
-                <p class="text-sm text-slate-600 dark:text-slate-400">
+                <p class="text-sm text-amber-700 dark:text-amber-400">
                   Help us keep the community safe
                 </p>
               </div>
@@ -71,16 +71,16 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
 
               <%!-- Report type selection --%>
               <div class="space-y-3">
-                <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                <label class="block text-sm font-medium text-amber-800 dark:text-amber-300">
                   What's the issue?
                 </label>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-amber-200 dark:border-amber-700/50 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[report_type]"
                       value="harassment"
-                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Harassment</div>
@@ -90,12 +90,12 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                     </div>
                   </label>
 
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-amber-200 dark:border-amber-700/50 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[report_type]"
                       value="spam"
-                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Spam</div>
@@ -105,12 +105,12 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                     </div>
                   </label>
 
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-amber-200 dark:border-amber-700/50 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[report_type]"
                       value="content"
-                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">
@@ -122,12 +122,12 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                     </div>
                   </label>
 
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-amber-200 dark:border-amber-700/50 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[report_type]"
                       value="other"
-                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Other</div>
@@ -141,43 +141,43 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
 
               <%!-- Severity selection --%>
               <div class="space-y-3">
-                <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                <label class="block text-sm font-medium text-amber-800 dark:text-amber-300">
                   How serious is this issue?
                 </label>
                 <div class="flex flex-wrap gap-2">
-                  <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="flex items-center px-4 py-2 border border-amber-200 dark:border-amber-700/50 rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[severity]"
                       value="low"
-                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <span class="text-sm text-slate-700 dark:text-slate-300">Minor</span>
                   </label>
-                  <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="flex items-center px-4 py-2 border border-amber-200 dark:border-amber-700/50 rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[severity]"
                       value="medium"
-                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <span class="text-sm text-slate-700 dark:text-slate-300">Moderate</span>
                   </label>
-                  <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="flex items-center px-4 py-2 border border-amber-200 dark:border-amber-700/50 rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[severity]"
                       value="high"
-                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <span class="text-sm text-slate-700 dark:text-slate-300">Serious</span>
                   </label>
-                  <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="flex items-center px-4 py-2 border border-amber-200 dark:border-amber-700/50 rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 cursor-pointer transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-600">
                     <input
                       type="radio"
                       name="report[severity]"
                       value="critical"
-                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                      class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
                     />
                     <span class="text-sm text-slate-700 dark:text-slate-300">Critical</span>
                   </label>
@@ -188,7 +188,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
               <div class="space-y-2">
                 <label
                   for="report_reason"
-                  class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                  class="block text-sm font-medium text-amber-800 dark:text-amber-300"
                 >
                   Brief reason
                 </label>
@@ -196,7 +196,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                   type="text"
                   name="report[reason]"
                   id="report_reason"
-                  class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200"
+                  class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200"
                   placeholder="Why are you reporting this post?"
                   maxlength="100"
                 />
@@ -206,7 +206,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
               <div class="space-y-2">
                 <label
                   for="report_details"
-                  class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                  class="block text-sm font-medium text-amber-800 dark:text-amber-300"
                 >
                   Additional details (optional)
                 </label>
@@ -214,24 +214,49 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                   name="report[details]"
                   id="report_details"
                   rows="3"
-                  class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 resize-none"
+                  class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 resize-none"
                   placeholder="Provide any additional context that might help our moderation team..."
                   maxlength="1000"
                 ></textarea>
               </div>
 
-              <%!-- Privacy notice --%>
-              <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                <div class="flex gap-3">
-                  <.phx_icon
-                    name="hero-shield-check"
-                    class="h-5 w-5 text-slate-600 dark:text-slate-400 flex-shrink-0 mt-0.5"
-                  />
-                  <div class="text-sm text-slate-700 dark:text-slate-300">
-                    <p class="font-medium mb-1">Your report is confidential</p>
-                    <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                      The reported user won't know who submitted this report. We'll review it according to our community guidelines and take appropriate action.
-                    </p>
+              <%!-- Enhanced privacy and transparency notice --%>
+              <div class="space-y-4">
+                <%!-- What admins can see --%>
+                <div class="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-700/50">
+                  <div class="flex gap-3">
+                    <.phx_icon
+                      name="hero-eye"
+                      class="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5"
+                    />
+                    <div class="text-sm text-teal-800 dark:text-teal-200">
+                      <p class="font-medium mb-2">How moderation works:</p>
+                      <ul class="space-y-1 text-teal-700 dark:text-teal-300 text-xs leading-relaxed">
+                        <li>• Your reason and context are reviewed by our moderation team</li>
+                        <li>• Decisions are made using pattern recognition and report metadata</li>
+                        <li>• This protects both community members and our moderation team</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- What's protected --%>
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div class="flex gap-3">
+                    <.phx_icon
+                      name="hero-shield-check"
+                      class="h-5 w-5 text-slate-600 dark:text-slate-400 flex-shrink-0 mt-0.5"
+                    />
+                    <div class="text-sm text-slate-700 dark:text-slate-300">
+                      <p class="font-medium mb-2">Your privacy is protected:</p>
+                      <ul class="space-y-1 text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
+                        <li>• The reported user won't know who submitted this report</li>
+                        <li>• Your report details are encrypted for moderator access only</li>
+                        <li>• Post content remains separately encrypted and protected</li>
+                        <li>• Pattern analysis helps prevent false reporting abuse</li>
+                        <li>• All moderation decisions are logged and auditable</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>

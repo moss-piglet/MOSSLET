@@ -49,7 +49,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   Block {@user_name}
                 </h3>
-                <p class="text-sm text-slate-600 dark:text-slate-400">
+                <p class="text-sm text-rose-700 dark:text-rose-400">
                   They won't be able to interact with you
                 </p>
               </div>
@@ -70,17 +70,17 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
 
               <%!-- Block type selection --%>
               <div class="space-y-3">
-                <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                <label class="block text-sm font-medium text-rose-800 dark:text-rose-300">
                   What would you like to block?
                 </label>
                 <div class="space-y-2">
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-rose-200 dark:border-rose-700/50 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer transition-all duration-200 hover:border-rose-300 dark:hover:border-rose-600">
                     <input
                       type="radio"
                       name="block[block_type]"
                       value="full"
                       checked="checked"
-                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Everything</div>
@@ -90,12 +90,12 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                     </div>
                   </label>
 
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-rose-200 dark:border-rose-700/50 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer transition-all duration-200 hover:border-rose-300 dark:hover:border-rose-600">
                     <input
                       type="radio"
                       name="block[block_type]"
                       value="posts_only"
-                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Posts only</div>
@@ -105,12 +105,12 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                     </div>
                   </label>
 
-                  <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                  <label class="relative flex items-start p-4 border border-rose-200 dark:border-rose-700/50 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer transition-all duration-200 hover:border-rose-300 dark:hover:border-rose-600">
                     <input
                       type="radio"
                       name="block[block_type]"
                       value="replies_only"
-                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600"
+                      class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Replies only</div>
@@ -126,7 +126,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
               <div class="space-y-2">
                 <label
                   for="block_reason"
-                  class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                  class="block text-sm font-medium text-rose-800 dark:text-rose-300"
                 >
                   Reason for blocking (optional)
                 </label>
@@ -134,7 +134,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                   type="text"
                   name="block[reason]"
                   id="block_reason"
-                  class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
+                  class="w-full px-4 py-3 border border-rose-300 dark:border-rose-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
                   placeholder="Why are you blocking this user?"
                   maxlength="200"
                 />

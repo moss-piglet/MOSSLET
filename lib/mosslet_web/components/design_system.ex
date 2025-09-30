@@ -3752,7 +3752,7 @@ defmodule MossletWeb.DesignSystem do
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
-              phx-hook={"TippyHook"}
+              phx-hook="TippyHook"
               data-tippy-content="Repost this post"
               phx-click="repost"
               phx-value-id={@post_id}
@@ -3766,7 +3766,7 @@ defmodule MossletWeb.DesignSystem do
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
-              phx-hook={"TippyHook"}
+              phx-hook="TippyHook"
               data-tippy-content="You cannot repost your own post"
               phx-click={nil}
               phx-value-id={nil}
@@ -3780,7 +3780,7 @@ defmodule MossletWeb.DesignSystem do
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
-              phx-hook={"TippyHook"}
+              phx-hook="TippyHook"
               data-tippy-content="You already reposted this"
               phx-click={nil}
               phx-value-id={nil}

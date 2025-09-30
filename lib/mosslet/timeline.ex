@@ -3226,6 +3226,59 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Creates a post report with server-key encryption for admin review.
+
+  ## Examples
+
+      iex> report_post(reporter, reported_user, post, %{
+      ...>   "reason" => "harassment",
+      ...>   "details" => "Threatening language",
+      ...>   "report_type" => "harassment",
+      ...>   "severity" => "high"
+      ...> })
+      {:ok, %PostReport{}}
+
+      iex> report_post(reporter, reported_user, post, %{"reason" => ""})
+      {:error, %Ecto.Changeset{}}
+  """
+  def report_post(reporter, reported_user, post, attrs) do
+    attrs =
+      attrs
+      |> Map.put("reporter_id", reporter.id)
+      |> Map.put("reported_user_id", reported_user.id)
+      |> Map.put("post_id", post.id)
+
+    case Repo.transaction_on_primary(fn ->
+           %PostReport{}
+           |> PostReport.changeset(attrs, user: reporter)
+           |> Repo.insert()
+         end) do
+      {:ok, {:ok, report}} ->
+        # Broadcast to admin dashboard for real-time updates
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "admin:reports",
+          {:report_created, report}
+        )
+
+        # Also broadcast to reporter for confirmation
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{reporter.id}",
+          {:report_submitted, report}
+        )
+
+        {:ok, report}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
   Hides a post from a user's timeline.
 
   ## Examples
