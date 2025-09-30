@@ -22,6 +22,14 @@ defmodule Mosslet.Timeline.Post do
     field :image_urls_updated_at, :naive_datetime
     field :favs_list, {:array, :binary_id}, default: []
     field :reposts_list, {:array, :binary_id}, default: []
+    field :encrypted_favs_list, Encrypted.StringList, default: [], skip_default_validation: true
+
+    field :encrypted_reposts_list, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
+    field :favs_list_hash, Encrypted.HMAC
+    field :reposts_list_hash, Encrypted.HMAC
     field :favs_count, :integer, default: 0
     field :reposts_count, :integer, default: 0
     field :repost, :boolean, default: false
@@ -32,9 +40,11 @@ defmodule Mosslet.Timeline.Post do
 
     # ENHANCED PRIVACY CONTROLS
     # Connection groups that can see this post
-    field :visibility_groups, {:array, :string}, default: []
+    field :visibility_groups, Encrypted.StringList, default: [], skip_default_validation: true
+    field :visibility_groups_hash, Encrypted.HMAC
     # Specific users that can see this post
-    field :visibility_users, {:array, :binary_id}, default: []
+    field :visibility_users, Encrypted.StringList, default: [], skip_default_validation: true
+    field :visibility_users_hash, Encrypted.HMAC
     # Whether replies are allowed
     field :allow_replies, :boolean, default: true
     # Whether sharing/reposts are allowed
@@ -170,6 +180,14 @@ defmodule Mosslet.Timeline.Post do
       :favs_list
     ])
     |> validate_required([:favs_count, :favs_list])
+    |> put_encrypted_favs_fields()
+  end
+
+  # Temporary function during the migration process, to ensure
+  # that all changes are copied over to the new fields
+  defp put_encrypted_favs_fields(changeset) do
+    changeset
+    |> put_change(:encrypted_favs_list, get_field(changeset, :favs_list))
   end
 
   def shared_user_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
@@ -186,6 +204,14 @@ defmodule Mosslet.Timeline.Post do
   def change_post_to_repost_changeset(post, attrs, _opts \\ []) do
     post
     |> cast(attrs, [:reposts_list])
+    |> put_encrypted_repost_fields()
+  end
+
+  # Temporary function during the migration process, to ensure
+  # that all changes are copied over to the new fields
+  defp put_encrypted_repost_fields(changeset) do
+    changeset
+    |> put_change(:encrypted_reposts_list, get_field(changeset, :reposts_list))
   end
 
   def change_post_shared_users_changeset(post, attrs, _opts \\ []) do
@@ -412,6 +438,8 @@ defmodule Mosslet.Timeline.Post do
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
+          |> encrypt_favs_list(post_key, opts)
+          |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
 
         :private ->
@@ -421,6 +449,8 @@ defmodule Mosslet.Timeline.Post do
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
+          |> encrypt_favs_list(post_key, opts)
+          |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
 
         :connections ->
@@ -430,6 +460,8 @@ defmodule Mosslet.Timeline.Post do
           |> put_change(:body, Utils.encrypt(%{key: post_key, payload: body}))
           |> put_change(:username, Utils.encrypt(%{key: post_key, payload: username}))
           |> put_change(:user_post_map, %{temp_key: post_key})
+          |> encrypt_favs_list(post_key, opts)
+          |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
 
         _rest ->
@@ -454,6 +486,60 @@ defmodule Mosslet.Timeline.Post do
     Enum.map(image_urls, fn image_url ->
       Utils.encrypt(%{key: post_key, payload: image_url})
     end)
+  end
+
+  # Encrypt and hash favs_list if present
+  defp encrypt_favs_list(changeset, post_key, opts) do
+    if changeset.valid? && opts[:user] && opts[:key] do
+      favs_list = get_field(changeset, :encrypted_favs_list)
+
+      if favs_list && length(favs_list) > 0 do
+        # Asymmetrically encrypt each user_id in the favs_list individually with post_key
+        encrypted_favs_list =
+          Enum.map(favs_list, fn favs_id ->
+            Utils.encrypt(%{key: post_key, payload: favs_id})
+          end)
+
+        # Create hash for all user IDs (for search/cache invalidation)
+        hash_value = Enum.join(favs_list, ",") |> String.downcase()
+
+        changeset
+        # StringList will symmetrically encrypt this list of asymmetrically encrypted values
+        |> put_change(:encrypted_favs_list, encrypted_favs_list)
+        |> put_change(:favs_list_hash, hash_value)
+      else
+        changeset
+      end
+    else
+      changeset
+    end
+  end
+
+  # Encrypt and hash reposts_list if present
+  defp encrypt_reposts_list(changeset, post_key, opts) do
+    if changeset.valid? && opts[:user] && opts[:key] do
+      reposts_list = get_field(changeset, :encrypted_reposts_list)
+
+      if reposts_list && length(reposts_list) > 0 do
+        # Asymmetrically encrypt each user_id in the reposts_list individually with post_key
+        encrypted_reposts_list =
+          Enum.map(reposts_list, fn reposts_id ->
+            Utils.encrypt(%{key: post_key, payload: reposts_id})
+          end)
+
+        # Create hash for all user IDs (for search/cache invalidation)
+        hash_value = Enum.join(reposts_list, ",") |> String.downcase()
+
+        changeset
+        # StringList will symmetrically encrypt this list of asymmetrically encrypted values
+        |> put_change(:encrypted_reposts_list, encrypted_reposts_list)
+        |> put_change(:reposts_list_hash, hash_value)
+      else
+        changeset
+      end
+    else
+      changeset
+    end
   end
 
   # Encrypt content warning text with the same post_key (for consistency)

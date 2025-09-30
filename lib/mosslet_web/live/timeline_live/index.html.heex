@@ -244,9 +244,6 @@
                   end
                 }
                 images={get_decrypted_post_images(post, @current_user, @key)}
-                post={post}
-                current_user={@current_user}
-                key={@key}
                 stats={
                   %{
                     replies:
@@ -263,6 +260,7 @@
                 current_user_id={@current_user.id}
                 post={post}
                 current_user={@current_user}
+                key={@key}
                 is_repost={post.repost || false}
                 liked={@current_user.id in (post.favs_list || [])}
                 bookmarked={get_post_bookmarked_status(post, @current_user)}
@@ -315,5 +313,24 @@
         </div>
       </div>
     </MossletWeb.DesignSystem.liquid_container>
+
+    <%!-- Moderation modals - Using LiveComponents now --%>
+    <.live_component
+      :if={@show_report_modal}
+      module={MossletWeb.TimelineLive.ReportModalComponent}
+      id="report-modal-component"
+      show={@show_report_modal}
+      post_id={@report_post_id}
+      reported_user_id={@report_user_id}
+    />
+
+    <.live_component
+      :if={@show_block_modal}
+      module={MossletWeb.TimelineLive.BlockModalComponent}
+      id="block-modal-component"
+      show={@show_block_modal}
+      user_id={@block_user_id}
+      user_name={@block_user_name}
+    />
   </div>
 </.layout>

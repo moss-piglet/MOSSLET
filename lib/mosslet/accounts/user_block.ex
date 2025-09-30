@@ -3,20 +3,22 @@ defmodule Mosslet.Accounts.UserBlock do
   A user block represents one user blocking another user.
 
   Uses enacl encryption for user-generated sensitive data:
-  - Reason encrypted with user's own key (personal preference)
+  - Reason encrypted with user's own user_key (personal preference, like muted_users)
   - Block type for different levels of blocking
+  - Follows same encryption pattern as UserTimelinePreference
   """
   use Ecto.Schema
   import Ecto.Changeset
 
   alias Mosslet.Accounts.User
+  alias Mosslet.Encrypted
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_blocks" do
     # ENCRYPTED FIELDS (user-generated data - use enacl with user keys)
     # Why they blocked (enacl encrypted)
-    field :reason, :binary
+    field :reason, Encrypted.Binary
 
     # PLAINTEXT FIELDS (system data)
     field :block_type, Ecto.Enum,
@@ -40,7 +42,7 @@ defmodule Mosslet.Accounts.UserBlock do
       iex> UserBlock.changeset(%UserBlock{}, %{
       ...>   reason: "Posting inappropriate content",
       ...>   block_type: :full
-      ...> }, user: blocker, user_key: user_key)
+      ...> }, user: blocker, key: user_key)
   """
   def changeset(block, attrs, opts \\ []) do
     block
@@ -65,20 +67,19 @@ defmodule Mosslet.Accounts.UserBlock do
     end
   end
 
-  # Encrypt reason with user's own encryption key
+  # Encrypt reason with user's own encryption key (follows user_key pattern)
   defp encrypt_user_data(changeset, opts) do
-    if changeset.valid? && opts[:user] && opts[:user_key] do
+    if changeset.valid? && opts[:user] && opts[:key] do
       reason = get_field(changeset, :reason)
 
       if reason && String.trim(reason) != "" do
-        # Generate a unique key for this block
-        block_key = Mosslet.Encrypted.Utils.generate_key()
-
+        # Use user_key pattern - same as UserTimelinePreference.muted_users
         encrypted_reason =
-          Mosslet.Encrypted.Utils.encrypt(%{
-            key: block_key,
-            payload: String.trim(reason)
-          })
+          Mosslet.Encrypted.Users.Utils.encrypt_user_data(
+            String.trim(reason),
+            opts[:user],
+            opts[:key]
+          )
 
         put_change(changeset, :reason, encrypted_reason)
       else

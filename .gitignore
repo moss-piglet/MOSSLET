@@ -30,6 +30,7 @@ PHASE2_PERFORMANCE_PLAN.md
 PHASE2_IMPLEMENTATION_PLAN.md
 PRESENCE_ARCHITECTURE.md
 DESIGN_SYSTEM.md
+INTERACTIONS_MIGRATION_PLAN.md
 
 # Ignore package tarball (built via "mix hex.build").
 Mosslet-*.tar

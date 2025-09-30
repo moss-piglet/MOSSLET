@@ -43,7 +43,7 @@ defmodule MossletWeb.TimelineLive.Index do
         %{
           "visibility" => initial_selector,
           "user_id" => current_user.id,
-          "username" => user_name(current_user, key) || "",
+          "username" => username(current_user, key) || "",
           "content_warning" => "",
           "content_warning_category" => ""
         },
@@ -74,6 +74,13 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:user_token, user_token)
       # Content warning state
       |> assign(:content_warning_enabled?, false)
+      # Moderation modal states
+      |> assign(:show_report_modal, false)
+      |> assign(:report_post_id, nil)
+      |> assign(:report_user_id, nil)
+      |> assign(:show_block_modal, false)
+      |> assign(:block_user_id, nil)
+      |> assign(:block_user_name, nil)
       |> stream(:posts, [])
       # Configure photo uploads with proper constraints and encryption-ready settings
       |> allow_upload(:photos,
@@ -104,6 +111,8 @@ defmodule MossletWeb.TimelineLive.Index do
       # Subscribe to public posts for discover tab realtime updates
       Timeline.subscribe()
       Timeline.reply_subscribe()
+      # Subscribe to block events for real-time filtering
+      Timeline.block_subscribe(current_user)
     end
 
     post_sort_by = valid_sort_by(params)
@@ -563,6 +572,95 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  # ============================================================================
+  # MODERATION MODAL COMPONENT EVENT HANDLERS
+  # ============================================================================
+
+  def handle_info({:close_report_modal}, socket) do
+    socket =
+      socket
+      |> assign(:show_report_modal, false)
+      |> assign(:report_post_id, nil)
+      |> assign(:report_user_id, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:submit_report, report_params}, socket) do
+    current_user = socket.assigns.current_user
+    post_id = report_params["post_id"]
+    reported_user_id = report_params["reported_user_id"]
+
+    with {:ok, post} <- Timeline.get_post(post_id),
+         {:ok, reported_user} <- Accounts.get_user(reported_user_id) do
+      case Timeline.report_post(current_user, reported_user, post, report_params) do
+        {:ok, _report} ->
+          socket =
+            socket
+            |> assign(:show_report_modal, false)
+            |> assign(:report_post_id, nil)
+            |> assign(:report_user_id, nil)
+            |> put_flash(
+              :info,
+              "Report submitted successfully. Thank you for helping keep our community safe."
+            )
+
+          {:noreply, socket}
+
+        {:error, changeset} ->
+          errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+          error_msg = "Report failed: #{inspect(errors)}"
+          {:noreply, put_flash(socket, :error, error_msg)}
+      end
+    else
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to submit report. Please try again.")}
+    end
+  end
+
+  def handle_info({:close_block_modal}, socket) do
+    socket =
+      socket
+      |> assign(:show_block_modal, false)
+      |> assign(:block_user_id, nil)
+      |> assign(:block_user_name, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:submit_block, block_params}, socket) do
+    current_user = socket.assigns.current_user
+    blocked_user_id = block_params["blocked_id"]
+
+    case Accounts.get_user(blocked_user_id) do
+      {:ok, blocked_user} ->
+        case Timeline.block_user(current_user, blocked_user, block_params) do
+          {:ok, _block} ->
+            socket =
+              socket
+              |> assign(:show_block_modal, false)
+              |> assign(:block_user_id, nil)
+              |> assign(:block_user_name, nil)
+              |> put_flash(
+                :info,
+                "User blocked successfully. You won't see their content anymore."
+              )
+              # Real-time timeline refresh without full navigation - optimal for our distributed architecture
+              |> push_patch(to: ~p"/app/timeline")
+
+            {:noreply, socket}
+
+          {:error, changeset} ->
+            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+            error_msg = "Block failed: #{inspect(errors)}"
+            {:noreply, put_flash(socket, :error, error_msg)}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "User not found.")}
+    end
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
@@ -591,7 +689,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put("visibility", socket.assigns.selector)
       |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
       |> Map.put("user_id", current_user.id)
-      |> Map.put("username", user_name(current_user, key) || "")
+      |> Map.put("username", username(current_user, key) || "")
       |> add_shared_users_list_for_new_post(post_shared_users)
 
     # Let Timeline.change_post handle all the changeset logic
@@ -1071,7 +1169,7 @@ defmodule MossletWeb.TimelineLive.Index do
         "visibility" => socket.assigns.selector,
         "image_urls" => socket.assigns.image_urls,
         "user_id" => current_user.id,
-        "username" => user_name(current_user, key) || ""
+        "username" => username(current_user, key) || ""
       }
       |> add_shared_users_list_for_new_post(post_shared_users)
 
@@ -1115,7 +1213,7 @@ defmodule MossletWeb.TimelineLive.Index do
                 %{
                   "visibility" => socket.assigns.selector,
                   "user_id" => current_user.id,
-                  "username" => user_name(current_user, key) || "",
+                  "username" => username(current_user, key) || "",
                   "content_warning" => "",
                   "content_warning_category" => ""
                 },
@@ -1597,17 +1695,21 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("fav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
-    if current_user.id not in post.favs_list do
+    # Decrypt in LiveView, pass plaintext to context
+    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+
+    if current_user.id not in decrypted_favs do
       {:ok, post} = Timeline.inc_favs(post)
 
-      case Timeline.update_post_fav(
-             post,
-             %{favs_list: List.insert_at(post.favs_list, 0, current_user.id)},
-             user: current_user
+      updated_favs = [current_user.id | decrypted_favs]
+
+      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
+             user: current_user,
+             key: key
            ) do
         {:ok, updated_post} ->
-          # FIXED: Use the returned post which now has the correct nested reply structure
           socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You loved this post!")}
 
@@ -1622,17 +1724,22 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("unfav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
 
-    if current_user.id in post.favs_list do
+    # Decrypt in LiveView, pass plaintext to context
+    decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+
+    if current_user.id in decrypted_favs do
       {:ok, post} = Timeline.decr_favs(post)
 
-      case Timeline.update_post_fav(
-             post,
-             %{favs_list: List.delete(post.favs_list, current_user.id)},
-             user: current_user
+      # Remove current user from the decrypted list
+      updated_favs = List.delete(decrypted_favs, current_user.id)
+
+      case Timeline.update_post_fav(post, %{favs_list: updated_favs},
+             user: current_user,
+             key: key
            ) do
         {:ok, updated_post} ->
-          # FIXED: Use the returned post which now has the correct nested reply structure
           socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You removed love from this post.")}
 
@@ -1715,6 +1822,9 @@ defmodule MossletWeb.TimelineLive.Index do
     post_shared_users = socket.assigns.post_shared_users
     return_url = socket.assigns.return_url
 
+    # Decrypt reposts list to check if user already reposted
+    decrypted_reposts = decrypt_post_reposts_list(post, user, key)
+
     if post.user_id != user.id && user.id not in post.reposts_list do
       # the image urls are now encrypted so we need to decrypt them
       repost_params =
@@ -1739,13 +1849,15 @@ defmodule MossletWeb.TimelineLive.Index do
         {:ok, _repost} ->
           {:ok, post} = Timeline.inc_reposts(post)
 
+          # Add user to decrypted reposts list
+          updated_reposts = [user.id | decrypted_reposts]
+
           {:ok, _post} =
             Timeline.update_post_repost(
               post,
-              %{
-                reposts_list: List.insert_at(post.reposts_list, 0, user.id)
-              },
-              user: user
+              %{reposts_list: updated_reposts},
+              user: user,
+              key: key
             )
 
           socket =
@@ -1915,6 +2027,233 @@ defmodule MossletWeb.TimelineLive.Index do
       user: current_user,
       shared_username: shared_username
     )
+
+    {:noreply, socket}
+  end
+
+  # ============================================================================
+  # MODERATION EVENT HANDLERS
+  # ============================================================================
+
+  def handle_event("report_post", %{"id" => post_id}, socket) do
+    case Timeline.get_post(post_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found.")}
+
+      post ->
+        reported_user = Accounts.get_user!(post.user_id)
+
+        socket =
+          socket
+          |> assign(:show_report_modal, true)
+          |> assign(:report_post_id, post_id)
+          |> assign(:report_user_id, reported_user.id)
+
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_report_modal", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_report_modal, false)
+      |> assign(:report_post_id, nil)
+      |> assign(:report_user_id, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("submit_report", %{"report" => report_params}, socket) do
+    current_user = socket.assigns.current_user
+    post_id = report_params["post_id"]
+    reported_user_id = report_params["reported_user_id"]
+
+    with {:ok, post} <- Timeline.get_post(post_id),
+         {:ok, reported_user} <- Accounts.get_user(reported_user_id) do
+      case Timeline.report_post(current_user, reported_user, post, report_params) do
+        {:ok, _report} ->
+          socket =
+            socket
+            |> assign(:show_report_modal, false)
+            |> assign(:report_post_id, nil)
+            |> assign(:report_user_id, nil)
+            |> put_flash(
+              :info,
+              "Report submitted successfully. Thank you for helping keep our community safe."
+            )
+
+          {:noreply, socket}
+
+        {:error, changeset} ->
+          errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+          error_msg = "Report failed: #{inspect(errors)}"
+          {:noreply, put_flash(socket, :error, error_msg)}
+      end
+    else
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to submit report. Please try again.")}
+    end
+  end
+
+  def handle_event("block_user", %{"id" => user_id, "user-name" => user_name}, socket) do
+    socket =
+      socket
+      |> assign(:show_block_modal, true)
+      |> assign(:block_user_id, user_id)
+      |> assign(:block_user_name, user_name)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("close_block_modal", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_block_modal, false)
+      |> assign(:block_user_id, nil)
+      |> assign(:block_user_name, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("submit_block", %{"block" => block_params}, socket) do
+    current_user = socket.assigns.current_user
+    blocked_user_id = block_params["blocked_id"]
+
+    case Accounts.get_user(blocked_user_id) do
+      %Accounts.User{} = blocked_user ->
+        case Timeline.block_user(current_user, blocked_user, block_params) do
+          {:ok, _block} ->
+            socket =
+              socket
+              |> assign(:show_block_modal, false)
+              |> assign(:block_user_id, nil)
+              |> assign(:block_user_name, nil)
+              |> put_flash(
+                :info,
+                "Author blocked successfully. You won't see their content anymore."
+              )
+              # Real-time timeline refresh without full navigation - optimal for our distributed architecture
+              |> push_patch(to: ~p"/app/timeline")
+
+            {:noreply, socket}
+
+          {:error, changeset} ->
+            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+            error_msg = "Block failed: #{inspect(errors)}"
+            {:noreply, put_flash(socket, :error, error_msg)}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Author not found.")}
+    end
+  end
+
+  # ============================================================================
+  # BLOCK/MODERATION EVENT HANDLERS
+  # ============================================================================
+
+  def handle_info({:user_blocked, _block}, socket) do
+    # When a user is blocked, refresh the timeline to filter out their content
+    current_user = socket.assigns.current_user
+    options = socket.assigns.options
+    key = socket.assigns.key
+
+    # Invalidate timeline cache to ensure fresh data without blocked user's content
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+    # Refresh timeline with new filtering applied
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+
+    current_tab = socket.assigns.active_tab || "home"
+
+    posts =
+      case current_tab do
+        "discover" ->
+          Timeline.list_discover_posts(current_user, options_with_filters)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, options_with_filters)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          Timeline.list_user_bookmarks(current_user, options_with_filters)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
+
+    # Update timeline counts to reflect the block
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+    socket =
+      socket
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+      |> assign(:loaded_posts_count, length(posts))
+      |> assign(:current_page, 1)
+      |> stream(:posts, posts, reset: true)
+      |> put_flash(
+        :info,
+        "User blocked successfully. Their content has been filtered from your timeline."
+      )
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:user_unblocked, _block}, socket) do
+    # When a user is unblocked, refresh the timeline to show their content again
+    current_user = socket.assigns.current_user
+    options = socket.assigns.options
+    key = socket.assigns.key
+
+    # Invalidate timeline cache to ensure fresh data with unblocked user's content
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+    # Refresh timeline with new filtering applied
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+
+    current_tab = socket.assigns.active_tab || "home"
+
+    posts =
+      case current_tab do
+        "discover" ->
+          Timeline.list_discover_posts(current_user, options_with_filters)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, options_with_filters)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          Timeline.list_user_bookmarks(current_user, options_with_filters)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
+
+    # Update timeline counts to reflect the unblock
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+    socket =
+      socket
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+      |> assign(:loaded_posts_count, length(posts))
+      |> assign(:current_page, 1)
+      |> stream(:posts, posts, reset: true)
+      |> put_flash(
+        :info,
+        "User unblocked successfully. Their content is now visible in your timeline."
+      )
 
     {:noreply, socket}
   end
@@ -2445,7 +2784,7 @@ defmodule MossletWeb.TimelineLive.Index do
   defp get_safe_post_author_name(post, current_user, key) do
     if post.user_id == current_user.id do
       # Current user's own post - use their name
-      case user_name(current_user, key) do
+      case username(current_user, key) do
         name when is_binary(name) -> name
         :failed_verification -> "You"
         _ -> "You"
@@ -2712,6 +3051,71 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Enum.filter(&(&1 != nil))
 
       {successful_paths, trix_key}
+    end
+  end
+
+  # Helper functions for mixed encrypted/plaintext data during transition
+  defp decrypt_post_favs_list(post, user, key) do
+    case post.favs_list do
+      nil ->
+        []
+
+      [] ->
+        []
+
+      list when is_list(list) ->
+        Enum.map(list, &decrypt_user_id_safely(&1, post, user, key))
+    end
+  end
+
+  defp decrypt_post_reposts_list(post, user, key) do
+    case post.reposts_list do
+      nil ->
+        []
+
+      [] ->
+        []
+
+      list when is_list(list) ->
+        Enum.map(list, &decrypt_user_id_safely(&1, post, user, key))
+    end
+  end
+
+  # Safe decryption using post_key (same pattern as post.body)
+  defp decrypt_user_id_safely(user_id, post, user, key) do
+    cond do
+      # Plaintext UUID string (new format)
+      is_binary(user_id) && String.contains?(user_id, "-") ->
+        user_id
+
+      # Plaintext binary UUID (legacy format)
+      is_binary(user_id) && byte_size(user_id) == 16 ->
+        user_id
+
+      # Potentially encrypted data - decrypt with post_key
+      is_binary(user_id) ->
+        case decrypt_with_post_key(user_id, post, user, key) do
+          {:ok, decrypted_id} -> decrypted_id
+          # Graceful fallback
+          :failed_verification -> user_id
+          # Graceful fallback
+          _ -> user_id
+        end
+
+      true ->
+        user_id
+    end
+  end
+
+  # Follow same pattern as post.body decryption
+  defp decrypt_with_post_key(encrypted_user_id, post, user, key) do
+    # Get the post_key using same logic as post.body decryption
+    item_key = get_item_key(post, user)
+
+    case decr_item(encrypted_user_id, user, item_key, key, post, "user_id") do
+      decrypted_id when is_binary(decrypted_id) -> {:ok, decrypted_id}
+      :failed_verification -> :failed_verification
+      _ -> {:error, :decryption_failed}
     end
   end
 

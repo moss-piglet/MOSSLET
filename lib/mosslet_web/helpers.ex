@@ -535,6 +535,32 @@ defmodule MossletWeb.Helpers do
   def user_name(nil, _key), do: nil
   def user_name(user, key), do: decr(user.name, user, key)
 
+  def user_name(nil), do: nil
+  def user_name(nil, nil), do: nil
+  def user_name(nil, _key), do: nil
+  def username(user, key), do: decr(user.username, user, key)
+
+  # Use this for decryping a username
+  def username(item, user, key) do
+    cond do
+      item.user_id == user.id ->
+        # Current user's own item - use their username
+        case Mosslet.Encrypted.Utils.decr(user.username, key) do
+          username when is_binary(username) -> username
+          # Graceful fallback for decryption issues
+          :failed_verification -> "You"
+          _ -> "You"
+        end
+
+      true ->
+        case decr_item(item.username, user, get_item_key(item, user), key, item, "username") do
+          username when is_binary(username) -> username
+          :failed_verification -> "Private Author"
+          _ -> "Private Author"
+        end
+    end
+  end
+
   def user_avatar_url(nil), do: nil
   def user_avatar_url(_user), do: nil
 
@@ -914,6 +940,31 @@ defmodule MossletWeb.Helpers do
       true ->
         # there's only one UserPost for public posts
         case Enum.at(post.user_posts, 0) do
+          %{key: key} -> key
+          nil -> nil
+        end
+    end
+  end
+
+  # We can probably refactor to eventually only use this for all shared items
+  def get_item_key(item, current_user) do
+    cond do
+      item.group_id ->
+        # there's only one UserPost for group items
+        case Enum.at(item.user_posts, 0) do
+          %{key: key} -> key
+          nil -> nil
+        end
+
+      item.visibility == :connections || item.visibility == :private ->
+        case Timeline.get_user_post(item, current_user) do
+          %{key: key} -> key
+          nil -> nil
+        end
+
+      true ->
+        # there's only one UserPost for public posts
+        case Enum.at(item.user_posts, 0) do
           %{key: key} -> key
           nil -> nil
         end

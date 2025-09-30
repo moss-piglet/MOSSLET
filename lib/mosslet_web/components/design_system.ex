@@ -515,7 +515,7 @@ defmodule MossletWeb.DesignSystem do
             phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
             class={
               [
-                "relative w-full max-h-[90vh] h-auto flex flex-col overflow-hidden",
+                "relative w-full max-h-[95vh] min-h-0 flex flex-col overflow-hidden",
                 "transform-gpu transition-all duration-300 ease-out",
                 "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95 hidden",
                 "rounded-xl sm:rounded-2xl",
@@ -579,8 +579,8 @@ defmodule MossletWeb.DesignSystem do
                 </h2>
               </div>
 
-              <%!-- Content area with responsive scrolling --%>
-              <div id={"#{@id}-content"} class="flex-1 overflow-y-auto p-4 sm:p-6">
+              <%!-- Content area with responsive scrolling - prevent horizontal scroll --%>
+              <div id={"#{@id}-content"} class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
                 {render_slot(@inner_block)}
               </div>
             </div>
@@ -3470,6 +3470,8 @@ defmodule MossletWeb.DesignSystem do
   attr :content_warning?, :boolean, default: false
   attr :content_warning, :string, default: nil
   attr :content_warning_category, :string, default: nil
+  # Report modal state
+  attr :show_report_modal?, :boolean, default: false
 
   def liquid_timeline_post(assigns) do
     ~H"""
@@ -3562,9 +3564,9 @@ defmodule MossletWeb.DesignSystem do
             </div>
           </div>
 
-          <%!-- Post menu with liquid dropdown - only show if user has actions available --%>
+          <%!-- Post menu with liquid dropdown - show for both owned and other posts --%>
           <.liquid_dropdown
-            :if={@current_user_id == @post.user_id}
+            :if={@current_user_id == @post.user_id or @current_user_id != @post.user_id}
             id={"post-menu-#{@post.id}"}
             trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
             placement="bottom-end"
@@ -3572,13 +3574,36 @@ defmodule MossletWeb.DesignSystem do
             <:trigger>
               <.phx_icon name="hero-ellipsis-horizontal" class="h-5 w-5" />
             </:trigger>
+
+            <%!-- Own post actions --%>
             <:item
+              :if={@current_user_id == @post.user_id}
               phx_click="delete_post"
               phx_value_id={@post.id}
               data_confirm="Are you sure you want to delete this post?"
               color="red"
             >
               <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete Post
+            </:item>
+
+            <%!-- Other user's post actions --%>
+            <:item
+              :if={@current_user_id != @post.user_id}
+              phx_click="report_post"
+              phx_value_id={@post.id}
+              color="amber"
+            >
+              <.phx_icon name="hero-flag" class="h-4 w-4" /> Report Post
+            </:item>
+
+            <:item
+              :if={@current_user_id != @post.user_id}
+              phx_click="block_user"
+              phx_value_id={@post.user_id}
+              phx_value_user_name={@user_name}
+              color="red"
+            >
+              <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block User
             </:item>
           </.liquid_dropdown>
         </div>
@@ -4799,6 +4824,8 @@ defmodule MossletWeb.DesignSystem do
     attr :color, :string, values: ~w(slate gray red emerald blue amber purple)
     attr :phx_click, :string
     attr :phx_value_id, :string
+    attr :phx_value_username, :string
+    attr :phx_value_user_name, :string
     attr :href, :string
     attr :data_confirm, :string
   end
@@ -4852,6 +4879,8 @@ defmodule MossletWeb.DesignSystem do
             role="menuitem"
             phx-click={item[:phx_click]}
             phx-value-id={item[:phx_value_id]}
+            phx-value-username={item[:phx_value_username]}
+            phx-value-user-name={item[:phx_value_user_name]}
             {if item[:href], do: ["phx-click": "navigate", "phx-value-href": item[:href]], else: []}
             data-confirm={item[:data_confirm]}
           >
@@ -5473,6 +5502,421 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </.form>
     </div>
+    """
+  end
+
+  @doc """
+  A liquid metal report post modal for content moderation.
+
+  ## Examples
+
+      <.liquid_report_modal
+        show={@show_report_modal}
+        post_id={@reported_post_id}
+        reported_user_id={@reported_user_id}
+        on_close="close_report_modal"
+      />
+  """
+  attr :show, :boolean, default: false
+  attr :post_id, :string, required: true
+  attr :reported_user_id, :string, required: true
+  attr :on_close, :string, default: "close_report_modal"
+  attr :class, :any, default: ""
+
+  def liquid_report_modal(assigns) do
+    ~H"""
+    <.liquid_modal
+      :if={@show}
+      id="report-post-modal"
+      show={@show}
+      on_cancel={JS.push(@on_close)}
+      size="lg"
+    >
+      <:title>
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30">
+            <.phx_icon name="hero-flag" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Report this post
+            </h3>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              Help us keep the community safe
+            </p>
+          </div>
+        </div>
+      </:title>
+
+      <div class="space-y-6">
+        <.form
+          for={%{}}
+          as={:report}
+          phx-submit="submit_report"
+          phx-change="validate_report"
+          id="report-form"
+          class="space-y-6"
+        >
+          <input type="hidden" name="report[post_id]" value={@post_id} />
+          <input type="hidden" name="report[reported_user_id]" value={@reported_user_id} />
+
+          <%!-- Report type selection --%>
+          <div class="space-y-3">
+            <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+              What's the issue?
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[report_type]"
+                  value="harassment"
+                  class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">Harassment</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Threats, bullying, or abuse
+                  </div>
+                </div>
+              </label>
+
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[report_type]"
+                  value="spam"
+                  class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">Spam</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Unwanted or repetitive content
+                  </div>
+                </div>
+              </label>
+
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[report_type]"
+                  value="content"
+                  class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">
+                    Inappropriate Content
+                  </div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Violates community guidelines
+                  </div>
+                </div>
+              </label>
+
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[report_type]"
+                  value="other"
+                  class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">Other</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Something else
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <%!-- Severity selection --%>
+          <div class="space-y-3">
+            <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+              How serious is this issue?
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[severity]"
+                  value="low"
+                  class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <span class="text-sm text-slate-700 dark:text-slate-300">Minor</span>
+              </label>
+              <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[severity]"
+                  value="medium"
+                  class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <span class="text-sm text-slate-700 dark:text-slate-300">Moderate</span>
+              </label>
+              <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[severity]"
+                  value="high"
+                  class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <span class="text-sm text-slate-700 dark:text-slate-300">Serious</span>
+              </label>
+              <label class="flex items-center px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="report[severity]"
+                  value="critical"
+                  class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 dark:border-slate-600"
+                />
+                <span class="text-sm text-slate-700 dark:text-slate-300">Critical</span>
+              </label>
+            </div>
+          </div>
+
+          <%!-- Reason field --%>
+          <div class="space-y-2">
+            <label
+              for="report_reason"
+              class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+            >
+              Brief reason
+            </label>
+            <input
+              type="text"
+              name="report[reason]"
+              id="report_reason"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200"
+              placeholder="Why are you reporting this post?"
+              maxlength="100"
+            />
+          </div>
+
+          <%!-- Details field --%>
+          <div class="space-y-2">
+            <label
+              for="report_details"
+              class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+            >
+              Additional details (optional)
+            </label>
+            <textarea
+              name="report[details]"
+              id="report_details"
+              rows="3"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 resize-none"
+              placeholder="Provide any additional context that might help our moderation team..."
+              maxlength="1000"
+            ></textarea>
+          </div>
+
+          <%!-- Privacy notice --%>
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="flex gap-3">
+              <.phx_icon
+                name="hero-shield-check"
+                class="h-5 w-5 text-slate-600 dark:text-slate-400 flex-shrink-0 mt-0.5"
+              />
+              <div class="text-sm text-slate-700 dark:text-slate-300">
+                <p class="font-medium mb-1">Your report is confidential</p>
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                  The reported user won't know who submitted this report. We'll review it according to our community guidelines and take appropriate action.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Action buttons --%>
+          <div class="flex justify-end gap-3 pt-2">
+            <.liquid_button
+              type="button"
+              variant="ghost"
+              color="slate"
+              phx-click={@on_close}
+            >
+              Cancel
+            </.liquid_button>
+            <.liquid_button
+              type="submit"
+              color="amber"
+              icon="hero-flag"
+            >
+              Submit Report
+            </.liquid_button>
+          </div>
+        </.form>
+      </div>
+    </.liquid_modal>
+    """
+  end
+
+  @doc """
+  A liquid metal block user modal for user management.
+
+  ## Examples
+
+      <.liquid_block_modal
+        show={@show_block_modal}
+        user_id={@blocked_user_id}
+        user_name={@blocked_user_name}
+        on_close="close_block_modal"
+      />
+  """
+  attr :show, :boolean, default: false
+  attr :user_id, :string, required: true
+  attr :user_name, :string, required: true
+  attr :on_close, :string, default: "close_block_modal"
+  attr :class, :any, default: ""
+
+  def liquid_block_modal(assigns) do
+    ~H"""
+    <.liquid_modal
+      :if={@show}
+      id="block-user-modal"
+      show={@show}
+      on_cancel={JS.push(@on_close)}
+      size="md"
+    >
+      <:title>
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-gradient-to-br from-rose-100 to-rose-100 dark:from-rose-900/30 dark:to-rose-900/30">
+            <.phx_icon name="hero-no-symbol" class="h-5 w-5 text-rose-600 dark:text-rose-400" />
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Block {@user_name}
+            </h3>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              They won't be able to interact with you
+            </p>
+          </div>
+        </div>
+      </:title>
+
+      <div class="space-y-6">
+        <.form
+          for={%{}}
+          as={:block}
+          phx-submit="submit_block"
+          phx-change="validate_block"
+          id="block-form"
+          class="space-y-6"
+        >
+          <input type="hidden" name="block[blocked_id]" value={@user_id} />
+
+          <%!-- Block type selection --%>
+          <div class="space-y-3">
+            <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+              What would you like to block?
+            </label>
+            <div class="space-y-2">
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="block[block_type]"
+                  value="full"
+                  checked="checked"
+                  class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">Everything</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Block all posts, replies, and interactions from this user
+                  </div>
+                </div>
+              </label>
+
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="block[block_type]"
+                  value="posts_only"
+                  class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">Posts only</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Hide their posts but allow replies to your content
+                  </div>
+                </div>
+              </label>
+
+              <label class="relative flex items-start p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200">
+                <input
+                  type="radio"
+                  name="block[block_type]"
+                  value="replies_only"
+                  class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600"
+                />
+                <div class="ml-3">
+                  <div class="font-medium text-slate-900 dark:text-slate-100">Replies only</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Block replies but still see their posts
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <%!-- Reason field --%>
+          <div class="space-y-2">
+            <label
+              for="block_reason"
+              class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+            >
+              Reason for blocking (optional)
+            </label>
+            <input
+              type="text"
+              name="block[reason]"
+              id="block_reason"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
+              placeholder="Why are you blocking this user?"
+              maxlength="200"
+            />
+          </div>
+
+          <%!-- What happens notice --%>
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="flex gap-3">
+              <.phx_icon
+                name="hero-information-circle"
+                class="h-5 w-5 text-slate-600 dark:text-slate-400 flex-shrink-0 mt-0.5"
+              />
+              <div class="text-sm text-slate-700 dark:text-slate-300">
+                <p class="font-medium mb-1">What happens when you block someone:</p>
+                <ul class="text-slate-600 dark:text-slate-400 space-y-1">
+                  <li>• They won't be notified that you blocked them</li>
+                  <li>• You won't see their content in your timeline</li>
+                  <li>• They won't be able to interact with your posts</li>
+                  <li>• You can unblock them anytime from your settings</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Action buttons --%>
+          <div class="flex justify-end gap-3 pt-2">
+            <.liquid_button
+              type="button"
+              variant="ghost"
+              color="slate"
+              phx-click={@on_close}
+            >
+              Cancel
+            </.liquid_button>
+            <.liquid_button
+              type="submit"
+              color="rose"
+              icon="hero-no-symbol"
+            >
+              Block User
+            </.liquid_button>
+          </div>
+        </.form>
+      </div>
+    </.liquid_modal>
     """
   end
 end

@@ -2622,6 +2622,10 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  def block_subscribe(user) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "blocks:#{user.id}")
+  end
+
   defp broadcast({:ok, conn, post}, event, _user_conn \\ %{}) do
     case post.visibility do
       :public -> public_broadcast({:ok, post}, event)
