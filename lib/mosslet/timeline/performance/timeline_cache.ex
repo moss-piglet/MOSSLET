@@ -204,12 +204,24 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     {:noreply, state}
   end
 
-  # Handle likes/favs - invalidate post cache for updated counts
+  # Handle likes/favs - invalidate post cache AND timeline cache for updated counts
   def handle_info({:post_updated_fav, post}, state) do
     Logger.debug("Cache invalidation: post fav updated #{post.id}")
 
     # Invalidate post cache so new like count shows immediately
     invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
+
+    {:noreply, state}
+  end
+
+  # Handle reposts - invalidate post cache AND timeline cache for updated counts
+  def handle_info({:post_reposted, post}, state) do
+    Logger.debug("Cache invalidation: post reposted #{post.id}")
+
+    # Invalidate post cache so new repost count shows immediately
+    invalidate_post(post.id)
+    invalidate_timelines_for_post(post)
 
     {:noreply, state}
   end
@@ -297,15 +309,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   # Handle private post events - these come on user-specific topics
   def handle_info({:post_created, post}, state) when is_map(post) do
     # This handles both public posts (from "posts" topic) and private posts (from "priv_posts:user_id" topics)
-    invalidate_timelines_for_post(post)
-
-    {:noreply, state}
-  end
-
-  def handle_info({:post_updated, post}, state) when is_map(post) do
-    Logger.debug("Cache invalidation: private post updated #{post.id}")
-
-    invalidate_post(post.id)
     invalidate_timelines_for_post(post)
 
     {:noreply, state}

@@ -20,11 +20,9 @@ defmodule Mosslet.Timeline.Post do
     field :username_hash, Encrypted.HMAC
     field :image_urls, Encrypted.StringList, default: [], skip_default_validation: true
     field :image_urls_updated_at, :naive_datetime
-    field :favs_list, {:array, :binary_id}, default: []
-    field :reposts_list, {:array, :binary_id}, default: []
-    field :encrypted_favs_list, Encrypted.StringList, default: [], skip_default_validation: true
+    field :favs_list, Encrypted.StringList, default: [], skip_default_validation: true
 
-    field :encrypted_reposts_list, Encrypted.StringList,
+    field :reposts_list, Encrypted.StringList,
       default: [],
       skip_default_validation: true
 
@@ -173,21 +171,49 @@ defmodule Mosslet.Timeline.Post do
     )
   end
 
-  def favs_changeset(post, attrs, _opts \\ []) do
+  def favs_changeset(post, attrs, opts \\ []) do
     post
     |> cast(attrs, [
       :favs_count,
       :favs_list
     ])
     |> validate_required([:favs_count, :favs_list])
-    |> put_encrypted_favs_fields()
+    |> encrypt_favs_list_with_post_key(opts)
   end
 
-  # Temporary function during the migration process, to ensure
-  # that all changes are copied over to the new fields
-  defp put_encrypted_favs_fields(changeset) do
-    changeset
-    |> put_change(:encrypted_favs_list, get_field(changeset, :favs_list))
+  # Encrypt favs list with post_key (same pattern as post.body)
+  defp encrypt_favs_list_with_post_key(changeset, opts) do
+    if changeset.valid? && opts[:user] && opts[:key] do
+      favs_list = get_field(changeset, :favs_list)
+
+      if favs_list && length(favs_list) > 0 do
+        # Get existing post_key for this post (not generate a new one)
+        group_id = get_field(changeset, :group_id)
+        visibility = get_field(changeset, :visibility)
+        post_key = maybe_get_post_key(group_id, opts, visibility)
+
+        # Asymmetrically encrypt each user_id individually with post_key
+        # Follow same pattern as muted_users in UserTimelinePreference but with post_key
+        encrypted_favs =
+          Enum.map(favs_list, fn user_id ->
+            # Each user_id encrypted individually with post_key
+            # For posts, we need to use post_key instead of user_key like UserTimelinePreference
+            Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: user_id})
+          end)
+
+        # Create hash for searching
+        favs_hash = Enum.join(favs_list, ",") |> String.downcase()
+
+        changeset
+        |> put_change(:favs_list_hash, favs_hash)
+        # Also update the new encrypted field during transition
+        |> put_change(:favs_list, encrypted_favs)
+      else
+        changeset
+      end
+    else
+      changeset
+    end
   end
 
   def shared_user_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
@@ -201,17 +227,45 @@ defmodule Mosslet.Timeline.Post do
     |> cast(attrs, [:user_id])
   end
 
-  def change_post_to_repost_changeset(post, attrs, _opts \\ []) do
+  def change_post_to_repost_changeset(post, attrs, opts \\ []) do
     post
     |> cast(attrs, [:reposts_list])
-    |> put_encrypted_repost_fields()
+    |> encrypt_reposts_list_with_post_key(opts)
   end
 
-  # Temporary function during the migration process, to ensure
-  # that all changes are copied over to the new fields
-  defp put_encrypted_repost_fields(changeset) do
-    changeset
-    |> put_change(:encrypted_reposts_list, get_field(changeset, :reposts_list))
+  # Encrypt reposts list with post_key (same pattern as post.body)
+  defp encrypt_reposts_list_with_post_key(changeset, opts) do
+    if changeset.valid? && opts[:user] && opts[:key] do
+      reposts_list = get_field(changeset, :reposts_list)
+
+      if reposts_list && length(reposts_list) > 0 do
+        # Get existing post_key for this post (not generate a new one)
+        group_id = get_field(changeset, :group_id)
+        visibility = get_field(changeset, :visibility)
+        post_key = maybe_get_post_key(group_id, opts, visibility)
+
+        # Asymmetrically encrypt each user_id individually with post_key
+        # Same pattern as UserTimelinePreference but with post_key instead of user_key
+        encrypted_reposts =
+          Enum.map(reposts_list, fn user_id ->
+            # Each user_id encrypted individually with post_key
+            # For posts, we use post_key instead of user_key like UserTimelinePreference
+            Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: user_id})
+          end)
+
+        # Create hash for searching
+        reposts_hash = Enum.join(reposts_list, ",") |> String.downcase()
+
+        changeset
+        |> put_change(:reposts_list_hash, reposts_hash)
+        # Also update the new encrypted field during transition
+        |> put_change(:reposts_list, encrypted_reposts)
+      else
+        changeset
+      end
+    else
+      changeset
+    end
   end
 
   def change_post_shared_users_changeset(post, attrs, _opts \\ []) do
@@ -491,7 +545,7 @@ defmodule Mosslet.Timeline.Post do
   # Encrypt and hash favs_list if present
   defp encrypt_favs_list(changeset, post_key, opts) do
     if changeset.valid? && opts[:user] && opts[:key] do
-      favs_list = get_field(changeset, :encrypted_favs_list)
+      favs_list = get_field(changeset, :favs_list)
 
       if favs_list && length(favs_list) > 0 do
         # Asymmetrically encrypt each user_id in the favs_list individually with post_key
@@ -505,7 +559,7 @@ defmodule Mosslet.Timeline.Post do
 
         changeset
         # StringList will symmetrically encrypt this list of asymmetrically encrypted values
-        |> put_change(:encrypted_favs_list, encrypted_favs_list)
+        |> put_change(:favs_list, encrypted_favs_list)
         |> put_change(:favs_list_hash, hash_value)
       else
         changeset
@@ -518,7 +572,7 @@ defmodule Mosslet.Timeline.Post do
   # Encrypt and hash reposts_list if present
   defp encrypt_reposts_list(changeset, post_key, opts) do
     if changeset.valid? && opts[:user] && opts[:key] do
-      reposts_list = get_field(changeset, :encrypted_reposts_list)
+      reposts_list = get_field(changeset, :reposts_list)
 
       if reposts_list && length(reposts_list) > 0 do
         # Asymmetrically encrypt each user_id in the reposts_list individually with post_key
@@ -532,7 +586,7 @@ defmodule Mosslet.Timeline.Post do
 
         changeset
         # StringList will symmetrically encrypt this list of asymmetrically encrypted values
-        |> put_change(:encrypted_reposts_list, encrypted_reposts_list)
+        |> put_change(:reposts_list, encrypted_reposts_list)
         |> put_change(:reposts_list_hash, hash_value)
       else
         changeset
@@ -571,6 +625,38 @@ defmodule Mosslet.Timeline.Post do
       end
 
     changeset
+  end
+
+  # Get existing post key (for updates like favs/reposts)
+  defp maybe_get_post_key(group_id, opts, visibility) do
+    case visibility do
+      :public ->
+        Encrypted.Users.Utils.decrypt_public_item_key(opts[:post_key])
+
+      _rest ->
+        if not is_nil(group_id) do
+          group = Groups.get_group!(group_id)
+          user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
+
+          {:ok, d_post_key} =
+            Encrypted.Users.Utils.decrypt_user_attrs_key(
+              user_group.key,
+              opts[:user],
+              opts[:key]
+            )
+
+          d_post_key
+        else
+          {:ok, d_post_key} =
+            Encrypted.Users.Utils.decrypt_user_attrs_key(
+              opts[:post_key],
+              opts[:user],
+              opts[:key]
+            )
+
+          d_post_key
+        end
+    end
   end
 
   defp maybe_generate_post_key(group_id, opts, visibility) do

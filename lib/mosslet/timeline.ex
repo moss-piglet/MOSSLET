@@ -578,7 +578,6 @@ defmodule Mosslet.Timeline do
     |> where([p, up], up.user_id == ^current_user.id)
     |> join(:left, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> with_any_visibility([:private, :connections])
-    |> filter_by_user_id(options)
     |> apply_database_filters(options)
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
@@ -3502,17 +3501,23 @@ defmodule Mosslet.Timeline do
     # For content_warning field: First encrypt with enacl (asymmetric), then Cloak handles symmetric encryption at rest
     changeset =
       if content_warning && String.trim(content_warning) != "" do
-        try do
-          # Get the binary result from enacl encryption (returns binary directly)
-          encrypted_warning =
-            Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: content_warning})
+        case Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: content_warning}) do
+          {:ok, encrypted_warning} ->
+            # Store the enacl-encrypted binary - Cloak will add the second layer automatically
+            Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)
 
-          # Store the enacl-encrypted binary - Cloak will add the second layer automatically
-          Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)
-        rescue
-          e ->
-            IO.puts("Encryption error: #{inspect(e)}")
+          encrypted_warning when is_binary(encrypted_warning) ->
+            # Handle direct binary return (fallback for different return formats)
+            Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)
 
+          {:error, reason} ->
+            Ecto.Changeset.add_error(
+              changeset,
+              :content_warning,
+              "Failed to encrypt content warning: #{inspect(reason)}"
+            )
+
+          _unexpected ->
             Ecto.Changeset.add_error(
               changeset,
               :content_warning,

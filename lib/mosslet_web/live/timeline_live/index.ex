@@ -1227,7 +1227,7 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:image_urls, [])
               |> assign(:content_warning_enabled?, false)
               |> put_flash(:success, "Post created successfully")
-              |> push_navigate(to: socket.assigns.return_url)
+              |> push_patch(to: socket.assigns.return_url)
 
             {:noreply, socket}
 
@@ -1705,9 +1705,13 @@ defmodule MossletWeb.TimelineLive.Index do
 
       updated_favs = [current_user.id | decrypted_favs]
 
+      # Get the existing post_key for encryption
+      encrypted_post_key = get_post_key(post, current_user)
+
       case Timeline.update_post_fav(post, %{favs_list: updated_favs},
              user: current_user,
-             key: key
+             key: key,
+             post_key: encrypted_post_key
            ) do
         {:ok, updated_post} ->
           socket = stream_insert(socket, :posts, updated_post, at: -1)
@@ -1735,9 +1739,13 @@ defmodule MossletWeb.TimelineLive.Index do
       # Remove current user from the decrypted list
       updated_favs = List.delete(decrypted_favs, current_user.id)
 
+      # Get the existing post_key for encryption
+      encrypted_post_key = get_post_key(post, current_user)
+
       case Timeline.update_post_fav(post, %{favs_list: updated_favs},
              user: current_user,
-             key: key
+             key: key,
+             post_key: encrypted_post_key
            ) do
         {:ok, updated_post} ->
           socket = stream_insert(socket, :posts, updated_post, at: -1)
@@ -1825,7 +1833,7 @@ defmodule MossletWeb.TimelineLive.Index do
     # Decrypt reposts list to check if user already reposted
     decrypted_reposts = decrypt_post_reposts_list(post, user, key)
 
-    if post.user_id != user.id && user.id not in post.reposts_list do
+    if post.user_id != user.id && user.id not in decrypted_reposts do
       # the image urls are now encrypted so we need to decrypt them
       repost_params =
         %{
@@ -1852,12 +1860,16 @@ defmodule MossletWeb.TimelineLive.Index do
           # Add user to decrypted reposts list
           updated_reposts = [user.id | decrypted_reposts]
 
+          # Get the existing post_key for encryption
+          encrypted_post_key = get_post_key(post, user)
+
           {:ok, _post} =
             Timeline.update_post_repost(
               post,
               %{reposts_list: updated_reposts},
               user: user,
-              key: key
+              key: key,
+              post_key: encrypted_post_key
             )
 
           socket =
@@ -2774,10 +2786,15 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper function to add a subtle new post notification
   defp add_new_post_notification(socket, post, current_user) do
     # Get author name safely
-    author_name = get_safe_post_author_name(post, current_user, socket.assigns.key)
+    # we don't show an extra notification for the person who made the post
+    if post.user_id === current_user.id do
+      socket
+    else
+      author_name = get_safe_post_author_name(post, current_user, socket.assigns.key)
 
-    # Add a gentle flash message for the new post
-    put_flash(socket, :info, "New post from #{author_name}")
+      # Add a gentle flash message for the new post
+      put_flash(socket, :info, "New post from #{author_name}")
+    end
   end
 
   # Safe version of get_post_author_name that returns the author name string
@@ -2793,7 +2810,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # For other users' posts, respect privacy - use "Private Author"
       # This applies even to public posts where the author hasn't shared
       # their identity with the current user (e.g., group posts, discover posts)
-      "Private Author"
+      "@" <> username(post, current_user, key)
     end
   end
 
@@ -2952,6 +2969,17 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  # Helper function to check if the current user has liked a post
+  defp get_post_liked_status(post, current_user, key) do
+    # If we don't have a key, we can't decrypt, so assume not liked
+    if is_nil(key) do
+      false
+    else
+      decrypted_favs = decrypt_post_favs_list(post, current_user, key)
+      current_user.id in decrypted_favs
+    end
+  end
+
   # Helper function to check if a post is unread by the current user
   defp get_post_unread_status(post, current_user) do
     cond do
@@ -2985,6 +3013,18 @@ defmodule MossletWeb.TimelineLive.Index do
           # Default to unread for any other case
           _ -> true
         end
+    end
+  end
+
+  # Helper function to check if current user can repost (with encrypted reposts_list support)
+  defp can_repost_with_decryption?(post, current_user, key) do
+    # Can't repost own posts
+    if post.user_id == current_user.id do
+      false
+    else
+      # Decrypt reposts list and check if user already reposted
+      decrypted_reposts = decrypt_post_reposts_list(post, current_user, key)
+      current_user.id not in decrypted_reposts
     end
   end
 
@@ -3055,6 +3095,8 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper functions for mixed encrypted/plaintext data during transition
+  # Helper function to decrypt favs_list using the same pattern as UserTimelinePreference
+  # Handles both encrypted and plaintext user IDs with idiomatic Elixir pattern matching
   defp decrypt_post_favs_list(post, user, key) do
     case post.favs_list do
       nil ->
@@ -3064,10 +3106,41 @@ defmodule MossletWeb.TimelineLive.Index do
         []
 
       list when is_list(list) ->
-        Enum.map(list, &decrypt_user_id_safely(&1, post, user, key))
+        # Get the encrypted post_key from user_post
+        encrypted_post_key = get_post_key(post, user)
+
+        if is_nil(encrypted_post_key) do
+          # Can't decrypt without the key, return empty list
+          []
+        else
+          # Decrypt the post_key first
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(encrypted_post_key, user, key) do
+            {:ok, decrypted_post_key} ->
+              # Now decrypt each user_id in the list
+              Enum.map(list, fn user_id ->
+                # Try to decrypt first (assume encrypted), fallback to plaintext
+                case Mosslet.Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
+                  {:ok, decrypted_id} ->
+                    decrypted_id
+
+                  _ ->
+                    # Decryption failed, assume it's already plaintext (legacy data)
+                    user_id
+                end
+              end)
+              # Remove any nil values
+              |> Enum.reject(&is_nil/1)
+
+            _ ->
+              # Could not decrypt the post_key, return empty list
+              []
+          end
+        end
     end
   end
 
+  # Helper function to decrypt reposts_list using the same pattern as UserTimelinePreference
+  # Handles both encrypted and plaintext user IDs with idiomatic Elixir pattern matching
   defp decrypt_post_reposts_list(post, user, key) do
     case post.reposts_list do
       nil ->
@@ -3077,45 +3150,36 @@ defmodule MossletWeb.TimelineLive.Index do
         []
 
       list when is_list(list) ->
-        Enum.map(list, &decrypt_user_id_safely(&1, post, user, key))
-    end
-  end
+        # Get the encrypted post_key from user_post
+        encrypted_post_key = get_post_key(post, user)
 
-  # Safe decryption using post_key (same pattern as post.body)
-  defp decrypt_user_id_safely(user_id, post, user, key) do
-    cond do
-      # Plaintext UUID string (new format)
-      is_binary(user_id) && String.contains?(user_id, "-") ->
-        user_id
+        if is_nil(encrypted_post_key) do
+          # Can't decrypt without the key, return empty list
+          []
+        else
+          # Decrypt the post_key first
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(encrypted_post_key, user, key) do
+            {:ok, decrypted_post_key} ->
+              # Now decrypt each user_id in the list
+              Enum.map(list, fn user_id ->
+                # Try to decrypt first (assume encrypted), fallback to plaintext
+                case Mosslet.Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
+                  {:ok, decrypted_id} ->
+                    decrypted_id
 
-      # Plaintext binary UUID (legacy format)
-      is_binary(user_id) && byte_size(user_id) == 16 ->
-        user_id
+                  _ ->
+                    # Decryption failed, assume it's already plaintext (legacy data)
+                    user_id
+                end
+              end)
+              # Remove any nil values
+              |> Enum.reject(&is_nil/1)
 
-      # Potentially encrypted data - decrypt with post_key
-      is_binary(user_id) ->
-        case decrypt_with_post_key(user_id, post, user, key) do
-          {:ok, decrypted_id} -> decrypted_id
-          # Graceful fallback
-          :failed_verification -> user_id
-          # Graceful fallback
-          _ -> user_id
+            _ ->
+              # Could not decrypt the post_key, return empty list
+              []
+          end
         end
-
-      true ->
-        user_id
-    end
-  end
-
-  # Follow same pattern as post.body decryption
-  defp decrypt_with_post_key(encrypted_user_id, post, user, key) do
-    # Get the post_key using same logic as post.body decryption
-    item_key = get_item_key(post, user)
-
-    case decr_item(encrypted_user_id, user, item_key, key, post, "user_id") do
-      decrypted_id when is_binary(decrypted_id) -> {:ok, decrypted_id}
-      :failed_verification -> :failed_verification
-      _ -> {:error, :decryption_failed}
     end
   end
 

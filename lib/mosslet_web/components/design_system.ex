@@ -3458,6 +3458,7 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user_id, :string, required: true
   attr :liked, :boolean, default: false
   attr :bookmarked, :boolean, default: false
+  attr :can_repost, :boolean, default: false
   attr :post, :map, required: true
   attr :post_id, :string, default: nil
   attr :current_user, :map, required: true
@@ -3745,15 +3746,46 @@ defmodule MossletWeb.DesignSystem do
               data-tippy-content="Toggle reply composer"
             />
             <.liquid_timeline_action
-              :if={can_repost?(@current_user, @post)}
+              :if={@can_repost}
               icon="hero-arrow-path"
+              id={"new-repost-button-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
+              phx-hook={"TippyHook"}
+              data-tippy-content="Repost this post"
               phx-click="repost"
               phx-value-id={@post_id}
               phx-value-body={@content}
               phx-value-username={@user_handle}
+            />
+            <.liquid_timeline_action
+              :if={!@can_repost && @post.id === @current_user.id}
+              icon="hero-arrow-path"
+              id={"cannot-repost-button-#{@post.id}"}
+              count={Map.get(@stats, :shares, 0)}
+              label="Share"
+              color="emerald"
+              phx-hook={"TippyHook"}
+              data-tippy-content="You cannot repost your own post"
+              phx-click={nil}
+              phx-value-id={nil}
+              phx-value-body={nil}
+              phx-value-username={nil}
+            />
+            <.liquid_timeline_action
+              :if={!@can_repost && @post.id != @current_user.id}
+              icon="hero-arrow-path"
+              id={"cannot-repost-button-#{@post.id}"}
+              count={Map.get(@stats, :shares, 0)}
+              label="Share"
+              color="emerald"
+              phx-hook={"TippyHook"}
+              data-tippy-content="You already reposted this"
+              phx-click={nil}
+              phx-value-id={nil}
+              phx-value-body={nil}
+              phx-value-username={nil}
             />
             <.liquid_timeline_action
               id={
