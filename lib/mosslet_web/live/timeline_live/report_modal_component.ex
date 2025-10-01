@@ -1,7 +1,7 @@
 defmodule MossletWeb.TimelineLive.ReportModalComponent do
   use MossletWeb, :live_component
 
-  import MossletWeb.CoreComponents, only: [phx_icon: 1]
+  import MossletWeb.CoreComponents, only: [phx_input: 1, phx_icon: 1]
   import MossletWeb.DesignSystem, only: [liquid_button: 1, liquid_modal: 1]
 
   alias Phoenix.LiveView.JS
@@ -68,9 +68,9 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
               id={"report-form-#{@post_id}"}
               class="space-y-6"
             >
-              <input type="hidden" name="report[post_id]" value={@post_id} />
-              <input type="hidden" name="report[reported_user_id]" value={@reported_user_id} />
-              <input
+              <.phx_input type="hidden" name="report[post_id]" value={@post_id} />
+              <.phx_input type="hidden" name="report[reported_user_id]" value={@reported_user_id} />
+              <.phx_input
                 :if={Map.get(assigns.report_reply_context, :reply_id)}
                 type="hidden"
                 name="report[reply_id]"
@@ -89,6 +89,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                       name="report[report_type]"
                       value="harassment"
                       class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
+                      required
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Harassment</div>
@@ -104,6 +105,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                       name="report[report_type]"
                       value="spam"
                       class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
+                      required
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Spam</div>
@@ -119,6 +121,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                       name="report[report_type]"
                       value="content"
                       class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
+                      required
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">
@@ -136,6 +139,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                       name="report[report_type]"
                       value="other"
                       class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
+                      required
                     />
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Other</div>
@@ -159,6 +163,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                       name="report[severity]"
                       value="low"
                       class="mr-2 h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 dark:border-amber-600"
+                      required
                     />
                     <span class="text-sm text-slate-700 dark:text-slate-300">Minor</span>
                   </label>
@@ -207,6 +212,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                   class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200"
                   placeholder={"Why are you reporting this #{if Map.get(assigns.report_reply_context, :reply_id), do: "reply", else: "post"}?"}
                   maxlength="100"
+                  required
                 />
               </div>
 
