@@ -2347,14 +2347,11 @@ defmodule MossletWeb.TimelineLive.Index do
             # Decrypt the reason if it exists
             decrypted_reason =
               if block.reason do
-                case Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-                       block.reason,
-                       current_user,
-                       key
-                     ) do
-                  {:ok, reason} -> reason
-                  _ -> ""
-                end
+                Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+                  block.reason,
+                  current_user,
+                  key
+                )
               else
                 ""
               end
