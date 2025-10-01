@@ -3027,52 +3027,6 @@ defmodule Mosslet.Timeline do
   ## Content Moderation Functions
 
   @doc """
-  Reports a post for harmful content.
-
-  ## Examples
-
-      iex> report_post(reporter, reported_user, post, %{
-      ...>   reason: "harassment",
-      ...>   details: "Contains threatening language",
-      ...>   report_type: :harassment,
-      ...>   severity: :high
-      ...> })
-      {:ok, %PostReport{}}
-  """
-  def report_post(reporter, reported_user, post, attrs \\ %{}) do
-    attrs =
-      attrs
-      |> Map.put(:reporter_id, reporter.id)
-      |> Map.put(:reported_user_id, reported_user.id)
-      |> Map.put(:post_id, post.id)
-
-    # Get user key for encryption (simplified - you may need to adjust based on your key management)
-    user_key = get_user_encryption_key(reporter)
-
-    case Repo.transaction_on_primary(fn ->
-           %PostReport{}
-           |> PostReport.changeset(attrs, user: reporter, user_key: user_key)
-           |> Repo.insert()
-         end) do
-      {:ok, {:ok, report}} ->
-        # Broadcast to admin moderation system
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "moderation:reports",
-          {:report_created, report}
-        )
-
-        {:ok, report}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      error ->
-        error
-    end
-  end
-
-  @doc """
   Updates a post report status (admin function).
   """
   def update_post_report(report, attrs, _admin_user) do

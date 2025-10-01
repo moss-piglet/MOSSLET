@@ -19,7 +19,6 @@ defmodule MossletWeb.DesignSystem do
   # Import helper functions
   import MossletWeb.Helpers,
     only: [
-      can_repost?: 2,
       contains_html?: 1,
       decr: 3,
       html_block: 1,
@@ -3761,7 +3760,7 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
-              :if={!@can_repost && @post.id === @current_user.id}
+              :if={!@can_repost && @post.id == @current_user.id}
               icon="hero-arrow-path"
               id={"cannot-repost-button-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}

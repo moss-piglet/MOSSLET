@@ -535,9 +535,9 @@ defmodule MossletWeb.Helpers do
   def user_name(nil, _key), do: nil
   def user_name(user, key), do: decr(user.name, user, key)
 
-  def user_name(nil), do: nil
-  def user_name(nil, nil), do: nil
-  def user_name(nil, _key), do: nil
+  def username(nil), do: nil
+  def username(nil, nil), do: nil
+  def username(nil, _key), do: nil
   def username(user, key), do: decr(user.username, user, key)
 
   # Use this for decryping a username
@@ -545,7 +545,7 @@ defmodule MossletWeb.Helpers do
     cond do
       item.user_id == user.id ->
         # Current user's own item - use their username
-        case Mosslet.Encrypted.Utils.decr(user.username, key) do
+        case decr(user.username, user, key) do
           username when is_binary(username) -> username
           # Graceful fallback for decryption issues
           :failed_verification -> "You"

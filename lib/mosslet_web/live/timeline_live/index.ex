@@ -547,31 +547,6 @@ defmodule MossletWeb.TimelineLive.Index do
   # the reply_to_reply event handler is no longer needed - the composer
   # is toggled client-side just like the main reply composer
 
-  def handle_info({:nested_reply_created, post_id, parent_reply_id}, socket) do
-    # Update the post stream to reflect the new nested reply
-    updated_post = Timeline.get_post!(post_id)
-
-    socket =
-      socket
-      |> put_flash(:success, "Reply posted!")
-      |> stream_insert(:posts, updated_post, at: -1)
-      |> push_event("hide-nested-composer", %{reply_id: parent_reply_id})
-
-    {:noreply, socket}
-  end
-
-  def handle_info({:nested_reply_error, error_message}, socket) do
-    {:noreply, put_flash(socket, :error, error_message)}
-  end
-
-  def handle_info({:nested_reply_cancelled, parent_reply_id}, socket) do
-    socket =
-      socket
-      |> push_event("hide-nested-composer", %{reply_id: parent_reply_id})
-
-    {:noreply, socket}
-  end
-
   # ============================================================================
   # MODERATION MODAL COMPONENT EVENT HANDLERS
   # ============================================================================
@@ -659,6 +634,116 @@ defmodule MossletWeb.TimelineLive.Index do
       _ ->
         {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
     end
+  end
+
+  # ============================================================================
+  # BLOCK/MODERATION EVENT HANDLERS
+  # ============================================================================
+
+  def handle_info({:user_blocked, _block}, socket) do
+    # When a user is blocked, refresh the timeline to filter out their content
+    current_user = socket.assigns.current_user
+    options = socket.assigns.options
+    key = socket.assigns.key
+
+    # Invalidate timeline cache to ensure fresh data without blocked user's content
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+    # Refresh timeline with new filtering applied
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+
+    current_tab = socket.assigns.active_tab || "home"
+
+    posts =
+      case current_tab do
+        "discover" ->
+          Timeline.list_discover_posts(current_user, options_with_filters)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, options_with_filters)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          Timeline.list_user_bookmarks(current_user, options_with_filters)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
+
+    # Update timeline counts to reflect the block
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+    socket =
+      socket
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+      |> assign(:loaded_posts_count, length(posts))
+      |> assign(:current_page, 1)
+      |> stream(:posts, posts, reset: true)
+      |> put_flash(
+        :info,
+        "User blocked successfully. Their content has been filtered from your timeline."
+      )
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:user_unblocked, _block}, socket) do
+    # When a user is unblocked, refresh the timeline to show their content again
+    current_user = socket.assigns.current_user
+    options = socket.assigns.options
+    key = socket.assigns.key
+
+    # Invalidate timeline cache to ensure fresh data with unblocked user's content
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+    # Refresh timeline with new filtering applied
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+
+    current_tab = socket.assigns.active_tab || "home"
+
+    posts =
+      case current_tab do
+        "discover" ->
+          Timeline.list_discover_posts(current_user, options_with_filters)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, options_with_filters)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          Timeline.list_user_bookmarks(current_user, options_with_filters)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
+
+    # Update timeline counts to reflect the unblock
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+    socket =
+      socket
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+      |> assign(:loaded_posts_count, length(posts))
+      |> assign(:current_page, 1)
+      |> stream(:posts, posts, reset: true)
+      |> put_flash(
+        :info,
+        "User unblocked successfully. Their content is now visible in your timeline."
+      )
+
+    {:noreply, socket}
   end
 
   def handle_info(_message, socket) do
@@ -2165,116 +2250,6 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # ============================================================================
-  # BLOCK/MODERATION EVENT HANDLERS
-  # ============================================================================
-
-  def handle_info({:user_blocked, _block}, socket) do
-    # When a user is blocked, refresh the timeline to filter out their content
-    current_user = socket.assigns.current_user
-    options = socket.assigns.options
-    key = socket.assigns.key
-
-    # Invalidate timeline cache to ensure fresh data without blocked user's content
-    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
-
-    # Refresh timeline with new filtering applied
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
-    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
-
-    current_tab = socket.assigns.active_tab || "home"
-
-    posts =
-      case current_tab do
-        "discover" ->
-          Timeline.list_discover_posts(current_user, options_with_filters)
-
-        "connections" ->
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
-        "home" ->
-          Timeline.list_user_own_posts(current_user, options_with_filters)
-
-        "bookmarks" ->
-          Timeline.list_user_bookmarks(current_user, options_with_filters)
-
-        _ ->
-          Timeline.filter_timeline_posts(current_user, options_with_filters)
-          |> apply_tab_filtering(current_tab, current_user)
-      end
-
-    # Update timeline counts to reflect the block
-    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
-    unread_counts = calculate_unread_counts(current_user, options_with_filters)
-
-    socket =
-      socket
-      |> assign(:timeline_counts, timeline_counts)
-      |> assign(:unread_counts, unread_counts)
-      |> assign(:loaded_posts_count, length(posts))
-      |> assign(:current_page, 1)
-      |> stream(:posts, posts, reset: true)
-      |> put_flash(
-        :info,
-        "User blocked successfully. Their content has been filtered from your timeline."
-      )
-
-    {:noreply, socket}
-  end
-
-  def handle_info({:user_unblocked, _block}, socket) do
-    # When a user is unblocked, refresh the timeline to show their content again
-    current_user = socket.assigns.current_user
-    options = socket.assigns.options
-    key = socket.assigns.key
-
-    # Invalidate timeline cache to ensure fresh data with unblocked user's content
-    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
-
-    # Refresh timeline with new filtering applied
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
-    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
-
-    current_tab = socket.assigns.active_tab || "home"
-
-    posts =
-      case current_tab do
-        "discover" ->
-          Timeline.list_discover_posts(current_user, options_with_filters)
-
-        "connections" ->
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
-        "home" ->
-          Timeline.list_user_own_posts(current_user, options_with_filters)
-
-        "bookmarks" ->
-          Timeline.list_user_bookmarks(current_user, options_with_filters)
-
-        _ ->
-          Timeline.filter_timeline_posts(current_user, options_with_filters)
-          |> apply_tab_filtering(current_tab, current_user)
-      end
-
-    # Update timeline counts to reflect the unblock
-    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
-    unread_counts = calculate_unread_counts(current_user, options_with_filters)
-
-    socket =
-      socket
-      |> assign(:timeline_counts, timeline_counts)
-      |> assign(:unread_counts, unread_counts)
-      |> assign(:loaded_posts_count, length(posts))
-      |> assign(:current_page, 1)
-      |> stream(:posts, posts, reset: true)
-      |> put_flash(
-        :info,
-        "User unblocked successfully. Their content is now visible in your timeline."
-      )
-
-    {:noreply, socket}
-  end
-
   def handle_async(:update_post_body, {:ok, {message, _post}}, socket) do
     socket =
       socket
@@ -3111,34 +3086,77 @@ defmodule MossletWeb.TimelineLive.Index do
         []
 
       list when is_list(list) ->
-        # Get the encrypted post_key from user_post
-        encrypted_post_key = get_post_key(post, user)
+        # Handle different visibility types for public vs private posts
+        encrypted_post_key =
+          case post.visibility do
+            # Public posts use server key
+            :public -> get_post_key(post)
+            # Private/connections posts use user key
+            _ -> get_post_key(post, user)
+          end
 
         if is_nil(encrypted_post_key) do
           # Can't decrypt without the key, return empty list
           []
         else
-          # Decrypt the post_key first
-          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(encrypted_post_key, user, key) do
-            {:ok, decrypted_post_key} ->
-              # Now decrypt each user_id in the list
-              Enum.map(list, fn user_id ->
-                # Try to decrypt first (assume encrypted), fallback to plaintext
-                case Mosslet.Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
-                  {:ok, decrypted_id} ->
-                    decrypted_id
+          case post.visibility do
+            :public ->
+              # FIXED: For public posts, decrypt the post_key first, then use that to decrypt the favs
+              # This matches how Post.favs_changeset encrypts the data with the decrypted post_key
+              case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+                decrypted_post_key when is_binary(decrypted_post_key) ->
+                  # Now decrypt each user_id in the list using the raw post_key
+                  Enum.map(list, fn user_id ->
+                    # Try to decrypt first (assume encrypted), fallback to plaintext
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} ->
+                        decrypted_id
 
-                  _ ->
-                    # Decryption failed, assume it's already plaintext (legacy data)
-                    user_id
-                end
-              end)
-              # Remove any nil values
-              |> Enum.reject(&is_nil/1)
+                      _ ->
+                        # Decryption failed, assume it's already plaintext (legacy data)
+                        user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  # Could not decrypt the post_key, return empty list
+                  []
+              end
 
             _ ->
-              # Could not decrypt the post_key, return empty list
-              []
+              # For private/connections posts, decrypt the post_key first
+              case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                     encrypted_post_key,
+                     user,
+                     key
+                   ) do
+                {:ok, decrypted_post_key} ->
+                  # Now decrypt each user_id in the list
+                  Enum.map(list, fn user_id ->
+                    # Try to decrypt first (assume encrypted), fallback to plaintext
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} ->
+                        decrypted_id
+
+                      _ ->
+                        # Decryption failed, assume it's already plaintext (legacy data)
+                        user_id
+                    end
+                  end)
+                  # Remove any nil values
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  # Could not decrypt the post_key, return empty list
+                  []
+              end
           end
         end
     end
@@ -3155,34 +3173,77 @@ defmodule MossletWeb.TimelineLive.Index do
         []
 
       list when is_list(list) ->
-        # Get the encrypted post_key from user_post
-        encrypted_post_key = get_post_key(post, user)
+        # Handle different visibility types for public vs private posts
+        encrypted_post_key =
+          case post.visibility do
+            # Public posts use server key
+            :public -> get_post_key(post)
+            # Private/connections posts use user key
+            _ -> get_post_key(post, user)
+          end
 
         if is_nil(encrypted_post_key) do
           # Can't decrypt without the key, return empty list
           []
         else
-          # Decrypt the post_key first
-          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(encrypted_post_key, user, key) do
-            {:ok, decrypted_post_key} ->
-              # Now decrypt each user_id in the list
-              Enum.map(list, fn user_id ->
-                # Try to decrypt first (assume encrypted), fallback to plaintext
-                case Mosslet.Encrypted.Utils.decrypt(%{key: decrypted_post_key, payload: user_id}) do
-                  {:ok, decrypted_id} ->
-                    decrypted_id
+          case post.visibility do
+            :public ->
+              # FIXED: For public posts, decrypt the post_key first, then use that to decrypt the reposts
+              # This matches how Post.change_post_to_repost_changeset encrypts the data with the decrypted post_key
+              case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+                decrypted_post_key when is_binary(decrypted_post_key) ->
+                  # Now decrypt each user_id in the list using the raw post_key
+                  Enum.map(list, fn user_id ->
+                    # Try to decrypt first (assume encrypted), fallback to plaintext
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} ->
+                        decrypted_id
 
-                  _ ->
-                    # Decryption failed, assume it's already plaintext (legacy data)
-                    user_id
-                end
-              end)
-              # Remove any nil values
-              |> Enum.reject(&is_nil/1)
+                      _ ->
+                        # Decryption failed, assume it's already plaintext (legacy data)
+                        user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  # Could not decrypt the post_key, return empty list
+                  []
+              end
 
             _ ->
-              # Could not decrypt the post_key, return empty list
-              []
+              # For private/connections posts, decrypt the post_key first
+              case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                     encrypted_post_key,
+                     user,
+                     key
+                   ) do
+                {:ok, decrypted_post_key} ->
+                  # Now decrypt each user_id in the list
+                  Enum.map(list, fn user_id ->
+                    # Try to decrypt first (assume encrypted), fallback to plaintext
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} ->
+                        decrypted_id
+
+                      _ ->
+                        # Decryption failed, assume it's already plaintext (legacy data)
+                        user_id
+                    end
+                  end)
+                  # Remove any nil values
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  # Could not decrypt the post_key, return empty list
+                  []
+              end
           end
         end
     end

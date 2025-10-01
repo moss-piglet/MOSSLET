@@ -1,7 +1,7 @@
 defmodule MossletWeb.TimelineLive.BlockModalComponent do
   use MossletWeb, :live_component
 
-  import MossletWeb.CoreComponents, only: [phx_input: 1, phx_icon: 1]
+  import MossletWeb.CoreComponents, only: [phx_icon: 1]
   import MossletWeb.DesignSystem, only: [liquid_button: 1, liquid_modal: 1]
 
   alias Phoenix.LiveView.JS
