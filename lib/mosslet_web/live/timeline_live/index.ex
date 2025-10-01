@@ -614,7 +614,7 @@ defmodule MossletWeb.TimelineLive.Index do
       end
     else
       _ ->
-        {:noreply, put_flash(socket, :error, "Unable to submit report. Please try again.")}
+        {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
     end
   end
 
@@ -657,7 +657,7 @@ defmodule MossletWeb.TimelineLive.Index do
         end
 
       _ ->
-        {:noreply, put_flash(socket, :error, "User not found.")}
+        {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
     end
   end
 
@@ -2103,7 +2103,7 @@ defmodule MossletWeb.TimelineLive.Index do
       end
     else
       _ ->
-        {:noreply, put_flash(socket, :error, "Unable to submit report. Please try again.")}
+        {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
     end
   end
 
