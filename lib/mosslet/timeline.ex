@@ -3251,9 +3251,16 @@ defmodule Mosslet.Timeline do
         # Broadcast block creation/update for real-time filtering
         event = if existing_block, do: :user_block_updated, else: :user_blocked
 
+        # Broadcast to both the blocker AND the blocked user for bidirectional real-time updates
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "blocks:#{blocker.id}",
+          {event, block}
+        )
+        
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "blocks:#{blocked_user.id}",
           {event, block}
         )
 
@@ -3278,9 +3285,16 @@ defmodule Mosslet.Timeline do
              Repo.delete(block)
            end) do
         {:ok, {:ok, deleted_block}} ->
+          # Broadcast to both the blocker AND the blocked user for bidirectional real-time updates
           Phoenix.PubSub.broadcast(
             Mosslet.PubSub,
             "blocks:#{blocker.id}",
+            {:user_unblocked, deleted_block}
+          )
+          
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "blocks:#{blocked_user.id}",
             {:user_unblocked, deleted_block}
           )
 

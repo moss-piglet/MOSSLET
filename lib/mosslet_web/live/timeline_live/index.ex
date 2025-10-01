@@ -777,6 +777,59 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  def handle_info({:user_block_updated, _block}, socket) do
+    # When a block is updated (e.g., changing block type), refresh the timeline
+    current_user = socket.assigns.current_user
+    options = socket.assigns.options
+    key = socket.assigns.key
+
+    # Invalidate timeline cache to ensure fresh data with updated blocking rules
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+    # Refresh timeline with updated filtering applied
+    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+
+    current_tab = socket.assigns.active_tab || "home"
+
+    posts =
+      case current_tab do
+        "discover" ->
+          Timeline.list_discover_posts(current_user, options_with_filters)
+
+        "connections" ->
+          Timeline.list_connection_posts(current_user, options_with_filters)
+
+        "home" ->
+          Timeline.list_user_own_posts(current_user, options_with_filters)
+
+        "bookmarks" ->
+          Timeline.list_user_bookmarks(current_user, options_with_filters)
+
+        _ ->
+          Timeline.filter_timeline_posts(current_user, options_with_filters)
+          |> apply_tab_filtering(current_tab, current_user)
+      end
+
+    # Update timeline counts to reflect the block type change
+    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+    socket =
+      socket
+      |> assign(:posts, posts)
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+      |> assign(:current_page, 1)
+      |> stream(:posts, posts, reset: true)
+      |> put_flash(
+        :info,
+        "Block settings updated. Timeline refreshed to reflect changes."
+      )
+
+    {:noreply, socket}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
