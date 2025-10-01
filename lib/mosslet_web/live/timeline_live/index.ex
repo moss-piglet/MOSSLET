@@ -566,30 +566,30 @@ defmodule MossletWeb.TimelineLive.Index do
     post_id = report_params["post_id"]
     reported_user_id = report_params["reported_user_id"]
 
-    with {:ok, post} <- Timeline.get_post(post_id),
-         {:ok, reported_user} <- Accounts.get_user(reported_user_id) do
-      case Timeline.report_post(current_user, reported_user, post, report_params) do
-        {:ok, _report} ->
-          socket =
-            socket
-            |> assign(:show_report_modal, false)
-            |> assign(:report_post_id, nil)
-            |> assign(:report_user_id, nil)
-            |> put_flash(
-              :info,
-              "Report submitted successfully. Thank you for helping keep our community safe."
-            )
+    case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
+      {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
+        case Timeline.report_post(current_user, reported_user, post, report_params) do
+          {:ok, _report} ->
+            socket =
+              socket
+              |> assign(:show_report_modal, false)
+              |> assign(:report_post_id, nil)
+              |> assign(:report_user_id, nil)
+              |> put_flash(
+                :info,
+                "Report submitted successfully. Thank you for helping keep our community safe."
+              )
 
-          {:noreply, socket}
+            {:noreply, socket}
 
-        {:error, changeset} ->
-          errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-          error_msg = "Report failed: #{inspect(errors)}"
-          {:noreply, put_flash(socket, :error, error_msg)}
-      end
-    else
+          {:error, changeset} ->
+            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+            error_msg = "Report failed: #{inspect(errors)}"
+            {:noreply, put_flash(socket, :error, error_msg)}
+        end
+
       _ ->
-        {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
+        {:noreply, put_flash(socket, :error, "Post or user not found.")}
     end
   end
 
@@ -605,11 +605,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_info({:submit_block, block_params}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
     blocked_user_id = block_params["blocked_id"]
 
     case Accounts.get_user(blocked_user_id) do
-      {:ok, blocked_user} ->
-        case Timeline.block_user(current_user, blocked_user, block_params) do
+      %Accounts.User{} = blocked_user ->
+        case Timeline.block_user(current_user, blocked_user, block_params,
+               user: current_user,
+               key: key
+             ) do
           {:ok, _block} ->
             socket =
               socket
@@ -631,8 +635,8 @@ defmodule MossletWeb.TimelineLive.Index do
             {:noreply, put_flash(socket, :error, error_msg)}
         end
 
-      _ ->
-        {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
+      nil ->
+        {:noreply, put_flash(socket, :error, "Author not found.")}
     end
   end
 
@@ -2165,30 +2169,30 @@ defmodule MossletWeb.TimelineLive.Index do
     post_id = report_params["post_id"]
     reported_user_id = report_params["reported_user_id"]
 
-    with {:ok, post} <- Timeline.get_post(post_id),
-         {:ok, reported_user} <- Accounts.get_user(reported_user_id) do
-      case Timeline.report_post(current_user, reported_user, post, report_params) do
-        {:ok, _report} ->
-          socket =
-            socket
-            |> assign(:show_report_modal, false)
-            |> assign(:report_post_id, nil)
-            |> assign(:report_user_id, nil)
-            |> put_flash(
-              :info,
-              "Report submitted successfully. Thank you for helping keep our community safe."
-            )
+    case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
+      {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
+        case Timeline.report_post(current_user, reported_user, post, report_params) do
+          {:ok, _report} ->
+            socket =
+              socket
+              |> assign(:show_report_modal, false)
+              |> assign(:report_post_id, nil)
+              |> assign(:report_user_id, nil)
+              |> put_flash(
+                :info,
+                "Report submitted successfully. Thank you for helping keep our community safe."
+              )
 
-          {:noreply, socket}
+            {:noreply, socket}
 
-        {:error, changeset} ->
-          errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-          error_msg = "Report failed: #{inspect(errors)}"
-          {:noreply, put_flash(socket, :error, error_msg)}
-      end
-    else
+          {:error, changeset} ->
+            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+            error_msg = "Report failed: #{inspect(errors)}"
+            {:noreply, put_flash(socket, :error, error_msg)}
+        end
+
       _ ->
-        {:noreply, put_flash(socket, :warning, "🚧 Under construction (coming soon).")}
+        {:noreply, put_flash(socket, :error, "Post or user not found.")}
     end
   end
 
@@ -2219,11 +2223,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("submit_block", %{"block" => block_params}, socket) do
     current_user = socket.assigns.current_user
+    key = socket.assigns.key
     blocked_user_id = block_params["blocked_id"]
 
     case Accounts.get_user(blocked_user_id) do
       %Accounts.User{} = blocked_user ->
-        case Timeline.block_user(current_user, blocked_user, block_params) do
+        case Timeline.block_user(current_user, blocked_user, block_params,
+               user: current_user,
+               key: key
+             ) do
           {:ok, _block} ->
             socket =
               socket
@@ -3380,19 +3388,26 @@ defmodule MossletWeb.TimelineLive.Index do
             []
           end
 
+        # Get blocked users from UserBlock table (no decryption needed - stored as plaintext IDs)
+        blocked_user_ids = Timeline.get_blocked_user_ids(user)
+
         %{
           keywords: decrypted_keywords,
           muted_users: decrypted_muted_users,
+          blocked_users: blocked_user_ids,
           content_warnings: %{hide_all: prefs.hide_mature_content || false},
           hide_reposts: prefs.hide_reposts || false,
           raw_preferences: prefs
         }
 
       nil ->
-        # No preferences found - return defaults
+        # No preferences found - return defaults, but still get blocked users
+        blocked_user_ids = Timeline.get_blocked_user_ids(user)
+
         %{
           keywords: [],
           muted_users: [],
+          blocked_users: blocked_user_ids,
           content_warnings: %{hide_all: false},
           hide_reposts: false,
           raw_preferences: nil

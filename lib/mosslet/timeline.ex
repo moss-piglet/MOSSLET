@@ -356,6 +356,8 @@ defmodule Mosslet.Timeline do
   Gets the count of unread posts created BY the current user (for Home tab unread indicator).
   """
   def count_unread_user_own_posts(user) do
+    blocked_user_ids = get_blocked_user_ids(user)
+
     query =
       from(p in Post,
         inner_join: up in UserPost,
@@ -366,6 +368,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
+      |> filter_by_blocked_users(blocked_user_ids)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -379,6 +382,8 @@ defmodule Mosslet.Timeline do
   Gets the count of unread group posts accessible to the current user (for Groups tab unread indicator).
   """
   def count_unread_group_posts(user) do
+    blocked_user_ids = get_blocked_user_ids(user)
+
     query =
       from(p in Post,
         inner_join: up in UserPost,
@@ -389,6 +394,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
+      |> filter_by_blocked_users(blocked_user_ids)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -402,6 +408,8 @@ defmodule Mosslet.Timeline do
   Gets the count of unread bookmarked posts (for Bookmarks tab unread indicator).
   """
   def count_unread_bookmarked_posts(user) do
+    blocked_user_ids = get_blocked_user_ids(user)
+
     query =
       from(p in Post,
         inner_join: b in Bookmark,
@@ -415,6 +423,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
+      |> filter_by_blocked_users(blocked_user_ids)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -663,6 +672,15 @@ defmodule Mosslet.Timeline do
 
   defp filter_by_muted_users(query, _muted_user_ids), do: query
 
+  # Filters out posts from blocked users.
+  # This matches the same pattern as filter_by_muted_users but for UserBlock relationships.
+  defp filter_by_blocked_users(query, blocked_user_ids)
+       when is_list(blocked_user_ids) and length(blocked_user_ids) > 0 do
+    where(query, [p], p.user_id not in ^blocked_user_ids)
+  end
+
+  defp filter_by_blocked_users(query, _blocked_user_ids), do: query
+
   # Filters out reposted posts if hide_reposts is true.
   defp filter_by_reposts(query, true) do
     where(query, [p], not p.repost or is_nil(p.repost))
@@ -679,6 +697,7 @@ defmodule Mosslet.Timeline do
         |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
         |> filter_by_muted_users(filter_prefs[:muted_users] || [])
         |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
+        |> filter_by_blocked_users(filter_prefs[:blocked_users] || [])
 
       _ ->
         query
@@ -695,6 +714,7 @@ defmodule Mosslet.Timeline do
         |> filter_by_content_warnings_bookmark(filter_prefs[:content_warnings] || %{})
         |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
         |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
+        |> filter_by_blocked_users_bookmark(filter_prefs[:blocked_users] || [])
 
       _ ->
         query
@@ -741,6 +761,15 @@ defmodule Mosslet.Timeline do
   end
 
   defp filter_by_reposts_bookmark(query, _hide_reposts), do: query
+
+  # Filters out posts from blocked users in bookmark queries.
+  # Since bookmarks join with posts, we need to reference the Post table (p)
+  defp filter_by_blocked_users_bookmark(query, blocked_user_ids)
+       when is_list(blocked_user_ids) and length(blocked_user_ids) > 0 do
+    where(query, [b, p], p.user_id not in ^blocked_user_ids)
+  end
+
+  defp filter_by_blocked_users_bookmark(query, _blocked_user_ids), do: query
 
   @doc """
   Returns the list of public posts.
@@ -850,6 +879,8 @@ defmodule Mosslet.Timeline do
       |> Enum.map(& &1.reverse_user_id)
       |> Enum.uniq()
 
+    blocked_user_ids = get_blocked_user_ids(current_user)
+
     if Enum.empty?(connection_user_ids) do
       0
     else
@@ -865,6 +896,7 @@ defmodule Mosslet.Timeline do
           where: upr.user_id == ^current_user.id,
           where: not upr.is_read? and is_nil(upr.read_at)
         )
+        |> filter_by_blocked_users(blocked_user_ids)
 
       count = Repo.aggregate(query, :count, :id)
 
@@ -966,6 +998,8 @@ defmodule Mosslet.Timeline do
   Counts unread public posts for discover timeline.
   """
   def count_unread_discover_posts(current_user) do
+    blocked_user_ids = get_blocked_user_ids(current_user)
+
     from(p in Post,
       inner_join: up in UserPost,
       on: up.post_id == p.id,
@@ -974,6 +1008,7 @@ defmodule Mosslet.Timeline do
       where: p.visibility == :public,
       where: not upr.is_read?
     )
+    |> filter_by_blocked_users(blocked_user_ids)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -1313,6 +1348,18 @@ defmodule Mosslet.Timeline do
 
     # Build nested structure
     build_reply_tree(replies)
+  end
+
+  @doc """
+  Gets the list of user IDs that are blocked by the current user.
+  Returns a list of integers for database-level filtering.
+  """
+  def get_blocked_user_ids(user) do
+    from(ub in UserBlock,
+      where: ub.blocker_id == ^user.id,
+      select: ub.blocked_id
+    )
+    |> Repo.all()
   end
 
   # Helper function to add nested replies to a list of posts
@@ -3093,18 +3140,15 @@ defmodule Mosslet.Timeline do
       ...> })
       {:ok, %UserBlock{}}
   """
-  def block_user(blocker, blocked_user, attrs \\ %{}) do
+  def block_user(blocker, blocked_user, attrs \\ %{}, opts \\ []) do
     attrs =
       attrs
-      |> Map.put(:blocker_id, blocker.id)
-      |> Map.put(:blocked_id, blocked_user.id)
-
-    # Get user key for encryption
-    user_key = get_user_encryption_key(blocker)
+      |> Map.put("blocker_id", blocker.id)
+      |> Map.put("blocked_id", blocked_user.id)
 
     case Repo.transaction_on_primary(fn ->
            %UserBlock{}
-           |> UserBlock.changeset(attrs, user: blocker, user_key: user_key)
+           |> UserBlock.changeset(attrs, opts)
            |> Repo.insert()
          end) do
       {:ok, {:ok, block}} ->
