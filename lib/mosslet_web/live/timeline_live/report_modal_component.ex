@@ -26,8 +26,8 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
 
   def handle_event("close_modal", _params, socket) do
     # Send close event to parent LiveView
-    send(self(), {:close_report_modal})
-    {:noreply, socket}
+    send(self(), {:close_report_modal, %{}})
+    {:noreply, assign(socket, :show, false)}
   end
 
   def render(assigns) do
@@ -35,9 +35,9 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
     <div class="report-modal-component">
       <%= if @show do %>
         <.liquid_modal
-          id="report-post-modal"
+          id={"report-post-modal-#{@post_id}"}
           show={@show}
-          on_cancel={JS.push("close_modal", target: @myself)}
+          on_cancel={JS.push("close_report_modal", target: "#timeline-container")}
           size="lg"
         >
           <:title>
@@ -63,7 +63,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
               phx-submit="submit_report"
               phx-change="validate_report"
               phx-target={@myself}
-              id="report-form"
+              id={"report-form-#{@post_id}"}
               class="space-y-6"
             >
               <input type="hidden" name="report[post_id]" value={@post_id} />
@@ -195,7 +195,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                 <input
                   type="text"
                   name="report[reason]"
-                  id="report_reason"
+                  id={"report_reason_#{@post_id}"}
                   class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200"
                   placeholder="Why are you reporting this post?"
                   maxlength="100"
@@ -212,7 +212,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                 </label>
                 <textarea
                   name="report[details]"
-                  id="report_details"
+                  id={"report_details_#{@post_id}"}
                   rows="3"
                   class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 resize-none"
                   placeholder="Provide any additional context that might help our moderation team..."
@@ -267,8 +267,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                   type="button"
                   variant="ghost"
                   color="slate"
-                  phx-click="close_modal"
-                  phx-target={@myself}
+                  phx-click={JS.exec("data-cancel", to: "#report-post-modal-#{@post_id}")}
                 >
                   Cancel
                 </.liquid_button>

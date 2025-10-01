@@ -27,7 +27,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
   def handle_event("close_modal", _params, socket) do
     # Send close event to parent LiveView
     send(self(), {:close_block_modal})
-    {:noreply, socket}
+    {:noreply, assign(socket, :show, false)}
   end
 
   def render(assigns) do
@@ -35,9 +35,9 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
     <div class="block-modal-component">
       <%= if @show do %>
         <.liquid_modal
-          id="block-user-modal"
+          id={"block-user-modal-#{@user_id}-#{@post_id}"}
           show={@show}
-          on_cancel={JS.push("close_modal", target: @myself)}
+          on_cancel={JS.push("close_block_modal", target: "#timeline-container")}
           size="md"
         >
           <:title>
@@ -63,7 +63,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
               phx-submit="submit_block"
               phx-change="validate_block"
               phx-target={@myself}
-              id="block-form"
+              id={"block-form-#{@user_id}-#{@post_id}"}
               class="space-y-6"
             >
               <input type="hidden" name="block[blocked_id]" value={@user_id} />
@@ -133,7 +133,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                 <input
                   type="text"
                   name="block[reason]"
-                  id="block_reason"
+                  id={"block_reason_#{@user_id}-#{@post_id}"}
                   class="w-full px-4 py-3 border border-rose-300 dark:border-rose-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
                   placeholder="Why are you blocking this user?"
                   maxlength="200"
@@ -165,8 +165,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                   type="button"
                   variant="ghost"
                   color="slate"
-                  phx-click="close_modal"
-                  phx-target={@myself}
+                  phx-click={JS.exec("data-cancel", to: "#block-user-modal-#{@user_id}-#{@post_id}")}
                 >
                   Cancel
                 </.liquid_button>

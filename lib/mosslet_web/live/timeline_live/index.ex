@@ -2107,10 +2107,15 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_event("block_user", %{"id" => user_id, "user-name" => user_name}, socket) do
+  def handle_event(
+        "block_user",
+        %{"id" => user_id, "user-name" => user_name, "item-id" => block_post_id},
+        socket
+      ) do
     socket =
       socket
       |> assign(:show_block_modal, true)
+      |> assign(:block_post_id, block_post_id)
       |> assign(:block_user_id, user_id)
       |> assign(:block_user_name, user_name)
 

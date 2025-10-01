@@ -3602,6 +3602,7 @@ defmodule MossletWeb.DesignSystem do
               phx_click="block_user"
               phx_value_id={@post.user_id}
               phx_value_user_name={@user_name}
+              phx_value_item_id={@post.id}
               color="red"
             >
               <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block User
@@ -4858,6 +4859,7 @@ defmodule MossletWeb.DesignSystem do
     attr :phx_value_id, :string
     attr :phx_value_username, :string
     attr :phx_value_user_name, :string
+    attr :phx_value_item_id, :string
     attr :href, :string
     attr :data_confirm, :string
   end
@@ -4913,6 +4915,7 @@ defmodule MossletWeb.DesignSystem do
             phx-value-id={item[:phx_value_id]}
             phx-value-username={item[:phx_value_username]}
             phx-value-user-name={item[:phx_value_user_name]}
+            phx-value-item-id={item[:phx_value_item_id]}
             {if item[:href], do: ["phx-click": "navigate", "phx-value-href": item[:href]], else: []}
             data-confirm={item[:data_confirm]}
           >

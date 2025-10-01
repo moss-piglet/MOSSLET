@@ -319,7 +319,7 @@
     <.live_component
       :if={@show_report_modal}
       module={MossletWeb.TimelineLive.ReportModalComponent}
-      id="report-modal-component"
+      id={"report-modal-component-#{@report_post_id}"}
       show={@show_report_modal}
       post_id={@report_post_id}
       reported_user_id={@report_user_id}
@@ -328,7 +328,8 @@
     <.live_component
       :if={@show_block_modal}
       module={MossletWeb.TimelineLive.BlockModalComponent}
-      id="block-modal-component"
+      id={"block-modal-component-#{@block_user_id}-#{@block_post_id}"}
+      post_id={@block_post_id}
       show={@show_block_modal}
       user_id={@block_user_id}
       user_name={@block_user_name}
