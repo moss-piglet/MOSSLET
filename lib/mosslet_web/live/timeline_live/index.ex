@@ -2116,6 +2116,51 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event(
+        "report_reply",
+        %{
+          "id" => reply_id,
+          "reported_user_id" => reported_user_id,
+          "reply_content" => reply_content
+        },
+        socket
+      ) do
+    # For reply reports, we'll use the existing post report infrastructure
+    # but adapt it for replies by including reply context in the report details
+    reply = Timeline.get_reply!(reply_id)
+
+    # Redirect to the post report with reply context
+    socket =
+      socket
+      |> assign(:show_report_modal, true)
+      |> assign(:report_post_id, reply.post_id)
+      |> assign(:report_user_id, reported_user_id)
+      |> assign(:report_reply_context, %{
+        reply_id: reply_id,
+        reply_content: reply_content
+      })
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "block_user_from_reply",
+        %{"id" => user_id, "user_name" => user_name, "reply_id" => reply_id},
+        socket
+      ) do
+    # For reply blocks, use the existing block infrastructure
+    socket =
+      socket
+      |> assign(:show_block_modal, true)
+      |> assign(:block_user_id, user_id)
+      |> assign(:block_user_name, user_name)
+      |> assign(:block_reply_context, %{
+        reply_id: reply_id
+      })
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
         "delete_user_post",
         %{"post-id" => post_id, "user-id" => user_id, "shared-username" => shared_username},
         socket

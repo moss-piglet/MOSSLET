@@ -4853,12 +4853,15 @@ defmodule MossletWeb.DesignSystem do
   slot :trigger, required: true
 
   slot :item do
-    attr :color, :string, values: ~w(slate gray red emerald blue amber purple)
+    attr :color, :string, values: ~w(slate gray red emerald blue amber purple rose)
     attr :phx_click, :string
     attr :phx_value_id, :string
     attr :phx_value_username, :string
     attr :phx_value_user_name, :string
     attr :phx_value_item_id, :string
+    attr :phx_value_reply_id, :string
+    attr :phx_value_reply_content, :string
+    attr :phx_value_reported_user_id, :string
     attr :href, :string
     attr :data_confirm, :string
   end
@@ -4885,7 +4888,7 @@ defmodule MossletWeb.DesignSystem do
       <div
         id={"#{@id}-menu"}
         class={[
-          "absolute z-50 mt-2 w-48 origin-top-right hidden",
+          "absolute z-[100] mt-2 w-48 origin-top-right hidden",
           "rounded-xl border border-slate-200/60 dark:border-slate-700/60",
           "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
           "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
@@ -4915,6 +4918,9 @@ defmodule MossletWeb.DesignSystem do
             phx-value-username={item[:phx_value_username]}
             phx-value-user-name={item[:phx_value_user_name]}
             phx-value-item-id={item[:phx_value_item_id]}
+            phx-value-reply-id={item[:phx_value_reply_id]}
+            phx-value-reported-user-id={item[:phx_value_reported_user_id]}
+            phx-value-reply-content={item[:phx_value_reply_content]}
             {if item[:href], do: ["phx-click": "navigate", "phx-value-href": item[:href]], else: []}
             data-confirm={item[:data_confirm]}
           >
@@ -4933,7 +4939,7 @@ defmodule MossletWeb.DesignSystem do
   defp placement_classes(_), do: "right-0"
 
   defp item_color_classes("red") do
-    "text-red-700 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 hover:bg-red-50/80 dark:hover:bg-red-900/40"
+    "text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200 hover:bg-rose-50/80 dark:hover:bg-rose-900/40"
   end
 
   defp item_color_classes("emerald") do
@@ -4942,6 +4948,14 @@ defmodule MossletWeb.DesignSystem do
 
   defp item_color_classes("blue") do
     "text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 hover:bg-blue-50/80 dark:hover:bg-blue-900/40"
+  end
+
+  defp item_color_classes("amber") do
+    "text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-50/80 dark:hover:bg-amber-900/40"
+  end
+
+  defp item_color_classes("rose") do
+    "text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200 hover:bg-rose-50/80 dark:hover:bg-rose-900/40"
   end
 
   defp item_color_classes(_) do
@@ -4976,7 +4990,7 @@ defmodule MossletWeb.DesignSystem do
     <div
       id={"reply-thread-#{@post_id}"}
       class={[
-        "overflow-hidden transition-all duration-300 ease-out hidden",
+        "transition-all duration-300 ease-out hidden",
         @class
       ]}
     >
@@ -5058,6 +5072,7 @@ defmodule MossletWeb.DesignSystem do
         current_user={@current_user}
         key={@key}
         depth={@depth}
+        post_id={@post_id}
       />
 
       <%!-- Render nested child replies with improved visual hierarchy --%>
@@ -5140,12 +5155,13 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
   attr :depth, :integer, default: 0
+  attr :post_id, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_reply_item(assigns) do
     ~H"""
     <div class={[
-      "relative rounded-xl overflow-hidden transition-all duration-200 ease-out",
+      "relative rounded-xl transition-all duration-200 ease-out",
       reply_background_classes(@depth),
       reply_border_classes(@depth),
       reply_hover_classes(@depth),
@@ -5189,48 +5205,119 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <%!-- Reply actions (mobile-optimized) --%>
-            <div class="flex items-center gap-3 sm:gap-4 mt-3 sm:mt-2">
-              <.liquid_timeline_action
-                id={
-                  if @current_user.id in @reply.favs_list,
-                    do: "hero-heart-solid-reply-button-#{@reply.id}",
-                    else: "hero-heart-reply-button-#{@reply.id}"
+            <div class="flex items-center justify-between mt-3 sm:mt-2">
+              <div class="flex items-center gap-3 sm:gap-4">
+                <.liquid_timeline_action
+                  id={
+                    if @current_user.id in @reply.favs_list,
+                      do: "hero-heart-solid-reply-button-#{@reply.id}",
+                      else: "hero-heart-reply-button-#{@reply.id}"
+                  }
+                  icon={
+                    if @current_user.id in @reply.favs_list,
+                      do: "hero-heart-solid",
+                      else: "hero-heart"
+                  }
+                  count={@reply.favs_count}
+                  label={if @current_user.id in @reply.favs_list, do: "Unlike", else: "Love"}
+                  color="rose"
+                  active={@current_user.id in @reply.favs_list}
+                  phx-click={
+                    if @current_user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
+                  }
+                  phx-value-id={@reply.id}
+                  phx-hook="TippyHook"
+                  data-tippy-content={
+                    if @current_user.id in @reply.favs_list, do: "Remove love", else: "Show love"
+                  }
+                  class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
+                />
+                <button
+                  id={"reply-button-#{@reply.id}"}
+                  phx-click={
+                    JS.toggle(to: "#nested-composer-#{@reply.id}")
+                    |> JS.toggle_class("text-emerald-600 dark:text-emerald-400",
+                      to: "#reply-button-#{@reply.id}"
+                    )
+                    |> JS.toggle_attribute({"data-composer-open", "true", "false"},
+                      to: "#reply-button-#{@reply.id}"
+                    )
+                  }
+                  data-composer-open="false"
+                  class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 rounded-lg sm:rounded-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-1"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Reply to this comment"
+                >
+                  <.phx_icon name="hero-arrow-uturn-left" class="h-3 w-3 mr-1 inline" /> Reply
+                </button>
+              </div>
+
+              <%!-- Reply dropdown menu (only show if user has permissions) --%>
+              <div
+                :if={
+                  can_manage_reply?(@reply, @current_user, @post_id) or
+                    can_moderate_reply?(@reply, @current_user)
                 }
-                icon={
-                  if @current_user.id in @reply.favs_list, do: "hero-heart-solid", else: "hero-heart"
-                }
-                count={@reply.favs_count}
-                label={if @current_user.id in @reply.favs_list, do: "Unlike", else: "Love"}
-                color="rose"
-                active={@current_user.id in @reply.favs_list}
-                phx-click={
-                  if @current_user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
-                }
-                phx-value-id={@reply.id}
-                phx-hook="TippyHook"
-                data-tippy-content={
-                  if @current_user.id in @reply.favs_list, do: "Remove love", else: "Show love"
-                }
-                class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
-              />
-              <button
-                id={"reply-button-#{@reply.id}"}
-                phx-click={
-                  JS.toggle(to: "#nested-composer-#{@reply.id}")
-                  |> JS.toggle_class("text-emerald-600 dark:text-emerald-400",
-                    to: "#reply-button-#{@reply.id}"
-                  )
-                  |> JS.toggle_attribute({"data-composer-open", "true", "false"},
-                    to: "#reply-button-#{@reply.id}"
-                  )
-                }
-                data-composer-open="false"
-                class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 rounded-lg sm:rounded-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-1"
-                phx-hook="TippyHook"
-                data-tippy-content="Reply to this comment"
+                class="flex-shrink-0 relative z-10"
               >
-                <.phx_icon name="hero-arrow-uturn-left" class="h-3 w-3 mr-1 inline" /> Reply
-              </button>
+                <.liquid_dropdown
+                  id={"reply-#{@reply.id}-dropdown"}
+                  placement="top-end"
+                  trigger_class="p-2 rounded-lg hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-colors duration-200"
+                  class=""
+                >
+                  <:trigger>
+                    <.phx_icon
+                      name="hero-ellipsis-horizontal"
+                      class="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                    />
+                  </:trigger>
+
+                  <%!-- Report option (for others' replies) --%>
+                  <:item
+                    :if={
+                      can_moderate_reply?(@reply, @current_user) and
+                        @reply.user_id != @current_user.id
+                    }
+                    color="amber"
+                    phx_click="report_reply"
+                    phx_value_id={@reply.id}
+                    phx_value_reported_user_id={@reply.user_id}
+                    phx_value_reply_content={get_decrypted_reply_content(@reply, @current_user, @key)}
+                  >
+                    <.phx_icon name="hero-flag" class="h-4 w-4" />
+                    <span>Report Reply</span>
+                  </:item>
+
+                  <%!-- Block option (for others' replies) --%>
+                  <:item
+                    :if={
+                      can_moderate_reply?(@reply, @current_user) and
+                        @reply.user_id != @current_user.id
+                    }
+                    color="rose"
+                    phx_click="block_user_from_reply"
+                    phx_value_id={@reply.user_id}
+                    phx_value_user_name={get_reply_author_name(@reply, @current_user, @key)}
+                    phx_value_reply_id={@reply.id}
+                  >
+                    <.phx_icon name="hero-no-symbol" class="h-4 w-4" />
+                    <span>Block User</span>
+                  </:item>
+
+                  <%!-- Delete option for reply owner or post owner --%>
+                  <:item
+                    :if={can_manage_reply?(@reply, @current_user, @post_id)}
+                    color="rose"
+                    phx_click="delete_reply"
+                    phx_value_id={@reply.id}
+                    data_confirm="Are you sure you want to delete this reply?"
+                  >
+                    <.phx_icon name="hero-trash" class="h-4 w-4" />
+                    <span>Delete Reply</span>
+                  </:item>
+                </.liquid_dropdown>
+              </div>
             </div>
           </div>
         </div>
@@ -5318,6 +5405,28 @@ defmodule MossletWeb.DesignSystem do
       _ ->
         {:error, :no_access}
     end
+  end
+
+  # Helper function to check if user can manage a reply (delete)
+  # Post owners can delete any replies to their posts
+  # Reply owners can delete their own replies
+  defp can_manage_reply?(reply, current_user, post_id) do
+    # Reply owner can always delete their own reply
+    if reply.user_id == current_user.id do
+      true
+    else
+      # Check if current user owns the post this reply belongs to
+      case Mosslet.Timeline.get_post(post_id) do
+        %{user_id: post_user_id} -> post_user_id == current_user.id
+        _ -> false
+      end
+    end
+  end
+
+  # Helper function to check if user can moderate a reply (report/block)
+  # Any user can report/block others' replies (but not their own)
+  defp can_moderate_reply?(reply, current_user) do
+    reply.user_id != current_user.id
   end
 
   # Format content warning category for display
