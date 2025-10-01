@@ -9,6 +9,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   alias Phoenix.LiveView.AsyncResult
   alias Mosslet.Accounts
+  alias Mosslet.Accounts.UserBlock
   alias Mosslet.Encrypted
   alias Mosslet.Timeline
   alias Mosslet.Timeline.{Post, Reply, ContentFilter}
@@ -565,19 +566,45 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     post_id = report_params["post_id"]
     reported_user_id = report_params["reported_user_id"]
+    reply_context = socket.assigns[:report_reply_context]
+
+    # Enhance details with reply context if this is a reply report
+    enhanced_params =
+      if reply_context && Map.has_key?(reply_context, :reply_id) do
+        current_details = report_params["details"] || ""
+        reply_details = "[REPLY REPORT] Reply ID: #{reply_context.reply_id}"
+
+        enhanced_details =
+          if String.trim(current_details) != "" do
+            "#{current_details}\n\n#{reply_details}"
+          else
+            reply_details
+          end
+
+        Map.put(report_params, "details", enhanced_details)
+      else
+        report_params
+      end
 
     case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
       {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
-        case Timeline.report_post(current_user, reported_user, post, report_params) do
+        case Timeline.report_post(current_user, reported_user, post, enhanced_params) do
           {:ok, _report} ->
+            # Determine what was reported for better user feedback
+            report_type =
+              if reply_context && Map.has_key?(reply_context, :reply_id),
+                do: "reply",
+                else: "post"
+
             socket =
               socket
               |> assign(:show_report_modal, false)
               |> assign(:report_post_id, nil)
               |> assign(:report_user_id, nil)
+              |> assign(:report_reply_context, %{})
               |> put_flash(
                 :info,
-                "Report submitted successfully. Thank you for helping keep our community safe."
+                "#{String.capitalize(report_type)} reported successfully. Thank you for helping keep our community safe."
               )
 
             {:noreply, socket}
@@ -2119,8 +2146,7 @@ defmodule MossletWeb.TimelineLive.Index do
         "report_reply",
         %{
           "id" => reply_id,
-          "reported_user_id" => reported_user_id,
-          "reply_content" => reply_content
+          "reported-user-id" => reported_user_id
         },
         socket
       ) do
@@ -2135,8 +2161,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:report_post_id, reply.post_id)
       |> assign(:report_user_id, reported_user_id)
       |> assign(:report_reply_context, %{
-        reply_id: reply_id,
-        reply_content: reply_content
+        reply_id: reply_id
       })
 
     {:noreply, socket}
@@ -2144,15 +2169,48 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event(
         "block_user_from_reply",
-        %{"id" => user_id, "user_name" => user_name, "reply_id" => reply_id},
+        %{"id" => user_id, "user-name" => user_name, "reply-id" => reply_id},
         socket
       ) do
-    # For reply blocks, use the existing block infrastructure
+    # For reply blocks, get the reply to find the post_id
+    reply = Timeline.get_reply!(reply_id)
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Check if user is already blocked and get block details
+    existing_block = Timeline.get_user_block(current_user, user_id)
+
+    # Decrypt existing reason if block exists
+    decrypted_reason =
+      if existing_block && existing_block.reason do
+        Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+          existing_block.reason,
+          current_user,
+          key
+        )
+      else
+        ""
+      end
+
+    # Determine smart default block type (suggest replies_only for reply context)
+    default_block_type =
+      cond do
+        existing_block -> Atom.to_string(existing_block.block_type)
+        # Smart default for reply blocks
+        true -> "replies_only"
+      end
+
+    # Use the existing block infrastructure with post context
     socket =
       socket
       |> assign(:show_block_modal, true)
       |> assign(:block_user_id, user_id)
       |> assign(:block_user_name, user_name)
+      |> assign(:block_post_id, reply.post_id)
+      |> assign(:existing_block, existing_block)
+      |> assign(:block_decrypted_reason, decrypted_reason)
+      |> assign(:block_default_type, default_block_type)
+      |> assign(:block_update?, !!existing_block)
       |> assign(:block_reply_context, %{
         reply_id: reply_id
       })
@@ -2194,6 +2252,7 @@ defmodule MossletWeb.TimelineLive.Index do
           |> assign(:show_report_modal, true)
           |> assign(:report_post_id, post_id)
           |> assign(:report_user_id, reported_user.id)
+          |> assign(:report_reply_context, %{})
 
         {:noreply, socket}
     end
@@ -2213,19 +2272,45 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     post_id = report_params["post_id"]
     reported_user_id = report_params["reported_user_id"]
+    reply_context = socket.assigns[:report_reply_context]
+
+    # Enhance details with reply context if this is a reply report
+    enhanced_params =
+      if reply_context && Map.has_key?(reply_context, :reply_id) do
+        current_details = report_params["details"] || ""
+        reply_details = "[REPLY REPORT] Reply ID: #{reply_context.reply_id}"
+
+        enhanced_details =
+          if String.trim(current_details) != "" do
+            "#{current_details}\n\n#{reply_details}"
+          else
+            reply_details
+          end
+
+        Map.put(report_params, "details", enhanced_details)
+      else
+        report_params
+      end
 
     case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
       {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
-        case Timeline.report_post(current_user, reported_user, post, report_params) do
+        case Timeline.report_post(current_user, reported_user, post, enhanced_params) do
           {:ok, _report} ->
+            # Determine what was reported for better user feedback
+            report_type =
+              if reply_context && Map.has_key?(reply_context, :reply_id),
+                do: "reply",
+                else: "post"
+
             socket =
               socket
               |> assign(:show_report_modal, false)
               |> assign(:report_post_id, nil)
               |> assign(:report_user_id, nil)
+              |> assign(:report_reply_context, %{})
               |> put_flash(
                 :info,
-                "Report submitted successfully. Thank you for helping keep our community safe."
+                "#{String.capitalize(report_type)} reported successfully. Thank you for helping keep our community safe."
               )
 
             {:noreply, socket}
@@ -2246,12 +2331,61 @@ defmodule MossletWeb.TimelineLive.Index do
         %{"id" => user_id, "user-name" => user_name, "item-id" => block_post_id},
         socket
       ) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    content_filters = socket.assigns.content_filters
+
+    # Check if user is already blocked using existing blocked_users list
+    blocked_user_ids = content_filters[:blocked_users] || []
+    is_blocked = user_id in blocked_user_ids
+
+    # Get existing block details with decryption if needed
+    {existing_block, decrypted_reason} =
+      if is_blocked do
+        case Timeline.get_user_block(current_user, user_id) do
+          %UserBlock{} = block ->
+            # Decrypt the reason if it exists
+            decrypted_reason =
+              if block.reason do
+                case Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+                       block.reason,
+                       current_user,
+                       key
+                     ) do
+                  {:ok, reason} -> reason
+                  _ -> ""
+                end
+              else
+                ""
+              end
+
+            {block, decrypted_reason}
+
+          nil ->
+            {nil, ""}
+        end
+      else
+        {nil, ""}
+      end
+
+    # Determine smart default block type
+    default_block_type =
+      cond do
+        existing_block -> Atom.to_string(existing_block.block_type)
+        # Default for new blocks
+        true -> "full"
+      end
+
     socket =
       socket
       |> assign(:show_block_modal, true)
       |> assign(:block_post_id, block_post_id)
       |> assign(:block_user_id, user_id)
       |> assign(:block_user_name, user_name)
+      |> assign(:existing_block, existing_block)
+      |> assign(:block_decrypted_reason, decrypted_reason)
+      |> assign(:block_default_type, default_block_type)
+      |> assign(:block_update?, is_blocked)
 
     {:noreply, socket}
   end

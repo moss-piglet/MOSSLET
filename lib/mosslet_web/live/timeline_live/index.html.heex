@@ -323,6 +323,7 @@
       show={@show_report_modal}
       post_id={@report_post_id}
       reported_user_id={@report_user_id}
+      report_reply_context={@report_reply_context}
     />
 
     <.live_component
@@ -333,6 +334,11 @@
       show={@show_block_modal}
       user_id={@block_user_id}
       user_name={@block_user_name}
+      existing_block={@existing_block}
+      decrypted_reason={@block_decrypted_reason}
+      default_block_type={@block_default_type}
+      block_update?={@block_update?}
+      block_reply_context={assigns[:block_reply_context]}
     />
   </div>
 </.layout>

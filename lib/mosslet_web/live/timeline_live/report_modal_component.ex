@@ -47,7 +47,9 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
               </div>
               <div>
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Report this post
+                  Report this {if Map.get(assigns.report_reply_context, :reply_id),
+                    do: "reply",
+                    else: "post"}
                 </h3>
                 <p class="text-sm text-amber-700 dark:text-amber-400">
                   Help us keep the community safe
@@ -68,6 +70,12 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
             >
               <input type="hidden" name="report[post_id]" value={@post_id} />
               <input type="hidden" name="report[reported_user_id]" value={@reported_user_id} />
+              <input
+                :if={Map.get(assigns.report_reply_context, :reply_id)}
+                type="hidden"
+                name="report[reply_id]"
+                value={Map.get(assigns.report_reply_context, :reply_id)}
+              />
 
               <%!-- Report type selection --%>
               <div class="space-y-3">
@@ -197,7 +205,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                   name="report[reason]"
                   id={"report_reason_#{@post_id}"}
                   class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200"
-                  placeholder="Why are you reporting this post?"
+                  placeholder={"Why are you reporting this #{if Map.get(assigns.report_reply_context, :reply_id), do: "reply", else: "post"}?"}
                   maxlength="100"
                 />
               </div>
@@ -215,7 +223,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                   id={"report_details_#{@post_id}"}
                   rows="3"
                   class="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 resize-none"
-                  placeholder="Provide any additional context that might help our moderation team..."
+                  placeholder={"Provide any additional context that might help our moderation team understand this #{if Map.get(assigns.report_reply_context, :reply_id), do: "reply", else: "post"}..."}
                   maxlength="1000"
                 ></textarea>
               </div>
@@ -252,7 +260,11 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                       <ul class="space-y-1 list-disc text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
                         <li>The reported user won't know who submitted this report</li>
                         <li>Your report details are encrypted for moderator access only</li>
-                        <li>Post content remains separately encrypted and protected</li>
+                        <li>
+                          {if Map.get(assigns.report_reply_context, :reply_id),
+                            do: "Reply",
+                            else: "Post"} content remains separately encrypted and protected
+                        </li>
                         <li>Pattern analysis helps prevent false reporting abuse</li>
                         <li>All moderation decisions are logged and auditable</li>
                       </ul>

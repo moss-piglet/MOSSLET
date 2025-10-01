@@ -4860,7 +4860,6 @@ defmodule MossletWeb.DesignSystem do
     attr :phx_value_user_name, :string
     attr :phx_value_item_id, :string
     attr :phx_value_reply_id, :string
-    attr :phx_value_reply_content, :string
     attr :phx_value_reported_user_id, :string
     attr :href, :string
     attr :data_confirm, :string
@@ -4920,7 +4919,6 @@ defmodule MossletWeb.DesignSystem do
             phx-value-item-id={item[:phx_value_item_id]}
             phx-value-reply-id={item[:phx_value_reply_id]}
             phx-value-reported-user-id={item[:phx_value_reported_user_id]}
-            phx-value-reply-content={item[:phx_value_reply_content]}
             {if item[:href], do: ["phx-click": "navigate", "phx-value-href": item[:href]], else: []}
             data-confirm={item[:data_confirm]}
           >
@@ -5283,7 +5281,6 @@ defmodule MossletWeb.DesignSystem do
                     phx_click="report_reply"
                     phx_value_id={@reply.id}
                     phx_value_reported_user_id={@reply.user_id}
-                    phx_value_reply_content={get_decrypted_reply_content(@reply, @current_user, @key)}
                   >
                     <.phx_icon name="hero-flag" class="h-4 w-4" />
                     <span>Report Reply</span>

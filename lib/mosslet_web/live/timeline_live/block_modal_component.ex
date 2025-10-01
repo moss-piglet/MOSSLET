@@ -7,10 +7,24 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
   alias Phoenix.LiveView.JS
 
   def update(assigns, socket) do
+    # Extract all the data we need from parent LiveView assigns
+    existing_block = assigns[:existing_block]
+    default_block_type = assigns[:default_block_type]
+    decrypted_reason = assigns[:decrypted_reason]
+    is_update = assigns[:block_update?] || false
+
+    # Set up form data with smart defaults from parent
+    form_data = %{
+      "block_type" => default_block_type || "full",
+      "reason" => decrypted_reason || ""
+    }
+
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:form_data, %{})}
+     |> assign(:existing_block, existing_block)
+     |> assign(:is_update, is_update)
+     |> assign(:form_data, form_data)}
   end
 
   def handle_event("validate_block", %{"block" => _block_params}, socket) do
@@ -47,10 +61,18 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
               </div>
               <div>
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Block {@user_name}
+                  <%= if @block_update? do %>
+                    Update Block Settings for {@user_name}
+                  <% else %>
+                    Block {@user_name}
+                  <% end %>
                 </h3>
                 <p class="text-sm text-rose-700 dark:text-rose-400">
-                  They won't be able to interact with you
+                  <%= if @existing_block do %>
+                    Currently blocked · Modify your settings below
+                  <% else %>
+                    They won't be able to interact with you
+                  <% end %>
                 </p>
               </div>
             </div>
@@ -71,7 +93,11 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
               <%!-- Block type selection --%>
               <div class="space-y-3">
                 <label class="block text-sm font-medium text-rose-800 dark:text-rose-300">
-                  What would you like to block?
+                  <%= if @block_update? do %>
+                    Update block settings
+                  <% else %>
+                    What would you like to block?
+                  <% end %>
                 </label>
                 <div class="space-y-2">
                   <label class="relative flex items-start p-4 border border-rose-200 dark:border-rose-700/50 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer transition-all duration-200 hover:border-rose-300 dark:hover:border-rose-600">
@@ -79,7 +105,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                       type="radio"
                       name="block[block_type]"
                       value="full"
-                      checked="checked"
+                      checked={@form_data["block_type"] == "full"}
                       class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
                     />
                     <div class="ml-3">
@@ -95,6 +121,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                       type="radio"
                       name="block[block_type]"
                       value="posts_only"
+                      checked={@form_data["block_type"] == "posts_only"}
                       class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
                     />
                     <div class="ml-3">
@@ -110,6 +137,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                       type="radio"
                       name="block[block_type]"
                       value="replies_only"
+                      checked={@form_data["block_type"] == "replies_only"}
                       class="mt-1 h-4 w-4 text-rose-600 focus:ring-rose-500 border-rose-300 dark:border-rose-600"
                     />
                     <div class="ml-3">
@@ -134,6 +162,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                   type="text"
                   name="block[reason]"
                   id={"block_reason_#{@user_id}-#{@post_id}"}
+                  value={@form_data["reason"]}
                   class="w-full px-4 py-3 border border-rose-300 dark:border-rose-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
                   placeholder="Why are you blocking this user?"
                   maxlength="200"
@@ -169,13 +198,24 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                 >
                   Cancel
                 </.liquid_button>
-                <.liquid_button
-                  type="submit"
-                  color="rose"
-                  icon="hero-no-symbol"
-                >
-                  Block User
-                </.liquid_button>
+
+                <%= if @block_update? do %>
+                  <.liquid_button
+                    type="submit"
+                    color="rose"
+                    icon="hero-pencil-square"
+                  >
+                    Update Block
+                  </.liquid_button>
+                <% else %>
+                  <.liquid_button
+                    type="submit"
+                    color="rose"
+                    icon="hero-no-symbol"
+                  >
+                    Block User
+                  </.liquid_button>
+                <% end %>
               </div>
             </.form>
           </div>

@@ -3146,17 +3146,30 @@ defmodule Mosslet.Timeline do
       |> Map.put("blocker_id", blocker.id)
       |> Map.put("blocked_id", blocked_user.id)
 
+    # Check if block already exists
+    existing_block = Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
+
     case Repo.transaction_on_primary(fn ->
-           %UserBlock{}
-           |> UserBlock.changeset(attrs, opts)
-           |> Repo.insert()
+           if existing_block do
+             # Update existing block
+             existing_block
+             |> UserBlock.changeset(attrs, opts)
+             |> Repo.update()
+           else
+             # Create new block
+             %UserBlock{}
+             |> UserBlock.changeset(attrs, opts)
+             |> Repo.insert()
+           end
          end) do
       {:ok, {:ok, block}} ->
-        # Broadcast block creation for real-time filtering
+        # Broadcast block creation/update for real-time filtering
+        event = if existing_block, do: :user_block_updated, else: :user_blocked
+
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "blocks:#{blocker.id}",
-          {:user_blocked, block}
+          {event, block}
         )
 
         {:ok, block}
@@ -3197,6 +3210,13 @@ defmodule Mosslet.Timeline do
     else
       {:error, :not_blocked}
     end
+  end
+
+  @doc """
+  Gets a specific user block if it exists.
+  """
+  def get_user_block(blocker, blocked_user_id) when is_binary(blocked_user_id) do
+    Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user_id)
   end
 
   @doc """
