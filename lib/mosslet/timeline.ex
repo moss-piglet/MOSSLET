@@ -341,7 +341,7 @@ defmodule Mosslet.Timeline do
           where: p.visibility != :private,
           distinct: p.id
         )
-        |> apply_database_filters(%{filter_prefs: filter_prefs})
+        |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
 
       count = Repo.aggregate(query, :count, :id)
 
@@ -356,8 +356,6 @@ defmodule Mosslet.Timeline do
   Gets the count of unread posts created BY the current user (for Home tab unread indicator).
   """
   def count_unread_user_own_posts(user) do
-    blocked_user_ids = get_blocked_user_ids(user)
-
     query =
       from(p in Post,
         inner_join: up in UserPost,
@@ -368,7 +366,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users_posts(blocked_user_ids)
+      |> filter_by_blocked_users_posts(user.id)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -382,8 +380,6 @@ defmodule Mosslet.Timeline do
   Gets the count of unread group posts accessible to the current user (for Groups tab unread indicator).
   """
   def count_unread_group_posts(user) do
-    blocked_user_ids = get_blocked_user_ids(user)
-
     query =
       from(p in Post,
         inner_join: up in UserPost,
@@ -394,7 +390,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users_posts(blocked_user_ids)
+      |> filter_by_blocked_users_posts(user.id)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -408,8 +404,6 @@ defmodule Mosslet.Timeline do
   Gets the count of unread bookmarked posts (for Bookmarks tab unread indicator).
   """
   def count_unread_bookmarked_posts(user) do
-    blocked_user_ids = get_blocked_user_ids(user)
-
     query =
       from(p in Post,
         inner_join: b in Bookmark,
@@ -423,7 +417,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users_posts(blocked_user_ids)
+      |> filter_by_blocked_users_posts(user.id)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -958,8 +952,6 @@ defmodule Mosslet.Timeline do
       |> Enum.map(& &1.reverse_user_id)
       |> Enum.uniq()
 
-    blocked_user_ids = get_blocked_user_ids(current_user)
-
     if Enum.empty?(connection_user_ids) do
       0
     else
@@ -975,7 +967,7 @@ defmodule Mosslet.Timeline do
           where: upr.user_id == ^current_user.id,
           where: not upr.is_read? and is_nil(upr.read_at)
         )
-        |> filter_by_blocked_users_posts(blocked_user_ids)
+        |> filter_by_blocked_users_posts(current_user.id)
 
       count = Repo.aggregate(query, :count, :id)
 
@@ -1061,15 +1053,22 @@ defmodule Mosslet.Timeline do
   @doc """
   Counts public posts for discover timeline.
   """
-  def count_discover_posts(_current_user \\ nil, filter_prefs \\ %{}) do
+  def count_discover_posts(current_user \\ nil, filter_prefs \\ %{}) do
     # Always use database-level filtering for consistency and performance
+    options =
+      if current_user do
+        %{filter_prefs: filter_prefs, current_user_id: current_user.id}
+      else
+        %{filter_prefs: filter_prefs}
+      end
+
     from(p in Post,
       inner_join: up in UserPost,
       on: up.post_id == p.id,
       where: p.visibility == :public,
       distinct: p.id
     )
-    |> apply_database_filters(%{filter_prefs: filter_prefs})
+    |> apply_database_filters(options)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -1077,8 +1076,6 @@ defmodule Mosslet.Timeline do
   Counts unread public posts for discover timeline.
   """
   def count_unread_discover_posts(current_user) do
-    blocked_user_ids = get_blocked_user_ids(current_user)
-
     from(p in Post,
       inner_join: up in UserPost,
       on: up.post_id == p.id,
@@ -1087,7 +1084,7 @@ defmodule Mosslet.Timeline do
       where: p.visibility == :public,
       where: not upr.is_read?
     )
-    |> filter_by_blocked_users_posts(blocked_user_ids)
+    |> filter_by_blocked_users_posts(current_user.id)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -1412,10 +1409,6 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Gets replies for a post with proper nesting structure.
-  Returns a tree structure with top-level replies and their children.
-  """
-  @doc """
   Gets replies for a post with proper nesting structure and block filtering.
   Returns a tree structure with top-level replies and their children.
   """
@@ -1455,7 +1448,7 @@ defmodule Mosslet.Timeline do
   end
 
   # Helper function to add nested replies to a list of posts with block filtering
-  defp add_nested_replies_to_posts(posts, options \\ %{}) when is_list(posts) do
+  defp add_nested_replies_to_posts(posts, options) when is_list(posts) do
     Enum.map(posts, fn post ->
       nested_replies = get_nested_replies_for_post(post.id, options)
       Map.put(post, :replies, nested_replies)
