@@ -113,7 +113,7 @@ defmodule MossletWeb.TimelineLive.Index do
       Timeline.subscribe()
       Timeline.reply_subscribe()
       # Subscribe to block events for real-time filtering
-      Timeline.block_subscribe(current_user)
+      Accounts.block_subscribe(current_user)
     end
 
     post_sort_by = valid_sort_by(params)
@@ -637,11 +637,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case Accounts.get_user(blocked_user_id) do
       %Accounts.User{} = blocked_user ->
-        case Timeline.block_user(current_user, blocked_user, block_params,
+        case Accounts.block_user(current_user, blocked_user, block_params,
                user: current_user,
                key: key
              ) do
-          {:ok, _block} ->
+          {:ok, block} ->
+            info =
+              if block.blocked_id != current_user.id,
+                do: "Author blocked successfully. You won't see their content anymore."
+
             socket =
               socket
               |> assign(:show_block_modal, false)
@@ -649,7 +653,7 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:block_user_name, nil)
               |> put_flash(
                 :info,
-                "User blocked successfully. You won't see their content anymore."
+                info
               )
               # Real-time timeline refresh without full navigation - optimal for our distributed architecture
               |> push_patch(to: ~p"/app/timeline")
@@ -777,7 +781,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_info({:user_block_updated, _block}, socket) do
+  def handle_info({:user_block_updated, block}, socket) do
     # When a block is updated (e.g., changing block type), refresh the timeline
     current_user = socket.assigns.current_user
     options = socket.assigns.options
@@ -815,6 +819,11 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
+    # we only want to show a flash message to the blocker (not the person being blocked)
+    info =
+      if block.blocked_id != current_user.id,
+        do: "Block settings updated. Timeline refreshed to reflect changes."
+
     socket =
       socket
       |> assign(:posts, posts)
@@ -824,7 +833,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> stream(:posts, posts, reset: true)
       |> put_flash(
         :info,
-        "Block settings updated. Timeline refreshed to reflect changes."
+        info
       )
 
     {:noreply, socket}
@@ -2231,7 +2240,7 @@ defmodule MossletWeb.TimelineLive.Index do
     key = socket.assigns.key
 
     # Check if user is already blocked and get block details
-    existing_block = Timeline.get_user_block(current_user, user_id)
+    existing_block = Accounts.get_user_block(current_user, user_id)
 
     # Decrypt existing reason if block exists
     decrypted_reason =
@@ -2395,7 +2404,7 @@ defmodule MossletWeb.TimelineLive.Index do
     # Get existing block details with decryption if needed
     {existing_block, decrypted_reason} =
       if is_blocked do
-        case Timeline.get_user_block(current_user, user_id) do
+        case Accounts.get_user_block(current_user, user_id) do
           %UserBlock{} = block ->
             # Decrypt the reason if it exists
             decrypted_reason =
@@ -2457,7 +2466,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case Accounts.get_user(blocked_user_id) do
       %Accounts.User{} = blocked_user ->
-        case Timeline.block_user(current_user, blocked_user, block_params,
+        case Accounts.block_user(current_user, blocked_user, block_params,
                user: current_user,
                key: key
              ) do

@@ -3604,7 +3604,7 @@ defmodule MossletWeb.DesignSystem do
               phx_value_item_id={@post.id}
               color="red"
             >
-              <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block User
+              <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block Author
             </:item>
           </.liquid_dropdown>
         </div>
@@ -5299,7 +5299,7 @@ defmodule MossletWeb.DesignSystem do
                     phx_value_reply_id={@reply.id}
                   >
                     <.phx_icon name="hero-no-symbol" class="h-4 w-4" />
-                    <span>Block User</span>
+                    <span>Block Author</span>
                   </:item>
 
                   <%!-- Delete option for reply owner or post owner --%>
@@ -6051,7 +6051,7 @@ defmodule MossletWeb.DesignSystem do
               color="rose"
               icon="hero-no-symbol"
             >
-              Block User
+              Block Author
             </.liquid_button>
           </div>
         </.form>

@@ -111,7 +111,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                     <div class="ml-3">
                       <div class="font-medium text-slate-900 dark:text-slate-100">Everything</div>
                       <div class="text-sm text-slate-600 dark:text-slate-400">
-                        Block all posts, replies, and interactions from this user
+                        Block all posts, replies, and interactions from this author
                       </div>
                     </div>
                   </label>
@@ -164,7 +164,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                   id={"block_reason_#{@user_id}-#{@post_id}"}
                   value={@form_data["reason"]}
                   class="w-full px-4 py-3 border border-rose-300 dark:border-rose-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
-                  placeholder="Why are you blocking this user?"
+                  placeholder="Why are you blocking this author?"
                   maxlength="200"
                 />
               </div>
@@ -181,7 +181,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                     <ul class="list-disc text-slate-600 dark:text-slate-400 space-y-1">
                       <li>They won't be notified that you blocked them</li>
                       <li>You won't see their content in your timeline</li>
-                      <li>They won't be able to interact with your posts</li>
+                      <li>They won't be able to interact with your content</li>
                       <li>You can unblock them anytime from your settings</li>
                     </ul>
                   </div>
@@ -213,7 +213,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                     color="rose"
                     icon="hero-no-symbol"
                   >
-                    Block User
+                    Block Author
                   </.liquid_button>
                 <% end %>
               </div>
