@@ -368,7 +368,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users(blocked_user_ids)
+      |> filter_by_blocked_users_posts(blocked_user_ids)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -394,7 +394,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users(blocked_user_ids)
+      |> filter_by_blocked_users_posts(blocked_user_ids)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -423,7 +423,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users(blocked_user_ids)
+      |> filter_by_blocked_users_posts(blocked_user_ids)
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -599,7 +599,7 @@ defmodule Mosslet.Timeline do
     )
     |> paginate(options)
     |> Repo.all()
-    |> add_nested_replies_to_posts()
+    |> add_nested_replies_to_posts(options)
   end
 
   @doc """
@@ -623,7 +623,7 @@ defmodule Mosslet.Timeline do
     )
     |> preload([:user_posts, :user, :replies])
     |> Repo.all()
-    |> add_nested_replies_to_posts()
+    |> add_nested_replies_to_posts(%{current_user_id: current_user.id})
   end
 
   defp with_any_visibility(query, visibility_list) do
@@ -674,12 +674,52 @@ defmodule Mosslet.Timeline do
 
   # Filters out posts from blocked users.
   # This matches the same pattern as filter_by_muted_users but for UserBlock relationships.
-  defp filter_by_blocked_users(query, blocked_user_ids)
-       when is_list(blocked_user_ids) and length(blocked_user_ids) > 0 do
-    where(query, [p], p.user_id not in ^blocked_user_ids)
+  # Filters out posts from blocked users (2-directional blocking).
+  # This is separate from muted_users and respects block_type granularity.
+  defp filter_by_blocked_users_posts(query, current_user_id) when is_binary(current_user_id) do
+    # Subquery: users blocked by current user (posts + full blocks)
+    blocked_by_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocker_id == ^current_user_id and ub.block_type in [:full, :posts_only],
+        select: ub.blocked_id
+      )
+
+    # Subquery: users who blocked current user (posts + full blocks)
+    blocked_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocked_id == ^current_user_id and ub.block_type in [:full, :posts_only],
+        select: ub.blocker_id
+      )
+
+    query
+    |> where([p], p.user_id not in subquery(blocked_by_me_subquery))
+    |> where([p], p.user_id not in subquery(blocked_me_subquery))
   end
 
-  defp filter_by_blocked_users(query, _blocked_user_ids), do: query
+  defp filter_by_blocked_users_posts(query, _current_user_id), do: query
+
+  # Filters out replies from blocked users (2-directional blocking).
+  defp filter_by_blocked_users_replies(query, current_user_id) when is_binary(current_user_id) do
+    # Subquery: users blocked by current user (replies + full blocks)
+    blocked_by_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocker_id == ^current_user_id and ub.block_type in [:full, :replies_only],
+        select: ub.blocked_id
+      )
+
+    # Subquery: users who blocked current user (replies + full blocks)
+    blocked_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocked_id == ^current_user_id and ub.block_type in [:full, :replies_only],
+        select: ub.blocker_id
+      )
+
+    query
+    |> where([r], r.user_id not in subquery(blocked_by_me_subquery))
+    |> where([r], r.user_id not in subquery(blocked_me_subquery))
+  end
+
+  defp filter_by_blocked_users_replies(query, _current_user_id), do: query
 
   # Filters out reposted posts if hide_reposts is true.
   defp filter_by_reposts(query, true) do
@@ -691,13 +731,25 @@ defmodule Mosslet.Timeline do
   # Helper function to extract filter preferences from options and apply all database-level filters.
   defp apply_database_filters(query, options) do
     case options do
+      %{filter_prefs: filter_prefs, current_user_id: current_user_id}
+      when is_map(filter_prefs) and is_binary(current_user_id) ->
+        query
+        |> filter_by_muted_keywords(filter_prefs[:keywords] || [])
+        |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
+        |> filter_by_muted_users(filter_prefs[:muted_users] || [])
+        |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
+        |> filter_by_blocked_users_posts(current_user_id)
+
       %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
         query
         |> filter_by_muted_keywords(filter_prefs[:keywords] || [])
         |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
         |> filter_by_muted_users(filter_prefs[:muted_users] || [])
         |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
-        |> filter_by_blocked_users(filter_prefs[:blocked_users] || [])
+
+      %{current_user_id: current_user_id} when is_binary(current_user_id) ->
+        query
+        |> filter_by_blocked_users_posts(current_user_id)
 
       _ ->
         query
@@ -705,16 +757,28 @@ defmodule Mosslet.Timeline do
   end
 
   # Helper function to apply database-level filters to bookmark queries
-  # Since bookmarks join with posts, we need to reference the Post table (p1)
+  # Since bookmarks join with posts, we need to reference the Post table (p)
   defp apply_bookmark_database_filters(query, options) do
     case options do
+      %{filter_prefs: filter_prefs, current_user_id: current_user_id}
+      when is_map(filter_prefs) and is_binary(current_user_id) ->
+        query
+        |> filter_by_muted_keywords_bookmark(filter_prefs[:keywords] || [])
+        |> filter_by_content_warnings_bookmark(filter_prefs[:content_warnings] || %{})
+        |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
+        |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
+        |> filter_by_blocked_users_bookmarks(current_user_id)
+
       %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
         query
         |> filter_by_muted_keywords_bookmark(filter_prefs[:keywords] || [])
         |> filter_by_content_warnings_bookmark(filter_prefs[:content_warnings] || %{})
         |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
         |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
-        |> filter_by_blocked_users_bookmark(filter_prefs[:blocked_users] || [])
+
+      %{current_user_id: current_user_id} when is_binary(current_user_id) ->
+        query
+        |> filter_by_blocked_users_bookmarks(current_user_id)
 
       _ ->
         query
@@ -762,14 +826,29 @@ defmodule Mosslet.Timeline do
 
   defp filter_by_reposts_bookmark(query, _hide_reposts), do: query
 
-  # Filters out posts from blocked users in bookmark queries.
-  # Since bookmarks join with posts, we need to reference the Post table (p)
-  defp filter_by_blocked_users_bookmark(query, blocked_user_ids)
-       when is_list(blocked_user_ids) and length(blocked_user_ids) > 0 do
-    where(query, [b, p], p.user_id not in ^blocked_user_ids)
+  # Filters out bookmarked posts from blocked users (2-directional blocking).
+  defp filter_by_blocked_users_bookmarks(query, current_user_id)
+       when is_binary(current_user_id) do
+    # Subquery: users blocked by current user (posts + full blocks)
+    blocked_by_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocker_id == ^current_user_id and ub.block_type in [:full, :posts_only],
+        select: ub.blocked_id
+      )
+
+    # Subquery: users who blocked current user (posts + full blocks)
+    blocked_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocked_id == ^current_user_id and ub.block_type in [:full, :posts_only],
+        select: ub.blocker_id
+      )
+
+    query
+    |> where([b, p], p.user_id not in subquery(blocked_by_me_subquery))
+    |> where([b, p], p.user_id not in subquery(blocked_me_subquery))
   end
 
-  defp filter_by_blocked_users_bookmark(query, _blocked_user_ids), do: query
+  defp filter_by_blocked_users_bookmarks(query, _current_user_id), do: query
 
   @doc """
   Returns the list of public posts.
@@ -865,7 +944,7 @@ defmodule Mosslet.Timeline do
       # Uses post_page and post_per_page
       |> paginate(options)
       |> Repo.all()
-      |> add_nested_replies_to_posts()
+      |> add_nested_replies_to_posts(options)
     end
   end
 
@@ -896,7 +975,7 @@ defmodule Mosslet.Timeline do
           where: upr.user_id == ^current_user.id,
           where: not upr.is_read? and is_nil(upr.read_at)
         )
-        |> filter_by_blocked_users(blocked_user_ids)
+        |> filter_by_blocked_users_posts(blocked_user_ids)
 
       count = Repo.aggregate(query, :count, :id)
 
@@ -961,7 +1040,7 @@ defmodule Mosslet.Timeline do
       |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
-      |> add_nested_replies_to_posts()
+      |> add_nested_replies_to_posts(options)
     else
       # Without user context - just show by date
       from(p in Post,
@@ -975,7 +1054,7 @@ defmodule Mosslet.Timeline do
       |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
-      |> add_nested_replies_to_posts()
+      |> add_nested_replies_to_posts(options)
     end
   end
 
@@ -1008,7 +1087,7 @@ defmodule Mosslet.Timeline do
       where: p.visibility == :public,
       where: not upr.is_read?
     )
-    |> filter_by_blocked_users(blocked_user_ids)
+    |> filter_by_blocked_users_posts(blocked_user_ids)
     |> Repo.aggregate(:count, :id)
   end
 
@@ -1065,7 +1144,7 @@ defmodule Mosslet.Timeline do
     )
     |> paginate(options)
     |> Repo.all()
-    |> add_nested_replies_to_posts()
+    |> add_nested_replies_to_posts(options)
   end
 
   def list_public_replies(post, options) do
@@ -1336,15 +1415,28 @@ defmodule Mosslet.Timeline do
   Gets replies for a post with proper nesting structure.
   Returns a tree structure with top-level replies and their children.
   """
-  def get_nested_replies_for_post(post_id) do
+  @doc """
+  Gets replies for a post with proper nesting structure and block filtering.
+  Returns a tree structure with top-level replies and their children.
+  """
+  def get_nested_replies_for_post(post_id, options \\ %{}) do
     # Get all replies for the post
-    replies =
+    query =
       from(r in Reply,
         where: r.post_id == ^post_id,
         order_by: [asc: r.inserted_at],
         preload: [:user, :parent_reply]
       )
-      |> Repo.all()
+
+    # Apply block filtering if current_user_id is available in options
+    filtered_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(query, options[:current_user_id])
+      else
+        query
+      end
+
+    replies = Repo.all(filtered_query)
 
     # Build nested structure
     build_reply_tree(replies)
@@ -1362,10 +1454,10 @@ defmodule Mosslet.Timeline do
     |> Repo.all()
   end
 
-  # Helper function to add nested replies to a list of posts
-  defp add_nested_replies_to_posts(posts) when is_list(posts) do
+  # Helper function to add nested replies to a list of posts with block filtering
+  defp add_nested_replies_to_posts(posts, options \\ %{}) when is_list(posts) do
     Enum.map(posts, fn post ->
-      nested_replies = get_nested_replies_for_post(post.id)
+      nested_replies = get_nested_replies_for_post(post.id, options)
       Map.put(post, :replies, nested_replies)
     end)
   end
