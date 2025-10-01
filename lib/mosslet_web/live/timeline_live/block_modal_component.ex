@@ -149,11 +149,11 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                   />
                   <div class="text-sm text-slate-700 dark:text-slate-300">
                     <p class="font-medium mb-1">What happens when you block someone:</p>
-                    <ul class="text-slate-600 dark:text-slate-400 space-y-1">
-                      <li>• They won't be notified that you blocked them</li>
-                      <li>• You won't see their content in your timeline</li>
-                      <li>• They won't be able to interact with your posts</li>
-                      <li>• You can unblock them anytime from your settings</li>
+                    <ul class="list-disc text-slate-600 dark:text-slate-400 space-y-1">
+                      <li>They won't be notified that you blocked them</li>
+                      <li>You won't see their content in your timeline</li>
+                      <li>They won't be able to interact with your posts</li>
+                      <li>You can unblock them anytime from your settings</li>
                     </ul>
                   </div>
                 </div>

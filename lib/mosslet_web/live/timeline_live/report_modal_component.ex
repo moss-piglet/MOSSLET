@@ -231,10 +231,10 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                     />
                     <div class="text-sm text-teal-800 dark:text-teal-200">
                       <p class="font-medium mb-2">How moderation works:</p>
-                      <ul class="space-y-1 text-teal-700 dark:text-teal-300 text-xs leading-relaxed">
-                        <li>• Your reason and context are reviewed by our moderation team</li>
-                        <li>• Decisions are made using pattern recognition and report metadata</li>
-                        <li>• This protects both community members and our moderation team</li>
+                      <ul class="space-y-1 list-disc text-teal-700 dark:text-teal-300 text-xs leading-relaxed">
+                        <li>Your reason and context are reviewed by our moderation team</li>
+                        <li>Decisions are made using pattern recognition and report metadata</li>
+                        <li>This protects both community members and our moderation team</li>
                       </ul>
                     </div>
                   </div>
@@ -249,12 +249,12 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
                     />
                     <div class="text-sm text-slate-700 dark:text-slate-300">
                       <p class="font-medium mb-2">Your privacy is protected:</p>
-                      <ul class="space-y-1 text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
-                        <li>• The reported user won't know who submitted this report</li>
-                        <li>• Your report details are encrypted for moderator access only</li>
-                        <li>• Post content remains separately encrypted and protected</li>
-                        <li>• Pattern analysis helps prevent false reporting abuse</li>
-                        <li>• All moderation decisions are logged and auditable</li>
+                      <ul class="space-y-1 list-disc text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
+                        <li>The reported user won't know who submitted this report</li>
+                        <li>Your report details are encrypted for moderator access only</li>
+                        <li>Post content remains separately encrypted and protected</li>
+                        <li>Pattern analysis helps prevent false reporting abuse</li>
+                        <li>All moderation decisions are logged and auditable</li>
                       </ul>
                     </div>
                   </div>
