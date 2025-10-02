@@ -530,37 +530,59 @@ defmodule MossletWeb.AdminModerationLive do
 
       <%!-- Report Content with better typography and spacing --%>
       <div class="space-y-4">
-        <%!-- User Information with cleaner layout --%>
-        <div class="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-8 text-sm">
-          <div class="flex items-center text-slate-600 dark:text-slate-400">
-            <.phx_icon name="hero-user" class="h-4 w-4 mr-2 text-slate-400" />
-            <span class="font-medium">Reporter:</span>
-            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-              {@report.reporter_id}
+        <%!-- Enhanced ID Information with better mobile/desktop layout --%>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+          <%!-- Reporter Information --%>
+          <div class="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-3 border border-blue-200 dark:border-blue-800">
+            <div class="flex items-center mb-1">
+              <.phx_icon name="hero-user" class="h-4 w-4 mr-2 text-blue-500" />
+              <span class="font-semibold text-blue-900 dark:text-blue-100">Reporter</span>
+            </div>
+            <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
+              {@report.reporter.id |> String.slice(0..7)}...
             </span>
+          </div>
 
-          </div>
-          <div class="flex items-center text-slate-600 dark:text-slate-400">
-            <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2 text-slate-400" />
-            <span class="font-medium">Post:</span>
-            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-              {@report.post_id}
+          <%!-- Reported User Information --%>
+          <div class="rounded-lg bg-rose-50 dark:bg-rose-900/10 p-3 border border-rose-200 dark:border-rose-800">
+            <div class="flex items-center mb-1">
+              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 mr-2 text-rose-500" />
+              <span class="font-semibold text-rose-900 dark:text-rose-100">Reported User</span>
+            </div>
+            <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
+              {@report.reported_user.id |> String.slice(0..7)}...
             </span>
           </div>
-          <div :if={@report.reply_id} class="flex items-center text-slate-600 dark:text-slate-400">
-            <.phx_icon name="hero-chat-bubble-oval-left" class="h-4 w-4 mr-2 text-slate-400" />
-            <span class="font-medium">Reply:</span>
-            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-              {@report.reply_id}
-            </span>
-          </div>
-          <div class="flex items-center text-slate-600 dark:text-slate-400">
-            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 mr-2 text-slate-400" />
-            <span class="font-medium">Reported User:</span>
-            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-              {@report.reported_user_id}
-            </span>
-          </div>
+
+          <%!-- Content Information (Post or Reply) --%>
+          <%= if @report.reply_id do %>
+            <div class="rounded-lg bg-purple-50 dark:bg-purple-900/10 p-3 border border-purple-200 dark:border-purple-800">
+              <div class="flex items-center mb-1">
+                <.phx_icon name="hero-chat-bubble-left" class="h-4 w-4 mr-2 text-purple-500" />
+                <span class="font-semibold text-purple-900 dark:text-purple-100">Reply Report</span>
+              </div>
+              <div class="space-y-1">
+                <div class="text-xs text-purple-700 dark:text-purple-300">Reply:</div>
+                <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
+                  {@report.reply_id |> String.slice(0..7)}...
+                </span>
+                <div class="text-xs text-purple-700 dark:text-purple-300 mt-1">In Post:</div>
+                <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
+                  {@report.post.id |> String.slice(0..7)}...
+                </span>
+              </div>
+            </div>
+          <% else %>
+            <div class="rounded-lg bg-emerald-50 dark:bg-emerald-900/10 p-3 border border-emerald-200 dark:border-emerald-800">
+              <div class="flex items-center mb-1">
+                <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2 text-emerald-500" />
+                <span class="font-semibold text-emerald-900 dark:text-emerald-100">Post Report</span>
+              </div>
+              <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
+                {@report.post.id |> String.slice(0..7)}...
+              </span>
+            </div>
+          <% end %>
         </div>
 
         <%!-- Report Reason with better contrast --%>
