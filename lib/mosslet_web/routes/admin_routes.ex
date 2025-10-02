@@ -19,6 +19,7 @@ defmodule MossletWeb.AdminRoutes do
             {MossletWeb.UserOnMountHooks, :require_admin_user}
           ] do
           live "/dash", AdminDashLive, :index
+          live "/moderation", AdminModerationLive, :index
         end
       end
     end

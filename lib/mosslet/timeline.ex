@@ -20,6 +20,7 @@ defmodule Mosslet.Timeline do
     Bookmark,
     BookmarkCategory,
     PostReport,
+    UserPostReport,
     PostHide,
     ContentWarningCategory,
     Navigation
@@ -2750,6 +2751,7 @@ defmodule Mosslet.Timeline do
   def admin_subscribe(user) do
     if user.is_admin? do
       Phoenix.PubSub.subscribe(Mosslet.PubSub, "admin:posts")
+      Phoenix.PubSub.subscribe(Mosslet.PubSub, "admin:moderation_reports")
     end
   end
 
@@ -3166,7 +3168,7 @@ defmodule Mosslet.Timeline do
       {:ok, {:ok, updated_report}} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
-          "moderation:reports",
+          "admin:moderation_reports",
           {:report_updated, updated_report}
         )
 
@@ -3184,10 +3186,16 @@ defmodule Mosslet.Timeline do
   Gets all reports for admin review.
   """
   def list_post_reports(opts \\ []) do
+    limit = opts[:limit] || 10
+    page = opts[:page] || 1
+    offset = (page - 1) * limit
+
     query =
       from r in PostReport,
-        preload: [:reporter, :reported_user, :post],
-        order_by: [desc: r.inserted_at]
+        preload: [:reporter, :reported_user, :post, :user_post_report],
+        order_by: [desc: r.inserted_at],
+        limit: ^limit,
+        offset: ^offset
 
     query =
       case opts[:status] do
@@ -3202,16 +3210,31 @@ defmodule Mosslet.Timeline do
       end
 
     query =
-      case opts[:limit] do
+      case opts[:report_type] do
         nil -> query
-        limit -> limit(query, ^limit)
+        report_type -> where(query, [r], r.report_type == ^report_type)
       end
 
     Repo.all(query)
   end
 
   @doc """
-  Creates a post report with server-key encryption for admin review.
+  Gets a single post report by ID for admin review.
+  """
+  def get_post_report(id) do
+    PostReport
+    |> where([r], r.id == ^id)
+    |> preload([:reporter, :reported_user, :post])
+    |> Repo.one()
+  end
+
+  @doc """
+  Creates a post report with proper asymmetric encryption for admin review.
+
+  Follows the same pattern as posts:
+  1. Generate unique report_key
+  2. Encrypt content with report_key
+  3. Store report_key encrypted with server public key for admin access
 
   ## Examples
 
@@ -3222,11 +3245,11 @@ defmodule Mosslet.Timeline do
       ...>   "severity" => "high"
       ...> })
       {:ok, %PostReport{}}
-
-      iex> report_post(reporter, reported_user, post, %{"reason" => ""})
-      {:error, %Ecto.Changeset{}}
   """
   def report_post(reporter, reported_user, post, attrs) do
+    # Generate unique report key for this report context
+    report_key = Mosslet.Encrypted.Utils.generate_key()
+
     attrs =
       attrs
       |> Map.put("reporter_id", reporter.id)
@@ -3234,15 +3257,28 @@ defmodule Mosslet.Timeline do
       |> Map.put("post_id", post.id)
 
     case Repo.transaction_on_primary(fn ->
-           %PostReport{}
-           |> PostReport.changeset(attrs, user: reporter)
-           |> Repo.insert()
+           Ecto.Multi.new()
+           |> Ecto.Multi.insert(:insert_report, fn _ ->
+             PostReport.changeset(
+               %PostReport{},
+               attrs,
+               report_key: report_key
+             )
+           end)
+           |> Ecto.Multi.insert(:insert_user_post_report, fn %{insert_report: report} ->
+             UserPostReport.changeset(
+               %UserPostReport{},
+               %{"post_report_id" => report.id},
+               report_key: report_key
+             )
+           end)
+           |> Repo.transaction()
          end) do
-      {:ok, {:ok, report}} ->
+      {:ok, {:ok, %{insert_report: report}}} ->
         # Broadcast to admin dashboard for real-time updates
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
-          "admin:reports",
+          "admin:moderation_reports",
           {:report_created, report}
         )
 

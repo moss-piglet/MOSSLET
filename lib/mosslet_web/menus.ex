@@ -8,6 +8,11 @@ defmodule MossletWeb.Menus do
 
   alias Mosslet.Billing.Customers
 
+  # Helper function to check if user is admin
+  defp is_admin?(current_user) do
+    current_user.is_admin? && current_user.confirmed_at
+  end
+
   # Public menu (marketing related pages)
   def public_menu_items(_user \\ nil),
     do: [
@@ -37,16 +42,24 @@ defmodule MossletWeb.Menus do
 
   # Signed in main menu
   def main_menu_items(current_user) do
-    if current_user.connection.profile do
-      build_menu(
-        [:home, :connections, :groups, :timeline, :settings, :subscribe],
-        current_user
-      )
-    else
-      build_menu(
-        [:dashboard, :connections, :groups, :timeline, :settings, :subscribe],
-        current_user
-      )
+    cond do
+      # Admin users get admin-only menu
+      is_admin?(current_user) ->
+        build_menu([:admin_dashboard, :admin_moderation, :admin_settings], current_user)
+
+      # Regular users get normal app menu
+      current_user.connection.profile ->
+        build_menu(
+          [:home, :connections, :groups, :timeline, :settings, :subscribe],
+          current_user
+        )
+
+      # Users without profile get dashboard menu
+      true ->
+        build_menu(
+          [:dashboard, :connections, :groups, :timeline, :settings, :subscribe],
+          current_user
+        )
     end
   end
 
@@ -416,6 +429,56 @@ defmodule MossletWeb.Menus do
         label: gettext("Sent emails"),
         path: "/dev/emails/sent",
         icon: "hero-at-symbol"
+      }
+    end
+  end
+
+  # Admin menu items
+  def get_link(:admin_dashboard = name, current_user) do
+    if current_user.is_admin? && current_user.confirmed_at do
+      %{
+        name: name,
+        label: gettext("Dashboard"),
+        path: ~p"/admin/dash",
+        icon: "hero-chart-bar"
+      }
+    end
+  end
+
+  def get_link(:admin_moderation = name, current_user) do
+    if current_user.is_admin? && current_user.confirmed_at do
+      %{
+        name: name,
+        label: gettext("Moderation"),
+        path: ~p"/admin/moderation",
+        icon: "hero-shield-check"
+      }
+    end
+  end
+
+  def get_link(:admin_settings = name, current_user) do
+    if current_user.is_admin? && current_user.confirmed_at do
+      %{
+        name: name,
+        label: gettext("Admin Tools"),
+        path: ~p"/admin/dash",
+        icon: "hero-wrench-screwdriver",
+        children: [
+          %{
+            name: :admin_server,
+            label: gettext("Server Dashboard"),
+            description: gettext("Phoenix LiveDashboard metrics"),
+            path: ~p"/admin/server",
+            icon: "hero-server"
+          },
+          %{
+            name: :admin_oban,
+            label: gettext("Background Jobs"),
+            description: gettext("Oban job queue management"),
+            path: ~p"/admin/oban",
+            icon: "hero-queue-list"
+          }
+        ]
       }
     end
   end

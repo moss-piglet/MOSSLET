@@ -12,7 +12,7 @@ defmodule Mosslet.Timeline.PostReport do
 
   alias Mosslet.Encrypted
   alias Mosslet.Accounts.User
-  alias Mosslet.Timeline.Post
+  alias Mosslet.Timeline.{Post, UserPostReport}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -47,12 +47,19 @@ defmodule Mosslet.Timeline.PostReport do
     belongs_to :reported_user, User, foreign_key: :reported_user_id
     # Post being reported
     belongs_to :post, Post
+    # UserPostReport
+    has_one :user_post_report, UserPostReport
 
     timestamps()
   end
 
   @doc """
-  Creates changeset for post report with user-key encryption.
+  Creates changeset for post report with proper asymmetric encryption.
+
+  This follows the same pattern as Posts:
+  1. Generate unique report_key
+  2. Encrypt content with report_key
+  3. Create UserPostReport with report_key encrypted for admin access
 
   ## Examples
 
@@ -61,7 +68,7 @@ defmodule Mosslet.Timeline.PostReport do
       ...>   details: "This post contains threatening language",
       ...>   report_type: :harassment,
       ...>   severity: :high
-      ...> }, user: reporter)
+      ...> }, report_key: report_key)
   """
   def changeset(report, attrs, opts \\ []) do
     report
@@ -78,28 +85,23 @@ defmodule Mosslet.Timeline.PostReport do
     |> validate_required([:reason, :report_type, :reporter_id, :reported_user_id, :post_id])
     |> validate_length(:reason, min: 1, max: 100)
     |> validate_length(:details, max: 1000)
-    |> encrypt_user_data(opts)
+    |> encrypt_report_content(opts)
     |> unique_constraint([:reporter_id, :post_id],
       name: :post_reports_reporter_post_index,
       message: "You have already reported this post"
     )
   end
 
-  # Encrypt reason and details with SERVER PUBLIC KEY for admin access
-  defp encrypt_user_data(changeset, opts) do
-    if changeset.valid? && opts[:user] do
+  # Encrypt reason and details with report_key (consistent with Posts pattern)
+  defp encrypt_report_content(changeset, opts) do
+    if changeset.valid? && opts[:report_key] do
       reason = get_field(changeset, :reason)
       details = get_field(changeset, :details)
-
-      # Get server public key for admin-accessible encryption
-      server_public_key = Application.get_env(:mosslet, :server_public_key)
+      report_key = opts[:report_key]
 
       changeset =
         if reason && String.trim(reason) != "" do
-          case Mosslet.Encrypted.Utils.encrypt_message_for_user_with_pk(
-                 String.trim(reason),
-                 %{public: server_public_key}
-               ) do
+          case Mosslet.Encrypted.Utils.encrypt(%{key: report_key, payload: String.trim(reason)}) do
             encrypted_reason when is_binary(encrypted_reason) ->
               changeset
               |> put_change(:reason, encrypted_reason)
@@ -113,10 +115,7 @@ defmodule Mosslet.Timeline.PostReport do
         end
 
       if details && String.trim(details) != "" do
-        case Mosslet.Encrypted.Utils.encrypt_message_for_user_with_pk(
-               String.trim(details),
-               %{public: server_public_key}
-             ) do
+        case Mosslet.Encrypted.Utils.encrypt(%{key: report_key, payload: String.trim(details)}) do
           encrypted_details when is_binary(encrypted_details) ->
             put_change(changeset, :details, encrypted_details)
 
