@@ -12,7 +12,7 @@ defmodule Mosslet.Timeline.PostReport do
 
   alias Mosslet.Encrypted
   alias Mosslet.Accounts.User
-  alias Mosslet.Timeline.{Post, UserPostReport}
+  alias Mosslet.Timeline.{Post, Reply, UserPostReport}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -47,6 +47,8 @@ defmodule Mosslet.Timeline.PostReport do
     belongs_to :reported_user, User, foreign_key: :reported_user_id
     # Post being reported
     belongs_to :post, Post
+    # Reply being reported (optional - when reporting a specific reply)
+    belongs_to :reply, Reply, foreign_key: :reply_id
     # UserPostReport
     has_one :user_post_report, UserPostReport
 
@@ -80,16 +82,44 @@ defmodule Mosslet.Timeline.PostReport do
       :report_type,
       :reporter_id,
       :reported_user_id,
-      :post_id
+      :post_id,
+      :reply_id
     ])
     |> validate_required([:reason, :report_type, :reporter_id, :reported_user_id, :post_id])
     |> validate_length(:reason, min: 1, max: 100)
     |> validate_length(:details, max: 1000)
+    |> validate_reply_belongs_to_post()
     |> encrypt_report_content(opts)
     |> unique_constraint([:reporter_id, :post_id],
       name: :post_reports_reporter_post_index,
       message: "You have already reported this post"
     )
+    |> unique_constraint([:reporter_id, :reply_id],
+      name: :post_reports_reporter_reply_index,
+      message: "You have already reported this reply"
+    )
+  end
+
+  # Validates that if reply_id is present, it belongs to the specified post
+  defp validate_reply_belongs_to_post(changeset) do
+    post_id = get_field(changeset, :post_id)
+    reply_id = get_field(changeset, :reply_id)
+
+    if post_id && reply_id do
+      # Check if the reply belongs to the post
+      case Mosslet.Repo.get(Mosslet.Timeline.Reply, reply_id) do
+        %{post_id: ^post_id} ->
+          changeset
+
+        %{post_id: _other_post_id} ->
+          add_error(changeset, :reply_id, "Reply does not belong to the specified post")
+
+        nil ->
+          add_error(changeset, :reply_id, "Reply not found")
+      end
+    else
+      changeset
+    end
   end
 
   # Encrypt reason and details with report_key (consistent with Posts pattern)

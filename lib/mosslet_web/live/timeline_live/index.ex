@@ -568,20 +568,11 @@ defmodule MossletWeb.TimelineLive.Index do
     reported_user_id = report_params["reported_user_id"]
     reply_context = socket.assigns[:report_reply_context]
 
-    # Enhance details with reply context if this is a reply report
+    # Add reply_id to params if this is a reply report (instead of details enhancement)
     enhanced_params =
       if reply_context && Map.has_key?(reply_context, :reply_id) do
-        current_details = report_params["details"] || ""
-        reply_details = "[REPLY REPORT] Reply ID: #{reply_context.reply_id}"
-
-        enhanced_details =
-          if String.trim(current_details) != "" do
-            "#{current_details}\n\n#{reply_details}"
-          else
-            reply_details
-          end
-
-        Map.put(report_params, "details", enhanced_details)
+        report_params
+        |> Map.put("reply_id", reply_context.reply_id)
       else
         report_params
       end
@@ -2336,20 +2327,11 @@ defmodule MossletWeb.TimelineLive.Index do
     reported_user_id = report_params["reported_user_id"]
     reply_context = socket.assigns[:report_reply_context]
 
-    # Enhance details with reply context if this is a reply report
+    # Add reply_id to params if this is a reply report (instead of details enhancement)
     enhanced_params =
       if reply_context && Map.has_key?(reply_context, :reply_id) do
-        current_details = report_params["details"] || ""
-        reply_details = "[REPLY REPORT] Reply ID: #{reply_context.reply_id}"
-
-        enhanced_details =
-          if String.trim(current_details) != "" do
-            "#{current_details}\n\n#{reply_details}"
-          else
-            reply_details
-          end
-
-        Map.put(report_params, "details", enhanced_details)
+        report_params
+        |> Map.put("reply_id", reply_context.reply_id)
       else
         report_params
       end

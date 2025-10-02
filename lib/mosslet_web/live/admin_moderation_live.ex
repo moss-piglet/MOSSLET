@@ -20,92 +20,103 @@ defmodule MossletWeb.AdminModerationLive do
   def render(assigns) do
     ~H"""
     <.layout current_page={:admin_moderation} current_user={@current_user} key={@key} type="sidebar">
-      <div class="min-h-screen bg-slate-50 dark:bg-slate-900">
+      <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <%!-- Header --%>
+          <%!-- Header with calming design and better visual hierarchy --%>
           <div class="mb-8 md:flex md:items-center md:justify-between">
             <div class="min-w-0 flex-1">
-              <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                Content Moderation
-              </h1>
-              <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Review and manage community reports
+              <div class="flex items-center space-x-3 mb-2">
+                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+                  <.phx_icon name="hero-shield-check" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                  Content Moderation
+                </h1>
+              </div>
+              <p class="text-sm text-slate-600 dark:text-slate-400 ml-13">
+                Review and manage community reports with care and attention
               </p>
             </div>
 
-            <div class="mt-4 flex space-x-2 md:mt-0">
+            <div class="mt-6 flex flex-col space-y-3 sm:mt-4 sm:flex-row sm:space-y-0 sm:space-x-3 md:mt-0">
               <.liquid_button
-                variant="ghost"
-                color="slate"
+                variant="secondary"
+                color="emerald"
                 phx-click="refresh_reports"
                 icon="hero-arrow-path"
+                size="sm"
+                shimmer="page"
               >
-                Refresh
+                Refresh Reports
               </.liquid_button>
 
               <.liquid_button
                 navigate={~p"/admin/dash"}
-                variant="secondary"
+                variant="primary"
                 color="indigo"
                 icon="hero-chart-bar"
+                size="sm"
+                shimmer="page"
               >
                 Dashboard
               </.liquid_button>
             </div>
           </div>
 
-          <%!-- Filter Bar --%>
-          <div class="mb-6 rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg p-4">
-            <.form phx-change="filter_changed" class="flex flex-wrap gap-3">
-              <div class="flex items-center space-x-2">
-                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Status:</label>
-                <select
-                  class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
-                  name="status"
-                  value={@filter_status}
-                >
-                  <option value="">All</option>
-                  <option value="pending" selected={@filter_status == "pending"}>Pending</option>
-                  <option value="reviewed" selected={@filter_status == "reviewed"}>Reviewed</option>
-                  <option value="resolved" selected={@filter_status == "resolved"}>Resolved</option>
-                  <option value="dismissed" selected={@filter_status == "dismissed"}>
-                    Dismissed
-                  </option>
-                </select>
-              </div>
+          <%!-- Enhanced Filter Bar with better mobile layout --%>
+          <div class="mb-8 rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-700/25">
+              <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100 flex items-center">
+                <.phx_icon name="hero-funnel" class="h-4 w-4 mr-2 text-slate-500" />
+                Filter Reports
+              </h3>
+            </div>
+            <.form phx-change="filter_changed" class="p-5">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Status</label>
+                  <.liquid_filter_select
+                    name="status"
+                    value={@filter_status}
+                    options={[
+                      {"", "All Statuses"},
+                      {"pending", "Pending Review"},
+                      {"reviewed", "Under Review"},
+                      {"resolved", "Resolved"},
+                      {"dismissed", "Dismissed"}
+                    ]}
+                  />
+                </div>
 
-              <div class="flex items-center space-x-2">
-                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Severity:
-                </label>
-                <select
-                  class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
-                  name="severity"
-                  value={@filter_severity}
-                >
-                  <option value="">All</option>
-                  <option value="critical" selected={@filter_severity == "critical"}>Critical</option>
-                  <option value="high" selected={@filter_severity == "high"}>High</option>
-                  <option value="medium" selected={@filter_severity == "medium"}>Medium</option>
-                  <option value="low" selected={@filter_severity == "low"}>Low</option>
-                </select>
-              </div>
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Severity</label>
+                  <.liquid_filter_select
+                    name="severity"
+                    value={@filter_severity}
+                    options={[
+                      {"", "All Levels"},
+                      {"critical", "Critical"},
+                      {"high", "High"},
+                      {"medium", "Medium"},
+                      {"low", "Low"}
+                    ]}
+                  />
+                </div>
 
-              <div class="flex items-center space-x-2">
-                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Type:</label>
-                <select
-                  class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
-                  name="report_type"
-                  value={@filter_type}
-                >
-                  <option value="">All</option>
-                  <option value="content" selected={@filter_type == "content"}>Content</option>
-                  <option value="harassment" selected={@filter_type == "harassment"}>
-                    Harassment
-                  </option>
-                  <option value="spam" selected={@filter_type == "spam"}>Spam</option>
-                  <option value="other" selected={@filter_type == "other"}>Other</option>
-                </select>
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Type</label>
+                  <.liquid_filter_select
+                    name="report_type"
+                    value={@filter_type}
+                    options={[
+                      {"", "All Types"},
+                      {"content", "Content Issue"},
+                      {"harassment", "Harassment"},
+                      {"spam", "Spam"},
+                      {"other", "Other"}
+                    ]}
+                  />
+                </div>
               </div>
             </.form>
           </div>
@@ -317,6 +328,33 @@ defmodule MossletWeb.AdminModerationLive do
   end
 
   def handle_event(
+        "delete_reported_reply",
+        %{"reply_id" => reply_id, "report_id" => report_id},
+        socket
+      ) do
+    with reply when not is_nil(reply) <- Timeline.get_reply!(reply_id),
+         {:ok, _deleted_reply} <- Timeline.delete_reply(reply, user: socket.assigns.current_user),
+         report when not is_nil(report) <- Timeline.get_post_report(report_id),
+         {:ok, updated_report} <-
+           Timeline.update_post_report(
+             report,
+             %{"status" => "resolved"},
+             socket.assigns.current_user
+           ) do
+      socket =
+        socket
+        |> put_flash(:info, "Reply deleted and report resolved")
+        |> stream_insert(:reports, updated_report)
+
+      {:noreply, socket}
+    else
+      _error ->
+        socket = put_flash(socket, :error, "Failed to delete reply")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event(
         "suspend_reported_user",
         %{"user_id" => user_id, "report_id" => report_id},
         socket
@@ -452,55 +490,95 @@ defmodule MossletWeb.AdminModerationLive do
 
   defp report_card(assigns) do
     ~H"""
-    <div class="p-6">
-      <%!-- Report Header --%>
-      <div class="flex items-start justify-between">
-        <div class="flex items-start space-x-3">
-          <%!-- Severity Badge --%>
+    <div class="p-6 lg:p-8 space-y-6">
+      <%!-- Report Header with calmer spacing and colors --%>
+      <div class="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <%!-- Severity Badge with softer colors --%>
           <div class={[
-            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-            severity_color_class(@report.severity)
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
+            soft_severity_color_class(@report.severity)
           ]}>
+            <.phx_icon name={severity_icon(@report.severity)} class="h-3 w-3 mr-1.5" />
             {@report.severity |> to_string() |> String.capitalize()}
           </div>
 
-          <%!-- Status Badge --%>
+          <%!-- Status Badge with softer colors --%>
           <div class={[
-            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-            status_color_class(@report.status)
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
+            soft_status_color_class(@report.status)
           ]}>
+            <.phx_icon name={status_icon(@report.status)} class="h-3 w-3 mr-1.5" />
             {@report.status |> to_string() |> String.capitalize()}
           </div>
 
-          <%!-- Type Badge --%>
-          <div class="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-700 px-2.5 py-0.5 text-xs font-medium text-slate-800 dark:text-slate-200">
-            {@report.report_type |> to_string() |> String.capitalize()}
+          <%!-- Content Type Badge --%>
+          <div class={[
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
+            if(@report.reply_id, do: "bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:ring-purple-800/30", else: "bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-800/30")
+          ]}>
+            <.phx_icon name={content_type_icon(@report)} class="h-3 w-3 mr-1.5" />
+            {if @report.reply_id, do: "Reply Report", else: "Post Report"}
           </div>
         </div>
 
-        <div class="text-sm text-slate-500 dark:text-slate-400">
+        <div class="text-sm text-slate-500 dark:text-slate-400 flex items-center">
+          <.phx_icon name="hero-clock" class="h-4 w-4 mr-1.5" />
           {Calendar.strftime(@report.inserted_at, "%b %d, %Y at %I:%M %p")}
         </div>
       </div>
 
-      <%!-- Report Content --%>
-      <div class="mt-4">
-        <div class="text-sm text-slate-600 dark:text-slate-400">
-          <strong>Reporter:</strong> {@report.reporter.id} |
-          <strong>Reported User:</strong> {@report.reported_user.id}
+      <%!-- Report Content with better typography and spacing --%>
+      <div class="space-y-4">
+        <%!-- User Information with cleaner layout --%>
+        <div class="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-8 text-sm">
+          <div class="flex items-center text-slate-600 dark:text-slate-400">
+            <.phx_icon name="hero-user" class="h-4 w-4 mr-2 text-slate-400" />
+            <span class="font-medium">Reporter:</span>
+            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+              {@report.reporter_id}
+            </span>
+
+          </div>
+          <div class="flex items-center text-slate-600 dark:text-slate-400">
+            <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2 text-slate-400" />
+            <span class="font-medium">Post:</span>
+            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+              {@report.post_id}
+            </span>
+          </div>
+          <div :if={@report.reply_id} class="flex items-center text-slate-600 dark:text-slate-400">
+            <.phx_icon name="hero-chat-bubble-oval-left" class="h-4 w-4 mr-2 text-slate-400" />
+            <span class="font-medium">Reply:</span>
+            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+              {@report.reply_id}
+            </span>
+          </div>
+          <div class="flex items-center text-slate-600 dark:text-slate-400">
+            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 mr-2 text-slate-400" />
+            <span class="font-medium">Reported User:</span>
+            <span class="ml-2 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+              {@report.reported_user_id}
+            </span>
+          </div>
         </div>
 
-        <div class="mt-2">
-          <div class="text-sm font-medium text-slate-900 dark:text-slate-100">Reason:</div>
-          <div class="mt-1 text-sm text-slate-700 dark:text-slate-300">
+        <%!-- Report Reason with better contrast --%>
+        <div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-4 border border-slate-200 dark:border-slate-700">
+          <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Reason</div>
+          <div class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
             {decrypt_report_reason(@report, @current_user)}
           </div>
         </div>
 
+        <%!-- Additional Details if present --%>
         <%= if @report.details do %>
-          <div class="mt-2">
-            <div class="text-sm font-medium text-slate-900 dark:text-slate-100">Details:</div>
-            <div class="mt-1 text-sm text-slate-700 dark:text-slate-300">
+          <div class="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4 border border-amber-200 dark:border-amber-800">
+            <div class="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2 flex items-center">
+              <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2" />
+              Additional Details
+            </div>
+            <div class="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
               {decrypt_report_details(@report, @current_user)}
             </div>
           </div>
@@ -561,21 +639,37 @@ defmodule MossletWeb.AdminModerationLive do
             </.liquid_button>
           <% end %>
         </div>
-        
+
     <!-- Advanced Moderation Actions (Available for all except dismissed) -->
         <%= if @report.status != :dismissed do %>
           <div class="flex flex-wrap gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-            <.liquid_button
-              size="sm"
-              color="amber"
-              phx-click="delete_reported_post"
-              phx-value-post_id={@report.post.id}
-              phx-value-report_id={@report.id}
-              data-confirm="Are you sure you want to delete this post? This action cannot be undone."
-              icon="hero-trash"
-            >
-              Delete Post
-            </.liquid_button>
+            <%= if @report.reply_id do %>
+              <.liquid_button
+                size="sm"
+                color="amber"
+                variant="ghost"
+                phx-click="delete_reported_reply"
+                phx-value-reply_id={@report.reply_id}
+                phx-value-report_id={@report.id}
+                data-confirm="Are you sure you want to delete this reply? This action cannot be undone."
+                icon="hero-trash"
+              >
+                Delete Reply
+              </.liquid_button>
+            <% else %>
+              <.liquid_button
+                size="sm"
+                color="amber"
+                variant="ghost"
+                phx-click="delete_reported_post"
+                phx-value-post_id={@report.post.id}
+                phx-value-report_id={@report.id}
+                data-confirm="Are you sure you want to delete this post? This action cannot be undone."
+                icon="hero-trash"
+              >
+                Delete Post
+              </.liquid_button>
+            <% end %>
 
             <.liquid_button
               size="sm"
@@ -637,7 +731,64 @@ defmodule MossletWeb.AdminModerationLive do
     """
   end
 
-  # Helper functions for styling
+  # Enhanced helper functions for calmer, more accessible styling
+
+  # Softer severity colors that are easier on the eyes
+  defp soft_severity_color_class(:critical),
+    do:
+      "bg-red-50 text-red-700 ring-red-200 dark:bg-red-900/20 dark:text-red-300 dark:ring-red-800/30"
+
+  defp soft_severity_color_class(:high),
+    do:
+      "bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:ring-orange-800/30"
+
+  defp soft_severity_color_class(:medium),
+    do:
+      "bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:ring-yellow-800/30"
+
+  defp soft_severity_color_class(:low),
+    do:
+      "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-800/30"
+
+  # Softer status colors
+  defp soft_status_color_class(:pending),
+    do:
+      "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:ring-amber-800/30"
+
+  defp soft_status_color_class(:reviewed),
+    do:
+      "bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-800/30"
+
+  defp soft_status_color_class(:resolved),
+    do:
+      "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-800/30"
+
+  defp soft_status_color_class(:dismissed),
+    do:
+      "bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
+
+  # Icon helpers for better visual hierarchy
+  defp severity_icon(:critical), do: "hero-exclamation-triangle"
+  defp severity_icon(:high), do: "hero-exclamation-circle"
+  defp severity_icon(:medium), do: "hero-information-circle"
+  defp severity_icon(:low), do: "hero-check-circle"
+
+  defp status_icon(:pending), do: "hero-clock"
+  defp status_icon(:reviewed), do: "hero-eye"
+  defp status_icon(:resolved), do: "hero-check-circle"
+  defp status_icon(:dismissed), do: "hero-x-circle"
+
+  defp type_icon(:content), do: "hero-document-text"
+  defp type_icon(:harassment), do: "hero-exclamation-triangle"
+  defp type_icon(:spam), do: "hero-no-symbol"
+  defp type_icon(:other), do: "hero-ellipsis-horizontal-circle"
+
+  # Helper for content type (post vs reply) icon
+  defp content_type_icon(report) do
+    if report.reply_id, do: "hero-chat-bubble-left", else: "hero-document-text"
+  end
+
+  # Keep original color functions for backwards compatibility
   defp severity_color_class(:critical),
     do: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
 

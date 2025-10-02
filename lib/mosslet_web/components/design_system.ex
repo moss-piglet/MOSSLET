@@ -6059,4 +6059,76 @@ defmodule MossletWeb.DesignSystem do
     </.liquid_modal>
     """
   end
+
+  @doc """
+  Compact liquid filter select for admin interfaces.
+  Follows the same liquid metal design patterns as liquid_select but optimized for filter forms.
+  """
+  attr :name, :string, required: true
+  attr :value, :string, required: true  
+  attr :options, :list, required: true
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_filter_select(assigns) do
+    ~H"""
+    <div class={["group relative", @class]}>
+      <%!-- Enhanced liquid background effect on focus (matching main liquid_select) --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl pointer-events-none">
+      </div>
+
+      <%!-- Enhanced shimmer effect on focus (matching main liquid_select) --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl pointer-events-none">
+      </div>
+
+      <%!-- Focus ring with liquid metal styling (matching main liquid_select) --%>
+      <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm pointer-events-none">
+      </div>
+
+      <%!-- Secondary focus ring for better definition (matching main liquid_select) --%>
+      <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-emerald-500 dark:border-emerald-400 group-focus-within:opacity-100 pointer-events-none">
+      </div>
+
+      <%!-- Select field with enhanced contrast (matching main liquid_select styling) --%>
+      <select
+        name={@name}
+        class={[
+          "relative z-10 block w-full rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-slate-100",
+          "bg-slate-50 dark:bg-slate-900",
+          "border-2 border-slate-200 dark:border-slate-700",
+          "hover:border-slate-300 dark:hover:border-slate-600",
+          "focus:border-emerald-500 dark:focus:border-emerald-400",
+          "focus:outline-none focus:ring-0",
+          "transition-all duration-200 ease-out",
+          "sm:text-sm sm:leading-6",
+          "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
+          "focus:bg-white dark:focus:bg-slate-800",
+          "appearance-none cursor-pointer",
+          "bg-no-repeat bg-right",
+          "[background-image:none]"
+        ]}
+        {@rest}
+      >
+        <option :for={{value, label} <- @options} value={value} selected={value == @value}>
+          {label}
+        </option>
+      </select>
+
+      <%!-- Custom dropdown arrow with liquid styling (matching main liquid_select) --%>
+      <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none z-20">
+        <svg
+          class="h-5 w-5 text-slate-400 dark:text-slate-500 group-focus-within:text-emerald-500 dark:group-focus-within:text-emerald-400 transition-colors duration-200"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </div>
+    </div>
+    """
+  end
 end

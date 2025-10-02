@@ -3197,7 +3197,7 @@ defmodule Mosslet.Timeline do
 
     query =
       from r in PostReport,
-        preload: [:reporter, :reported_user, :post, :user_post_report],
+        preload: [:reporter, :reported_user, :post, :reply, :user_post_report],
         order_by: [desc: r.inserted_at],
         limit: ^limit,
         offset: ^offset
