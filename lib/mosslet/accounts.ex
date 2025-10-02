@@ -2744,4 +2744,35 @@ defmodule Mosslet.Accounts do
   def get_user_status_for_connection(user, viewing_user, session_key) do
     Mosslet.Accounts.Status.get_user_status_for_connection(user, viewing_user, session_key)
   end
+
+  @doc """
+  Suspends a user account (admin function).
+  """
+  def suspend_user(%User{} = user, %User{} = admin_user) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.admin_suspension_changeset(%{"is_suspended?" => true}, admin_user)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, suspended_user}} ->
+        # Broadcast suspension for real-time updates
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{user.id}",
+          {:user_suspended, suspended_user}
+        )
+
+        {:ok, suspended_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  def suspend_user(_user, _non_admin_user) do
+    {:error, :unauthorized}
+  end
 end

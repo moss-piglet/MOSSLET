@@ -990,7 +990,7 @@ defmodule Mosslet.Accounts.User do
   A user changeset for changing the status and status message.
 
   Follows the dual-update pattern like email/username changes:
-  1. Updates user.status_message (encrypted with user_key) 
+  1. Updates user.status_message (encrypted with user_key)
   2. Updates connection.status_message (encrypted with conn_key)
   """
   def status_changeset(user, attrs, opts \\ []) do
@@ -1083,7 +1083,7 @@ defmodule Mosslet.Accounts.User do
   Updates the user `is_admin?` setting. Toggles
   the setting between `true` and `false`.
   """
-  def admin_changeset(user) do
+  def toggle_admin_status_changeset(user) do
     if not is_nil(user.confirmed_at) do
       case user.is_admin? do
         false ->
@@ -1092,6 +1092,27 @@ defmodule Mosslet.Accounts.User do
         true ->
           change(user, is_admin?: false)
       end
+    end
+  end
+
+  @doc """
+  Admin suspension changeset - used by admins to suspend/unsuspend users.
+  Includes access control validation.
+  """
+  def admin_suspension_changeset(user, attrs, %__MODULE__{} = admin_user) do
+    user
+    |> cast(attrs, [:is_suspended?])
+    |> validate_required([])
+    |> validate_inclusion(:is_suspended?, [true, false])
+    |> validate_admin_user(admin_user)
+  end
+
+  defp validate_admin_user(changeset, admin_user) do
+    if admin_user.is_admin? && admin_user.confirmed_at do
+      changeset
+    else
+      changeset
+      |> add_error(:warning, "Unauthorized: Admin user required")
     end
   end
 

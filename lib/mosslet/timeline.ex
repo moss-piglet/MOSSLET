@@ -694,15 +694,18 @@ defmodule Mosslet.Timeline do
   defp filter_by_blocked_users_posts(query, _current_user_id), do: query
 
   # Filters out replies from blocked users (2-directional blocking).
+  # NOTE: :posts_only blocks should NOT filter replies - only :replies_only and :full blocks
   defp filter_by_blocked_users_replies(query, current_user_id) when is_binary(current_user_id) do
-    # Subquery: users blocked by current user (replies + full blocks)
+    # Subquery: users blocked by current user (replies + full blocks only)
+    # Explicitly exclude :posts_only blocks since they should only block posts, not replies
     blocked_by_me_subquery =
       from(ub in UserBlock,
         where: ub.blocker_id == ^current_user_id and ub.block_type in [:full, :replies_only],
         select: ub.blocked_id
       )
 
-    # Subquery: users who blocked current user (replies + full blocks)
+    # Subquery: users who blocked current user (replies + full blocks only)
+    # Explicitly exclude :posts_only blocks since they should only block posts, not replies
     blocked_me_subquery =
       from(ub in UserBlock,
         where: ub.blocked_id == ^current_user_id and ub.block_type in [:full, :replies_only],
@@ -3164,13 +3167,17 @@ defmodule Mosslet.Timeline do
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_report}} ->
+        # Preload associations before broadcasting for admin dashboard
+        updated_report_with_preloads =
+          Repo.preload(updated_report, [:reporter, :reported_user, :post, :user_post_report])
+
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "admin:moderation_reports",
-          {:report_updated, updated_report}
+          {:report_updated, updated_report_with_preloads}
         )
 
-        {:ok, updated_report}
+        {:ok, updated_report_with_preloads}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -3273,21 +3280,25 @@ defmodule Mosslet.Timeline do
            |> Repo.transaction()
          end) do
       {:ok, {:ok, %{insert_report: report}}} ->
+        # Preload associations before broadcasting for admin dashboard
+        report_with_preloads =
+          Repo.preload(report, [:reporter, :reported_user, :post, :user_post_report])
+
         # Broadcast to admin dashboard for real-time updates
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "admin:moderation_reports",
-          {:report_created, report}
+          {:report_created, report_with_preloads}
         )
 
         # Also broadcast to reporter for confirmation
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "user:#{reporter.id}",
-          {:report_submitted, report}
+          {:report_submitted, report_with_preloads}
         )
 
-        {:ok, report}
+        {:ok, report_with_preloads}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -3718,5 +3729,99 @@ defmodule Mosslet.Timeline do
     reposts_active = Map.get(filter_prefs, :hide_reposts, false)
 
     keywords_active || cw_active || users_active || reposts_active
+  end
+
+  @doc """
+  Gets reporter statistics for admin review to detect abuse patterns.
+  """
+  def get_reporter_statistics(reporter_id) do
+    one_week_ago = NaiveDateTime.add(NaiveDateTime.utc_now(), -7, :day)
+
+    # Get all reports by this reporter
+    total_reports =
+      from(r in PostReport, where: r.reporter_id == ^reporter_id)
+      |> Repo.aggregate(:count)
+
+    # Get recent reports (last 7 days)
+    recent_reports =
+      from(r in PostReport,
+        where: r.reporter_id == ^reporter_id and r.inserted_at >= ^one_week_ago
+      )
+      |> Repo.aggregate(:count)
+
+    # Get dismissed reports
+    dismissed_reports =
+      from(r in PostReport,
+        where: r.reporter_id == ^reporter_id and r.status == :dismissed
+      )
+      |> Repo.aggregate(:count)
+
+    # Calculate dismissal rate
+    dismissal_rate =
+      if total_reports > 0 do
+        round(dismissed_reports / total_reports * 100)
+      else
+        0
+      end
+
+    # Flag as suspicious if high dismissal rate and many reports
+    suspicious? = dismissal_rate > 70 and total_reports > 5
+
+    stats = %{
+      total_reports: total_reports,
+      recent_reports: recent_reports,
+      dismissed_reports: dismissed_reports,
+      dismissal_rate: dismissal_rate,
+      suspicious?: suspicious?
+    }
+
+    {:ok, stats}
+  end
+
+  @doc """
+  Gets statistics for a reported user to help with moderation decisions.
+  """
+  def get_reported_user_statistics(reported_user_id) do
+    one_week_ago = NaiveDateTime.add(NaiveDateTime.utc_now(), -7, :day)
+
+    # Get all reports against this user
+    total_reports_received =
+      from(r in PostReport, where: r.reported_user_id == ^reported_user_id)
+      |> Repo.aggregate(:count)
+
+    # Get recent reports against this user (last 7 days)
+    recent_reports_received =
+      from(r in PostReport,
+        where: r.reported_user_id == ^reported_user_id and r.inserted_at >= ^one_week_ago
+      )
+      |> Repo.aggregate(:count)
+
+    # Get resolved/confirmed violations
+    confirmed_violations =
+      from(r in PostReport,
+        where: r.reported_user_id == ^reported_user_id and r.status == :resolved
+      )
+      |> Repo.aggregate(:count)
+
+    # Calculate violation rate (confirmed violations / total reports)
+    violation_rate =
+      if total_reports_received > 0 do
+        round(confirmed_violations / total_reports_received * 100)
+      else
+        0
+      end
+
+    # Flag as high risk if high violation rate and many reports
+    high_risk? = violation_rate > 40 and total_reports_received > 3
+
+    stats = %{
+      total_reports_received: total_reports_received,
+      recent_reports_received: recent_reports_received,
+      confirmed_violations: confirmed_violations,
+      violation_rate: violation_rate,
+      high_risk?: high_risk?
+    }
+
+    {:ok, stats}
   end
 end

@@ -12,6 +12,7 @@ defmodule MossletWeb.AdminModerationLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Timeline
+  alias Mosslet.Accounts
 
   # Import liquid design components
   import MossletWeb.DesignSystem
@@ -55,13 +56,13 @@ defmodule MossletWeb.AdminModerationLive do
 
           <%!-- Filter Bar --%>
           <div class="mb-6 rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg p-4">
-            <div class="flex flex-wrap gap-3">
+            <.form phx-change="filter_changed" class="flex flex-wrap gap-3">
               <div class="flex items-center space-x-2">
                 <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Status:</label>
                 <select
                   class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
-                  phx-change="filter_status"
                   name="status"
+                  value={@filter_status}
                 >
                   <option value="">All</option>
                   <option value="pending" selected={@filter_status == "pending"}>Pending</option>
@@ -79,8 +80,8 @@ defmodule MossletWeb.AdminModerationLive do
                 </label>
                 <select
                   class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
-                  phx-change="filter_severity"
                   name="severity"
+                  value={@filter_severity}
                 >
                   <option value="">All</option>
                   <option value="critical" selected={@filter_severity == "critical"}>Critical</option>
@@ -94,8 +95,8 @@ defmodule MossletWeb.AdminModerationLive do
                 <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Type:</label>
                 <select
                   class="rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
-                  phx-change="filter_type"
                   name="report_type"
+                  value={@filter_type}
                 >
                   <option value="">All</option>
                   <option value="content" selected={@filter_type == "content"}>Content</option>
@@ -106,7 +107,7 @@ defmodule MossletWeb.AdminModerationLive do
                   <option value="other" selected={@filter_type == "other"}>Other</option>
                 </select>
               </div>
-            </div>
+            </.form>
           </div>
 
           <%!-- Reports List --%>
@@ -133,7 +134,12 @@ defmodule MossletWeb.AdminModerationLive do
               id={id}
               class="rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg mb-4"
             >
-              <.report_card report={report} current_user={@current_user} />
+              <.report_card
+                report={report}
+                current_user={@current_user}
+                reporter_stats={@reporter_stats}
+                reported_user_stats={@reported_user_stats}
+              />
             </div>
           </div>
 
@@ -176,16 +182,22 @@ defmodule MossletWeb.AdminModerationLive do
     socket =
       socket
       |> assign(:page_title, "Admin Moderation")
-      |> assign(:filter_status, "pending")
+      |> assign(:filter_status, "")
       |> assign(:filter_severity, "")
       |> assign(:filter_type, "")
       |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
       |> assign(:loaded_reports_count, 0)
+      |> assign(:reporter_stats, %{})
+      |> assign(:reported_user_stats, %{})
       |> stream(:reports, [])
       |> load_reports()
 
     {:ok, socket}
+  end
+
+  def handle_params(_params, _url, socket) do
+    {:noreply, socket}
   end
 
   # PubSub event handlers
@@ -200,32 +212,13 @@ defmodule MossletWeb.AdminModerationLive do
   end
 
   # Filter event handlers
-  def handle_event("filter_status", %{"status" => status}, socket) do
+  def handle_event("filter_changed", params, socket) do
+    # Handle form-based filter changes
     socket =
       socket
-      |> assign(:filter_status, status)
-      |> assign(:current_page, 1)
-      |> assign(:loaded_reports_count, 0)
-      |> load_reports()
-
-    {:noreply, socket}
-  end
-
-  def handle_event("filter_severity", %{"severity" => severity}, socket) do
-    socket =
-      socket
-      |> assign(:filter_severity, severity)
-      |> assign(:current_page, 1)
-      |> assign(:loaded_reports_count, 0)
-      |> load_reports()
-
-    {:noreply, socket}
-  end
-
-  def handle_event("filter_type", %{"report_type" => report_type}, socket) do
-    socket =
-      socket
-      |> assign(:filter_type, report_type)
+      |> assign(:filter_status, Map.get(params, "status", socket.assigns.filter_status))
+      |> assign(:filter_severity, Map.get(params, "severity", socket.assigns.filter_severity))
+      |> assign(:filter_type, Map.get(params, "report_type", socket.assigns.filter_type))
       |> assign(:current_page, 1)
       |> assign(:loaded_reports_count, 0)
       |> load_reports()
@@ -296,6 +289,128 @@ defmodule MossletWeb.AdminModerationLive do
     end
   end
 
+  def handle_event(
+        "delete_reported_post",
+        %{"post_id" => post_id, "report_id" => report_id},
+        socket
+      ) do
+    with post when not is_nil(post) <- Timeline.get_post(post_id),
+         {:ok, _deleted_post} <- Timeline.delete_post(post, socket.assigns.current_user),
+         report when not is_nil(report) <- Timeline.get_post_report(report_id),
+         {:ok, updated_report} <-
+           Timeline.update_post_report(
+             report,
+             %{"status" => "resolved"},
+             socket.assigns.current_user
+           ) do
+      socket =
+        socket
+        |> put_flash(:info, "Post deleted and report resolved")
+        |> stream_insert(:reports, updated_report)
+
+      {:noreply, socket}
+    else
+      _error ->
+        socket = put_flash(socket, :error, "Failed to delete post")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event(
+        "suspend_reported_user",
+        %{"user_id" => user_id, "report_id" => report_id},
+        socket
+      ) do
+    with user when not is_nil(user) <- Accounts.get_user(user_id),
+         {:ok, _suspended_user} <- Accounts.suspend_user(user, socket.assigns.current_user),
+         report when not is_nil(report) <- Timeline.get_post_report(report_id),
+         {:ok, updated_report} <-
+           Timeline.update_post_report(
+             report,
+             %{"status" => "resolved"},
+             socket.assigns.current_user
+           ) do
+      socket =
+        socket
+        |> put_flash(:info, "User suspended and report resolved")
+        |> stream_insert(:reports, updated_report)
+
+      {:noreply, socket}
+    else
+      _error ->
+        socket = put_flash(socket, :error, "Failed to suspend user")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("investigate_reporter", %{"reporter_id" => reporter_id}, socket) do
+    # Toggle reporter stats - if already showing, hide them; if not showing, load and show
+    current_stats = socket.assigns.reporter_stats
+
+    if Map.has_key?(current_stats, reporter_id) do
+      # Hide stats if already showing
+      updated_stats = Map.delete(current_stats, reporter_id)
+
+      socket =
+        socket
+        |> assign(:reporter_stats, updated_stats)
+        |> refresh_reports_stream()
+
+      {:noreply, socket}
+    else
+      # Show stats if not already showing
+      case Timeline.get_reporter_statistics(reporter_id) do
+        {:ok, stats} ->
+          updated_stats = Map.put(current_stats, reporter_id, stats)
+
+          socket =
+            socket
+            |> assign(:reporter_stats, updated_stats)
+            |> refresh_reports_stream()
+
+          {:noreply, socket}
+
+        _error ->
+          socket = put_flash(socket, :error, "Could not retrieve reporter statistics")
+          {:noreply, socket}
+      end
+    end
+  end
+
+  def handle_event("investigate_reported_user", %{"reported_user_id" => reported_user_id}, socket) do
+    # Toggle reported user stats - if already showing, hide them; if not showing, load and show
+    current_stats = socket.assigns.reported_user_stats
+
+    if Map.has_key?(current_stats, reported_user_id) do
+      # Hide stats if already showing
+      updated_stats = Map.delete(current_stats, reported_user_id)
+
+      socket =
+        socket
+        |> assign(:reported_user_stats, updated_stats)
+        |> refresh_reports_stream()
+
+      {:noreply, socket}
+    else
+      # Show stats if not already showing
+      case Timeline.get_reported_user_statistics(reported_user_id) do
+        {:ok, stats} ->
+          updated_stats = Map.put(current_stats, reported_user_id, stats)
+
+          socket =
+            socket
+            |> assign(:reported_user_stats, updated_stats)
+            |> refresh_reports_stream()
+
+          {:noreply, socket}
+
+        _error ->
+          socket = put_flash(socket, :error, "Could not retrieve reported user statistics")
+          {:noreply, socket}
+      end
+    end
+  end
+
   # Private helpers
   defp load_reports(socket) do
     filters = build_filters(socket.assigns)
@@ -304,6 +419,15 @@ defmodule MossletWeb.AdminModerationLive do
     socket
     |> assign(:loaded_reports_count, length(reports))
     |> stream(:reports, reports, reset: true)
+  end
+
+  # Helper to refresh the reports stream to trigger re-render with updated statistics
+  defp refresh_reports_stream(socket) do
+    # Get current reports and re-stream them to trigger re-render
+    filters = build_filters(socket.assigns)
+    reports = Timeline.list_post_reports(filters)
+
+    stream(socket, :reports, reports, reset: true)
   end
 
   defp build_filters(assigns) do
@@ -323,6 +447,8 @@ defmodule MossletWeb.AdminModerationLive do
   # Report card component
   attr :report, :map, required: true
   attr :current_user, :map, required: true
+  attr :reporter_stats, :map, default: %{}
+  attr :reported_user_stats, :map, default: %{}
 
   defp report_card(assigns) do
     ~H"""
@@ -360,8 +486,8 @@ defmodule MossletWeb.AdminModerationLive do
       <%!-- Report Content --%>
       <div class="mt-4">
         <div class="text-sm text-slate-600 dark:text-slate-400">
-          <strong>Reporter:</strong> {@report.reporter.email} |
-          <strong>Reported User:</strong> {@report.reported_user.email}
+          <strong>Reporter:</strong> {@report.reporter.id} |
+          <strong>Reported User:</strong> {@report.reported_user.id}
         </div>
 
         <div class="mt-2">
@@ -381,41 +507,132 @@ defmodule MossletWeb.AdminModerationLive do
         <% end %>
       </div>
 
-      <%!-- Actions --%>
-      <%= if @report.status == :pending do %>
-        <div class="mt-6 flex space-x-3">
-          <.liquid_button
-            size="sm"
-            color="emerald"
-            phx-click="update_report_status"
-            phx-value-report_id={@report.id}
-            phx-value-status="reviewed"
-          >
-            Mark Reviewed
-          </.liquid_button>
+      <%!-- Actions - Show for all statuses with contextual options --%>
+      <div class="mt-6 space-y-4">
+        <!-- Status Change Actions -->
+        <div class="flex flex-wrap gap-3">
+          <%= if @report.status != :pending do %>
+            <.liquid_button
+              size="sm"
+              color="amber"
+              phx-click="update_report_status"
+              phx-value-report_id={@report.id}
+              phx-value-status="pending"
+              icon="hero-arrow-uturn-left"
+            >
+              Reopen
+            </.liquid_button>
+          <% end %>
 
-          <.liquid_button
-            size="sm"
-            color="blue"
-            phx-click="update_report_status"
-            phx-value-report_id={@report.id}
-            phx-value-status="resolved"
-          >
-            Resolve
-          </.liquid_button>
+          <%= if @report.status != :reviewed do %>
+            <.liquid_button
+              size="sm"
+              color="emerald"
+              phx-click="update_report_status"
+              phx-value-report_id={@report.id}
+              phx-value-status="reviewed"
+            >
+              Mark Reviewed
+            </.liquid_button>
+          <% end %>
 
-          <.liquid_button
-            size="sm"
-            color="slate"
-            variant="ghost"
-            phx-click="update_report_status"
-            phx-value-report_id={@report.id}
-            phx-value-status="dismissed"
-          >
-            Dismiss
-          </.liquid_button>
+          <%= if @report.status != :resolved do %>
+            <.liquid_button
+              size="sm"
+              color="blue"
+              phx-click="update_report_status"
+              phx-value-report_id={@report.id}
+              phx-value-status="resolved"
+            >
+              Resolve
+            </.liquid_button>
+          <% end %>
+
+          <%= if @report.status != :dismissed do %>
+            <.liquid_button
+              size="sm"
+              color="slate"
+              variant="ghost"
+              phx-click="update_report_status"
+              phx-value-report_id={@report.id}
+              phx-value-status="dismissed"
+            >
+              Dismiss
+            </.liquid_button>
+          <% end %>
         </div>
-      <% end %>
+        
+    <!-- Advanced Moderation Actions (Available for all except dismissed) -->
+        <%= if @report.status != :dismissed do %>
+          <div class="flex flex-wrap gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+            <.liquid_button
+              size="sm"
+              color="amber"
+              phx-click="delete_reported_post"
+              phx-value-post_id={@report.post.id}
+              phx-value-report_id={@report.id}
+              data-confirm="Are you sure you want to delete this post? This action cannot be undone."
+              icon="hero-trash"
+            >
+              Delete Post
+            </.liquid_button>
+
+            <.liquid_button
+              size="sm"
+              color="rose"
+              phx-click="suspend_reported_user"
+              phx-value-user_id={@report.reported_user.id}
+              phx-value-report_id={@report.id}
+              data-confirm="Are you sure you want to suspend this user?"
+              icon="hero-no-symbol"
+            >
+              Suspend User
+            </.liquid_button>
+
+            <.liquid_button
+              size="sm"
+              color="purple"
+              variant="ghost"
+              phx-click="investigate_reporter"
+              phx-value-reporter_id={@report.reporter.id}
+              icon="hero-magnifying-glass"
+            >
+              {if Map.has_key?(@reporter_stats || %{}, @report.reporter.id),
+                do: "Hide Reporter Stats",
+                else: "Check Reporter"}
+            </.liquid_button>
+
+            <.liquid_button
+              size="sm"
+              color="indigo"
+              variant="ghost"
+              phx-click="investigate_reported_user"
+              phx-value-reported_user_id={@report.reported_user.id}
+              icon="hero-user-circle"
+            >
+              {if Map.has_key?(@reported_user_stats || %{}, @report.reported_user.id),
+                do: "Hide User Stats",
+                else: "Check Reported User"}
+            </.liquid_button>
+          </div>
+
+          <%!-- Reporter Statistics Collapsible Display --%>
+          <%= if Map.has_key?(@reporter_stats || %{}, @report.reporter.id) do %>
+            <.liquid_collapsible_reporter_stats
+              stats={@reporter_stats[@report.reporter.id]}
+              reporter_id={@report.reporter.id}
+            />
+          <% end %>
+
+          <%!-- Reported User Statistics Collapsible Display --%>
+          <%= if Map.has_key?(@reported_user_stats || %{}, @report.reported_user.id) do %>
+            <.liquid_collapsible_reported_user_stats
+              stats={@reported_user_stats[@report.reported_user.id]}
+              reported_user_id={@report.reported_user.id}
+            />
+          <% end %>
+        <% end %>
+      </div>
     </div>
     """
   end
@@ -445,12 +662,18 @@ defmodule MossletWeb.AdminModerationLive do
   defp status_color_class(:dismissed),
     do: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300"
 
-  # Server-key decryption helpers (admin-only) using existing helper
+  # Server-key decryption helpers (admin-only)
   defp decrypt_report_reason(report, current_user) do
     if current_user.is_admin? and report.reason do
-      case decr_public_item(report.reason, get_report_key(report)) do
-        decrypted when is_binary(decrypted) -> decrypted
-        _ -> "[Decryption failed]"
+      case get_report_key(report) do
+        nil ->
+          "[No decryption key available]"
+
+        key ->
+          case decr_public_item(report.reason, key) do
+            decrypted when is_binary(decrypted) -> decrypted
+            _ -> "[Decryption failed]"
+          end
       end
     else
       "[Encrypted]"
@@ -459,9 +682,15 @@ defmodule MossletWeb.AdminModerationLive do
 
   defp decrypt_report_details(report, current_user) do
     if current_user.is_admin? and report.details do
-      case decr_public_item(report.details, get_report_key(report)) do
-        decrypted when is_binary(decrypted) -> decrypted
-        _ -> "[Decryption failed]"
+      case get_report_key(report) do
+        nil ->
+          "[No decryption key available]"
+
+        key ->
+          case decr_public_item(report.details, key) do
+            decrypted when is_binary(decrypted) -> decrypted
+            _ -> "[Decryption failed]"
+          end
       end
     else
       "[Encrypted]"
@@ -469,6 +698,133 @@ defmodule MossletWeb.AdminModerationLive do
   end
 
   defp get_report_key(report) do
-    report.user_post_report.key
+    # Defensive check for loaded association
+    case report.user_post_report do
+      %Ecto.Association.NotLoaded{} -> nil
+      nil -> nil
+      user_post_report -> user_post_report.key
+    end
+  end
+
+  # Collapsible reporter statistics display with liquid metal styling
+  attr :stats, :map, required: true
+  attr :reporter_id, :string, required: true
+
+  defp liquid_collapsible_reporter_stats(assigns) do
+    ~H"""
+    <div class="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="bg-slate-50 dark:bg-slate-700/50 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100">
+            Reporter Analysis
+          </h4>
+          <div class={[
+            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+            if(@stats.suspicious?,
+              do: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+              else: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+            )
+          ]}>
+            {if @stats.suspicious?, do: "⚠️ FLAGGED", else: "✅ LEGITIMATE"}
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 px-4 py-3 space-y-2">
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Total Reports:</span>
+            <span class="ml-2 text-slate-900 dark:text-slate-100">{@stats.total_reports}</span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">This Week:</span>
+            <span class="ml-2 text-slate-900 dark:text-slate-100">{@stats.recent_reports}</span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Dismissal Rate:</span>
+            <span class={[
+              "ml-2 font-medium",
+              if(@stats.dismissal_rate > 50,
+                do: "text-red-600 dark:text-red-400",
+                else: "text-slate-900 dark:text-slate-100"
+              )
+            ]}>
+              {@stats.dismissal_rate}%
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Pattern:</span>
+            <span class="ml-2 text-slate-900 dark:text-slate-100">
+              {if @stats.suspicious?, do: "High false reports", else: "Normal activity"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Collapsible reported user statistics display with liquid metal styling
+  attr :stats, :map, required: true
+  attr :reported_user_id, :string, required: true
+
+  defp liquid_collapsible_reported_user_stats(assigns) do
+    ~H"""
+    <div class="mt-4 rounded-lg border border-orange-200 dark:border-orange-700 overflow-hidden">
+      <div class="bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100">
+            Reported User Analysis
+          </h4>
+          <div class={[
+            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+            if(@stats.high_risk?,
+              do: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+              else: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+            )
+          ]}>
+            {if @stats.high_risk?, do: "⚠️ HIGH RISK", else: "✅ LOW RISK"}
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 px-4 py-3 space-y-2">
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">
+              Total Reports Received:
+            </span>
+            <span class="ml-2 text-slate-900 dark:text-slate-100">
+              {@stats.total_reports_received}
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">This Week:</span>
+            <span class="ml-2 text-slate-900 dark:text-slate-100">
+              {@stats.recent_reports_received}
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Violation Rate:</span>
+            <span class={[
+              "ml-2 font-medium",
+              if(@stats.violation_rate > 30,
+                do: "text-red-600 dark:text-red-400",
+                else: "text-slate-900 dark:text-slate-100"
+              )
+            ]}>
+              {@stats.violation_rate}%
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Status:</span>
+            <span class="ml-2 text-slate-900 dark:text-slate-100">
+              {if @stats.high_risk?, do: "Frequent violations", else: "Good standing"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
   end
 end
