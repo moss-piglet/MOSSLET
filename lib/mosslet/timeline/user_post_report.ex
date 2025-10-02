@@ -2,7 +2,7 @@ defmodule Mosslet.Timeline.UserPostReport do
   @moduledoc """
   Junction table storing encrypted report keys for admin access.
 
-  Follows the same pattern as UserPost - stores the report_key encrypted 
+  Follows the same pattern as UserPost - stores the report_key encrypted
   with server public key for admin access to report content.
   """
   use Ecto.Schema
@@ -39,16 +39,13 @@ defmodule Mosslet.Timeline.UserPostReport do
       # Get server public key for admin-accessible encryption
       server_public_key = Application.get_env(:mosslet, :server_public_key)
 
-      case Mosslet.Encrypted.Utils.encrypt_message_for_user_with_pk(
-             opts[:report_key],
-             %{public: server_public_key}
-           ) do
-        encrypted_key when is_binary(encrypted_key) ->
-          put_change(changeset, :key, encrypted_key)
+      encrypted_key =
+        Mosslet.Encrypted.Utils.encrypt_message_for_user_with_pk(
+          opts[:report_key],
+          %{public: server_public_key}
+        )
 
-        _error ->
-          add_error(changeset, :key, "Failed to encrypt report key for admin access")
-      end
+      put_change(changeset, :key, encrypted_key)
     else
       changeset
     end

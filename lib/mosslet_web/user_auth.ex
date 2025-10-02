@@ -791,7 +791,7 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_admin_user(conn, _opts) do
-    if conn.assigns[:current_user].is_admin? do
+    if conn.assigns[:current_user].is_admin? && conn.assigns[:current_user].confirmed_at do
       conn
     else
       conn

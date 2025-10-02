@@ -843,8 +843,6 @@ defmodule Mosslet.Timeline do
     |> where([b, p], p.user_id not in subquery(blocked_me_subquery))
   end
 
-  defp filter_by_blocked_users_bookmarks(query, _current_user_id), do: query
-
   @doc """
   Returns the list of public posts.
 
@@ -3511,106 +3509,6 @@ defmodule Mosslet.Timeline do
         order_by: [asc: c.name]
 
     Repo.all(query)
-  end
-
-  @doc """
-  Adds a content warning to a post.
-
-  ## Examples
-
-      iex> add_content_warning_to_post(post, user, %{
-      ...>   content_warning_category: "Mental Health",
-      ...>   content_warning_text: "Discussion of depression and anxiety"
-      ...> })
-      {:ok, %Post{}}
-  """
-  def add_content_warning_to_post(post, user, attrs) do
-    # Get the post_key for encrypting warning text (same as post body)
-    post_key = MossletWeb.Helpers.get_post_key(post, user)
-
-    if post_key do
-      warning_attrs = %{
-        content_warning_category: attrs[:content_warning_category],
-        content_warning: attrs[:content_warning],
-        content_warning?: true
-      }
-
-      case Repo.transaction_on_primary(fn ->
-             # Use a minimal changeset that only updates content warning fields
-             post
-             |> Ecto.Changeset.cast(warning_attrs, [
-               :content_warning_category,
-               :content_warning,
-               :content_warning?
-             ])
-             |> encrypt_content_warning_fields(post_key)
-             |> Repo.update()
-           end) do
-        {:ok, {:ok, updated_post}} ->
-          # Broadcast content warning added
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "posts",
-            {:post_updated, updated_post}
-          )
-
-          {:ok, updated_post}
-
-        {:ok, {:error, changeset}} ->
-          {:error, changeset}
-
-        error ->
-          error
-      end
-    else
-      {:error, :no_access_to_post}
-    end
-  end
-
-  # Helper function to encrypt content warning fields
-  defp encrypt_content_warning_fields(changeset, post_key) do
-    content_warning = Ecto.Changeset.get_field(changeset, :content_warning)
-    content_warning_category = Ecto.Changeset.get_field(changeset, :content_warning_category)
-
-    # For content_warning field: First encrypt with enacl (asymmetric), then Cloak handles symmetric encryption at rest
-    changeset =
-      if content_warning && String.trim(content_warning) != "" do
-        case Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: content_warning}) do
-          {:ok, encrypted_warning} ->
-            # Store the enacl-encrypted binary - Cloak will add the second layer automatically
-            Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)
-
-          encrypted_warning when is_binary(encrypted_warning) ->
-            # Handle direct binary return (fallback for different return formats)
-            Ecto.Changeset.put_change(changeset, :content_warning, encrypted_warning)
-
-          {:error, reason} ->
-            Ecto.Changeset.add_error(
-              changeset,
-              :content_warning,
-              "Failed to encrypt content warning: #{inspect(reason)}"
-            )
-
-          _unexpected ->
-            Ecto.Changeset.add_error(
-              changeset,
-              :content_warning,
-              "Failed to encrypt content warning"
-            )
-        end
-      else
-        changeset
-      end
-
-    if content_warning_category && String.trim(content_warning_category) != "" do
-      Ecto.Changeset.put_change(
-        changeset,
-        :content_warning_hash,
-        String.downcase(String.trim(content_warning_category))
-      )
-    else
-      changeset
-    end
   end
 
   @doc """

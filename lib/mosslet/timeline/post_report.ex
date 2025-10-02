@@ -101,27 +101,21 @@ defmodule Mosslet.Timeline.PostReport do
 
       changeset =
         if reason && String.trim(reason) != "" do
-          case Mosslet.Encrypted.Utils.encrypt(%{key: report_key, payload: String.trim(reason)}) do
-            encrypted_reason when is_binary(encrypted_reason) ->
-              changeset
-              |> put_change(:reason, encrypted_reason)
-              |> put_change(:reason_hash, String.downcase(String.trim(reason)))
+          encrypted_reason =
+            Mosslet.Encrypted.Utils.encrypt(%{key: report_key, payload: String.trim(reason)})
 
-            _error ->
-              add_error(changeset, :reason, "Failed to encrypt report reason")
-          end
+          changeset
+          |> put_change(:reason, encrypted_reason)
+          |> put_change(:reason_hash, String.downcase(String.trim(reason)))
         else
           changeset
         end
 
       if details && String.trim(details) != "" do
-        case Mosslet.Encrypted.Utils.encrypt(%{key: report_key, payload: String.trim(details)}) do
-          encrypted_details when is_binary(encrypted_details) ->
-            put_change(changeset, :details, encrypted_details)
+        encrypted_details =
+          Mosslet.Encrypted.Utils.encrypt(%{key: report_key, payload: String.trim(details)})
 
-          _error ->
-            add_error(changeset, :details, "Failed to encrypt report details")
-        end
+        put_change(changeset, :details, encrypted_details)
       else
         changeset
       end
