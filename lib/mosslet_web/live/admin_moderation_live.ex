@@ -322,25 +322,52 @@ defmodule MossletWeb.AdminModerationLive do
         %{"post_id" => post_id, "report_id" => report_id},
         socket
       ) do
-    with post when not is_nil(post) <- Timeline.get_post(post_id),
-         {:ok, _deleted_post} <- Timeline.delete_post(post, socket.assigns.current_user),
-         report when not is_nil(report) <- Timeline.get_post_report(report_id),
-         {:ok, updated_report} <-
-           Timeline.update_post_report(
-             report,
-             %{"status" => "resolved"},
-             socket.assigns.current_user
-           ) do
-      socket =
-        socket
-        |> put_flash(:info, "Post deleted and report resolved")
-        |> stream_insert(:reports, updated_report)
-
-      {:noreply, socket}
-    else
-      _error ->
-        socket = put_flash(socket, :error, "Failed to delete post")
+    case Timeline.get_post(post_id) do
+      nil ->
+        socket = put_flash(socket, :error, "Post not found")
         {:noreply, socket}
+
+      post ->
+        case Timeline.delete_post(post, user: socket.assigns.current_user) do
+          {:ok, _deleted_post} ->
+            # Post deleted successfully, now try to update the report
+            case Timeline.get_post_report(report_id) do
+              nil ->
+                # Post was deleted but report not found - still show success since main action worked
+                socket = put_flash(socket, :info, "Post deleted successfully (report not found)")
+                {:noreply, socket}
+
+              report ->
+                case Timeline.update_post_report(
+                       report,
+                       %{"status" => "resolved"},
+                       socket.assigns.current_user
+                     ) do
+                  {:ok, updated_report} ->
+                    socket =
+                      socket
+                      |> put_flash(:info, "Post deleted and report resolved")
+                      |> stream_insert(:reports, updated_report)
+
+                    {:noreply, socket}
+
+                  {:error, _changeset} ->
+                    # Post was deleted but report update failed - still show success since main action worked
+                    socket =
+                      put_flash(
+                        socket,
+                        :info,
+                        "Post deleted successfully (report status update failed)"
+                      )
+
+                    {:noreply, socket}
+                end
+            end
+
+          {:error, _changeset} ->
+            socket = put_flash(socket, :error, "Failed to delete post")
+            {:noreply, socket}
+        end
     end
   end
 
@@ -349,23 +376,45 @@ defmodule MossletWeb.AdminModerationLive do
         %{"reply_id" => reply_id, "report_id" => report_id},
         socket
       ) do
-    with reply when not is_nil(reply) <- Timeline.get_reply!(reply_id),
-         {:ok, _deleted_reply} <- Timeline.delete_reply(reply, user: socket.assigns.current_user),
-         report when not is_nil(report) <- Timeline.get_post_report(report_id),
-         {:ok, updated_report} <-
-           Timeline.update_post_report(
-             report,
-             %{"status" => "resolved"},
-             socket.assigns.current_user
-           ) do
-      socket =
-        socket
-        |> put_flash(:info, "Reply deleted and report resolved")
-        |> stream_insert(:reports, updated_report)
+    reply = Timeline.get_reply!(reply_id)
 
-      {:noreply, socket}
-    else
-      _error ->
+    case Timeline.delete_reply(reply, user: socket.assigns.current_user) do
+      {:ok, _deleted_reply} ->
+        # Reply deleted successfully, now try to update the report
+        case Timeline.get_post_report(report_id) do
+          nil ->
+            # Reply was deleted but report not found - still show success since main action worked
+            socket = put_flash(socket, :info, "Reply deleted successfully (report not found)")
+            {:noreply, socket}
+
+          report ->
+            case Timeline.update_post_report(
+                   report,
+                   %{"status" => "resolved"},
+                   socket.assigns.current_user
+                 ) do
+              {:ok, updated_report} ->
+                socket =
+                  socket
+                  |> put_flash(:info, "Reply deleted and report resolved")
+                  |> stream_insert(:reports, updated_report)
+
+                {:noreply, socket}
+
+              {:error, _changeset} ->
+                # Reply was deleted but report update failed - still show success since main action worked
+                socket =
+                  put_flash(
+                    socket,
+                    :info,
+                    "Reply deleted successfully (report status update failed)"
+                  )
+
+                {:noreply, socket}
+            end
+        end
+
+      {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to delete reply")
         {:noreply, socket}
     end
@@ -376,25 +425,54 @@ defmodule MossletWeb.AdminModerationLive do
         %{"user_id" => user_id, "report_id" => report_id},
         socket
       ) do
-    with user when not is_nil(user) <- Accounts.get_user(user_id),
-         {:ok, _suspended_user} <- Accounts.suspend_user(user, socket.assigns.current_user),
-         report when not is_nil(report) <- Timeline.get_post_report(report_id),
-         {:ok, updated_report} <-
-           Timeline.update_post_report(
-             report,
-             %{"status" => "resolved"},
-             socket.assigns.current_user
-           ) do
-      socket =
-        socket
-        |> put_flash(:info, "User suspended and report resolved")
-        |> stream_insert(:reports, updated_report)
-
-      {:noreply, socket}
-    else
-      _error ->
-        socket = put_flash(socket, :error, "Failed to suspend user")
+    case Accounts.get_user(user_id) do
+      nil ->
+        socket = put_flash(socket, :error, "User not found")
         {:noreply, socket}
+
+      user ->
+        case Accounts.suspend_user(user, socket.assigns.current_user) do
+          {:ok, _suspended_user} ->
+            # User suspended successfully, now try to update the report
+            case Timeline.get_post_report(report_id) do
+              nil ->
+                # User was suspended but report not found - still show success since main action worked
+                socket =
+                  put_flash(socket, :info, "User suspended successfully (report not found)")
+
+                {:noreply, socket}
+
+              report ->
+                case Timeline.update_post_report(
+                       report,
+                       %{"status" => "resolved"},
+                       socket.assigns.current_user
+                     ) do
+                  {:ok, updated_report} ->
+                    socket =
+                      socket
+                      |> put_flash(:info, "User suspended and report resolved")
+                      |> stream_insert(:reports, updated_report)
+
+                    {:noreply, socket}
+
+                  {:error, _changeset} ->
+                    # User was suspended but report update failed - still show success since main action worked
+                    socket =
+                      put_flash(
+                        socket,
+                        :info,
+                        "User suspended successfully (report status update failed)"
+                      )
+
+                    {:noreply, socket}
+                end
+            end
+
+          {:error, _changeset} ->
+            socket = put_flash(socket, :error, "Failed to suspend user")
+            {:noreply, socket}
+        end
     end
   end
 
