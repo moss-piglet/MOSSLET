@@ -27,7 +27,10 @@ defmodule MossletWeb.AdminModerationLive do
             <div class="min-w-0 flex-1">
               <div class="flex items-center space-x-3 mb-2">
                 <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
-                  <.phx_icon name="hero-shield-check" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <.phx_icon
+                    name="hero-shield-check"
+                    class="h-5 w-5 text-emerald-600 dark:text-emerald-400"
+                  />
                 </div>
                 <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                   Content Moderation
@@ -67,14 +70,15 @@ defmodule MossletWeb.AdminModerationLive do
           <div class="mb-8 rounded-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-700/25">
               <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100 flex items-center">
-                <.phx_icon name="hero-funnel" class="h-4 w-4 mr-2 text-slate-500" />
-                Filter Reports
+                <.phx_icon name="hero-funnel" class="h-4 w-4 mr-2 text-slate-500" /> Filter Reports
               </h3>
             </div>
-            <.form phx-change="filter_changed" class="p-5">
+            <.form for={%{}} phx-change="filter_changed" class="p-5">
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="space-y-2">
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Status</label>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Status
+                  </label>
                   <.liquid_filter_select
                     name="status"
                     value={@filter_status}
@@ -89,7 +93,9 @@ defmodule MossletWeb.AdminModerationLive do
                 </div>
 
                 <div class="space-y-2">
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Severity</label>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Severity
+                  </label>
                   <.liquid_filter_select
                     name="severity"
                     value={@filter_severity}
@@ -104,7 +110,9 @@ defmodule MossletWeb.AdminModerationLive do
                 </div>
 
                 <div class="space-y-2">
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Type</label>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Type
+                  </label>
                   <.liquid_filter_select
                     name="report_type"
                     value={@filter_type}
@@ -220,6 +228,15 @@ defmodule MossletWeb.AdminModerationLive do
   def handle_info({:report_updated, updated_report}, socket) do
     # Update the report in the stream
     {:noreply, stream_insert(socket, :reports, updated_report)}
+  end
+
+  def handle_event("clipcopy", _params, socket) do
+    fun_emojis = ["🎉", "✨", "🚀", "💫", "⭐", "🌟", "🎊", "🎈", "🔥", "💯"]
+    emoji = Enum.random(fun_emojis)
+
+    {:noreply,
+     socket
+     |> put_flash(:success, "ID copied to clipboard successfully! #{emoji}")}
   end
 
   # Filter event handlers
@@ -407,10 +424,6 @@ defmodule MossletWeb.AdminModerationLive do
             |> refresh_reports_stream()
 
           {:noreply, socket}
-
-        _error ->
-          socket = put_flash(socket, :error, "Could not retrieve reporter statistics")
-          {:noreply, socket}
       end
     end
   end
@@ -440,10 +453,6 @@ defmodule MossletWeb.AdminModerationLive do
             |> assign(:reported_user_stats, updated_stats)
             |> refresh_reports_stream()
 
-          {:noreply, socket}
-
-        _error ->
-          socket = put_flash(socket, :error, "Could not retrieve reported user statistics")
           {:noreply, socket}
       end
     end
@@ -503,6 +512,29 @@ defmodule MossletWeb.AdminModerationLive do
             {@report.severity |> to_string() |> String.capitalize()}
           </div>
 
+          <%!-- Content Type Badge (matches severity color for better visual hierarchy) --%>
+          <div class={[
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
+            soft_severity_color_class(@report.severity)
+          ]}>
+            <.phx_icon name={type_icon(@report.report_type)} class="h-3 w-3 mr-1.5" />
+            {@report.report_type |> to_string() |> String.capitalize()}
+          </div>
+
+          <%!-- Report Type Badge (Post vs Reply) --%>
+          <div class={[
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
+            if(@report.reply_id,
+              do:
+                "bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:ring-purple-800/30",
+              else:
+                "bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-800/30"
+            )
+          ]}>
+            <.phx_icon name={report_type_icon(@report)} class="h-3 w-3 mr-1.5" />
+            {if @report.reply_id, do: "Reply Report", else: "Post Report"}
+          </div>
+
           <%!-- Status Badge with softer colors --%>
           <div class={[
             "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
@@ -511,83 +543,188 @@ defmodule MossletWeb.AdminModerationLive do
             <.phx_icon name={status_icon(@report.status)} class="h-3 w-3 mr-1.5" />
             {@report.status |> to_string() |> String.capitalize()}
           </div>
-
-          <%!-- Content Type Badge --%>
-          <div class={[
-            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
-            if(@report.reply_id, do: "bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:ring-purple-800/30", else: "bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-800/30")
-          ]}>
-            <.phx_icon name={content_type_icon(@report)} class="h-3 w-3 mr-1.5" />
-            {if @report.reply_id, do: "Reply Report", else: "Post Report"}
-          </div>
         </div>
 
         <div class="text-sm text-slate-500 dark:text-slate-400 flex items-center">
           <.phx_icon name="hero-clock" class="h-4 w-4 mr-1.5" />
-          {Calendar.strftime(@report.inserted_at, "%b %d, %Y at %I:%M %p")}
+          <.local_time_full id={"created-#{@report.id}"} at={@report.inserted_at} />
         </div>
       </div>
 
       <%!-- Report Content with better typography and spacing --%>
       <div class="space-y-4">
-        <%!-- Enhanced ID Information with better mobile/desktop layout --%>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-          <%!-- Reporter Information --%>
-          <div class="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-3 border border-blue-200 dark:border-blue-800">
-            <div class="flex items-center mb-1">
-              <.phx_icon name="hero-user" class="h-4 w-4 mr-2 text-blue-500" />
-              <span class="font-semibold text-blue-900 dark:text-blue-100">Reporter</span>
-            </div>
-            <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
-              {@report.reporter.id |> String.slice(0..7)}...
-            </span>
-          </div>
-
-          <%!-- Reported User Information --%>
-          <div class="rounded-lg bg-rose-50 dark:bg-rose-900/10 p-3 border border-rose-200 dark:border-rose-800">
-            <div class="flex items-center mb-1">
-              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 mr-2 text-rose-500" />
-              <span class="font-semibold text-rose-900 dark:text-rose-100">Reported User</span>
-            </div>
-            <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
-              {@report.reported_user.id |> String.slice(0..7)}...
-            </span>
-          </div>
-
-          <%!-- Content Information (Post or Reply) --%>
-          <%= if @report.reply_id do %>
-            <div class="rounded-lg bg-purple-50 dark:bg-purple-900/10 p-3 border border-purple-200 dark:border-purple-800">
-              <div class="flex items-center mb-1">
-                <.phx_icon name="hero-chat-bubble-left" class="h-4 w-4 mr-2 text-purple-500" />
-                <span class="font-semibold text-purple-900 dark:text-purple-100">Reply Report</span>
+        <%!-- Enhanced ID Information with improved hierarchy and mobile-first design --%>
+        <div class="space-y-4">
+          <%!-- Primary entities: Reporter and Reported User --%>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <%!-- Reporter Information --%>
+            <div class="group relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 border border-blue-200/50 dark:border-blue-800/50 transition-all duration-200 hover:shadow-md">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50 mr-3">
+                    <.phx_icon name="hero-user" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span class="font-semibold text-blue-900 dark:text-blue-100 text-sm">Reporter</span>
+                </div>
+                <.liquid_copy_button
+                  id={"copy-to-clipboard-report-reporter-id-#{@report.id}"}
+                  text={@report.reporter.id}
+                  target={"copy-target-report-reporter-id-#{@report.id}"}
+                  color="blue"
+                  size="xs"
+                />
               </div>
-              <div class="space-y-1">
-                <div class="text-xs text-purple-700 dark:text-purple-300">Reply:</div>
-                <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
-                  {@report.reply_id |> String.slice(0..7)}...
+              <div class="space-y-2">
+                <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-blue-200/30 dark:border-blue-700/30 break-all leading-relaxed tracking-wide">
+                  <span
+                    id={"copy-target-report-reporter-id-#{@report.id}"}
+                    class="text-blue-800 dark:text-blue-200 font-medium"
+                  >
+                    {@report.reporter.id}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Reported User Information --%>
+            <div class="group relative overflow-hidden rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30 p-4 border border-rose-200/50 dark:border-rose-800/50 transition-all duration-200 hover:shadow-md">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/50 mr-3">
+                    <.phx_icon
+                      name="hero-exclamation-triangle"
+                      class="h-4 w-4 text-rose-600 dark:text-rose-400"
+                    />
+                  </div>
+                  <span class="font-semibold text-rose-900 dark:text-rose-100 text-sm">
+                    Reported User
+                  </span>
+                </div>
+                <.liquid_copy_button
+                  id={"copy-to-clipboard-report-reported-user-id-#{@report.id}"}
+                  text={@report.reported_user.id}
+                  target={"copy-target-report-reported-user-id-#{@report.id}"}
+                  color="rose"
+                  size="xs"
+                />
+              </div>
+              <div class="space-y-2">
+                <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-rose-200/30 dark:border-rose-700/30 break-all leading-relaxed tracking-wide">
+                  <span
+                    id={"copy-target-report-reported-user-id-#{@report.id}"}
+                    class="text-rose-800 dark:text-rose-200 font-medium"
+                  >
+                    {@report.reported_user.id}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Content Information (Post or Reply) with adaptive layout --%>
+          <%= if @report.reply_id do %>
+            <div class="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 p-4 border border-purple-200/50 dark:border-purple-800/50">
+              <div class="flex items-center mb-4">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50 mr-3">
+                  <.phx_icon
+                    name="hero-chat-bubble-left"
+                    class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                  />
+                </div>
+                <span class="font-semibold text-purple-900 dark:text-purple-100 text-sm">
+                  Reply Report
                 </span>
-                <div class="text-xs text-purple-700 dark:text-purple-300 mt-1">In Post:</div>
-                <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
-                  {@report.post.id |> String.slice(0..7)}...
-                </span>
+              </div>
+              <div class="space-y-4">
+                <%!-- Reply ID --%>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                      Reply ID
+                    </div>
+                    <.liquid_copy_button
+                      id={"copy-to-clipboard-report-reply-id-#{@report.id}"}
+                      text={@report.reply_id}
+                      target={"copy-target-report-reply-id-#{@report.id}"}
+                      color="purple"
+                      size="xs"
+                    />
+                  </div>
+                  <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-purple-200/30 dark:border-purple-700/30 break-all leading-relaxed tracking-wide">
+                    <span
+                      id={"copy-target-report-reply-id-#{@report.id}"}
+                      class="text-purple-800 dark:text-purple-200 font-medium"
+                    >
+                      {@report.reply_id}
+                    </span>
+                  </div>
+                </div>
+                <%!-- Parent Post ID --%>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                      Parent Post ID
+                    </div>
+                    <.liquid_copy_button
+                      id={"copy-to-clipboard-report-post-id-#{@report.id}"}
+                      text={@report.post.id}
+                      target={"copy-target-report-post-id-#{@report.id}"}
+                      color="purple"
+                      size="xs"
+                    />
+                  </div>
+                  <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-purple-200/30 dark:border-purple-700/30 break-all leading-relaxed tracking-wide">
+                    <span
+                      id={"copy-target-report-post-id-#{@report.id}"}
+                      class="text-purple-800 dark:text-purple-200 font-medium"
+                    >
+                      {@report.post.id}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           <% else %>
-            <div class="rounded-lg bg-emerald-50 dark:bg-emerald-900/10 p-3 border border-emerald-200 dark:border-emerald-800">
-              <div class="flex items-center mb-1">
-                <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2 text-emerald-500" />
-                <span class="font-semibold text-emerald-900 dark:text-emerald-100">Post Report</span>
+            <div class="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 p-4 border border-emerald-200/50 dark:border-emerald-800/50">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50 mr-3">
+                    <.phx_icon
+                      name="hero-document-text"
+                      class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                    />
+                  </div>
+                  <span class="font-semibold text-emerald-900 dark:text-emerald-100 text-sm">
+                    Post Report
+                  </span>
+                </div>
+                <.liquid_copy_button
+                  id={"copy-to-clipboard-report-post-id-#{@report.id}"}
+                  text={@report.post.id}
+                  target={"copy-target-report-post-id-#{@report.id}"}
+                  color="emerald"
+                  size="xs"
+                />
               </div>
-              <span class="font-mono text-xs bg-white dark:bg-slate-800 px-2 py-1 rounded border">
-                {@report.post.id |> String.slice(0..7)}...
-              </span>
+              <div class="space-y-2">
+                <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-emerald-200/30 dark:border-emerald-700/30 break-all leading-relaxed tracking-wide">
+                  <span
+                    id={"copy-target-report-post-id-#{@report.id}"}
+                    class="text-emerald-800 dark:text-emerald-200 font-medium"
+                  >
+                    {@report.post.id}
+                  </span>
+                </div>
+              </div>
             </div>
           <% end %>
         </div>
 
         <%!-- Report Reason with better contrast --%>
         <div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-4 border border-slate-200 dark:border-slate-700">
-          <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Report Reason</div>
+          <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
+            Report Reason
+          </div>
           <div class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
             {decrypt_report_reason(@report, @current_user)}
           </div>
@@ -597,8 +734,7 @@ defmodule MossletWeb.AdminModerationLive do
         <%= if @report.details do %>
           <div class="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4 border border-amber-200 dark:border-amber-800">
             <div class="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2 flex items-center">
-              <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2" />
-              Additional Details
+              <.phx_icon name="hero-document-text" class="h-4 w-4 mr-2" /> Additional Details
             </div>
             <div class="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
               {decrypt_report_details(@report, @current_user)}
@@ -661,7 +797,7 @@ defmodule MossletWeb.AdminModerationLive do
             </.liquid_button>
           <% end %>
         </div>
-
+        
     <!-- Advanced Moderation Actions (Available for all except dismissed) -->
         <%= if @report.status != :dismissed do %>
           <div class="flex flex-wrap gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
@@ -755,23 +891,6 @@ defmodule MossletWeb.AdminModerationLive do
 
   # Enhanced helper functions for calmer, more accessible styling
 
-  # Softer severity colors that are easier on the eyes
-  defp soft_severity_color_class(:critical),
-    do:
-      "bg-red-50 text-red-700 ring-red-200 dark:bg-red-900/20 dark:text-red-300 dark:ring-red-800/30"
-
-  defp soft_severity_color_class(:high),
-    do:
-      "bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:ring-orange-800/30"
-
-  defp soft_severity_color_class(:medium),
-    do:
-      "bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:ring-yellow-800/30"
-
-  defp soft_severity_color_class(:low),
-    do:
-      "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-800/30"
-
   # Softer status colors
   defp soft_status_color_class(:pending),
     do:
@@ -800,40 +919,35 @@ defmodule MossletWeb.AdminModerationLive do
   defp status_icon(:resolved), do: "hero-check-circle"
   defp status_icon(:dismissed), do: "hero-x-circle"
 
-  defp type_icon(:content), do: "hero-document-text"
-  defp type_icon(:harassment), do: "hero-exclamation-triangle"
-  defp type_icon(:spam), do: "hero-no-symbol"
-  defp type_icon(:other), do: "hero-ellipsis-horizontal-circle"
+  defp type_icon(atom) do
+    case atom do
+      :content -> "hero-document-text"
+      :harassment -> "hero-exclamation-triangle"
+      :spam -> "hero-no-symbol"
+      :other -> "hero-ellipsis-horizontal-circle"
+    end
+  end
 
-  # Helper for content type (post vs reply) icon
-  defp content_type_icon(report) do
+  # Helper for report type (post vs reply) icon
+  defp report_type_icon(report) do
     if report.reply_id, do: "hero-chat-bubble-left", else: "hero-document-text"
   end
 
-  # Keep original color functions for backwards compatibility
-  defp severity_color_class(:critical),
-    do: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+  defp soft_severity_color_class(atom) do
+    case atom do
+      :critical ->
+        "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:ring-rose-800/30"
 
-  defp severity_color_class(:high),
-    do: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+      :high ->
+        "bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:ring-orange-800/30"
 
-  defp severity_color_class(:medium),
-    do: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+      :medium ->
+        "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:ring-amber-800/30"
 
-  defp severity_color_class(:low),
-    do: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-
-  defp status_color_class(:pending),
-    do: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-
-  defp status_color_class(:reviewed),
-    do: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-
-  defp status_color_class(:resolved),
-    do: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-
-  defp status_color_class(:dismissed),
-    do: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300"
+      :low ->
+        "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-800/30"
+    end
+  end
 
   # Server-key decryption helpers (admin-only)
   defp decrypt_report_reason(report, current_user) do
@@ -877,6 +991,70 @@ defmodule MossletWeb.AdminModerationLive do
       nil -> nil
       user_post_report -> user_post_report.key
     end
+  end
+
+  # Helper component for copy-to-clipboard ID buttons
+  # uses our phx:clipcopy in app.js
+  attr :text, :string, required: true
+  attr :size, :string, default: "sm"
+  attr :color, :string, default: "slate"
+  attr :id, :string
+  attr :target, :string, doc: "the id to target for the text we want to copy"
+
+  defp liquid_copy_button(assigns) do
+    ~H"""
+    <button
+      type="button"
+      id={@id}
+      phx-hook="TippyHook"
+      data-clipboard-copy={JS.push("clipcopy")}
+      data-tippy-content="Copy to clipboard"
+      phx-click={JS.dispatch("phx:clipcopy", to: "##{@target}")}
+      class={[
+        "inline-flex items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 active:scale-95",
+        "border shadow-sm hover:shadow-md",
+        copy_button_color_classes(@color),
+        case @size do
+          "xs" -> "h-6 w-6 p-1"
+          "sm" -> "h-8 w-8 p-1.5"
+          _ -> "h-10 w-10 p-2"
+        end
+      ]}
+    >
+      <.phx_icon
+        name="hero-clipboard"
+        class={[
+          case @size do
+            "xs" -> "h-3 w-3"
+            "sm" -> "h-4 w-4"
+            _ -> "h-5 w-5"
+          end
+        ]}
+      />
+    </button>
+    """
+  end
+
+  # Helper function for copy button color classes
+  defp copy_button_color_classes("blue") do
+    "bg-blue-50/80 dark:bg-blue-900/50 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-300 dark:hover:border-blue-600"
+  end
+
+  defp copy_button_color_classes("rose") do
+    "bg-rose-50/80 dark:bg-rose-900/50 text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-200 border-rose-200/50 dark:border-rose-700/50 hover:border-rose-300 dark:hover:border-rose-600"
+  end
+
+  defp copy_button_color_classes("purple") do
+    "bg-purple-50/80 dark:bg-purple-900/50 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-200 border-purple-200/50 dark:border-purple-700/50 hover:border-purple-300 dark:hover:border-purple-600"
+  end
+
+  defp copy_button_color_classes("emerald") do
+    "bg-emerald-50/80 dark:bg-emerald-900/50 text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 border-emerald-200/50 dark:border-emerald-700/50 hover:border-emerald-300 dark:hover:border-emerald-600"
+  end
+
+  defp copy_button_color_classes(_) do
+    # Default slate color
+    "bg-white/80 dark:bg-slate-800/80 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 border-slate-200/50 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600"
   end
 
   # Collapsible reporter statistics display with liquid metal styling

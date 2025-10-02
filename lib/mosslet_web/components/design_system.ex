@@ -6065,7 +6065,7 @@ defmodule MossletWeb.DesignSystem do
   Follows the same liquid metal design patterns as liquid_select but optimized for filter forms.
   """
   attr :name, :string, required: true
-  attr :value, :string, required: true  
+  attr :value, :string, required: true
   attr :options, :list, required: true
   attr :class, :any, default: ""
   attr :rest, :global

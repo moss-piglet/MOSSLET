@@ -1090,7 +1090,7 @@ defmodule Mosslet.Accounts do
       {:ok, return} =
         Repo.transaction_on_primary(fn ->
           user
-          |> User.admin_changeset()
+          |> User.toggle_admin_status_changeset()
           |> Repo.update()
         end)
 
