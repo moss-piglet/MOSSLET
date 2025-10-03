@@ -874,8 +874,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put_new("mature_content", false)
       |> Map.put_new("is_ephemeral", false)
       |> Map.put_new("local_only", false)
-      # Convert expires_at string values to actual datetimes
-      |> convert_expires_at_to_datetime()
+      # Expiration handling now done in Post changeset with virtual field
       |> add_shared_users_list_for_new_post(post_shared_users)
 
     # Let Timeline.change_post handle all the changeset logic
@@ -1400,8 +1399,7 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
         |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
-        # Convert expires_at string values to actual datetimes for save
-        |> convert_expires_at_to_datetime()
+        # Expiration conversion now handled in Post changeset
         |> add_shared_users_list_for_new_post(post_shared_users)
 
       if post_params["user_id"] == current_user.id do
@@ -2608,21 +2606,6 @@ defmodule MossletWeb.TimelineLive.Index do
        :delete_reply_from_cloud_message,
        AsyncResult.failed(del_message, {:exit, reason})
      )}
-  end
-
-  # Helper function to convert expires_at string values to actual datetimes
-  defp convert_expires_at_to_datetime(params) do
-    case Map.get(params, "expires_at") do
-      nil -> params
-      "" -> params
-      "1_hour" -> Map.put(params, "expires_at", NaiveDateTime.add(NaiveDateTime.utc_now(), 1, :hour))
-      "6_hours" -> Map.put(params, "expires_at", NaiveDateTime.add(NaiveDateTime.utc_now(), 6, :hour))
-      "24_hours" -> Map.put(params, "expires_at", NaiveDateTime.add(NaiveDateTime.utc_now(), 24, :hour))
-      "7_days" -> Map.put(params, "expires_at", NaiveDateTime.add(NaiveDateTime.utc_now(), 7, :day))
-      "30_days" -> Map.put(params, "expires_at", NaiveDateTime.add(NaiveDateTime.utc_now(), 30, :day))
-      # If it's already a datetime or other value, leave as-is
-      _other -> params
-    end
   end
 
   defp update_post_body(post, body, current_user, key) do

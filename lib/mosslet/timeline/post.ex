@@ -57,6 +57,8 @@ defmodule Mosslet.Timeline.Post do
     field :is_ephemeral, :boolean, default: false
     # When post gets auto-deleted
     field :expires_at, :naive_datetime
+    # Virtual field for the UI dropdown selection
+    field :expires_at_option, :string, virtual: true
     # Don't federate (future)
     field :local_only, :boolean, default: false
 
@@ -124,6 +126,8 @@ defmodule Mosslet.Timeline.Post do
       :mature_content,
       :is_ephemeral,
       :expires_at,
+      # Virtual field for UI
+      :expires_at_option,
       :local_only
     ])
     |> validate_required([:body, :username, :user_id])
@@ -133,6 +137,8 @@ defmodule Mosslet.Timeline.Post do
     # NEW - Enhanced privacy validation
     |> validate_enhanced_privacy_controls(opts)
     |> validate_content_warning()
+    # Convert virtual field to real datetime
+    |> prepare_expires_at()
     |> encrypt_attrs(opts)
     |> cast_embed(:shared_users,
       with: &shared_user_changeset/2,
@@ -431,15 +437,10 @@ defmodule Mosslet.Timeline.Post do
   end
 
   defp validate_interaction_controls(changeset) do
-    is_ephemeral = get_field(changeset, :is_ephemeral)
-    allow_bookmarks = get_field(changeset, :allow_bookmarks)
-
-    # Ephemeral posts shouldn't allow bookmarks (they'll disappear anyway)
-    if is_ephemeral && allow_bookmarks do
-      add_error(changeset, :allow_bookmarks, "ephemeral posts cannot be bookmarked")
-    else
-      changeset
-    end
+    # Note: We now allow ephemeral posts to be bookmarked
+    # The bookmark will be automatically cleaned up when the post expires
+    # This provides better UX and user agency
+    changeset
   end
 
   defp validate_ephemeral_settings(changeset) do
@@ -464,6 +465,36 @@ defmodule Mosslet.Timeline.Post do
       |> validate_required(:content_warning)
     else
       changeset
+    end
+  end
+
+  # Convert expires_at_option (UI string) to expires_at (actual datetime)
+  # This is the idiomatic Phoenix pattern for form field transformation
+  defp prepare_expires_at(changeset) do
+    case get_change(changeset, :expires_at_option) do
+      nil ->
+        changeset
+
+      "" ->
+        changeset
+
+      "1_hour" ->
+        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 1, :hour))
+
+      "6_hours" ->
+        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 6, :hour))
+
+      "24_hours" ->
+        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 24, :hour))
+
+      "7_days" ->
+        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 7, :day))
+
+      "30_days" ->
+        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 30, :day))
+
+      _other ->
+        add_error(changeset, :expires_at_option, "invalid expiration option")
     end
   end
 

@@ -6244,12 +6244,37 @@ defmodule MossletWeb.DesignSystem do
               help="Others can repost"
             />
 
-            <%!-- Allow Bookmarks --%>
-            <.liquid_checkbox
-              field={@form[:allow_bookmarks]}
-              label="Bookmarks"
-              help="Others can save"
-            />
+            <%!-- Allow Bookmarks (with warning for ephemeral posts) --%>
+            <div class="space-y-2">
+              <.liquid_checkbox
+                field={@form[:allow_bookmarks]}
+                label="Bookmarks"
+                help={
+                  if @form[:is_ephemeral].value == true or @form[:is_ephemeral].value == "true",
+                    do: "Others can save (bookmark will be deleted when post expires)",
+                    else: "Others can save"
+                }
+              />
+
+              <%!-- Educational note for ephemeral + bookmarks --%>
+              <div
+                :if={
+                  (@form[:is_ephemeral].value == true or @form[:is_ephemeral].value == "true") and
+                    (@form[:allow_bookmarks].value == true or @form[:allow_bookmarks].value == "true")
+                }
+                class="ml-6 p-2 rounded-lg bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30"
+              >
+                <div class="flex items-start gap-2">
+                  <.phx_icon
+                    name="hero-information-circle"
+                    class="h-3 w-3 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
+                  />
+                  <p class="text-xs text-amber-700 dark:text-amber-300">
+                    Bookmarks of this post will automatically be removed when the post expires.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <%!-- Require Connection to Reply (only shown for public posts) --%>
@@ -6323,7 +6348,7 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <.liquid_select_custom
-              field={@form[:expires_at]}
+              field={@form[:expires_at_option]}
               label="Delete after"
               prompt="Select timeframe..."
               color="amber"
