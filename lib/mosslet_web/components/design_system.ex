@@ -1516,7 +1516,7 @@ defmodule MossletWeb.DesignSystem do
 
     ~H"""
     <div phx-feedback-for={@name} class={["space-y-2", @class]}>
-      <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <div class="group relative overflow-hidden rounded-xl p-3 transition-all duration-200 ease-out hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
         <%!-- Enhanced liquid background effect on hover and focus --%>
         <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-hover:opacity-100 group-focus-within:opacity-100 rounded-xl">
         </div>
