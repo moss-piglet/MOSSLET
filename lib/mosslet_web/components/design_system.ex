@@ -3171,6 +3171,15 @@ defmodule MossletWeb.DesignSystem do
                   {"Other", "other"}
                 ]}
               />
+
+              <%!-- Mature Content Toggle --%>
+              <div class="pt-2">
+                <.liquid_checkbox
+                  field={@form[:mature_content]}
+                  label="Mature content (18+)"
+                  help="Mark this content as mature/adult content"
+                />
+              </div>
             </div>
           </div>
         <% end %>
@@ -6220,7 +6229,7 @@ defmodule MossletWeb.DesignSystem do
             Interaction Controls
           </h5>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <%!-- Allow Replies --%>
             <.liquid_checkbox
               field={@form[:allow_replies]}
@@ -6241,12 +6250,26 @@ defmodule MossletWeb.DesignSystem do
               label="Bookmarks"
               help="Others can save"
             />
+          </div>
 
-            <%!-- Require Connection to Reply --%>
+          <%!-- Require Connection to Reply (only shown for public posts) --%>
+          <div
+            :if={@selector == "public"}
+            class="mt-3 p-3 rounded-lg bg-emerald-100/60 dark:bg-emerald-800/30 border border-emerald-300/60 dark:border-emerald-600/40"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <.phx_icon
+                name="hero-shield-check"
+                class="h-4 w-4 text-emerald-700 dark:text-emerald-300"
+              />
+              <span class="text-xs font-medium text-emerald-800 dark:text-emerald-200 uppercase tracking-wide">
+                Public Post Security
+              </span>
+            </div>
             <.liquid_checkbox
               field={@form[:require_follow_to_reply]}
-              label="Connections only"
-              help="Must be connected to reply"
+              label="Require connection to reply"
+              help="Only your confirmed connections can reply to this public post"
             />
           </div>
         </div>
@@ -6257,40 +6280,71 @@ defmodule MossletWeb.DesignSystem do
             Additional Options
           </h5>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <%!-- Mature Content --%>
-            <.liquid_checkbox
-              field={@form[:mature_content]}
-              label="Mature content"
-              help="Mark as sensitive"
-            />
-
+          <div class="grid grid-cols-1 gap-3">
             <%!-- Temporary Post --%>
             <.liquid_checkbox
               field={@form[:is_ephemeral]}
-              label="Temporary post"
+              label="Ephemeral post"
               help="Auto-delete after time limit"
             />
           </div>
 
           <%!-- Expiration Controls (when ephemeral is enabled) --%>
           <div
-            :if={@form[:is_ephemeral].value}
+            :if={@form[:is_ephemeral].value == true or @form[:is_ephemeral].value == "true"}
             class="mt-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30"
           >
+            <div class="flex items-center gap-2 mb-3">
+              <.phx_icon
+                name="hero-clock"
+                class="h-4 w-4 text-amber-600 dark:text-amber-400"
+              />
+              <span class="text-xs font-medium text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                Auto-deletion Settings
+              </span>
+            </div>
+
+            <%!-- Educational prompt for public ephemeral posts --%>
+            <div
+              :if={@selector == "public"}
+              class="mb-4 p-3 rounded-lg bg-emerald-100/60 dark:bg-emerald-800/30 border border-emerald-300/60 dark:border-emerald-600/40"
+            >
+              <div class="flex items-start gap-2">
+                <.phx_icon
+                  name="hero-information-circle"
+                  class="h-4 w-4 text-emerald-700 dark:text-emerald-300 mt-0.5 flex-shrink-0"
+                />
+                <div class="text-sm text-emerald-800 dark:text-emerald-200">
+                  <strong>Public ephemeral post:</strong>
+                  This will appear in public feeds but automatically delete.
+                  Others may still screenshot or save the content before deletion. Minimum 24 hours for public accountability.
+                </div>
+              </div>
+            </div>
+
             <.liquid_select_custom
               field={@form[:expires_at]}
               label="Delete after"
               prompt="Select timeframe..."
               color="amber"
               class="text-sm"
-              options={[
-                {"1 hour", "1_hour"},
-                {"6 hours", "6_hours"},
-                {"24 hours", "24_hours"},
-                {"7 days", "7_days"},
-                {"30 days", "30_days"}
-              ]}
+              options={
+                if @selector == "public" do
+                  [
+                    {"24 hours", "24_hours"},
+                    {"7 days", "7_days"},
+                    {"30 days", "30_days"}
+                  ]
+                else
+                  [
+                    {"1 hour", "1_hour"},
+                    {"6 hours", "6_hours"},
+                    {"24 hours", "24_hours"},
+                    {"7 days", "7_days"},
+                    {"30 days", "30_days"}
+                  ]
+                end
+              }
             />
           </div>
         </div>
