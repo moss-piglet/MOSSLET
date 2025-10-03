@@ -1180,22 +1180,38 @@ defmodule MossletWeb.Helpers do
   So we can use this for both connection avatars and personal avatars.
   """
   def show_avatar?(user_connection) do
-    profile = Map.get(user_connection.connection, :profile, nil)
+    # Handle nil user_connection gracefully (for public posts from non-connections)
+    case user_connection do
+      nil ->
+        false
 
-    if profile do
-      profile.show_avatar?
-    else
-      false
+      %{connection: nil} ->
+        false
+
+      %{connection: connection} ->
+        profile = Map.get(connection, :profile, nil)
+        if profile, do: profile.show_avatar?, else: false
+
+      _ ->
+        false
     end
   end
 
   def show_name?(user_connection) do
-    profile = Map.get(user_connection.connection, :profile, nil)
+    # Handle nil user_connection gracefully (for public posts from non-connections)
+    case user_connection do
+      nil ->
+        false
 
-    if profile do
-      profile.show_name?
-    else
-      false
+      %{connection: nil} ->
+        false
+
+      %{connection: connection} ->
+        profile = Map.get(connection, :profile, nil)
+        if profile, do: profile.show_name?, else: false
+
+      _ ->
+        false
     end
   end
 
