@@ -2866,6 +2866,7 @@ defmodule MossletWeb.DesignSystem do
   attr :form, :any, required: true
   attr :uploads, :any, default: nil
   attr :class, :any, default: ""
+  attr :privacy_controls_expanded, :boolean, default: false
   attr :content_warning_enabled?, :boolean, default: false
 
   def liquid_timeline_composer_enhanced(assigns) do
@@ -3036,7 +3037,7 @@ defmodule MossletWeb.DesignSystem do
               id="privacy-hidden-field"
             />
 
-            <%!-- Privacy selector with simple server-side toggle --%>
+            <%!-- Enhanced privacy selector with progressive disclosure --%>
             <div
               id={"privacy-selector-#{@selector}"}
               class={[
@@ -3044,11 +3045,11 @@ defmodule MossletWeb.DesignSystem do
                 "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
                 "border border-slate-200/60 dark:border-slate-600/60",
                 "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
-                "transition-all duration-200 ease-out cursor-pointer"
+                "transition-all duration-200 ease-out cursor-pointer group"
               ]}
-              phx-click="toggle_privacy_selector"
+              phx-click="toggle_privacy_controls"
               phx-hook="TippyHook"
-              data-tippy-content="Click to toggle privacy level"
+              data-tippy-content="Click to expand privacy controls"
             >
               <.phx_icon
                 name={privacy_icon(@selector)}
@@ -3057,6 +3058,11 @@ defmodule MossletWeb.DesignSystem do
               <span class="font-medium text-slate-700 dark:text-slate-200 privacy-label">
                 {privacy_label(@selector)}
               </span>
+              <%!-- Chevron indicates expandable --%>
+              <.phx_icon
+                name={if @privacy_controls_expanded, do: "hero-chevron-up", else: "hero-chevron-down"}
+                class="h-3 w-3 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-hover:scale-110"
+              />
             </div>
 
             <%!-- Post button that submits the form --%>
@@ -3071,6 +3077,16 @@ defmodule MossletWeb.DesignSystem do
             </.liquid_button>
           </div>
         </div>
+
+        <%!-- Enhanced Privacy Controls Section (conditionally shown) --%>
+        <%= if @privacy_controls_expanded do %>
+          <div class="mt-4 animate-in slide-in-from-top-2 duration-300 ease-out">
+            <.liquid_enhanced_privacy_controls
+              form={@form}
+              selector={@selector}
+            />
+          </div>
+        <% end %>
 
         <%!-- Content Warning Section (conditionally shown) --%>
         <%= if @content_warning_enabled? do %>
@@ -6129,6 +6145,249 @@ defmodule MossletWeb.DesignSystem do
         </svg>
       </div>
     </div>
+    """
+  end
+
+  @doc """
+  Enhanced privacy controls component for composer with progressive disclosure.
+  Follows existing patterns like content warning section with emerald theming.
+  """
+  attr :form, :any, required: true
+  attr :selector, :string, required: true
+  attr :class, :any, default: ""
+
+  def liquid_enhanced_privacy_controls(assigns) do
+    ~H"""
+    <div class={[
+      "p-4 rounded-xl border transition-all duration-300 ease-out",
+      "bg-emerald-50/50 dark:bg-emerald-900/20",
+      "border-emerald-200/60 dark:border-emerald-700/50",
+      @class
+    ]}>
+      <div class="flex items-center gap-2 mb-4">
+        <.phx_icon
+          name="hero-shield-check"
+          class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+        />
+        <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          Privacy Controls
+        </span>
+      </div>
+
+      <div class="space-y-4">
+        <%!-- Quick Visibility Options (Level 2) --%>
+        <div class="space-y-3">
+          <h5 class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+            Who can see this?
+          </h5>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <%!-- Private Option --%>
+            <.liquid_privacy_radio_option
+              name="visibility"
+              value="private"
+              current_value={@selector}
+              icon="hero-lock-closed"
+              label="Private"
+              description="Only you"
+            />
+
+            <%!-- Connections Option --%>
+            <.liquid_privacy_radio_option
+              name="visibility"
+              value="connections"
+              current_value={@selector}
+              icon="hero-user-group"
+              label="Connections"
+              description="Your network"
+            />
+
+            <%!-- Public Option --%>
+            <.liquid_privacy_radio_option
+              name="visibility"
+              value="public"
+              current_value={@selector}
+              icon="hero-globe-alt"
+              label="Public"
+              description="Everyone"
+            />
+          </div>
+        </div>
+
+        <%!-- Interaction Controls (Level 2) --%>
+        <div class="space-y-3">
+          <h5 class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+            Interaction Controls
+          </h5>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <%!-- Allow Replies --%>
+            <.liquid_checkbox
+              field={@form[:allow_replies]}
+              label="Replies"
+              help="Others can reply"
+            />
+
+            <%!-- Allow Shares --%>
+            <.liquid_checkbox
+              field={@form[:allow_shares]}
+              label="Sharing"
+              help="Others can repost"
+            />
+
+            <%!-- Allow Bookmarks --%>
+            <.liquid_checkbox
+              field={@form[:allow_bookmarks]}
+              label="Bookmarks"
+              help="Others can save"
+            />
+
+            <%!-- Require Connection to Reply --%>
+            <.liquid_checkbox
+              field={@form[:require_follow_to_reply]}
+              label="Connections only"
+              help="Must be connected to reply"
+            />
+          </div>
+        </div>
+
+        <%!-- Additional Controls (Level 2) --%>
+        <div class="space-y-3">
+          <h5 class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+            Additional Options
+          </h5>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <%!-- Mature Content --%>
+            <.liquid_checkbox
+              field={@form[:mature_content]}
+              label="Mature content"
+              help="Mark as sensitive"
+            />
+
+            <%!-- Temporary Post --%>
+            <.liquid_checkbox
+              field={@form[:is_ephemeral]}
+              label="Temporary post"
+              help="Auto-delete after time limit"
+            />
+          </div>
+
+          <%!-- Expiration Controls (when ephemeral is enabled) --%>
+          <div
+            :if={@form[:is_ephemeral].value}
+            class="mt-3 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30"
+          >
+            <.liquid_select_custom
+              field={@form[:expires_at]}
+              label="Delete after"
+              prompt="Select timeframe..."
+              color="amber"
+              class="text-sm"
+              options={[
+                {"1 hour", "1_hour"},
+                {"6 hours", "6_hours"},
+                {"24 hours", "24_hours"},
+                {"7 days", "7_days"},
+                {"30 days", "30_days"}
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Radio option component for privacy selection.
+  Follows existing liquid metal patterns with compact design for composer.
+  """
+  attr :name, :string, required: true
+  attr :value, :string, required: true
+  attr :current_value, :string, required: true
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :description, :string, required: true
+
+  def liquid_privacy_radio_option(assigns) do
+    assigns = assign(assigns, :checked, assigns.value == assigns.current_value)
+
+    ~H"""
+    <label class={[
+      "group relative cursor-pointer overflow-hidden rounded-lg p-3 transition-all duration-200 ease-out",
+      "border-2 hover:scale-[1.02] focus-within:scale-[1.02]",
+      if(@checked,
+        do: "border-emerald-300 dark:border-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20",
+        else:
+          "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:border-emerald-200 dark:hover:border-emerald-700"
+      )
+    ]}>
+      <%!-- Liquid background effect --%>
+      <div class={[
+        "absolute inset-0 opacity-0 transition-all duration-300 ease-out",
+        "bg-gradient-to-br from-emerald-50/30 via-emerald-100/20 to-emerald-50/30",
+        "dark:from-emerald-900/15 dark:via-emerald-800/10 dark:to-emerald-900/15",
+        if(@checked, do: "opacity-100 group-hover:opacity-100", else: "group-hover:opacity-100")
+      ]}>
+      </div>
+
+      <%!-- Shimmer effect --%>
+      <div class={[
+        "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
+        "bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent",
+        "dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"
+      ]}>
+      </div>
+
+      <div class="relative flex flex-col items-center text-center gap-2">
+        <%!-- Radio input --%>
+        <input
+          type="radio"
+          name={@name}
+          value={@value}
+          checked={@checked}
+          class="sr-only"
+          phx-click="update_privacy_visibility"
+          phx-value-visibility={@value}
+        />
+
+        <%!-- Icon --%>
+        <div class={[
+          "p-2 rounded-lg transition-all duration-200 ease-out",
+          if(@checked,
+            do: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
+            else:
+              "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+          )
+        ]}>
+          <.phx_icon name={@icon} class="h-4 w-4" />
+        </div>
+
+        <%!-- Label --%>
+        <div>
+          <div class={[
+            "text-sm font-medium transition-colors duration-200 ease-out",
+            if(@checked,
+              do: "text-emerald-700 dark:text-emerald-300",
+              else:
+                "text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
+            )
+          ]}>
+            {@label}
+          </div>
+          <div class={[
+            "text-xs transition-colors duration-200 ease-out",
+            if(@checked,
+              do: "text-emerald-600 dark:text-emerald-400",
+              else: "text-slate-500 dark:text-slate-400"
+            )
+          ]}>
+            {@description}
+          </div>
+        </div>
+      </div>
+    </label>
     """
   end
 end

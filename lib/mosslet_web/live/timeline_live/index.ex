@@ -33,8 +33,6 @@ defmodule MossletWeb.TimelineLive.Index do
         self(),
         current_user.id
       )
-
-      Logger.debug("User timeline activity tracked for cache optimization")
     end
 
     # Create changeset with all required fields populated
@@ -46,7 +44,15 @@ defmodule MossletWeb.TimelineLive.Index do
           "user_id" => current_user.id,
           "username" => username(current_user, key) || "",
           "content_warning" => "",
-          "content_warning_category" => ""
+          "content_warning_category" => "",
+          # Enhanced privacy control defaults
+          "allow_replies" => true,
+          "allow_shares" => true,
+          "allow_bookmarks" => true,
+          "require_follow_to_reply" => false,
+          "mature_content" => false,
+          "is_ephemeral" => false,
+          "local_only" => false
         },
         user: current_user
       )
@@ -75,6 +81,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:user_token, user_token)
       # Content warning state
       |> assign(:content_warning_enabled?, false)
+      # Enhanced privacy controls state
+      |> assign(:privacy_controls_expanded, false)
       # Moderation modal states
       |> assign(:show_report_modal, false)
       |> assign(:report_post_id, nil)
@@ -850,7 +858,7 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # Build complete params for validation
+    # Build complete params for validation including enhanced privacy controls
     complete_params =
       post_params
       |> Map.put("image_urls", socket.assigns.image_urls)
@@ -858,6 +866,14 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
       |> Map.put("user_id", current_user.id)
       |> Map.put("username", username(current_user, key) || "")
+      # Enhanced privacy controls - preserve existing values or use defaults
+      |> Map.put_new("allow_replies", true)
+      |> Map.put_new("allow_shares", true)
+      |> Map.put_new("allow_bookmarks", true)
+      |> Map.put_new("require_follow_to_reply", false)
+      |> Map.put_new("mature_content", false)
+      |> Map.put_new("is_ephemeral", false)
+      |> Map.put_new("local_only", false)
       |> add_shared_users_list_for_new_post(post_shared_users)
 
     # Let Timeline.change_post handle all the changeset logic
@@ -1270,6 +1286,19 @@ defmodule MossletWeb.TimelineLive.Index do
     Logger.error(error)
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_privacy_controls", _params, socket) do
+    # Toggle enhanced privacy controls expansion
+    current_expanded = socket.assigns.privacy_controls_expanded
+
+    {:noreply, assign(socket, :privacy_controls_expanded, !current_expanded)}
+  end
+
+  def handle_event("update_privacy_visibility", %{"visibility" => visibility}, socket) do
+    # Update the privacy visibility from the enhanced controls
+    # This handles the radio button selections in the expanded privacy controls
+    {:noreply, assign(socket, :selector, visibility)}
   end
 
   def handle_event("toggle_privacy_selector", _params, socket) do
