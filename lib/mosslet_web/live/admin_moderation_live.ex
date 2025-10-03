@@ -299,7 +299,12 @@ defmodule MossletWeb.AdminModerationLive do
       report ->
         case Timeline.update_post_report(
                report,
-               %{"status" => status},
+               %{
+                 "status" => status,
+                 "admin_action" => determine_admin_action(status),
+                 "admin_notes" => "Status updated to #{status} by admin",
+                 "severity_score" => determine_severity_score(status)
+               },
                socket.assigns.current_user
              ) do
           {:ok, _updated_report} ->
@@ -330,7 +335,7 @@ defmodule MossletWeb.AdminModerationLive do
       post ->
         case Timeline.delete_post(post, user: socket.assigns.current_user) do
           {:ok, _deleted_post} ->
-            # Post deleted successfully, now try to update the report
+            # Post deleted successfully, now try to update the report with admin action tracking
             case Timeline.get_post_report(report_id) do
               nil ->
                 # Post was deleted but report not found - still show success since main action worked
@@ -340,7 +345,15 @@ defmodule MossletWeb.AdminModerationLive do
               report ->
                 case Timeline.update_post_report(
                        report,
-                       %{"status" => "resolved"},
+                       %{
+                         "status" => "resolved",
+                         "admin_action" => "content_deleted",
+                         "admin_notes" => "Post deleted by admin due to policy violation",
+                         # Content deletion is serious action
+                         "severity_score" => 4,
+                         # Mark that the post was deleted
+                         "post_deleted?" => true
+                       },
                        socket.assigns.current_user
                      ) do
                   {:ok, updated_report} ->
@@ -380,7 +393,7 @@ defmodule MossletWeb.AdminModerationLive do
 
     case Timeline.delete_reply(reply, user: socket.assigns.current_user) do
       {:ok, _deleted_reply} ->
-        # Reply deleted successfully, now try to update the report
+        # Reply deleted successfully, now try to update the report with admin action tracking
         case Timeline.get_post_report(report_id) do
           nil ->
             # Reply was deleted but report not found - still show success since main action worked
@@ -390,14 +403,23 @@ defmodule MossletWeb.AdminModerationLive do
           report ->
             case Timeline.update_post_report(
                    report,
-                   %{"status" => "resolved"},
+                   %{
+                     "status" => "resolved",
+                     "admin_action" => "content_deleted",
+                     "admin_notes" => "Reply deleted by admin due to policy violation",
+                     # Reply deletion is moderately serious
+                     "severity_score" => 3,
+                     # Mark that the reply was deleted
+                     "reply_deleted?" => true
+                   },
                    socket.assigns.current_user
                  ) do
-              {:ok, updated_report} ->
+              {:ok, _updated_report} ->
                 socket =
                   socket
                   |> put_flash(:info, "Reply deleted and report resolved")
-                  |> stream_insert(:reports, updated_report)
+                  # Refresh the entire reports list to ensure proper display
+                  |> load_reports()
 
                 {:noreply, socket}
 
@@ -433,7 +455,7 @@ defmodule MossletWeb.AdminModerationLive do
       user ->
         case Accounts.suspend_user(user, socket.assigns.current_user) do
           {:ok, _suspended_user} ->
-            # User suspended successfully, now try to update the report
+            # User suspended successfully, now try to update the report with admin action tracking
             case Timeline.get_post_report(report_id) do
               nil ->
                 # User was suspended but report not found - still show success since main action worked
@@ -445,7 +467,13 @@ defmodule MossletWeb.AdminModerationLive do
               report ->
                 case Timeline.update_post_report(
                        report,
-                       %{"status" => "resolved"},
+                       %{
+                         "status" => "resolved",
+                         "admin_action" => "user_suspended",
+                         "admin_notes" => "User suspended by admin for policy violations",
+                         # User suspension is most serious action
+                         "severity_score" => 5
+                       },
                        socket.assigns.current_user
                      ) do
                   {:ok, updated_report} ->
@@ -599,10 +627,10 @@ defmodule MossletWeb.AdminModerationLive do
             {@report.report_type |> to_string() |> String.capitalize()}
           </div>
 
-          <%!-- Report Type Badge (Post vs Reply) --%>
+          <%!-- Report Type Badge (Post vs Reply) - check both reply_id and reply_deleted? --%>
           <div class={[
             "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
-            if(@report.reply_id,
+            if(@report.reply_id || @report.reply_deleted?,
               do:
                 "bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:ring-purple-800/30",
               else:
@@ -610,7 +638,7 @@ defmodule MossletWeb.AdminModerationLive do
             )
           ]}>
             <.phx_icon name={report_type_icon(@report)} class="h-3 w-3 mr-1.5" />
-            {if @report.reply_id, do: "Reply Report", else: "Post Report"}
+            {if @report.reply_id || @report.reply_deleted?, do: "Reply Report", else: "Post Report"}
           </div>
 
           <%!-- Status Badge with softer colors --%>
@@ -699,8 +727,8 @@ defmodule MossletWeb.AdminModerationLive do
             </div>
           </div>
 
-          <%!-- Content Information (Post or Reply) with adaptive layout --%>
-          <%= if @report.reply_id do %>
+          <%!-- Content Information (Post or Reply) - check both reply_id and reply_deleted? --%>
+          <%= if @report.reply_id || @report.reply_deleted? do %>
             <div class="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 p-4 border border-purple-200/50 dark:border-purple-800/50">
               <div class="flex items-center mb-4">
                 <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50 mr-3">
@@ -711,6 +739,9 @@ defmodule MossletWeb.AdminModerationLive do
                 </div>
                 <span class="font-semibold text-purple-900 dark:text-purple-100 text-sm">
                   Reply Report
+                  <%= if @report.reply_deleted? do %>
+                    <span class="text-xs text-red-600 dark:text-red-400 ml-2">(Reply Deleted)</span>
+                  <% end %>
                 </span>
               </div>
               <div class="space-y-4">
@@ -720,22 +751,36 @@ defmodule MossletWeb.AdminModerationLive do
                     <div class="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wider">
                       Reply ID
                     </div>
-                    <.liquid_copy_button
-                      id={"copy-to-clipboard-report-reply-id-#{@report.id}"}
-                      text={@report.reply_id}
-                      target={"copy-target-report-reply-id-#{@report.id}"}
-                      color="purple"
-                      size="xs"
-                    />
+                    <%= unless @report.reply_deleted? do %>
+                      <.liquid_copy_button
+                        id={"copy-to-clipboard-report-reply-id-#{@report.id}"}
+                        text={@report.reply_id}
+                        target={"copy-target-report-reply-id-#{@report.id}"}
+                        color="purple"
+                        size="xs"
+                      />
+                    <% end %>
                   </div>
-                  <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-purple-200/30 dark:border-purple-700/30 break-all leading-relaxed tracking-wide">
-                    <span
-                      id={"copy-target-report-reply-id-#{@report.id}"}
-                      class="text-purple-800 dark:text-purple-200 font-medium"
-                    >
-                      {@report.reply_id}
-                    </span>
-                  </div>
+                  <%= if @report.reply_deleted? do %>
+                    <div class="flex items-center justify-center bg-red-50 dark:bg-red-900/20 backdrop-blur-sm px-3 py-2 rounded-lg border border-red-200/50 dark:border-red-700/50">
+                      <.phx_icon
+                        name="hero-trash"
+                        class="h-4 w-4 text-red-600 dark:text-red-400 mr-2"
+                      />
+                      <span class="text-sm font-medium text-red-700 dark:text-red-300">
+                        Reply Deleted by Admin
+                      </span>
+                    </div>
+                  <% else %>
+                    <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-purple-200/30 dark:border-purple-700/30 break-all leading-relaxed tracking-wide">
+                      <span
+                        id={"copy-target-report-reply-id-#{@report.id}"}
+                        class="text-purple-800 dark:text-purple-200 font-medium"
+                      >
+                        {@report.reply_id}
+                      </span>
+                    </div>
+                  <% end %>
                 </div>
                 <%!-- Parent Post ID --%>
                 <div class="space-y-2">
@@ -743,22 +788,36 @@ defmodule MossletWeb.AdminModerationLive do
                     <div class="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wider">
                       Parent Post ID
                     </div>
-                    <.liquid_copy_button
-                      id={"copy-to-clipboard-report-post-id-#{@report.id}"}
-                      text={@report.post.id}
-                      target={"copy-target-report-post-id-#{@report.id}"}
-                      color="purple"
-                      size="xs"
-                    />
+                    <%= unless @report.post_deleted? do %>
+                      <.liquid_copy_button
+                        id={"copy-to-clipboard-report-post-id-#{@report.id}"}
+                        text={@report.post_id}
+                        target={"copy-target-report-post-id-#{@report.id}"}
+                        color="purple"
+                        size="xs"
+                      />
+                    <% end %>
                   </div>
-                  <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-purple-200/30 dark:border-purple-700/30 break-all leading-relaxed tracking-wide">
-                    <span
-                      id={"copy-target-report-post-id-#{@report.id}"}
-                      class="text-purple-800 dark:text-purple-200 font-medium"
-                    >
-                      {@report.post.id}
-                    </span>
-                  </div>
+                  <%= if @report.post_deleted? do %>
+                    <div class="flex items-center justify-center bg-red-50 dark:bg-red-900/20 backdrop-blur-sm px-3 py-2 rounded-lg border border-red-200/50 dark:border-red-700/50">
+                      <.phx_icon
+                        name="hero-trash"
+                        class="h-4 w-4 text-red-600 dark:text-red-400 mr-2"
+                      />
+                      <span class="text-sm font-medium text-red-700 dark:text-red-300">
+                        Parent Post Deleted by Admin
+                      </span>
+                    </div>
+                  <% else %>
+                    <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-purple-200/30 dark:border-purple-700/30 break-all leading-relaxed tracking-wide">
+                      <span
+                        id={"copy-target-report-post-id-#{@report.id}"}
+                        class="text-purple-800 dark:text-purple-200 font-medium"
+                      >
+                        {@report.post_id}
+                      </span>
+                    </div>
+                  <% end %>
                 </div>
               </div>
             </div>
@@ -774,26 +833,43 @@ defmodule MossletWeb.AdminModerationLive do
                   </div>
                   <span class="font-semibold text-emerald-900 dark:text-emerald-100 text-sm">
                     Post Report
+                    <%= if @report.post_deleted? do %>
+                      <span class="text-xs text-red-600 dark:text-red-400 ml-2">(Post Deleted)</span>
+                    <% end %>
                   </span>
                 </div>
-                <.liquid_copy_button
-                  id={"copy-to-clipboard-report-post-id-#{@report.id}"}
-                  text={@report.post.id}
-                  target={"copy-target-report-post-id-#{@report.id}"}
-                  color="emerald"
-                  size="xs"
-                />
+                <%= unless @report.post_deleted? do %>
+                  <.liquid_copy_button
+                    id={"copy-to-clipboard-report-post-id-#{@report.id}"}
+                    text={@report.post_id}
+                    target={"copy-target-report-post-id-#{@report.id}"}
+                    color="emerald"
+                    size="xs"
+                  />
+                <% end %>
               </div>
-              <div class="space-y-2">
-                <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-emerald-200/30 dark:border-emerald-700/30 break-all leading-relaxed tracking-wide">
-                  <span
-                    id={"copy-target-report-post-id-#{@report.id}"}
-                    class="text-emerald-800 dark:text-emerald-200 font-medium"
-                  >
-                    {@report.post.id}
+              <%= if @report.post_deleted? do %>
+                <div class="flex items-center justify-center bg-red-50 dark:bg-red-900/20 backdrop-blur-sm px-3 py-2 rounded-lg border border-red-200/50 dark:border-red-700/50">
+                  <.phx_icon name="hero-trash" class="h-4 w-4 text-red-600 dark:text-red-400 mr-2" />
+                  <span class="text-sm font-medium text-red-700 dark:text-red-300">
+                    Post Deleted by Admin
                   </span>
                 </div>
-              </div>
+              <% else %>
+                <div class="space-y-2">
+                  <div class="font-mono text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-emerald-200/30 dark:border-emerald-700/30 break-all leading-relaxed tracking-wide">
+                    <span
+                      id={"copy-target-report-post-id-#{@report.id}"}
+                      class="text-emerald-800 dark:text-emerald-200 font-medium"
+                    >
+                      {@report.post_id}
+                    </span>
+                  </div>
+                  <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                    Click ID to copy full value
+                  </div>
+                </div>
+              <% end %>
             </div>
           <% end %>
         </div>
@@ -875,7 +951,7 @@ defmodule MossletWeb.AdminModerationLive do
             </.liquid_button>
           <% end %>
         </div>
-        
+
     <!-- Advanced Moderation Actions (Available for all except dismissed) -->
         <%= if @report.status != :dismissed do %>
           <div class="flex flex-wrap gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
@@ -898,7 +974,7 @@ defmodule MossletWeb.AdminModerationLive do
                 color="amber"
                 variant="ghost"
                 phx-click="delete_reported_post"
-                phx-value-post_id={@report.post.id}
+                phx-value-post_id={@report.post_id}
                 phx-value-report_id={@report.id}
                 data-confirm="Are you sure you want to delete this post? This action cannot be undone."
                 icon="hero-trash"
@@ -1006,9 +1082,11 @@ defmodule MossletWeb.AdminModerationLive do
     end
   end
 
-  # Helper for report type (post vs reply) icon
+  # Helper for report type (post vs reply) icon - check both reply_id and reply_deleted?
   defp report_type_icon(report) do
-    if report.reply_id, do: "hero-chat-bubble-left", else: "hero-document-text"
+    if report.reply_id || report.reply_deleted?,
+      do: "hero-chat-bubble-left",
+      else: "hero-document-text"
   end
 
   defp soft_severity_color_class(atom) do
@@ -1070,6 +1148,15 @@ defmodule MossletWeb.AdminModerationLive do
       user_post_report -> user_post_report.key
     end
   end
+
+  # Helper function to determine admin action based on status
+  defp determine_admin_action("resolved"), do: "warning"
+  defp determine_admin_action("dismissed"), do: "none"
+  defp determine_admin_action(_), do: "none"
+
+  # Helper function to determine severity score based on status
+  defp determine_severity_score("resolved"), do: 2
+  defp determine_severity_score(_), do: 1
 
   # Helper component for copy-to-clipboard ID buttons
   # uses our phx:clipcopy in app.js
@@ -1170,21 +1257,49 @@ defmodule MossletWeb.AdminModerationLive do
             <span class="ml-2 text-slate-900 dark:text-slate-100">{@stats.recent_reports}</span>
           </div>
           <div>
-            <span class="font-medium text-slate-600 dark:text-slate-400">Dismissal Rate:</span>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Content Deleted:</span>
             <span class={[
               "ml-2 font-medium",
-              if(@stats.dismissal_rate > 50,
-                do: "text-red-600 dark:text-red-400",
+              if(@stats.content_deleted_reports > 2,
+                do: "text-green-600 dark:text-green-400",
                 else: "text-slate-900 dark:text-slate-100"
               )
             ]}>
-              {@stats.dismissal_rate}%
+              {@stats.content_deleted_reports}
             </span>
           </div>
           <div>
-            <span class="font-medium text-slate-600 dark:text-slate-400">Pattern:</span>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Accuracy Rate:</span>
+            <span class={[
+              "ml-2 font-medium",
+              if(@stats.accuracy_rate > 70,
+                do: "text-green-600 dark:text-green-400",
+                else: "text-orange-600 dark:text-orange-400"
+              )
+            ]}>
+              {@stats.accuracy_rate}%
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Score Impact:</span>
+            <span class={[
+              "ml-2 font-medium",
+              if(@stats.total_score_impact > 0,
+                do: "text-green-600 dark:text-green-400",
+                else: "text-red-600 dark:text-red-400"
+              )
+            ]}>
+              {if @stats.total_score_impact > 0,
+                do: "+#{@stats.total_score_impact}",
+                else: @stats.total_score_impact}
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Status:</span>
             <span class="ml-2 text-slate-900 dark:text-slate-100">
-              {if @stats.suspicious?, do: "High false reports", else: "Normal activity"}
+              {if @stats.suspicious?,
+                do: "Review needed - possible abuse",
+                else: "Legitimate reporter"}
             </span>
           </div>
         </div>
@@ -1234,21 +1349,45 @@ defmodule MossletWeb.AdminModerationLive do
             </span>
           </div>
           <div>
-            <span class="font-medium text-slate-600 dark:text-slate-400">Violation Rate:</span>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Content Deleted:</span>
             <span class={[
               "ml-2 font-medium",
-              if(@stats.violation_rate > 30,
+              if(@stats.content_deleted_against > 1,
                 do: "text-red-600 dark:text-red-400",
                 else: "text-slate-900 dark:text-slate-100"
               )
             ]}>
-              {@stats.violation_rate}%
+              {@stats.content_deleted_against}
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Deletion Rate:</span>
+            <span class={[
+              "ml-2 font-medium",
+              if(@stats.content_deletion_rate > 30,
+                do: "text-red-600 dark:text-red-400",
+                else: "text-slate-900 dark:text-slate-100"
+              )
+            ]}>
+              {@stats.content_deletion_rate}%
+            </span>
+          </div>
+          <div>
+            <span class="font-medium text-slate-600 dark:text-slate-400">Score Impact:</span>
+            <span class={[
+              "ml-2 font-medium",
+              if(@stats.total_score_impact < -10,
+                do: "text-red-600 dark:text-red-400",
+                else: "text-slate-900 dark:text-slate-100"
+              )
+            ]}>
+              {@stats.total_score_impact}
             </span>
           </div>
           <div>
             <span class="font-medium text-slate-600 dark:text-slate-400">Status:</span>
             <span class="ml-2 text-slate-900 dark:text-slate-100">
-              {if @stats.high_risk?, do: "Frequent violations", else: "Good standing"}
+              {if @stats.high_risk?, do: "High risk - frequent violations", else: "Good standing"}
             </span>
           </div>
         </div>

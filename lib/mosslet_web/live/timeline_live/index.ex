@@ -579,14 +579,14 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
       {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
+        # Determine what was reported for better user feedback
+        report_type =
+          if reply_context && Map.has_key?(reply_context, :reply_id),
+            do: "reply",
+            else: "post"
+
         case Timeline.report_post(current_user, reported_user, post, enhanced_params) do
           {:ok, _report} ->
-            # Determine what was reported for better user feedback
-            report_type =
-              if reply_context && Map.has_key?(reply_context, :reply_id),
-                do: "reply",
-                else: "post"
-
             socket =
               socket
               |> assign(:show_report_modal, false)
@@ -600,10 +600,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
             {:noreply, socket}
 
-          {:error, changeset} ->
-            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-            error_msg = "Report failed: #{inspect(errors)}"
-            {:noreply, put_flash(socket, :error, error_msg)}
+          {:error, _changeset} ->
+            info = "You've already submitted a report for this #{report_type}."
+            {:noreply, put_flash(socket, :warning, info)}
         end
 
       _ ->
@@ -2338,14 +2337,14 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
       {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
+        # Determine what was reported for better user feedback
+        report_type =
+          if reply_context && Map.has_key?(reply_context, :reply_id),
+            do: "reply",
+            else: "post"
+
         case Timeline.report_post(current_user, reported_user, post, enhanced_params) do
           {:ok, _report} ->
-            # Determine what was reported for better user feedback
-            report_type =
-              if reply_context && Map.has_key?(reply_context, :reply_id),
-                do: "reply",
-                else: "post"
-
             socket =
               socket
               |> assign(:show_report_modal, false)
@@ -2359,10 +2358,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
             {:noreply, socket}
 
-          {:error, changeset} ->
-            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-            error_msg = "Report failed: #{inspect(errors)}"
-            {:noreply, put_flash(socket, :error, error_msg)}
+          {:error, _changeset} ->
+            info = "You've already submitted a report for this #{report_type}."
+            {:noreply, put_flash(socket, :warning, info)}
         end
 
       _ ->

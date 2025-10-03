@@ -3160,16 +3160,31 @@ defmodule Mosslet.Timeline do
   @doc """
   Updates a post report status (admin function).
   """
-  def update_post_report(report, attrs, _admin_user) do
+  def update_post_report(report, attrs, admin_user) do
+    # Use admin_action_changeset for admin updates to properly track actions
+    changeset =
+      if Map.has_key?(attrs, "admin_action") or Map.has_key?(attrs, :admin_action) do
+        # Add admin_user_id to attrs
+        attrs_with_admin = Map.put(attrs, "admin_user_id", admin_user.id)
+        PostReport.admin_action_changeset(report, attrs_with_admin)
+      else
+        # Use regular changeset for simple status updates
+        PostReport.changeset(report, attrs)
+      end
+
     case Repo.transaction_on_primary(fn ->
-           report
-           |> PostReport.changeset(attrs)
-           |> Repo.update()
+           Repo.update(changeset)
          end) do
       {:ok, {:ok, updated_report}} ->
         # Preload associations before broadcasting for admin dashboard
         updated_report_with_preloads =
-          Repo.preload(updated_report, [:reporter, :reported_user, :post, :user_post_report])
+          Repo.preload(updated_report, [
+            :reporter,
+            :reported_user,
+            :post,
+            :admin_user,
+            :user_post_report
+          ])
 
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
@@ -3733,6 +3748,7 @@ defmodule Mosslet.Timeline do
 
   @doc """
   Gets reporter statistics for admin review to detect abuse patterns.
+  Updated to use new admin action tracking for more accurate scoring.
   """
   def get_reporter_statistics(reporter_id) do
     one_week_ago = NaiveDateTime.add(NaiveDateTime.utc_now(), -7, :day)
@@ -3749,14 +3765,40 @@ defmodule Mosslet.Timeline do
       )
       |> Repo.aggregate(:count)
 
-    # Get dismissed reports
+    # Calculate total score impact (includes new admin action scoring)
+    total_score_impact =
+      from(r in PostReport,
+        where: r.reporter_id == ^reporter_id and not is_nil(r.reporter_score_impact),
+        select: sum(r.reporter_score_impact)
+      )
+      |> Repo.one() || 0
+
+    # Get dismissed reports for legacy compatibility
     dismissed_reports =
       from(r in PostReport,
         where: r.reporter_id == ^reporter_id and r.status == :dismissed
       )
       |> Repo.aggregate(:count)
 
-    # Calculate dismissal rate
+    # Get content deletion successes (high-value reports)
+    content_deleted_reports =
+      from(r in PostReport,
+        where:
+          r.reporter_id == ^reporter_id and r.admin_action in [:content_deleted, :user_suspended]
+      )
+      |> Repo.aggregate(:count)
+
+    # Calculate accuracy rate (considering admin actions)
+    legitimate_reports = content_deleted_reports + max(0, total_reports - dismissed_reports)
+
+    accuracy_rate =
+      if total_reports > 0 do
+        round(legitimate_reports / total_reports * 100)
+      else
+        100
+      end
+
+    # Calculate dismissal rate for legacy compatibility
     dismissal_rate =
       if total_reports > 0 do
         round(dismissed_reports / total_reports * 100)
@@ -3764,13 +3806,20 @@ defmodule Mosslet.Timeline do
         0
       end
 
-    # Flag as suspicious if high dismissal rate and many reports
-    suspicious? = dismissal_rate > 70 and total_reports > 5
+    # Enhanced flagging logic using score impact
+    # Very negative score
+    # High dismissal rate (legacy)
+    suspicious? =
+      (total_score_impact < -10 and total_reports > 5) or
+        (dismissal_rate > 70 and total_reports > 5)
 
     stats = %{
       total_reports: total_reports,
       recent_reports: recent_reports,
       dismissed_reports: dismissed_reports,
+      content_deleted_reports: content_deleted_reports,
+      total_score_impact: total_score_impact,
+      accuracy_rate: accuracy_rate,
       dismissal_rate: dismissal_rate,
       suspicious?: suspicious?
     }
@@ -3780,6 +3829,7 @@ defmodule Mosslet.Timeline do
 
   @doc """
   Gets statistics for a reported user to help with moderation decisions.
+  Updated to use new admin action tracking for more accurate risk assessment.
   """
   def get_reported_user_statistics(reported_user_id) do
     one_week_ago = NaiveDateTime.add(NaiveDateTime.utc_now(), -7, :day)
@@ -3796,10 +3846,35 @@ defmodule Mosslet.Timeline do
       )
       |> Repo.aggregate(:count)
 
-    # Get resolved/confirmed violations
+    # Calculate total score impact (includes new admin action scoring)
+    total_score_impact =
+      from(r in PostReport,
+        where:
+          r.reported_user_id == ^reported_user_id and not is_nil(r.reported_user_score_impact),
+        select: sum(r.reported_user_score_impact)
+      )
+      |> Repo.one() || 0
+
+    # Get content deletions against this user (serious violations)
+    content_deleted_against =
+      from(r in PostReport,
+        where:
+          r.reported_user_id == ^reported_user_id and
+            r.admin_action in [:content_deleted, :user_suspended]
+      )
+      |> Repo.aggregate(:count)
+
+    # Get resolved/confirmed violations for legacy compatibility
     confirmed_violations =
       from(r in PostReport,
         where: r.reported_user_id == ^reported_user_id and r.status == :resolved
+      )
+      |> Repo.aggregate(:count)
+
+    # Get dismissed reports (false accusations)
+    dismissed_reports =
+      from(r in PostReport,
+        where: r.reported_user_id == ^reported_user_id and r.status == :dismissed
       )
       |> Repo.aggregate(:count)
 
@@ -3811,14 +3886,32 @@ defmodule Mosslet.Timeline do
         0
       end
 
-    # Flag as high risk if high violation rate and many reports
-    high_risk? = violation_rate > 40 and total_reports_received > 3
+    # Calculate content deletion rate (more serious metric)
+    content_deletion_rate =
+      if total_reports_received > 0 do
+        round(content_deleted_against / total_reports_received * 100)
+      else
+        0
+      end
+
+    # Enhanced risk assessment using score impact and content deletions
+    # Very negative score
+    # High deletion rate
+    # Legacy high violation rate
+    high_risk? =
+      (total_score_impact < -15 and total_reports_received > 3) or
+        (content_deletion_rate > 30 and total_reports_received > 2) or
+        (violation_rate > 40 and total_reports_received > 3)
 
     stats = %{
       total_reports_received: total_reports_received,
       recent_reports_received: recent_reports_received,
       confirmed_violations: confirmed_violations,
+      content_deleted_against: content_deleted_against,
+      dismissed_reports: dismissed_reports,
+      total_score_impact: total_score_impact,
       violation_rate: violation_rate,
+      content_deletion_rate: content_deletion_rate,
       high_risk?: high_risk?
     }
 
