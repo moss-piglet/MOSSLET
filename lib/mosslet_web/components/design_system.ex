@@ -3592,14 +3592,26 @@ defmodule MossletWeb.DesignSystem do
 
                 <%!-- Interaction controls indicators --%>
                 <div class="flex items-center gap-1">
-                  <%!-- Ephemeral indicator --%>
+                  <%!-- Ephemeral indicator with countdown --%>
                   <.phx_icon
                     :if={@post.is_ephemeral}
                     id={"ephemeral-indicator-#{@post.id}"}
                     name="hero-clock"
                     class="h-3 w-3 text-amber-500 dark:text-amber-400"
                     phx_hook="TippyHook"
-                    data_tippy_content="Ephemeral post - will auto-delete"
+                    data_tippy_content={
+                      if @post.expires_at do
+                        expires_in = MossletWeb.Helpers.get_expiration_time_remaining(@post)
+
+                        if expires_in do
+                          "Ephemeral post - expires in #{expires_in}"
+                        else
+                          "Ephemeral post - expired"
+                        end
+                      else
+                        "Ephemeral post - will auto-delete"
+                      end
+                    }
                   />
 
                   <%!-- Mature content indicator --%>

@@ -946,7 +946,8 @@ defmodule MossletWeb.Helpers do
       diff_seconds = NaiveDateTime.diff(post.expires_at, now, :second)
 
       cond do
-        diff_seconds <= 0 -> "Expired"
+        # Return nil for expired posts
+        diff_seconds <= 0 -> nil
         diff_seconds < 60 -> "#{diff_seconds}s"
         diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m"
         diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h"

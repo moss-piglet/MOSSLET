@@ -1759,10 +1759,12 @@ defmodule Mosslet.Timeline do
         # create_shared_user_posts(post, attrs, p_attrs, user)
 
         {:ok, post}
+        |> schedule_ephemeral_deletion_if_needed()
         |> broadcast_admin(:post_created)
 
         {:ok, conn,
          post |> Repo.preload([:user_posts, :group, :user_group, :replies, :user_post_receipts])}
+        |> schedule_ephemeral_deletion_for_group_post()
         |> broadcast(:post_created)
       else
         case create_new_post(post, user, p_attrs, attrs) do
@@ -1771,6 +1773,7 @@ defmodule Mosslet.Timeline do
             create_shared_user_posts(post, attrs, p_attrs, user)
 
             {:ok, post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])}
+            |> schedule_ephemeral_deletion_if_needed()
             |> broadcast_admin(:post_created)
 
           {:error, insert_post: changeset, insert_user_post: _user_post_changeset} ->
@@ -3897,5 +3900,76 @@ defmodule Mosslet.Timeline do
     }
 
     {:ok, stats}
+  end
+
+  # Ephemeral Post Management Functions
+  # These functions support the EphemeralPostCleanupJob
+
+  @doc """
+  Get all expired ephemeral posts that need to be deleted.
+  Returns posts where is_ephemeral = true and expires_at < current time.
+  """
+  def get_expired_ephemeral_posts(current_time \\ nil) do
+    current_time = current_time || NaiveDateTime.utc_now()
+
+    from(p in Post,
+      where: p.is_ephemeral == true,
+      where: not is_nil(p.expires_at),
+      where: p.expires_at < ^current_time,
+      order_by: [asc: p.expires_at]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Get all ephemeral posts for a specific user.
+  Used for user account cleanup.
+  """
+  def get_user_ephemeral_posts(user) do
+    from(p in Post,
+      where: p.user_id == ^user.id,
+      where: p.is_ephemeral == true
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Delete all bookmarks for a specific post.
+  Used during ephemeral post cleanup.
+  """
+  def delete_post_bookmarks(post_id) do
+    from(b in Bookmark,
+      where: b.post_id == ^post_id
+    )
+    |> Repo.delete_all()
+  end
+
+  # Helper function to schedule ephemeral post deletion
+  # Integrates with Oban to automatically delete ephemeral posts when they expire
+  defp schedule_ephemeral_deletion_if_needed({:ok, post}) do
+    if post.is_ephemeral && post.expires_at do
+      # Schedule the post for automatic deletion at its expiration time
+      case Mosslet.Timeline.Jobs.EphemeralPostCleanupJob.schedule_post_expiration(
+             post.id,
+             post.expires_at,
+             post.user_id
+           ) do
+        {:ok, _job} ->
+          Logger.info("Scheduled ephemeral post #{post.id} for deletion at #{post.expires_at}")
+
+        {:error, reason} ->
+          Logger.error(
+            "Failed to schedule ephemeral post deletion for #{post.id}: #{inspect(reason)}"
+          )
+      end
+    end
+
+    {:ok, post}
+  end
+
+  # Helper function for group posts which return {:ok, conn, post}
+  defp schedule_ephemeral_deletion_for_group_post({:ok, conn, post}) do
+    {:ok, updated_post} = schedule_ephemeral_deletion_if_needed({:ok, post})
+    {:ok, conn, updated_post}
   end
 end

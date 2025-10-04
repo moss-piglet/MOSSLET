@@ -115,10 +115,21 @@ config :mosslet, Oban,
         args: %{"action" => "cache_stats", "include_details" => false}},
        # Memory optimization every 2 hours during low traffic (2 AM - 6 AM UTC)
        {"0 2,4,6 * * *", Mosslet.Timeline.Jobs.CacheMaintenanceJob,
-        args: %{"action" => "optimize_cache", "optimization_type" => "memory_cleanup"}}
+        args: %{"action" => "optimize_cache", "optimization_type" => "memory_cleanup"}},
+       # Ephemeral post cleanup every hour (privacy-respecting automatic deletion)
+       {"0 * * * *", Mosslet.Timeline.Jobs.EphemeralPostCleanupJob,
+        args: %{"action" => "cleanup_expired_posts", "cleanup_type" => "bulk_expired"}}
      ]}
   ],
-  queues: [default: 10, tokens: 10, invites: 10, storage: 10, timeline: 5, cache_maintenance: 2],
+  queues: [
+    default: 10,
+    tokens: 10,
+    invites: 10,
+    storage: 10,
+    timeline: 5,
+    cache_maintenance: 2,
+    ephemeral_cleanup: 3
+  ],
   peer: Oban.Peers.Global
 
 # Configures cldr

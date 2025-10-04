@@ -3282,7 +3282,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # If user is the post author, they cannot repost their own content
       post.user_id == current_user.id -> false
       # If user has already reposted this post (# Decrypt reposts list and check if user already reposted)
-      current_user.id in (decrypt_post_reposts_list(post, current_user, key) || []) -> false
+      current_user.id in decrypt_post_reposts_list(post, current_user, key) -> false
       # Otherwise, check if sharing is allowed
       true -> post.allow_shares
     end

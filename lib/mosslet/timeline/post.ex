@@ -450,7 +450,9 @@ defmodule Mosslet.Timeline.Post do
     # Ephemeral posts should have expiration
     if is_ephemeral && !expires_at do
       # Auto-set expiration for ephemeral posts (24 hours) with truncated microseconds
-      expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(24, :hour) |> NaiveDateTime.truncate(:second)
+      expires_at =
+        NaiveDateTime.utc_now() |> NaiveDateTime.add(24, :hour) |> NaiveDateTime.truncate(:second)
+
       put_change(changeset, :expires_at, expires_at)
     else
       changeset
@@ -481,23 +483,41 @@ defmodule Mosslet.Timeline.Post do
         changeset
 
       "1_hour" ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(1, :hour) |> NaiveDateTime.truncate(:second)
+        expires_at =
+          NaiveDateTime.utc_now()
+          |> NaiveDateTime.add(1, :hour)
+          |> NaiveDateTime.truncate(:second)
+
         put_change(changeset, :expires_at, expires_at)
 
       "6_hours" ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(6, :hour) |> NaiveDateTime.truncate(:second)
+        expires_at =
+          NaiveDateTime.utc_now()
+          |> NaiveDateTime.add(6, :hour)
+          |> NaiveDateTime.truncate(:second)
+
         put_change(changeset, :expires_at, expires_at)
 
       "24_hours" ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(24, :hour) |> NaiveDateTime.truncate(:second)
+        expires_at =
+          NaiveDateTime.utc_now()
+          |> NaiveDateTime.add(24, :hour)
+          |> NaiveDateTime.truncate(:second)
+
         put_change(changeset, :expires_at, expires_at)
 
       "7_days" ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(7, :day) |> NaiveDateTime.truncate(:second)
+        expires_at =
+          NaiveDateTime.utc_now() |> NaiveDateTime.add(7, :day) |> NaiveDateTime.truncate(:second)
+
         put_change(changeset, :expires_at, expires_at)
 
       "30_days" ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(30, :day) |> NaiveDateTime.truncate(:second)
+        expires_at =
+          NaiveDateTime.utc_now()
+          |> NaiveDateTime.add(30, :day)
+          |> NaiveDateTime.truncate(:second)
+
         put_change(changeset, :expires_at, expires_at)
 
       _other ->
