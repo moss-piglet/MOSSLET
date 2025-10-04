@@ -216,22 +216,28 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
   def handle_event("save_reply", %{"reply" => reply_params}, socket) do
     post_id = socket.assigns.post_id
     visibility = socket.assigns.visibility
-    # Send the reply creation to the parent LiveView
-    send(self(), {:create_reply, reply_params, post_id, visibility})
+    current_user = socket.assigns.current_user
 
-    # Reset the form
-    changeset =
-      Timeline.change_reply(%Reply{}, %{
-        "body" => "",
-        "post_id" => post_id,
-        "user_id" => socket.assigns.current_user.id,
-        "username" => socket.assigns.username,
-        "visibility" => visibility
-      })
+    if can_reply?(Timeline.get_post!(post_id), current_user) do
+      # Send the reply creation to the parent LiveView
+      send(self(), {:create_reply, reply_params, post_id, visibility})
 
-    form = to_form(changeset)
+      # Reset the form
+      changeset =
+        Timeline.change_reply(%Reply{}, %{
+          "body" => "",
+          "post_id" => post_id,
+          "user_id" => socket.assigns.current_user.id,
+          "username" => socket.assigns.username,
+          "visibility" => visibility
+        })
 
-    {:noreply, assign(socket, :form, form)}
+      form = to_form(changeset)
+
+      {:noreply, assign(socket, :form, form)}
+    else
+      {:noreply, put_flash(socket, :warning, "You cannot reply to this post.")}
+    end
   end
 
   # Helper function to get or create reply form

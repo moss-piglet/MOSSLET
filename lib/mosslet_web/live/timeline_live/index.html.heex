@@ -266,6 +266,8 @@
                 liked={get_post_liked_status(post, @current_user, @key)}
                 bookmarked={get_post_bookmarked_status(post, @current_user)}
                 can_repost={can_repost_with_decryption?(post, @current_user, @key)}
+                can_reply?={can_reply?(post, @current_user)}
+                can_bookmark?={can_bookmark?(post, @current_user)}
                 unread?={get_post_unread_status(post, @current_user)}
                 class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
               />

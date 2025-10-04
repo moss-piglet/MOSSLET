@@ -3489,6 +3489,8 @@ defmodule MossletWeb.DesignSystem do
   attr :liked, :boolean, default: false
   attr :bookmarked, :boolean, default: false
   attr :can_repost, :boolean, default: false
+  attr :can_reply?, :boolean, default: false
+  attr :can_bookmark?, :boolean, default: false
   attr :post, :map, required: true
   attr :post_id, :string, default: nil
   attr :current_user, :map, required: true
@@ -3817,6 +3819,7 @@ defmodule MossletWeb.DesignSystem do
             </button>
 
             <.liquid_timeline_action
+              :if={@can_reply?}
               icon="hero-chat-bubble-oval-left"
               count={Map.get(@stats, :replies, 0)}
               label="Reply"
@@ -3862,6 +3865,7 @@ defmodule MossletWeb.DesignSystem do
               label="Share"
               color="emerald"
               phx-hook="TippyHook"
+              class="cursor-not-allowed"
               data-tippy-content="You cannot repost your own post"
               phx-click={nil}
               phx-value-id={nil}
@@ -3903,6 +3907,7 @@ defmodule MossletWeb.DesignSystem do
 
           <%!-- Enhanced bookmark action with amber semantic color (matches Bookmarks tab) --%>
           <button
+            :if={@can_bookmark?}
             class={[
               "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
               if(@bookmarked,
@@ -3926,6 +3931,7 @@ defmodule MossletWeb.DesignSystem do
 
     <%!-- Collapsible reply composer LiveComponent (hidden by default, toggled by JS) --%>
     <.live_component
+      :if={@can_reply?}
       module={MossletWeb.TimelineLive.ReplyComposerComponent}
       id={"reply-composer-#{@post.id}"}
       post_id={@post.id}

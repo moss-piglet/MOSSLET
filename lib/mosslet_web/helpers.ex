@@ -866,23 +866,6 @@ defmodule MossletWeb.Helpers do
   end
 
   @doc """
-  Check if a user can share/repost a post based on interaction controls.
-  Enhanced version of existing can_repost? with new privacy controls.
-  """
-  def can_share?(post, current_user) do
-    cond do
-      # If sharing is disabled for this post
-      !post.allow_shares -> false
-      # If user is the post author, they cannot repost their own content
-      post.user_id == current_user.id -> false
-      # If user has already reposted this post
-      current_user.id in (post.reposts_list || []) -> false
-      # Otherwise, check if sharing is allowed
-      true -> post.allow_shares
-    end
-  end
-
-  @doc """
   Check if a user can bookmark a post based on interaction controls.
   """
   def can_bookmark?(post, current_user) do
@@ -972,14 +955,6 @@ defmodule MossletWeb.Helpers do
     else
       nil
     end
-  end
-
-  @doc """
-  Enhanced can_repost function that uses the new can_share? logic.
-  Maintains backward compatibility but uses enhanced privacy controls.
-  """
-  def can_repost_with_privacy_controls?(post, current_user) do
-    can_share?(post, current_user)
   end
 
   def get_user!(id), do: Accounts.get_user!(id)

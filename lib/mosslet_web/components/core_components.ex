@@ -1841,7 +1841,13 @@ defmodule MossletWeb.CoreComponents do
     assigns = assign_new(assigns, :style, fn -> nil end)
 
     ~H"""
-    <span class={[@name, @class]} style={@style} id={@id} phx-hook={@phx_hook} data-tippy-content={@data_tippy_content} />
+    <span
+      class={[@name, @class]}
+      style={@style}
+      id={@id}
+      phx-hook={@phx_hook}
+      data-tippy-content={@data_tippy_content}
+    />
     """
   end
 
@@ -2068,7 +2074,7 @@ defmodule MossletWeb.CoreComponents do
         style="display: block; max-width: 280px; margin: 0 auto;"
         class="email-light-logo"
       />
-
+      
     <!-- Dark mode logo (horizontal layout) -->
       <img
         height="60"

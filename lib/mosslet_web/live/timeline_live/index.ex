@@ -2180,16 +2180,25 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("reply", %{"id" => id, "url" => return_url}, socket) do
     post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_user
 
-    socket =
-      socket
-      |> assign(:live_action, :reply)
-      |> assign(:return_url, return_url)
-      |> assign(:post, post)
-      |> assign(:reply, %Reply{})
-      |> assign(:image_urls, [])
+    if can_reply?(post, current_user) do
+      socket =
+        socket
+        |> assign(:live_action, :reply)
+        |> assign(:return_url, return_url)
+        |> assign(:post, post)
+        |> assign(:reply, %Reply{})
+        |> assign(:image_urls, [])
 
-    {:noreply, socket}
+      {:noreply, socket}
+    else
+      socket =
+        socket
+        |> put_flash(:warning, "You cannot reply to this post.")
+
+      {:noreply, socket}
+    end
   end
 
   def handle_event("edit_reply", %{"id" => id, "url" => return_url}, socket) do
@@ -3267,13 +3276,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to check if current user can repost (with encrypted reposts_list support)
   defp can_repost_with_decryption?(post, current_user, key) do
-    # Can't repost own posts
-    if post.user_id == current_user.id do
-      false
-    else
-      # Decrypt reposts list and check if user already reposted
-      decrypted_reposts = decrypt_post_reposts_list(post, current_user, key)
-      current_user.id not in decrypted_reposts
+    cond do
+      # If sharing is disabled for this post
+      !post.allow_shares -> false
+      # If user is the post author, they cannot repost their own content
+      post.user_id == current_user.id -> false
+      # If user has already reposted this post (# Decrypt reposts list and check if user already reposted)
+      current_user.id in (decrypt_post_reposts_list(post, current_user, key) || []) -> false
+      # Otherwise, check if sharing is allowed
+      true -> post.allow_shares
     end
   end
 
