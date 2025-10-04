@@ -449,8 +449,9 @@ defmodule Mosslet.Timeline.Post do
 
     # Ephemeral posts should have expiration
     if is_ephemeral && !expires_at do
-      # Auto-set expiration for ephemeral posts (24 hours)
-      put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 24, :hour))
+      # Auto-set expiration for ephemeral posts (24 hours) with truncated microseconds
+      expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(24, :hour) |> NaiveDateTime.truncate(:second)
+      put_change(changeset, :expires_at, expires_at)
     else
       changeset
     end
@@ -470,6 +471,7 @@ defmodule Mosslet.Timeline.Post do
 
   # Convert expires_at_option (UI string) to expires_at (actual datetime)
   # This is the idiomatic Phoenix pattern for form field transformation
+  # Truncate microseconds to avoid Ecto database errors
   defp prepare_expires_at(changeset) do
     case get_change(changeset, :expires_at_option) do
       nil ->
@@ -479,19 +481,24 @@ defmodule Mosslet.Timeline.Post do
         changeset
 
       "1_hour" ->
-        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 1, :hour))
+        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(1, :hour) |> NaiveDateTime.truncate(:second)
+        put_change(changeset, :expires_at, expires_at)
 
       "6_hours" ->
-        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 6, :hour))
+        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(6, :hour) |> NaiveDateTime.truncate(:second)
+        put_change(changeset, :expires_at, expires_at)
 
       "24_hours" ->
-        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 24, :hour))
+        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(24, :hour) |> NaiveDateTime.truncate(:second)
+        put_change(changeset, :expires_at, expires_at)
 
       "7_days" ->
-        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 7, :day))
+        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(7, :day) |> NaiveDateTime.truncate(:second)
+        put_change(changeset, :expires_at, expires_at)
 
       "30_days" ->
-        put_change(changeset, :expires_at, NaiveDateTime.add(NaiveDateTime.utc_now(), 30, :day))
+        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(30, :day) |> NaiveDateTime.truncate(:second)
+        put_change(changeset, :expires_at, expires_at)
 
       _other ->
         add_error(changeset, :expires_at_option, "invalid expiration option")
