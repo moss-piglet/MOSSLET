@@ -6338,43 +6338,83 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Group/User selection UI (when specific visibility is selected) --%>
             <div :if={@selector in ["specific_groups", "specific_users"]} class="mt-4">
               <%= if @selector == "specific_groups" do %>
-                <%!-- Group selection interface --%>
-                <div class="p-3 rounded-lg bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/30">
-                  <div class="flex items-center gap-2 mb-3">
-                    <.phx_icon
-                      name="hero-squares-2x2"
-                      class="h-4 w-4 text-teal-600 dark:text-teal-400"
-                    />
-                    <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
-                      Select Connection Groups
-                    </span>
+                <%!-- Group selection interface with purple theme (groups = organization) --%>
+                <div class="p-4 rounded-xl bg-gradient-to-br from-purple-50/80 via-violet-50/60 to-purple-50/80 dark:from-purple-900/25 dark:via-violet-900/20 dark:to-purple-900/25 border border-purple-200/60 dark:border-purple-700/40 shadow-sm shadow-purple-500/10 dark:shadow-purple-400/15">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 rounded-lg bg-purple-100/80 dark:bg-purple-800/40 border border-purple-200/60 dark:border-purple-700/50">
+                      <.phx_icon
+                        name="hero-squares-2x2"
+                        class="h-5 w-5 text-purple-600 dark:text-purple-400"
+                      />
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-semibold text-purple-800 dark:text-purple-200">
+                        Select Connection Groups
+                      </h4>
+                      <p class="text-xs text-purple-600 dark:text-purple-400">
+                        Share with organized groups of your connections
+                      </p>
+                    </div>
                   </div>
-                  <p class="text-xs text-teal-600 dark:text-teal-400 mb-3">
-                    Choose which of your connection groups can see this post. Groups help organize your connections by context (work, family, friends, etc.).
-                  </p>
-                  <%!-- This would be populated with user's actual groups --%>
-                  <div class="text-sm text-teal-600 dark:text-teal-400 italic">
-                    Group selection interface coming soon - for now, use "Connections" to share with all your connections.
+                  <div class="space-y-3">
+                    <p class="text-sm text-purple-700 dark:text-purple-300 leading-relaxed">
+                      Choose which of your connection groups can see this post. Groups help organize your connections by context like work colleagues, family members, or friend circles.
+                    </p>
+                    <%!-- Future group selection UI --%>
+                    <div class="p-3 rounded-lg bg-purple-100/50 dark:bg-purple-800/30 border border-purple-200/60 dark:border-purple-700/40">
+                      <div class="flex items-center gap-2 mb-2">
+                        <.phx_icon
+                          name="hero-cog-6-tooth"
+                          class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                        />
+                        <span class="text-sm font-medium text-purple-700 dark:text-purple-300">
+                          Coming Soon
+                        </span>
+                      </div>
+                      <p class="text-sm text-purple-600 dark:text-purple-400">
+                        Group selection interface is being built. For now, use "Connections" to share with all your connections.
+                      </p>
+                    </div>
                   </div>
                 </div>
               <% else %>
-                <%!-- User selection interface --%>
-                <div class="p-3 rounded-lg bg-cyan-50/50 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-700/30">
-                  <div class="flex items-center gap-2 mb-3">
-                    <.phx_icon
-                      name="hero-user-plus"
-                      class="h-4 w-4 text-cyan-600 dark:text-cyan-400"
-                    />
-                    <span class="text-sm font-medium text-cyan-700 dark:text-cyan-300">
-                      Select Specific People
-                    </span>
+                <%!-- User selection interface with amber theme (specific people = selective/exclusive) --%>
+                <div class="p-4 rounded-xl bg-gradient-to-br from-amber-50/80 via-orange-50/60 to-amber-50/80 dark:from-amber-900/25 dark:via-orange-900/20 dark:to-amber-900/25 border border-amber-200/60 dark:border-amber-700/40 shadow-sm shadow-amber-500/10 dark:shadow-amber-400/15">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 rounded-lg bg-amber-100/80 dark:bg-amber-800/40 border border-amber-200/60 dark:border-amber-700/50">
+                      <.phx_icon
+                        name="hero-user-plus"
+                        class="h-5 w-5 text-amber-600 dark:text-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        Select Specific People
+                      </h4>
+                      <p class="text-xs text-amber-600 dark:text-amber-400">
+                        Share with carefully chosen individuals
+                      </p>
+                    </div>
                   </div>
-                  <p class="text-xs text-cyan-600 dark:text-cyan-400 mb-3">
-                    Choose specific individuals from your connections who can see this post. Perfect for sharing personal content with just a few people.
-                  </p>
-                  <%!-- This would be populated with user's actual connections --%>
-                  <div class="text-sm text-cyan-600 dark:text-cyan-400 italic">
-                    Individual selection interface coming soon - for now, use "Connections" to share with all your connections.
+                  <div class="space-y-3">
+                    <p class="text-sm text-amber-700 dark:text-amber-300 leading-relaxed">
+                      Choose specific individuals from your connections who can see this post. Perfect for sharing personal content with just a select few people you trust.
+                    </p>
+                    <%!-- Future user selection UI --%>
+                    <div class="p-3 rounded-lg bg-amber-100/50 dark:bg-amber-800/30 border border-amber-200/60 dark:border-amber-700/40">
+                      <div class="flex items-center gap-2 mb-2">
+                        <.phx_icon
+                          name="hero-cog-6-tooth"
+                          class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                        />
+                        <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          Coming Soon
+                        </span>
+                      </div>
+                      <p class="text-sm text-amber-600 dark:text-amber-400">
+                        Individual selection interface is being built. For now, use "Connections" to share with all your connections.
+                      </p>
+                    </div>
                   </div>
                 </div>
               <% end %>
