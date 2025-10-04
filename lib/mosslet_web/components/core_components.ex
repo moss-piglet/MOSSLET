@@ -1833,12 +1833,15 @@ defmodule MossletWeb.CoreComponents do
   attr :name, :string, required: true
   attr :class, :any, default: nil
   attr :style, :string, default: nil
+  attr :id, :string, default: nil
+  attr :phx_hook, :string, default: nil
+  attr :data_tippy_content, :string, default: nil
 
   def phx_icon(%{name: "hero-" <> _} = assigns) do
     assigns = assign_new(assigns, :style, fn -> nil end)
 
     ~H"""
-    <span class={[@name, @class]} style={@style} />
+    <span class={[@name, @class]} style={@style} id={@id} phx-hook={@phx_hook} data-tippy-content={@data_tippy_content} />
     """
   end
 
@@ -2065,7 +2068,7 @@ defmodule MossletWeb.CoreComponents do
         style="display: block; max-width: 280px; margin: 0 auto;"
         class="email-light-logo"
       />
-      
+
     <!-- Dark mode logo (horizontal layout) -->
       <img
         height="60"

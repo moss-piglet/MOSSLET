@@ -3593,64 +3593,61 @@ defmodule MossletWeb.DesignSystem do
                   <%!-- Ephemeral indicator --%>
                   <.phx_icon
                     :if={@post.is_ephemeral}
+                    id={"ephemeral-indicator-#{@post.id}"}
                     name="hero-clock"
                     class="h-3 w-3 text-amber-500 dark:text-amber-400"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Ephemeral post - will auto-delete"
+                    phx_hook="TippyHook"
+                    data_tippy_content="Ephemeral post - will auto-delete"
                   />
 
                   <%!-- Mature content indicator --%>
                   <.phx_icon
                     :if={@post.mature_content}
+                    id={"mature-content-indicator-#{@post.id}"}
                     name="hero-exclamation-triangle"
                     class="h-3 w-3 text-orange-500 dark:text-orange-400"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Mature content (18+)"
+                    phx_hook="TippyHook"
+                    data_tippy_content="Mature content (18+)"
                   />
 
                   <%!-- No replies indicator --%>
                   <.phx_icon
                     :if={!@post.allow_replies}
+                    id={"allow-replies-indicator-#{@post.id}"}
                     name="hero-chat-bubble-oval-left-ellipsis"
                     class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Replies disabled"
+                    phx_hook="TippyHook"
+                    data_tippy_content="Replies disabled"
                   />
 
                   <%!-- No shares indicator --%>
                   <.phx_icon
                     :if={!@post.allow_shares}
+                    id={"allow-shares-indicator-#{@post.id}"}
                     name="hero-arrow-path"
                     class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Sharing disabled"
+                    phx_hook="TippyHook"
+                    data_tippy_content="Sharing disabled"
                   />
 
                   <%!-- No bookmarks indicator --%>
                   <.phx_icon
                     :if={!@post.allow_bookmarks}
+                    id={"allow-bookmarks-indicator-#{@post.id}"}
                     name="hero-bookmark"
                     class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Bookmarking disabled"
+                    phx_hook="TippyHook"
+                    data_tippy_content="Bookmarking disabled"
                   />
 
                   <%!-- Connection required for replies indicator --%>
                   <.phx_icon
                     :if={@post.require_follow_to_reply && @post.visibility == :public}
+                    id={"connection-required-reply-indicator-#{@post.id}"}
                     name="hero-shield-check"
                     class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Connection required to reply"
-                  />
-
-                  <%!-- Local only indicator (future federation feature) --%>
-                  <.phx_icon
-                    :if={@post.local_only}
-                    name="hero-home"
-                    class="h-3 w-3 text-indigo-500 dark:text-indigo-400"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Local only - won't federate"
+                    phx_hook="TippyHook"
+                    data_tippy_content="Connection required to reply"
                   />
                 </div>
               </div>
