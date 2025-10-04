@@ -1649,7 +1649,7 @@ defmodule Mosslet.Timeline do
     user = Accounts.get_user!(opts[:user].id)
     p_attrs = post.changes.user_post_map
 
-    {:ok, %{insert_post: post, insert_user_post: user_post_conn}} =
+    {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} =
       Ecto.Multi.new()
       |> Ecto.Multi.insert(:insert_post, post)
       |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
@@ -1684,90 +1684,14 @@ defmodule Mosslet.Timeline do
       end)
       |> Repo.transaction_on_primary()
 
-    # Create user_post_receipts for other users who can see this public post
-    # For public posts, this means all confirmed users in the system
-    create_public_post_receipts_for_other_users(post, user_post_conn, user)
-
-    # we do not create multiple user_posts as the post is
-    # symmetrically encrypted with the server public key.
-
     conn = Accounts.get_connection_from_item(post, user)
 
     {:ok, post}
     |> broadcast_admin(:post_created)
 
-    {:ok, conn, post |> Repo.preload([:user_posts, :group, :user_group, :replies])}
+    {:ok, conn,
+     post |> Repo.preload([:user_posts, :group, :user_group, :replies, :user_post_receipts])}
     |> broadcast(:post_created)
-  end
-
-  # Helper function to create user_post_receipts for public posts
-  # This creates receipts for all confirmed users except the post creator
-  defp create_public_post_receipts_for_other_users(post, user_post_conn, creator_user) do
-    # Get all confirmed users except the post creator
-    # We limit this to prevent performance issues on large platforms
-    other_users =
-      from(u in Accounts.User,
-        where: not is_nil(u.confirmed_at),
-        where: u.id != ^creator_user.id,
-        # Limit to recent active users to prevent excessive receipt creation
-        # Temporarily removing the 30-day filter to ensure all users get receipts
-        # where: u.updated_at >= ago(30, "day"),
-        # Reasonable limit for public post visibility
-        limit: 1000
-      )
-      |> Repo.all()
-
-    # Create receipts in batches to avoid overwhelming the database
-    batch_size = 100
-
-    other_users
-    |> Enum.chunk_every(batch_size)
-    |> Enum.each(fn user_batch ->
-      # Create UserPost entries for each user (they all share the same encrypted key)
-      user_posts_data =
-        Enum.map(user_batch, fn user ->
-          %{
-            id: Ecto.UUID.generate(),
-            # Same encrypted key as creator
-            key: user_post_conn.key,
-            user_id: user.id,
-            post_id: post.id,
-            inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-            updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-          }
-        end)
-
-      # Batch insert UserPost entries
-      case Repo.insert_all(UserPost, user_posts_data, returning: [:id, :user_id]) do
-        {_count, user_posts_inserted} ->
-          # Create UserPostReceipt entries for the inserted UserPosts
-          receipts_data =
-            Enum.map(user_posts_inserted, fn %{id: user_post_id, user_id: user_id} ->
-              %{
-                id: Ecto.UUID.generate(),
-                user_id: user_id,
-                user_post_id: user_post_id,
-                # Public posts start as read for other users to avoid overwhelming them
-                # Users can manually mark posts as unread to prioritize them
-                is_read?: true,
-                read_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-                inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-                updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-              }
-            end)
-
-          # Batch insert UserPostReceipt entries
-          Repo.insert_all(UserPostReceipt, receipts_data)
-
-        _error ->
-          Logger.error("Failed to create user_posts for public post #{post.id}")
-      end
-    end)
-  rescue
-    error ->
-      Logger.error("Error creating public post receipts: #{inspect(error)}")
-      # Don't fail the post creation if receipt creation fails
-      :ok
   end
 
   @doc """
@@ -1838,7 +1762,8 @@ defmodule Mosslet.Timeline do
         {:ok, post}
         |> broadcast_admin(:post_created)
 
-        {:ok, conn, post |> Repo.preload([:user_posts, :group, :user_group, :replies])}
+        {:ok, conn,
+         post |> Repo.preload([:user_posts, :group, :user_group, :replies, :user_post_receipts])}
         |> broadcast(:post_created)
       else
         case create_new_post(post, user, p_attrs, attrs) do
@@ -2111,11 +2036,10 @@ defmodule Mosslet.Timeline do
                |> Ecto.Changeset.put_assoc(:user_post, user_post)
              end)
              |> Repo.transaction_on_primary() do
-          {:ok, %{insert_post: post, insert_user_post: user_post}} ->
+          {:ok, %{insert_post: post, insert_user_post: _user_post}} ->
             # For public posts, we also need to create receipts for other users
             # But we don't need to create additional UserPost records
             post_with_associations = post |> Repo.preload([:user_posts, :replies])
-            create_public_post_receipts_for_other_users(post_with_associations, user_post, user)
 
             conn = Accounts.get_connection_from_item(post, user)
 
@@ -2570,6 +2494,64 @@ defmodule Mosslet.Timeline do
   def get_public_user_post(post) do
     Enum.at(post.user_posts, 0)
     |> Repo.preload([:post, :user, :user_post_receipt])
+  end
+
+  @doc """
+  Gets or creates a UserPost record for public posts when users interact with them.
+  This allows any user to track read/unread status for public posts without pre-creating
+  massive amounts of UserPost records for all users.
+  """
+  def get_or_create_user_post_for_public(post, user) do
+    case get_user_post(post, user) do
+      nil when post.visibility == :public ->
+        # Create UserPost on-demand for public posts
+        create_user_post_for_public_interaction(post, user)
+
+      nil ->
+        # Post is not public and user doesn't have access
+        {:error, :no_access}
+
+      existing_user_post ->
+        # UserPost already exists
+        {:ok, existing_user_post}
+    end
+  end
+
+  defp create_user_post_for_public_interaction(post, user) do
+    # Use the same key structure as the original post creator
+    # For public posts, we can derive the key from the post itself
+    original_user_post = get_public_user_post(post)
+
+    if original_user_post do
+      user_post_changeset =
+        UserPost.changeset(
+          %UserPost{},
+          %{
+            # Reuse the same key as the original post for public posts
+            key: Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(original_user_post.key),
+            user_id: user.id,
+            post_id: post.id
+          },
+          user: user,
+          visibility: :public
+        )
+        |> Ecto.Changeset.put_assoc(:post, post)
+        |> Ecto.Changeset.put_assoc(:user, user)
+
+      case Repo.transaction_on_primary(fn -> Repo.insert(user_post_changeset) end) do
+        {:ok, {:ok, user_post}} ->
+          preloaded_user_post = Repo.preload(user_post, [:post, :user, :user_post_receipt])
+          {:ok, preloaded_user_post}
+
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        error ->
+          error
+      end
+    else
+      {:error, :invalid_public_post}
+    end
   end
 
   def get_user_post(post, user) do

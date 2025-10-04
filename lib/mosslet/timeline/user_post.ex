@@ -38,13 +38,13 @@ defmodule Mosslet.Timeline.UserPost do
     |> encrypt_attrs(opts)
   end
 
-  # When we create a UserMemory when sharing a
-  # Memory with another use, we need to encrypt
+  # When we create a UserPost when sharing a
+  # Post with another use, we need to encrypt
   # the key to each specific user's public key
   # that is being shared with.
   #
   # The user will be the same as the `user_id`
-  # associated with the UserMemory.
+  # associated with the UserPost.
   defp encrypt_attrs(changeset, opts) do
     if opts[:user] do
       temp_key = get_field(changeset, :key)

@@ -1181,40 +1181,60 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case receipt do
       nil ->
-        # No receipt exists - create one and mark as read
-        # First, get the user_post for this post and user
-        user_post = Timeline.get_user_post(post, current_user)
+        # No receipt exists - determine desired state based on current display
+        # For public posts from others that show as "read" (no receipt),
+        # clicking "Mark as unread" should create an unread receipt
 
-        if user_post do
-          case Timeline.create_or_update_user_post_receipt(user_post, current_user, true) do
-            {:ok, _receipt} ->
-              # Invalidate timeline cache to ensure fresh data
-              Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
-
-              # Get the post with fresh user_post_receipts preloaded
-              updated_post =
-                Timeline.get_post!(post_id)
-                |> Mosslet.Repo.preload([:user_post_receipts], force: true)
-
-              # Recalculate unread counts after toggling read status
-              key = socket.assigns.key
-              content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
-              options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
-              unread_counts = calculate_unread_counts(current_user, options_with_filters)
-
-              socket =
-                socket
-                |> stream_insert(:posts, updated_post, at: -1)
-                |> assign(:unread_counts, unread_counts)
-                |> put_flash(:info, "Post marked as read")
-
-              {:noreply, socket}
-
-            {:error, _changeset} ->
-              {:noreply, put_flash(socket, :error, "Failed to mark post as read")}
+        desired_read_status =
+          if post.visibility == :public && post.user_id != current_user.id do
+            # Public post from another user - toggle to unread
+            false
+          else
+            # Own post or private/connections post - mark as read
+            true
           end
-        else
-          {:noreply, put_flash(socket, :info, "You don't have access to this post")}
+
+        # Create or get UserPost for this interaction
+        case Timeline.get_or_create_user_post_for_public(post, current_user) do
+          {:ok, user_post} ->
+            case Timeline.create_or_update_user_post_receipt(
+                   user_post,
+                   current_user,
+                   desired_read_status
+                 ) do
+              {:ok, _receipt} ->
+                # Invalidate timeline cache to ensure fresh data
+                Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+                # Get the post with fresh user_post_receipts preloaded
+                updated_post = Timeline.get_post!(post_id)
+
+                # Recalculate unread counts after toggling read status
+                key = socket.assigns.key
+                content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+
+                options_with_filters =
+                  Map.put(options, :content_filter_prefs, content_filter_prefs)
+
+                unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+                flash_message =
+                  if desired_read_status, do: "Post marked as read", else: "Post marked as unread"
+
+                socket =
+                  socket
+                  |> stream_insert(:posts, updated_post, at: -1)
+                  |> assign(:unread_counts, unread_counts)
+                  |> put_flash(:info, flash_message)
+
+                {:noreply, socket}
+
+              {:error, _changeset} ->
+                {:noreply, put_flash(socket, :error, "Failed to update post status")}
+            end
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Failed to mark post")}
         end
 
       %{is_read?: true} ->
@@ -3221,21 +3241,13 @@ defmodule MossletWeb.TimelineLive.Index do
   defp get_post_unread_status(post, current_user) do
     cond do
       Ecto.assoc_loaded?(post.user_post_receipts) ->
-        # Find the receipt for the current user from preloaded association
-        receipt =
-          Enum.find(post.user_post_receipts, fn receipt ->
-            receipt.user_id == current_user.id
-          end)
-
-        case receipt do
-          # No receipt = unread
-          nil -> true
-          # Receipt exists and marked as read = read
-          %{is_read?: true} -> false
-          # Receipt exists but marked as unread = unread
-          %{is_read?: false} -> true
-          # Default to unread for any other case
-          _ -> true
+        case Enum.find(post.user_post_receipts || [], fn receipt ->
+               receipt.user_id == current_user.id
+             end) do
+          # No receipt = treat as read
+          nil -> false
+          # Use receipt status
+          %{is_read?: is_read} -> !is_read
         end
 
       true ->
