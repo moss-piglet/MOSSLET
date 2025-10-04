@@ -3419,10 +3419,16 @@ defmodule MossletWeb.DesignSystem do
   defp privacy_icon("public"), do: "hero-globe-alt"
   defp privacy_icon("connections"), do: "hero-user-group"
   defp privacy_icon("private"), do: "hero-lock-closed"
+  defp privacy_icon("specific_groups"), do: "hero-squares-2x2"
+  defp privacy_icon("specific_users"), do: "hero-user-plus"
+  defp privacy_icon(_), do: "hero-lock-closed"
 
   defp privacy_label("public"), do: "Public"
   defp privacy_label("connections"), do: "Connections"
   defp privacy_label("private"), do: "Private"
+  defp privacy_label("specific_groups"), do: "Groups"
+  defp privacy_label("specific_users"), do: "Specific"
+  defp privacy_label(_), do: "Private"
 
   # Avatar size helper functions
   defp avatar_container_size_classes("xs"), do: "w-6 h-6"
@@ -3572,15 +3578,82 @@ defmodule MossletWeb.DesignSystem do
                 name="hero-check-badge"
                 class="h-5 w-5 text-emerald-500 flex-shrink-0"
               />
-              <%!-- Visibility badge moved inline with user name for better hierarchy --%>
-              <.liquid_badge
-                variant="soft"
-                color={visibility_badge_color(@post.visibility)}
-                size="sm"
-                class="ml-2"
-              >
-                {visibility_badge_text(@post.visibility)}
-              </.liquid_badge>
+              <%!-- Enhanced visibility badge with interaction indicators --%>
+              <div class="flex items-center gap-2 ml-2">
+                <.liquid_badge
+                  variant="soft"
+                  color={visibility_badge_color(@post.visibility)}
+                  size="sm"
+                >
+                  {visibility_badge_text(@post.visibility)}
+                </.liquid_badge>
+
+                <%!-- Interaction controls indicators --%>
+                <div class="flex items-center gap-1">
+                  <%!-- Ephemeral indicator --%>
+                  <.phx_icon
+                    :if={@post.is_ephemeral}
+                    name="hero-clock"
+                    class="h-3 w-3 text-amber-500 dark:text-amber-400"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Ephemeral post - will auto-delete"
+                  />
+
+                  <%!-- Mature content indicator --%>
+                  <.phx_icon
+                    :if={@post.mature_content}
+                    name="hero-exclamation-triangle"
+                    class="h-3 w-3 text-orange-500 dark:text-orange-400"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Mature content (18+)"
+                  />
+
+                  <%!-- No replies indicator --%>
+                  <.phx_icon
+                    :if={!@post.allow_replies}
+                    name="hero-chat-bubble-oval-left-ellipsis"
+                    class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Replies disabled"
+                  />
+
+                  <%!-- No shares indicator --%>
+                  <.phx_icon
+                    :if={!@post.allow_shares}
+                    name="hero-arrow-path"
+                    class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Sharing disabled"
+                  />
+
+                  <%!-- No bookmarks indicator --%>
+                  <.phx_icon
+                    :if={!@post.allow_bookmarks}
+                    name="hero-bookmark"
+                    class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Bookmarking disabled"
+                  />
+
+                  <%!-- Connection required for replies indicator --%>
+                  <.phx_icon
+                    :if={@post.require_follow_to_reply && @post.visibility == :public}
+                    name="hero-shield-check"
+                    class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Connection required to reply"
+                  />
+
+                  <%!-- Local only indicator (future federation feature) --%>
+                  <.phx_icon
+                    :if={@post.local_only}
+                    name="hero-home"
+                    class="h-3 w-3 text-indigo-500 dark:text-indigo-400"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Local only - won't federate"
+                  />
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
               <span class="truncate">{@user_handle}</span>
@@ -3785,7 +3858,7 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
-              :if={!@can_repost && @post.id == @current_user.id}
+              :if={!@can_repost && @post.user_id == @current_user.id}
               icon="hero-arrow-path"
               id={"cannot-repost-button-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
@@ -3799,14 +3872,15 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={nil}
             />
             <.liquid_timeline_action
-              :if={!@can_repost && @post.id != @current_user.id}
+              :if={!@can_repost && @post.user_id != @current_user.id}
               icon="hero-arrow-path"
               id={"cannot-repost-button-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
               phx-hook="TippyHook"
-              data-tippy-content="You already reposted this"
+              class="cursor-not-allowed"
+              data-tippy-content="Reposting not allowed"
               phx-click={nil}
               phx-value-id={nil}
               phx-value-body={nil}
@@ -6220,6 +6294,76 @@ defmodule MossletWeb.DesignSystem do
               label="Public"
               description="Everyone"
             />
+          </div>
+
+          <%!-- Advanced granular options (Level 3) --%>
+          <div class="pt-2 border-t border-emerald-200/60 dark:border-emerald-700/30">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <%!-- Specific Groups Option --%>
+              <.liquid_privacy_radio_option
+                name="visibility"
+                value="specific_groups"
+                current_value={@selector}
+                icon="hero-squares-2x2"
+                label="Specific Groups"
+                description="Select groups"
+              />
+
+              <%!-- Specific Users Option --%>
+              <.liquid_privacy_radio_option
+                name="visibility"
+                value="specific_users"
+                current_value={@selector}
+                icon="hero-user-plus"
+                label="Specific People"
+                description="Select individuals"
+              />
+            </div>
+
+            <%!-- Group/User selection UI (when specific visibility is selected) --%>
+            <div :if={@selector in ["specific_groups", "specific_users"]} class="mt-4">
+              <%= if @selector == "specific_groups" do %>
+                <%!-- Group selection interface --%>
+                <div class="p-3 rounded-lg bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/30">
+                  <div class="flex items-center gap-2 mb-3">
+                    <.phx_icon
+                      name="hero-squares-2x2"
+                      class="h-4 w-4 text-teal-600 dark:text-teal-400"
+                    />
+                    <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
+                      Select Connection Groups
+                    </span>
+                  </div>
+                  <p class="text-xs text-teal-600 dark:text-teal-400 mb-3">
+                    Choose which of your connection groups can see this post. Groups help organize your connections by context (work, family, friends, etc.).
+                  </p>
+                  <%!-- This would be populated with user's actual groups --%>
+                  <div class="text-sm text-teal-600 dark:text-teal-400 italic">
+                    Group selection interface coming soon - for now, use "Connections" to share with all your connections.
+                  </div>
+                </div>
+              <% else %>
+                <%!-- User selection interface --%>
+                <div class="p-3 rounded-lg bg-cyan-50/50 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-700/30">
+                  <div class="flex items-center gap-2 mb-3">
+                    <.phx_icon
+                      name="hero-user-plus"
+                      class="h-4 w-4 text-cyan-600 dark:text-cyan-400"
+                    />
+                    <span class="text-sm font-medium text-cyan-700 dark:text-cyan-300">
+                      Select Specific People
+                    </span>
+                  </div>
+                  <p class="text-xs text-cyan-600 dark:text-cyan-400 mb-3">
+                    Choose specific individuals from your connections who can see this post. Perfect for sharing personal content with just a few people.
+                  </p>
+                  <%!-- This would be populated with user's actual connections --%>
+                  <div class="text-sm text-cyan-600 dark:text-cyan-400 italic">
+                    Individual selection interface coming soon - for now, use "Connections" to share with all your connections.
+                  </div>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
 

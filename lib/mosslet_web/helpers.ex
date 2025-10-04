@@ -809,11 +809,7 @@ defmodule MossletWeb.Helpers do
   end
 
   def can_fav?(user, item) do
-    if user.id not in item.favs_list do
-      true
-    else
-      false
-    end
+    user.id not in item.favs_list
   end
 
   @doc """
@@ -840,6 +836,150 @@ defmodule MossletWeb.Helpers do
     else
       false
     end
+  end
+
+  # Enhanced Privacy Control Helper Functions
+  # These functions check the new interaction controls we implemented
+
+  @doc """
+  Check if a user can reply to a post based on interaction controls.
+  Considers allow_replies, require_follow_to_reply, and connection status.
+  """
+  def can_reply?(post, current_user) do
+    cond do
+      # If replies are disabled globally for this post
+      !post.allow_replies ->
+        false
+
+      # If user is the post author, they can always reply to their own post
+      post.user_id == current_user.id ->
+        true
+
+      # If post requires connection to reply (for public posts)
+      post.require_follow_to_reply && post.visibility == :public ->
+        user_has_connection_with_author?(current_user, post.user_id)
+
+      # Otherwise, check general reply permissions
+      true ->
+        post.allow_replies
+    end
+  end
+
+  @doc """
+  Check if a user can share/repost a post based on interaction controls.
+  Enhanced version of existing can_repost? with new privacy controls.
+  """
+  def can_share?(post, current_user) do
+    cond do
+      # If sharing is disabled for this post
+      !post.allow_shares -> false
+      # If user is the post author, they cannot repost their own content
+      post.user_id == current_user.id -> false
+      # If user has already reposted this post
+      current_user.id in (post.reposts_list || []) -> false
+      # Otherwise, check if sharing is allowed
+      true -> post.allow_shares
+    end
+  end
+
+  @doc """
+  Check if a user can bookmark a post based on interaction controls.
+  """
+  def can_bookmark?(post, current_user) do
+    cond do
+      # If bookmarking is disabled for this post
+      !post.allow_bookmarks -> false
+      # Users can always bookmark their own posts (for personal reference)
+      post.user_id == current_user.id -> true
+      # Otherwise, check if bookmarking is allowed
+      true -> post.allow_bookmarks
+    end
+  end
+
+  @doc """
+  Check if a user has a confirmed connection with another user.
+  Used for require_follow_to_reply functionality.
+  """
+  def user_has_connection_with_author?(current_user, author_user_id) do
+    # Get all confirmed connections for the current user
+    connections = Accounts.get_all_confirmed_user_connections(current_user.id)
+
+    # Check if the author is in the user's connections
+    Enum.any?(connections, fn conn ->
+      conn.reverse_user_id == author_user_id || conn.user_id == author_user_id
+    end)
+  end
+
+  @doc """
+  Get privacy indicator color for timeline posts.
+  Matches the color scheme used in privacy badges.
+  """
+  def get_privacy_indicator_color(post) do
+    case post.visibility do
+      :private -> "slate"
+      :connections -> "emerald"
+      :public -> "blue"
+      :specific_groups -> "purple"
+      :specific_users -> "amber"
+      _ -> "slate"
+    end
+  end
+
+  @doc """
+  Get privacy indicator text for timeline posts.
+  """
+  def get_privacy_indicator_text(post) do
+    case post.visibility do
+      :private -> "Private"
+      :connections -> "Connections"
+      :public -> "Public"
+      :specific_groups -> "Groups"
+      :specific_users -> "Specific"
+      _ -> "Private"
+    end
+  end
+
+  @doc """
+  Check if post will expire soon (within next 24 hours).
+  Used for ephemeral post warnings.
+  """
+  def expires_soon?(post) do
+    if post.is_ephemeral && post.expires_at do
+      now = NaiveDateTime.utc_now()
+      twenty_four_hours_from_now = NaiveDateTime.add(now, 24 * 60 * 60, :second)
+
+      NaiveDateTime.compare(post.expires_at, twenty_four_hours_from_now) == :lt
+    else
+      false
+    end
+  end
+
+  @doc """
+  Get remaining time for ephemeral posts in human-readable format.
+  """
+  def get_expiration_time_remaining(post) do
+    if post.is_ephemeral && post.expires_at do
+      now = NaiveDateTime.utc_now()
+      diff_seconds = NaiveDateTime.diff(post.expires_at, now, :second)
+
+      cond do
+        diff_seconds <= 0 -> "Expired"
+        diff_seconds < 60 -> "#{diff_seconds}s"
+        diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m"
+        diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h"
+        true -> "#{div(diff_seconds, 86400)}d"
+      end
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Enhanced can_repost function that uses the new can_share? logic.
+  Maintains backward compatibility but uses enhanced privacy controls.
+  """
+  def can_repost_with_privacy_controls?(post, current_user) do
+    can_share?(post, current_user)
   end
 
   def get_user!(id), do: Accounts.get_user!(id)
@@ -2674,5 +2814,38 @@ defmodule MossletWeb.Helpers do
       :zinc -> "fill-zinc-500"
       _rest -> "fill-brand-500"
     end
+  end
+
+  # Timeline Post Status Helper Functions
+
+  @doc """
+  Get visual indicator classes for post privacy level.
+  Returns classes for the privacy badge.
+  """
+  def get_privacy_badge_classes(post) do
+    base_classes = "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+
+    color_classes =
+      case post.visibility do
+        :private ->
+          "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+
+        :connections ->
+          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+
+        :public ->
+          "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+
+        :specific_groups ->
+          "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+
+        :specific_users ->
+          "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+
+        _ ->
+          "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+      end
+
+    "#{base_classes} #{color_classes}"
   end
 end

@@ -930,12 +930,11 @@ defmodule Mosslet.Timeline do
       |> apply_database_filters(options)
       |> preload([:user_posts, :user, :replies, :user_post_receipts])
       |> order_by([p, up, upr],
-        # Unread posts first (false comes before true)
-        asc: upr.is_read?,
+        # Unread posts first: false (unread) < true (read)
+        # COALESCE treats NULL (no join record) as true (read)
+        asc: coalesce(upr.is_read?, true),
         # Most recent posts first within each group
-        desc: p.inserted_at,
-        # Secondary sort on read_at
-        asc: upr.read_at
+        desc: p.inserted_at
       )
       # Uses post_page and post_per_page
       |> paginate(options)
@@ -1023,8 +1022,9 @@ defmodule Mosslet.Timeline do
         on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
         where: p.visibility == :public,
         order_by: [
-          # Unread posts first (false comes before true)
-          asc: upr.is_read?,
+          # Unread posts first: false (unread) < true (read)
+          # COALESCE treats NULL (no join record) as true (read)
+          asc: coalesce(upr.is_read?, true),
           # Most recent posts first within each group
           desc: p.inserted_at
         ],
@@ -1134,12 +1134,11 @@ defmodule Mosslet.Timeline do
     |> apply_database_filters(options)
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
-      # Unread posts first (false comes before true)
-      asc: upr.is_read?,
+      # Unread posts first: false (unread) < true (read)
+      # COALESCE treats NULL (no join record) as true (read)
+      asc: coalesce(upr.is_read?, true),
       # Most recent posts first within each group
-      desc: p.inserted_at,
-      # Secondary sort on read_at
-      asc: upr.read_at
+      desc: p.inserted_at
     )
     |> paginate(options)
     |> Repo.all()

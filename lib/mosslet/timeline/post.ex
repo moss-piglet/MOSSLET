@@ -694,7 +694,7 @@ defmodule Mosslet.Timeline.Post do
     if opts[:update_post] do
       case visibility do
         :public ->
-          Encrypted.Users.Utils.decrypt_public_item_key(opts[:post_key])
+          Encrypted.Users.Utils.decrypt_public_item_key(opts[:trix_key])
 
         _rest ->
           if not is_nil(group_id) do
