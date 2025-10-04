@@ -3027,8 +3027,8 @@ defmodule MossletWeb.DesignSystem do
             </button>
           </div>
 
-          <%!-- Privacy controls and post button with mobile-first layout --%>
-          <div class="flex items-center justify-between sm:justify-end gap-3">
+          <%!-- Privacy controls and post button with improved mobile stacking --%>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
             <%!-- Hidden field for form data integrity --%>
             <input
               type="hidden"
@@ -3037,11 +3037,12 @@ defmodule MossletWeb.DesignSystem do
               id="privacy-hidden-field"
             />
 
-            <%!-- Enhanced privacy selector with progressive disclosure --%>
+            <%!-- Enhanced privacy selector with mobile-friendly full width --%>
             <div
               id={"privacy-selector-#{@selector}"}
               class={[
                 "relative inline-flex items-center gap-2 px-3 py-2.5 rounded-full text-sm",
+                "w-full sm:w-auto justify-center sm:justify-start",
                 "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
                 "border border-slate-200/60 dark:border-slate-600/60",
                 "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
@@ -3065,11 +3066,11 @@ defmodule MossletWeb.DesignSystem do
               />
             </div>
 
-            <%!-- Post button that submits the form --%>
+            <%!-- Post button with mobile-friendly full width --%>
             <.liquid_button
               size="md"
               type="submit"
-              class="flex-shrink-0"
+              class="w-full sm:w-auto sm:flex-shrink-0"
               phx-disable-with="Sharing..."
               disabled={true}
             >

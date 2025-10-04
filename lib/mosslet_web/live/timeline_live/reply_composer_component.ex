@@ -144,40 +144,50 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                     </div>
                   </div>
 
-                  <%!-- Reply actions --%>
-                  <div class="flex items-center justify-between mt-3">
-                    <div class="flex items-center gap-2">
-                      <%!-- Optional: Reply privacy indicator --%>
-                      <span class="text-xs text-emerald-600/80 dark:text-emerald-400/80 font-medium">
-                        Reply visibility: Same as post
-                      </span>
-                    </div>
+                  <%!-- Reply actions with consistent button order and enhanced mobile UX --%>
+                  <div class="mt-4">
+                    <%!-- Privacy indicator and action buttons on same line for better visual hierarchy --%>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <%!-- Privacy indicator --%>
+                      <div class="flex justify-center sm:justify-start">
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50/80 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-700/40 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                          <.phx_icon
+                            name="hero-link"
+                            class="h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                          />
+                          <span>Reply inherits post privacy</span>
+                        </div>
+                      </div>
 
-                    <div class="flex items-center gap-2">
-                      <%!-- Cancel button --%>
-                      <MossletWeb.DesignSystem.liquid_button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        color="slate"
-                        phx-click="cancel_reply"
-                        phx-target={@myself}
-                        class="text-slate-600 dark:text-slate-400"
-                      >
-                        Cancel
-                      </MossletWeb.DesignSystem.liquid_button>
+                      <%!-- Action buttons with consistent order (Cancel always left, Reply always right) --%>
+                      <div class="flex items-center gap-3">
+                        <%!-- Cancel button (always on left for consistent UX) --%>
+                        <MossletWeb.DesignSystem.liquid_button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          color="emerald"
+                          phx-click="cancel_reply"
+                          phx-target={@myself}
+                          class="flex-1 sm:flex-none"
+                        >
+                          Cancel
+                        </MossletWeb.DesignSystem.liquid_button>
 
-                      <%!-- Reply submit button --%>
-                      <MossletWeb.DesignSystem.liquid_button
-                        type="submit"
-                        size="sm"
-                        color="emerald"
-                        icon="hero-paper-airplane"
-                        disabled={!@form[:body].value || String.trim(@form[:body].value) == ""}
-                        phx-target={@myself}
-                      >
-                        Reply
-                      </MossletWeb.DesignSystem.liquid_button>
+                        <%!-- Reply submit button (always on right for consistent UX) --%>
+                        <MossletWeb.DesignSystem.liquid_button
+                          type="submit"
+                          size="sm"
+                          color="emerald"
+                          icon="hero-paper-airplane"
+                          disabled={!@form[:body].value || String.trim(@form[:body].value) == ""}
+                          phx-target={@myself}
+                          class="flex-1 sm:flex-none"
+                        >
+                          <span class="hidden sm:inline">Reply</span>
+                          <span class="sm:hidden">Send Reply</span>
+                        </MossletWeb.DesignSystem.liquid_button>
+                      </div>
                     </div>
                   </div>
                 </div>

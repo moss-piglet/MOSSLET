@@ -213,36 +213,48 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
           </div>
         </div>
 
-        <%!-- Action buttons --%>
-        <div class="flex items-center justify-between pt-2">
-          <div class="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
-            <.phx_icon name="hero-lock-closed" class="h-3 w-3" />
-            <span>Reply will be {String.capitalize(to_string(@post.visibility))}</span>
-          </div>
+        <%!-- Action section with improved mobile/desktop visual hierarchy --%>
+        <div class="pt-2">
+          <%!-- Privacy indicator and action buttons with responsive layout --%>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <%!-- Privacy indicator --%>
+            <div class="flex justify-center sm:justify-start">
+              <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50/80 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-700/40 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                <.phx_icon
+                  name="hero-lock-closed"
+                  class="h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                />
+                <span>Reply will be {String.capitalize(to_string(@post.visibility))}</span>
+              </div>
+            </div>
 
-          <div class="flex items-center gap-2">
-            <.liquid_button
-              type="button"
-              variant="ghost"
-              size="sm"
-              color="slate"
-              phx-click="cancel_nested_reply"
-              phx-target={@myself}
-              class="text-xs"
-            >
-              Clear
-            </.liquid_button>
+            <%!-- Action buttons with consistent order --%>
+            <div class="flex items-center gap-3">
+              <.liquid_button
+                type="button"
+                variant="ghost"
+                size="sm"
+                color="slate"
+                phx-click="cancel_nested_reply"
+                phx-target={@myself}
+                class="flex-1 sm:flex-none text-xs"
+              >
+                Clear
+              </.liquid_button>
 
-            <.liquid_button
-              type="submit"
-              size="sm"
-              color="emerald"
-              disabled={!@form[:body].value || String.trim(@form[:body].value) == ""}
-              phx-target={@myself}
-              class="text-xs px-4"
-            >
-              <.phx_icon name="hero-paper-airplane" class="h-3 w-3 mr-1" /> Reply
-            </.liquid_button>
+              <.liquid_button
+                type="submit"
+                size="sm"
+                color="emerald"
+                disabled={!@form[:body].value || String.trim(@form[:body].value) == ""}
+                phx-target={@myself}
+                class="flex-1 sm:flex-none text-xs px-4"
+              >
+                <.phx_icon name="hero-paper-airplane" class="h-3 w-3 mr-1" />
+                <span class="hidden sm:inline">Reply</span>
+                <span class="sm:hidden">Send</span>
+              </.liquid_button>
+            </div>
           </div>
         </div>
       </.form>
