@@ -6439,6 +6439,7 @@ defmodule MossletWeb.DesignSystem do
 
             <%!-- Allow Shares --%>
             <.liquid_checkbox
+              :if={@form[:is_ephemeral].value == false or @form[:is_ephemeral].value == "false"}
               field={@form[:allow_shares]}
               label="Sharing"
               help="Others can repost"
@@ -6449,11 +6450,7 @@ defmodule MossletWeb.DesignSystem do
               <.liquid_checkbox
                 field={@form[:allow_bookmarks]}
                 label="Bookmarks"
-                help={
-                  if @form[:is_ephemeral].value == true or @form[:is_ephemeral].value == "true",
-                    do: "Others can save (bookmark will be deleted when post expires)",
-                    else: "Others can save"
-                }
+                help={ "Others can save"}
               />
 
               <%!-- Educational note for ephemeral + bookmarks --%>

@@ -2604,6 +2604,40 @@ defmodule Mosslet.Timeline do
           {:error, "error"}
       end
     else
+      # Handle deleting an ephemeral post from a job
+      if opts[:user_id] && opts[:ephemeral] === true do
+        user = Accounts.get_user!(opts[:user_id])
+        conn = Accounts.get_connection_from_item(post, user)
+
+        query = from(p in Post, where: p.id == ^post.id or p.original_post_id == ^post.id)
+
+        post =
+          Repo.preload(post, [:user_posts, :group, :user_group, :original_post])
+
+        case Repo.transaction_on_primary(fn ->
+               Repo.delete_all(query)
+             end) do
+          {:ok, {:error, changeset}} ->
+            {:error, changeset}
+
+          {:ok, {count, _posts}} ->
+            if count > 1 do
+              {:ok, conn, post}
+              |> broadcast(:repost_deleted)
+            else
+              {:ok, conn, post}
+              |> broadcast(:post_deleted)
+            end
+
+          rest ->
+            Logger.warning("Error deleting post")
+            Logger.debug("Error deleting post: #{inspect(rest)}")
+            {:error, "error"}
+        end
+      else
+        {:error, "You do not have permission to delete this ephemeral post."}
+      end
+
       {:error, "You do not have permission to delete this post."}
     end
   end

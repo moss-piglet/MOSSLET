@@ -69,7 +69,7 @@ defmodule Mosslet.Timeline.Jobs.EphemeralPostCleanupJob do
         "action" => "delete_expired_post",
         # 🔐 SAFE: Just the post ID (UUID)
         "post_id" => post_id,
-        # 🔐 SAFE: Just the user ID (UUID) 
+        # 🔐 SAFE: Just the user ID (UUID)
         "user_id" => user_id,
         # 🔐 SAFE: Expiration timestamp
         "expires_at" => DateTime.to_iso8601(expires_at_utc)
@@ -241,7 +241,7 @@ defmodule Mosslet.Timeline.Jobs.EphemeralPostCleanupJob do
     try do
       # 🔐 PRIVACY: Proper deletion through Timeline context (maintains encryption patterns)
       # 🎯 ETHICAL: Clean deletion that respects user privacy
-      case Timeline.delete_post(post) do
+      case Timeline.delete_post(post, user_id: user_id, ephemeral: true) do
         {:ok, _deleted_post} ->
           # Invalidate cache for affected users
           TimelineCache.invalidate_timeline(user_id, :all)

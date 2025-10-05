@@ -867,13 +867,13 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put("user_id", current_user.id)
       |> Map.put("username", username(current_user, key) || "")
       # Enhanced privacy controls - preserve existing values or use defaults
-      |> Map.put_new("allow_replies", true)
-      |> Map.put_new("allow_shares", true)
-      |> Map.put_new("allow_bookmarks", true)
-      |> Map.put_new("require_follow_to_reply", false)
-      |> Map.put_new("mature_content", false)
-      |> Map.put_new("is_ephemeral", false)
-      |> Map.put_new("local_only", false)
+      |> Map.put_new("allow_replies", post_params["allow_replies"])
+      |> Map.put_new("allow_shares", post_params["allow_shares"])
+      |> Map.put_new("allow_bookmarks", post_params["allow_bookmarks"])
+      |> Map.put_new("require_follow_to_reply", post_params["require_follow_to_reply"])
+      |> Map.put_new("mature_content", post_params["mature_content"])
+      |> Map.put_new("is_ephemeral", post_params["is_ephemeral"])
+      |> Map.put_new("local_only", post_params["local_only"])
       # Expiration handling now done in Post changeset with virtual field
       |> add_shared_users_list_for_new_post(post_shared_users)
 
@@ -3281,6 +3281,8 @@ defmodule MossletWeb.TimelineLive.Index do
       !post.allow_shares -> false
       # If user is the post author, they cannot repost their own content
       post.user_id == current_user.id -> false
+      # If post is ephemeral, then there are no reposts allowed
+      post.is_ephemeral -> false
       # If user has already reposted this post (# Decrypt reposts list and check if user already reposted)
       current_user.id in decrypt_post_reposts_list(post, current_user, key) -> false
       # Otherwise, check if sharing is allowed

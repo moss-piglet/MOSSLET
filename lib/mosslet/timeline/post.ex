@@ -165,10 +165,22 @@ defmodule Mosslet.Timeline.Post do
       :group_id,
       :user_group_id,
       :image_urls,
-      :image_urls_updated_at
+      :image_urls_updated_at,
+      :content_warning,
+      :content_warning_category,
+      :content_warning?,
+      # NEW - Enhanced privacy control fields
+      :visibility_groups,
+      :visibility_users,
+      :allow_replies,
+      :allow_shares,
+      :allow_bookmarks,
+      :require_follow_to_reply,
+      :mature_content
     ])
     |> validate_required([:body, :username, :reposts_list, :repost, :user_id, :original_post_id])
     |> add_username_hash()
+    |> validate_content_warning()
     |> encrypt_attrs(opts)
     |> cast_embed(:shared_users,
       with: &shared_user_repost_changeset/2,
