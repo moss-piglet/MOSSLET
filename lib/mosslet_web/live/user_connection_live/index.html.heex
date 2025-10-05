@@ -319,7 +319,7 @@
           Organize your connections into groups for granular privacy control when sharing posts.
         </p>
 
-        <form phx-submit="save_visibility_group" class="space-y-6">
+        <.form phx-submit="save_visibility_group" class="space-y-6">
           <%!-- Hidden field for editing mode --%>
           <input
             :if={@editing_group}
@@ -381,17 +381,14 @@
               </div>
 
               <div :if={@connections_count > 0} class="space-y-2">
-                <div :for={{dom_id, connection} <- @streams.user_connections} class="">
+                <div :for={connection <- @modal_connections}>
                   <label class="flex items-center space-x-3 p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-700 cursor-pointer">
                     <input
                       type="checkbox"
                       name="visibility_group[connection_ids][]"
                       value={connection.id}
                       checked={
-                        if @editing_group,
-                          do:
-                            Enum.member?(@editing_group.group.connection_ids || [], connection.id),
-                          else: false
+                        connection_in_group?(connection, @editing_group, @current_user, @key)
                       }
                       class="rounded border-purple-300 text-purple-600 focus:ring-purple-500 dark:border-purple-600 dark:bg-slate-700 h-4 w-4"
                     />
@@ -595,7 +592,7 @@
               {if @editing_group, do: "Update Group", else: "Create Group"}
             </MossletWeb.DesignSystem.liquid_button>
           </div>
-        </form>
+        </.form>
       </div>
     </MossletWeb.DesignSystem.liquid_modal>
   </div>

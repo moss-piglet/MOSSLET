@@ -36,10 +36,15 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:uconn_loading_done, false)
      |> assign(:finished_loading_list, [])
      |> assign(:show_visibility_group_modal, false)
+     |> assign(:editing_group, nil)
      |> stream_configure(:visibility_groups,
        dom_id: fn %{group: group} -> "visibility-group-#{group.id}" end
      )
-     |> stream(:visibility_groups, [])}
+     |> stream(:visibility_groups, [])
+     |> stream_configure(:user_connections,
+       dom_id: fn connection -> "user-connection-#{connection.id}" end
+     )
+     |> stream(:user_connections, [])}
   end
 
   @impl true
@@ -94,6 +99,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
       |> assign(:any_pending_arrivals?, any_pending_arrivals?)
       |> assign(:arrivals_count, Accounts.arrivals_count(current_user))
       |> assign(:connections_count, connections_count)
+      |> assign(:modal_connections, connections)
       |> assign(:loading_list, arrivals_loading_list)
       |> assign(:return_url, url)
       |> assign(:search_query, search_query)
@@ -936,6 +942,41 @@ defmodule MossletWeb.UserConnectionLive.Index do
     case decr(group.description, current_user, key) do
       result when is_binary(result) -> result
       _ -> ""
+    end
+  end
+
+  # Helper function to check if a connection is in a visibility group
+  defp connection_in_group?(connection, editing_group, current_user, key) do
+    case editing_group do
+      nil ->
+        false
+
+      %{group: %{connection_ids: []}} ->
+        false
+
+      %{group: %{connection_ids: nil}} ->
+        false
+
+      %{group: %{connection_ids: connection_ids}} when is_list(connection_ids) ->
+        # Each connection ID in the list is individually encrypted
+        # We need to decrypt each one and compare with the current connection ID
+        Enum.any?(connection_ids, fn encrypted_connection_id ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+                 encrypted_connection_id,
+                 current_user,
+                 current_user.user_key,
+                 key
+               ) do
+            decrypted_id when is_binary(decrypted_id) ->
+              decrypted_id == connection.id
+
+            _ ->
+              false
+          end
+        end)
+
+      _ ->
+        false
     end
   end
 end
