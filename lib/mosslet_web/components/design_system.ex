@@ -6723,7 +6723,8 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div class={["relative", @class]}>
       <%!-- Liquid background effect --%>
-      <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-slate-100/80 via-white/60 to-slate-100/80 dark:from-slate-700/80 dark:via-slate-600/60 dark:to-slate-700/80 opacity-100 transition-opacity duration-200 ease-out focus-within:opacity-100"></div>
+      <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-slate-100/80 via-white/60 to-slate-100/80 dark:from-slate-700/80 dark:via-slate-600/60 dark:to-slate-700/80 opacity-100 transition-opacity duration-200 ease-out focus-within:opacity-100">
+      </div>
 
       <%!-- Search icon --%>
       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
@@ -6767,12 +6768,16 @@ defmodule MossletWeb.DesignSystem do
         <div class={[
           "absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out",
           get_empty_state_shimmer(@color)
-        ]}></div>
+        ]}>
+        </div>
 
-        <.phx_icon name={@icon} class={[
-          "w-8 h-8 sm:w-10 sm:h-10 relative z-10 transition-transform duration-300 group-hover:scale-110",
-          get_empty_state_icon_color(@color)
-        ]} />
+        <.phx_icon
+          name={@icon}
+          class={[
+            "w-8 h-8 sm:w-10 sm:h-10 relative z-10 transition-transform duration-300 group-hover:scale-110",
+            get_empty_state_icon_color(@color)
+          ]}
+        />
       </div>
 
       <%!-- Content with semantic color theming --%>
@@ -6921,10 +6926,12 @@ defmodule MossletWeb.DesignSystem do
       @class
     ]}>
       <%!-- Liquid background effect on hover --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"></div>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+      </div>
 
       <%!-- Shimmer effect --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full"></div>
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full">
+      </div>
 
       <%!-- Card content --%>
       <div class="relative p-6">
@@ -6940,7 +6947,8 @@ defmodule MossletWeb.DesignSystem do
             />
 
             <%!-- Online status indicator (future enhancement) --%>
-            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full">
+            </div>
           </div>
 
           <%!-- User info --%>
@@ -6982,8 +6990,7 @@ defmodule MossletWeb.DesignSystem do
               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
               title="Send message"
             >
-              <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" />
-              Message
+              <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
             </button>
 
             <%!-- View profile button --%>
@@ -6992,8 +6999,7 @@ defmodule MossletWeb.DesignSystem do
               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
               title="View profile"
             >
-              <.phx_icon name="hero-user" class="h-3.5 w-3.5" />
-              Profile
+              <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
             </button>
           </div>
 
@@ -7026,14 +7032,17 @@ defmodule MossletWeb.DesignSystem do
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="p-2 rounded-xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:via-emerald-800/20 dark:to-emerald-900/30 border border-emerald-200/40 dark:border-emerald-700/40">
-            <.phx_icon name="hero-inbox-arrow-down" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <.phx_icon
+              name="hero-inbox-arrow-down"
+              class="h-5 w-5 text-emerald-600 dark:text-emerald-400"
+            />
           </div>
           <div>
             <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
               Pending Connections
             </h2>
             <p class="text-sm text-slate-600 dark:text-slate-400">
-              <%= @arrivals_count %> people want to connect with you
+              {@arrivals_count} people want to connect with you
             </p>
           </div>
         </div>
@@ -7097,10 +7106,12 @@ defmodule MossletWeb.DesignSystem do
       @class
     ]}>
       <%!-- Enhanced liquid background with emerald/teal gradient --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-emerald-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-emerald-900/10"></div>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-emerald-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-emerald-900/10">
+      </div>
 
       <%!-- Shimmer effect for enhanced interaction feedback --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full"></div>
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full">
+      </div>
 
       <%!-- Card content with enhanced responsive padding and spacing --%>
       <div class="relative p-5 sm:p-7 lg:p-8">
@@ -7127,7 +7138,7 @@ defmodule MossletWeb.DesignSystem do
                     {@name}
                   </h3>
                 </div>
-                
+
                 <%!-- Badge with enhanced visual weight --%>
                 <div class="flex-shrink-0">
                   <.liquid_badge
@@ -7215,10 +7226,14 @@ defmodule MossletWeb.DesignSystem do
           ]}
         >
           <%!-- Enhanced liquid background for active tab with semantic colors --%>
-          <div :if={@active_tab == tab.key} class={[
-            "absolute inset-0 transition-all duration-300 ease-out",
-            get_tab_background(tab)
-          ]}></div>
+          <div
+            :if={@active_tab == tab.key}
+            class={[
+              "absolute inset-0 transition-all duration-300 ease-out",
+              get_tab_background(tab)
+            ]}
+          >
+          </div>
 
           <%!-- Tab icon with consistent sizing --%>
           <div class="relative z-10">

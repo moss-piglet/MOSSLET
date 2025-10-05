@@ -2775,4 +2775,153 @@ defmodule Mosslet.Accounts do
   def suspend_user(_user, _non_admin_user) do
     {:error, :unauthorized}
   end
+
+  @doc """
+  Creates a visibility group for a user.
+  """
+  def create_visibility_group(user, group_params, opts \\ []) do
+    # Prepare the group data for encryption
+    group_attrs = %{
+      "temp_name" => group_params["name"],
+      "temp_description" => group_params["description"] || "",
+      "color" => String.to_atom(group_params["color"] || "teal"),
+      "temp_connection_ids" => group_params["connection_ids"] || []
+    }
+
+    case Repo.transaction_on_primary(fn ->
+           # CRITICAL: Get fresh user data from DB to avoid stale embedded data
+           fresh_user = Repo.get(User, user.id)
+
+           fresh_user
+           |> User.add_visibility_group_changeset(group_attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        # Broadcast update for real-time UI updates
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{user.id}",
+          {:visibility_group_created, updated_user}
+        )
+
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Updates an existing visibility group for a user.
+  """
+  def update_visibility_group(user, group_id, group_params, opts \\ []) do
+    case Repo.transaction_on_primary(fn ->
+           # Get fresh user data from DB to avoid stale embedded data
+           fresh_user = Repo.get(User, user.id)
+
+           # Find the group to update and create changesets for all groups
+           group_changesets =
+             Enum.map(fresh_user.visibility_groups || [], fn group ->
+               if group.id == group_id do
+                 # Prepare the group data for encryption
+                 group_attrs = %{
+                   "temp_name" => group_params["name"],
+                   "temp_description" => group_params["description"] || "",
+                   "color" => String.to_atom(group_params["color"] || "teal"),
+                   "temp_connection_ids" => group_params["connection_ids"] || []
+                 }
+
+                 # Create a changeset for the group being updated
+                 User.visibility_group_changeset(group, group_attrs, opts)
+               else
+                 # For groups not being updated, pass them through unchanged
+                 group
+               end
+             end)
+
+           # Update user with the group changesets using put_embed
+           fresh_user
+           |> Ecto.Changeset.change()
+           |> Ecto.Changeset.put_embed(:visibility_groups, group_changesets)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        # Broadcast update for real-time UI updates
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{user.id}",
+          {:visibility_group_updated, updated_user}
+        )
+
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Deletes a visibility group from a user.
+  """
+  def delete_visibility_group(user, group_id) do
+    case Repo.transaction_on_primary(fn ->
+           # Get user with current visibility groups
+           user_with_groups = Repo.get(User, user.id)
+
+           # Filter out the group to delete
+           updated_groups =
+             Enum.reject(user_with_groups.visibility_groups || [], fn group ->
+               group.id == group_id
+             end)
+
+           # Update user with remaining groups
+           user_with_groups
+           |> Ecto.Changeset.change()
+           |> Ecto.Changeset.put_embed(:visibility_groups, updated_groups)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        # Broadcast update for real-time UI updates
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "user:#{user.id}",
+          {:visibility_group_deleted, updated_user}
+        )
+
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Gets all visibility groups from the user's visibility groups.
+  Returns the user's visibility groups with connection details for proper decryption.
+  """
+  def get_user_visibility_groups_with_connections(user) do
+    # Get user with visibility groups (no preload needed for embedded schemas)
+    user_with_groups = Repo.get(User, user.id)
+
+    # Get user's connections for reference
+    user_connections =
+      Repo.all(
+        from uc in UserConnection,
+          where: uc.user_id == ^user.id and not is_nil(uc.confirmed_at)
+      )
+
+    # Transform visibility groups to match the expected format for templates
+    Enum.map(user_with_groups.visibility_groups || [], fn group ->
+      %{group: group, user: user_with_groups, user_connections: user_connections}
+    end)
+  end
 end

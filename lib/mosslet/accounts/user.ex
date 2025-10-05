@@ -74,6 +74,25 @@ defmodule Mosslet.Accounts.User do
     # Last post creation timestamp
     field :last_post_at, :naive_datetime
 
+    # User Visibility Groups - Personal organization for privacy control
+    embeds_many :visibility_groups, VisibilityGroup, on_replace: :delete do
+      field :name, Encrypted.Binary
+      field :description, Encrypted.Binary
+
+      field :color, Ecto.Enum,
+        values: [:emerald, :teal, :orange, :purple, :rose, :amber, :cyan, :indigo],
+        default: :teal
+
+      # List of user_connection IDs that belong to this group
+      field :connection_ids, Encrypted.StringList, default: [], skip_default_validation: true
+      field :connection_ids_hash, Encrypted.HMAC
+
+      # Virtual fields for form handling
+      field :temp_name, :string, virtual: true
+      field :temp_description, :string, virtual: true
+      field :temp_connection_ids, {:array, :binary_id}, virtual: true
+    end
+
     has_one :customer, Customer
 
     has_one :connection, Connection
@@ -1187,5 +1206,123 @@ defmodule Mosslet.Accounts.User do
     conn_key = Encrypted.Utils.generate_key()
 
     {user_key, user_attributes_key, conn_key}
+  end
+
+  # Visibility Groups functionality
+
+  @doc """
+  Changeset for managing user visibility groups.
+  """
+  def visibility_groups_changeset(user, attrs \\ %{}, opts \\ []) do
+    user
+    |> cast(attrs, [])
+    |> cast_embed(:visibility_groups,
+      required: true,
+      with: &visibility_group_changeset(&1, &2, opts)
+    )
+  end
+
+  @doc """
+  Adds a new visibility group to the user.
+  Follows Ecto's recommended pattern for embeds_many.
+  """
+  def add_visibility_group_changeset(user, group_attrs, opts \\ []) do
+    # Create a changeset for the new group
+    new_group_changeset =
+      %__MODULE__.VisibilityGroup{}
+      |> visibility_group_changeset(group_attrs, opts)
+
+    if new_group_changeset.valid? do
+      # Apply the changeset to get the new group struct
+      new_group = apply_changes(new_group_changeset)
+
+      # Get existing groups and add the new one
+      existing_groups = user.visibility_groups || []
+      updated_groups = existing_groups ++ [new_group]
+
+      # Use put_embed to add the new group
+      user
+      |> change()
+      |> put_embed(:visibility_groups, updated_groups)
+    else
+      # Return a changeset with the actual validation errors
+      base_changeset = change(user)
+
+      # Transfer errors from the group changeset to the parent changeset
+      Enum.reduce(new_group_changeset.errors, base_changeset, fn {field, error}, acc ->
+        add_error(acc, :visibility_groups, "#{field}: #{elem(error, 0)}")
+      end)
+    end
+  end
+
+  @doc """
+  Changeset for individual visibility group.
+  """
+  def visibility_group_changeset(visibility_group, attrs, opts \\ []) do
+    changeset =
+      visibility_group
+      |> cast(attrs, [:temp_name, :temp_description, :color, :temp_connection_ids])
+      |> validate_required([:temp_name])
+      |> validate_length(:temp_name, min: 2, max: 60)
+      |> validate_length(:temp_description, max: 200)
+
+    # Encrypt the fields if we have the necessary opts
+    if opts[:user] && opts[:key] && changeset.valid? do
+      changeset
+      |> encrypt_visibility_group_fields(opts)
+    else
+      changeset
+    end
+  end
+
+  defp encrypt_visibility_group_fields(changeset, opts) do
+    # Get the user's key for encryption (user_key for personal data)
+    changeset =
+      if get_change(changeset, :temp_name) do
+        name = get_change(changeset, :temp_name)
+        encrypted_name = encrypt_user_data(name, opts[:user], opts[:key])
+
+        changeset
+        |> put_change(:name, encrypted_name)
+      else
+        changeset
+      end
+
+    changeset =
+      if get_change(changeset, :temp_description) do
+        description = get_change(changeset, :temp_description)
+        encrypted_description = encrypt_user_data(description, opts[:user], opts[:key])
+
+        changeset
+        |> put_change(:description, encrypted_description)
+      else
+        changeset
+      end
+
+    changeset =
+      if get_change(changeset, :temp_connection_ids) do
+        connection_ids = get_change(changeset, :temp_connection_ids) || []
+
+        # Encrypt each connection ID with the user key
+        encrypted_connection_ids =
+          Enum.map(connection_ids, fn connection_id ->
+            encrypt_user_data(connection_id, opts[:user], opts[:key])
+          end)
+
+        changeset
+        |> put_change(:connection_ids, encrypted_connection_ids)
+        |> put_change(:connection_ids_hash, create_connection_ids_hash(connection_ids))
+      else
+        changeset
+      end
+
+    changeset
+  end
+
+  defp create_connection_ids_hash(connection_ids) when is_list(connection_ids) do
+    connection_ids
+    |> Enum.sort()
+    |> Enum.join(",")
+    |> String.downcase()
   end
 end

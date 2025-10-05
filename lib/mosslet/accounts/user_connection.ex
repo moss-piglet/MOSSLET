@@ -8,8 +8,6 @@ defmodule Mosslet.Accounts.UserConnection do
 
   alias Mosslet.Encrypted
 
-  @color_values [:emerald, :orange, :pink, :purple, :rose, :yellow, :zinc]
-
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_connections" do
@@ -26,7 +24,9 @@ defmodule Mosslet.Accounts.UserConnection do
     field :request_email, Encrypted.Binary
     field :request_username_hash, Encrypted.HMAC
     field :request_email_hash, Encrypted.HMAC
-    field :color, Ecto.Enum, values: @color_values
+
+    field :color, Ecto.Enum,
+      values: [:emerald, :teal, :orange, :purple, :rose, :amber, :cyan, :indigo, :pink]
 
     belongs_to :connection, Connection
     belongs_to :user, User
@@ -67,29 +67,6 @@ defmodule Mosslet.Accounts.UserConnection do
     |> unique_constraint([:user_id, :reverse_user_id])
     |> unsafe_validate_unique([:reverse_user_id, :user_id], Mosslet.Repo.Local)
     |> unique_constraint([:reverse_user_id, :user_id])
-  end
-
-  def edit_changeset(uconn, attrs \\ %{}, opts \\ []) do
-    uconn
-    |> cast(attrs, [
-      :label,
-      :temp_label,
-      :color,
-      :photos?,
-      :zen?
-    ])
-    |> validate_required([:temp_label])
-    |> validate_length(:temp_label, min: 2, max: 160)
-    |> add_label_hash()
-    |> maybe_encrypt_label(opts[:conn_key], opts[:temp_label])
-  end
-
-  @doc """
-  Confirms the user_connection by setting `confirmed_at`.
-  """
-  def confirm_changeset(uconn) do
-    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-    change(uconn, confirmed_at: now)
   end
 
   defp validate_email_or_username(changeset, opts) do
@@ -341,5 +318,80 @@ defmodule Mosslet.Accounts.UserConnection do
     else
       changeset
     end
+  end
+
+  def visibility_group_changeset(visibility_group, attrs, opts \\ []) do
+    changeset =
+      visibility_group
+      |> cast(attrs, [:temp_name, :temp_description, :color, :temp_member_ids])
+      |> validate_required([:temp_name])
+      |> validate_length(:temp_name, min: 2, max: 60)
+      |> validate_length(:temp_description, max: 200)
+
+    # Encrypt the fields if we have the necessary opts
+    if opts[:user] && opts[:key] && changeset.valid? do
+      changeset
+      |> encrypt_visibility_group_fields(opts)
+    else
+      changeset
+    end
+  end
+
+  defp encrypt_visibility_group_fields(changeset, opts) do
+    # Get the user's connection key for encryption
+    {:ok, d_conn_key} =
+      Encrypted.Users.Utils.decrypt_user_attrs_key(
+        opts[:user].conn_key,
+        opts[:user],
+        opts[:key]
+      )
+
+    changeset =
+      if get_change(changeset, :temp_name) do
+        name = get_change(changeset, :temp_name)
+        encrypted_name = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: name})
+
+        changeset
+        |> put_change(:name, encrypted_name)
+      else
+        changeset
+      end
+
+    changeset =
+      if get_change(changeset, :temp_description) do
+        description = get_change(changeset, :temp_description)
+        encrypted_description = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: description})
+
+        changeset
+        |> put_change(:description, encrypted_description)
+      else
+        changeset
+      end
+
+    changeset =
+      if get_change(changeset, :temp_member_ids) do
+        member_ids = get_change(changeset, :temp_member_ids) || []
+
+        # Encrypt each member ID with the connection key
+        encrypted_member_ids =
+          Enum.map(member_ids, fn member_id ->
+            Encrypted.Utils.encrypt(%{key: d_conn_key, payload: member_id})
+          end)
+
+        changeset
+        |> put_change(:member_ids, encrypted_member_ids)
+        |> put_change(:member_ids_hash, create_member_ids_hash(member_ids))
+      else
+        changeset
+      end
+
+    changeset
+  end
+
+  defp create_member_ids_hash(member_ids) when is_list(member_ids) do
+    member_ids
+    |> Enum.sort()
+    |> Enum.join(",")
+    |> String.downcase()
   end
 end
