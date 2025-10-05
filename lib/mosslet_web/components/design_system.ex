@@ -6450,7 +6450,7 @@ defmodule MossletWeb.DesignSystem do
               <.liquid_checkbox
                 field={@form[:allow_bookmarks]}
                 label="Bookmarks"
-                help={ "Others can save"}
+                help="Others can save"
               />
 
               <%!-- Educational note for ephemeral + bookmarks --%>
