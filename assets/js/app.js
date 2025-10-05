@@ -416,13 +416,28 @@ function showCustomConfirm(message, onConfirm) {
   const dialog = document.createElement("dialog");
   dialog.setAttribute("data-confirm", "");
 
-  dialog.innerHTML = `
-    <p>${message}</p>
-    <div class="dialog-buttons">
-      <button type="button" data-confirm-cancel>Cancel</button>
-      <button type="button" data-confirm-accept>Delete</button>
-    </div>
-  `;
+  // Create and safely set the message using textContent to prevent XSS
+  const messageElement = document.createElement("p");
+  messageElement.textContent = message; // Safe - prevents script injection
+
+  const buttonsDiv = document.createElement("div");
+  buttonsDiv.className = "dialog-buttons";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.setAttribute("data-confirm-cancel", "");
+  cancelButton.textContent = "Cancel";
+
+  const acceptButton = document.createElement("button");
+  acceptButton.type = "button";
+  acceptButton.setAttribute("data-confirm-accept", "");
+  acceptButton.textContent = "Delete";
+
+  buttonsDiv.appendChild(cancelButton);
+  buttonsDiv.appendChild(acceptButton);
+
+  dialog.appendChild(messageElement);
+  dialog.appendChild(buttonsDiv);
 
   document.body.appendChild(dialog);
 
