@@ -1,26 +1,11 @@
-defmodule MossletWeb.UserConnectionLive.Index do
+defmodule MossletWeb.UserConnectionLive.OldIndex do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
   alias Mosslet.Accounts.UserConnection
   alias Mosslet.Encrypted
 
-  import MossletWeb.Helpers,
-    only: [
-      contains_html?: 1,
-      decr: 3,
-      html_block: 1,
-      photos?: 1,
-      user_name: 2,
-      maybe_get_user_avatar: 2,
-      decr_item: 6,
-      get_post_key: 2,
-      show_avatar?: 1,
-      maybe_get_avatar_src: 4,
-      get_uconn_for_shared_item: 2,
-      decr_uconn: 4,
-      local_time_ago: 1
-    ]
+  import MossletWeb.UserConnectionLive.Components
 
   @page_default 1
   @per_page_default 8
@@ -37,7 +22,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
     {:ok,
      socket
      |> assign(return_to: ~p"/app/users/connections")
-     |> assign(active_tab: "connections")
+     |> assign(arrivals_greeter_open?: false)
      |> assign(:uconn_loading_count, 0)
      |> assign(:uconn_loading, false)
      |> assign(:uconn_loading_done, false)
@@ -49,9 +34,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
     current_user = socket.assigns.current_user
     sort_by = valid_sort_by(params)
     sort_order = valid_sort_order(params)
-
-    # Search functionality
-    search_query = params["search"]
+    key = socket.assigns.key
 
     # Arrivals pagination
     arrivals_page = param_to_integer(params["page"], @page_default)
@@ -77,14 +60,9 @@ defmodule MossletWeb.UserConnectionLive.Index do
         do: ~p"/app/users/connections/greet",
         else: ~p"/app/users/connections/greet?#{arrivals_options}"
 
-    # Get connections with search
-    connections = 
-      if search_query && String.trim(search_query) != "" do
-        Accounts.search_user_connections(current_user, search_query)
-      else
-        Accounts.filter_user_connections(params, current_user)
-      end
-    
+    # Get connections and decrypt them in the LiveView
+    raw_connections = Accounts.filter_user_connections(params, current_user)
+    connections = decrypt_connections_for_display(raw_connections, current_user, key)
     connections_count = length(connections)
 
     socket =
@@ -95,7 +73,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
       |> assign(:connections_count, connections_count)
       |> assign(:loading_list, arrivals_loading_list)
       |> assign(:return_url, url)
-      |> assign(:search_query, search_query)
       |> stream(:arrivals, uconn_arrivals, reset: true)
       |> stream(:user_connections, connections, reset: true)
 
@@ -409,62 +386,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
-  def handle_event("search_connections", %{"value" => search_query}, socket) do
-    # Update the URL with search parameters to maintain state
-    params = %{"search" => search_query}
-    {:noreply, push_patch(socket, to: ~p"/app/users/connections?#{params}")}
-  end
-
-  @impl true
-  def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    current_user = socket.assigns.current_user
-    
-    socket = 
-      socket
-      |> assign(active_tab: tab)
-      
-    # Reload appropriate data streams when switching tabs
-    socket = 
-      case tab do
-        "requests" ->
-          # When switching to requests tab, ensure arrivals are properly loaded
-          arrivals_options = socket.assigns.arrivals_options || %{}
-          uconn_arrivals = Accounts.list_user_arrivals_connections(current_user, arrivals_options)
-          
-          socket
-          |> stream(:arrivals, uconn_arrivals, reset: true)
-          |> assign(:arrivals_count, Accounts.arrivals_count(current_user))
-          
-        "connections" ->
-          # When switching to connections tab, ensure connections are properly loaded
-          search_query = socket.assigns.search_query
-          
-          connections = 
-            if search_query && String.trim(search_query) != "" do
-              Accounts.search_user_connections(current_user, search_query)
-            else
-              Accounts.filter_user_connections(%{}, current_user)
-            end
-          
-          socket
-          |> stream(:user_connections, connections, reset: true)
-          |> assign(:connections_count, length(connections))
-          
-        _ ->
-          # For any other tabs, just update the active tab
-          socket
-      end
-      
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("create_visibility_group", _params, socket) do
-    # TODO: Implement visibility group creation
-    {:noreply, put_flash(socket, :info, "Visibility group creation coming soon!")}
-  end
-
-  @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     uconn = Accounts.get_user_connection!(id)
 
@@ -528,14 +449,20 @@ defmodule MossletWeb.UserConnectionLive.Index do
     socket
     |> assign(:page_title, "New Connection")
     |> assign(:uconn, %UserConnection{})
-    |> assign(:active_tab, "connections")
+    |> assign(:arrivals_greeter_open?, false)
+  end
+
+  defp apply_action(socket, :greet, _params) do
+    socket
+    |> assign(:page_title, "Arrivals Greeter")
+    |> assign(:arrivals_greeter_open?, true)
   end
 
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Your Connections")
     |> assign(:uconn, nil)
-    |> assign(:active_tab, "connections")
+    |> assign(:arrivals_greeter_open?, false)
   end
 
   defp valid_sort_by(%{"sort_by" => sort_by})
@@ -592,72 +519,59 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
 
-  # Helper functions for decrypting connection data (using pattern matching)
-  defp get_decrypted_connection_name(connection, current_user, key) do
-    case decr_uconn(connection.connection.name, current_user, connection.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
+  # Decrypt connection data in the LiveView following timeline pattern
+  defp decrypt_connections_for_display(connections, current_user, key) do
+    Enum.map(connections, fn connection ->
+      # Decrypt connection fields and add them as virtual fields for display
+      decrypted_data = %{
+        display_name: decr_uconn(connection.connection.name, current_user, connection.key, key),
+        display_username:
+          decr_uconn(connection.connection.username, current_user, connection.key, key),
+        display_email: decr_uconn(connection.connection.email, current_user, connection.key, key),
+        display_label: decr_uconn(connection.label, current_user, connection.key, key),
+        display_status_message: get_decrypted_status_message(connection, current_user, key),
+        display_avatar_url: maybe_get_avatar_src(connection, current_user, key, [])
+      }
+
+      # Add decrypted data to the connection struct for template use
+      Map.merge(connection, decrypted_data)
+    end)
   end
 
-  defp get_decrypted_connection_username(connection, current_user, key) do
-    case decr_uconn(connection.connection.username, current_user, connection.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[encrypted]"
-    end
-  end
+  # Helper to safely decrypt status messages
+  defp get_decrypted_status_message(user_connection, current_user, key) do
+    try do
+      case user_connection.connection.status_message do
+        nil ->
+          "Available and connected 🌿"
 
-  defp get_decrypted_connection_label(connection, current_user, key) do
-    case decr_uconn(connection.label, current_user, connection.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
-  end
+        "" ->
+          "Available and connected 🌿"
 
-  defp get_connection_avatar_src(connection, current_user, key) do
-    if !show_avatar?(connection) do
-      "/images/logo.svg"
-    else
-      case maybe_get_avatar_src(connection, current_user, key, []) do
-        "" -> "/images/logo.svg"
-        nil -> "/images/logo.svg"
-        result when is_binary(result) -> result
-        _ -> "/images/logo.svg"
+        encrypted_message when is_binary(encrypted_message) ->
+          decrypted = decr_uconn(encrypted_message, current_user, user_connection.key, key)
+          if String.trim(decrypted) == "", do: "Available and connected 🌿", else: decrypted
+
+        _ ->
+          "Available and connected 🌿"
       end
+    rescue
+      _ -> "Available and connected 🌿"
     end
   end
 
-  defp get_decrypted_arrival_name(arrival, current_user, key) do
-    case decr_uconn(arrival.request_username, current_user, arrival.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
+  # Helper to format connection date
+  defp format_connection_date(%NaiveDateTime{} = date) do
+    diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), date, :day)
+
+    cond do
+      diff < 1 -> "today"
+      diff < 7 -> "#{diff}d ago"
+      diff < 30 -> "#{div(diff, 7)}w ago"
+      diff < 365 -> "#{div(diff, 30)}mo ago"
+      true -> "#{div(diff, 365)}y ago"
     end
   end
 
-  defp get_decrypted_arrival_email(arrival, current_user, key) do
-    case decr_uconn(arrival.request_email, current_user, arrival.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[encrypted@example.com]"
-    end
-  end
-
-  defp get_decrypted_arrival_label(arrival, current_user, key) do
-    case decr_uconn(arrival.label, current_user, arrival.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
-  end
-
-  defp get_arrival_avatar_src(arrival, current_user, key) do
-    if !show_avatar?(arrival) do
-      "/images/logo.svg"
-    else
-      case maybe_get_avatar_src(arrival, current_user, key, []) do
-        "" -> "/images/logo.svg"
-        nil -> "/images/logo.svg"
-        result when is_binary(result) -> result
-        _ -> "/images/logo.svg"
-      end
-    end
-  end
+  defp format_connection_date(_), do: "recently"
 end

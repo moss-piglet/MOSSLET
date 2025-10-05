@@ -13,8 +13,18 @@ defmodule MossletWeb.DesignSystem do
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
-  # Import phx_input from CoreComponents
-  import MossletWeb.CoreComponents, only: [phx_input: 1]
+  # Import helper functions
+  import MossletWeb.Helpers,
+    only: [
+      user_name: 2,
+      maybe_get_user_avatar: 2,
+      show_avatar?: 1,
+      maybe_get_avatar_src: 4,
+      decr_uconn: 4
+    ]
+
+  # Import components for time display
+  import MossletWeb.CoreComponents, only: [phx_input: 1, local_time_ago: 1]
 
   # Import helper functions
   import MossletWeb.Helpers,
@@ -4372,7 +4382,7 @@ defmodule MossletWeb.DesignSystem do
       <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
         {@user_name}'s
         <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-          community
+          timeline
         </span>
       </h1>
 
@@ -6666,4 +6676,654 @@ defmodule MossletWeb.DesignSystem do
     </label>
     """
   end
+
+  @doc """
+  Header component for connections page matching timeline header structure.
+  """
+  attr :user_name, :string, required: true
+  attr :status, :string, default: "calm"
+  attr :status_message, :string, default: nil
+  attr :class, :any, default: ""
+
+  def liquid_connections_header(assigns) do
+    ~H"""
+    <div class={[
+      "relative p-6 text-center",
+      @class
+    ]}>
+      <%!-- Meaningful header about connections and privacy --%>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+        {@user_name}'s
+        <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+          connections
+        </span>
+      </h1>
+
+      <p class="text-slate-600 dark:text-slate-400 mb-4">
+        Building meaningful relationships in your privacy-first network
+      </p>
+
+      <%!-- Status indicator --%>
+      <div class="flex justify-center">
+        <.liquid_timeline_status status={@status} message={@status_message} />
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Search input component with liquid metal styling.
+  """
+  attr :placeholder, :string, default: "Search..."
+  attr :value, :string, default: ""
+  attr :class, :any, default: ""
+  attr :rest, :global, include: ~w(phx-change phx-submit id name)
+
+  def liquid_search_input(assigns) do
+    ~H"""
+    <div class={["relative", @class]}>
+      <%!-- Liquid background effect --%>
+      <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-slate-100/80 via-white/60 to-slate-100/80 dark:from-slate-700/80 dark:via-slate-600/60 dark:to-slate-700/80 opacity-100 transition-opacity duration-200 ease-out focus-within:opacity-100"></div>
+
+      <%!-- Search icon --%>
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+        <.phx_icon name="hero-magnifying-glass" class="h-5 w-5 text-slate-400 dark:text-slate-500" />
+      </div>
+
+      <%!-- Input field --%>
+      <input
+        type="text"
+        placeholder={@placeholder}
+        value={@value}
+        class="relative z-10 block w-full pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 bg-transparent border border-slate-200/60 dark:border-slate-600/60 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 dark:focus:ring-teal-400/50 dark:focus:border-teal-400/50 transition-all duration-200 ease-out"
+        {@rest}
+      />
+    </div>
+    """
+  end
+
+  @doc """
+  Empty state component with liquid metal styling and semantic colors.
+  """
+  attr :icon, :string, required: true
+  attr :title, :string, required: true
+  attr :description, :string, required: true
+  attr :action_label, :string, default: nil
+  attr :action_navigate, :string, default: nil
+  attr :action_patch, :string, default: nil
+  attr :action_click, :string, default: nil
+  attr :color, :string, default: "teal", values: ~w(teal emerald cyan purple indigo blue)
+  attr :class, :any, default: ""
+
+  def liquid_empty_state(assigns) do
+    ~H"""
+    <div class={["text-center py-12 sm:py-16", @class]}>
+      <%!-- Icon container with semantic color styling --%>
+      <div class={[
+        "mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center mb-6 relative overflow-hidden group transition-all duration-300",
+        get_empty_state_icon_styles(@color)
+      ]}>
+        <%!-- Shimmer effect with semantic color --%>
+        <div class={[
+          "absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out",
+          get_empty_state_shimmer(@color)
+        ]}></div>
+
+        <.phx_icon name={@icon} class={[
+          "w-8 h-8 sm:w-10 sm:h-10 relative z-10 transition-transform duration-300 group-hover:scale-110",
+          get_empty_state_icon_color(@color)
+        ]} />
+      </div>
+
+      <%!-- Content with semantic color theming --%>
+      <div class="space-y-3 mb-6">
+        <h3 class={[
+          "text-lg sm:text-xl font-semibold",
+          get_empty_state_title_color(@color)
+        ]}>
+          {@title}
+        </h3>
+        <p class={[
+          "max-w-md mx-auto leading-relaxed",
+          get_empty_state_description_color(@color)
+        ]}>
+          {@description}
+        </p>
+      </div>
+
+      <%!-- Action button with semantic color --%>
+      <div :if={@action_label}>
+        <.liquid_button
+          navigate={@action_navigate}
+          patch={@action_patch}
+          phx-click={@action_click}
+          icon="hero-plus"
+          color={@color}
+          class="justify-center"
+        >
+          {@action_label}
+        </.liquid_button>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper functions for semantic empty state styling
+  defp get_empty_state_icon_styles(color) do
+    case color do
+      "teal" ->
+        "bg-gradient-to-br from-teal-100/80 via-teal-50/60 to-teal-100/80 dark:from-teal-900/30 dark:via-teal-800/20 dark:to-teal-900/30 border-teal-200/40 dark:border-teal-700/40"
+
+      "emerald" ->
+        "bg-gradient-to-br from-emerald-100/80 via-emerald-50/60 to-emerald-100/80 dark:from-emerald-900/30 dark:via-emerald-800/20 dark:to-emerald-900/30 border-emerald-200/40 dark:border-emerald-700/40"
+
+      "cyan" ->
+        "bg-gradient-to-br from-cyan-100/80 via-cyan-50/60 to-cyan-100/80 dark:from-cyan-900/30 dark:via-cyan-800/20 dark:to-cyan-900/30 border-cyan-200/40 dark:border-cyan-700/40"
+
+      "purple" ->
+        "bg-gradient-to-br from-purple-100/80 via-purple-50/60 to-purple-100/80 dark:from-purple-900/30 dark:via-purple-800/20 dark:to-purple-900/30 border-purple-200/40 dark:border-purple-700/40"
+
+      "indigo" ->
+        "bg-gradient-to-br from-indigo-100/80 via-indigo-50/60 to-indigo-100/80 dark:from-indigo-900/30 dark:via-indigo-800/20 dark:to-indigo-900/30 border-indigo-200/40 dark:border-indigo-700/40"
+
+      "blue" ->
+        "bg-gradient-to-br from-blue-100/80 via-blue-50/60 to-blue-100/80 dark:from-blue-900/30 dark:via-blue-800/20 dark:to-blue-900/30 border-blue-200/40 dark:border-blue-700/40"
+
+      _ ->
+        "bg-gradient-to-br from-teal-100/80 via-teal-50/60 to-teal-100/80 dark:from-teal-900/30 dark:via-teal-800/20 dark:to-teal-900/30 border-teal-200/40 dark:border-teal-700/40"
+    end
+  end
+
+  defp get_empty_state_shimmer(color) do
+    case color do
+      "teal" ->
+        "bg-gradient-to-r from-transparent via-teal-200/30 dark:via-teal-400/20 to-transparent"
+
+      "emerald" ->
+        "bg-gradient-to-r from-transparent via-emerald-200/30 dark:via-emerald-400/20 to-transparent"
+
+      "cyan" ->
+        "bg-gradient-to-r from-transparent via-cyan-200/30 dark:via-cyan-400/20 to-transparent"
+
+      "purple" ->
+        "bg-gradient-to-r from-transparent via-purple-200/30 dark:via-purple-400/20 to-transparent"
+
+      "indigo" ->
+        "bg-gradient-to-r from-transparent via-indigo-200/30 dark:via-indigo-400/20 to-transparent"
+
+      "blue" ->
+        "bg-gradient-to-r from-transparent via-blue-200/30 dark:via-blue-400/20 to-transparent"
+
+      _ ->
+        "bg-gradient-to-r from-transparent via-teal-200/30 dark:via-teal-400/20 to-transparent"
+    end
+  end
+
+  defp get_empty_state_icon_color(color) do
+    case color do
+      "teal" -> "text-teal-600 dark:text-teal-400"
+      "emerald" -> "text-emerald-600 dark:text-emerald-400"
+      "cyan" -> "text-cyan-600 dark:text-cyan-400"
+      "purple" -> "text-purple-600 dark:text-purple-400"
+      "indigo" -> "text-indigo-600 dark:text-indigo-400"
+      "blue" -> "text-blue-600 dark:text-blue-400"
+      _ -> "text-teal-600 dark:text-teal-400"
+    end
+  end
+
+  defp get_empty_state_title_color(color) do
+    case color do
+      "teal" -> "text-teal-900 dark:text-teal-100"
+      "emerald" -> "text-emerald-900 dark:text-emerald-100"
+      "cyan" -> "text-cyan-900 dark:text-cyan-100"
+      "purple" -> "text-purple-900 dark:text-purple-100"
+      "indigo" -> "text-indigo-900 dark:text-indigo-100"
+      "blue" -> "text-blue-900 dark:text-blue-100"
+      _ -> "text-teal-900 dark:text-teal-100"
+    end
+  end
+
+  defp get_empty_state_description_color(color) do
+    case color do
+      "teal" -> "text-teal-700 dark:text-teal-300"
+      "emerald" -> "text-emerald-700 dark:text-emerald-300"
+      "cyan" -> "text-cyan-700 dark:text-cyan-300"
+      "purple" -> "text-purple-700 dark:text-purple-300"
+      "indigo" -> "text-indigo-700 dark:text-indigo-300"
+      "blue" -> "text-blue-700 dark:text-blue-300"
+      _ -> "text-teal-700 dark:text-teal-300"
+    end
+  end
+
+  @doc """
+  Connection card component with liquid metal styling.
+  Expects decrypted data from the LiveView.
+  """
+  attr :name, :string, required: true
+  attr :username, :string, required: true
+  attr :label, :string, required: true
+  attr :color, :atom, required: true
+  attr :avatar_src, :string, required: true
+  attr :connected_at, :any, required: true
+  attr :connection_id, :string, required: true
+  attr :class, :any, default: ""
+
+  def liquid_connection_card(assigns) do
+    ~H"""
+    <article class={[
+      "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+      "hover:border-slate-300/60 dark:hover:border-slate-600/60",
+      "transform-gpu will-change-transform cursor-pointer",
+      @class
+    ]}>
+      <%!-- Liquid background effect on hover --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"></div>
+
+      <%!-- Shimmer effect --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full"></div>
+
+      <%!-- Card content --%>
+      <div class="relative p-6">
+        <%!-- Header with avatar and name --%>
+        <div class="flex items-start gap-4 mb-4">
+          <%!-- Avatar --%>
+          <div class="relative flex-shrink-0">
+            <.liquid_avatar
+              src={@avatar_src}
+              name={@name}
+              size="lg"
+              clickable={true}
+            />
+
+            <%!-- Online status indicator (future enhancement) --%>
+            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+          </div>
+
+          <%!-- User info --%>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200">
+                  {@name}
+                </h3>
+                <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
+                  @{@username}
+                </p>
+              </div>
+
+              <%!-- Connection label badge --%>
+              <.liquid_badge
+                variant="soft"
+                color={connection_badge_color(@color)}
+                size="sm"
+              >
+                {@label}
+              </.liquid_badge>
+            </div>
+
+            <%!-- Status or last activity --%>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Connected <.local_time_ago id={@connection_id} at={@connected_at} />
+            </p>
+          </div>
+        </div>
+
+        <%!-- Quick actions --%>
+        <div class="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
+          <%!-- Action buttons --%>
+          <div class="flex items-center gap-2">
+            <%!-- Message button --%>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
+              title="Send message"
+            >
+              <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" />
+              Message
+            </button>
+
+            <%!-- View profile button --%>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
+              title="View profile"
+            >
+              <.phx_icon name="hero-user" class="h-3.5 w-3.5" />
+              Profile
+            </button>
+          </div>
+
+          <%!-- More actions menu --%>
+          <button
+            type="button"
+            class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/30 transition-all duration-200 ease-out"
+            title="More options"
+          >
+            <.phx_icon name="hero-ellipsis-horizontal" class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </article>
+    """
+  end
+
+  @doc """
+  Arrivals section for pending connection requests.
+  Expects decrypted arrival data from the LiveView.
+  """
+  attr :arrivals, :list, required: true
+  attr :arrivals_count, :integer, required: true
+  attr :class, :any, default: ""
+
+  def liquid_arrivals_section(assigns) do
+    ~H"""
+    <div class={["space-y-6", @class]}>
+      <%!-- Section header --%>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:via-emerald-800/20 dark:to-emerald-900/30 border border-emerald-200/40 dark:border-emerald-700/40">
+            <.phx_icon name="hero-inbox-arrow-down" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
+              Pending Connections
+            </h2>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              <%= @arrivals_count %> people want to connect with you
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Arrivals list --%>
+      <div class="space-y-4">
+        <%!-- Empty state for arrivals --%>
+        <div :if={Enum.empty?(@arrivals)} class="text-center py-8">
+          <div class="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
+            <.phx_icon name="hero-check" class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+            All caught up!
+          </h3>
+          <p class="text-slate-600 dark:text-slate-300">
+            You have no pending connection requests.
+          </p>
+        </div>
+
+        <%!-- Arrival cards --%>
+        <div :for={arrival <- @arrivals} class="arrival-card-container">
+          <.liquid_arrival_card
+            name={arrival.name}
+            email={arrival.email}
+            label={arrival.label}
+            color={arrival.color}
+            avatar_src={arrival.avatar_src}
+            requested_at={arrival.requested_at}
+            arrival_id={arrival.id}
+            class="transition-all duration-300"
+          />
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Individual arrival card for connection requests.
+  Expects decrypted data from the LiveView.
+  """
+  attr :name, :string, required: true
+  attr :email, :string, required: true
+  attr :label, :string, required: true
+  attr :color, :atom, required: true
+  attr :avatar_src, :string, required: true
+  attr :requested_at, :any, required: true
+  attr :arrival_id, :string, required: true
+  attr :class, :any, default: ""
+
+  def liquid_arrival_card(assigns) do
+    ~H"""
+    <article class={[
+      "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+      "border border-slate-200/60 dark:border-slate-700/60",
+      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+      "hover:border-slate-300/60 dark:hover:border-slate-600/60",
+      @class
+    ]}>
+      <%!-- Enhanced liquid background with emerald/teal gradient --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-emerald-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-emerald-900/10"></div>
+
+      <%!-- Shimmer effect for enhanced interaction feedback --%>
+      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full"></div>
+
+      <%!-- Card content with enhanced responsive padding and spacing --%>
+      <div class="relative p-5 sm:p-7 lg:p-8">
+        <%!-- Enhanced mobile-first layout with better spacing --%>
+        <div class="flex flex-col gap-5 sm:gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+          <%!-- User info section with refined mobile layout --%>
+          <div class="flex items-start gap-4 sm:gap-5 flex-1 min-w-0">
+            <%!-- Avatar with better mobile sizing --%>
+            <div class="flex-shrink-0">
+              <.liquid_avatar
+                src={@avatar_src}
+                name={@name}
+                size="lg"
+                clickable={false}
+              />
+            </div>
+
+            <%!-- User details with enhanced typography hierarchy --%>
+            <div class="flex-1 min-w-0">
+              <%!-- Name and badge row with improved spacing --%>
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors duration-200 leading-tight">
+                    {@name}
+                  </h3>
+                </div>
+                
+                <%!-- Badge with enhanced visual weight --%>
+                <div class="flex-shrink-0">
+                  <.liquid_badge
+                    variant="soft"
+                    color={connection_badge_color(@color)}
+                    size="md"
+                  >
+                    {@label}
+                  </.liquid_badge>
+                </div>
+              </div>
+
+              <%!-- Email with improved secondary hierarchy --%>
+              <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 truncate mb-3 font-medium">
+                {@email}
+              </p>
+
+              <%!-- Timestamp with enhanced visual treatment --%>
+              <div class="flex items-center gap-2 text-sm sm:text-base text-slate-500 dark:text-slate-400">
+                <div class="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                  <.phx_icon name="hero-clock" class="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <span class="font-medium">
+                  Requested <.local_time_ago id={@arrival_id} at={@requested_at} />
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Enhanced action buttons with clear visual hierarchy --%>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-shrink-0 min-w-0 sm:min-w-[180px]">
+            <%!-- Primary Accept button with enhanced prominence --%>
+            <.liquid_button
+              size="md"
+              color="emerald"
+              icon="hero-check"
+              phx-click="accept_uconn"
+              phx-value-id={@arrival_id}
+              shimmer="card"
+              class="flex-1 sm:flex-initial min-h-[48px] justify-center order-1 font-semibold shadow-lg shadow-emerald-500/25 dark:shadow-emerald-400/20 hover:shadow-xl hover:shadow-emerald-500/30 dark:hover:shadow-emerald-400/25 transform transition-all duration-200 hover:scale-105"
+            >
+              <span class="sm:hidden">Accept</span>
+              <span class="hidden sm:inline">Accept Request</span>
+            </.liquid_button>
+
+            <%!-- Secondary Decline button with subtle styling --%>
+            <.liquid_button
+              size="md"
+              variant="secondary"
+              color="slate"
+              icon="hero-x-mark"
+              phx-click="decline_uconn"
+              phx-value-id={@arrival_id}
+              data-confirm="Are you sure you wish to decline this connection request?"
+              class="flex-1 sm:flex-initial min-h-[48px] justify-center order-2 font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-700 transition-all duration-200"
+            >
+              <span class="sm:hidden">Decline</span>
+              <span class="hidden sm:inline">Decline</span>
+            </.liquid_button>
+          </div>
+        </div>
+      </div>
+    </article>
+    """
+  end
+
+  @doc """
+  Tab navigation component for connections page with fixed responsive behavior.
+  """
+  attr :tabs, :list, required: true
+  attr :active_tab, :string, required: true
+  attr :class, :any, default: ""
+
+  def liquid_connections_tabs(assigns) do
+    ~H"""
+    <div class={["flex items-center gap-2 md:gap-3", @class]}>
+      <div :for={tab <- @tabs} class="relative overflow-visible">
+        <button
+          type="button"
+          phx-click="switch_tab"
+          phx-value-tab={tab.key}
+          class={[
+            "group relative flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-3 xl:px-6 xl:py-3.5 rounded-xl text-sm md:text-base font-medium transition-all duration-200 ease-out overflow-visible backdrop-blur-sm min-h-[44px] whitespace-nowrap",
+            get_tab_styles(@active_tab, tab)
+          ]}
+        >
+          <%!-- Enhanced liquid background for active tab with semantic colors --%>
+          <div :if={@active_tab == tab.key} class={[
+            "absolute inset-0 transition-all duration-300 ease-out",
+            get_tab_background(tab)
+          ]}></div>
+
+          <%!-- Tab icon with consistent sizing --%>
+          <div class="relative z-10">
+            <.phx_icon name={tab.icon} class="h-4 w-4 md:h-5 md:w-5" />
+          </div>
+
+          <%!-- Tab label only (removing count badge to match timeline pattern) --%>
+          <div class="relative z-10 flex items-center gap-2">
+            <span class="font-medium">{tab.label}</span>
+          </div>
+
+          <%!-- Enhanced unread badge indicator with count (following timeline pattern) --%>
+          <span
+            :if={Map.get(tab, :unread, 0) > 0}
+            class={[
+              "absolute -top-1 -right-1 z-20",
+              "flex items-center justify-center",
+              "min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full",
+              "bg-gradient-to-r from-teal-400 to-cyan-400 text-white",
+              "shadow-lg shadow-teal-500/50 dark:shadow-cyan-400/40",
+              "ring-2 ring-white dark:ring-slate-800",
+              "animate-pulse"
+            ]}
+          >
+            {Map.get(tab, :unread, 0)}
+          </span>
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper functions for semantic tab styling
+  defp get_tab_styles(active_tab, tab) when active_tab == tab.key do
+    case Map.get(tab, :color, "teal") do
+      "teal" ->
+        "bg-gradient-to-r from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-700/60 shadow-sm shadow-teal-500/20"
+
+      "emerald" ->
+        "bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/40 dark:via-teal-900/30 dark:to-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-700/60 shadow-sm shadow-emerald-500/20"
+
+      "purple" ->
+        "bg-gradient-to-r from-purple-100 via-indigo-50 to-purple-100 dark:from-purple-900/40 dark:via-indigo-900/30 dark:to-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-700/60 shadow-sm shadow-purple-500/20"
+
+      _ ->
+        "bg-gradient-to-r from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-700/60 shadow-sm shadow-teal-500/20"
+    end
+  end
+
+  defp get_tab_styles(_active_tab, _tab) do
+    "text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100/50 dark:hover:bg-slate-700/30 border border-transparent"
+  end
+
+  defp get_tab_background(tab) do
+    case Map.get(tab, :color, "teal") do
+      "teal" ->
+        "bg-gradient-to-r from-teal-50/60 via-emerald-50/40 to-teal-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-teal-900/20"
+
+      "emerald" ->
+        "bg-gradient-to-r from-emerald-50/60 via-teal-50/40 to-emerald-50/60 dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-emerald-900/20"
+
+      "purple" ->
+        "bg-gradient-to-r from-purple-50/60 via-indigo-50/40 to-purple-50/60 dark:from-purple-900/20 dark:via-indigo-900/15 dark:to-purple-900/20"
+
+      _ ->
+        "bg-gradient-to-r from-teal-50/60 via-emerald-50/40 to-teal-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-teal-900/20"
+    end
+  end
+
+  defp get_count_badge_styles(active_tab, tab) when active_tab == tab.key do
+    case Map.get(tab, :color, "teal") do
+      "teal" ->
+        "bg-teal-200/60 dark:bg-teal-800/60 text-teal-700 dark:text-teal-300"
+
+      "emerald" ->
+        "bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-700 dark:text-emerald-300"
+
+      "purple" ->
+        "bg-purple-200/60 dark:bg-purple-800/60 text-purple-700 dark:text-purple-300"
+
+      _ ->
+        "bg-teal-200/60 dark:bg-teal-800/60 text-teal-700 dark:text-teal-300"
+    end
+  end
+
+  defp get_count_badge_styles(_active_tab, _tab) do
+    "bg-slate-200/60 dark:bg-slate-600/60 text-slate-600 dark:text-slate-400"
+  end
+
+  defp get_badge_indicator_color(tab) do
+    case Map.get(tab, :color, "emerald") do
+      "emerald" -> "bg-gradient-to-br from-emerald-500 to-teal-600"
+      "teal" -> "bg-gradient-to-br from-teal-500 to-emerald-600"
+      "purple" -> "bg-gradient-to-br from-purple-500 to-indigo-600"
+      _ -> "bg-gradient-to-br from-emerald-500 to-teal-600"
+    end
+  end
+
+  # Helper functions for connection-related styling
+  defp connection_badge_color(:emerald), do: "emerald"
+  defp connection_badge_color(:orange), do: "amber"
+  defp connection_badge_color(:pink), do: "rose"
+  defp connection_badge_color(:purple), do: "purple"
+  defp connection_badge_color(:rose), do: "rose"
+  defp connection_badge_color(:yellow), do: "amber"
+  defp connection_badge_color(:zinc), do: "slate"
+  defp connection_badge_color(_), do: "purple"
 end

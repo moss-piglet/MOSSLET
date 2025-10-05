@@ -1,180 +1,200 @@
 <.layout current_page={:connections} current_user={@current_user} key={@key} type="sidebar">
-  <div class="user-connection-index">
-    <div class="space-y-8 pt-4 mx-4">
-      <%!-- Private Banner --%>
-      <div :if={show_private_banner?(@current_user)}>
-        <.private_banner />
-      </div>
-
-      <%!-- Connections Section --%>
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <%!-- Section Header --%>
-        <div class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-6 py-4">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div>
-              <h2 class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-                Your Connections
-              </h2>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                {if @connections_count > 0,
-                  do: "#{@connections_count} connections",
-                  else: "No connections yet"}
-              </p>
-            </div>
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-              <.phx_button
-                :if={!Enum.empty?(@streams.arrivals.inserts) || @any_pending_arrivals?}
-                id="pending-connections-button"
-                data-tippy-content="You have pending Connection requests. Privately view them and decide if you'd like to accept or decline."
-                phx-hook="TippyHook"
-                type="button"
-                class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-              >
-                <.link
-                  navigate={~p"/app/users/connections/greet"}
-                  class="inline-flex items-center text-center"
-                >
-                  <.phx_icon name="hero-users" class="size-4 sm:size-5 mr-1" />
-                  You've got Connections
-                </.link>
-              </.phx_button>
-
-              <.phx_button
-                type="button"
-                class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-4 sm:px-6 py-2 sm:py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-              >
-                <.link
-                  navigate={Routes.user_connection_index_path(@socket, :new)}
-                  class="inline-flex items-center text-center"
-                >
-                  <.phx_icon name="hero-user-plus" class="size-4 sm:size-5 mr-1" /> New Connection
-                </.link>
-              </.phx_button>
-            </div>
-          </div>
-        </div>
-
-        <%!-- Connections Content --%>
-        <div class="p-4 sm:p-6">
-          <%!-- Empty State --%>
-          <div
-            id="user-connections-empty"
-            class="only:block hidden text-center py-12 sm:py-16"
-          >
-            <div class="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-6">
-              <.phx_icon
-                name="hero-users"
-                class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600 dark:text-emerald-400"
-              />
-            </div>
-            <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-3">
-              No Connections
-            </h3>
-            <p class="text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-8">
-              Get started by creating a new connection.
-            </p>
-            <div class="">
-              <.phx_button
-                type="button"
-                class="inline-flex items-center rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transform transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-              >
-                <.link
-                  navigate={Routes.user_connection_index_path(@socket, :new)}
-                  class="inline-flex items-center text-center"
-                >
-                  <.phx_icon name="hero-user-plus" class="size-5 mr-1" /> New Connection
-                </.link>
-              </.phx_button>
-            </div>
-          </div>
-
-          <%!-- Connection Cards Grid --%>
-          <div id="user_connections" phx-update="stream" class="space-y-3 sm:space-y-4">
-            <.user_connection_card
-              :for={{dom_id, user_connection} <- @streams.user_connections}
-              user_connection={user_connection}
-              user_connections={@streams.user_connections}
-              current_user={@current_user}
-              key={@key}
-              id={dom_id}
-            />
-          </div>
-
-          <%!-- Pagination (Future Enhancement) --%>
-          <div
-            :if={@connections_count > 12}
-            class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700"
-          >
-            <nav class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-              <div class="text-sm text-gray-600 dark:text-gray-300">
-                Showing <span class="font-medium">1</span>
-                to <span class="font-medium">{min(@connections_count, 12)}</span>
-                of <span class="font-medium">{@connections_count}</span>
-                connections
-              </div>
-
-              <div class="flex items-center space-x-2">
-                <button
-                  disabled
-                  class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-not-allowed"
-                >
-                  <.phx_icon name="hero-chevron-left" class="w-4 h-4 mr-1" /> Previous
-                </button>
-
-                <button class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-emerald-600 rounded-lg">
-                  1
-                </button>
-
-                <button
-                  disabled
-                  class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-not-allowed"
-                >
-                  Next <.phx_icon name="hero-chevron-right" class="w-4 h-4 ml-1" />
-                </button>
-              </div>
-            </nav>
-          </div>
-        </div>
+  <%!-- Main connections container with liquid metal styling --%>
+  <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
+    <%!-- Header section with calmer mobile spacing --%>
+    <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
+      <div class="mx-auto max-w-4xl text-center">
+        <MossletWeb.DesignSystem.liquid_connections_header
+          user_name={user_name(@current_user, @key)}
+          status="calm"
+          status_message="Mindfully connected"
+          class="space-y-2 sm:space-y-3"
+        />
       </div>
     </div>
+
+    <%!-- Content container with enhanced spacing --%>
+    <MossletWeb.DesignSystem.liquid_container max_width="4xl" class="space-y-6 sm:space-y-8">
+      <%!-- Modern tab navigation with proper responsive behavior --%>
+      <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 relative z-0 overflow-visible">
+        <%!-- Responsive layout optimized for all screen sizes --%>
+        <div class="p-4 md:p-6">
+          <div class="flex flex-col gap-4 md:gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <%!-- Tab navigation with consistent responsive behavior --%>
+            <div class="flex justify-center xl:justify-start">
+              <MossletWeb.DesignSystem.liquid_connections_tabs
+                tabs={[
+                  %{
+                    key: "connections",
+                    label: "Connections",
+                    count: @connections_count,
+                    icon: "hero-users",
+                    color: "teal",
+                    unread: 0
+                  },
+                  %{
+                    key: "requests",
+                    label: "Requests", 
+                    count: @arrivals_count,
+                    icon: "hero-inbox-arrow-down",
+                    color: "emerald",
+                    unread: @arrivals_count
+                  }
+                ]}
+                active_tab={@active_tab || "connections"}
+                class="flex-shrink-0"
+              />
+            </div>
+
+            <%!-- Action section with proper centering for non-mobile layouts --%>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4 xl:justify-end xl:gap-4">
+              <%!-- Search input with proper responsive widths --%>
+              <div :if={@active_tab == "connections" || is_nil(@active_tab)} class="w-full sm:w-64 md:w-72 xl:w-80">
+                <MossletWeb.DesignSystem.liquid_search_input
+                  placeholder="Search connections..."
+                  value={@search_query || ""}
+                  phx-change="search_connections"
+                  class="w-full"
+                />
+              </div>
+
+              <%!-- New connection button with responsive text and sizing --%>
+              <div class="w-full sm:w-auto xl:w-auto flex-shrink-0">
+                <MossletWeb.DesignSystem.liquid_button
+                  navigate={~p"/app/users/connections/new"}
+                  icon="hero-user-plus"
+                  color="teal"
+                  shimmer="page"
+                  class="w-full sm:w-auto justify-center xl:whitespace-nowrap"
+                >
+                  <span class="md:hidden">Send Request</span>
+                  <span class="hidden md:inline xl:hidden">New Connection</span>
+                  <span class="hidden xl:inline">New Connection</span>
+                </MossletWeb.DesignSystem.liquid_button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Tab content --%>
+      <div class="space-y-6">
+        <%!-- Connections Tab Content with proper responsive behavior --%>
+        <div :if={@active_tab == "connections" || is_nil(@active_tab)} class="space-y-6 md:space-y-8">
+          <%!-- Connections grid with consistent responsive behavior --%>
+          <div id="connections-grid" phx-update="stream" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+            <%!-- Empty state with semantic color --%>
+            <div id="connections-empty" class="only:block hidden col-span-full">
+              <MossletWeb.DesignSystem.liquid_empty_state
+                icon="hero-users"
+                title="Your private network awaits"
+                description="In your privacy-first space, connections are built on trust and meaningful interaction. Start by reaching out to people you know and value."
+                color="teal"
+              />
+            </div>
+
+            <%!-- Connection cards with consistent sizing --%>
+            <div :for={{dom_id, connection} <- @streams.user_connections} id={dom_id} class="connection-card-container">
+              <MossletWeb.DesignSystem.liquid_connection_card
+                name={get_decrypted_connection_name(connection, @current_user, @key)}
+                username={get_decrypted_connection_username(connection, @current_user, @key)}
+                label={get_decrypted_connection_label(connection, @current_user, @key)}
+                color={connection.color || :purple}
+                avatar_src={get_connection_avatar_src(connection, @current_user, @key)}
+                connected_at={connection.confirmed_at}
+                connection_id={connection.id}
+                class="transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 min-h-[140px]"
+              />
+            </div>
+          </div>
+
+          <%!-- Connection management section with proper responsive hierarchy --%>
+          <div :if={@connections_count > 0} class="">
+            <div class="bg-gradient-to-br from-purple-50/60 via-indigo-50/40 to-purple-50/60 dark:from-purple-900/20 dark:via-indigo-900/15 dark:to-purple-900/20 backdrop-blur-md rounded-2xl border border-purple-200/40 dark:border-purple-700/40 shadow-lg shadow-purple-500/5 dark:shadow-purple-500/10 p-6 md:p-8">
+              <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 xl:gap-8 mb-6 md:mb-8">
+                <div class="flex-1">
+                  <h3 class="text-xl md:text-2xl font-semibold text-purple-900 dark:text-purple-100 mb-3">
+                    Visibility Groups
+                  </h3>
+                  <p class="text-base md:text-lg text-purple-700 dark:text-purple-300 leading-relaxed">
+                    Organize connections for granular privacy control in your posts
+                  </p>
+                </div>
+                <div class="flex-shrink-0">
+                  <MossletWeb.DesignSystem.liquid_button
+                    color="purple"
+                    icon="hero-plus"
+                    phx-click="create_visibility_group"
+                    class="w-full sm:w-auto justify-center"
+                  >
+                    <span class="sm:hidden">Create Visibility Group</span>
+                    <span class="hidden sm:inline xl:hidden">Create Group</span>
+                    <span class="hidden xl:inline">Create Visibility Group</span>
+                  </MossletWeb.DesignSystem.liquid_button>
+                </div>
+              </div>
+              
+              <%!-- Enhanced placeholder with proper responsive sizing --%>
+              <div class="text-center py-12 md:py-16 px-4">
+                <div class="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-purple-100 via-indigo-50 to-purple-100 dark:from-purple-900/30 dark:via-indigo-900/20 dark:to-purple-900/30 border border-purple-200/40 dark:border-purple-700/40 mb-6">
+                  <.phx_icon name="hero-user-group" class="h-10 w-10 md:h-12 md:w-12 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h4 class="text-lg md:text-xl font-semibold text-purple-900 dark:text-purple-100 mb-3">
+                  Advanced Privacy Controls
+                </h4>
+                <p class="text-base md:text-lg text-purple-700 dark:text-purple-300 max-w-lg mx-auto leading-relaxed">
+                  Create custom groups to control exactly who sees your posts. Perfect for organizing family, work colleagues, or close friends into meaningful privacy groups.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Requests Tab Content with clean, streamlined layout --%>
+        <div :if={@active_tab == "requests"} class="space-y-6 md:space-y-8">
+          <%!-- Request cards with consistent spacing (following stream pattern) --%>
+          <div :if={@arrivals_count > 0} class="space-y-4 md:space-y-6">
+            <div :for={{dom_id, arrival} <- @streams.arrivals} id={dom_id} class="">
+              <MossletWeb.DesignSystem.liquid_arrival_card
+                name={get_decrypted_arrival_name(arrival, @current_user, @key)}
+                email={get_decrypted_arrival_email(arrival, @current_user, @key)}
+                label={get_decrypted_arrival_label(arrival, @current_user, @key)}
+                color={arrival.color || :purple}
+                avatar_src={get_arrival_avatar_src(arrival, @current_user, @key)}
+                requested_at={arrival.inserted_at}
+                arrival_id={arrival.id}
+                class="transition-all duration-300 min-h-[140px]"
+              />
+            </div>
+          </div>
+
+          <%!-- Empty requests state with consistent proportions --%>
+          <div :if={@arrivals_count == 0}>
+            <MossletWeb.DesignSystem.liquid_empty_state
+              icon="hero-inbox"
+              title="No pending requests"
+              description="Your privacy matters. When people send connection requests, they'll appear here for thoughtful review. Only you control who joins your network."
+              color="cyan"
+              class="py-16 md:py-20"
+            />
+          </div>
+        </div>
+      </div>
+
+      <%!-- Gentle end message --%>
+      <div :if={(@active_tab == "connections" || is_nil(@active_tab)) && @connections_count > 0} class="text-center py-8 sm:py-12">
+        <div class="inline-flex flex-col items-center gap-3 sm:gap-4 px-6 sm:px-8 py-5 sm:py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
+          <.phx_icon name="hero-heart" class="h-7 sm:h-8 w-7 sm:w-8 text-emerald-500" />
+          <div class="text-center">
+            <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
+              Your network is growing!
+            </p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 max-w-xs leading-relaxed">
+              Quality connections create meaningful conversations. Keep nurturing these relationships.
+            </p>
+          </div>
+        </div>
+      </div>
+    </MossletWeb.DesignSystem.liquid_container>
   </div>
-
-  <.phx_modal
-    :if={@live_action in [:new]}
-    id="new-uc-modal"
-    show
-    on_cancel={JS.patch(~p"/app/users/connections")}
-  >
-    <.live_component
-      module={MossletWeb.UserConnectionLive.FormComponent}
-      id={@uconn.id || :new}
-      title={@page_title}
-      action={@live_action}
-      uconn={@uconn}
-      user={@current_user}
-      key={@key}
-      patch={~p"/app/users/connections"}
-    />
-  </.phx_modal>
-
-  <.phx_modal
-    :if={@live_action in [:greet]}
-    id="screen-uc-modal"
-    show
-    on_cancel={JS.patch(~p"/app/users/connections")}
-  >
-    <.live_component
-      module={MossletWeb.UserConnectionLive.ArrivalComponent}
-      id={:greet}
-      title={@page_title}
-      action={@live_action}
-      stream={@streams.arrivals}
-      user={@current_user}
-      arrivals_count={@arrivals_count}
-      loading_list={@loading_list}
-      key={@key}
-      options={@arrivals_options}
-      patch={~p"/app/users/connections"}
-    />
-  </.phx_modal>
 </.layout>
