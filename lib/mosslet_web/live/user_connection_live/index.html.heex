@@ -599,12 +599,20 @@
       </div>
     </MossletWeb.DesignSystem.liquid_modal>
 
-    <%!-- Block User Modal --%>
-    <MossletWeb.DesignSystem.liquid_block_modal
+    <%!-- Block User Modal (using LiveComponent) --%>
+    <.live_component
+      :if={@show_block_modal || false}
+      module={MossletWeb.TimelineLive.BlockModalComponent}
+      id="block-modal-component"
       show={@show_block_modal || false}
       user_id={@blocked_user_id || ""}
       user_name={@blocked_user_name || ""}
-      on_close="close_block_modal"
+      post_id="connection"
+      existing_block={nil}
+      default_block_type="full"
+      decrypted_reason=""
+      block_update?={false}
+      target_container="#connections-grid"
     />
   </div>
 </.layout>

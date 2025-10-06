@@ -12,6 +12,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
     default_block_type = assigns[:default_block_type]
     decrypted_reason = assigns[:decrypted_reason]
     is_update = assigns[:block_update?] || false
+    target_container = assigns[:target_container] || "#timeline-container"
 
     # Set up form data with smart defaults from parent
     form_data = %{
@@ -24,6 +25,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
      |> assign(assigns)
      |> assign(:existing_block, existing_block)
      |> assign(:is_update, is_update)
+     |> assign(:target_container, target_container)
      |> assign(:form_data, form_data)}
   end
 
@@ -51,7 +53,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
         <.liquid_modal
           id={"block-user-modal-#{@user_id}-#{@post_id}"}
           show={@show}
-          on_cancel={JS.push("close_block_modal", target: "#timeline-container")}
+          on_cancel={JS.push("close_block_modal", target: @target_container)}
           size="md"
         >
           <:title>

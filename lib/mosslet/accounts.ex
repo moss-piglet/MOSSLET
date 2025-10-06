@@ -635,6 +635,46 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  def update_user_connection_zen(uconn, attrs, _opts) do
+    case Repo.transaction_on_primary(fn ->
+           uconn
+           |> UserConnection.zen_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, uconn}} ->
+        {:ok, uconn |> Repo.preload([:user, :connection])}
+        |> broadcast(:uconn_updated)
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error updating user connection")
+        Logger.debug("Error updating user connection: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
+  def update_user_connection_photos(uconn, attrs, _opts) do
+    case Repo.transaction_on_primary(fn ->
+           uconn
+           |> UserConnection.photos_changeset(attrs)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, uconn}} ->
+        {:ok, uconn |> Repo.preload([:user, :connection])}
+        |> broadcast(:uconn_updated)
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error updating user connection")
+        Logger.debug("Error updating user connection: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 

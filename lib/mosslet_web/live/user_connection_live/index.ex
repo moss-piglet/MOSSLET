@@ -406,6 +406,50 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_info({:close_block_modal}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_block_modal, false)
+     |> assign(:blocked_user_id, nil)
+     |> assign(:blocked_user_name, nil)
+     |> assign(:blocked_connection_id, nil)}
+  end
+
+  @impl true
+  def handle_info({:submit_block, block_params}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+    blocked_user_id = socket.assigns.blocked_user_id
+    blocked_connection_id = socket.assigns.blocked_connection_id
+
+    case Accounts.block_user(current_user, blocked_user_id, block_params,
+           user: current_user,
+           key: key
+         ) do
+      {:ok, _user_block} ->
+        # Remove the connection from the stream if it exists
+        socket =
+          if blocked_connection_id do
+            connection = Accounts.get_user_connection!(blocked_connection_id)
+            socket |> stream_delete(:user_connections, connection)
+          else
+            socket
+          end
+
+        {:noreply,
+         socket
+         |> assign(:show_block_modal, false)
+         |> assign(:blocked_user_id, nil)
+         |> assign(:blocked_user_name, nil)
+         |> assign(:blocked_connection_id, nil)
+         |> put_flash(:success, "User has been blocked")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to block user")}
+    end
+  end
+
+  @impl true
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
@@ -418,28 +462,27 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
-  def handle_event("edit_connection", %{"id" => connection_id}, socket) do
+  def handle_event("edit_connection", %{"id" => _connection_id}, socket) do
     # TODO: Implement edit connection modal/form
     {:noreply, put_flash(socket, :info, "Edit connection functionality coming soon!")}
   end
 
   @impl true
   def handle_event("toggle_mute", %{"id" => connection_id}, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-
     case Accounts.get_user_connection!(connection_id) do
       connection ->
         # Toggle the zen? field
         new_zen_value = !connection.zen?
 
-        case Accounts.update_user_connection(connection, %{zen?: new_zen_value}, []) do
+        case Accounts.update_user_connection_zen(connection, %{zen?: new_zen_value}, []) do
           {:ok, updated_connection} ->
             # Update the stream
+            info = if(new_zen_value, do: "User muted", else: "User unmuted")
+
             {:noreply,
              socket
              |> stream_insert(:user_connections, updated_connection)
-             |> put_flash(:success, if(new_zen_value, do: "User muted", else: "User unmuted"))}
+             |> put_flash(:success, info)}
 
           {:error, _changeset} ->
             {:noreply, put_flash(socket, :error, "Failed to update mute status")}
@@ -449,15 +492,12 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   @impl true
   def handle_event("toggle_photos", %{"id" => connection_id}, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-
     case Accounts.get_user_connection!(connection_id) do
       connection ->
         # Toggle the photos? field
         new_photos_value = !connection.photos?
 
-        case Accounts.update_user_connection(connection, %{photos?: new_photos_value}, []) do
+        case Accounts.update_user_connection_photos(connection, %{photos?: new_photos_value}, []) do
           {:ok, updated_connection} ->
             # Update the stream
             {:noreply,
@@ -493,60 +533,10 @@ defmodule MossletWeb.UserConnectionLive.Index do
         {:noreply,
          socket
          |> assign(:show_block_modal, true)
-         |> assign(:blocked_user_id, blocked_user_id)
+         |> assign(:blocked_user_id, blocked_user.id)
          |> assign(:blocked_user_name, name)
          |> assign(:blocked_connection_id, connection_id)}
     end
-  end
-
-  @impl true
-  def handle_event("close_block_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_block_modal, false)
-     |> assign(:blocked_user_id, nil)
-     |> assign(:blocked_user_name, nil)
-     |> assign(:blocked_connection_id, nil)}
-  end
-
-  @impl true
-  def handle_event("submit_block", %{"block" => block_params}, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-    blocked_user_id = socket.assigns.blocked_user_id
-    blocked_connection_id = socket.assigns.blocked_connection_id
-
-    case Accounts.block_user(current_user, blocked_user_id, block_params,
-           user: current_user,
-           key: key
-         ) do
-      {:ok, _user_block} ->
-        # Remove the connection from the stream if it exists
-        if blocked_connection_id do
-          connection = Accounts.get_user_connection!(blocked_connection_id)
-
-          socket = socket |> stream_delete(:user_connections, connection)
-        else
-          socket
-        end
-
-        {:noreply,
-         socket
-         |> assign(:show_block_modal, false)
-         |> assign(:blocked_user_id, nil)
-         |> assign(:blocked_user_name, nil)
-         |> assign(:blocked_connection_id, nil)
-         |> put_flash(:success, "User has been blocked")}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to block user")}
-    end
-  end
-
-  @impl true
-  def handle_event("validate_block", _params, socket) do
-    # Just acknowledge the validation event
-    {:noreply, socket}
   end
 
   @impl true
@@ -644,6 +634,18 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:blocked_user_id, nil)
      |> assign(:blocked_user_name, nil)
      |> assign(:blocked_connection_id, nil)}
+  end
+
+  @impl true
+  def handle_event("close_block_modal", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_block_modal, false)
+      |> assign(:block_user_id, nil)
+      |> assign(:block_user_name, nil)
+      |> assign(:blocked_connection_id, nil)
+
+    {:noreply, socket}
   end
 
   @impl true
