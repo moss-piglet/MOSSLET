@@ -77,6 +77,20 @@ defmodule Mosslet.Accounts.UserConnection do
     change(user_connection, confirmed_at: now)
   end
 
+  @doc """
+  Simple changeset for toggling the zen? field (mute/unmute).
+  """
+  def zen_changeset(user_connection, %{zen?: zen_value}) do
+    change(user_connection, zen?: zen_value)
+  end
+
+  @doc """
+  Simple changeset for toggling the photos? field (photo permissions).
+  """
+  def photos_changeset(user_connection, %{photos?: photos_value}) do
+    change(user_connection, photos?: photos_value)
+  end
+
   defp validate_email_or_username(changeset, opts) do
     case opts[:selector] do
       "" ->

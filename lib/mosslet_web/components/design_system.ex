@@ -6917,109 +6917,203 @@ defmodule MossletWeb.DesignSystem do
   attr :avatar_src, :string, required: true
   attr :connected_at, :any, required: true
   attr :connection_id, :string, required: true
+  attr :zen?, :boolean, default: false
+  attr :photos?, :boolean, default: true
   attr :class, :any, default: ""
 
   def liquid_connection_card(assigns) do
     ~H"""
-    <article class={[
-      "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-      "border border-slate-200/60 dark:border-slate-700/60",
-      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
-      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
-      "hover:border-slate-300/60 dark:hover:border-slate-600/60",
-      "transform-gpu will-change-transform cursor-pointer",
-      @class
-    ]}>
-      <%!-- Liquid background effect on hover --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
-      </div>
+    <div class="relative">
+      <article class={[
+        "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+        "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+        "hover:border-slate-300/60 dark:hover:border-slate-600/60",
+        "transform-gpu will-change-transform cursor-pointer",
+        @class
+      ]}>
+        <%!-- Liquid background effect on hover --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+        </div>
 
-      <%!-- Shimmer effect --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full">
-      </div>
+        <%!-- Shimmer effect --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full">
+        </div>
 
-      <%!-- Card content --%>
-      <div class="relative p-6">
-        <%!-- Header with avatar and name --%>
-        <div class="flex items-start gap-4 mb-4">
-          <%!-- Avatar --%>
-          <div class="relative flex-shrink-0">
-            <.liquid_avatar
-              src={@avatar_src}
-              name={@name}
-              size="lg"
-              clickable={true}
-            />
+        <%!-- Card content --%>
+        <div class="relative p-6">
+          <%!-- Header with avatar and name --%>
+          <div class="flex items-start gap-4 mb-4">
+            <%!-- Avatar --%>
+            <div class="relative flex-shrink-0">
+              <.liquid_avatar
+                src={@avatar_src}
+                name={@name}
+                size="lg"
+                clickable={true}
+              />
 
-            <%!-- Online status indicator (future enhancement) --%>
-            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full">
+              <%!-- Online status indicator (future enhancement) --%>
+              <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full">
+              </div>
             </div>
-          </div>
 
-          <%!-- User info --%>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0 flex-1">
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200">
-                  {@name}
-                </h3>
-                <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
-                  @{@username}
-                </p>
+            <%!-- User info --%>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200">
+                    {@name}
+                  </h3>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    @{@username}
+                  </p>
+
+                  <%!-- Connection indicators (similar to timeline post indicators) --%>
+                  <div class="flex items-center gap-1 mt-1">
+                    <%!-- Muted indicator --%>
+                    <.phx_icon
+                      :if={@zen?}
+                      name="hero-speaker-x-mark"
+                      class="h-3 w-3 text-amber-500 dark:text-amber-400"
+                      title="Muted"
+                    />
+
+                    <%!-- Photos disabled indicator --%>
+                    <.phx_icon
+                      :if={!@photos?}
+                      name="hero-photo"
+                      class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                      title="Photo downloads disabled"
+                    />
+                  </div>
+                </div>
+
+                <%!-- Connection label badge --%>
+                <.liquid_badge
+                  variant="soft"
+                  color={connection_badge_color(@color)}
+                  size="sm"
+                >
+                  {@label}
+                </.liquid_badge>
               </div>
 
-              <%!-- Connection label badge --%>
-              <.liquid_badge
-                variant="soft"
-                color={connection_badge_color(@color)}
-                size="sm"
+              <%!-- Status or last activity --%>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                Connected <.local_time_ago id={@connection_id} at={@connected_at} />
+              </p>
+            </div>
+          </div>
+
+          <%!-- Quick actions --%>
+          <div class="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
+            <%!-- Action buttons --%>
+            <div class="flex items-center gap-2">
+              <%!-- Message button --%>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
+                title="Send message"
               >
-                {@label}
-              </.liquid_badge>
+                <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
+              </button>
+
+              <%!-- View profile button --%>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
+                title="View profile"
+              >
+                <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
+              </button>
             </div>
 
-            <%!-- Status or last activity --%>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Connected <.local_time_ago id={@connection_id} at={@connected_at} />
-            </p>
+            <%!-- Dropdown trigger only (menu will be positioned outside) --%>
+            <button
+              type="button"
+              phx-click={JS.toggle(to: "#connection-menu-#{@connection_id}-menu")}
+              class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/30 transition-all duration-200 ease-out"
+              title="More options"
+            >
+              <.phx_icon
+                name="hero-ellipsis-horizontal"
+                class="h-4 w-4"
+              />
+            </button>
           </div>
         </div>
+      </article>
 
-        <%!-- Quick actions --%>
-        <div class="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
-          <%!-- Action buttons --%>
-          <div class="flex items-center gap-2">
-            <%!-- Message button --%>
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
-              title="Send message"
-            >
-              <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
-            </button>
+      <%!-- Dropdown menu positioned outside the card to avoid clipping --%>
+      <div
+        id={"connection-menu-#{@connection_id}-menu"}
+        class="absolute z-[200] mt-2 w-48 origin-top-right hidden right-0 top-full rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 transition-all duration-200 ease-out ring-1 ring-slate-200/60 dark:ring-slate-700/60"
+        role="menu"
+        aria-orientation="vertical"
+        phx-click-away={JS.hide(to: "#connection-menu-#{@connection_id}-menu")}
+      >
+        <%!-- Liquid background effect --%>
+        <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 opacity-50">
+        </div>
 
-            <%!-- View profile button --%>
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
-              title="View profile"
-            >
-              <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
-            </button>
+        <div class="relative py-2">
+          <div
+            class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+            role="menuitem"
+            phx-click="edit_connection"
+            phx-value-id={@connection_id}
+          >
+            <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit Label
           </div>
 
-          <%!-- More actions menu --%>
-          <button
-            type="button"
-            class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/30 transition-all duration-200 ease-out"
-            title="More options"
+          <div
+            class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+            role="menuitem"
+            phx-click="toggle_mute"
+            phx-value-id={@connection_id}
           >
-            <.phx_icon name="hero-ellipsis-horizontal" class="h-4 w-4" />
-          </button>
+            <.phx_icon
+              name={if @zen?, do: "hero-speaker-wave", else: "hero-speaker-x-mark"}
+              class="h-4 w-4"
+            />
+            {if @zen?, do: "Unmute", else: "Mute"}
+          </div>
+
+          <div
+            class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+            role="menuitem"
+            phx-click="toggle_photos"
+            phx-value-id={@connection_id}
+          >
+            <.phx_icon name={if @photos?, do: "hero-photo", else: "hero-photo"} class="h-4 w-4" />
+            {if @photos?, do: "Disable Photo Downloads", else: "Enable Photo Downloads"}
+          </div>
+
+          <div
+            class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100"
+            role="menuitem"
+            phx-click="block_user"
+            phx-value-id={@connection_id}
+            phx-value-name={@name}
+          >
+            <.phx_icon name="hero-eye-slash" class="h-4 w-4" /> Block User
+          </div>
+
+          <div
+            class="group flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-200 ease-out cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-700/80 first:rounded-t-lg last:rounded-b-lg text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100"
+            role="menuitem"
+            phx-click="delete_connection"
+            phx-value-id={@connection_id}
+            data-confirm="Are you sure you want to delete this connection? This action cannot be undone."
+          >
+            <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete Connection
+          </div>
         </div>
       </div>
-    </article>
+    </div>
     """
   end
 
