@@ -5,16 +5,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
   alias Mosslet.Accounts.UserConnection
   alias Mosslet.Encrypted
 
-  import MossletWeb.Helpers,
-    only: [
-      decr: 3,
-      user_name: 2,
-      maybe_get_user_avatar: 2,
-      show_avatar?: 1,
-      maybe_get_avatar_src: 4,
-      decr_uconn: 4
-    ]
-
   @page_default 1
   @per_page_default 8
 
@@ -417,10 +407,10 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
-  def handle_event("search_connections", %{"value" => search_query}, socket) do
+  def handle_event("search_connections", %{"search_query" => search_query}, socket) do
     # Update the URL with search parameters to maintain state
-    params = %{"search" => search_query}
-    {:noreply, push_patch(socket, to: ~p"/app/users/connections?#{params}")}
+    search_params = if String.trim(search_query) == "", do: %{}, else: %{"search" => search_query}
+    {:noreply, push_patch(socket, to: ~p"/app/users/connections?#{search_params}")}
   end
 
   @impl true
@@ -555,7 +545,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
       end
 
     case result do
-      {:ok, updated_user} ->
+      {:ok, _updated_user} ->
         # Extract visibility groups from the updated user
         visibility_groups = Accounts.get_user_visibility_groups_with_connections(current_user)
 
@@ -569,8 +559,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
          |> put_flash(:success, "Visibility group #{action} successfully!")}
 
       {:error, changeset} ->
-        IO.inspect(changeset, label: "ERROR CHANGESET")
-
         # Handle validation errors
         error_message =
           if is_struct(changeset, Ecto.Changeset) do
@@ -746,7 +734,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
         "" -> "/images/logo.svg"
         nil -> "/images/logo.svg"
         result when is_binary(result) -> result
-        _ -> "/images/logo.svg"
       end
     end
   end
@@ -780,7 +767,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
         "" -> "/images/logo.svg"
         nil -> "/images/logo.svg"
         result when is_binary(result) -> result
-        _ -> "/images/logo.svg"
       end
     end
   end

@@ -450,6 +450,29 @@ defmodule Mosslet.Accounts do
     |> Repo.all()
   end
 
+  @doc """
+  Searches for UserConnections by label hash.
+  This function searches for connections where the label matches
+  the search query (case-insensitive exact match).
+  """
+  def search_user_connections(user, search_query) when is_binary(search_query) do
+    # Normalize the search query for comparison with label_hash
+    normalized_query = String.downcase(String.trim(search_query))
+
+    if String.length(normalized_query) > 0 do
+      UserConnection
+      |> where_user(user)
+      |> where_confirmed()
+      |> where([uc], uc.label_hash == ^normalized_query)
+      |> order_by([uc], desc: uc.confirmed_at)
+      |> preload([:connection])
+      |> Repo.all()
+    else
+      # If search query is empty, return all connections
+      filter_user_connections(%{}, user)
+    end
+  end
+
   # query that scopes a UserConnection to a User.
   #
   # When a UserConnection is created and confirmed
@@ -595,7 +618,7 @@ defmodule Mosslet.Accounts do
   def update_user_connection(uconn, attrs, opts) do
     case Repo.transaction_on_primary(fn ->
            uconn
-           |> UserConnection.edit_changeset(attrs, opts)
+           |> UserConnection.changeset(attrs, opts)
            |> Repo.update()
          end) do
       {:ok, {:ok, uconn}} ->
@@ -652,8 +675,9 @@ defmodule Mosslet.Accounts do
     UserConnection.changeset(uconn, attrs, opts)
   end
 
+  # This may be deprecated
   def edit_user_connection(%UserConnection{} = uconn, attrs \\ %{}, opts \\ []) do
-    UserConnection.edit_changeset(uconn, attrs, opts)
+    UserConnection.changeset(uconn, attrs, opts)
   end
 
   ## Settings

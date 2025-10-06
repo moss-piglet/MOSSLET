@@ -69,6 +69,14 @@ defmodule Mosslet.Accounts.UserConnection do
     |> unique_constraint([:reverse_user_id, :user_id])
   end
 
+  @doc """
+  Confirms the user_connection by setting `confirmed_at`.
+  """
+  def confirm_changeset(user_connection) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    change(user_connection, confirmed_at: now)
+  end
+
   defp validate_email_or_username(changeset, opts) do
     case opts[:selector] do
       "" ->

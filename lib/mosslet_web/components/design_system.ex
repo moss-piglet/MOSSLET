@@ -6717,29 +6717,35 @@ defmodule MossletWeb.DesignSystem do
   attr :placeholder, :string, default: "Search..."
   attr :value, :string, default: ""
   attr :class, :any, default: ""
-  attr :rest, :global, include: ~w(phx-change phx-submit id name)
+  attr :phx_change, :string
+  attr :id, :string
+  attr :rest, :global, include: ~w(id name)
 
   def liquid_search_input(assigns) do
     ~H"""
-    <div class={["relative", @class]}>
-      <%!-- Liquid background effect --%>
-      <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-slate-100/80 via-white/60 to-slate-100/80 dark:from-slate-700/80 dark:via-slate-600/60 dark:to-slate-700/80 opacity-100 transition-opacity duration-200 ease-out focus-within:opacity-100">
-      </div>
+    <.form id={@id} for={%{}} phx-change={@phx_change}>
+      <div class={["relative", @class]}>
+        <%!-- Liquid background effect --%>
+        <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-slate-100/80 via-white/60 to-slate-100/80 dark:from-slate-700/80 dark:via-slate-600/60 dark:to-slate-700/80 opacity-100 transition-opacity duration-200 ease-out focus-within:opacity-100">
+        </div>
 
-      <%!-- Search icon --%>
-      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-        <.phx_icon name="hero-magnifying-glass" class="h-5 w-5 text-slate-400 dark:text-slate-500" />
-      </div>
+        <%!-- Search icon --%>
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+          <.phx_icon name="hero-magnifying-glass" class="h-5 w-5 text-slate-400 dark:text-slate-500" />
+        </div>
 
-      <%!-- Input field --%>
-      <input
-        type="text"
-        placeholder={@placeholder}
-        value={@value}
-        class="relative z-10 block w-full pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 bg-transparent border border-slate-200/60 dark:border-slate-600/60 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 dark:focus:ring-teal-400/50 dark:focus:border-teal-400/50 transition-all duration-200 ease-out"
-        {@rest}
-      />
-    </div>
+        <%!-- Input field --%>
+        <input
+          type="text"
+          name="search_query"
+          placeholder={@placeholder}
+          phx-debounce={500}
+          value={@value}
+          class="relative z-10 block w-full pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 bg-transparent border border-slate-200/60 dark:border-slate-600/60 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 dark:focus:ring-teal-400/50 dark:focus:border-teal-400/50 transition-all duration-200 ease-out"
+          {@rest}
+        />
+      </div>
+    </.form>
     """
   end
 
@@ -7300,35 +7306,6 @@ defmodule MossletWeb.DesignSystem do
 
       _ ->
         "bg-gradient-to-r from-teal-50/60 via-emerald-50/40 to-teal-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-teal-900/20"
-    end
-  end
-
-  defp get_count_badge_styles(active_tab, tab) when active_tab == tab.key do
-    case Map.get(tab, :color, "teal") do
-      "teal" ->
-        "bg-teal-200/60 dark:bg-teal-800/60 text-teal-700 dark:text-teal-300"
-
-      "emerald" ->
-        "bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-700 dark:text-emerald-300"
-
-      "purple" ->
-        "bg-purple-200/60 dark:bg-purple-800/60 text-purple-700 dark:text-purple-300"
-
-      _ ->
-        "bg-teal-200/60 dark:bg-teal-800/60 text-teal-700 dark:text-teal-300"
-    end
-  end
-
-  defp get_count_badge_styles(_active_tab, _tab) do
-    "bg-slate-200/60 dark:bg-slate-600/60 text-slate-600 dark:text-slate-400"
-  end
-
-  defp get_badge_indicator_color(tab) do
-    case Map.get(tab, :color, "emerald") do
-      "emerald" -> "bg-gradient-to-br from-emerald-500 to-teal-600"
-      "teal" -> "bg-gradient-to-br from-teal-500 to-emerald-600"
-      "purple" -> "bg-gradient-to-br from-purple-500 to-indigo-600"
-      _ -> "bg-gradient-to-br from-emerald-500 to-teal-600"
     end
   end
 

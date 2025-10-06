@@ -14,7 +14,7 @@
     </div>
 
     <%!-- Content container with enhanced spacing --%>
-    <MossletWeb.DesignSystem.liquid_container max_width="4xl" class="space-y-6 sm:space-y-8">
+    <MossletWeb.DesignSystem.liquid_container max_width="xl" class="space-y-6 sm:space-y-8">
       <%!-- Modern tab navigation with proper responsive behavior --%>
       <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 relative z-0 overflow-visible">
         <%!-- Responsive layout optimized for all screen sizes --%>
@@ -54,9 +54,10 @@
                 class="w-full sm:w-64 md:w-72 xl:w-80"
               >
                 <MossletWeb.DesignSystem.liquid_search_input
-                  placeholder="Search connections..."
+                  placeholder="Search by label..."
+                  id="search-connections-form"
                   value={@search_query || ""}
-                  phx-change="search_connections"
+                  phx_change="search_connections"
                   class="w-full"
                 />
               </div>
@@ -319,7 +320,7 @@
           Organize your connections into groups for granular privacy control when sharing posts.
         </p>
 
-        <.form phx-submit="save_visibility_group" class="space-y-6">
+        <.form for={%{}} phx-submit="save_visibility_group" class="space-y-6">
           <%!-- Hidden field for editing mode --%>
           <input
             :if={@editing_group}

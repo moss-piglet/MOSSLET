@@ -559,19 +559,4 @@ defmodule MossletWeb.UserConnectionLive.OldIndex do
       _ -> "Available and connected 🌿"
     end
   end
-
-  # Helper to format connection date
-  defp format_connection_date(%NaiveDateTime{} = date) do
-    diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), date, :day)
-
-    cond do
-      diff < 1 -> "today"
-      diff < 7 -> "#{diff}d ago"
-      diff < 30 -> "#{div(diff, 7)}w ago"
-      diff < 365 -> "#{div(diff, 30)}mo ago"
-      true -> "#{div(diff, 365)}y ago"
-    end
-  end
-
-  defp format_connection_date(_), do: "recently"
 end
