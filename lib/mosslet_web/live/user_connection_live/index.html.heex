@@ -118,8 +118,8 @@
                 avatar_src={get_connection_avatar_src(connection, @current_user, @key)}
                 connected_at={connection.confirmed_at}
                 connection_id={connection.id}
-                zen?={connection.zen? || false}
-                photos?={connection.photos? || true}
+                zen?={connection.zen?}
+                photos?={connection.photos?}
                 class="transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 min-h-[140px]"
               />
             </div>

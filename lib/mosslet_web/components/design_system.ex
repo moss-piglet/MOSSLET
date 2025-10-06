@@ -6749,7 +6749,7 @@ defmodule MossletWeb.DesignSystem do
   attr :connected_at, :any, required: true
   attr :connection_id, :string, required: true
   attr :zen?, :boolean, default: false
-  attr :photos?, :boolean, default: true
+  attr :photos?, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_connection_card(assigns) do
@@ -6807,17 +6807,21 @@ defmodule MossletWeb.DesignSystem do
                     <%!-- Muted indicator --%>
                     <.phx_icon
                       :if={@zen?}
+                      id={"zen-muted-#{@connection_id}"}
                       name="hero-speaker-x-mark"
                       class="h-3 w-3 text-amber-500 dark:text-amber-400"
-                      title="Muted"
+                      phx_hook="TippyHook"
+                      data_tippy_content="Muted"
                     />
 
-                    <%!-- Photos disabled indicator --%>
+                    <%!-- Photos enabled indicator --%>
                     <.phx_icon
-                      :if={!@photos?}
+                      :if={@photos?}
+                      id={"photos-enabled-#{@connection_id}"}
                       name="hero-photo"
-                      class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                      title="Photo downloads disabled"
+                      class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
+                      phx_hook="TippyHook"
+                      data_tippy_content="Photo downloads enabled"
                     />
                   </div>
                 </div>
@@ -6854,9 +6858,9 @@ defmodule MossletWeb.DesignSystem do
 
               <%!-- View profile button --%>
               <button
+                id={"profile-button-#{@connection_id}"} phx-hook="TippyHook" data-tippy-content="Coming Soon"
                 type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
-                title="View profile"
               >
                 <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
               </button>
@@ -6919,7 +6923,7 @@ defmodule MossletWeb.DesignSystem do
             phx-click="toggle_photos"
             phx-value-id={@connection_id}
           >
-            <.phx_icon name={if @photos?, do: "hero-photo", else: "hero-photo"} class="h-4 w-4" />
+            <.phx_icon name={if @photos?, do: "hero-photo-solid", else: "hero-photo"} class="h-4 w-4" />
             {if @photos?, do: "Disable Photo Downloads", else: "Enable Photo Downloads"}
           </div>
 
@@ -6930,7 +6934,7 @@ defmodule MossletWeb.DesignSystem do
             phx-value-id={@connection_id}
             phx-value-name={@name}
           >
-            <.phx_icon name="hero-eye-slash" class="h-4 w-4" /> Block Author
+            <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block Author
           </div>
 
           <div

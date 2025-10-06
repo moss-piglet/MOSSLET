@@ -540,6 +540,12 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_event("delete_connection", %{"id" => connection_id}, socket) do
+    # Use the existing delete functionality
+    handle_event("delete", %{"id" => connection_id}, socket)
+  end
+
+  @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     current_user = socket.assigns.current_user
 
