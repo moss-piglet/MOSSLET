@@ -82,17 +82,22 @@ defmodule MossletWeb.Router do
   end
 
   scope "/", MossletWeb do
-    pipe_through [:browser, :authenticated]
+    pipe_through [
+      :browser,
+      :authenticated,
+      :require_confirmed_user,
+      :require_session_key,
+      :maybe_require_connection
+    ]
 
     # potenitally public routes
     # currently not public
 
     live_session :app_profile,
       on_mount: [
-        {MossletWeb.UserAuth, :mount_current_user},
-        {MossletWeb.UserAuth, :mount_current_user_session_key},
+        {MossletWeb.UserAuth, :ensure_authenticated},
+        {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
-        {MossletWeb.UserOnMountHooks, :require_authenticated_user},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
         {MossletWeb.UserAuth, :maybe_ensure_private_profile}
       ] do
