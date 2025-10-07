@@ -74,13 +74,7 @@
                   shimmer="page"
                   class="w-full sm:w-auto justify-center xl:whitespace-nowrap"
                 >
-                  <span class="md:hidden">
-                    {if @show_new_connection_form, do: "Cancel", else: "Send Request"}
-                  </span>
-                  <span class="hidden md:inline xl:hidden">
-                    {if @show_new_connection_form, do: "Cancel", else: "New Connection"}
-                  </span>
-                  <span class="hidden xl:inline">
+                  <span class="inline">
                     {if @show_new_connection_form, do: "Cancel", else: "New Connection"}
                   </span>
                 </MossletWeb.DesignSystem.liquid_button>
