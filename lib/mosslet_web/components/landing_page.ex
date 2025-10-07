@@ -164,7 +164,7 @@ defmodule MossletWeb.Components.LandingPage do
                   navigate="/auth/sign_in"
                   variant="secondary"
                   color="teal"
-                  icon="hero-arrow-right-on-rectangle"
+                  icon="hero-arrow-right-end-on-rectangle"
                   size="lg"
                   class="w-full sm:w-auto"
                 >

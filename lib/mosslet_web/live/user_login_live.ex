@@ -155,7 +155,7 @@ defmodule MossletWeb.UserLoginLive do
               </div>
 
               <.phx_icon
-                name="hero-arrow-left-end-on-rectangle"
+                name="hero-arrow-right-end-on-rectangle"
                 class="relative w-5 h-5"
               />
               <span class="relative">Sign in</span>

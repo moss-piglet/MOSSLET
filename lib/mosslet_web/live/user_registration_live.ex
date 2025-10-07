@@ -538,7 +538,7 @@ defmodule MossletWeb.UserRegistrationLive do
                 "transition-colors duration-200"
               ]}
             >
-              <.icon name="hero-arrow-left-on-rectangle" class="w-4 h-4" /> Sign in instead
+              <.icon name="hero-arrow-right-end-on-rectangle" class="w-4 h-4" /> Sign in instead
             </.link>
           </div>
         </div>
