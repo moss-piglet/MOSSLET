@@ -99,7 +99,7 @@ defmodule MossletWeb.UserTOTPHTML do
           <.phx_input
             field={@form[:remember_me]}
             type="checkbox"
-            label="Keep me signed in for 60 days"
+            label="Remember me for 60 days"
             apply_classes?={true}
             classes={[
               "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600",
