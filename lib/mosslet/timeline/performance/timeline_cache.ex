@@ -314,15 +314,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     {:noreply, state}
   end
 
-  def handle_info({:post_deleted, post}, state) when is_map(post) do
-    Logger.debug("Cache invalidation: private post deleted #{post.id}")
-
-    invalidate_post(post.id)
-    invalidate_timelines_for_post(post)
-
-    {:noreply, state}
-  end
-
   # Handle user joining timeline (via Presence) - subscribe to their topics
   def handle_info({:user_joined_timeline, user_id}, state) do
     Logger.debug(

@@ -403,21 +403,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket |> stream_insert(:posts, post, at: -1)}
   end
 
-  def handle_info({:reply_created, post, reply}, socket) do
-    # When a new reply (including nested replies) is created, update the post
-    # This handles both top-level and nested reply creation
-    current_user = socket.assigns.current_user
-
-    # Only update if this isn't the user's own reply to prevent double updates
-    if reply.user_id != current_user.id do
-      # Get the updated post with the new nested reply structure
-      updated_post = Timeline.get_post!(post.id)
-      {:noreply, socket |> stream_insert(:posts, updated_post, at: -1)}
-    else
-      {:noreply, socket}
-    end
-  end
-
   def handle_info({:post_deleted, post}, socket) do
     return_url = socket.assigns.return_url
     current_user = socket.assigns.current_user
