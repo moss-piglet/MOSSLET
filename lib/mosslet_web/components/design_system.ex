@@ -7245,7 +7245,8 @@ defmodule MossletWeb.DesignSystem do
 
   # Helper functions for connection-related styling
   defp connection_badge_color(:emerald), do: "emerald"
-  defp connection_badge_color(:orange), do: "amber"
+  defp connection_badge_color(:orange), do: "orange"
+  defp connection_badge_color(:amber), do: "amber"
   defp connection_badge_color(:pink), do: "rose"
   defp connection_badge_color(:purple), do: "purple"
   defp connection_badge_color(:rose), do: "rose"
