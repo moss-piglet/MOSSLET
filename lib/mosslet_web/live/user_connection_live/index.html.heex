@@ -1,6 +1,9 @@
 <.layout current_page={:connections} current_user={@current_user} key={@key} type="sidebar">
   <%!-- Main connections container with liquid metal styling --%>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
+  <div
+    id="connections-container"
+    class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10"
+  >
     <%!-- Header section with calmer mobile spacing --%>
     <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="mx-auto max-w-4xl text-center">
@@ -65,20 +68,214 @@
               <%!-- New connection button with responsive text and sizing --%>
               <div class="w-full sm:w-auto xl:w-auto flex-shrink-0">
                 <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/app/users/connections/new"}
-                  icon="hero-user-plus"
+                  phx-click="toggle_new_connection_form"
+                  icon={if @show_new_connection_form, do: "hero-minus", else: "hero-user-plus"}
                   color="teal"
                   shimmer="page"
                   class="w-full sm:w-auto justify-center xl:whitespace-nowrap"
                 >
-                  <span class="md:hidden">Send Request</span>
-                  <span class="hidden md:inline xl:hidden">New Connection</span>
-                  <span class="hidden xl:inline">New Connection</span>
+                  <span class="md:hidden">
+                    {if @show_new_connection_form, do: "Cancel", else: "Send Request"}
+                  </span>
+                  <span class="hidden md:inline xl:hidden">
+                    {if @show_new_connection_form, do: "Cancel", else: "New Connection"}
+                  </span>
+                  <span class="hidden xl:inline">
+                    {if @show_new_connection_form, do: "Cancel", else: "New Connection"}
+                  </span>
                 </MossletWeb.DesignSystem.liquid_button>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <%!-- Inline New Connection Form --%>
+      <div
+        :if={@show_new_connection_form}
+        class="bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-teal-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-teal-900/20 backdrop-blur-md rounded-2xl border border-teal-200/40 dark:border-teal-700/40 shadow-lg shadow-teal-500/5 dark:shadow-teal-500/10 p-6 md:p-8"
+      >
+        <div class="mb-6">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+              <.phx_icon name="hero-user-plus" class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-teal-900 dark:text-teal-100">
+                New Connection
+              </h3>
+              <p class="text-sm text-teal-700 dark:text-teal-300">
+                Connect with someone new to start sharing memories and posts
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <.form
+          for={@new_connection_form}
+          phx-change="validate_new_connection"
+          phx-submit="save_new_connection"
+          class="space-y-6"
+        >
+          <%!-- Hidden fields populated when user validation succeeds --%>
+          <.phx_input
+            :if={@recipient_id}
+            field={@new_connection_form[:connection_id]}
+            type="hidden"
+            value={@current_user.connection.id}
+          />
+          <.phx_input
+            :if={@recipient_id}
+            field={@new_connection_form[:user_id]}
+            type="hidden"
+            value={@recipient_id}
+          />
+          <.phx_input
+            :if={@recipient_id}
+            field={@new_connection_form[:reverse_user_id]}
+            type="hidden"
+            value={@current_user.id}
+          />
+          <.phx_input
+            :if={@request_username}
+            field={@new_connection_form[:request_username]}
+            type="hidden"
+            value={@new_connection_form[:request_username].value}
+          />
+          <.phx_input
+            :if={@request_email}
+            field={@new_connection_form[:request_email]}
+            type="hidden"
+            value={@new_connection_form[:request_email].value}
+          />
+          <.phx_input
+            :if={@recipient_key}
+            field={@new_connection_form[:key]}
+            type="hidden"
+            value={@recipient_key}
+          />
+          <.phx_input field={@new_connection_form[:label]} type="hidden" />
+
+          <%!-- Label and Color in grid layout --%>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <%!-- Label input --%>
+            <.phx_input
+              field={@new_connection_form[:temp_label]}
+              type="text"
+              label="Label"
+              placeholder="Family, friend, partner, etc."
+              phx-debounce="300"
+              autofocus
+              required
+            />
+
+            <%!-- Color select with preview --%>
+            <.phx_input
+              field={@new_connection_form[:color]}
+              type="color_select"
+              label="Color"
+              prompt="Choose label color"
+              options={[
+                {"Emerald", :emerald},
+                {"Teal", :teal},
+                {"Orange", :orange},
+                {"Purple", :purple},
+                {"Rose", :rose},
+                {"Amber", :amber},
+                {"Cyan", :cyan},
+                {"Indigo", :indigo},
+                {"Pink", :pink}
+              ]}
+            />
+          </div>
+
+          <%!-- Find by selector --%>
+          <.phx_input
+            field={@new_connection_form[:selector]}
+            type="select"
+            label="Find by"
+            prompt="Choose how to find them"
+            options={[
+              {"Username", "username"},
+              {"Email", "email"}
+            ]}
+            phx-debounce="300"
+          />
+
+          <%!-- Email input --%>
+          <.phx_input
+            :if={@new_connection_selector == "email"}
+            field={@new_connection_form[:email]}
+            type="email"
+            label="Email"
+            placeholder="Enter their email address"
+            phx-debounce="300"
+            autocomplete="off"
+            required
+          />
+
+          <%!-- Username input --%>
+          <.phx_input
+            :if={@new_connection_selector == "username"}
+            field={@new_connection_form[:username]}
+            type="text"
+            label="Username"
+            placeholder="Enter their username"
+            phx-debounce="300"
+            autocomplete="off"
+            required
+          />
+
+          <%!-- Info notice --%>
+          <div class="p-4 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-teal-200/60 dark:border-teal-700/60">
+            <div class="flex gap-3">
+              <.phx_icon
+                name="hero-information-circle"
+                class="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5"
+              />
+              <div class="text-sm text-teal-700 dark:text-teal-300">
+                <p class="font-medium mb-1">What happens when you send a connection request:</p>
+                <ul class="text-teal-600 dark:text-teal-400 space-y-1">
+                  <li>• They'll receive a notification about your request</li>
+                  <li>• They can accept or decline the connection</li>
+                  <li>• Once accepted, you can share posts and memories</li>
+                  <li>• All data is encrypted and private between you</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Action buttons --%>
+          <div class="flex justify-end gap-3 pt-2">
+            <MossletWeb.DesignSystem.liquid_button
+              type="button"
+              variant="ghost"
+              color="slate"
+              phx-click="toggle_new_connection_form"
+            >
+              Cancel
+            </MossletWeb.DesignSystem.liquid_button>
+
+            <%= if @new_connection_form.source.valid? do %>
+              <MossletWeb.DesignSystem.liquid_button
+                type="submit"
+                color="teal"
+                icon="hero-paper-airplane"
+              >
+                Send Request
+              </MossletWeb.DesignSystem.liquid_button>
+            <% else %>
+              <MossletWeb.DesignSystem.liquid_button
+                type="submit"
+                color="slate"
+                icon="hero-paper-airplane"
+                disabled
+              >
+                Send Request
+              </MossletWeb.DesignSystem.liquid_button>
+            <% end %>
+          </div>
+        </.form>
       </div>
 
       <%!-- Tab content --%>
@@ -601,12 +798,12 @@
 
     <%!-- Block User Modal (using LiveComponent) --%>
     <.live_component
-      :if={@show_block_modal || false}
+      :if={@show_block_modal}
       module={MossletWeb.TimelineLive.BlockModalComponent}
       id="block-modal-component"
-      show={@show_block_modal || false}
-      user_id={@blocked_user_id || ""}
-      user_name={@blocked_user_name || ""}
+      show={@show_block_modal}
+      user_id={@blocked_user_id}
+      user_name={@blocked_user_name}
       post_id="connection"
       existing_block={nil}
       default_block_type="full"

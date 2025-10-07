@@ -153,6 +153,7 @@ defmodule Mosslet.Accounts.UserConnection do
       if recipient = Accounts.get_user_by_email(opts[:user], email) do
         changeset
         |> put_change(:user_id, recipient.id)
+        |> put_change(:reverse_user_id, opts[:user].id)
         |> encrypt_connection_key_and_data(recipient, opts)
       else
         changeset
@@ -179,6 +180,7 @@ defmodule Mosslet.Accounts.UserConnection do
       if recipient = Accounts.get_user_by_username(opts[:user], username) do
         changeset
         |> put_change(:user_id, recipient.id)
+        |> put_change(:reverse_user_id, opts[:user].id)
         |> encrypt_connection_key_and_data(recipient, opts)
       else
         changeset

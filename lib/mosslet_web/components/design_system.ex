@@ -43,7 +43,7 @@ defmodule MossletWeb.DesignSystem do
     ]
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
-  defp liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
+  def liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
     js
     |> JS.show(to: "##{id}")
     |> JS.show(
@@ -62,7 +62,7 @@ defmodule MossletWeb.DesignSystem do
     |> JS.dispatch("phx:modal-to-body", to: "##{id}")
   end
 
-  defp liquid_hide_modal(js \\ %JS{}, id) do
+  def liquid_hide_modal(js \\ %JS{}, id) do
     js
     |> JS.hide(
       to: "##{id}-bg",
@@ -121,7 +121,7 @@ defmodule MossletWeb.DesignSystem do
       class={
         [
           # Base styles
-          "group relative inline-flex items-center justify-center gap-2 font-semibold",
+          "group relative overflow-hidden inline-flex items-center justify-center gap-2 font-semibold",
           "transition-all duration-200 ease-out transform-gpu will-change-transform",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
@@ -168,7 +168,7 @@ defmodule MossletWeb.DesignSystem do
       class={
         [
           # Base styles
-          "group relative inline-flex items-center justify-center gap-2 font-semibold",
+          "group relative overflow-hidden inline-flex items-center justify-center gap-2 font-semibold",
           "transition-all duration-200 ease-out transform-gpu will-change-transform",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
           "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
@@ -6849,6 +6849,9 @@ defmodule MossletWeb.DesignSystem do
             <div class="flex items-center gap-2">
               <%!-- Message button --%>
               <button
+                id={"message-button-#{@connection_id}"}
+                phx-hook="TippyHook"
+                data-tippy-content="Coming Soon - TBD"
                 type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 hover:bg-teal-100/50 dark:hover:bg-teal-900/30 border border-teal-200/40 dark:border-teal-700/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
                 title="Send message"
@@ -6858,7 +6861,9 @@ defmodule MossletWeb.DesignSystem do
 
               <%!-- View profile button --%>
               <button
-                id={"profile-button-#{@connection_id}"} phx-hook="TippyHook" data-tippy-content="Coming Soon"
+                id={"profile-button-#{@connection_id}"}
+                phx-hook="TippyHook"
+                data-tippy-content="Coming Soon"
                 type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
               >

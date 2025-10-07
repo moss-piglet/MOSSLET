@@ -12,6 +12,7 @@ import InfiniteScrollGroupMessage from "./infinite-scroll-group-message";
 import InfiniteScrollRemark from "./infinite-scroll-remark";
 import * as LocalTimeHooks from "./local-time-hooks";
 import { LocalTimeTooltip } from "./local-time-tooltip";
+import MaintainFocus from "./maintain-focus";
 import Menu from "./dropdown-menu";
 import ModalPortal from "./modal-portal";
 import ReplyComposer from "./reply-composer";
@@ -37,6 +38,7 @@ export default {
   InfiniteScrollRemark,
   ...LocalTimeHooks,
   LocalTimeTooltip,
+  MaintainFocus,
   Menu,
   ModalPortal,
   MossletFrameworkHooks,

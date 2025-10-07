@@ -31,6 +31,16 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:blocked_user_id, nil)
      |> assign(:blocked_user_name, nil)
      |> assign(:blocked_connection_id, nil)
+     |> assign(:show_new_connection_form, false)
+     |> assign(:new_connection_selector, nil)
+     |> assign(:recipient_id, nil)
+     |> assign(:request_email, nil)
+     |> assign(:request_username, nil)
+     |> assign(:recipient_key, nil)
+     |> assign(
+       :new_connection_form,
+       to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
+     )
      |> stream_configure(:visibility_groups,
        dom_id: fn %{group: group} -> "visibility-group-#{group.id}" end
      )
@@ -71,8 +81,8 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
     url =
       if arrivals_options.page == @page_default && arrivals_options.per_page == @per_page_default,
-        do: ~p"/app/users/connections/greet",
-        else: ~p"/app/users/connections/greet?#{arrivals_options}"
+        do: ~p"/app/users/connections",
+        else: ~p"/app/users/connections?#{arrivals_options}"
 
     # Get connections with search
     connections =
@@ -540,6 +550,123 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_event("toggle_new_connection_form", _params, socket) do
+    show_form = !socket.assigns.show_new_connection_form
+
+    socket =
+      if show_form do
+        # Initialize the form with proper changeset when showing the form
+        changeset = Accounts.change_user_connection(%Accounts.UserConnection{})
+
+        socket
+        |> assign(:show_new_connection_form, true)
+        |> assign(:new_connection_form, to_form(changeset))
+        |> assign(:new_connection_selector, nil)
+        |> assign(:recipient_id, nil)
+        |> assign(:request_email, nil)
+        |> assign(:request_username, nil)
+        |> assign(:recipient_key, nil)
+      else
+        # Reset the form when hiding it
+        changeset = Accounts.change_user_connection(%Accounts.UserConnection{})
+
+        socket
+        |> assign(:show_new_connection_form, false)
+        |> assign(:new_connection_form, to_form(changeset))
+        |> assign(:new_connection_selector, nil)
+        |> assign(:recipient_id, nil)
+        |> assign(:request_email, nil)
+        |> assign(:request_username, nil)
+        |> assign(:recipient_key, nil)
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("validate_new_connection", %{"user_connection" => uconn_params}, socket) do
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+    selector = uconn_params["selector"] || socket.assigns.new_connection_selector
+
+    changeset =
+      %Accounts.UserConnection{}
+      |> Accounts.change_user_connection(uconn_params,
+        selector: selector,
+        user: user,
+        key: key
+      )
+      |> Map.put(:action, :validate)
+
+    # Check if the changeset has the necessary fields populated (like when a valid user is found)
+    socket =
+      if Map.has_key?(changeset.changes, :reverse_user_id) do
+        # reverse_user_id contains the recipient (person we found)
+        # user_id contains the current user
+        socket
+        |> assign(:request_username, changeset.changes.request_username)
+        |> assign(:recipient_key, changeset.changes.key)
+        |> assign(:recipient_id, changeset.changes.user_id)
+        |> assign(:temp_label, Ecto.Changeset.get_change(changeset, :temp_label))
+        |> assign(:selector, selector)
+      else
+        socket
+        |> assign(:recipient_id, nil)
+        |> assign(:request_email, nil)
+        |> assign(:request_username, nil)
+        |> assign(:recipient_key, nil)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:new_connection_form, to_form(changeset))
+     |> assign(:new_connection_selector, uconn_params["selector"])}
+  end
+
+  @impl true
+  def handle_event("save_new_connection", %{"user_connection" => uconn_params}, socket) do
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+    selector = uconn_params["selector"] || socket.assigns.new_connection_selector
+
+    case Accounts.create_user_connection(uconn_params, user: user, key: key, selector: selector) do
+      {:ok, _uconn} ->
+        {:noreply,
+         socket
+         |> assign(:show_new_connection_form, false)
+         |> assign(
+           :new_connection_form,
+           to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
+         )
+         |> put_flash(:success, "Connection request sent successfully!")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, :new_connection_form, to_form(changeset))}
+    end
+  end
+
+  @impl true
+  def handle_event("show_new_connection_modal", _params, socket) do
+    {:noreply, assign(socket, :show_new_connection_form, true)}
+  end
+
+  @impl true
+  def handle_event("close_new_connection_modal", _params, socket) do
+    IO.puts("CLOSE NEW CONNECTION MODAL HANDLE EVENT")
+
+    socket =
+      socket
+      |> assign(:show_new_connection_form, false)
+      |> assign(:new_connection_selector, nil)
+      |> assign(
+        :new_connection_form,
+        to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
+      )
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("delete_connection", %{"id" => connection_id}, socket) do
     # Use the existing delete functionality
     handle_event("delete", %{"id" => connection_id}, socket)
@@ -639,7 +766,17 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:show_block_modal, false)
      |> assign(:blocked_user_id, nil)
      |> assign(:blocked_user_name, nil)
-     |> assign(:blocked_connection_id, nil)}
+     |> assign(:blocked_connection_id, nil)
+     |> assign(:show_new_connection_form, false)
+     |> assign(:new_connection_selector, nil)
+     |> assign(:recipient_id, nil)
+     |> assign(:request_email, nil)
+     |> assign(:request_username, nil)
+     |> assign(:recipient_key, nil)
+     |> assign(
+       :new_connection_form,
+       to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
+     )}
   end
 
   @impl true

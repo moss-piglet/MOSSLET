@@ -979,10 +979,7 @@ defmodule MossletWeb.CoreComponents do
                 @errors != [] && "border-rose-400 focus:border-rose-400"
               ],
               else: [
-                "block w-full rounded-lg border py-2 px-3 text-slate-900 dark:text-slate-100 shadow-sm ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 pr-10",
-                "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 ring-slate-300 dark:ring-slate-600",
-                "focus:border-emerald-500 focus:ring-emerald-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400",
-                "transition-colors duration-200 ease-out",
+                "w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 pr-10",
                 @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
                 @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
               ]
@@ -1036,9 +1033,9 @@ defmodule MossletWeb.CoreComponents do
               @errors != [] && "border-rose-400 focus:border-rose-400"
             ],
             else: [
-              "mt-2 block w-full rounded-md border border-gray-300 bg-white dark:bg-gray-800 shadow-sm focus:border-zinc-400 focus:ring-0 sm:text-sm text-gray-900 dark:text-white",
-              @errors == [] && "border-zinc-300 focus:border-zinc-400",
-              @errors != [] && "border-rose-400 focus:border-rose-400"
+              "w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",
+              @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
+              @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
             ]
         }
         multiple={@multiple}
@@ -1068,11 +1065,8 @@ defmodule MossletWeb.CoreComponents do
               @errors != [] && "border-rose-400 focus:border-rose-400"
             ],
             else: [
-              "bg-white dark:bg-slate-800 mt-2 block w-full rounded-lg text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm sm:leading-6",
-              "min-h-[6rem] phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-emerald-400",
-              "border border-slate-300 dark:border-slate-600 placeholder:text-slate-500 dark:placeholder:text-slate-400",
-              "focus:border-emerald-500 focus:ring-emerald-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400",
-              "transition-colors duration-200 ease-out",
+              "w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",
+              "min-h-[6rem] phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-teal-400",
               @errors == [] &&
                 "hover:border-slate-400 dark:hover:border-slate-500",
               @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
@@ -1146,12 +1140,8 @@ defmodule MossletWeb.CoreComponents do
               @errors != [] && "border-rose-400 focus:border-rose-400"
             ],
             else: [
-              "mt-2 block w-full rounded-lg text-slate-900 dark:text-slate-100 focus:ring-0 sm:text-sm sm:leading-6",
-              "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600",
-              "placeholder:text-slate-500 dark:placeholder:text-slate-400",
-              "focus:border-emerald-500 focus:ring-emerald-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400",
-              "transition-colors duration-200 ease-out",
-              "phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-emerald-400",
+              "w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",
+              "phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-teal-400",
               @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
               @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
             ]
@@ -2611,10 +2601,14 @@ defmodule MossletWeb.CoreComponents do
   # Color helper functions for color_select component
   defp get_color_classes(color) when is_atom(color), do: get_color_classes(Atom.to_string(color))
   defp get_color_classes("emerald"), do: "bg-emerald-500"
+  defp get_color_classes("teal"), do: "bg-teal-500"
   defp get_color_classes("orange"), do: "bg-orange-500"
-  defp get_color_classes("pink"), do: "bg-pink-500"
   defp get_color_classes("purple"), do: "bg-purple-500"
+  defp get_color_classes("pink"), do: "bg-pink-500"
   defp get_color_classes("rose"), do: "bg-rose-500"
+  defp get_color_classes("amber"), do: "bg-amber-500"
+  defp get_color_classes("cyan"), do: "bg-cyan-500"
+  defp get_color_classes("indigo"), do: "bg-indigo-500"
   defp get_color_classes("yellow"), do: "bg-yellow-500"
   defp get_color_classes("zinc"), do: "bg-zinc-500"
   defp get_color_classes(_), do: "bg-gray-300"
