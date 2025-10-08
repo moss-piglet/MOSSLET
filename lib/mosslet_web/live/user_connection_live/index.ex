@@ -984,7 +984,8 @@ defmodule MossletWeb.UserConnectionLive.Index do
          |> assign(:show_visibility_group_modal, false)
          |> assign(:editing_group, nil)
          |> stream(:visibility_groups, visibility_groups, reset: true)
-         |> put_flash(:success, "Visibility group #{action} successfully!")}
+         |> put_flash(:success, "Visibility group #{action} successfully!")
+         |> push_event("restore-body-scroll", %{})}
 
       {:error, changeset} ->
         # Handle validation errors

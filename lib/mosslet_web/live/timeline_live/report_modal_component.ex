@@ -35,7 +35,6 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
     <div
       id="report-modal-component-container"
       class="report-modal-component"
-      phx-hook="RestoreBodyScroll"
     >
       <%= if @show do %>
         <.liquid_modal

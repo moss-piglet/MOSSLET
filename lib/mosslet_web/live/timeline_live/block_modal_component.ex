@@ -51,7 +51,6 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
     <div
       id="block-modal-component-container"
       class="block-modal-component"
-      phx-hook="RestoreBodyScroll"
     >
       <%= if @show do %>
         <.liquid_modal
