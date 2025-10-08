@@ -172,6 +172,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
                   class="w-full px-4 py-3 border border-rose-300 dark:border-rose-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all duration-200"
                   placeholder="Why are you blocking this author?"
                   maxlength="200"
+                  phx-debounce="blur"
                 />
               </div>
 
