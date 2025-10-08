@@ -38,6 +38,8 @@ import {
   PHX_VIEWPORT_BOTTOM,
   MAX_CHILD_JOIN_ATTEMPTS,
   PHX_LV_PID,
+  PHX_PORTAL,
+  PHX_TELEPORTED_REF,
 } from "./constants";
 
 import {
@@ -398,7 +400,7 @@ export default class View {
     this.log(type, () => ["", clone(rawDiff)]);
     const { diff, reply, events, title } = Rendered.extract(rawDiff);
     callback({ diff, reply, events });
-    if (typeof title === "string" || type == "mount") {
+    if (typeof title === "string" || (type == "mount" && this.isMain())) {
       window.requestAnimationFrame(() => DOM.putTitle(title));
     }
   }
@@ -724,6 +726,15 @@ export default class View {
     // recovery events are done.
     const template = document.createElement("template");
     template.innerHTML = html;
+
+    // we special case <.portal> here and teleport it into our temporary DOM for recovery
+    // as we'd otherwise not find teleported forms
+    DOM.all(template.content, `[${PHX_PORTAL}]`).forEach((portalTemplate) => {
+      template.content.firstElementChild.appendChild(
+        portalTemplate.content.firstElementChild,
+      );
+    });
+
     // because we work with a template element, we must manually copy the attributes
     // otherwise the owner / target helpers don't work properly
     const rootEl = template.content.firstElementChild;
@@ -2089,7 +2100,10 @@ export default class View {
 
     const phxChange = this.binding("change");
 
-    return DOM.all(this.el, `form[${phxChange}]`)
+    return DOM.all(
+      document,
+      `#${CSS.escape(this.id)} form[${phxChange}], [${PHX_TELEPORTED_REF}="${CSS.escape(this.id)}"] form[${phxChange}]`,
+    )
       .filter((form) => form.id)
       .filter((form) => form.elements.length > 0)
       .filter(

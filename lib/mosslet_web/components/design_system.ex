@@ -13,16 +13,6 @@ defmodule MossletWeb.DesignSystem do
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
-  # Import helper functions
-  import MossletWeb.Helpers,
-    only: [
-      user_name: 2,
-      maybe_get_user_avatar: 2,
-      show_avatar?: 1,
-      maybe_get_avatar_src: 4,
-      decr_uconn: 4
-    ]
-
   # Import components for time display
   import MossletWeb.CoreComponents, only: [phx_input: 1, local_time_ago: 1]
 
@@ -31,6 +21,7 @@ defmodule MossletWeb.DesignSystem do
     only: [
       contains_html?: 1,
       decr: 3,
+      decr_uconn: 4,
       html_block: 1,
       photos?: 1,
       user_name: 2,
@@ -2890,6 +2881,8 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :privacy_controls_expanded, :boolean, default: false
   attr :content_warning_enabled?, :boolean, default: false
+  attr :current_user, :any, default: nil
+  attr :key, :any, default: nil
 
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
@@ -3107,6 +3100,8 @@ defmodule MossletWeb.DesignSystem do
             <.liquid_enhanced_privacy_controls
               form={@form}
               selector={@selector}
+              current_user={@current_user}
+              key={@key}
             />
           </div>
         <% end %>
@@ -6106,9 +6101,30 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :form, :any, required: true
   attr :selector, :string, required: true
+  attr :current_user, :any, default: nil
+  attr :key, :any, default: nil
   attr :class, :any, default: ""
 
   def liquid_enhanced_privacy_controls(assigns) do
+    # Get visibility groups from current user if available
+    visibility_groups =
+      if is_map_key(assigns, :current_user) and is_map_key(assigns, :key) do
+        Mosslet.Accounts.get_user_visibility_groups_with_connections(assigns.current_user)
+      else
+        []
+      end
+
+    # Get connections for specific user selection if available
+    user_connections =
+      if is_map_key(assigns, :current_user) do
+        Mosslet.Accounts.filter_user_connections(%{}, assigns.current_user)
+      else
+        []
+      end
+
+    assigns =
+      assign(assigns, visibility_groups: visibility_groups, user_connections: user_connections)
+
     ~H"""
     <div class={[
       "p-4 rounded-xl border transition-all duration-300 ease-out",
@@ -6214,21 +6230,91 @@ defmodule MossletWeb.DesignSystem do
                     <p class="text-sm text-purple-700 dark:text-purple-300 leading-relaxed">
                       Choose which of your connection groups can see this post. Groups help organize your connections by context like work colleagues, family members, or friend circles.
                     </p>
-                    <%!-- Future group selection UI --%>
-                    <div class="p-3 rounded-lg bg-purple-100/50 dark:bg-purple-800/30 border border-purple-200/60 dark:border-purple-700/40">
-                      <div class="flex items-center gap-2 mb-2">
-                        <.phx_icon
-                          name="hero-cog-6-tooth"
-                          class="h-4 w-4 text-purple-600 dark:text-purple-400"
-                        />
-                        <span class="text-sm font-medium text-purple-700 dark:text-purple-300">
-                          Coming Soon
-                        </span>
+                    <%!-- Real group selection UI --%>
+                    <%= if length(@visibility_groups) > 0 do %>
+                      <div class="space-y-3">
+                        <%= for group_data <- @visibility_groups do %>
+                          <% group = group_data.group %>
+                          <% decrypted_name =
+                            get_decrypted_group_name(group_data, @current_user, @key) %>
+                          <% decrypted_description =
+                            get_decrypted_group_description(group_data, @current_user, @key) %>
+                          <% connection_count = length(group_data.group.connection_ids || []) %>
+
+                          <label class={[
+                            "flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer",
+                            get_group_card_classes(group.color)
+                          ]}>
+                            <input
+                              type="checkbox"
+                              name="post[visibility_groups][]"
+                              value={group.id}
+                              checked={group.id in (@form[:visibility_groups].value || [])}
+                              class={[
+                                "mt-1 h-4 w-4 rounded focus:ring-2 focus:ring-offset-2",
+                                "text-#{connection_badge_color(group.color)}-600",
+                                "focus:ring-#{connection_badge_color(group.color)}-500",
+                                "border-#{connection_badge_color(group.color)}-300"
+                              ]}
+                            />
+                            <div class="flex-1 min-w-0">
+                              <div class="flex items-center gap-2 mb-1">
+                                <!-- Group color indicator - preserve the user's chosen color -->
+                                <div class={[
+                                  "w-3 h-3 rounded-full flex-shrink-0",
+                                  get_group_color_indicator_classes(group.color)
+                                ]}>
+                                </div>
+                                <h5 class={[
+                                  "text-sm font-medium truncate",
+                                  "text-#{connection_badge_color(group.color)}-800 dark:text-#{connection_badge_color(group.color)}-200"
+                                ]}>
+                                  {decrypted_name}
+                                </h5>
+                                <!-- Group badge with group colors -->
+                                <span class={[
+                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+                                  get_group_badge_classes(group.color)
+                                ]}>
+                                  {connection_count} {if connection_count == 1,
+                                    do: "person",
+                                    else: "people"}
+                                </span>
+                              </div>
+                              <%= if decrypted_description != "" do %>
+                                <p class={[
+                                  "text-xs leading-relaxed",
+                                  "text-#{connection_badge_color(group.color)}-600 dark:text-#{connection_badge_color(group.color)}-400"
+                                ]}>
+                                  {decrypted_description}
+                                </p>
+                              <% end %>
+                            </div>
+                          </label>
+                        <% end %>
                       </div>
-                      <p class="text-sm text-purple-600 dark:text-purple-400">
-                        Group selection interface is being built. For now, use "Connections" to share with all your connections.
-                      </p>
-                    </div>
+                    <% else %>
+                      <div class="p-3 rounded-lg bg-purple-100/50 dark:bg-purple-800/30 border border-purple-200/60 dark:border-purple-700/40">
+                        <div class="flex items-center gap-2 mb-2">
+                          <.phx_icon
+                            name="hero-plus-circle"
+                            class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                          />
+                          <span class="text-sm font-medium text-purple-700 dark:text-purple-300">
+                            No Groups Created
+                          </span>
+                        </div>
+                        <p class="text-sm text-purple-600 dark:text-purple-400 mb-3">
+                          Create connection groups to organize your network and share with specific groups.
+                        </p>
+                        <a
+                          href="/app/users/connections"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        >
+                          <.phx_icon name="hero-plus" class="h-4 w-4" /> Create Groups
+                        </a>
+                      </div>
+                    <% end %>
                   </div>
                 </div>
               <% else %>
@@ -6254,21 +6340,77 @@ defmodule MossletWeb.DesignSystem do
                     <p class="text-sm text-amber-700 dark:text-amber-300 leading-relaxed">
                       Choose specific individuals from your connections who can see this post. Perfect for sharing personal content with just a select few people you trust.
                     </p>
-                    <%!-- Future user selection UI --%>
-                    <div class="p-3 rounded-lg bg-amber-100/50 dark:bg-amber-800/30 border border-amber-200/60 dark:border-amber-700/40">
-                      <div class="flex items-center gap-2 mb-2">
-                        <.phx_icon
-                          name="hero-cog-6-tooth"
-                          class="h-4 w-4 text-amber-600 dark:text-amber-400"
-                        />
-                        <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
-                          Coming Soon
-                        </span>
+                    <%!-- Real user selection UI --%>
+                    <%= if length(@user_connections) > 0 do %>
+                      <div class="space-y-3">
+                        <div class="max-h-48 overflow-y-auto space-y-2">
+                          <%= for connection <- @user_connections do %>
+                            <% decrypted_name =
+                              get_decrypted_connection_name(connection, @current_user, @key) %>
+                            <% decrypted_label =
+                              get_decrypted_connection_label(connection, @current_user, @key) %>
+
+                            <label class="flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer hover:bg-amber-50/50 dark:hover:bg-amber-900/30 border-amber-200/60 dark:border-amber-700/50">
+                              <input
+                                type="checkbox"
+                                name="post[visibility_users][]"
+                                value={get_connection_other_user_id(connection, @current_user)}
+                                checked={
+                                  get_connection_other_user_id(connection, @current_user) in (@form[
+                                                                                                :visibility_users
+                                                                                              ].value ||
+                                                                                                [])
+                                }
+                                class="h-4 w-4 text-amber-600 focus:ring-amber-500 border-amber-300 rounded"
+                              />
+                              <div class="flex-shrink-0">
+                                <img
+                                  src={get_connection_avatar_src(connection, @current_user, @key)}
+                                  alt={decrypted_name}
+                                  class="w-8 h-8 rounded-full border border-amber-200 dark:border-amber-700"
+                                />
+                              </div>
+                              <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                  <h5 class="text-sm font-medium text-amber-800 dark:text-amber-200 truncate">
+                                    {decrypted_name}
+                                  </h5>
+                                  <%= if decrypted_label != "" do %>
+                                    <span class={[
+                                      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+                                      get_connection_color_badge_classes(connection.color)
+                                    ]}>
+                                      {decrypted_label}
+                                    </span>
+                                  <% end %>
+                                </div>
+                              </div>
+                            </label>
+                          <% end %>
+                        </div>
                       </div>
-                      <p class="text-sm text-amber-600 dark:text-amber-400">
-                        Individual selection interface is being built. For now, use "Connections" to share with all your connections.
-                      </p>
-                    </div>
+                    <% else %>
+                      <div class="p-3 rounded-lg bg-amber-100/50 dark:bg-amber-800/30 border border-amber-200/60 dark:border-amber-700/40">
+                        <div class="flex items-center gap-2 mb-2">
+                          <.phx_icon
+                            name="hero-user-plus"
+                            class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                          />
+                          <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
+                            No Connections
+                          </span>
+                        </div>
+                        <p class="text-sm text-amber-600 dark:text-amber-400 mb-3">
+                          Connect with other users to share posts with specific people.
+                        </p>
+                        <a
+                          href="/app/users/connections"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-amber-600 text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        >
+                          <.phx_icon name="hero-plus" class="h-4 w-4" /> Find Connections
+                        </a>
+                      </div>
+                    <% end %>
                   </div>
                 </div>
               <% end %>
@@ -6937,6 +7079,9 @@ defmodule MossletWeb.DesignSystem do
             role="menuitem"
             phx-click="toggle_mute"
             phx-value-id={@connection_id}
+            id={"toggle-mute-button-#{@connection_id}"}
+            phx-hook="TippyHook"
+            data-tippy-content="Coming Soon 🚧"
           >
             <.phx_icon
               name={if @zen?, do: "hero-speaker-wave", else: "hero-speaker-x-mark"}
@@ -7279,4 +7424,238 @@ defmodule MossletWeb.DesignSystem do
   defp connection_badge_color(:indigo), do: "indigo"
   defp connection_badge_color(:teal), do: "teal"
   defp connection_badge_color(_), do: "purple"
+
+  # Helper functions for decrypting connection data (using pattern matching)
+
+  def get_connection_avatar_src(connection, current_user, key) do
+    if !show_avatar?(connection) do
+      "/images/logo.svg"
+    else
+      case maybe_get_avatar_src(connection, current_user, key, []) do
+        "" -> "/images/logo.svg"
+        nil -> "/images/logo.svg"
+        result when is_binary(result) -> result
+      end
+    end
+  end
+
+  def get_decrypted_connection_name(connection, current_user, key) do
+    case decr_uconn(connection.connection.name, current_user, connection.key, key) do
+      result when is_binary(result) -> result
+      _ -> "[Encrypted]"
+    end
+  end
+
+  def get_decrypted_connection_username(connection, current_user, key) do
+    case decr_uconn(connection.connection.username, current_user, connection.key, key) do
+      result when is_binary(result) -> result
+      _ -> "[encrypted]"
+    end
+  end
+
+  def get_decrypted_connection_label(connection, current_user, key) do
+    case decr_uconn(connection.label, current_user, connection.key, key) do
+      result when is_binary(result) -> result
+      _ -> "[Encrypted]"
+    end
+  end
+
+  # Helper functions for visibility groups with liquid metal design consistency
+
+  def get_decrypted_group_name(group_data, current_user, key) do
+    group =
+      case group_data do
+        %{group: g} -> g
+        g -> g
+      end
+
+    case decr(group.name, current_user, key) do
+      result when is_binary(result) -> result
+      _ -> "[Encrypted Group]"
+    end
+  end
+
+  def get_decrypted_group_description(group_data, current_user, key) do
+    group =
+      case group_data do
+        %{group: g} -> g
+        g -> g
+      end
+
+    case decr(group.description, current_user, key) do
+      result when is_binary(result) -> result
+      _ -> ""
+    end
+  end
+
+  defp get_connection_other_user_id(connection, current_user) do
+    if connection.user_id == current_user.id do
+      connection.reverse_user_id
+    else
+      connection.user_id
+    end
+  end
+
+  defp get_connection_color_badge_classes(color) do
+    case color do
+      :teal ->
+        "bg-teal-100/80 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+
+      :emerald ->
+        "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+
+      :cyan ->
+        "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
+
+      :purple ->
+        "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+
+      :rose ->
+        "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
+
+      :amber ->
+        "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+
+      :orange ->
+        "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+
+      :indigo ->
+        "bg-indigo-100/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+
+      _ ->
+        "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
+    end
+  end
+
+  # Card background and border classes following the liquid metal aesthetic
+  def get_group_card_classes(color) do
+    base_classes = "bg-white/95 dark:bg-slate-800/95"
+
+    case color do
+      :teal ->
+        "#{base_classes} border-teal-200/40 dark:border-teal-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-teal-300/60 dark:hover:border-teal-600/60 hover:shadow-teal-500/10"
+
+      :emerald ->
+        "#{base_classes} border-emerald-200/40 dark:border-emerald-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-emerald-300/60 dark:hover:border-emerald-600/60 hover:shadow-emerald-500/10"
+
+      :cyan ->
+        "#{base_classes} border-cyan-200/40 dark:border-cyan-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-cyan-300/60 dark:hover:border-cyan-600/60 hover:shadow-cyan-500/10"
+
+      :purple ->
+        "#{base_classes} border-purple-200/40 dark:border-purple-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-purple-300/60 dark:hover:border-purple-600/60 hover:shadow-purple-500/10"
+
+      :rose ->
+        "#{base_classes} border-rose-200/40 dark:border-rose-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-rose-300/60 dark:hover:border-rose-600/60 hover:shadow-rose-500/10"
+
+      :amber ->
+        "#{base_classes} border-amber-200/40 dark:border-amber-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-amber-300/60 dark:hover:border-amber-600/60 hover:shadow-amber-500/10"
+
+      :orange ->
+        "#{base_classes} border-orange-200/40 dark:border-orange-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-orange-300/60 dark:hover:border-orange-600/60 hover:shadow-orange-500/10"
+
+      :indigo ->
+        "#{base_classes} border-indigo-200/40 dark:border-indigo-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-indigo-300/60 dark:hover:border-indigo-600/60 hover:shadow-indigo-500/10"
+
+      _ ->
+        "#{base_classes} border-slate-200/40 dark:border-slate-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-slate-300/60 dark:hover:border-slate-600/60 hover:shadow-slate-500/10"
+    end
+  end
+
+  # Edit button classes with color-coordinated hover states
+  def get_group_edit_button_classes(color) do
+    base_classes = "text-slate-400 dark:text-slate-500"
+
+    case color do
+      :teal ->
+        "#{base_classes} hover:text-teal-600 hover:bg-teal-50 dark:hover:text-teal-400 dark:hover:bg-teal-900/20"
+
+      :emerald ->
+        "#{base_classes} hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/20"
+
+      :cyan ->
+        "#{base_classes} hover:text-cyan-600 hover:bg-cyan-50 dark:hover:text-cyan-400 dark:hover:bg-cyan-900/20"
+
+      :purple ->
+        "#{base_classes} hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20"
+
+      :rose ->
+        "#{base_classes} hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-900/20"
+
+      :amber ->
+        "#{base_classes} hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-900/20"
+
+      :orange ->
+        "#{base_classes} hover:text-orange-600 hover:bg-orange-50 dark:hover:text-orange-400 dark:hover:bg-orange-900/20"
+
+      :indigo ->
+        "#{base_classes} hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20"
+
+      _ ->
+        "#{base_classes} hover:text-slate-600 hover:bg-slate-50 dark:hover:text-slate-400 dark:hover:bg-slate-900/20"
+    end
+  end
+
+  # Color indicator with gradient and ring following liquid metal patterns
+  def get_group_color_indicator_classes(color) do
+    case color do
+      :teal ->
+        "bg-gradient-to-br from-teal-400 to-teal-500 ring-2 ring-teal-500/20"
+
+      :emerald ->
+        "bg-gradient-to-br from-emerald-400 to-emerald-500 ring-2 ring-emerald-500/20"
+
+      :cyan ->
+        "bg-gradient-to-br from-cyan-400 to-cyan-500 ring-2 ring-cyan-500/20"
+
+      :purple ->
+        "bg-gradient-to-br from-purple-400 to-purple-500 ring-2 ring-purple-500/20"
+
+      :rose ->
+        "bg-gradient-to-br from-rose-400 to-rose-500 ring-2 ring-rose-500/20"
+
+      :amber ->
+        "bg-gradient-to-br from-amber-400 to-amber-500 ring-2 ring-amber-500/20"
+
+      :orange ->
+        "bg-gradient-to-br from-orange-400 to-orange-500 ring-2 ring-orange-500/20"
+
+      :indigo ->
+        "bg-gradient-to-br from-indigo-400 to-indigo-500 ring-2 ring-indigo-500/20"
+
+      _ ->
+        "bg-gradient-to-br from-slate-400 to-slate-500 ring-2 ring-slate-500/20"
+    end
+  end
+
+  # Badge classes with subtle background and matching text colors
+  def get_group_badge_classes(color) do
+    case color do
+      :teal ->
+        "bg-teal-100/80 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+
+      :emerald ->
+        "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+
+      :cyan ->
+        "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
+
+      :purple ->
+        "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+
+      :rose ->
+        "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
+
+      :amber ->
+        "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+
+      :orange ->
+        "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+
+      :indigo ->
+        "bg-indigo-100/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+
+      _ ->
+        "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
+    end
+  end
 end

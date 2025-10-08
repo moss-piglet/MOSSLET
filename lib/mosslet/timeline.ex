@@ -118,7 +118,7 @@ defmodule Mosslet.Timeline do
       Post
       |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
       |> where([p, up], up.user_id == ^current_user.id)
-      |> with_any_visibility([:private, :connections])
+      |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
       |> filter_by_user_id(options)
       |> preload([:user_posts])
 
@@ -304,7 +304,7 @@ defmodule Mosslet.Timeline do
       from(p in Post,
         inner_join: up in UserPost,
         on: up.post_id == p.id,
-        where: up.user_id == ^user.id and not is_nil(p.group_id)
+        where: up.user_id == ^user.id and p.visibility == :specific_groups
       )
       |> apply_database_filters(%{filter_prefs: filter_prefs})
 
@@ -339,7 +339,7 @@ defmodule Mosslet.Timeline do
           on: up.post_id == p.id,
           where: up.user_id == ^current_user.id,
           where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-          where: p.visibility != :private,
+          where: p.visibility in [:connections, :specific_users],
           distinct: p.id
         )
         |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
@@ -364,30 +364,6 @@ defmodule Mosslet.Timeline do
         inner_join: upr in UserPostReceipt,
         on: upr.user_post_id == up.id,
         where: up.user_id == ^user.id and p.user_id == ^user.id,
-        where: upr.user_id == ^user.id,
-        where: not upr.is_read? and is_nil(upr.read_at)
-      )
-      |> filter_by_blocked_users_posts(user.id)
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
-  end
-
-  @doc """
-  Gets the count of unread group posts accessible to the current user (for Groups tab unread indicator).
-  """
-  def count_unread_group_posts(user) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        inner_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id,
-        where: up.user_id == ^user.id and not is_nil(p.group_id),
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
@@ -581,7 +557,7 @@ defmodule Mosslet.Timeline do
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> where([p, up], up.user_id == ^current_user.id)
     |> join(:left, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
-    |> with_any_visibility([:private, :connections])
+    |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
     |> apply_database_filters(options)
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
@@ -607,7 +583,7 @@ defmodule Mosslet.Timeline do
     |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up, upr], upr.user_id == ^current_user.id)
     |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
-    |> with_any_visibility([:private, :connections])
+    |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
     # Unread posts first (false comes before true)
     |> order_by([p, up, upr],
       asc: upr.is_read?,
@@ -926,7 +902,7 @@ defmodule Mosslet.Timeline do
       )
       |> where([p, up], up.user_id == ^current_user.id)
       |> where([p, up], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
-      |> where([p], p.visibility != :private)
+      |> where([p], p.visibility in [:connections, :specific_users])
       |> apply_database_filters(options)
       |> preload([:user_posts, :user, :replies, :user_post_receipts])
       |> order_by([p, up, upr],
@@ -964,7 +940,7 @@ defmodule Mosslet.Timeline do
           on: upr.user_post_id == up.id,
           where: up.user_id == ^current_user.id,
           where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-          where: p.visibility != :private,
+          where: p.visibility in [:connections, :specific_users],
           where: upr.user_id == ^current_user.id,
           where: not upr.is_read? and is_nil(upr.read_at)
         )
@@ -976,6 +952,124 @@ defmodule Mosslet.Timeline do
         nil -> 0
         count -> count
       end
+    end
+  end
+
+  @doc """
+  Returns the list of group posts for the current user.
+  These are posts with visibility :specific_groups where the user is in the shared_users list.
+  """
+  def list_group_posts(current_user, options \\ %{}) do
+    # Try cache first (for first page only)
+    posts =
+      if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
+        case TimelineCache.get_timeline_data(current_user.id, "groups") do
+          {:hit, cached_data} ->
+            Logger.debug("Groups timeline cache hit for user #{current_user.id}")
+            cached_data[:posts] || []
+
+          :miss ->
+            posts = fetch_group_posts_from_db(current_user, options)
+
+            timeline_data = %{
+              posts: posts,
+              post_count: length(posts),
+              fetched_at: System.system_time(:millisecond)
+            }
+
+            TimelineCache.cache_timeline_data(current_user.id, "groups", timeline_data)
+            posts
+        end
+      else
+        fetch_group_posts_from_db(current_user, options)
+      end
+
+    # Database filtering is already applied in fetch functions
+    posts
+  end
+
+  defp fetch_group_posts_from_db(current_user, options) do
+    Post
+    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+    # LEFT JOIN to include posts without receipts
+    |> join(:left, [p, up], upr in UserPostReceipt,
+      on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
+    )
+    |> where([p, up], up.user_id == ^current_user.id)
+    # Only show posts with specific_groups visibility (group posts)
+    |> where([p], p.visibility == :specific_groups)
+    # Only show posts that were shared WITH the current user (not created BY them)
+    |> where([p], p.user_id != ^current_user.id)
+    |> apply_database_filters(options)
+    |> preload([:user_posts, :user, :replies, :user_post_receipts])
+    |> order_by([p, up, upr],
+      # Unread posts first: false (unread) < true (read)
+      # COALESCE treats NULL (no join record) as true (read)
+      asc: coalesce(upr.is_read?, true),
+      # Most recent posts first within each group
+      desc: p.inserted_at
+    )
+    # Uses post_page and post_per_page
+    |> paginate(options)
+    |> Repo.all()
+    |> add_nested_replies_to_posts(options)
+  end
+
+  @doc """
+  Counts group posts for the current user where visibility is :specific_groups.
+  """
+  def count_group_posts(current_user, filter_prefs \\ %{}) do
+    query =
+      Post
+      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+      |> where([p, up], up.user_id == ^current_user.id)
+      # Only count posts with specific_groups visibility
+      |> where([p], p.visibility == :specific_groups)
+      # Only count posts that were shared WITH the current user (not created BY them)
+      |> where([p], p.user_id != ^current_user.id)
+
+    # Apply filters if provided
+    query =
+      if filter_prefs != %{} do
+        apply_database_filters(query, %{
+          filter_prefs: filter_prefs,
+          current_user_id: current_user.id
+        })
+      else
+        query
+      end
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil -> 0
+      count -> count
+    end
+  end
+
+  @doc """
+  Counts unread group posts for the current user where visibility is :specific_groups.
+  """
+  def count_unread_group_posts(current_user) do
+    query =
+      Post
+      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+      |> join(:inner, [p, up], upr in UserPostReceipt,
+        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
+      )
+      |> where([p, up], up.user_id == ^current_user.id)
+      # Only count posts with specific_groups visibility
+      |> where([p], p.visibility == :specific_groups)
+      # Only count posts that were shared WITH the current user (not created BY them)
+      |> where([p], p.user_id != ^current_user.id)
+      |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
+      |> filter_by_blocked_users_posts(current_user.id)
+
+    count = Repo.aggregate(query, :count, :id)
+
+    case count do
+      nil -> 0
+      count -> count
     end
   end
 
@@ -1130,7 +1224,7 @@ defmodule Mosslet.Timeline do
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up], up.user_id == ^current_user.id and p.user_id == ^current_user.id)
-    |> with_any_visibility([:private, :connections, :public])
+    |> with_any_visibility([:private, :connections, :public, :specific_groups, :specific_users])
     |> apply_database_filters(options)
     |> preload([:user_posts, :user, :replies, :user_post_receipts])
     |> order_by([p, up, upr],
@@ -1243,23 +1337,6 @@ defmodule Mosslet.Timeline do
   end
 
   defp paginate_bookmarks(query, _options), do: query
-
-  @doc """
-  Used only in group's show page.
-  """
-  def list_group_posts(group, options) do
-    from(p in Post,
-      join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.group_id == ^group.id,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :replies]
-    )
-    |> filter_by_user_id(options)
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
-  end
 
   @doc """
   Lists all posts for a group and user.
@@ -1626,7 +1703,7 @@ defmodule Mosslet.Timeline do
     |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
     |> where([p, up, upr], upr.user_id == ^current_user.id)
     |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
-    |> with_any_visibility([:private, :connections])
+    |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
     |> preload([:user_posts, :user, :replies, :group, :user_group])
     |> Repo.one()
   end
@@ -2776,9 +2853,20 @@ defmodule Mosslet.Timeline do
 
   defp broadcast({:ok, conn, post}, event, _user_conn \\ %{}) do
     case post.visibility do
-      :public -> public_broadcast({:ok, post}, event)
-      :private -> private_broadcast({:ok, post}, event)
-      :connections -> connections_broadcast({:ok, conn, post}, event)
+      :public ->
+        public_broadcast({:ok, post}, event)
+
+      :private ->
+        private_broadcast({:ok, post}, event)
+
+      :connections ->
+        connections_broadcast({:ok, conn, post}, event)
+
+      :specific_groups ->
+        connections_broadcast({:ok, conn, post}, event)
+
+      :specific_users ->
+        connections_broadcast({:ok, conn, post}, event)
     end
   end
 
@@ -2787,6 +2875,8 @@ defmodule Mosslet.Timeline do
       :public -> public_reply_broadcast({:ok, reply}, event)
       :private -> private_reply_broadcast({:ok, reply}, event)
       :connections -> connections_reply_broadcast({:ok, conn, reply}, event)
+      :specific_groups -> connections_reply_broadcast({:ok, conn, reply}, event)
+      :specific_users -> connections_reply_broadcast({:ok, conn, reply}, event)
     end
   end
 
@@ -2828,21 +2918,37 @@ defmodule Mosslet.Timeline do
   defp connections_broadcast({:ok, conn, post}, event) do
     # we only broadcast to our connections if it's NOT a group post
     if is_nil(post.group_id) do
-      Enum.each(conn.user_connections, fn uconn ->
-        Enum.each(post.shared_users, fn _shared_user ->
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "conn_posts:#{uconn.reverse_user_id}",
-            {event, post}
-          )
+      cond do
+        post.visibility in [:specific_groups, :specific_users] ->
+          # For specific_groups and specific_users, broadcast only to users in shared_users list
+          Enum.each(post.shared_users, fn shared_user ->
+            user_id = shared_user.user_id
 
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "conn_posts:#{uconn.user_id}",
-            {event, post}
-          )
-        end)
-      end)
+            Phoenix.PubSub.broadcast(
+              Mosslet.PubSub,
+              "conn_posts:#{user_id}",
+              {event, post}
+            )
+          end)
+
+        true ->
+          # For regular connections posts, use the existing logic
+          Enum.each(conn.user_connections, fn uconn ->
+            Enum.each(post.shared_users, fn _shared_user ->
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "conn_posts:#{uconn.reverse_user_id}",
+                {event, post}
+              )
+
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "conn_posts:#{uconn.user_id}",
+                {event, post}
+              )
+            end)
+          end)
+      end
 
       {:ok, post}
     else
@@ -2855,21 +2961,37 @@ defmodule Mosslet.Timeline do
 
     # we only broadcast to our connections if it's NOT a group post
     if is_nil(post.group_id) do
-      Enum.each(conn.user_connections, fn uconn ->
-        Enum.each(post.shared_users, fn _shared_user ->
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "conn_replies:#{uconn.user_id}",
-            {event, post, reply}
-          )
+      cond do
+        post.visibility in [:specific_groups, :specific_users] ->
+          # For specific_groups and specific_users, broadcast only to users in shared_users list
+          Enum.each(post.shared_users, fn shared_user ->
+            user_id = shared_user.user_id
 
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "conn_replies:#{uconn.reverse_user_id}",
-            {event, post, reply}
-          )
-        end)
-      end)
+            Phoenix.PubSub.broadcast(
+              Mosslet.PubSub,
+              "conn_replies:#{user_id}",
+              {event, post, reply}
+            )
+          end)
+
+        true ->
+          # For regular connections posts, use the existing logic
+          Enum.each(conn.user_connections, fn uconn ->
+            Enum.each(post.shared_users, fn _shared_user ->
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "conn_replies:#{uconn.user_id}",
+                {event, post, reply}
+              )
+
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "conn_replies:#{uconn.reverse_user_id}",
+                {event, post, reply}
+              )
+            end)
+          end)
+      end
 
       {:ok, reply}
     else

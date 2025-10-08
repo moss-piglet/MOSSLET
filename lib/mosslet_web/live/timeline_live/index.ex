@@ -21,7 +21,11 @@ defmodule MossletWeb.TimelineLive.Index do
   def mount(_params, session, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
-    initial_selector = "private"
+    initial_selector = "connections"
+    initial_replies = true
+    initial_bookmarks = true
+    initial_shares = true
+    initial_ephemeral = false
 
     # Store the user token from session for later use in uploads
     user_token = session["user_token"]
@@ -46,12 +50,12 @@ defmodule MossletWeb.TimelineLive.Index do
           "content_warning" => "",
           "content_warning_category" => "",
           # Enhanced privacy control defaults
-          "allow_replies" => true,
-          "allow_shares" => true,
-          "allow_bookmarks" => true,
+          "allow_replies" => initial_replies,
+          "allow_shares" => initial_shares,
+          "allow_bookmarks" => initial_bookmarks,
           "require_follow_to_reply" => false,
           "mature_content" => false,
-          "is_ephemeral" => false,
+          "is_ephemeral" => initial_ephemeral,
           "local_only" => false
         },
         user: current_user
@@ -63,6 +67,10 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:user_list, [])
       # Keep selector in sync with form
       |> assign(:selector, initial_selector)
+      |> assign(:allow_replies, initial_replies)
+      |> assign(:allow_shares, initial_shares)
+      |> assign(:allow_bookmarks, initial_bookmarks)
+      |> assign(:is_ephemeral, initial_ephemeral)
       |> assign(:post_loading_count, 0)
       |> assign(:post_loading, false)
       |> assign(:post_loading_done, false)
@@ -83,6 +91,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:content_warning_enabled?, false)
       # Enhanced privacy controls state
       |> assign(:privacy_controls_expanded, false)
+      # Store selected groups/users to preserve when privacy controls are collapsed
+      |> assign(:selected_visibility_groups, [])
+      |> assign(:selected_visibility_users, [])
       # Moderation modal states
       |> assign(:show_report_modal, false)
       |> assign(:report_post_id, nil)
@@ -178,8 +189,12 @@ defmodule MossletWeb.TimelineLive.Index do
           # Load bookmarks with filtering applied
           Timeline.list_user_bookmarks(current_user, options_with_filters)
 
+        "groups" ->
+          # Use dedicated Timeline function for group posts (specific_groups visibility)
+          Timeline.list_group_posts(current_user, options_with_filters)
+
         _ ->
-          # Use the helper function for other tabs (groups)
+          # Use the helper function for other tabs
           # Pass tab information to caching system
           options_with_tab = Map.put(options_with_filters, :tab, current_tab)
 
@@ -843,30 +858,56 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
+    # Preserve the current selector value when validating
+    # This prevents the enhanced privacy controls from disappearing
+    current_selector = socket.assigns.selector
+
     # Build complete params for validation including enhanced privacy controls
     complete_params =
       post_params
       |> Map.put("image_urls", socket.assigns.image_urls)
-      |> Map.put("visibility", socket.assigns.selector)
+      |> Map.put("visibility", current_selector)
       |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
       |> Map.put("user_id", current_user.id)
       |> Map.put("username", username(current_user, key) || "")
       # Enhanced privacy controls - preserve existing values or use defaults
-      |> Map.put_new("allow_replies", post_params["allow_replies"])
-      |> Map.put_new("allow_shares", post_params["allow_shares"])
-      |> Map.put_new("allow_bookmarks", post_params["allow_bookmarks"])
+      |> Map.put_new(
+        "allow_replies",
+        post_params["allow_replies"] || socket.assigns.allow_replies
+      )
+      |> Map.put_new("allow_shares", post_params["allow_shares"] || socket.assigns.allow_shares)
+      |> Map.put_new(
+        "allow_bookmarks",
+        post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
+      )
       |> Map.put_new("require_follow_to_reply", post_params["require_follow_to_reply"])
       |> Map.put_new("mature_content", post_params["mature_content"])
-      |> Map.put_new("is_ephemeral", post_params["is_ephemeral"])
+      |> Map.put_new("is_ephemeral", post_params["is_ephemeral"] || socket.assigns.is_ephemeral)
       |> Map.put_new("local_only", post_params["local_only"])
+      # Handle visibility groups and users - preserve from socket if not in form params
+      |> Map.put(
+        "visibility_groups",
+        post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
+      )
+      |> Map.put(
+        "visibility_users",
+        post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
+      )
       # Expiration handling now done in Post changeset with virtual field
-      |> add_shared_users_list_for_new_post(post_shared_users)
+      |> add_shared_users_list_for_new_post(post_shared_users, %{
+        visibility_setting: current_selector,
+        current_user: current_user,
+        key: key
+      })
 
     # Let Timeline.change_post handle all the changeset logic
     changeset = Timeline.change_post(%Post{}, complete_params, user: current_user)
 
+    # Update stored visibility groups/users if they were provided in the form
     socket =
       socket
+      |> maybe_update_visibility_groups(post_params)
+      |> maybe_update_visibility_users(post_params)
       |> assign(:post_form, to_form(changeset, action: :validate))
 
     {:noreply, socket}
@@ -1307,23 +1348,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, :selector, visibility)}
   end
 
-  def handle_event("toggle_privacy_selector", _params, socket) do
-    # Cycle through privacy levels: private -> connections -> public -> private
-    current_selector = socket.assigns.selector
-
-    new_selector =
-      case current_selector do
-        "private" -> "connections"
-        "connections" -> "public"
-        "public" -> "private"
-        _ -> "private"
-      end
-
-    # Only update the selector assign - don't touch the form!
-    # The form will pick up the new selector value during next validation
-    {:noreply, assign(socket, :selector, new_selector)}
-  end
-
   def handle_event("composer_add_photo", _params, socket) do
     # Trigger the file input dialog by pushing a JavaScript event
     {:noreply, push_event(socket, "trigger-photo-upload", %{})}
@@ -1374,7 +1398,11 @@ defmodule MossletWeb.TimelineLive.Index do
         "user_id" => current_user.id,
         "username" => username(current_user, key) || ""
       }
-      |> add_shared_users_list_for_new_post(post_shared_users)
+      |> add_shared_users_list_for_new_post(post_shared_users, %{
+        visibility_setting: socket.assigns.selector,
+        current_user: current_user,
+        key: key
+      })
 
     # Let Timeline.change_post handle the changeset
     changeset = Timeline.change_post(%Post{}, params, user: current_user)
@@ -1389,9 +1417,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("save_post", %{"post" => post_params}, socket) do
     if connected?(socket) do
-      post_shared_users = socket.assigns.post_shared_users
       current_user = socket.assigns.current_user
       key = socket.assigns.key
+      post_shared_users = socket.assigns.post_shared_users
 
       # Process uploaded photos and get their URLs with trix_key
       {uploaded_photo_urls, trix_key} =
@@ -1404,8 +1432,23 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
         |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
-        # Expiration conversion now handled in Post changeset
-        |> add_shared_users_list_for_new_post(post_shared_users)
+        # Handle visibility groups and users - use stored values if not in form params
+        |> Map.put(
+          "visibility_groups",
+          post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
+        )
+        |> Map.put(
+          "visibility_users",
+          post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
+        )
+        # Use the updated function to handle connections visibility
+        |> add_shared_users_list_for_new_post(post_shared_users, %{
+          visibility_setting: socket.assigns.selector,
+          current_user: current_user,
+          key: key
+        })
+
+      # Keep virtual fields for validation in Post changeset
 
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
@@ -1430,6 +1473,8 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:post_form, to_form(clean_changeset))
               |> assign(:image_urls, [])
               |> assign(:content_warning_enabled?, false)
+              |> assign(:selected_visibility_groups, [])
+              |> assign(:selected_visibility_users, [])
               |> put_flash(:success, "Post created successfully")
               |> push_patch(to: socket.assigns.return_url)
 
@@ -1729,6 +1774,9 @@ defmodule MossletWeb.TimelineLive.Index do
         "bookmarks" ->
           Timeline.list_user_bookmarks(current_user, updated_options_with_filters)
 
+        "groups" ->
+          Timeline.list_group_posts(current_user, updated_options_with_filters)
+
         _ ->
           Timeline.filter_timeline_posts(current_user, updated_options_with_filters)
           |> apply_tab_filtering(current_tab, current_user)
@@ -1787,8 +1835,12 @@ defmodule MossletWeb.TimelineLive.Index do
           # Load bookmarks with filtering applied and pagination
           Timeline.list_user_bookmarks(current_user, options_with_filters)
 
+        "groups" ->
+          # Use dedicated Timeline function for group posts (specific_groups visibility)
+          Timeline.list_group_posts(current_user, options_with_filters)
+
         _ ->
-          # Use the helper function for other tabs (groups)
+          # Use the helper function for other tabs
           Timeline.filter_timeline_posts(current_user, options_with_filters)
           |> apply_tab_filtering(tab, current_user)
       end
@@ -2622,6 +2674,40 @@ defmodule MossletWeb.TimelineLive.Index do
      )}
   end
 
+  # Helper function to update stored visibility groups when they change in the form
+  defp maybe_update_visibility_groups(socket, post_params) do
+    case post_params["visibility_groups"] do
+      nil ->
+        socket
+
+      groups when is_list(groups) ->
+        socket
+        |> assign(:selected_visibility_groups, groups)
+        # Clear selected users when groups are selected to avoid confusion
+        |> assign(:selected_visibility_users, [])
+
+      _ ->
+        socket
+    end
+  end
+
+  # Helper function to update stored visibility users when they change in the form
+  defp maybe_update_visibility_users(socket, post_params) do
+    case post_params["visibility_users"] do
+      nil ->
+        socket
+
+      users when is_list(users) ->
+        socket
+        |> assign(:selected_visibility_users, users)
+        # Clear selected groups when users are selected to avoid confusion
+        |> assign(:selected_visibility_groups, [])
+
+      _ ->
+        socket
+    end
+  end
+
   defp update_post_body(post, body, current_user, key) do
     # We have to decrypt the username, and avatar url (if it exists)
     # we already have the decrypted new body html in `body` and
@@ -2863,19 +2949,65 @@ defmodule MossletWeb.TimelineLive.Index do
     )
   end
 
-  defp add_shared_users_list_for_new_post(post_params, shared_users) do
-    Map.update(
-      post_params,
-      "shared_users",
-      Enum.map(shared_users, fn shared_user ->
-        Map.from_struct(shared_user)
-      end),
-      fn _shared_users_list ->
-        Enum.map(shared_users, fn shared_user ->
-          Map.from_struct(shared_user)
-        end)
-      end
-    )
+  defp add_shared_users_list_for_new_post(post_params, shared_users, options) do
+    visibility_setting = options[:visibility_setting]
+    current_user = options[:current_user]
+    key = options[:key]
+
+    cond do
+      # If visibility is "connections" and no specific groups/users are selected,
+      # automatically use all shared_users (all connections)
+      visibility_setting == "connections" &&
+        Enum.empty?(post_params["visibility_groups"] || []) &&
+          Enum.empty?(post_params["visibility_users"] || []) ->
+        Map.update(
+          post_params,
+          "shared_users",
+          Enum.map(shared_users, fn shared_user ->
+            Map.from_struct(shared_user)
+          end),
+          fn _shared_users_list ->
+            Enum.map(shared_users, fn shared_user ->
+              Map.from_struct(shared_user)
+            end)
+          end
+        )
+
+      # For specific groups or users, filter the shared_users list
+      true ->
+        # Get the visibility_groups and visibility_users from post_params
+        visibility_groups = post_params["visibility_groups"] || []
+        visibility_users = post_params["visibility_users"] || []
+
+        # Filter shared_users based on what's selected
+        filtered_shared_users =
+          if !Enum.empty?(visibility_groups) || !Enum.empty?(visibility_users) do
+            # Implement filtering based on visibility groups and users
+            resolve_visibility_to_shared_users(
+              visibility_groups,
+              visibility_users,
+              visibility_setting,
+              current_user,
+              key
+            )
+          else
+            # Use existing shared_users from socket assigns
+            shared_users
+          end
+
+        Map.update(
+          post_params,
+          "shared_users",
+          Enum.map(filtered_shared_users, fn shared_user ->
+            Map.from_struct(shared_user)
+          end),
+          fn _shared_users_list ->
+            Enum.map(filtered_shared_users, fn shared_user ->
+              Map.from_struct(shared_user)
+            end)
+          end
+        )
+    end
   end
 
   defp value_mapper(%Post.SharedUser{username: username} = value) do
@@ -2995,17 +3127,36 @@ defmodule MossletWeb.TimelineLive.Index do
         post.user_id == current_user.id
 
       "connections" ->
-        # Show posts from connected users, but exclude private posts
+        # Show posts from connected users, but with specific visibility rules
         connection_user_ids =
           Accounts.get_all_confirmed_user_connections(current_user.id)
           |> Enum.map(& &1.reverse_user_id)
           |> Enum.uniq()
 
-        post.user_id in connection_user_ids and post.visibility != :private
+        cond do
+          # Always exclude private posts
+          post.visibility == :private ->
+            false
+
+          # Exclude group-specific posts (they should only appear in groups tab)
+          post.visibility == :specific_groups ->
+            false
+
+          # For specific_users posts, only show if current user is in shared_users list
+          post.visibility == :specific_users ->
+            post.user_id in connection_user_ids and
+              Enum.any?(post.shared_users || [], fn shared_user ->
+                shared_user.user_id == current_user.id
+              end)
+
+          # For other visibility types (public, connections), show if from connected user
+          true ->
+            post.user_id in connection_user_ids
+        end
 
       "groups" ->
         # Show posts from groups the user belongs to
-        post.group_id != nil
+        post.visibility == :specific_groups
 
       "discover" ->
         # Show public posts
@@ -3099,7 +3250,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # All counts now support filtering for accurate "load more" estimates
       home: Timeline.count_user_own_posts(current_user, content_filter_prefs),
       connections: Timeline.count_user_connection_posts(current_user, content_filter_prefs),
-      groups: Timeline.count_user_group_posts(current_user, content_filter_prefs),
+      groups: Timeline.count_group_posts(current_user, content_filter_prefs),
       bookmarks: Timeline.count_user_bookmarks(current_user, content_filter_prefs),
       discover: Timeline.count_discover_posts(current_user, content_filter_prefs)
     }
@@ -3117,8 +3268,8 @@ defmodule MossletWeb.TimelineLive.Index do
       home: Timeline.count_unread_user_own_posts(current_user),
       # Connections tab: only show unread posts from connected users (excluding current user)
       connections: Timeline.count_unread_connection_posts(current_user),
-      # Groups tab: only show unread posts with group_id
-      groups: Enum.count(unread_posts, fn post -> post.group_id != nil end),
+      # Groups tab: only show unread posts with specific_groups visibility
+      groups: Timeline.count_unread_group_posts(current_user),
       # Discover tab: only show unread public posts
       discover: Timeline.count_unread_discover_posts(current_user),
       # Bookmarks tab: only show unread bookmarked posts
@@ -3691,5 +3842,133 @@ defmodule MossletWeb.TimelineLive.Index do
     filters_with_form = Map.put(current_filters, :keyword_form, to_form(changeset))
 
     assign(socket, :content_filters, filters_with_form)
+  end
+
+  # Helper function to resolve visibility groups and users to shared_users list
+  defp resolve_visibility_to_shared_users(
+         visibility_groups,
+         visibility_users,
+         visibility_setting,
+         current_user,
+         key
+       ) do
+    cond do
+      # If visibility is "connections" and no specific groups/users are selected,
+      # automatically share with all connections
+      visibility_setting == "connections" &&
+        Enum.empty?(visibility_groups) &&
+          Enum.empty?(visibility_users) ->
+        # Use the same format as the socket assigns for post_shared_users
+        Accounts.get_all_confirmed_user_connections(current_user.id)
+        |> Enum.map(fn user_connection ->
+          # Get the other user in the connection
+          other_user_id = user_connection.reverse_user_id
+
+          # Get the decrypted username for display
+          username =
+            case decr_uconn(
+                   user_connection.connection.username,
+                   current_user,
+                   user_connection.key,
+                   key
+                 ) do
+              :failed_verification -> "[encrypted]"
+              "" -> "[encrypted]"
+              decrypted -> decrypted
+            end
+
+          # Return the same structure as Post.SharedUser
+          %Post.SharedUser{
+            user_id: other_user_id,
+            username: username,
+            sender_id: current_user.id
+          }
+        end)
+
+      # Handle specific groups and users as before
+      true ->
+        # Resolve visibility groups to user connections
+        user_connections =
+          if length(visibility_groups) > 0 do
+            # Get fresh user data with visibility groups
+            fresh_user = Mosslet.Accounts.get_user!(current_user.id)
+
+            visibility_groups
+            |> Enum.flat_map(fn group_id ->
+              case find_group_by_id(fresh_user.visibility_groups, group_id) do
+                %{connection_ids: connection_ids} when is_list(connection_ids) ->
+                  resolve_connections_from_user_connection_ids(connection_ids, current_user, key)
+
+                _ ->
+                  []
+              end
+            end)
+            |> Enum.uniq()
+          else
+            # Resolve visibility users (direct user_connection_ids) to user connections
+            if length(visibility_users) > 0 do
+              visibility_users
+              |> Enum.map(fn user_id ->
+                Accounts.get_user_connection_between_users(user_id, current_user.id)
+              end)
+              |> Enum.filter(&(&1 != nil))
+            else
+              []
+            end
+          end
+
+        # Convert user connections to shared_user format
+        user_connections
+        |> Enum.map(fn user_connection ->
+          # Get the decrypted username for display
+          username =
+            case decr_uconn(
+                   user_connection.connection.username,
+                   current_user,
+                   user_connection.key,
+                   key
+                 ) do
+              :failed_verification -> "[encrypted]"
+              "" -> "[encrypted]"
+              decrypted -> decrypted
+            end
+
+          user_id =
+            if current_user.id == user_connection.user_id,
+              do: user_connection.reverse_user_id,
+              else: user_connection.user_id
+
+          # Return the same structure as Post.SharedUser
+          %Post.SharedUser{
+            user_id: user_id,
+            username: username,
+            sender_id: current_user.id
+          }
+        end)
+    end
+  end
+
+  defp find_group_by_id(visibility_groups, group_id) do
+    Enum.find(visibility_groups, fn group -> group.id == group_id end)
+  end
+
+  defp resolve_connections_from_user_connection_ids(connection_ids, current_user, key) do
+    connection_ids
+    |> Enum.map(fn encrypted_connection_id ->
+      case Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+             encrypted_connection_id,
+             current_user,
+             key
+           ) do
+        decrypted_id when is_binary(decrypted_id) ->
+          # The decrypted_id should be a user_connection_id from the visibility group
+          # We then return the user_connection to build the post_shared_users
+          Accounts.get_user_connection(decrypted_id)
+
+        _ ->
+          nil
+      end
+    end)
+    |> Enum.filter(&(&1 != nil))
   end
 end

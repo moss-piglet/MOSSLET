@@ -31,7 +31,11 @@ defmodule Mosslet.Timeline.Performance.Manager do
       else
         # Few users affected - individual jobs
         Enum.each(affected_user_ids, fn user_id ->
-          TimelineFeedJob.schedule_feed_regeneration(user_id, ["home", "connections"])
+          TimelineFeedJob.schedule_feed_regeneration(user_id, [
+            "home",
+            "connections",
+            "groups"
+          ])
         end)
       end
     end
@@ -125,7 +129,7 @@ defmodule Mosslet.Timeline.Performance.Manager do
     # Schedule periodic cache cleanup (every 30 minutes)
     CacheMaintenanceJob.schedule_cleanup()
 
-    # Schedule cache statistics logging (every 10 minutes)  
+    # Schedule cache statistics logging (every 10 minutes)
     CacheMaintenanceJob.schedule_cache_stats()
 
     :ok

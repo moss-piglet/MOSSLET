@@ -289,7 +289,7 @@ defmodule Mosslet.Timeline.Performance.TimelineBroadway do
         Logger.debug("Warming timeline cache for user #{user_id}")
 
         # Warm cache for high-traffic tabs
-        priority_tabs = ["home", "connections"]
+        priority_tabs = ["home", "connections", "groups"]
 
         Task.async_stream(
           priority_tabs,

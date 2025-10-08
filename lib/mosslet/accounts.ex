@@ -237,6 +237,9 @@ defmodule Mosslet.Accounts do
 
   def get_connection!(id), do: Repo.get!(Connection, id)
 
+  def get_user_connection(id),
+    do: Repo.get(UserConnection, id) |> Repo.preload([:connection, :user])
+
   def get_user_connection!(id),
     do: Repo.get!(UserConnection, id) |> Repo.preload([:connection, :user])
 
@@ -3027,16 +3030,11 @@ defmodule Mosslet.Accounts do
     # Get user with visibility groups (no preload needed for embedded schemas)
     user_with_groups = Repo.get(User, user.id)
 
-    # Get user's connections for reference
-    user_connections =
-      Repo.all(
-        from uc in UserConnection,
-          where: uc.user_id == ^user.id and not is_nil(uc.confirmed_at)
-      )
-
     # Transform visibility groups to match the expected format for templates
     Enum.map(user_with_groups.visibility_groups || [], fn group ->
-      %{group: group, user: user_with_groups, user_connections: user_connections}
+      # For each group, return the group data with empty user_connections
+      # The actual count should come from group.connection_ids
+      %{group: group, user: user_with_groups, user_connections: []}
     end)
   end
 end

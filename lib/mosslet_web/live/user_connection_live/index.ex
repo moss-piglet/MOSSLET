@@ -5,6 +5,20 @@ defmodule MossletWeb.UserConnectionLive.Index do
   alias Mosslet.Accounts.UserConnection
   alias Mosslet.Encrypted
 
+  import MossletWeb.DesignSystem,
+    only: [
+      get_group_card_classes: 1,
+      get_group_edit_button_classes: 1,
+      get_group_color_indicator_classes: 1,
+      get_group_badge_classes: 1,
+      get_decrypted_group_name: 3,
+      get_decrypted_group_description: 3,
+      get_decrypted_connection_name: 3,
+      get_decrypted_connection_username: 3,
+      get_decrypted_connection_label: 3,
+      get_connection_avatar_src: 3
+    ]
+
   @page_default 1
   @per_page_default 8
 
@@ -1134,38 +1148,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
 
   # Helper functions for decrypting connection data (using pattern matching)
-  defp get_decrypted_connection_name(connection, current_user, key) do
-    case decr_uconn(connection.connection.name, current_user, connection.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
-  end
-
-  defp get_decrypted_connection_username(connection, current_user, key) do
-    case decr_uconn(connection.connection.username, current_user, connection.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[encrypted]"
-    end
-  end
-
-  defp get_decrypted_connection_label(connection, current_user, key) do
-    case decr_uconn(connection.label, current_user, connection.key, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted]"
-    end
-  end
-
-  defp get_connection_avatar_src(connection, current_user, key) do
-    if !show_avatar?(connection) do
-      "/images/logo.svg"
-    else
-      case maybe_get_avatar_src(connection, current_user, key, []) do
-        "" -> "/images/logo.svg"
-        nil -> "/images/logo.svg"
-        result when is_binary(result) -> result
-      end
-    end
-  end
 
   defp get_decrypted_arrival_name(arrival, current_user, key) do
     case decr_uconn(arrival.request_username, current_user, arrival.key, key) do
@@ -1197,166 +1179,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
         nil -> "/images/logo.svg"
         result when is_binary(result) -> result
       end
-    end
-  end
-
-  # Helper functions for visibility groups with liquid metal design consistency
-
-  # Card background and border classes following the liquid metal aesthetic
-  defp get_group_card_classes(color) do
-    base_classes = "bg-white/95 dark:bg-slate-800/95"
-
-    case color do
-      :teal ->
-        "#{base_classes} border-teal-200/40 dark:border-teal-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-teal-300/60 dark:hover:border-teal-600/60 hover:shadow-teal-500/10"
-
-      :emerald ->
-        "#{base_classes} border-emerald-200/40 dark:border-emerald-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-emerald-300/60 dark:hover:border-emerald-600/60 hover:shadow-emerald-500/10"
-
-      :cyan ->
-        "#{base_classes} border-cyan-200/40 dark:border-cyan-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-cyan-300/60 dark:hover:border-cyan-600/60 hover:shadow-cyan-500/10"
-
-      :purple ->
-        "#{base_classes} border-purple-200/40 dark:border-purple-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-purple-300/60 dark:hover:border-purple-600/60 hover:shadow-purple-500/10"
-
-      :rose ->
-        "#{base_classes} border-rose-200/40 dark:border-rose-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-rose-300/60 dark:hover:border-rose-600/60 hover:shadow-rose-500/10"
-
-      :amber ->
-        "#{base_classes} border-amber-200/40 dark:border-amber-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-amber-300/60 dark:hover:border-amber-600/60 hover:shadow-amber-500/10"
-
-      :orange ->
-        "#{base_classes} border-orange-200/40 dark:border-orange-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-orange-300/60 dark:hover:border-orange-600/60 hover:shadow-orange-500/10"
-
-      :indigo ->
-        "#{base_classes} border-indigo-200/40 dark:border-indigo-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-indigo-300/60 dark:hover:border-indigo-600/60 hover:shadow-indigo-500/10"
-
-      _ ->
-        "#{base_classes} border-slate-200/40 dark:border-slate-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-slate-300/60 dark:hover:border-slate-600/60 hover:shadow-slate-500/10"
-    end
-  end
-
-  # Color indicator with gradient and ring following liquid metal patterns
-  defp get_group_color_indicator_classes(color) do
-    case color do
-      :teal ->
-        "bg-gradient-to-br from-teal-400 to-teal-500 ring-2 ring-teal-500/20"
-
-      :emerald ->
-        "bg-gradient-to-br from-emerald-400 to-emerald-500 ring-2 ring-emerald-500/20"
-
-      :cyan ->
-        "bg-gradient-to-br from-cyan-400 to-cyan-500 ring-2 ring-cyan-500/20"
-
-      :purple ->
-        "bg-gradient-to-br from-purple-400 to-purple-500 ring-2 ring-purple-500/20"
-
-      :rose ->
-        "bg-gradient-to-br from-rose-400 to-rose-500 ring-2 ring-rose-500/20"
-
-      :amber ->
-        "bg-gradient-to-br from-amber-400 to-amber-500 ring-2 ring-amber-500/20"
-
-      :orange ->
-        "bg-gradient-to-br from-orange-400 to-orange-500 ring-2 ring-orange-500/20"
-
-      :indigo ->
-        "bg-gradient-to-br from-indigo-400 to-indigo-500 ring-2 ring-indigo-500/20"
-
-      _ ->
-        "bg-gradient-to-br from-slate-400 to-slate-500 ring-2 ring-slate-500/20"
-    end
-  end
-
-  # Badge classes with subtle background and matching text colors
-  defp get_group_badge_classes(color) do
-    case color do
-      :teal ->
-        "bg-teal-100/80 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-
-      :emerald ->
-        "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-
-      :cyan ->
-        "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
-
-      :purple ->
-        "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-
-      :rose ->
-        "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
-
-      :amber ->
-        "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-
-      :orange ->
-        "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-
-      :indigo ->
-        "bg-indigo-100/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-
-      _ ->
-        "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
-    end
-  end
-
-  # Edit button classes with color-coordinated hover states
-  defp get_group_edit_button_classes(color) do
-    base_classes = "text-slate-400 dark:text-slate-500"
-
-    case color do
-      :teal ->
-        "#{base_classes} hover:text-teal-600 hover:bg-teal-50 dark:hover:text-teal-400 dark:hover:bg-teal-900/20"
-
-      :emerald ->
-        "#{base_classes} hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-900/20"
-
-      :cyan ->
-        "#{base_classes} hover:text-cyan-600 hover:bg-cyan-50 dark:hover:text-cyan-400 dark:hover:bg-cyan-900/20"
-
-      :purple ->
-        "#{base_classes} hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/20"
-
-      :rose ->
-        "#{base_classes} hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-900/20"
-
-      :amber ->
-        "#{base_classes} hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-900/20"
-
-      :orange ->
-        "#{base_classes} hover:text-orange-600 hover:bg-orange-50 dark:hover:text-orange-400 dark:hover:bg-orange-900/20"
-
-      :indigo ->
-        "#{base_classes} hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20"
-
-      _ ->
-        "#{base_classes} hover:text-slate-600 hover:bg-slate-50 dark:hover:text-slate-400 dark:hover:bg-slate-900/20"
-    end
-  end
-
-  defp get_decrypted_group_name(group_data, current_user, key) do
-    group =
-      case group_data do
-        %{group: g} -> g
-        g -> g
-      end
-
-    case decr(group.name, current_user, key) do
-      result when is_binary(result) -> result
-      _ -> "[Encrypted Group]"
-    end
-  end
-
-  defp get_decrypted_group_description(group_data, current_user, key) do
-    group =
-      case group_data do
-        %{group: g} -> g
-        g -> g
-      end
-
-    case decr(group.description, current_user, key) do
-      result when is_binary(result) -> result
-      _ -> ""
     end
   end
 

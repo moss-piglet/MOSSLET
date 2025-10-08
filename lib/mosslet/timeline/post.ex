@@ -36,13 +36,10 @@ defmodule Mosslet.Timeline.Post do
       values: [:public, :private, :connections, :specific_groups, :specific_users],
       default: :private
 
-    # ENHANCED PRIVACY CONTROLS
-    # Connection groups that can see this post
-    field :visibility_groups, Encrypted.StringList, default: [], skip_default_validation: true
-    field :visibility_groups_hash, Encrypted.HMAC
-    # Specific users that can see this post
-    field :visibility_users, Encrypted.StringList, default: [], skip_default_validation: true
-    field :visibility_users_hash, Encrypted.HMAC
+    # ENHANCED PRIVACY CONTROLS (Virtual fields for UI/UX only)
+    # These are resolved to shared_users at post creation time
+    field :visibility_groups, {:array, :string}, virtual: true, default: []
+    field :visibility_users, {:array, :string}, virtual: true, default: []
     # Whether replies are allowed
     field :allow_replies, :boolean, default: true
     # Whether sharing/reposts are allowed
@@ -116,7 +113,7 @@ defmodule Mosslet.Timeline.Post do
       :content_warning,
       :content_warning_category,
       :content_warning?,
-      # NEW - Enhanced privacy control fields
+      # Enhanced privacy control fields (virtual - for UI only)
       :visibility_groups,
       :visibility_users,
       :allow_replies,
@@ -134,7 +131,7 @@ defmodule Mosslet.Timeline.Post do
     |> validate_length(:body, max: 500)
     |> add_username_hash()
     |> validate_visibility(opts)
-    # NEW - Enhanced privacy validation
+    # Enhanced privacy validation
     |> validate_enhanced_privacy_controls(opts)
     |> validate_content_warning()
     # Convert virtual field to real datetime
@@ -169,7 +166,7 @@ defmodule Mosslet.Timeline.Post do
       :content_warning,
       :content_warning_category,
       :content_warning?,
-      # NEW - Enhanced privacy control fields
+      # NEW - Enhanced privacy control fields virtual
       :visibility_groups,
       :visibility_users,
       :allow_replies,
@@ -411,7 +408,7 @@ defmodule Mosslet.Timeline.Post do
     visibility_users = get_field(changeset, :visibility_users)
 
     user_connection_ids =
-      Accounts.get_all_confirmed_user_connections(opts[:user])
+      Accounts.get_all_confirmed_user_connections(opts[:user].id)
       |> Enum.map(& &1.reverse_user_id)
 
     invalid_users = Enum.reject(visibility_users, &(&1 in user_connection_ids))
@@ -554,8 +551,8 @@ defmodule Mosslet.Timeline.Post do
         if image_urls && !Enum.empty?(image_urls) && post_key,
           do: encrypt_image_urls(image_urls, post_key)
 
-      case visibility do
-        :public ->
+      cond do
+        visibility === :public ->
           changeset
           |> put_change(:avatar_url, e_avatar_url)
           |> put_change(:image_urls, e_image_urls)
@@ -566,7 +563,7 @@ defmodule Mosslet.Timeline.Post do
           |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
 
-        :private ->
+        visibility === :private ->
           changeset
           |> put_change(:avatar_url, e_avatar_url)
           |> put_change(:image_urls, e_image_urls)
@@ -577,7 +574,7 @@ defmodule Mosslet.Timeline.Post do
           |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
 
-        :connections ->
+        visibility in [:connections, :specific_groups, :specific_users] ->
           changeset
           |> put_change(:avatar_url, e_avatar_url)
           |> put_change(:image_urls, e_image_urls)
@@ -588,7 +585,7 @@ defmodule Mosslet.Timeline.Post do
           |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
 
-        _rest ->
+        true ->
           changeset |> add_error(:body, "There was an error determining the visibility.")
       end
     else
@@ -761,9 +758,9 @@ defmodule Mosslet.Timeline.Post do
       end
     else
       # creating a new post
-      case visibility do
+      cond do
         # For public posts that are reposts, preserve the original public key
-        :public ->
+        visibility === :public ->
           if opts[:trix_key] do
             Encrypted.Users.Utils.decrypt_public_item_key(opts[:trix_key])
           else
@@ -771,7 +768,7 @@ defmodule Mosslet.Timeline.Post do
           end
 
         # use the group_key if associated with a group
-        :connections ->
+        visibility in [:connections, :specific_groups, :specific_users] ->
           if not is_nil(group_id) do
             group = Groups.get_group!(group_id)
             user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
@@ -799,7 +796,7 @@ defmodule Mosslet.Timeline.Post do
             end
           end
 
-        :private ->
+        visibility === :private ->
           if opts[:trix_key] do
             {:ok, d_post_key} =
               Encrypted.Users.Utils.decrypt_user_attrs_key(
@@ -813,7 +810,7 @@ defmodule Mosslet.Timeline.Post do
             Encrypted.Utils.generate_key()
           end
 
-        _rest ->
+        true ->
           Encrypted.Utils.generate_key()
       end
     end

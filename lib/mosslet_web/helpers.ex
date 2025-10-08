@@ -360,7 +360,8 @@ defmodule MossletWeb.Helpers do
       item && item.visibility == :private ->
         Encrypted.Users.Utils.decrypt_user_item(payload, user, item_key, key)
 
-      item && item.visibility == :connections && item.user_id == user.id ->
+      item && item.visibility in [:connections, :specific_groups, :specific_users] &&
+          item.user_id == user.id ->
         if string_name in ["body", "username", "name"] &&
              not is_nil(Map.get(item, :group_id, nil)) do
           group = Groups.get_group!(item.group_id)
@@ -393,7 +394,8 @@ defmodule MossletWeb.Helpers do
           end
         end
 
-      item && item.visibility == :connections && item.user_id != user.id ->
+      item && item.visibility in [:connections, :specific_groups, :specific_users] &&
+          item.user_id != user.id ->
         if string_name in ["body", "username", "name"] &&
              not is_nil(Map.get(item, :group_id, nil)) do
           group = Groups.get_group!(item.group_id)
@@ -1045,7 +1047,7 @@ defmodule MossletWeb.Helpers do
           nil -> nil
         end
 
-      post.visibility == :connections || post.visibility == :private ->
+      post.visibility in [:connections, :private, :specific_groups, :specific_users] ->
         case Timeline.get_user_post(post, current_user) do
           %{key: key} -> key
           nil -> nil
@@ -1070,7 +1072,7 @@ defmodule MossletWeb.Helpers do
           nil -> nil
         end
 
-      item.visibility == :connections || item.visibility == :private ->
+      item.visibility in [:connections, :specific_groups, :specific_users, :private] ->
         case Timeline.get_user_post(item, current_user) do
           %{key: key} -> key
           nil -> nil
@@ -1087,10 +1089,12 @@ defmodule MossletWeb.Helpers do
 
   def get_shared_item_identity_atom(item, user) do
     cond do
-      item.visibility == :connections && item.user_id == user.id ->
+      item.visibility in [:connections, :specific_groups, :specific_users] &&
+          item.user_id == user.id ->
         :self
 
-      item.visibility == :connections && item.user_id != user.id &&
+      item.visibility in [:connections, :specific_groups, :specific_users] &&
+        item.user_id != user.id &&
           user_in_item_connections(item, user) ->
         :connection
 
@@ -1113,10 +1117,12 @@ defmodule MossletWeb.Helpers do
 
   def get_shared_item_identity_atom(item, current_user, user) do
     cond do
-      item.visibility == :connections && item.user_id == user.id ->
+      item.visibility in [:connections, :specific_groups, :specific_users] &&
+          item.user_id == user.id ->
         :self
 
-      item.visibility == :connections && item.user_id != user.id &&
+      item.visibility in [:connections, :specific_groups, :specific_users] &&
+        item.user_id != user.id &&
           user_in_item_connections(item, user) ->
         :connection
 

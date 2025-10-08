@@ -15,7 +15,10 @@ defmodule Mosslet.Timeline.Reply do
     field :body, Encrypted.Binary
     field :username, Encrypted.Binary
     field :username_hash, Encrypted.HMAC
-    field :visibility, Ecto.Enum, values: [:public, :private, :connections]
+
+    field :visibility, Ecto.Enum,
+      values: [:public, :private, :connections, :specific_groups, :specific_users]
+
     field :image_urls, Encrypted.StringList, default: [], skip_default_validation: true
     field :image_urls_updated_at, :naive_datetime
     field :favs_list, {:array, :binary_id}, default: []
@@ -111,11 +114,11 @@ defmodule Mosslet.Timeline.Reply do
   end
 
   defp decrypt_post_key(opts) do
-    case opts[:visibility] do
-      :public ->
+    cond do
+      opts[:visibility] === :public ->
         Encrypted.Users.Utils.decrypt_public_item_key(opts[:post_key])
 
-      _rest ->
+      opts[:visibility] in [:connections, :specific_groups, :specific_users, :private] ->
         if not is_nil(opts[:group_id]) && opts[:group_id] != "" do
           group = Groups.get_group!(opts[:group_id])
           user_group = Groups.get_user_group_for_group_and_user(group, opts[:user])
