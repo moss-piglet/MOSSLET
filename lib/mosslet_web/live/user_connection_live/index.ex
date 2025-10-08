@@ -700,8 +700,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   @impl true
   def handle_event("close_new_connection_modal", _params, socket) do
-    IO.puts("CLOSE NEW CONNECTION MODAL HANDLE EVENT")
-
     socket =
       socket
       |> assign(:show_new_connection_form, false)
