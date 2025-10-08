@@ -397,7 +397,7 @@ defmodule MossletWeb.UserAuth do
       |> mount_current_user_session_key(session)
 
     if params["id"] &&
-         String.to_atom("Elixir.MossletWeb.UserConnectionLive.Show") == socket.view do
+         String.to_existing_atom("Elixir.MossletWeb.UserConnectionLive.Show") == socket.view do
       if socket.assigns.current_user.id == params["id"] do
         {:cont, socket}
       else
@@ -431,7 +431,7 @@ defmodule MossletWeb.UserAuth do
 
     info = "You do not have permission to view this page or it does not exist."
 
-    if String.to_atom("Elixir.MossletWeb.PostLive.Show") == socket.view do
+    if String.to_existing_atom("Elixir.MossletWeb.PostLive.Show") == socket.view do
       with %Timeline.Post{} = post <- Timeline.get_post(params["id"]),
            true <- post.user_id == socket.assigns.current_user.id do
         {:cont, socket}
@@ -480,7 +480,7 @@ defmodule MossletWeb.UserAuth do
 
     info = "You do not have permission to view this page or it does not exist."
 
-    if String.to_atom("Elixir.MossletWeb.MemoryLive.Show") == socket.view do
+    if String.to_existing_atom("Elixir.MossletWeb.MemoryLive.Show") == socket.view do
       with %Memories.Memory{} = memory <- Memories.get_memory(params["id"]),
            true <- memory.user_id == socket.assigns.current_user.id do
         {:cont, socket}
@@ -531,7 +531,7 @@ defmodule MossletWeb.UserAuth do
 
     current_user = socket.assigns.current_user
 
-    if String.to_atom("Elixir.MossletWeb.UserHomeLive") == socket.view do
+    if String.to_existing_atom("Elixir.MossletWeb.UserHomeLive") == socket.view do
       with %Accounts.User{} = user <- Accounts.get_user_from_profile_slug(params["slug"]),
            %Accounts.Connection.ConnectionProfile{} = profile <-
              Map.get(user.connection, :profile) do

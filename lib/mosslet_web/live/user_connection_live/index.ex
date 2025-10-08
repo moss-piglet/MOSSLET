@@ -31,12 +31,16 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:blocked_user_id, nil)
      |> assign(:blocked_user_name, nil)
      |> assign(:blocked_connection_id, nil)
+     |> assign(:show_edit_connection_modal, false)
+     |> assign(:editing_connection, nil)
+     |> assign(:edit_connection_form, to_form(%{"label" => ""}))
      |> assign(:show_new_connection_form, false)
      |> assign(:new_connection_selector, nil)
      |> assign(:recipient_id, nil)
      |> assign(:request_email, nil)
      |> assign(:request_username, nil)
      |> assign(:recipient_key, nil)
+     |> assign(:temp_label, nil)
      |> assign(
        :new_connection_form,
        to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
@@ -422,7 +426,10 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:show_block_modal, false)
      |> assign(:blocked_user_id, nil)
      |> assign(:blocked_user_name, nil)
-     |> assign(:blocked_connection_id, nil)}
+     |> assign(:blocked_connection_id, nil)
+     |> assign(:show_edit_connection_modal, false)
+     |> assign(:editing_connection, nil)
+     |> assign(:edit_connection_form, to_form(%{"label" => ""}))}
   end
 
   @impl true
@@ -460,6 +467,15 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
+  def handle_info({:connection_updated}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_edit_connection_modal, false)
+     |> assign(:editing_connection, nil)
+     |> put_flash(:success, "Label updated!")}
+  end
+
+  @impl true
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
@@ -472,9 +488,38 @@ defmodule MossletWeb.UserConnectionLive.Index do
   end
 
   @impl true
-  def handle_event("edit_connection", %{"id" => _connection_id}, socket) do
-    # TODO: Implement edit connection modal/form
-    {:noreply, put_flash(socket, :info, "Edit connection functionality coming soon!")}
+  def handle_event("edit_connection", %{"id" => connection_id}, socket) do
+    case Accounts.get_user_connection!(connection_id) do
+      connection ->
+        current_user = socket.assigns.current_user
+        key = socket.assigns.key
+
+        # Get the decrypted label for the form
+        current_label =
+          get_decrypted_connection_label(
+            connection,
+            socket.assigns.current_user,
+            socket.assigns.key
+          )
+
+        # Create form with the current label and color - using params format that matches the form structure
+        attrs = %{
+          "temp_label" => current_label,
+          "color" => connection.color
+        }
+
+        changeset =
+          Accounts.change_user_connection_label(connection, attrs, user: current_user, key: key)
+
+        form = to_form(changeset)
+
+        {:noreply,
+         socket
+         |> assign(:temp_label, current_label)
+         |> assign(:show_edit_connection_modal, true)
+         |> assign(:editing_connection, connection)
+         |> assign(:edit_connection_form, form)}
+    end
   end
 
   @impl true
@@ -767,6 +812,9 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:blocked_user_id, nil)
      |> assign(:blocked_user_name, nil)
      |> assign(:blocked_connection_id, nil)
+     |> assign(:show_edit_connection_modal, false)
+     |> assign(:editing_connection, nil)
+     |> assign(:edit_connection_form, to_form(%{"label" => ""}))
      |> assign(:show_new_connection_form, false)
      |> assign(:new_connection_selector, nil)
      |> assign(:recipient_id, nil)
@@ -777,6 +825,62 @@ defmodule MossletWeb.UserConnectionLive.Index do
        :new_connection_form,
        to_form(Accounts.change_user_connection(%Accounts.UserConnection{}))
      )}
+  end
+
+  @impl true
+  def handle_event("save_edit_connection", %{"connection" => connection_params}, socket) do
+    editing_connection = socket.assigns.editing_connection
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Prepare the attributes for update using temp_label (virtual field) and color
+    attrs = %{
+      "temp_label" => connection_params["label"],
+      "color" => String.to_existing_atom(connection_params["color"])
+    }
+
+    case Accounts.update_user_connection_label(editing_connection, attrs,
+           user: current_user,
+           key: key
+         ) do
+      {:ok, updated_connection} ->
+        send(self(), {:connection_updated})
+
+        {:noreply,
+         socket
+         |> assign(
+           :edit_connection_form,
+           to_form(%{})
+         )
+         |> assign(:show_edit_connection_modal, false)
+         |> assign(:editing_connection, nil)
+         |> stream_insert(:user_connections, updated_connection)
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, %Ecto.Changeset{} = _changeset} ->
+        # Create a form from the changeset errors
+        error_form =
+          to_form(%{
+            "label" => connection_params["label"]
+          })
+
+        {:noreply,
+         socket
+         |> assign(:edit_connection_form, error_form)
+         |> put_flash(:error, "Failed to update connection")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to update connection")}
+    end
+  end
+
+  @impl true
+  def handle_event("close_edit_connection_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_edit_connection_modal, false)
+     |> assign(:editing_connection, nil)
+     |> assign(:edit_connection_form, to_form(%{"label" => ""}))}
   end
 
   @impl true
@@ -937,14 +1041,14 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   defp valid_sort_by(%{"sort_by" => sort_by})
        when sort_by in ~w(id inserted_at confirmed_at) do
-    String.to_atom(sort_by)
+    String.to_existing_atom(sort_by)
   end
 
   defp valid_sort_by(_params), do: :inserted_at
 
   defp valid_sort_order(%{"sort_order" => sort_order})
        when sort_order in ~w(asc desc) do
-    String.to_atom(sort_order)
+    String.to_existing_atom(sort_order)
   end
 
   defp valid_sort_order(_params), do: :desc

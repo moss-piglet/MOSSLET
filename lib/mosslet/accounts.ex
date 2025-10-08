@@ -635,6 +635,26 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  def update_user_connection_label(uconn, attrs, opts) do
+    case Repo.transaction_on_primary(fn ->
+           uconn
+           |> UserConnection.label_changeset(attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, uconn}} ->
+        {:ok, uconn |> Repo.preload([:user, :connection])}
+        |> broadcast(:uconn_updated)
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error updating user connection")
+        Logger.debug("Error updating user connection: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
   def update_user_connection_zen(uconn, attrs, _opts) do
     case Repo.transaction_on_primary(fn ->
            uconn
@@ -713,6 +733,10 @@ defmodule Mosslet.Accounts do
   """
   def change_user_connection(%UserConnection{} = uconn, attrs \\ %{}, opts \\ []) do
     UserConnection.changeset(uconn, attrs, opts)
+  end
+
+  def change_user_connection_label(%UserConnection{} = uconn, attrs \\ %{}, opts \\ []) do
+    UserConnection.label_changeset(uconn, attrs, opts)
   end
 
   # This may be deprecated
@@ -2848,7 +2872,7 @@ defmodule Mosslet.Accounts do
     group_attrs = %{
       "temp_name" => group_params["name"],
       "temp_description" => group_params["description"] || "",
-      "color" => String.to_atom(group_params["color"] || "teal"),
+      "color" => String.to_existing_atom(group_params["color"] || "teal"),
       "temp_connection_ids" => group_params["connection_ids"] || []
     }
 
@@ -2894,7 +2918,7 @@ defmodule Mosslet.Accounts do
                  group_attrs = %{
                    "temp_name" => group_params["name"],
                    "temp_description" => group_params["description"] || "",
-                   "color" => String.to_atom(group_params["color"] || "teal"),
+                   "color" => String.to_existing_atom(group_params["color"] || "teal"),
                    "temp_connection_ids" => group_params["connection_ids"] || []
                  }
 

@@ -668,7 +668,7 @@ defmodule Mosslet.Groups do
           Phoenix.PubSub.broadcast(
             Mosslet.PubSub,
             "group:#{user_group.user_id}",
-            {String.to_atom(Atom.to_string(event) <> "_unconfirmed"), group}
+            {String.to_existing_atom(Atom.to_string(event) <> "_unconfirmed"), group}
           )
 
         true ->

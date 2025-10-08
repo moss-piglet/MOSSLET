@@ -50,16 +50,15 @@ defmodule MossletWeb.DesignSystem do
       to: "##{id}-bg",
       transition: {"transition-all transform ease-out duration-300", "opacity-0", "opacity-100"}
     )
-    |> JS.remove_class("hidden", to: "##{id}-container")
-    |> JS.add_class("opacity-100 translate-y-0 sm:scale-100", to: "##{id}-container")
-    |> JS.remove_class("opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
-      to: "##{id}-container"
+    |> JS.show(
+      to: "##{id}-container",
+      transition:
+        {"transition-all transform ease-out duration-300",
+         "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+         "opacity-100 translate-y-0 sm:scale-100"}
     )
     |> JS.add_class("overflow-hidden", to: "body")
-    # Ensure any stale modals are cleaned up
-    |> JS.dispatch("phx:cleanup-stale-modals", detail: %{current_id: id})
-    # Move modal to body to escape stacking context
-    |> JS.dispatch("phx:modal-to-body", to: "##{id}")
+    |> JS.focus_first(to: "##{id}-content")
   end
 
   def liquid_hide_modal(js \\ %JS{}, id) do
@@ -68,11 +67,14 @@ defmodule MossletWeb.DesignSystem do
       to: "##{id}-bg",
       transition: {"transition-all transform ease-in duration-200", "opacity-100", "opacity-0"}
     )
-    |> JS.add_class("opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
-      to: "##{id}-container"
+    |> JS.hide(
+      to: "##{id}-container",
+      time: 200,
+      transition:
+        {"transition-all transform ease-in duration-200",
+         "opacity-100 translate-y-0 sm:scale-100",
+         "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}
     )
-    |> JS.remove_class("opacity-100 translate-y-0 sm:scale-100", to: "##{id}-container")
-    |> JS.add_class("hidden", to: "##{id}-container")
     |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
     |> JS.remove_class("overflow-hidden", to: "body")
     |> JS.pop_focus()
@@ -479,10 +481,21 @@ defmodule MossletWeb.DesignSystem do
   attr :size, :string, default: "md", values: ~w(sm md lg xl)
   attr :on_cancel, JS, default: %JS{}
   attr :class, :any, default: ""
+  attr :modal_portal, :boolean, default: true
   slot :title
   slot :inner_block, required: true
 
   def liquid_modal(assigns) do
+    ~H"""
+    <.portal :if={@modal_portal} id={"#{@id}-portal"} target="body">
+      <.liquid_modal_content {assigns} />
+    </.portal>
+
+    <.liquid_modal_content :if={!@modal_portal} {assigns} />
+    """
+  end
+
+  defp liquid_modal_content(assigns) do
     ~H"""
     <div
       id={@id}
@@ -491,7 +504,6 @@ defmodule MossletWeb.DesignSystem do
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
       class="fixed top-0 left-0 w-screen h-screen z-[60] hidden"
       style="position: fixed !important;"
-      phx-hook="ModalPortal"
       data-modal-type="liquid-modal"
     >
       <%!-- Backdrop with liquid metal blur effect --%>
@@ -524,7 +536,7 @@ defmodule MossletWeb.DesignSystem do
             phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
             class={
               [
-                "relative w-full max-h-[95vh] min-h-0 flex flex-col overflow-hidden",
+                "relative w-full max-h-[95vh] min-h-0 flex flex-col overflow-y-auto",
                 "transform-gpu transition-all duration-300 ease-out",
                 "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95 hidden",
                 "rounded-xl sm:rounded-2xl",
@@ -7252,5 +7264,8 @@ defmodule MossletWeb.DesignSystem do
   defp connection_badge_color(:rose), do: "rose"
   defp connection_badge_color(:yellow), do: "amber"
   defp connection_badge_color(:zinc), do: "slate"
+  defp connection_badge_color(:cyan), do: "cyan"
+  defp connection_badge_color(:indigo), do: "indigo"
+  defp connection_badge_color(:teal), do: "teal"
   defp connection_badge_color(_), do: "purple"
 end

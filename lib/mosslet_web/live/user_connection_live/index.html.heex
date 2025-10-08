@@ -305,7 +305,7 @@
                 name={get_decrypted_connection_name(connection, @current_user, @key)}
                 username={get_decrypted_connection_username(connection, @current_user, @key)}
                 label={get_decrypted_connection_label(connection, @current_user, @key)}
-                color={connection.color || :purple}
+                color={connection.color}
                 avatar_src={get_connection_avatar_src(connection, @current_user, @key)}
                 connected_at={connection.confirmed_at}
                 connection_id={connection.id}
@@ -805,5 +805,252 @@
       block_update?={false}
       target_container="#connections-grid"
     />
+
+    <%!-- Edit Connection Label Modal --%>
+    <MossletWeb.DesignSystem.liquid_modal
+      :if={@show_edit_connection_modal}
+      id="edit-connection-modal"
+      show={@show_edit_connection_modal}
+      size="md"
+      on_cancel={JS.push("close_edit_connection_modal")}
+    >
+      <:title>Edit Connection Label</:title>
+
+      <div class="space-y-6">
+        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+          Update the label for this connection to better organize your network.
+        </p>
+
+        <.form for={@edit_connection_form} phx-submit="save_edit_connection" class="space-y-6">
+          <%!-- Label and Color in grid layout --%>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <%!-- Label input --%>
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                Connection Label <span class="text-rose-500 ml-1">*</span>
+              </label>
+              <input
+                type="text"
+                name="connection[label]"
+                placeholder="Family, friend, colleague, etc."
+                required
+                minlength="2"
+                maxlength="160"
+                value={@temp_label}
+                class="w-full px-4 py-3 rounded-xl border-2 border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-0 transition-all duration-200"
+              />
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                Choose a meaningful label that helps you organize your connections
+              </p>
+            </div>
+
+            <%!-- Color select with preview grid --%>
+            <div class="space-y-3">
+              <label class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Label Color
+              </label>
+              <div class="grid grid-cols-3 gap-3 pt-2">
+                <%!-- Emerald --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="emerald"
+                    checked={@editing_connection && @editing_connection.color == :emerald}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-emerald-400 peer-checked:ring-2 peer-checked:ring-emerald-400/30 border-slate-200 dark:border-slate-600 hover:border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/40">
+                    <div class="w-6 h-6 rounded-full bg-emerald-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    emerald
+                  </span>
+                </label>
+
+                <%!-- Teal --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="teal"
+                    checked={@editing_connection && @editing_connection.color == :teal}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-teal-400 peer-checked:ring-2 peer-checked:ring-teal-400/30 border-slate-200 dark:border-slate-600 hover:border-teal-300 bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/40">
+                    <div class="w-6 h-6 rounded-full bg-teal-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    teal
+                  </span>
+                </label>
+
+                <%!-- Orange --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="orange"
+                    checked={@editing_connection && @editing_connection.color == :orange}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-orange-400 peer-checked:ring-2 peer-checked:ring-orange-400/30 border-slate-200 dark:border-slate-600 hover:border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/40">
+                    <div class="w-6 h-6 rounded-full bg-orange-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    orange
+                  </span>
+                </label>
+
+                <%!-- Purple --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="purple"
+                    checked={@editing_connection && @editing_connection.color == :purple}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-purple-400 peer-checked:ring-2 peer-checked:ring-purple-400/30 border-slate-200 dark:border-slate-600 hover:border-purple-300 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/40">
+                    <div class="w-6 h-6 rounded-full bg-purple-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    purple
+                  </span>
+                </label>
+
+                <%!-- Rose --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="rose"
+                    checked={@editing_connection && @editing_connection.color == :rose}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-rose-400 peer-checked:ring-2 peer-checked:ring-rose-400/30 border-slate-200 dark:border-slate-600 hover:border-rose-300 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/30 dark:to-rose-800/40">
+                    <div class="w-6 h-6 rounded-full bg-rose-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    rose
+                  </span>
+                </label>
+
+                <%!-- Amber --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="amber"
+                    checked={@editing_connection && @editing_connection.color == :amber}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-amber-400 peer-checked:ring-2 peer-checked:ring-amber-400/30 border-slate-200 dark:border-slate-600 hover:border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/40">
+                    <div class="w-6 h-6 rounded-full bg-amber-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    amber
+                  </span>
+                </label>
+
+                <%!-- Cyan --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="cyan"
+                    checked={@editing_connection && @editing_connection.color == :cyan}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-cyan-400 peer-checked:ring-2 peer-checked:ring-cyan-400/30 border-slate-200 dark:border-slate-600 hover:border-cyan-300 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/40">
+                    <div class="w-6 h-6 rounded-full bg-cyan-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    cyan
+                  </span>
+                </label>
+
+                <%!-- Indigo --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="indigo"
+                    checked={@editing_connection && @editing_connection.color == :indigo}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-indigo-400 peer-checked:ring-2 peer-checked:ring-indigo-400/30 border-slate-200 dark:border-slate-600 hover:border-indigo-300 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-800/40">
+                    <div class="w-6 h-6 rounded-full bg-indigo-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    indigo
+                  </span>
+                </label>
+
+                <%!-- Pink --%>
+                <label class="relative cursor-pointer">
+                  <input
+                    type="radio"
+                    name="connection[color]"
+                    value="pink"
+                    checked={@editing_connection && @editing_connection.color == :pink}
+                    class="sr-only peer"
+                  />
+                  <div class="w-full h-12 rounded-xl border-2 transition-all duration-200 flex items-center justify-center peer-checked:border-pink-400 peer-checked:ring-2 peer-checked:ring-pink-400/30 border-slate-200 dark:border-slate-600 hover:border-pink-300 bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-900/30 dark:to-pink-800/40">
+                    <div class="w-6 h-6 rounded-full bg-pink-500"></div>
+                  </div>
+                  <span class="text-xs text-center mt-1 block capitalize text-slate-600 dark:text-slate-400">
+                    pink
+                  </span>
+                </label>
+              </div>
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                Color helps visually organize your connections
+              </p>
+            </div>
+          </div>
+
+          <%!-- Info notice --%>
+          <div class="p-4 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-teal-200/60 dark:border-teal-700/60">
+            <div class="flex gap-3">
+              <.phx_icon
+                name="hero-information-circle"
+                class="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5"
+              />
+              <div class="text-sm text-teal-700 dark:text-teal-300">
+                <p class="font-medium mb-1">About connection labels:</p>
+                <ul class="text-teal-600 dark:text-teal-400 space-y-1">
+                  <li>• Labels help you organize and identify connections</li>
+                  <li>• They're private to you and encrypted</li>
+                  <li>• You can search your connections by their label, eg. "family"</li>
+                  <li>• Labels are independent of visibility groups</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Action buttons --%>
+          <div class="flex flex-col sm:flex-row gap-3 sm:justify-end pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+            <MossletWeb.DesignSystem.liquid_button
+              type="button"
+              variant="secondary"
+              color="slate"
+              phx-click={JS.exec("data-cancel", to: "#edit-connection-modal")}
+              class="w-full sm:w-auto order-2 sm:order-1"
+            >
+              Cancel
+            </MossletWeb.DesignSystem.liquid_button>
+
+            <MossletWeb.DesignSystem.liquid_button
+              type="submit"
+              color="teal"
+              icon="hero-check"
+              class="w-full sm:w-auto order-1 sm:order-2"
+            >
+              Update Label
+            </MossletWeb.DesignSystem.liquid_button>
+          </div>
+        </.form>
+      </div>
+    </MossletWeb.DesignSystem.liquid_modal>
   </div>
 </.layout>

@@ -57,7 +57,7 @@ defmodule Mosslet.Accounts.UserConnection do
     |> cast_assoc(:reverse_user)
     |> cast_assoc(:connection)
     |> validate_required([:temp_label])
-    |> validate_length(:temp_label, min: 2, max: 160)
+    |> validate_length(:temp_label, min: 2, max: 30)
     |> add_label_hash()
     |> validate_request_email_and_username(opts)
     |> validate_email_or_username(opts)
@@ -67,6 +67,39 @@ defmodule Mosslet.Accounts.UserConnection do
     |> unique_constraint([:user_id, :reverse_user_id])
     |> unsafe_validate_unique([:reverse_user_id, :user_id], Mosslet.Repo.Local)
     |> unique_constraint([:reverse_user_id, :user_id])
+  end
+
+  def label_changeset(uconn, attrs \\ %{}, opts \\ []) do
+    # For updating existing connections, we need to use the connection's own key
+    # not create a new one from the user's conn_key
+    {:ok, d_connection_key} =
+      Encrypted.Users.Utils.decrypt_user_attrs_key(
+        # Use the existing connection.key
+        uconn.key,
+        opts[:user],
+        opts[:key]
+      )
+
+    temp_label = attrs[:temp_label] || attrs["temp_label"]
+
+    uconn
+    |> cast(attrs, [:temp_label, :color])
+    |> validate_inclusion(:color, [
+      :emerald,
+      :teal,
+      :orange,
+      :purple,
+      :rose,
+      :amber,
+      :yellow,
+      :cyan,
+      :indigo,
+      :pink
+    ])
+    |> validate_required([:temp_label])
+    |> validate_length(:temp_label, min: 2, max: 30)
+    |> add_label_hash()
+    |> maybe_encrypt_label(d_connection_key, temp_label)
   end
 
   @doc """
@@ -336,7 +369,7 @@ defmodule Mosslet.Accounts.UserConnection do
   end
 
   defp maybe_encrypt_label(changeset, d_conn_key, temp_label) do
-    if temp_label do
+    if temp_label && is_binary(temp_label) && String.trim(temp_label) != "" do
       changeset
       |> put_change(:label, Encrypted.Utils.encrypt(%{key: d_conn_key, payload: temp_label}))
     else

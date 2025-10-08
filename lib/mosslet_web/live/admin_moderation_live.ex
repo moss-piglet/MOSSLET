@@ -595,7 +595,9 @@ defmodule MossletWeb.AdminModerationLive do
 
   defp maybe_add_filter(filters, _key, ""), do: filters
   defp maybe_add_filter(filters, _key, nil), do: filters
-  defp maybe_add_filter(filters, key, value), do: Keyword.put(filters, key, String.to_atom(value))
+
+  defp maybe_add_filter(filters, key, value),
+    do: Keyword.put(filters, key, String.to_existing_atom(value))
 
   # Report card component
   attr :report, :map, required: true

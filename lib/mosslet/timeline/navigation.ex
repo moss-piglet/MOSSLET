@@ -56,7 +56,7 @@ defmodule Mosslet.Timeline.Navigation do
             cached -> cached[:post_count] || 0
           end
 
-        {String.to_atom(tab), count}
+        {String.to_existing_atom(tab), count}
       end
 
     cached_counts

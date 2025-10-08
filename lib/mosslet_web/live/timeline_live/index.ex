@@ -1555,7 +1555,7 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("toggle_content_warning_filter", %{"type" => filter_type}, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
-    filter_type_atom = String.to_atom(filter_type)
+    filter_type_atom = String.to_existing_atom(filter_type)
 
     {:ok, new_prefs} =
       ContentFilter.toggle_content_warning_filter(current_user.id, filter_type_atom,
@@ -2505,8 +2505,8 @@ defmodule MossletWeb.TimelineLive.Index do
                 :info,
                 "Author blocked successfully. You won't see their content anymore."
               )
-              # Real-time timeline refresh without full navigation - optimal for our distributed architecture
-              |> push_patch(to: ~p"/app/timeline")
+
+            # Real-time timeline refresh without full navigation - optimal for our distributed architecture
 
             {:noreply, socket}
 
@@ -2898,24 +2898,24 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp valid_sort_by(%{"sort_by" => sort_by})
        when sort_by in ~w(id inserted_at) do
-    String.to_atom(sort_by)
+    String.to_existing_atom(sort_by)
   end
 
   defp valid_sort_by(%{"post_sort_by" => sort_by})
        when sort_by in ~w(id inserted_at) do
-    String.to_atom(sort_by)
+    String.to_existing_atom(sort_by)
   end
 
   defp valid_sort_by(_params), do: :inserted_at
 
   defp valid_sort_order(%{"sort_order" => sort_order})
        when sort_order in ~w(asc desc) do
-    String.to_atom(sort_order)
+    String.to_existing_atom(sort_order)
   end
 
   defp valid_sort_order(%{"post_sort_order" => sort_order})
        when sort_order in ~w(asc desc) do
-    String.to_atom(sort_order)
+    String.to_existing_atom(sort_order)
   end
 
   defp valid_sort_order(_params), do: :desc
@@ -3083,7 +3083,7 @@ defmodule MossletWeb.TimelineLive.Index do
   defp calculate_remaining_posts(timeline_counts, active_tab, loaded_posts_count) do
     # Use filtered_total_posts instead of raw database counts
     # This ensures the "load more" button reflects actual available posts after filtering
-    filtered_total_posts = Map.get(timeline_counts, String.to_atom(active_tab), 0)
+    filtered_total_posts = Map.get(timeline_counts, String.to_existing_atom(active_tab), 0)
     max(0, filtered_total_posts - loaded_posts_count)
   end
 

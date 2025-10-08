@@ -36,7 +36,7 @@ defmodule Mosslet.Extensions.MapExt do
   end
 
   def atomize_keys(%{} = map) do
-    Map.new(map, fn {k, v} -> {String.to_atom(k), atomize_keys(v)} end)
+    Map.new(map, fn {k, v} -> {String.to_existing_atom(k), atomize_keys(v)} end)
   end
 
   # Walk the list and atomize the keys of

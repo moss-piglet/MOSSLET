@@ -37,7 +37,7 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
   def handle_event("submit_block", %{"block" => block_params}, socket) do
     # Send the block data back to the parent LiveView
     send(self(), {:submit_block, block_params})
-    {:noreply, socket}
+    {:noreply, socket |> push_event("restore-body-scroll", %{})}
   end
 
   def handle_event("close_modal", _params, socket) do
@@ -48,7 +48,11 @@ defmodule MossletWeb.TimelineLive.BlockModalComponent do
 
   def render(assigns) do
     ~H"""
-    <div class="block-modal-component">
+    <div
+      id="block-modal-component-container"
+      class="block-modal-component"
+      phx-hook="RestoreBodyScroll"
+    >
       <%= if @show do %>
         <.liquid_modal
           id={"block-user-modal-#{@user_id}-#{@post_id}"}

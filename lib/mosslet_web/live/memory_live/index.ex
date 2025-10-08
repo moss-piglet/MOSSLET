@@ -480,14 +480,14 @@ defmodule MossletWeb.MemoryLive.Index do
 
   defp valid_sort_by(%{"sort_by" => sort_by})
        when sort_by in ~w(id) do
-    String.to_atom(sort_by)
+    String.to_existing_atom(sort_by)
   end
 
   defp valid_sort_by(_params), do: :id
 
   defp valid_sort_order(%{"sort_order" => sort_order})
        when sort_order in ~w(asc desc) do
-    String.to_atom(sort_order)
+    String.to_existing_atom(sort_order)
   end
 
   defp valid_sort_order(_params), do: :desc

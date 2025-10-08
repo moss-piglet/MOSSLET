@@ -23,6 +23,7 @@ import TrixContentPostHook from "./trix-content-post-hook";
 import TrixContentReplyHook from "./trix-content-reply-hook";
 import { ContentWarningHook } from "./content-warning-hook";
 import ScrollDown from "./scroll";
+import RestoreBodyScroll from "./restore-body-scroll";
 
 export default {
   CharacterCounter,
@@ -43,6 +44,7 @@ export default {
   ModalPortal,
   MossletFrameworkHooks,
   ReplyComposer,
+  RestoreBodyScroll,
   HideNestedReplyComposer,
   ScrollDown,
   TippyHook,

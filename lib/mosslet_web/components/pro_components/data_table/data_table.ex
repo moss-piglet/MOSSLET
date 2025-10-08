@@ -485,7 +485,7 @@ defmodule MossletWeb.DataTable do
   defp build_params(%{flop: flop, opts: opts}, query_params) do
     params =
       Keyword.new(query_params, fn {k, v} ->
-        k = if Kernel.is_bitstring(k), do: String.to_atom(k), else: k
+        k = if Kernel.is_bitstring(k), do: String.to_existing_atom(k), else: k
 
         {k, v}
       end)

@@ -21,7 +21,7 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
   def handle_event("submit_report", %{"report" => report_params}, socket) do
     # Send the report data back to the parent LiveView
     send(self(), {:submit_report, report_params})
-    {:noreply, socket}
+    {:noreply, socket |> push_event("restore-body-scroll", %{})}
   end
 
   def handle_event("close_modal", _params, socket) do
@@ -32,7 +32,11 @@ defmodule MossletWeb.TimelineLive.ReportModalComponent do
 
   def render(assigns) do
     ~H"""
-    <div class="report-modal-component">
+    <div
+      id="report-modal-component-container"
+      class="report-modal-component"
+      phx-hook="RestoreBodyScroll"
+    >
       <%= if @show do %>
         <.liquid_modal
           id={"report-post-modal-#{@post_id}"}
