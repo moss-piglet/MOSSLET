@@ -250,6 +250,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
         :edit_forgot_password,
         :edit_notifications,
         :edit_totp,
+        :blocked_users,
         :manage_data,
         :billing,
         :delete_account

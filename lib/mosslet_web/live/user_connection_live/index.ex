@@ -15,6 +15,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
     if connected?(socket) do
       Accounts.private_subscribe(user)
       Accounts.subscribe_account_deleted()
+      Accounts.block_subscribe(user)
     end
 
     {:ok,
@@ -361,6 +362,43 @@ defmodule MossletWeb.UserConnectionLive.Index do
   @impl true
   def handle_info({:account_deleted, _user}, socket) do
     {:noreply, socket |> push_patch(to: socket.assigns.return_url)}
+  end
+
+  # Handle blocking events for real-time UI updates
+  @impl true
+  def handle_info({:user_blocked, block}, socket) do
+    current_user = socket.assigns.current_user
+
+    # If someone blocked us, refresh the connections list to reflect any changes
+    if block.blocked_id == current_user.id do
+      {:noreply, socket |> push_patch(to: socket.assigns.return_to)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:user_unblocked, block}, socket) do
+    current_user = socket.assigns.current_user
+
+    # If someone unblocked us, refresh the connections list to reflect any changes
+    if block.blocked_id == current_user.id do
+      {:noreply, socket |> push_patch(to: socket.assigns.return_to)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:user_block_updated, block}, socket) do
+    current_user = socket.assigns.current_user
+
+    # If someone updated our block status, refresh the connections list
+    if block.blocked_id == current_user.id do
+      {:noreply, socket |> push_patch(to: socket.assigns.return_to)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true

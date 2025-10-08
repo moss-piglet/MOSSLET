@@ -210,6 +210,13 @@ defmodule MossletWeb.Menus do
           icon: "hero-shield-check"
         },
         %{
+          name: :blocked_users,
+          label: gettext("Blocked Users"),
+          description: gettext("Manage users you've blocked"),
+          path: ~p"/app/users/blocked-users",
+          icon: "hero-user-minus"
+        },
+        %{
           name: :manage_data,
           label: gettext("Data"),
           description: gettext("Export or manage your personal data"),
@@ -321,6 +328,15 @@ defmodule MossletWeb.Menus do
       label: gettext("2FA"),
       path: ~p"/app/users/two-factor-authentication",
       icon: "hero-shield-check"
+    }
+  end
+
+  def get_link(:blocked_users = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Blocked users"),
+      path: ~p"/app/users/blocked-users",
+      icon: "hero-user-minus"
     }
   end
 

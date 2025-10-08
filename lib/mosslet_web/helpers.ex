@@ -570,8 +570,6 @@ defmodule MossletWeb.Helpers do
   def admin?(%{is_admin: true}), do: true
   def admin?(_), do: false
 
-  def format_date(date, format \\ "{ISOdate}"), do: Timex.format!(date, format)
-
   # Autofocuses the input
   # <input {alpine_autofocus()} />
   def alpine_autofocus do
