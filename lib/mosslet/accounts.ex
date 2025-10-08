@@ -428,9 +428,16 @@ defmodule Mosslet.Accounts do
   additional filter options.
   """
   def filter_user_connections(_filter, user) do
+    # Get list of blocked user IDs to exclude from connections
+    blocked_user_ids =
+      user
+      |> list_blocked_users()
+      |> Enum.map(& &1.blocked_id)
+
     UserConnection
     |> where_user(user)
     |> where_confirmed()
+    |> where_not_blocked(blocked_user_ids)
     |> order_by([uc], desc: uc.confirmed_at)
     |> preload([:connection])
     |> Repo.all()
@@ -460,9 +467,16 @@ defmodule Mosslet.Accounts do
     normalized_query = String.downcase(String.trim(search_query))
 
     if String.length(normalized_query) > 0 do
+      # Get list of blocked user IDs to exclude from search results
+      blocked_user_ids =
+        user
+        |> list_blocked_users()
+        |> Enum.map(& &1.blocked_id)
+
       UserConnection
       |> where_user(user)
       |> where_confirmed()
+      |> where_not_blocked(blocked_user_ids)
       |> where([uc], uc.label_hash == ^normalized_query)
       |> order_by([uc], desc: uc.confirmed_at)
       |> preload([:connection])
@@ -503,6 +517,19 @@ defmodule Mosslet.Accounts do
     from(uc in query,
       where: is_nil(uc.confirmed_at)
     )
+  end
+
+  # excludes connections to blocked users
+  defp where_not_blocked(query, blocked_user_ids) when is_list(blocked_user_ids) do
+    case blocked_user_ids do
+      [] ->
+        query
+
+      ids ->
+        from(uc in query,
+          where: uc.reverse_user_id not in ^ids
+        )
+    end
   end
 
   @doc """

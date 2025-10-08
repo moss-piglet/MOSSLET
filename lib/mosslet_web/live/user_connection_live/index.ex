@@ -439,7 +439,10 @@ defmodule MossletWeb.UserConnectionLive.Index do
     blocked_user_id = socket.assigns.blocked_user_id
     blocked_connection_id = socket.assigns.blocked_connection_id
 
-    case Accounts.block_user(current_user, blocked_user_id, block_params,
+    # Get the user struct from the ID
+    blocked_user = Accounts.get_user!(blocked_user_id)
+
+    case Accounts.block_user(current_user, blocked_user, block_params,
            user: current_user,
            key: key
          ) do
@@ -1352,6 +1355,22 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
       _ ->
         false
+    end
+  end
+
+  # Helper function to check if current user has been blocked by the connection owner
+  # This is used to hide Profile/Message buttons for privacy (asymmetric blocking)
+  defp blocked_by_connection?(connection, current_user) do
+    # The connection owner is the reverse_user_id (the person we're connected to)
+    # Check if that person has blocked us (current_user)
+    reverse_user_id = connection.reverse_user_id
+    reverse_user = Accounts.get_user!(reverse_user_id)
+
+    case Accounts.get_user_block(reverse_user, current_user.id) do
+      %Accounts.UserBlock{block_type: :full} -> true
+      # Hide interactions for posts_only too
+      %Accounts.UserBlock{block_type: :posts_only} -> true
+      _ -> false
     end
   end
 end

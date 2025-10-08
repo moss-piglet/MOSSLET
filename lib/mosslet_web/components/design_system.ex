@@ -6762,6 +6762,7 @@ defmodule MossletWeb.DesignSystem do
   attr :connection_id, :string, required: true
   attr :zen?, :boolean, default: false
   attr :photos?, :boolean, default: false
+  attr :show_interactions?, :boolean, default: true
   attr :class, :any, default: ""
 
   def liquid_connection_card(assigns) do
@@ -6858,8 +6859,10 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Quick actions --%>
           <div class="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-600/60">
             <%!-- Action buttons --%>
-            <div class="flex items-center gap-2">
+            <div :if={@show_interactions?} class="flex items-center gap-2">
               <%!-- Message button --%>
+              <%!-- Future feature maybe --%>
+              <%!--
               <button
                 id={"message-button-#{@connection_id}"}
                 phx-hook="TippyHook"
@@ -6870,6 +6873,7 @@ defmodule MossletWeb.DesignSystem do
               >
                 <.phx_icon name="hero-chat-bubble-left" class="h-3.5 w-3.5" /> Message
               </button>
+              --%>
 
               <%!-- View profile button --%>
               <button
@@ -6881,6 +6885,13 @@ defmodule MossletWeb.DesignSystem do
               >
                 <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
               </button>
+            </div>
+
+            <%!-- Placeholder when interactions are hidden (to maintain layout) --%>
+            <div :if={!@show_interactions?} class="flex items-center gap-2">
+              <div class="text-xs text-slate-400 dark:text-slate-500 italic">
+                Profile not available
+              </div>
             </div>
 
             <%!-- Dropdown trigger only (menu will be positioned outside) --%>

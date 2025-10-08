@@ -311,6 +311,10 @@
                 connection_id={connection.id}
                 zen?={connection.zen?}
                 photos?={connection.photos?}
+                show_interactions?={
+                  !blocked_by_connection?(connection, @current_user) &&
+                    connection.connection.profile
+                }
                 class="transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 min-h-[140px]"
               />
             </div>
