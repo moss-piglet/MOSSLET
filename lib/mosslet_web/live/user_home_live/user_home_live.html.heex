@@ -35,21 +35,6 @@
               </div>
             </:failed>
 
-            <%!-- New Post Button - Using design system with teal (primary brand) --%>
-            <MossletWeb.DesignSystem.liquid_button
-              :if={@current_user}
-              type="button"
-              color="teal"
-              shimmer="page"
-              id={"new-post-button-#{@current_user.id}"}
-              phx-click={JS.push("new_post")}
-              icon="hero-chat-bubble-oval-left-ellipsis"
-              data-tippy-content="Share something new"
-              phx-hook="TippyHook"
-            >
-              New Post
-            </MossletWeb.DesignSystem.liquid_button>
-
             <%!-- Edit Profile Button - Using secondary blue for informational action --%>
             <MossletWeb.DesignSystem.liquid_button
               :if={@current_user}
@@ -376,27 +361,4 @@
       </div>
     </div>
   </main>
-
-  <.phx_modal
-    :if={@live_action in [:new_post]}
-    id="post-modal"
-    show
-    on_cancel={JS.patch(~p"/app/profile/#{@slug}")}
-  >
-    <.live_component
-      module={MossletWeb.PostLive.FormComponent}
-      id={@post.id || :new}
-      title="New Post"
-      action={:new}
-      post={@post}
-      groups={[]}
-      user={@current_user}
-      shared_users={@post_shared_users}
-      image_urls={@image_urls}
-      uploads_in_progress={@uploads_in_progress}
-      key={@key}
-      trix_key={@trix_key}
-      patch={~p"/app/profile/#{@slug}"}
-    />
-  </.phx_modal>
 </.layout>

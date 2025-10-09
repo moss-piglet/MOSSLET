@@ -2920,10 +2920,11 @@ defmodule Mosslet.Timeline do
     if is_nil(post.group_id) do
       cond do
         post.visibility in [:specific_groups, :specific_users] ->
-          # For specific_groups and specific_users, broadcast only to users in shared_users list
-          Enum.each(post.shared_users, fn shared_user ->
-            user_id = shared_user.user_id
-
+          # For specific_groups and specific_users, broadcast to users in shared_users list AND the sender
+          target_user_ids = Enum.map(post.shared_users, & &1.user_id)
+          all_recipient_ids = [post.user_id | target_user_ids] |> Enum.uniq()
+          
+          Enum.each(all_recipient_ids, fn user_id ->
             Phoenix.PubSub.broadcast(
               Mosslet.PubSub,
               "conn_posts:#{user_id}",
@@ -2963,10 +2964,11 @@ defmodule Mosslet.Timeline do
     if is_nil(post.group_id) do
       cond do
         post.visibility in [:specific_groups, :specific_users] ->
-          # For specific_groups and specific_users, broadcast only to users in shared_users list
-          Enum.each(post.shared_users, fn shared_user ->
-            user_id = shared_user.user_id
-
+          # For specific_groups and specific_users, broadcast to users in shared_users list AND the post author
+          target_user_ids = Enum.map(post.shared_users, & &1.user_id)
+          all_recipient_ids = [post.user_id | target_user_ids] |> Enum.uniq()
+          
+          Enum.each(all_recipient_ids, fn user_id ->
             Phoenix.PubSub.broadcast(
               Mosslet.PubSub,
               "conn_replies:#{user_id}",

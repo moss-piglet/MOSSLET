@@ -10,9 +10,6 @@ defmodule MossletWeb.DesignSystem do
   use Phoenix.Component
   use MossletWeb, :verified_routes
 
-  # Import Phoenix.LiveView.JS for modal functionality
-  alias Phoenix.LiveView.JS
-
   # Import components for time display
   import MossletWeb.CoreComponents, only: [phx_input: 1, local_time_ago: 1]
 
@@ -32,6 +29,9 @@ defmodule MossletWeb.DesignSystem do
       maybe_get_avatar_src: 4,
       get_uconn_for_shared_item: 2
     ]
+
+  # Import Phoenix.LiveView.JS for modal functionality
+  alias Phoenix.LiveView.JS
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   def liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
