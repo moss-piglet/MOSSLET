@@ -296,7 +296,7 @@ defmodule MossletWeb.TimelineContentFilter do
         checked={@current_settings[:hide_mature] || false}
         phx_click="toggle_content_warning_filter"
         phx_value_type="hide_mature"
-        color="amber"
+        color="teal"
       />
 
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
@@ -392,14 +392,12 @@ defmodule MossletWeb.TimelineContentFilter do
               Manage Muted Authors
             </p>
             <p class="text-xs text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
-              Visit your
-              <.link
+              Visit your <.link
+                phx-no-format
                 navigate="/app/users/connections"
                 class="font-semibold underline decoration-1 underline-offset-2 hover:decoration-2 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-150"
               >
-                Connections
-              </.link>
-              page to mute or unmute authors. Posts from muted authors won't appear in your timeline.
+                Connections</.link> page to mute or unmute authors. Posts from muted authors won't appear in your timeline.
             </p>
           </div>
         </div>
