@@ -1365,6 +1365,12 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  # Muted user coming from the hydrated SharedUser mapping
+  # used in our timeline_content_filter
+  def get_uconn_for_muted_users(muted_user, current_user) do
+    Accounts.get_user_connection_between_users(muted_user.user_id, current_user.id)
+  end
+
   ## TODO: phase out / replace / unclear
   def get_uconn_for_users!(user_id, current_user_id) do
     Accounts.get_user_connection_between_users(user_id, current_user_id)

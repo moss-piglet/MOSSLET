@@ -8,6 +8,8 @@ defmodule MossletWeb.TimelineContentFilter do
 
   use MossletWeb, :html
 
+  import MossletWeb.Helpers, only: [get_uconn_for_muted_users: 2]
+
   @doc """
   Renders the main content filter interface.
 
@@ -16,6 +18,8 @@ defmodule MossletWeb.TimelineContentFilter do
   attr :filters, :map, required: true, doc: "current filter settings"
   attr :class, :string, default: ""
   attr :mobile_friendly, :boolean, default: true
+  attr :current_user, :map
+  attr :key, :string
 
   def liquid_content_filter(assigns) do
     ~H"""
@@ -97,13 +101,15 @@ defmodule MossletWeb.TimelineContentFilter do
 
           <%!-- Muted Users (least common, but important) --%>
           <.filter_section
-            title="Muted Users"
+            title="Muted Authors"
             icon="hero-bell-slash"
             description="Manage blocked or hidden user content"
           >
             <.muted_users_list
               muted_users={@filters.muted_users || []}
               mobile_friendly={@mobile_friendly}
+              current_user={@current_user}
+              key={@key}
             />
           </.filter_section>
         </div>
@@ -305,6 +311,8 @@ defmodule MossletWeb.TimelineContentFilter do
   """
   attr :muted_users, :list, default: []
   attr :mobile_friendly, :boolean, default: true
+  attr :current_user, :map
+  attr :key, :string
 
   def muted_users_list(assigns) do
     ~H"""
@@ -319,29 +327,41 @@ defmodule MossletWeb.TimelineContentFilter do
       <div :if={@muted_users != []} class="space-y-2">
         <div
           :for={user <- @muted_users}
-          class="flex items-center justify-between py-2 px-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg"
+          class="flex items-center gap-3 py-2 px-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg"
         >
-          <div class="flex items-center gap-2">
-            <div class="w-6 h-6 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
-            <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
-              {user.username}
+          <MossletWeb.DesignSystem.liquid_avatar
+            size="sm"
+            name={user.username || "Unknown"}
+            src={
+              get_connection_avatar_src(
+                get_uconn_for_muted_users(user, @current_user),
+                @current_user,
+                @key
+              )
+            }
+            class="flex-shrink-0"
+          />
+          <div class="flex-1 min-w-0">
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate block">
+              {user.username || "Unknown User"}
             </span>
           </div>
-
-          <button
-            type="button"
-            class="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-            phx-click="unhide_user"
-            phx-value-user_id={user.id}
-          >
-            <.phx_icon name="hero-eye" class="h-4 w-4" />
-          </button>
         </div>
       </div>
 
-      <p class="text-xs text-slate-500 dark:text-slate-400">
-        Posts from muted users won't appear in your timeline
-      </p>
+      <div class="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-200/30 dark:border-blue-700/30">
+        <p class="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+          <.phx_icon name="hero-information-circle" class="h-3 w-3 inline mr-1" />
+          Manage muted users in your
+          <.link
+            navigate="/app/users/connections"
+            class="font-medium underline hover:no-underline"
+          >
+            Connections
+          </.link>
+          page. Posts from muted users won't appear in your timeline.
+        </p>
+      </div>
     </div>
     """
   end

@@ -1684,44 +1684,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("hide_user", %{"user_id" => user_id}, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-    target_user_id = String.to_integer(user_id)
-
-    # Get current decrypted muted users
-    current_filters = socket.assigns.content_filters
-    current_muted_users = current_filters.muted_users || []
-
-    {:ok, new_prefs} =
-      ContentFilter.mute_user(current_user.id, target_user_id, current_muted_users,
-        user: current_user,
-        key: key
-      )
-
-    socket = refresh_timeline_with_filters(socket, new_prefs)
-    {:noreply, put_flash(socket, :info, "User hidden from timeline")}
-  end
-
-  def handle_event("unhide_user", %{"user_id" => user_id}, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-    target_user_id = String.to_integer(user_id)
-
-    # Get current decrypted muted users
-    current_filters = socket.assigns.content_filters
-    current_muted_users = current_filters.muted_users || []
-
-    {:ok, new_prefs} =
-      ContentFilter.unmute_user(current_user.id, target_user_id, current_muted_users,
-        user: current_user,
-        key: key
-      )
-
-    socket = refresh_timeline_with_filters(socket, new_prefs)
-    {:noreply, put_flash(socket, :info, "User unhidden from timeline")}
-  end
-
   def handle_event("clear_all_filters", _params, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
