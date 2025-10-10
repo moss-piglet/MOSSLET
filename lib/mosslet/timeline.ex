@@ -1012,7 +1012,7 @@ defmodule Mosslet.Timeline do
   def list_connection_posts(current_user, options) do
     # Ensure options always include current user's content filter preferences
     options_with_filters = ensure_filter_prefs(options, current_user)
-    
+
     # Try cache first (for first page only)
     posts =
       if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
@@ -1057,18 +1057,19 @@ defmodule Mosslet.Timeline do
             content_warnings: %{hide_all: false, hide_mature: false},
             hide_reposts: false
           })
-        
+
         prefs ->
           # Use stored preferences (already decrypted by get_user_timeline_preference)
           filter_prefs = %{
-            keywords: decrypt_filter_keywords(prefs, current_user) || [],
-            muted_users: decrypt_muted_users(prefs, current_user) || [],
+            keywords: decrypt_filter_keywords(prefs, current_user),
+            muted_users: decrypt_muted_users(prefs, current_user),
             content_warnings: %{
               hide_all: prefs.hide_content_warnings || false,
               hide_mature: prefs.hide_mature_content || false
             },
             hide_reposts: prefs.hide_reposts || false
           }
+
           Map.put(options, :filter_prefs, filter_prefs)
       end
     end
@@ -1078,9 +1079,14 @@ defmodule Mosslet.Timeline do
   defp decrypt_filter_keywords(prefs, current_user) do
     if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
       user_key = current_user.key
+
       if user_key do
         Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
-          Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, current_user, user_key)
+          Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+            encrypted_keyword,
+            current_user,
+            user_key
+          )
         end)
         |> Enum.reject(&is_nil/1)
       else
@@ -1095,9 +1101,14 @@ defmodule Mosslet.Timeline do
   defp decrypt_muted_users(prefs, current_user) do
     if prefs.muted_users && length(prefs.muted_users) > 0 do
       user_key = current_user.key
+
       if user_key do
         Enum.map(prefs.muted_users, fn encrypted_user_id ->
-          Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, current_user, user_key)
+          Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+            encrypted_user_id,
+            current_user,
+            user_key
+          )
         end)
         |> Enum.reject(&is_nil/1)
       else
