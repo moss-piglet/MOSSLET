@@ -140,9 +140,10 @@ defmodule Mosslet.Timeline.ContentFilter do
     # CRITICAL FIX: Only update fields that are explicitly being changed
     # Preserve existing encrypted data for fields not being updated
 
-    # Keywords - only update if preferences explicitly contains non-empty keywords
+    # Keywords - update if preferences explicitly contains keywords (including empty list to clear)
     keywords_list =
-      if preferences[:keywords] && length(preferences[:keywords]) > 0 do
+      if Map.has_key?(preferences, :keywords) do
+        # Explicitly setting keywords (including [] to clear them)
         preferences[:keywords]
       else
         # Preserve existing keywords, but decrypt them first since schema will re-encrypt
