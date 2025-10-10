@@ -18,9 +18,13 @@ defmodule Mosslet.Timeline.ContentFilter do
     current_prefs = load_user_filter_preferences(user_id)
     new_prefs = Map.merge(current_prefs, updates)
 
+    # IMPORTANT: For database operations, we should NOT pass encrypted data
+    # The encrypted data should only be used for storage, not for filtering
+    # Database filtering happens with decrypted data in the LiveView layer
+
     case save_user_filter_preferences(user_id, new_prefs, opts) do
       :ok ->
-        # Update cache with new preferences
+        # Update cache with new preferences (this should contain encrypted data for storage)
         TimelineCache.cache_timeline_data(user_id, "content_filters", new_prefs)
         # Invalidate timeline caches since filtering changed
         invalidate_user_timeline_cache(user_id)
@@ -38,33 +42,12 @@ defmodule Mosslet.Timeline.ContentFilter do
       when is_binary(keyword) do
     keyword = String.trim(keyword) |> String.downcase()
 
-    cond do
-      keyword == "" ->
-        {:error, :invalid_keyword}
-
-      keyword not in current_keywords ->
-        new_keywords = [keyword | current_keywords]
-
-        # If user is adding individual keywords while "hide all" is enabled,
-        # turn off "hide all" to show granular control
-        current_prefs = load_user_filter_preferences(user_id)
-
-        updates =
-          if current_prefs.content_warnings[:hide_all] == true do
-            %{
-              keywords: new_keywords,
-              # Turn off hide_all
-              content_warnings: %{hide_all: false}
-            }
-          else
-            %{keywords: new_keywords}
-          end
-
-        update_filter_preferences(user_id, updates, opts)
-
-      true ->
-        current_prefs = load_user_filter_preferences(user_id)
-        {:ok, current_prefs}
+    if keyword not in current_keywords do
+      new_keywords = [keyword | current_keywords]
+      update_filter_preferences(user_id, %{keywords: new_keywords}, opts)
+    else
+      current_prefs = load_user_filter_preferences(user_id)
+      {:ok, current_prefs}
     end
   end
 
@@ -128,11 +111,11 @@ defmodule Mosslet.Timeline.ContentFilter do
 
       prefs ->
         # Return structure that matches our filtering expectations
-        # Decryption will be handled by LiveView with session key
+        # CRITICAL: Never return encrypted data here as it gets passed to database filters
+        # The LiveView layer handles decryption separately
         %{
-          # Will be decrypted in LiveView
+          # Always return empty arrays - encryption/decryption is handled in LiveView
           keywords: [],
-          # Will be decrypted in LiveView
           muted_users: [],
           content_warnings: %{
             hide_all: prefs.hide_content_warnings || false,
@@ -154,13 +137,56 @@ defmodule Mosslet.Timeline.ContentFilter do
       end
 
     # Prepare data for schema encryption
-    # load_user_preferences/1 always provides all keys, so no Map.has_key? checks needed
+    # CRITICAL FIX: Only update fields that are explicitly being changed
+    # Preserve existing encrypted data for fields not being updated
 
-    # Keywords (StringList handles encoding/encryption automatically)
-    keywords_list = if length(preferences.keywords) > 0, do: preferences.keywords, else: []
+    # Keywords - only update if preferences explicitly contains non-empty keywords
+    keywords_list =
+      if preferences[:keywords] && length(preferences[:keywords]) > 0 do
+        preferences[:keywords]
+      else
+        # Preserve existing keywords, but decrypt them first since schema will re-encrypt
+        if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
+          user = opts[:user]
+          key = opts[:key]
 
-    # Muted users (binary_ids are strings, so StringList is perfect)
-    muted_users_list = preferences.muted_users
+          if user && key do
+            Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
+              Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, user, key)
+            end)
+            |> Enum.reject(&is_nil/1)
+          else
+            # If no user/key provided, return empty to avoid corruption
+            []
+          end
+        else
+          []
+        end
+      end
+
+    # Muted users - only update if preferences explicitly contains muted users
+    muted_users_list =
+      if preferences[:muted_users] && length(preferences[:muted_users]) > 0 do
+        preferences[:muted_users]
+      else
+        # Preserve existing muted users, but decrypt them first since schema will re-encrypt
+        if prefs.muted_users && length(prefs.muted_users) > 0 do
+          user = opts[:user]
+          key = opts[:key]
+
+          if user && key do
+            Enum.map(prefs.muted_users, fn encrypted_user_id ->
+              Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, user, key)
+            end)
+            |> Enum.reject(&is_nil/1)
+          else
+            # If no user/key provided, return empty to avoid corruption
+            []
+          end
+        else
+          []
+        end
+      end
 
     # Build attrs map with all preferences - now using separate fields
     attrs = %{
