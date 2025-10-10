@@ -103,7 +103,7 @@ defmodule MossletWeb.TimelineContentFilter do
           <.filter_section
             title="Muted Authors"
             icon="hero-bell-slash"
-            description="Manage blocked or hidden user content"
+            description="Authors currently hidden from your timeline - their posts won't appear in any tab"
           >
             <.muted_users_list
               muted_users={@filters.muted_users || []}
@@ -316,51 +316,93 @@ defmodule MossletWeb.TimelineContentFilter do
 
   def muted_users_list(assigns) do
     ~H"""
-    <div class="space-y-3">
+    <div class="space-y-4">
       <div
         :if={@muted_users == []}
-        class="text-sm text-slate-500 dark:text-slate-400 py-4 text-center"
+        class="flex items-center justify-center py-8 px-4 rounded-xl bg-gradient-to-br from-slate-50/50 via-slate-25/30 to-slate-50/50 dark:from-slate-800/50 dark:via-slate-750/30 dark:to-slate-800/50 border border-slate-200/30 dark:border-slate-700/30"
       >
-        No muted users
+        <div class="text-center space-y-2">
+          <div class="flex h-10 w-10 mx-auto items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 shadow-sm">
+            <.phx_icon name="hero-users" class="h-5 w-5 text-slate-500 dark:text-slate-400" />
+          </div>
+          <p class="text-sm font-medium text-slate-600 dark:text-slate-400">
+            No muted users
+          </p>
+          <p class="text-xs text-slate-500 dark:text-slate-500">
+            Authors you mute will appear here
+          </p>
+        </div>
       </div>
 
-      <div :if={@muted_users != []} class="space-y-2">
+      <div :if={@muted_users != []} class="space-y-3">
         <div
           :for={user <- @muted_users}
-          class="flex items-center gap-3 py-2 px-3 bg-slate-50/80 dark:bg-slate-700/80 rounded-lg"
+          class="group/user relative flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-slate-50/80 via-slate-50/40 to-slate-50/80 dark:from-slate-700/60 dark:via-slate-700/30 dark:to-slate-700/60 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 ease-out hover:from-teal-50/60 hover:via-cyan-50/40 hover:to-teal-50/60 dark:hover:from-teal-900/20 dark:hover:via-cyan-900/15 dark:hover:to-teal-900/20 hover:border-teal-200/50 dark:hover:border-teal-700/40"
         >
-          <MossletWeb.DesignSystem.liquid_avatar
-            size="sm"
-            name={user.username || "Unknown"}
-            src={
-              get_connection_avatar_src(
-                get_uconn_for_muted_users(user, @current_user),
-                @current_user,
-                @key
-              )
-            }
-            class="flex-shrink-0"
-          />
-          <div class="flex-1 min-w-0">
-            <span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate block">
-              {user.username || "Unknown User"}
-            </span>
+          <%!-- Subtle hover background --%>
+          <div class="absolute inset-0 opacity-0 group-hover/user:opacity-100 transition-opacity duration-200 bg-gradient-to-r from-teal-50/20 via-transparent to-cyan-50/20 dark:from-teal-900/10 dark:via-transparent dark:to-cyan-900/10 rounded-xl">
+          </div>
+
+          <div class="relative flex-shrink-0">
+            <MossletWeb.DesignSystem.liquid_avatar
+              size="sm"
+              name={user.username || "Unknown"}
+              src={
+                get_connection_avatar_src(
+                  get_uconn_for_muted_users(user, @current_user),
+                  @current_user,
+                  @key
+                )
+              }
+              class="ring-2 ring-slate-200/40 dark:ring-slate-600/40 group-hover/user:ring-teal-200/60 dark:group-hover/user:ring-teal-700/40 transition-all duration-200"
+            />
+          </div>
+
+          <div class="relative flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate group-hover/user:text-slate-900 dark:group-hover/user:text-slate-100 transition-colors duration-200">
+                {user.username || "Unknown User"}
+              </span>
+              <div class="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/60 dark:bg-slate-600/60 group-hover/user:bg-teal-100 dark:group-hover/user:bg-teal-900/40 transition-colors duration-200">
+                <.phx_icon
+                  name="hero-bell-slash"
+                  class="h-3 w-3 text-slate-500 dark:text-slate-400 group-hover/user:text-teal-600 dark:group-hover/user:text-teal-400"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-200/30 dark:border-blue-700/30">
-        <p class="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-          <.phx_icon name="hero-information-circle" class="h-3 w-3 inline mr-1" />
-          Manage muted users in your
-          <.link
-            navigate="/app/users/connections"
-            class="font-medium underline hover:no-underline"
-          >
-            Connections
-          </.link>
-          page. Posts from muted users won't appear in your timeline.
-        </p>
+      <%!-- Enhanced informational callout --%>
+      <div class="relative mt-6 p-4 rounded-xl bg-gradient-to-br from-blue-50/60 via-cyan-50/40 to-blue-50/60 dark:from-blue-900/20 dark:via-cyan-900/15 dark:to-blue-900/20 border border-blue-200/40 dark:border-blue-700/30 group/info hover:from-blue-50/80 hover:via-cyan-50/60 hover:to-blue-50/80 dark:hover:from-blue-900/30 dark:hover:via-cyan-900/25 dark:hover:to-blue-900/30 transition-all duration-200">
+        <%!-- Subtle background shimmer on hover --%>
+        <div class="absolute inset-0 opacity-0 group-hover/info:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-blue-100/30 to-transparent dark:via-blue-400/10 rounded-xl">
+        </div>
+
+        <div class="relative flex items-start gap-3">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/40 dark:via-cyan-900/30 dark:to-blue-900/40 shadow-sm">
+            <.phx_icon
+              name="hero-information-circle"
+              class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"
+            />
+          </div>
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-blue-700 dark:text-blue-300 leading-relaxed">
+              Manage Muted Authors
+            </p>
+            <p class="text-xs text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
+              Visit your
+              <.link
+                navigate="/app/users/connections"
+                class="font-semibold underline decoration-1 underline-offset-2 hover:decoration-2 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-150"
+              >
+                Connections
+              </.link>
+              page to mute or unmute authors. Posts from muted authors won't appear in your timeline.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
     """
