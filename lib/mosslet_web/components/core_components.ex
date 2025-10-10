@@ -2233,13 +2233,8 @@ defmodule MossletWeb.CoreComponents do
       |> assign_new(:user_menu_items, fn -> user_menu_items(current_user) end)
       |> assign_new(:current_user_name, fn ->
         # Only decrypt username if we have both user and session key
-        # Also wrap in try/rescue to handle any decryption errors gracefully
         if current_user && assigns[:key] do
-          try do
-            user_name(current_user, assigns[:key])
-          rescue
-            _ -> nil
-          end
+          user_name(current_user, assigns[:key])
         else
           nil
         end

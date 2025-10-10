@@ -452,12 +452,8 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   defp get_connected_user_ids(user_id) do
     # Get confirmed connections for cache invalidation
-    try do
-      Mosslet.Accounts.get_all_confirmed_user_connections(user_id)
-      |> Enum.map(& &1.reverse_user_id)
-    rescue
-      _ -> []
-    end
+    Mosslet.Accounts.get_all_confirmed_user_connections(user_id)
+    |> Enum.map(& &1.reverse_user_id)
   end
 
   defp schedule_cleanup() do

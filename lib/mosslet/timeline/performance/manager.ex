@@ -198,26 +198,16 @@ defmodule Mosslet.Timeline.Performance.Manager do
   end
 
   defp get_connected_user_ids(user_id) do
-    try do
-      Mosslet.Accounts.get_all_confirmed_user_connections(user_id)
-      |> Enum.map(& &1.reverse_user_id)
-    rescue
-      _ -> []
-    end
+    Mosslet.Accounts.get_all_confirmed_user_connections(user_id)
+    |> Enum.map(& &1.reverse_user_id)
   end
 
   defp get_oban_timeline_stats() do
-    try do
-      # Simplified Oban stats (avoiding deprecated count_jobs)
-      %{
-        timeline_queue: "active",
-        cache_queue: "active",
-        status: "running"
-      }
-    rescue
-      e ->
-        Logger.warning("Failed to get Oban stats: #{inspect(e)}")
-        %{timeline_queue: "unknown", cache_queue: "unknown", status: "error"}
-    end
+    # Simplified Oban stats (avoiding deprecated count_jobs)
+    %{
+      timeline_queue: "active",
+      cache_queue: "active",
+      status: "running"
+    }
   end
 end

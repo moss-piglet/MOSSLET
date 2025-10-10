@@ -142,7 +142,7 @@ defmodule Mosslet.Timeline.ContentFilter do
 
     # Keywords - update if preferences explicitly contains keywords (including empty list to clear)
     keywords_list =
-      if Map.has_key?(preferences, :keywords) do
+      if is_map_key(preferences, :keywords) do
         # Explicitly setting keywords (including [] to clear them)
         preferences[:keywords]
       else

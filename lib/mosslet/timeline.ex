@@ -46,10 +46,6 @@ defmodule Mosslet.Timeline do
       order_by: [desc: max(p.inserted_at)]
     )
     |> Repo.all()
-  rescue
-    e ->
-      Logger.error("Failed to get recently active users: #{inspect(e)}")
-      []
   end
 
   @doc """
@@ -705,8 +701,6 @@ defmodule Mosslet.Timeline do
     |> where([p], p.user_id not in subquery(blocked_me_subquery))
   end
 
-  defp filter_by_blocked_users_posts(query, _current_user_id), do: query
-
   # Filters out replies from blocked users (2-directional blocking).
   # NOTE: :posts_only blocks should NOT filter replies - only :replies_only and :full blocks
   defp filter_by_blocked_users_replies(query, current_user_id) when is_binary(current_user_id) do
@@ -900,8 +894,6 @@ defmodule Mosslet.Timeline do
     |> where([b, p], p.user_id not in subquery(blocked_me_subquery))
   end
 
-  defp filter_by_blocked_users_simple_bookmarks(query, _current_user_id), do: query
-
   # Bookmark-specific filter functions that reference the correct table order: [p, b, up, upr]
   defp filter_by_muted_keywords_bookmark(query, muted_keywords)
        when is_list(muted_keywords) and length(muted_keywords) > 0 do
@@ -982,8 +974,6 @@ defmodule Mosslet.Timeline do
     |> where([p, b, up, upr], p.user_id not in subquery(blocked_by_me_subquery))
     |> where([p, b, up, upr], p.user_id not in subquery(blocked_me_subquery))
   end
-
-  defp filter_by_blocked_users_bookmarks(query, _current_user_id), do: query
 
   @doc """
   Returns the list of public posts.

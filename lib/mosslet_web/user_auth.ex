@@ -113,15 +113,10 @@ defmodule MossletWeb.UserAuth do
       |> maybe_write_remember_me_cookie(params)
       |> delete_session(:user_return_to)
 
-    try do
-      if user.is_onboarded? do
-        redirect(conn, to: user_return_to || signed_in_path(user))
-      else
-        redirect(conn, to: ~p"/app/users/onboarding")
-      end
-    rescue
-      ArgumentError ->
-        redirect(conn, to: signed_in_path(user))
+    if user.is_onboarded? do
+      redirect(conn, to: user_return_to || signed_in_path(user))
+    else
+      redirect(conn, to: ~p"/app/users/onboarding")
     end
   end
 
@@ -218,24 +213,17 @@ defmodule MossletWeb.UserAuth do
       # Only fetch the remember_me_cookie since that's all we need here
       conn = fetch_cookies(conn, encrypted: [@remember_me_cookie])
 
-      try do
-        if token = conn.cookies[@remember_me_cookie] do
-          # Validate that the token corresponds to a valid user session before adding it to the session
-          if _user = Accounts.get_user_by_session_token(token) do
-            # Token is valid and corresponds to an existing user
-            {token, put_token_in_session(conn, token)}
-          else
-            # Token is invalid or has been revoked, clear the cookie
-            {nil, delete_resp_cookie(conn, @remember_me_cookie)}
-          end
+      if token = conn.cookies[@remember_me_cookie] do
+        # Validate that the token corresponds to a valid user session before adding it to the session
+        if _user = Accounts.get_user_by_session_token(token) do
+          # Token is valid and corresponds to an existing user
+          {token, put_token_in_session(conn, token)}
         else
-          {nil, conn}
-        end
-      rescue
-        # Handle any errors from corrupted cookies or other issues
-        _ ->
-          Logger.error("Error processing remember me cookie")
+          # Token is invalid or has been revoked, clear the cookie
           {nil, delete_resp_cookie(conn, @remember_me_cookie)}
+        end
+      else
+        {nil, conn}
       end
     end
   end
@@ -610,11 +598,7 @@ defmodule MossletWeb.UserAuth do
   defp mount_current_user(socket, session) do
     Phoenix.Component.assign_new(socket, :current_user, fn ->
       if user_token = session["user_token"] do
-        try do
-          Accounts.get_user_by_session_token(user_token)
-        rescue
-          _ -> nil
-        end
+        Accounts.get_user_by_session_token(user_token)
       else
         nil
       end

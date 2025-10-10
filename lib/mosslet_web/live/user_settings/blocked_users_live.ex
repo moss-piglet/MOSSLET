@@ -375,29 +375,22 @@ defmodule MossletWeb.BlockedUsersLive do
   def handle_event("unblock_user", %{"user-id" => blocked_user_id}, socket) do
     current_user = socket.assigns.current_user
 
-    try do
-      blocked_user = Accounts.get_user!(blocked_user_id)
+    blocked_user = Accounts.get_user!(blocked_user_id)
 
-      case Accounts.unblock_user(current_user, blocked_user) do
-        {:ok, _deleted_block} ->
-          # Refresh the blocked users list
-          blocked_users = list_blocked_users_with_details(current_user, socket.assigns.key)
+    case Accounts.unblock_user(current_user, blocked_user) do
+      {:ok, _deleted_block} ->
+        # Refresh the blocked users list
+        blocked_users = list_blocked_users_with_details(current_user, socket.assigns.key)
 
-          {:noreply,
-           socket
-           |> assign(blocked_users: blocked_users)
-           |> put_flash(:success, "User has been unblocked successfully.")}
-
-        {:error, _reason} ->
-          {:noreply,
-           socket
-           |> put_flash(:error, "Unable to unblock user. Please try again.")}
-      end
-    rescue
-      Ecto.NoResultsError ->
         {:noreply,
          socket
-         |> put_flash(:error, "User not found.")}
+         |> assign(blocked_users: blocked_users)
+         |> put_flash(:success, "User has been unblocked successfully.")}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Unable to unblock user. Please try again.")}
     end
   end
 
@@ -416,15 +409,11 @@ defmodule MossletWeb.BlockedUsersLive do
       # Decrypt the reason if it exists
       decrypted_reason =
         if user_block.reason do
-          try do
-            Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-              user_block.reason,
-              current_user,
-              key
-            )
-          rescue
-            _ -> nil
-          end
+          Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+            user_block.reason,
+            current_user,
+            key
+          )
         else
           nil
         end

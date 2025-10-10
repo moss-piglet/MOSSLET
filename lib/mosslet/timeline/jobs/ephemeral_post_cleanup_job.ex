@@ -238,28 +238,22 @@ defmodule Mosslet.Timeline.Jobs.EphemeralPostCleanupJob do
   # Helper functions for post deletion
 
   defp perform_post_deletion(post, user_id) do
-    try do
-      # 🔐 PRIVACY: Proper deletion through Timeline context (maintains encryption patterns)
-      # 🎯 ETHICAL: Clean deletion that respects user privacy
-      case Timeline.delete_post(post, user_id: user_id, ephemeral: true) do
-        {:ok, _deleted_post} ->
-          # Invalidate cache for affected users
-          TimelineCache.invalidate_timeline(user_id, :all)
+    # 🔐 PRIVACY: Proper deletion through Timeline context (maintains encryption patterns)
+    # 🎯 ETHICAL: Clean deletion that respects user privacy
+    case Timeline.delete_post(post, user_id: user_id, ephemeral: true) do
+      {:ok, _deleted_post} ->
+        # Invalidate cache for affected users
+        TimelineCache.invalidate_timeline(user_id, :all)
 
-          # Clean up related data (replies, bookmarks, etc.)
-          cleanup_related_data(post)
+        # Clean up related data (replies, bookmarks, etc.)
+        cleanup_related_data(post)
 
-          Logger.info("Successfully deleted ephemeral post: #{post.id}")
-          :ok
+        Logger.info("Successfully deleted ephemeral post: #{post.id}")
+        :ok
 
-        {:error, reason} ->
-          Logger.error("Failed to delete ephemeral post #{post.id}: #{inspect(reason)}")
-          {:error, reason}
-      end
-    rescue
-      e ->
-        Logger.error("Exception deleting ephemeral post #{post.id}: #{inspect(e)}")
-        {:error, "Deletion failed"}
+      {:error, reason} ->
+        Logger.error("Failed to delete ephemeral post #{post.id}: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 

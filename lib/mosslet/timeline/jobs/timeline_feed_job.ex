@@ -228,56 +228,44 @@ defmodule Mosslet.Timeline.Jobs.TimelineFeedJob do
   # Private helper functions - ALL fetch sensitive data from encrypted DB during execution
 
   defp generate_tab_feed(user, tab) do
-    try do
-      # 🔐 PRIVACY: Generate fresh feed data from encrypted DB
-      # 🎯 ETHICAL: Maintains chronological order - no algorithmic manipulation
-      options = %{
-        tab: tab,
-        post_per_page: 20,
-        skip_cache: true,
-        # Required by filter_by_user_id
-        filter: %{user_id: "", post_per_page: 20},
-        post_sort_by: :inserted_at,
-        post_sort_order: :desc
-      }
+    # 🔐 PRIVACY: Generate fresh feed data from encrypted DB
+    # 🎯 ETHICAL: Maintains chronological order - no algorithmic manipulation
+    options = %{
+      tab: tab,
+      post_per_page: 20,
+      skip_cache: true,
+      # Required by filter_by_user_id
+      filter: %{user_id: "", post_per_page: 20},
+      post_sort_by: :inserted_at,
+      post_sort_order: :desc
+    }
 
-      posts = Timeline.fetch_timeline_posts_from_db(user, options)
+    posts = Timeline.fetch_timeline_posts_from_db(user, options)
 
-      # 🔐 PRIVACY: Cache encrypted data (posts remain encrypted in cache)
-      timeline_data = %{
-        # 🔐 Posts remain encrypted as fetched from DB
-        posts: posts,
-        # 🔐 SAFE: Just count
-        post_count: length(posts),
-        # 🔐 SAFE: Timestamp
-        generated_at: System.system_time(:millisecond)
-      }
+    # 🔐 PRIVACY: Cache encrypted data (posts remain encrypted in cache)
+    timeline_data = %{
+      # 🔐 Posts remain encrypted as fetched from DB
+      posts: posts,
+      # 🔐 SAFE: Just count
+      post_count: length(posts),
+      # 🔐 SAFE: Timestamp
+      generated_at: System.system_time(:millisecond)
+    }
 
-      TimelineCache.cache_timeline_data(user.id, tab, timeline_data)
+    TimelineCache.cache_timeline_data(user.id, tab, timeline_data)
 
-      Logger.debug("Generated #{length(posts)} posts for user #{user.id}, tab #{tab}")
-      :ok
-    rescue
-      e ->
-        Logger.error("Failed to generate feed for user #{user.id}, tab #{tab}: #{inspect(e)}")
-        {:error, "Feed generation failed"}
-    end
+    Logger.debug("Generated #{length(posts)} posts for user #{user.id}, tab #{tab}")
+    :ok
   end
 
   defp warm_tab_cache(user, tab) do
-    try do
-      # 🔐 PRIVACY: Load encrypted data to warm cache (no decryption in job)
-      # 🎯 ETHICAL: Respects user's timeline preferences and ordering
-      options = %{tab: tab, post_per_page: 10}
-      Timeline.filter_timeline_posts(user, options)
+    # 🔐 PRIVACY: Load encrypted data to warm cache (no decryption in job)
+    # 🎯 ETHICAL: Respects user's timeline preferences and ordering
+    options = %{tab: tab, post_per_page: 10}
+    Timeline.filter_timeline_posts(user, options)
 
-      Logger.debug("Warmed cache for user #{user.id}, tab #{tab}")
-      :ok
-    rescue
-      e ->
-        Logger.error("Failed to warm cache for user #{user.id}, tab #{tab}: #{inspect(e)}")
-        {:error, "Cache warming failed"}
-    end
+    Logger.debug("Warmed cache for user #{user.id}, tab #{tab}")
+    :ok
   end
 
   defp process_user_batch_feeds(user_ids, reason) do
