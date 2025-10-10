@@ -27,6 +27,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     field :show_post_counts, :boolean, default: true
     field :hide_reposts, :boolean, default: false
     field :hide_mature_content, :boolean, default: false
+    field :hide_content_warnings, :boolean, default: false
 
     # Content filtering preferences (encrypted - potentially sensitive)
     # Encrypted list of muted keywords - double encryption:
@@ -60,6 +61,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
       :show_post_counts,
       :hide_reposts,
       :hide_mature_content,
+      :hide_content_warnings,
       :mute_keywords,
       :muted_users,
       :user_id

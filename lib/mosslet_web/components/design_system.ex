@@ -3190,14 +3190,7 @@ defmodule MossletWeb.DesignSystem do
                 ]}
               />
 
-              <%!-- Mature Content Toggle --%>
-              <div class="pt-2">
-                <.liquid_checkbox
-                  field={@form[:mature_content]}
-                  label="Mature content (18+)"
-                  help="Mark this content as mature/adult content"
-                />
-              </div>
+              <%!-- Mature Content Toggle (removed from here - now in Additional Options) --%>
             </div>
           </div>
         <% end %>
@@ -6488,6 +6481,13 @@ defmodule MossletWeb.DesignSystem do
               field={@form[:is_ephemeral]}
               label="Ephemeral post"
               help="Auto-delete after time limit"
+            />
+
+            <%!-- Mature Content Toggle (available independent of content warnings) --%>
+            <.liquid_checkbox
+              field={@form[:mature_content]}
+              label="Mature content (18+)"
+              help="Mark this content as mature/adult content"
             />
           </div>
 

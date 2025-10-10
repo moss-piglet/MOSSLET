@@ -121,7 +121,7 @@ defmodule Mosslet.Timeline.ContentFilter do
         %{
           keywords: [],
           muted_users: [],
-          content_warnings: %{hide_all: false},
+          content_warnings: %{hide_all: false, hide_mature: false},
           hide_reposts: false,
           raw_preferences: nil
         }
@@ -134,7 +134,10 @@ defmodule Mosslet.Timeline.ContentFilter do
           keywords: [],
           # Will be decrypted in LiveView
           muted_users: [],
-          content_warnings: %{hide_all: prefs.hide_mature_content || false},
+          content_warnings: %{
+            hide_all: prefs.hide_content_warnings || false,
+            hide_mature: prefs.hide_mature_content || false
+          },
           hide_reposts: prefs.hide_reposts || false,
           # Include raw for LiveView decryption
           raw_preferences: prefs
@@ -159,11 +162,12 @@ defmodule Mosslet.Timeline.ContentFilter do
     # Muted users (binary_ids are strings, so StringList is perfect)
     muted_users_list = preferences.muted_users
 
-    # Build attrs map with all preferences
+    # Build attrs map with all preferences - now using separate fields
     attrs = %{
       mute_keywords: keywords_list,
       muted_users: muted_users_list,
-      hide_mature_content: preferences.content_warnings[:hide_all] || false,
+      hide_content_warnings: preferences.content_warnings[:hide_all] || false,
+      hide_mature_content: preferences.content_warnings[:hide_mature] || false,
       hide_reposts: preferences.hide_reposts
     }
 

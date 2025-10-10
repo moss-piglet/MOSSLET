@@ -385,11 +385,15 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
     # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
 
-    if should_show_post do
+    # Apply content filtering to real-time posts
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
       # Add the new post to the top of the stream - CSS animations will trigger automatically
       socket =
         socket
@@ -399,7 +403,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
       {:noreply, socket}
     else
-      # Post doesn't match current tab, but still update counts
+      # Post doesn't match current tab or is filtered out, but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
@@ -1646,15 +1650,22 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Generate flash message based on the toggle state
     flash_message =
-      case {filter_type_atom, get_in(new_prefs, [:content_warnings, :hide_all])} do
-        {:hide_all, true} ->
+      case {filter_type_atom, get_in(new_prefs, [:content_warnings, :hide_all]),
+            get_in(new_prefs, [:content_warnings, :hide_mature])} do
+        {:hide_all, true, _} ->
           "All posts with content warnings will now be hidden from your timeline."
 
-        {:hide_all, false} ->
+        {:hide_all, false, _} ->
           "All posts with content warnings will now be visible in your timeline."
 
+        {:hide_mature, _, true} ->
+          "All posts marked as mature content (18+) will now be hidden from your timeline."
+
+        {:hide_mature, _, false} ->
+          "All posts marked as mature content (18+) will now be visible in your timeline."
+
         _ ->
-          "All content warning preferences updated."
+          "Content warning preferences updated."
       end
 
     socket =
@@ -2766,6 +2777,51 @@ defmodule MossletWeb.TimelineLive.Index do
       false -> assign(socket, assign_key, false)
       _ -> socket
     end
+  end
+
+  # Helper function to check if a post passes content filters
+  defp post_passes_content_filters?(post, content_filters) do
+    cw_settings = content_filters[:content_warnings] || %{}
+    hide_all = Map.get(cw_settings, :hide_all, false)
+    hide_mature = Map.get(cw_settings, :hide_mature, false)
+
+    # Check content warning filters
+    content_warning_pass =
+      if hide_all do
+        # Hide all content warnings AND mature content
+        not post.content_warning? and not post.mature_content
+      else
+        # Don't filter based on content warnings
+        true
+      end
+
+    # Check mature content filters (independent of content warnings)
+    # hide_all already handles mature content
+    mature_content_pass =
+      if hide_mature and not hide_all do
+        not post.mature_content
+      else
+        true
+      end
+
+    # Check blocked users
+    blocked_users_pass =
+      if content_filters[:blocked_users] && length(content_filters[:blocked_users]) > 0 do
+        post.user_id not in content_filters[:blocked_users]
+      else
+        true
+      end
+
+    # Check muted users
+    muted_users_pass =
+      if content_filters[:muted_users] && length(content_filters[:muted_users]) > 0 do
+        post.user_id not in content_filters[:muted_users]
+      else
+        true
+      end
+
+    # Post passes if it passes all filters
+    content_warning_pass and mature_content_pass and blocked_users_pass and muted_users_pass
   end
 
   defp update_post_body(post, body, current_user, key) do
@@ -3890,7 +3946,10 @@ defmodule MossletWeb.TimelineLive.Index do
           keywords: decrypted_keywords,
           muted_users: decrypted_muted_users,
           blocked_users: blocked_user_ids,
-          content_warnings: %{hide_all: prefs.hide_mature_content || false},
+          content_warnings: %{
+            hide_all: prefs.hide_content_warnings || false,
+            hide_mature: prefs.hide_mature_content || false
+          },
           hide_reposts: prefs.hide_reposts || false,
           raw_preferences: prefs
         }
@@ -3903,7 +3962,10 @@ defmodule MossletWeb.TimelineLive.Index do
           keywords: [],
           muted_users: [],
           blocked_users: blocked_user_ids,
-          content_warnings: %{hide_all: false},
+          content_warnings: %{
+            hide_all: false,
+            hide_mature: false
+          },
           hide_reposts: false,
           raw_preferences: nil
         }

@@ -280,8 +280,21 @@ defmodule MossletWeb.TimelineContentFilter do
         color="teal"
       />
 
-      <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-3 mb-4">
         Posts with content warnings will be completely hidden from your timeline
+      </p>
+
+      <.liquid_toggle
+        name="hide_mature_content"
+        label="Hide mature content (18+)"
+        checked={@current_settings[:hide_mature] || false}
+        phx_click="toggle_content_warning_filter"
+        phx_value_type="hide_mature"
+        color="amber"
+      />
+
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">
+        Posts marked as mature content will be hidden from your timeline
       </p>
     </div>
     """

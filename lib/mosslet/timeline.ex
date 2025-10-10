@@ -627,11 +627,23 @@ defmodule Mosslet.Timeline do
   # Hides all content warning posts if hide_all is true.
   defp filter_by_content_warnings(query, cw_settings) do
     hide_all = Map.get(cw_settings || %{}, :hide_all, false)
+    hide_mature = Map.get(cw_settings || %{}, :hide_mature, false)
 
-    if hide_all do
-      where(query, [p], not p.content_warning? or is_nil(p.content_warning?))
-    else
-      query
+    cond do
+      hide_all ->
+        # Hide all content warnings AND mature content
+        query
+        |> where([p], not p.content_warning? or is_nil(p.content_warning?))
+        |> where([p], not p.mature_content or is_nil(p.mature_content))
+
+      hide_mature ->
+        # Hide only mature content
+        query
+        |> where([p], not p.mature_content or is_nil(p.mature_content))
+
+      true ->
+        # No filtering
+        query
     end
   end
 
@@ -777,13 +789,26 @@ defmodule Mosslet.Timeline do
 
   defp filter_by_muted_keywords_bookmark(query, _muted_keywords), do: query
 
+  # Bookmark-specific content warning filter (updated to match main filter logic)
   defp filter_by_content_warnings_bookmark(query, cw_settings) do
     hide_all = Map.get(cw_settings || %{}, :hide_all, false)
+    hide_mature = Map.get(cw_settings || %{}, :hide_mature, false)
 
-    if hide_all do
-      where(query, [b, p], not p.content_warning? or is_nil(p.content_warning?))
-    else
-      query
+    cond do
+      hide_all ->
+        # Hide all content warnings AND mature content
+        query
+        |> where([b, p], not p.content_warning? or is_nil(p.content_warning?))
+        |> where([b, p], not p.mature_content or is_nil(p.mature_content))
+
+      hide_mature ->
+        # Hide only mature content
+        query
+        |> where([b, p], not p.mature_content or is_nil(p.mature_content))
+
+      true ->
+        # No filtering
+        query
     end
   end
 
