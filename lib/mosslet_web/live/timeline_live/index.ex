@@ -1524,6 +1524,11 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:selected_visibility_groups, [])
               |> assign(:selected_visibility_users, [])
               |> put_flash(:success, "Post created successfully")
+              # CRITICAL FIX: Invalidate cache immediately after post creation
+              # This ensures fresh timeline data when push_patch triggers handle_params
+              |> tap(fn _socket -> 
+                Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+              end)
               |> push_patch(to: socket.assigns.return_url)
 
             {:noreply, socket}
@@ -3967,11 +3972,36 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to map muted user IDs to user objects from the shared users list
   defp map_muted_users(muted_user_ids, post_shared_users) do
-    Enum.map(muted_user_ids, fn user_id ->
-      # If found in shared users, use that data
+    # CRITICAL FIX: Ensure we're working with actual user ID strings, not corrupted data
+    clean_user_ids = Enum.map(muted_user_ids, fn
+      # If it's already a string (correct format), use it
+      user_id when is_binary(user_id) -> user_id
+      
+      # If it's a map with user_id field, extract the user_id
+      %{user_id: user_id} when is_binary(user_id) -> user_id
+      
+      # If it's a corrupted nested map, try to find the user_id
+      %{user_id: %{user_id: user_id}} when is_binary(user_id) -> user_id
+      
+      # Last resort: try to extract id field
+      %{id: user_id} when is_binary(user_id) -> user_id
+      
+      # If we can't extract a valid user_id, skip this entry
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    
+    Enum.map(clean_user_ids, fn user_id ->
+      # If found in shared users, use that data but create consistent structure
       case Enum.find(post_shared_users, &(&1.user_id == user_id)) do
         user_obj when not is_nil(user_obj) ->
-          user_obj
+          # Create a consistent structure with actual IDs, not structs
+          %{
+            id: user_obj.user_id,
+            user_id: user_obj.user_id,  # Extract the actual user_id string
+            username: user_obj.username
+          }
 
         nil ->
           # If not found in shared users, create a minimal object with just the ID

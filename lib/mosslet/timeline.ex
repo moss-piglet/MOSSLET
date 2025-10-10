@@ -1010,16 +1010,19 @@ defmodule Mosslet.Timeline do
   def list_connection_posts(current_user, options \\ %{})
 
   def list_connection_posts(current_user, options) do
+    # Ensure options always include current user's content filter preferences
+    options_with_filters = ensure_filter_prefs(options, current_user)
+    
     # Try cache first (for first page only)
     posts =
-      if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
+      if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "connections") do
           {:hit, cached_data} ->
             Logger.debug("Connections timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_connection_posts_from_db(current_user, options)
+            posts = fetch_connection_posts_from_db(current_user, options_with_filters)
 
             timeline_data = %{
               posts: posts,
@@ -1031,11 +1034,78 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_connection_posts_from_db(current_user, options)
+        fetch_connection_posts_from_db(current_user, options_with_filters)
       end
 
     # Database filtering is already applied in fetch functions, no need for additional filtering
     posts
+  end
+
+  # Helper function to ensure options always include current user's content filter preferences
+  defp ensure_filter_prefs(options, current_user) do
+    if options[:filter_prefs] do
+      # Filter preferences already provided, use them
+      options
+    else
+      # No filter preferences provided, load them from the database
+      case get_user_timeline_preference(current_user) do
+        nil ->
+          # No preferences stored, use empty defaults but include the map structure
+          Map.put(options, :filter_prefs, %{
+            keywords: [],
+            muted_users: [],
+            content_warnings: %{hide_all: false, hide_mature: false},
+            hide_reposts: false
+          })
+        
+        prefs ->
+          # Use stored preferences (already decrypted by get_user_timeline_preference)
+          filter_prefs = %{
+            keywords: decrypt_filter_keywords(prefs, current_user) || [],
+            muted_users: decrypt_muted_users(prefs, current_user) || [],
+            content_warnings: %{
+              hide_all: prefs.hide_content_warnings || false,
+              hide_mature: prefs.hide_mature_content || false
+            },
+            hide_reposts: prefs.hide_reposts || false
+          }
+          Map.put(options, :filter_prefs, filter_prefs)
+      end
+    end
+  end
+
+  # Helper to decrypt filter keywords
+  defp decrypt_filter_keywords(prefs, current_user) do
+    if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
+      user_key = current_user.key
+      if user_key do
+        Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
+          Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, current_user, user_key)
+        end)
+        |> Enum.reject(&is_nil/1)
+      else
+        []
+      end
+    else
+      []
+    end
+  end
+
+  # Helper to decrypt muted users
+  defp decrypt_muted_users(prefs, current_user) do
+    if prefs.muted_users && length(prefs.muted_users) > 0 do
+      user_key = current_user.key
+      if user_key do
+        Enum.map(prefs.muted_users, fn encrypted_user_id ->
+          Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, current_user, user_key)
+        end)
+        |> Enum.reject(&is_nil/1)
+      else
+        []
+      end
+    else
+      []
+    end
   end
 
   defp fetch_connection_posts_from_db(current_user, options) do
