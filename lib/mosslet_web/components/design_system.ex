@@ -3888,7 +3888,7 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
-              :if={!@can_repost && @post.user_id == @current_user.id}
+              :if={!@can_repost && @post.user_id == @current_user.id && @post.allow_shares}
               icon="hero-arrow-path"
               id={"cannot-repost-button-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
@@ -3897,21 +3897,6 @@ defmodule MossletWeb.DesignSystem do
               phx-hook="TippyHook"
               class="cursor-not-allowed"
               data-tippy-content="You cannot repost your own post"
-              phx-click={nil}
-              phx-value-id={nil}
-              phx-value-body={nil}
-              phx-value-username={nil}
-            />
-            <.liquid_timeline_action
-              :if={!@can_repost && @post.user_id != @current_user.id}
-              icon="hero-arrow-path"
-              id={"cannot-repost-button-#{@post.id}"}
-              count={Map.get(@stats, :shares, 0)}
-              label="Share"
-              color="emerald"
-              phx-hook="TippyHook"
-              class="cursor-not-allowed"
-              data-tippy-content="Reposting not allowed"
               phx-click={nil}
               phx-value-id={nil}
               phx-value-body={nil}

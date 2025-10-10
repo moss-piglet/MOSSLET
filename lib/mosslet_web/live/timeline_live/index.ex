@@ -908,6 +908,7 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
       |> maybe_update_visibility_groups(post_params)
       |> maybe_update_visibility_users(post_params)
+      |> maybe_update_interaction_controls(post_params)
       |> assign(:post_form, to_form(changeset, action: :validate))
 
     {:noreply, socket}
@@ -1432,6 +1433,26 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
         |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
+        # Handle interaction controls - use stored values if not in form params
+        |> Map.put(
+          "allow_replies",
+          post_params["allow_replies"] || socket.assigns.allow_replies
+        )
+        |> Map.put(
+          "allow_shares",
+          post_params["allow_shares"] || socket.assigns.allow_shares
+        )
+        |> Map.put(
+          "allow_bookmarks",
+          post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
+        )
+        |> Map.put(
+          "is_ephemeral",
+          post_params["is_ephemeral"] || socket.assigns.is_ephemeral
+        )
+        |> Map.put("require_follow_to_reply", post_params["require_follow_to_reply"])
+        |> Map.put("mature_content", post_params["mature_content"])
+        |> Map.put("local_only", post_params["local_only"])
         # Handle visibility groups and users - use stored values if not in form params
         |> Map.put(
           "visibility_groups",
@@ -2705,6 +2726,27 @@ defmodule MossletWeb.TimelineLive.Index do
 
       _ ->
         socket
+    end
+  end
+
+  # Helper function to update interaction control assigns when form values are available
+  defp maybe_update_interaction_controls(socket, post_params) do
+    socket
+    |> maybe_update_assign(:allow_replies, post_params["allow_replies"])
+    |> maybe_update_assign(:allow_shares, post_params["allow_shares"])
+    |> maybe_update_assign(:allow_bookmarks, post_params["allow_bookmarks"])
+    |> maybe_update_assign(:is_ephemeral, post_params["is_ephemeral"])
+  end
+
+  # Helper to update an assign only if the value is present (not nil)
+  defp maybe_update_assign(socket, assign_key, value) do
+    case value do
+      nil -> socket
+      "true" -> assign(socket, assign_key, true)
+      "false" -> assign(socket, assign_key, false)
+      true -> assign(socket, assign_key, true)
+      false -> assign(socket, assign_key, false)
+      _ -> socket
     end
   end
 
