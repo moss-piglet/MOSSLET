@@ -24,6 +24,7 @@ defmodule Mosslet.Accounts do
   alias Mosslet.Groups.Group
   alias Mosslet.Memories.{Memory, Remark, UserMemory}
   alias Mosslet.Timeline.{Post, Reply, UserPost}
+  alias Mosslet.Timeline
   alias Mosslet.Logs
   ## Preloads
 
@@ -685,22 +686,94 @@ defmodule Mosslet.Accounts do
     end
   end
 
-  def update_user_connection_zen(uconn, attrs, _opts) do
+  def update_user_connection_zen(uconn, attrs, opts) do
+    current_user = Keyword.get(opts, :user) || uconn.user
+    key = Keyword.get(opts, :key)
+    new_zen_value = Map.get(attrs, :zen?, Map.get(attrs, "zen?"))
+
+    # Get the target user ID (the person being muted/unmuted)
+    target_user_id =
+      if uconn.user_id == current_user.id,
+        do: uconn.reverse_user_id,
+        else: uconn.user_id
+
     case Repo.transaction_on_primary(fn ->
-           uconn
-           |> UserConnection.zen_changeset(attrs)
-           |> Repo.update()
+           Ecto.Multi.new()
+           |> Ecto.Multi.update(:update_connection, fn _ ->
+             uconn
+             |> UserConnection.zen_changeset(attrs)
+           end)
+           |> Ecto.Multi.run(:update_timeline_prefs, fn _repo,
+                                                        %{update_connection: _updated_uconn} ->
+             if current_user && key do
+               # Get or create timeline preferences
+               timeline_prefs =
+                 Timeline.get_user_timeline_preference(current_user) ||
+                   %Timeline.UserTimelinePreference{user_id: current_user.id}
+
+               # Get current decrypted muted users
+               current_muted_users =
+                 if timeline_prefs.muted_users && length(timeline_prefs.muted_users) > 0 do
+                   Enum.map(timeline_prefs.muted_users, fn encrypted_user_id ->
+                     Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+                       encrypted_user_id,
+                       current_user,
+                       key
+                     )
+                   end)
+                   |> Enum.reject(&is_nil/1)
+                 else
+                   []
+                 end
+
+               # Update muted users list based on zen status
+               new_muted_users =
+                 if new_zen_value do
+                   # Muting - add target user if not already muted
+                   if target_user_id not in current_muted_users do
+                     [target_user_id | current_muted_users]
+                   else
+                     current_muted_users
+                   end
+                 else
+                   # Unmuting - remove target user
+                   List.delete(current_muted_users, target_user_id)
+                 end
+
+               # Encrypt the updated muted users list
+               encrypted_muted_users =
+                 Enum.map(new_muted_users, fn user_id ->
+                   Mosslet.Encrypted.Users.Utils.encrypt_user_data(user_id, current_user, key)
+                 end)
+
+               # Update timeline preferences
+               attrs = %{muted_users: encrypted_muted_users}
+               changeset = Timeline.UserTimelinePreference.changeset(timeline_prefs, attrs)
+
+               case timeline_prefs do
+                 %{id: nil} -> Repo.insert(changeset)
+                 _ -> Repo.update(changeset)
+               end
+             else
+               {:ok, :skipped}
+             end
+           end)
+           |> Repo.transaction_on_primary()
          end) do
-      {:ok, {:ok, uconn}} ->
+      {:ok, {:ok, %{update_connection: uconn, update_timeline_prefs: _}}} ->
         {:ok, uconn |> Repo.preload([:user, :connection])}
         |> broadcast(:uconn_updated)
 
-      {:ok, {:error, changeset}} ->
+      {:ok, {:error, :update_connection, changeset, _}} ->
         {:error, changeset}
 
+      {:ok, {:error, :update_timeline_prefs, reason, _}} ->
+        Logger.warning("Failed to update timeline preferences: #{inspect(reason)}")
+        {:error, "Failed to sync mute status with content filters"}
+
       rest ->
-        Logger.warning("Error updating user connection")
-        Logger.debug("Error updating user connection: #{inspect(rest)}")
+        Logger.warning("Error updating user connection zen status")
+        Logger.debug("Error updating user connection zen: #{inspect(rest)}")
         {:error, "error"}
     end
   end

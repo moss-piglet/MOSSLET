@@ -284,7 +284,7 @@ defmodule Mosslet.Timeline do
         where: up.user_id == ^user.id and p.user_id == ^user.id,
         distinct: p.id
       )
-      |> apply_database_filters(%{filter_prefs: filter_prefs})
+      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: user.id})
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -354,9 +354,10 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Gets the count of unread posts created BY the current user (for Home tab unread indicator).
+  Gets the count of unread posts created by the current user (for Home tab unread indicator).
+  Now applies content filters to ensure unread counts match filtered timeline display.
   """
-  def count_unread_user_own_posts(user) do
+  def count_unread_user_own_posts(user, filter_prefs \\ %{}) do
     query =
       from(p in Post,
         inner_join: up in UserPost,
@@ -367,7 +368,7 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users_posts(user.id)
+      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: user.id})
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -379,8 +380,9 @@ defmodule Mosslet.Timeline do
 
   @doc """
   Gets the count of unread bookmarked posts (for Bookmarks tab unread indicator).
+  Now applies content filters to ensure unread counts match filtered timeline display.
   """
-  def count_unread_bookmarked_posts(user) do
+  def count_unread_bookmarked_posts(user, filter_prefs \\ %{}) do
     query =
       from(p in Post,
         inner_join: b in Bookmark,
@@ -394,7 +396,10 @@ defmodule Mosslet.Timeline do
         where: upr.user_id == ^user.id,
         where: not upr.is_read? and is_nil(upr.read_at)
       )
-      |> filter_by_blocked_users_posts(user.id)
+      |> apply_bookmark_unread_database_filters(%{
+        filter_prefs: filter_prefs,
+        current_user_id: user.id
+      })
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -648,12 +653,33 @@ defmodule Mosslet.Timeline do
   end
 
   # Filters out posts from muted users.
-  defp filter_by_muted_users(query, muted_user_ids)
-       when is_list(muted_user_ids) and length(muted_user_ids) > 0 do
-    where(query, [p], p.user_id not in ^muted_user_ids)
+  # Handles both legacy format (list of user IDs) and hydrated format (list of user objects)
+  defp filter_by_muted_users(query, muted_users)
+       when is_list(muted_users) and length(muted_users) > 0 do
+    # Extract user IDs from the muted users list
+    user_ids = extract_user_ids_from_muted_users(muted_users)
+
+    case user_ids do
+      [] -> query
+      ids when is_list(ids) -> where(query, [p], p.user_id not in ^ids)
+    end
   end
 
-  defp filter_by_muted_users(query, _muted_user_ids), do: query
+  defp filter_by_muted_users(query, _muted_users), do: query
+
+  # Helper function to extract user IDs from muted users list
+  # Handles both legacy format (strings) and hydrated format (structs)
+  defp extract_user_ids_from_muted_users(muted_users) do
+    Enum.map(muted_users, fn
+      # Handle hydrated user objects
+      %{user_id: user_id} when is_binary(user_id) -> user_id
+      # Handle legacy user ID strings
+      user_id when is_binary(user_id) -> user_id
+      # Skip invalid entries
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
 
   # Filters out posts from blocked users.
   # This matches the same pattern as filter_by_muted_users but for UserBlock relationships.
@@ -743,8 +769,37 @@ defmodule Mosslet.Timeline do
   end
 
   # Helper function to apply database-level filters to bookmark queries
-  # Since bookmarks join with posts, we need to reference the Post table (p)
+  # For list_user_bookmarks with simple [b, p] join pattern
   defp apply_bookmark_database_filters(query, options) do
+    case options do
+      %{filter_prefs: filter_prefs, current_user_id: current_user_id}
+      when is_map(filter_prefs) and is_binary(current_user_id) ->
+        query
+        |> filter_by_muted_keywords_simple_bookmark(filter_prefs[:keywords] || [])
+        |> filter_by_content_warnings_simple_bookmark(filter_prefs[:content_warnings] || %{})
+        |> filter_by_muted_users_simple_bookmark(filter_prefs[:muted_users] || [])
+        |> filter_by_reposts_simple_bookmark(filter_prefs[:hide_reposts] || false)
+        |> filter_by_blocked_users_simple_bookmarks(current_user_id)
+
+      %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
+        query
+        |> filter_by_muted_keywords_simple_bookmark(filter_prefs[:keywords] || [])
+        |> filter_by_content_warnings_simple_bookmark(filter_prefs[:content_warnings] || %{})
+        |> filter_by_muted_users_simple_bookmark(filter_prefs[:muted_users] || [])
+        |> filter_by_reposts_simple_bookmark(filter_prefs[:hide_reposts] || false)
+
+      %{current_user_id: current_user_id} when is_binary(current_user_id) ->
+        query
+        |> filter_by_blocked_users_simple_bookmarks(current_user_id)
+
+      _ ->
+        query
+    end
+  end
+
+  # Helper function to apply database-level filters to bookmark unread count queries
+  # For count_unread_bookmarked_posts with complex [p, b, up, upr] join pattern
+  defp apply_bookmark_unread_database_filters(query, options) do
     case options do
       %{filter_prefs: filter_prefs, current_user_id: current_user_id}
       when is_map(filter_prefs) and is_binary(current_user_id) ->
@@ -771,7 +826,83 @@ defmodule Mosslet.Timeline do
     end
   end
 
-  # Bookmark-specific filter functions that reference the Post table (p1)
+  # Simple bookmark filters for [b, p] join pattern used in list_user_bookmarks
+  defp filter_by_muted_keywords_simple_bookmark(query, muted_keywords)
+       when is_list(muted_keywords) and length(muted_keywords) > 0 do
+    Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
+      muted_hash = String.downcase(muted_keyword)
+
+      where(
+        acc_query,
+        # Simple join: [b, p] = [Bookmark, Post]
+        [b, p],
+        is_nil(p.content_warning_category_hash) or
+          p.content_warning_category_hash != ^muted_hash
+      )
+    end)
+  end
+
+  defp filter_by_muted_keywords_simple_bookmark(query, _muted_keywords), do: query
+
+  defp filter_by_content_warnings_simple_bookmark(query, cw_settings) do
+    hide_all = Map.get(cw_settings || %{}, :hide_all, false)
+    hide_mature = Map.get(cw_settings || %{}, :hide_mature, false)
+
+    cond do
+      hide_all ->
+        query
+        |> where([b, p], not p.content_warning? or is_nil(p.content_warning?))
+        |> where([b, p], not p.mature_content or is_nil(p.mature_content))
+
+      hide_mature ->
+        query
+        |> where([b, p], not p.mature_content or is_nil(p.mature_content))
+
+      true ->
+        query
+    end
+  end
+
+  defp filter_by_muted_users_simple_bookmark(query, muted_users)
+       when is_list(muted_users) and length(muted_users) > 0 do
+    user_ids = extract_user_ids_from_muted_users(muted_users)
+
+    case user_ids do
+      [] -> query
+      ids when is_list(ids) -> where(query, [b, p], p.user_id not in ^ids)
+    end
+  end
+
+  defp filter_by_muted_users_simple_bookmark(query, _muted_users), do: query
+
+  defp filter_by_reposts_simple_bookmark(query, true) do
+    where(query, [b, p], not p.repost or is_nil(p.repost))
+  end
+
+  defp filter_by_reposts_simple_bookmark(query, _hide_reposts), do: query
+
+  defp filter_by_blocked_users_simple_bookmarks(query, current_user_id)
+       when is_binary(current_user_id) do
+    blocked_by_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocker_id == ^current_user_id and ub.block_type in [:full, :posts_only],
+        select: ub.blocked_id
+      )
+
+    blocked_me_subquery =
+      from(ub in UserBlock,
+        where: ub.blocked_id == ^current_user_id and ub.block_type in [:full, :posts_only],
+        select: ub.blocker_id
+      )
+
+    query
+    |> where([b, p], p.user_id not in subquery(blocked_by_me_subquery))
+    |> where([b, p], p.user_id not in subquery(blocked_me_subquery))
+  end
+
+  defp filter_by_blocked_users_simple_bookmarks(query, _current_user_id), do: query
+
+  # Bookmark-specific filter functions that reference the correct table order: [p, b, up, upr]
   defp filter_by_muted_keywords_bookmark(query, muted_keywords)
        when is_list(muted_keywords) and length(muted_keywords) > 0 do
     Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
@@ -779,8 +910,8 @@ defmodule Mosslet.Timeline do
 
       where(
         acc_query,
-        # b = bookmark, p = post (from the join)
-        [b, p],
+        # Table order: [p, b, up, upr] = [Post, Bookmark, UserPost, UserPostReceipt]
+        [p, b, up, upr],
         is_nil(p.content_warning_category_hash) or
           p.content_warning_category_hash != ^muted_hash
       )
@@ -798,13 +929,13 @@ defmodule Mosslet.Timeline do
       hide_all ->
         # Hide all content warnings AND mature content
         query
-        |> where([b, p], not p.content_warning? or is_nil(p.content_warning?))
-        |> where([b, p], not p.mature_content or is_nil(p.mature_content))
+        |> where([p, b, up, upr], not p.content_warning? or is_nil(p.content_warning?))
+        |> where([p, b, up, upr], not p.mature_content or is_nil(p.mature_content))
 
       hide_mature ->
         # Hide only mature content
         query
-        |> where([b, p], not p.mature_content or is_nil(p.mature_content))
+        |> where([p, b, up, upr], not p.mature_content or is_nil(p.mature_content))
 
       true ->
         # No filtering
@@ -812,15 +943,20 @@ defmodule Mosslet.Timeline do
     end
   end
 
-  defp filter_by_muted_users_bookmark(query, muted_user_ids)
-       when is_list(muted_user_ids) and length(muted_user_ids) > 0 do
-    where(query, [b, p], p.user_id not in ^muted_user_ids)
+  defp filter_by_muted_users_bookmark(query, muted_users)
+       when is_list(muted_users) and length(muted_users) > 0 do
+    user_ids = extract_user_ids_from_muted_users(muted_users)
+
+    case user_ids do
+      [] -> query
+      ids when is_list(ids) -> where(query, [p, b, up, upr], p.user_id not in ^ids)
+    end
   end
 
-  defp filter_by_muted_users_bookmark(query, _muted_user_ids), do: query
+  defp filter_by_muted_users_bookmark(query, _muted_users), do: query
 
   defp filter_by_reposts_bookmark(query, true) do
-    where(query, [b, p], not p.repost or is_nil(p.repost))
+    where(query, [p, b, up, upr], not p.repost or is_nil(p.repost))
   end
 
   defp filter_by_reposts_bookmark(query, _hide_reposts), do: query
@@ -843,9 +979,11 @@ defmodule Mosslet.Timeline do
       )
 
     query
-    |> where([b, p], p.user_id not in subquery(blocked_by_me_subquery))
-    |> where([b, p], p.user_id not in subquery(blocked_me_subquery))
+    |> where([p, b, up, upr], p.user_id not in subquery(blocked_by_me_subquery))
+    |> where([p, b, up, upr], p.user_id not in subquery(blocked_me_subquery))
   end
+
+  defp filter_by_blocked_users_bookmarks(query, _current_user_id), do: query
 
   @doc """
   Returns the list of public posts.
@@ -945,10 +1083,10 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Counts unread posts FROM connected users for the Connections tab.
-  This matches exactly with list_connection_posts/2 but only counts unread ones.
+  Gets the count of unread connection posts (for Connections tab unread indicator).
+  Now applies content filters to ensure unread counts match filtered timeline display.
   """
-  def count_unread_connection_posts(current_user) do
+  def count_unread_connection_posts(current_user, filter_prefs \\ %{}) do
     connection_user_ids =
       Accounts.get_all_confirmed_user_connections(current_user.id)
       |> Enum.map(& &1.reverse_user_id)
@@ -969,7 +1107,7 @@ defmodule Mosslet.Timeline do
           where: upr.user_id == ^current_user.id,
           where: not upr.is_read? and is_nil(upr.read_at)
         )
-        |> filter_by_blocked_users_posts(current_user.id)
+        |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
 
       count = Repo.aggregate(query, :count, :id)
 
@@ -1073,9 +1211,10 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Counts unread group posts for the current user where visibility is :specific_groups.
+  Gets the count of unread group posts (for Groups tab unread indicator).
+  Now applies content filters to ensure unread counts match filtered timeline display.
   """
-  def count_unread_group_posts(current_user) do
+  def count_unread_group_posts(current_user, filter_prefs \\ %{}) do
     query =
       Post
       |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
@@ -1088,7 +1227,7 @@ defmodule Mosslet.Timeline do
       # Only count posts that were shared WITH the current user (not created BY them)
       |> where([p], p.user_id != ^current_user.id)
       |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
-      |> filter_by_blocked_users_posts(current_user.id)
+      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
 
     count = Repo.aggregate(query, :count, :id)
 
@@ -1194,9 +1333,10 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
-  Counts unread public posts for discover timeline.
+  Gets the count of unread discover posts (for Discover tab unread indicator).
+  Now applies content filters to ensure unread counts match filtered timeline display.
   """
-  def count_unread_discover_posts(current_user) do
+  def count_unread_discover_posts(current_user, filter_prefs \\ %{}) do
     from(p in Post,
       inner_join: up in UserPost,
       on: up.post_id == p.id,
@@ -1205,7 +1345,7 @@ defmodule Mosslet.Timeline do
       where: p.visibility == :public,
       where: not upr.is_read?
     )
-    |> filter_by_blocked_users_posts(current_user.id)
+    |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
     |> Repo.aggregate(:count, :id)
   end
 

@@ -237,6 +237,14 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:post_count, Timeline.timeline_post_count(current_user, options))
       |> assign(:options, options)
       |> assign(:return_url, url)
+
+    # Hydrate content filters with post_shared_users now that both are available
+    hydrated_content_filters =
+      hydrate_content_filters(socket.assigns.content_filters, socket.assigns.post_shared_users)
+
+    socket =
+      socket
+      |> assign(:content_filters, hydrated_content_filters)
       |> assign(:filter, filter)
       |> assign(:show_content_filter, false)
       |> assign_keyword_filter_form()
@@ -2812,10 +2820,13 @@ defmodule MossletWeb.TimelineLive.Index do
         true
       end
 
-    # Check muted users
+    # Check muted users - handle both legacy format (user IDs) and hydrated format (user objects)
     muted_users_pass =
       if content_filters[:muted_users] && length(content_filters[:muted_users]) > 0 do
-        post.user_id not in content_filters[:muted_users]
+        muted_user_ids =
+          extract_user_ids_from_muted_users_content_filter(content_filters[:muted_users])
+
+        post.user_id not in muted_user_ids
       else
         true
       end
@@ -3396,32 +3407,21 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to calculate unread counts for all tabs
-  defp calculate_unread_counts(current_user, _options) do
-    # Get unread posts for the current user
-    unread_posts = Timeline.unread_posts(current_user)
+  defp calculate_unread_counts(current_user, options) do
+    # Get content filter preferences from options
+    content_filter_prefs = options[:content_filter_prefs] || %{}
 
     %{
       # Home tab: only show unread posts from the current user (since home only shows user's own posts)
-      home: Timeline.count_unread_user_own_posts(current_user),
+      home: Timeline.count_unread_user_own_posts(current_user, content_filter_prefs),
       # Connections tab: only show unread posts from connected users (excluding current user)
-      connections: Timeline.count_unread_connection_posts(current_user),
+      connections: Timeline.count_unread_connection_posts(current_user, content_filter_prefs),
       # Groups tab: only show unread posts with specific_groups visibility
-      groups: Timeline.count_unread_group_posts(current_user),
+      groups: Timeline.count_unread_group_posts(current_user, content_filter_prefs),
       # Discover tab: only show unread public posts
-      discover: Timeline.count_unread_discover_posts(current_user),
+      discover: Timeline.count_unread_discover_posts(current_user, content_filter_prefs),
       # Bookmarks tab: only show unread bookmarked posts
-      bookmarks:
-        case Timeline.list_user_bookmarks(current_user) do
-          bookmarks when is_list(bookmarks) ->
-            user_bookmarks =
-              bookmarks
-              |> Enum.map(fn bookmark -> bookmark end)
-              |> Enum.filter(&(&1 != nil))
-
-            Enum.count(user_bookmarks, fn post ->
-              Enum.any?(unread_posts, fn unread_post -> unread_post.id == post.id end)
-            end)
-        end
+      bookmarks: Timeline.count_unread_bookmarked_posts(current_user, content_filter_prefs)
     }
   end
 
@@ -3833,13 +3833,15 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to check if user has active content filters
+  # Helper function to check if user has active content filters
   defp has_active_filters?(filters) do
     keywords_active = length(filters.keywords || []) > 0
     cw_active = Map.get(filters.content_warnings || %{}, :hide_all, false)
+    mature_active = Map.get(filters.content_warnings || %{}, :hide_mature, false)
     users_active = length(filters.muted_users || []) > 0
     reposts_active = Map.get(filters, :hide_reposts, false)
 
-    keywords_active || cw_active || users_active || reposts_active
+    keywords_active || cw_active || mature_active || users_active || reposts_active
   end
 
   # Helper function to refresh timeline with new filters
@@ -3847,13 +3849,19 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
+    # CRITICAL: Invalidate timeline cache when filters change
+    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
     # Reload and decrypt content filters to get fresh state
     # Refresh content filters in socket assigns
     fresh_filters = load_and_decrypt_content_filters(current_user, key)
 
+    # Hydrate the fresh filters with post_shared_users
+    hydrated_filters = hydrate_content_filters(fresh_filters, socket.assigns.post_shared_users)
+
     socket =
       socket
-      |> assign(:content_filters, fresh_filters)
+      |> assign(:content_filters, hydrated_filters)
 
     socket =
       socket
@@ -3868,7 +3876,8 @@ defmodule MossletWeb.TimelineLive.Index do
     reset_options =
       options
       |> Map.put(:post_page, 1)
-      |> Map.put(:filter_prefs, fresh_filters)
+      # Use hydrated filters instead of fresh_filters
+      |> Map.put(:filter_prefs, hydrated_filters)
 
     posts =
       case current_tab do
@@ -3970,6 +3979,44 @@ defmodule MossletWeb.TimelineLive.Index do
           raw_preferences: nil
         }
     end
+  end
+
+  # Helper function to extract user IDs from muted users list for content filtering
+  # Handles both legacy format (strings) and hydrated format (structs)
+  defp extract_user_ids_from_muted_users_content_filter(muted_users) do
+    Enum.map(muted_users, fn
+      # Handle hydrated user objects
+      %{user_id: user_id} when is_binary(user_id) -> user_id
+      # Handle legacy user ID strings
+      user_id when is_binary(user_id) -> user_id
+      # Skip invalid entries
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  # Helper function to hydrate content filters with user objects
+  defp hydrate_content_filters(content_filters, post_shared_users) do
+    # Hydrate muted_users from IDs to user objects
+    hydrated_muted_users = map_muted_users(content_filters.muted_users, post_shared_users)
+
+    Map.put(content_filters, :muted_users, hydrated_muted_users)
+  end
+
+  # Helper function to map muted user IDs to user objects from the shared users list
+  defp map_muted_users(muted_user_ids, post_shared_users) do
+    Enum.map(muted_user_ids, fn user_id ->
+      # If found in shared users, use that data
+      case Enum.find(post_shared_users, &(&1.user_id == user_id)) do
+        user_obj when not is_nil(user_obj) ->
+          user_obj
+
+        nil ->
+          # If not found in shared users, create a minimal object with just the ID
+          # This handles cases where muted users are not in the user's connections
+          %{id: user_id, user_id: user_id, username: "[Unknown User]"}
+      end
+    end)
   end
 
   # Helper function to assign keyword filter form

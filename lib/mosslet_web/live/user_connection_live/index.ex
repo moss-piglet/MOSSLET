@@ -579,13 +579,22 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
   @impl true
   def handle_event("toggle_mute", %{"id" => connection_id}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
     case Accounts.get_user_connection!(connection_id) do
       connection ->
         # Toggle the zen? field
         new_zen_value = !connection.zen?
 
-        case Accounts.update_user_connection_zen(connection, %{zen?: new_zen_value}, []) do
+        case Accounts.update_user_connection_zen(connection, %{zen?: new_zen_value},
+               user: current_user,
+               key: key
+             ) do
           {:ok, updated_connection} ->
+            # CRITICAL: Invalidate timeline cache when zen status changes
+            Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
             # Update the stream
             info = if(new_zen_value, do: "User muted", else: "User unmuted")
 
