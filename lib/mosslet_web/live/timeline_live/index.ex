@@ -94,6 +94,11 @@ defmodule MossletWeb.TimelineLive.Index do
       # Store selected groups/users to preserve when privacy controls are collapsed
       |> assign(:selected_visibility_groups, [])
       |> assign(:selected_visibility_users, [])
+      # Load and cache content filters once in mount
+      |> assign(:content_filters, load_and_decrypt_content_filters(current_user, key))
+      # Cache timeline counts to avoid repeated DB queries
+      |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
+      |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
       # Moderation modal states
       |> assign(:show_report_modal, false)
       |> assign(:report_post_id, nil)
@@ -168,7 +173,8 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns[:active_tab] || "home"
 
     # Load posts for the current active tab with content filtering applied in Timeline context
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns (loaded in mount)
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
 
     posts =
@@ -204,10 +210,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
     post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
 
-    # Calculate timeline counts for tabs using the new helper function
+    # Calculate timeline counts using cached content filters and smart updates
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
-    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
-    unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
     # Track pagination state for load more functionality
     loaded_posts_count = length(posts)
@@ -229,11 +234,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:options, options)
       |> assign(:return_url, url)
       |> assign(:filter, filter)
-      |> assign(:content_filters, load_and_decrypt_content_filters(current_user, key))
       |> assign(:show_content_filter, false)
       |> assign_keyword_filter_form()
-      |> assign(:timeline_counts, timeline_counts)
-      |> assign(:unread_counts, unread_counts)
+      |> maybe_update_timeline_counts(current_user, options_with_filters, true)
       |> assign(:loaded_posts_count, loaded_posts_count)
       |> assign(:current_page, current_page)
       |> assign(:load_more_loading, false)
@@ -677,13 +680,13 @@ defmodule MossletWeb.TimelineLive.Index do
     # When a user is blocked, refresh the timeline to filter out their content
     current_user = socket.assigns.current_user
     options = socket.assigns.options
-    key = socket.assigns.key
 
     # Invalidate timeline cache to ensure fresh data without blocked user's content
     Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
     # Refresh timeline with new filtering applied
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
 
     current_tab = socket.assigns.active_tab || "home"
@@ -707,14 +710,10 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
-    # Update timeline counts to reflect the block
-    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
-    unread_counts = calculate_unread_counts(current_user, options_with_filters)
-
+    # Update timeline counts to reflect the block using cached content filters
     socket =
       socket
-      |> assign(:timeline_counts, timeline_counts)
-      |> assign(:unread_counts, unread_counts)
+      |> maybe_update_timeline_counts(current_user, options_with_filters)
       |> assign(:loaded_posts_count, length(posts))
       |> assign(:current_page, 1)
       |> stream(:posts, posts, reset: true)
@@ -730,13 +729,13 @@ defmodule MossletWeb.TimelineLive.Index do
     # When a user is unblocked, refresh the timeline to show their content again
     current_user = socket.assigns.current_user
     options = socket.assigns.options
-    key = socket.assigns.key
 
     # Invalidate timeline cache to ensure fresh data with unblocked user's content
     Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
     # Refresh timeline with new filtering applied
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
 
     current_tab = socket.assigns.active_tab || "home"
@@ -783,13 +782,13 @@ defmodule MossletWeb.TimelineLive.Index do
     # When a block is updated (e.g., changing block type), refresh the timeline
     current_user = socket.assigns.current_user
     options = socket.assigns.options
-    key = socket.assigns.key
 
     # Invalidate timeline cache to ensure fresh data with updated blocking rules
     Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
     # Refresh timeline with updated filtering applied
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
 
     current_tab = socket.assigns.active_tab || "home"
@@ -1237,8 +1236,8 @@ defmodule MossletWeb.TimelineLive.Index do
                 updated_post = Timeline.get_post!(post_id)
 
                 # Recalculate unread counts after toggling read status
-                key = socket.assigns.key
-                content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+                # Use cached content filters from socket assigns
+                content_filter_prefs = socket.assigns.content_filters
 
                 options_with_filters =
                   Map.put(options, :content_filter_prefs, content_filter_prefs)
@@ -1277,8 +1276,8 @@ defmodule MossletWeb.TimelineLive.Index do
               |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
             # Recalculate unread counts after toggling read status
-            key = socket.assigns.key
-            content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+            # Use cached content filters from socket assigns
+            content_filter_prefs = socket.assigns.content_filters
             options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
             unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
@@ -1308,8 +1307,8 @@ defmodule MossletWeb.TimelineLive.Index do
               |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
             # Recalculate unread counts after toggling read status
-            key = socket.assigns.key
-            content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+            # Use cached content filters from socket assigns
+            content_filter_prefs = socket.assigns.content_filters
             options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
             unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
@@ -1776,9 +1775,9 @@ defmodule MossletWeb.TimelineLive.Index do
     next_page = current_page + 1
     updated_options = Map.put(current_options, :post_page, next_page)
 
-    # CRITICAL FIX: Always use fresh filter preferences for load more
-    key = socket.assigns.key
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Always use fresh filter preferences for load more
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     updated_options_with_filters = Map.put(updated_options, :filter_prefs, content_filter_prefs)
 
     new_posts =
@@ -1834,8 +1833,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put(:post_page, 1)
 
     # Load posts for the specific tab with content filtering applied in Timeline context
-    key = socket.assigns.key
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
 
     posts =
@@ -1903,8 +1902,8 @@ defmodule MossletWeb.TimelineLive.Index do
           case Timeline.delete_bookmark(bookmark, current_user) do
             {:ok, _} ->
               # Recalculate bookmark count
-              key = socket.assigns.key
-              content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+              # Use cached content filters from socket assigns
+              content_filter_prefs = socket.assigns.content_filters
               options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
               timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
 
@@ -1934,8 +1933,8 @@ defmodule MossletWeb.TimelineLive.Index do
           case Timeline.create_bookmark(current_user, post, %{}) do
             {:ok, _bookmark} ->
               # Recalculate bookmark count
-              key = socket.assigns.key
-              content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+              # Use cached content filters from socket assigns
+              content_filter_prefs = socket.assigns.content_filters
               options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
               timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
 
@@ -3216,8 +3215,8 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper function to recalculate counts after a new post arrives
   defp recalculate_counts_after_new_post(socket, current_user, options) do
     # Include filter preferences for accurate counts
-    key = socket.assigns.key
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
@@ -3261,8 +3260,8 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper function to add subtle tab indicators for new posts in other tabs
   defp add_subtle_tab_indicator(socket, current_user, options) do
     # Update unread counts to show there are new posts in other tabs
-    key = socket.assigns.key
-    content_filter_prefs = load_and_decrypt_content_filters(current_user, key)
+    # Use cached content filters from socket assigns
+    content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
     assign(socket, :unread_counts, unread_counts)
@@ -3278,6 +3277,27 @@ defmodule MossletWeb.TimelineLive.Index do
     # This ensures the "load more" button reflects actual available posts after filtering
     filtered_total_posts = Map.get(timeline_counts, String.to_existing_atom(active_tab), 0)
     max(0, filtered_total_posts - loaded_posts_count)
+  end
+
+  # Helper function to update timeline counts only when they actually change
+  defp maybe_update_timeline_counts(socket, current_user, options_with_filters, force \\ false) do
+    if force || should_recalculate_counts?(socket) do
+      timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+      unread_counts = calculate_unread_counts(current_user, options_with_filters)
+
+      socket
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+    else
+      socket
+    end
+  end
+
+  # Determine if timeline counts need recalculation
+  defp should_recalculate_counts?(socket) do
+    # Only recalculate if counts are empty/missing or if it's been a while
+    counts = socket.assigns[:timeline_counts] || %{}
+    Map.values(counts) |> Enum.all?(&(&1 == 0))
   end
 
   # Helper function to calculate timeline counts for all tabs
@@ -3753,11 +3773,15 @@ defmodule MossletWeb.TimelineLive.Index do
     key = socket.assigns.key
 
     # Reload and decrypt content filters to get fresh state
+    # Refresh content filters in socket assigns
     fresh_filters = load_and_decrypt_content_filters(current_user, key)
 
     socket =
       socket
       |> assign(:content_filters, fresh_filters)
+
+    socket =
+      socket
       |> assign_keyword_filter_form()
 
     # Refresh current timeline posts with new filters applied

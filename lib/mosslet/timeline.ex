@@ -2923,7 +2923,7 @@ defmodule Mosslet.Timeline do
           # For specific_groups and specific_users, broadcast to users in shared_users list AND the sender
           target_user_ids = Enum.map(post.shared_users, & &1.user_id)
           all_recipient_ids = [post.user_id | target_user_ids] |> Enum.uniq()
-          
+
           Enum.each(all_recipient_ids, fn user_id ->
             Phoenix.PubSub.broadcast(
               Mosslet.PubSub,
@@ -2967,7 +2967,7 @@ defmodule Mosslet.Timeline do
           # For specific_groups and specific_users, broadcast to users in shared_users list AND the post author
           target_user_ids = Enum.map(post.shared_users, & &1.user_id)
           all_recipient_ids = [post.user_id | target_user_ids] |> Enum.uniq()
-          
+
           Enum.each(all_recipient_ids, fn user_id ->
             Phoenix.PubSub.broadcast(
               Mosslet.PubSub,
