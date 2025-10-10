@@ -71,6 +71,10 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:allow_shares, initial_shares)
       |> assign(:allow_bookmarks, initial_bookmarks)
       |> assign(:is_ephemeral, initial_ephemeral)
+      # Content warning state preservation
+      |> assign(:mature_content, false)
+      |> assign(:require_follow_to_reply, false)
+      |> assign(:local_only, false)
       |> assign(:post_loading_count, 0)
       |> assign(:post_loading, false)
       |> assign(:post_loading_done, false)
@@ -879,10 +883,16 @@ defmodule MossletWeb.TimelineLive.Index do
         "allow_bookmarks",
         post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
       )
-      |> Map.put_new("require_follow_to_reply", post_params["require_follow_to_reply"])
-      |> Map.put_new("mature_content", post_params["mature_content"])
+      |> Map.put_new(
+        "require_follow_to_reply",
+        post_params["require_follow_to_reply"] || socket.assigns.require_follow_to_reply
+      )
+      |> Map.put_new(
+        "mature_content",
+        post_params["mature_content"] || socket.assigns.mature_content
+      )
       |> Map.put_new("is_ephemeral", post_params["is_ephemeral"] || socket.assigns.is_ephemeral)
-      |> Map.put_new("local_only", post_params["local_only"])
+      |> Map.put_new("local_only", post_params["local_only"] || socket.assigns.local_only)
       # Handle visibility groups and users - preserve from socket if not in form params
       |> Map.put(
         "visibility_groups",
@@ -1449,9 +1459,15 @@ defmodule MossletWeb.TimelineLive.Index do
           "is_ephemeral",
           post_params["is_ephemeral"] || socket.assigns.is_ephemeral
         )
-        |> Map.put("require_follow_to_reply", post_params["require_follow_to_reply"])
-        |> Map.put("mature_content", post_params["mature_content"])
-        |> Map.put("local_only", post_params["local_only"])
+        |> Map.put(
+          "require_follow_to_reply",
+          post_params["require_follow_to_reply"] || socket.assigns.require_follow_to_reply
+        )
+        |> Map.put(
+          "mature_content",
+          post_params["mature_content"] || socket.assigns.mature_content
+        )
+        |> Map.put("local_only", post_params["local_only"] || socket.assigns.local_only)
         # Handle visibility groups and users - use stored values if not in form params
         |> Map.put(
           "visibility_groups",
@@ -2735,6 +2751,9 @@ defmodule MossletWeb.TimelineLive.Index do
     |> maybe_update_assign(:allow_shares, post_params["allow_shares"])
     |> maybe_update_assign(:allow_bookmarks, post_params["allow_bookmarks"])
     |> maybe_update_assign(:is_ephemeral, post_params["is_ephemeral"])
+    |> maybe_update_assign(:mature_content, post_params["mature_content"])
+    |> maybe_update_assign(:require_follow_to_reply, post_params["require_follow_to_reply"])
+    |> maybe_update_assign(:local_only, post_params["local_only"])
   end
 
   # Helper to update an assign only if the value is present (not nil)
