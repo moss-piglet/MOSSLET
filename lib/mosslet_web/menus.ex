@@ -9,7 +9,7 @@ defmodule MossletWeb.Menus do
   alias Mosslet.Billing.Customers
 
   # Helper function to check if user is admin
-  defp is_admin?(current_user) do
+  defp admin?(current_user) do
     current_user.is_admin? && current_user.confirmed_at
   end
 
@@ -44,7 +44,7 @@ defmodule MossletWeb.Menus do
   def main_menu_items(current_user) do
     cond do
       # Admin users get admin-only menu
-      is_admin?(current_user) ->
+      admin?(current_user) ->
         build_menu([:admin_dashboard, :admin_moderation, :admin_settings], current_user)
 
       # Regular users get normal app menu

@@ -1014,9 +1014,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
         # Handle validation errors
         error_message =
           if is_struct(changeset, Ecto.Changeset) do
-            changeset.errors
-            |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
-            |> Enum.join(", ")
+            Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
           else
             "Unknown error occurred"
           end

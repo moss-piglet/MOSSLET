@@ -3535,7 +3535,7 @@ defmodule MossletWeb.TimelineLive.Index do
   defp process_uploaded_photos(socket, current_user, key) do
     upload_entries = socket.assigns.uploads.photos.entries
 
-    if length(upload_entries) == 0 do
+    if upload_entries == [] do
       {[], nil}
     else
       # Get or generate the trix_key for encryption (same as posts use)
@@ -3792,9 +3792,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
     cond do
       diff_seconds < 60 -> "#{diff_seconds}s ago"
-      diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m ago"
-      diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h ago"
-      diff_seconds < 604_800 -> "#{div(diff_seconds, 86400)}d ago"
+      diff_seconds < 3_600 -> "#{div(diff_seconds, 60)}m ago"
+      diff_seconds < 86_400 -> "#{div(diff_seconds, 3_600)}h ago"
+      diff_seconds < 604_800 -> "#{div(diff_seconds, 86_400)}d ago"
       true -> "#{div(diff_seconds, 604_800)}w ago"
     end
   end

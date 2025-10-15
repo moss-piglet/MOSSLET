@@ -5560,9 +5560,9 @@ defmodule MossletWeb.DesignSystem do
 
         cond do
           relative_time < 60 -> "now"
-          relative_time < 3600 -> "#{div(relative_time, 60)}m"
-          relative_time < 86400 -> "#{div(relative_time, 3600)}h"
-          relative_time < 2_592_000 -> "#{div(relative_time, 86400)}d"
+          relative_time < 3_600 -> "#{div(relative_time, 60)}m"
+          relative_time < 86_400 -> "#{div(relative_time, 3_600)}h"
+          relative_time < 2_592_000 -> "#{div(relative_time, 86_400)}d"
           true -> "#{div(relative_time, 2_592_000)}mo"
         end
 

@@ -949,9 +949,9 @@ defmodule MossletWeb.Helpers do
         # Return nil for expired posts
         diff_seconds <= 0 -> nil
         diff_seconds < 60 -> "#{diff_seconds}s"
-        diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m"
-        diff_seconds < 86400 -> "#{div(diff_seconds, 3600)}h"
-        true -> "#{div(diff_seconds, 86400)}d"
+        diff_seconds < 3_600 -> "#{div(diff_seconds, 60)}m"
+        diff_seconds < 86_400 -> "#{div(diff_seconds, 3_600)}h"
+        true -> "#{div(diff_seconds, 86_400)}d"
       end
     else
       nil
