@@ -375,18 +375,6 @@ defmodule MossletWeb.EditProfileLive do
     user = socket.assigns.current_user
 
     if Map.get(user.connection, :profile) do
-      # Fix the banner_image value in params - preserve current value unless it was intentionally changed
-      profile_params =
-        if params["_target"] != ["connection", "profile", "banner_image"] do
-          put_in(
-            profile_params,
-            ["profile", "banner_image"],
-            to_string(socket.assigns.banner_image)
-          )
-        else
-          profile_params
-        end
-
       profile_params =
         profile_params
         |> Map.put(
@@ -424,16 +412,6 @@ defmodule MossletWeb.EditProfileLive do
        |> assign(profile_about: corrected_profile_params["profile"]["about"])
        |> assign(profile_form: profile_form)}
     else
-      # Fix the banner_image value in params - preserve current value unless it was intentionally changed
-      if params["_target"] != ["connection", "profile", "banner_image"] do
-        profile_params =
-          put_in(
-            profile_params,
-            ["profile", "banner_image"],
-            to_string(socket.assigns.banner_image)
-          )
-      end
-
       profile_params =
         profile_params
         |> Map.put(
