@@ -11,7 +11,7 @@ defmodule MossletWeb.EditProfileLive do
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_user
     profile = Map.get(current_user.connection, :profile)
-    banner_image = if is_nil(profile), do: "", else: Map.get(profile, :banner_image)
+    banner_image = if is_nil(profile), do: :waves, else: Map.get(profile, :banner_image, :waves)
 
     socket =
       socket
@@ -196,10 +196,12 @@ defmodule MossletWeb.EditProfileLive do
                 </:title>
 
                 <div id="banner-image-select" class="space-y-4">
-                  <DesignSystem.liquid_select
+                  <.input
                     field={f_nested[:banner_image]}
+                    type="select"
                     label="Select your banner image"
                     options={Ecto.Enum.values(Connection.ConnectionProfile, :banner_image)}
+                    value={@banner_image}
                   />
 
                   <img
@@ -373,6 +375,18 @@ defmodule MossletWeb.EditProfileLive do
     user = socket.assigns.current_user
 
     if Map.get(user.connection, :profile) do
+      # Fix the banner_image value in params - preserve current value unless it was intentionally changed
+      profile_params =
+        if params["_target"] != ["connection", "profile", "banner_image"] do
+          put_in(
+            profile_params,
+            ["profile", "banner_image"],
+            to_string(socket.assigns.banner_image)
+          )
+        else
+          profile_params
+        end
+
       profile_params =
         profile_params
         |> Map.put(
@@ -384,18 +398,42 @@ defmodule MossletWeb.EditProfileLive do
           })
         )
 
+      # Create the changeset with the corrected banner_image value
+      corrected_profile_params =
+        if params["_target"] != ["connection", "profile", "banner_image"] do
+          put_in(
+            profile_params,
+            ["profile", "banner_image"],
+            to_string(socket.assigns.banner_image)
+          )
+        else
+          profile_params
+        end
+
       profile_form =
         socket.assigns.current_user.connection
-        |> Accounts.change_user_profile(profile_params)
+        |> Accounts.change_user_profile(corrected_profile_params)
         |> Map.put(:action, :validate)
         |> to_form()
 
       {:noreply,
        socket
-       |> assign(banner_image: banner_image_atoms(profile_params["profile"]["banner_image"]))
-       |> assign(profile_about: profile_params["profile"]["about"])
+       |> assign(
+         banner_image: corrected_profile_params["profile"]["banner_image"] |> banner_image_atoms()
+       )
+       |> assign(profile_about: corrected_profile_params["profile"]["about"])
        |> assign(profile_form: profile_form)}
     else
+      # Fix the banner_image value in params - preserve current value unless it was intentionally changed
+      if params["_target"] != ["connection", "profile", "banner_image"] do
+        profile_params =
+          put_in(
+            profile_params,
+            ["profile", "banner_image"],
+            to_string(socket.assigns.banner_image)
+          )
+      end
+
       profile_params =
         profile_params
         |> Map.put(
@@ -406,16 +444,30 @@ defmodule MossletWeb.EditProfileLive do
           })
         )
 
+      # Create the changeset with the corrected banner_image value
+      corrected_profile_params =
+        if params["_target"] != ["connection", "profile", "banner_image"] do
+          put_in(
+            profile_params,
+            ["profile", "banner_image"],
+            to_string(socket.assigns.banner_image)
+          )
+        else
+          profile_params
+        end
+
       profile_form =
         socket.assigns.current_user.connection
-        |> Accounts.change_user_profile(profile_params)
+        |> Accounts.change_user_profile(corrected_profile_params)
         |> Map.put(:action, :validate)
         |> to_form()
 
       {:noreply,
        socket
-       |> assign(banner_image: banner_image_atoms(profile_params["profile"]["banner_image"]))
-       |> assign(profile_about: profile_params["profile"]["about"])
+       |> assign(
+         banner_image: corrected_profile_params["profile"]["banner_image"] |> banner_image_atoms()
+       )
+       |> assign(profile_about: corrected_profile_params["profile"]["about"])
        |> assign(profile_form: profile_form)}
     end
   end
