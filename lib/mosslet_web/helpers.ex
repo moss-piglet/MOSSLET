@@ -141,18 +141,12 @@ defmodule MossletWeb.Helpers do
 
     case result do
       :failed_verification ->
-        Logger.info("Failed verification decrypting images from cloud in TimelineLive.Index")
-        Logger.warning("failed_verification decrypting images (atom)")
         nil
 
       "failed_verification" ->
-        Logger.info("Failed verification decrypting images from cloud in TimelineLive.Index")
-        Logger.warning("failed_verification decrypting images (string)")
         nil
 
       "did not work" ->
-        Logger.info("Did not work decrypting images from cloud in TimelineLive.Index")
-        Logger.warning("did not work decrypting images")
         nil
 
       image when is_binary(image) ->
@@ -1391,6 +1385,9 @@ defmodule MossletWeb.Helpers do
   shared memories, based on the `UserConnection%{:photos?}`.
 
   The user_id is the current_user's id.
+
+  DEPRECATED: This function has the same logic flaw as get_user_connection_from_shared_item.
+  Use can_download_photos_from_shared_item? instead for new code.
   """
   def check_if_user_can_download_shared_memory(memory_user_id, user_id) do
     uconns = Accounts.get_both_user_connections_between_users!(memory_user_id, user_id)
@@ -1399,6 +1396,25 @@ defmodule MossletWeb.Helpers do
     Enum.find_value(uconns, fn uconn ->
       uconn.reverse_user_id == user_id && uconn.photos? == true
     end)
+  end
+
+  @doc """
+  Checks if a user can download photos from a shared post/memory.
+
+  When user Dino views Isabella's post, this checks if Isabella has granted
+  photos? permission to Dino.
+
+  Args:
+    - item: The post/memory being viewed
+    - current_user: The user trying to download
+
+  Returns boolean indicating if download is allowed.
+  """
+  def can_download_photos_from_shared_item?(item, current_user) do
+    case Accounts.get_post_author_permissions_for_viewer(item, current_user) do
+      %{photos?: true} -> true
+      _ -> false
+    end
   end
 
   @doc """

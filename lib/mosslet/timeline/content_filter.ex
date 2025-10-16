@@ -147,21 +147,23 @@ defmodule Mosslet.Timeline.ContentFilter do
         preferences[:keywords]
       else
         # Preserve existing keywords, but decrypt them first since schema will re-encrypt
-        if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
-          user = opts[:user]
-          key = opts[:key]
+        case prefs.mute_keywords do
+          keywords when is_list(keywords) and length(keywords) > 0 ->
+            user = opts[:user]
+            key = opts[:key]
 
-          if user && key do
-            Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
-              Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, user, key)
-            end)
-            |> Enum.reject(&is_nil/1)
-          else
-            # If no user/key provided, return empty to avoid corruption
+            if user && key do
+              Enum.map(keywords, fn encrypted_keyword ->
+                Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, user, key)
+              end)
+              |> Enum.reject(&is_nil/1)
+            else
+              # If no user/key provided, return empty to avoid corruption
+              []
+            end
+
+          _ ->
             []
-          end
-        else
-          []
         end
       end
 

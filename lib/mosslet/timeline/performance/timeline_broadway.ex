@@ -90,8 +90,6 @@ defmodule Mosslet.Timeline.Performance.TimelineBroadway do
   end
 
   def handle_batch(:timeline_feeds, messages, _batch_info, _context) do
-    Logger.info("Processing batch of #{length(messages)} timeline feed updates")
-
     # Process timeline feeds in batch for efficiency
     messages
     |> Enum.group_by(fn message ->
@@ -112,8 +110,6 @@ defmodule Mosslet.Timeline.Performance.TimelineBroadway do
   end
 
   def handle_batch(:cache_updates, messages, _batch_info, _context) do
-    Logger.info("Processing batch of #{length(messages)} cache updates")
-
     # Process cache invalidations in batch
     cache_operations =
       Enum.map(messages, fn message ->

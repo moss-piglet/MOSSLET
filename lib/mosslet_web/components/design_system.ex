@@ -7612,6 +7612,200 @@ defmodule MossletWeb.DesignSystem do
     end
   end
 
+  @doc """
+  Image viewer modal for timeline photos with download functionality.
+
+  ## Examples
+
+      <.liquid_image_modal
+        id="timeline-images"
+        show={@show_images}
+        images={@current_images}
+        current_index={@current_image_index}
+        can_download={@can_download_images}
+        on_cancel={JS.push("close_image_modal")}
+      />
+  """
+  attr :id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :images, :list, default: []
+  attr :current_index, :integer, default: 0
+  attr :can_download, :boolean, default: false
+  attr :on_cancel, JS, default: %JS{}
+  attr :class, :any, default: ""
+
+  def liquid_image_modal(assigns) do
+    ~H"""
+    <.portal :if={@show} id={"#{@id}-portal"} target="body">
+      <div
+        id={@id}
+        phx-mounted={@show && liquid_show_modal(@id)}
+        phx-remove={liquid_hide_modal(@id)}
+        data-cancel={JS.exec(@on_cancel, "phx-remove")}
+        class="fixed top-0 left-0 w-screen h-screen z-[60] hidden"
+        style="position: fixed !important;"
+        data-modal-type="liquid-image-modal"
+      >
+        <%!-- Backdrop with darker overlay for image viewing --%>
+        <div
+          id={"#{@id}-bg"}
+          class={[
+            "fixed top-0 left-0 right-0 bottom-0 z-40 transition-all duration-300 ease-out",
+            "bg-black/90 backdrop-blur-sm"
+          ]}
+          aria-hidden="true"
+          style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;"
+        />
+
+        <%!-- Image modal container --%>
+        <div
+          class="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;"
+        >
+          <.focus_wrap
+            id={"#{@id}-container"}
+            phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+            phx-key="escape"
+            phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
+            class={[
+              "relative w-full max-w-6xl max-h-[95vh] flex flex-col",
+              "transform-gpu transition-all duration-300 ease-out",
+              "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95 hidden",
+              "rounded-xl overflow-hidden",
+              "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+              "border border-slate-200/60 dark:border-slate-700/60",
+              "shadow-2xl shadow-black/50",
+              @class
+            ]}
+          >
+            <%!-- Header with controls --%>
+            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50">
+              <div class="flex items-center space-x-3">
+                <.phx_icon name="hero-photo" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Photo {@current_index + 1} of {length(@images)}
+                </h3>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <%!-- Download button - only show if user has photos permission --%>
+                <.liquid_button
+                  :if={@can_download && length(@images) > 0}
+                  id={"download-photo-button-#{@id}"}
+                  size="sm"
+                  variant="ghost"
+                  color="emerald"
+                  icon="hero-arrow-down-tray"
+                  phx-click="download_timeline_image"
+                  phx-value-index={@current_index}
+                  data-tippy-content="Download photo"
+                  phx-hook="TippyHook"
+                >
+                  Download
+                </.liquid_button>
+
+                <%!-- Close button --%>
+                <.liquid_button
+                  id={"close-photo-modal-button-#{@id}"}
+                  size="sm"
+                  variant="ghost"
+                  color="rose"
+                  icon="hero-x-mark"
+                  phx-click={@on_cancel}
+                  data-tippy-content="Close"
+                  phx-hook="TippyHook"
+                >
+                  Close
+                </.liquid_button>
+              </div>
+            </div>
+
+            <%!-- Image container with proper viewport constraints --%>
+            <div class="relative flex-1 min-h-0 bg-slate-100 dark:bg-slate-900 overflow-hidden">
+              <div
+                :if={length(@images) == 0}
+                class="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400"
+              >
+                <div class="text-center">
+                  <.phx_icon name="hero-photo" class="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No images to display</p>
+                </div>
+              </div>
+
+              <div
+                :if={length(@images) > 0}
+                id={"photo-container-#{@id}-#{@current_index}"}
+                class="relative w-full h-full flex items-center justify-center p-4"
+                phx-hook="DisableContextMenu"
+                data-can-download={@can_download}
+              >
+                <img
+                  :if={Enum.at(@images, @current_index)}
+                  src={Enum.at(@images, @current_index)}
+                  alt={"Timeline image #{@current_index + 1}"}
+                  class="max-w-full max-h-full w-auto h-auto object-contain"
+                  loading="lazy"
+                  style="max-height: calc(95vh - 200px); max-width: calc(100vw);"
+                />
+
+                <%!-- Navigation arrows --%>
+                <button
+                  :if={length(@images) > 1 && @current_index > 0}
+                  id={"previous-photo-button-#{@id}"}
+                  phx-click="prev_timeline_image"
+                  class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110"
+                  data-tippy-content="Previous photo"
+                  phx-hook="TippyHook"
+                >
+                  <.phx_icon name="hero-chevron-left" class="h-6 w-6" />
+                </button>
+
+                <button
+                  :if={length(@images) > 1 && @current_index < length(@images) - 1}
+                  id={"next-photo-button-#{@id}"}
+                  phx-click="next_timeline_image"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110"
+                  data-tippy-content="Next photo"
+                  phx-hook="TippyHook"
+                >
+                  <.phx_icon name="hero-chevron-right" class="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <%!-- Footer with image dots navigation --%>
+            <div
+              :if={length(@images) > 1}
+              class="flex justify-center p-4 border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
+            >
+              <div class="flex space-x-2">
+                <button
+                  :for={{_img, index} <- Enum.with_index(@images)}
+                  id={"navigation-photo-button-#{@id}-#{index}"}
+                  phx-click="goto_timeline_image"
+                  phx-value-index={index}
+                  class={[
+                    "w-3 h-3 rounded-full transition-all duration-200 hover:scale-125",
+                    if(index == @current_index,
+                      do: "bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-800",
+                      else:
+                        "bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500"
+                    )
+                  ]}
+                  data-tippy-content={"Photo #{index + 1}"}
+                  phx-hook="TippyHook"
+                />
+              </div>
+            </div>
+          </.focus_wrap>
+        </div>
+      </div>
+    </.portal>
+    """
+  end
+
   # Badge classes with subtle background and matching text colors
   def get_group_badge_classes(color) do
     case color do

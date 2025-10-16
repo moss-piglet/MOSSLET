@@ -349,6 +349,27 @@ defmodule Mosslet.Accounts do
     |> Repo.one()
   end
 
+  @doc """
+  Gets the permission settings that the POST AUTHOR has given to the CURRENT USER.
+
+  When Dino views Isabella's post, this returns Isabella's user_connection settings
+  that define what permissions Isabella has granted to Dino.
+
+  This is the correct query for checking download permissions:
+  - Find Isabella's connection TO Dino
+  - Check if Isabella has enabled photos?: true for Dino
+  """
+  def get_post_author_permissions_for_viewer(item, current_user) do
+    UserConnection
+    |> join(:inner, [uc], c in Connection, on: uc.connection_id == c.id)
+    # Current user's connection
+    |> where([uc, c], c.user_id == ^current_user.id)
+    # Post author's user_connection
+    |> where([uc, c], uc.user_id == ^item.user_id)
+    |> preload([:connection, :user, :reverse_user])
+    |> Repo.one()
+  end
+
   def get_all_user_connections_from_shared_item(item, current_user) do
     Repo.all(
       from uc in UserConnection,
@@ -785,8 +806,22 @@ defmodule Mosslet.Accounts do
            |> Repo.update()
          end) do
       {:ok, {:ok, uconn}} ->
-        {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
+        updated_uconn = uconn |> Repo.preload([:user, :connection])
+
+        # Broadcast to both the user who owns the connection AND the user whose permissions changed
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "accounts:#{updated_uconn.user_id}",
+          {:uconn_updated, updated_uconn}
+        )
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "accounts:#{updated_uconn.reverse_user_id}",
+          {:uconn_updated, updated_uconn}
+        )
+
+        {:ok, updated_uconn}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}

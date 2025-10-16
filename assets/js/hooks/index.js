@@ -24,6 +24,8 @@ import TrixContentReplyHook from "./trix-content-reply-hook";
 import { ContentWarningHook } from "./content-warning-hook";
 import ScrollDown from "./scroll";
 import RestoreBodyScroll from "./restore-body-scroll";
+import ImageDownloadHook from "./image-download-hook";
+import DisableContextMenu from "./disable-context-menu";
 
 export default {
   CharacterCounter,
@@ -52,4 +54,6 @@ export default {
   TrixContentPostHook,
   TrixContentReplyHook,
   ContentWarningHook,
+  ImageDownloadHook,
+  DisableContextMenu,
 };

@@ -8,9 +8,11 @@ const ComposerEmojiPicker = {
 
     this.handleClickOutside = (event) => {
       // Don't close if clicking inside the emoji picker itself
-      if (this.pickerInstance && 
-          !this.el.contains(event.target) && 
-          !this.pickerContainer?.contains(event.target)) {
+      if (
+        this.pickerInstance &&
+        !this.el.contains(event.target) &&
+        !this.pickerContainer?.contains(event.target)
+      ) {
         this.hidePicker();
       }
     };
@@ -31,13 +33,13 @@ const ComposerEmojiPicker = {
     });
 
     // Listen for theme changes
-    document.addEventListener('phx:set-theme', this.handleThemeChange);
+    document.addEventListener("phx:set-theme", this.handleThemeChange);
   },
 
   destroyed() {
     this.hidePicker();
     document.removeEventListener("click", this.handleClickOutside);
-    document.removeEventListener('phx:set-theme', this.handleThemeChange);
+    document.removeEventListener("phx:set-theme", this.handleThemeChange);
   },
 
   togglePicker() {
@@ -60,11 +62,12 @@ const ComposerEmojiPicker = {
     // Create picker container - append to body to avoid overflow issues
     const pickerContainer = document.createElement("div");
     pickerContainer.className = "fixed z-[9999]";
-    
+
     // Hide initially to prevent style flash
     pickerContainer.style.opacity = "0";
     pickerContainer.style.transform = "scale(0.95)";
-    pickerContainer.style.transition = "opacity 200ms ease-out, transform 200ms ease-out";
+    pickerContainer.style.transition =
+      "opacity 200ms ease-out, transform 200ms ease-out";
 
     // Position picker relative to the button
     const buttonRect = this.el.getBoundingClientRect();
@@ -90,12 +93,12 @@ const ComposerEmojiPicker = {
     document.body.appendChild(pickerContainer);
 
     // Detect current theme manually since auto doesn't work reliably
-    const documentTheme = document.documentElement.getAttribute('data-theme');
-    const isDark = documentTheme === 'dark' || 
-                  (documentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    const theme = isDark ? 'dark' : 'light';
-    
-    console.log('Creating emoji picker with theme:', theme, '(document theme:', documentTheme, ')');
+    const documentTheme = document.documentElement.getAttribute("data-theme");
+    const isDark =
+      documentTheme === "dark" ||
+      (documentTheme === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const theme = isDark ? "dark" : "light";
 
     // Create emoji picker with detected theme and custom liquid metal styling
     this.pickerInstance = new Picker({
@@ -106,17 +109,17 @@ const ComposerEmojiPicker = {
       // Custom liquid metal styling
       custom: [
         {
-          id: 'liquid-metal-theme',
-          name: 'Liquid Metal',
-          emojis: []
-        }
+          id: "liquid-metal-theme",
+          name: "Liquid Metal",
+          emojis: [],
+        },
       ],
       onEmojiSelect: (emoji) => {
         this.insertEmoji(emoji, textarea);
         this.hidePicker();
       },
     });
-    
+
     // Apply custom liquid metal styling immediately, then show picker
     setTimeout(() => {
       this.applyLiquidMetalStyling(theme);
@@ -151,13 +154,13 @@ const ComposerEmojiPicker = {
   applyLiquidMetalStyling(theme) {
     if (!this.pickerInstance || !this.pickerContainer) return;
 
-    const emojiMart = this.pickerContainer.querySelector('em-emoji-picker');
+    const emojiMart = this.pickerContainer.querySelector("em-emoji-picker");
     if (!emojiMart) {
       // Retry if emoji-mart element isn't ready yet
       setTimeout(() => this.applyLiquidMetalStyling(theme), 20);
       return;
     }
-    
+
     if (!emojiMart.shadowRoot) {
       // Wait for shadow root to be available
       setTimeout(() => this.applyLiquidMetalStyling(theme), 20);
@@ -178,28 +181,36 @@ const ComposerEmojiPicker = {
           border-radius: 16px !important;
           overflow: hidden !important;
           backdrop-filter: blur(16px) !important;
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             --em-rgb-background: 30, 41, 59 !important;
             --em-rgb-input: 15, 23, 42 !important;
             --em-color-border: rgba(148, 163, 184, 0.2) !important;
             --em-color-border-over: rgba(148, 163, 184, 0.3) !important;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(148, 163, 184, 0.1) !important;
-          ` : `
+          `
+              : `
             --em-rgb-background: 255, 255, 255 !important;
             --em-rgb-input: 248, 250, 252 !important;
             --em-color-border: rgba(148, 163, 184, 0.2) !important;
             --em-color-border-over: rgba(148, 163, 184, 0.3) !important;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(148, 163, 184, 0.1) !important;
-          `}
+          `
+          }
         }
         
         #root {
           border-radius: 16px !important;
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(30, 41, 59, 0.95) !important;
-          ` : `
+          `
+              : `
             background: rgba(255, 255, 255, 0.95) !important;
-          `}
+          `
+          }
         }
         
         /* Search input liquid metal styling */
@@ -207,13 +218,17 @@ const ComposerEmojiPicker = {
           border-radius: 12px !important;
           border: 1px solid var(--em-color-border) !important;
           transition: all 200ms ease-out !important;
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(15, 23, 42, 0.8) !important;
             color: rgb(226, 232, 240) !important;
-          ` : `
+          `
+              : `
             background: rgba(248, 250, 252, 0.8) !important;
             color: rgb(30, 41, 59) !important;
-          `}
+          `
+          }
         }
         
         .search input:focus {
@@ -231,21 +246,29 @@ const ComposerEmojiPicker = {
         }
         
         .nav button:hover {
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(20, 184, 166, 0.1) !important;
-          ` : `
+          `
+              : `
             background: rgba(20, 184, 166, 0.05) !important;
-          `}
+          `
+          }
           transform: translateY(-1px) !important;
         }
         
         .nav button[aria-selected="true"] {
           background: linear-gradient(135deg, rgba(20, 184, 166, 0.15), rgba(16, 185, 129, 0.15)) !important;
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             color: rgb(94, 234, 212) !important;
-          ` : `
+          `
+              : `
             color: rgb(13, 148, 136) !important;
-          `}
+          `
+          }
         }
         
         /* Emoji button hover effects */
@@ -257,25 +280,33 @@ const ComposerEmojiPicker = {
         
         .emoji button:hover {
           transform: scale(1.1) !important;
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(20, 184, 166, 0.1) !important;
-          ` : `
+          `
+              : `
             background: rgba(20, 184, 166, 0.05) !important;
-          `}
+          `
+          }
           box-shadow: 0 4px 12px rgba(20, 184, 166, 0.15) !important;
         }
         
         /* Category header styling - matches liquid metal design */
         .sticky {
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(30, 41, 59, 0.95) !important;
             color: rgb(148, 163, 184) !important;
             border-bottom: 1px solid rgba(148, 163, 184, 0.1) !important;
-          ` : `
+          `
+              : `
             background: rgba(255, 255, 255, 0.95) !important;
             color: rgb(71, 85, 105) !important;
             border-bottom: 1px solid rgba(148, 163, 184, 0.1) !important;
-          `}
+          `
+          }
           backdrop-filter: blur(8px) !important;
           font-weight: 600 !important;
           font-size: 13px !important;
@@ -286,20 +317,28 @@ const ComposerEmojiPicker = {
         
         /* Main content area to ensure consistent background */
         .scroll {
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(30, 41, 59, 0.95) !important;
-          ` : `
+          `
+              : `
             background: rgba(255, 255, 255, 0.95) !important;
-          `}
+          `
+          }
         }
         
         /* Category sections */
         .category {
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(30, 41, 59, 0.95) !important;
-          ` : `
+          `
+              : `
             background: rgba(255, 255, 255, 0.95) !important;
-          `}
+          `
+          }
         }
         
         /* Scrollbar styling */
@@ -312,11 +351,15 @@ const ComposerEmojiPicker = {
         }
         
         ::-webkit-scrollbar-thumb {
-          ${theme === 'dark' ? `
+          ${
+            theme === "dark"
+              ? `
             background: rgba(148, 163, 184, 0.3) !important;
-          ` : `
+          `
+              : `
             background: rgba(148, 163, 184, 0.4) !important;
-          `}
+          `
+          }
           border-radius: 4px !important;
         }
         
@@ -332,15 +375,17 @@ const ComposerEmojiPicker = {
     `;
 
     // Insert custom CSS into shadow root as first child for immediate application
-    const existingStyle = emojiMart.shadowRoot.querySelector('#liquid-metal-style');
+    const existingStyle = emojiMart.shadowRoot.querySelector(
+      "#liquid-metal-style"
+    );
     if (existingStyle) {
       existingStyle.remove();
     }
-    
-    const styleElement = document.createElement('div');
-    styleElement.id = 'liquid-metal-style';
+
+    const styleElement = document.createElement("div");
+    styleElement.id = "liquid-metal-style";
     styleElement.innerHTML = liquidMetalCSS;
-    
+
     // Insert at the beginning to ensure it loads first
     const firstChild = emojiMart.shadowRoot.firstChild;
     if (firstChild) {

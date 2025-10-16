@@ -142,6 +142,9 @@ defmodule MossletWeb.Router do
     get "/users/totp", UserTOTPController, :new
     post "/users/totp", UserTOTPController, :create
 
+    # Timeline image downloads
+    get "/timeline/images/download/:token", TimelineImageDownloadController, :download_image
+
     live_session :require_authenticated_user,
       on_mount: [
         {MossletWeb.UserAuth, :ensure_authenticated},

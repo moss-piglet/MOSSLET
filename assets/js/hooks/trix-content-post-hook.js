@@ -83,7 +83,8 @@ const TrixContentPostHook = {
           this.display_decrypted_images(
             reply.decrypted_binaries,
             postId,
-            userId
+            userId,
+            reply.can_download || false // Pass download permission from server
           );
         } else {
           this.show_error_state();
@@ -92,7 +93,12 @@ const TrixContentPostHook = {
     );
   },
 
-  display_decrypted_images(decryptedBinaries, postId, userId) {
+  display_decrypted_images(
+    decryptedBinaries,
+    postId,
+    userId,
+    canDownload = false
+  ) {
     const container = this.el.querySelector(".grid");
     if (container) {
       container.innerHTML = "";
@@ -113,14 +119,36 @@ const TrixContentPostHook = {
           "relative",
           "group",
           "overflow-hidden",
-          "rounded-lg"
+          "rounded-lg",
+          "cursor-pointer" // Always allow viewing
         );
 
         const link = document.createElement("a");
         link.href = imageBinary;
-        link.classList.add("cursor-not-allowed"); // Prevent downloads as per existing behavior
-        link.addEventListener("click", (e) => e.preventDefault());
-        link.addEventListener("contextmenu", (e) => e.preventDefault());
+        link.classList.add("cursor-pointer"); // Always allow viewing
+
+        // Add click handler to open modal
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          // Always allow modal viewing, regardless of download permission
+          try {
+            this.pushEvent("show_timeline_images", {
+              post_id: postId,
+              image_index: index,
+              images: decryptedBinaries,
+            });
+          } catch (error) {
+            console.warn(
+              "Failed to open image modal - LiveView not connected:",
+              error
+            );
+          }
+        });
+
+        // Enhanced right-click protection based on download permission
+        link.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+        });
 
         const img = document.createElement("img");
         img.src = imageBinary;
@@ -134,8 +162,34 @@ const TrixContentPostHook = {
           "group-hover:scale-105"
         );
 
+        // Add hover overlay for better UX with proper pointer events
+        const overlay = document.createElement("div");
+        overlay.classList.add(
+          "absolute",
+          "inset-0",
+          "bg-black/0",
+          "group-hover:bg-black/20",
+          "transition-all",
+          "duration-200",
+          "flex",
+          "items-center",
+          "justify-center",
+          "pointer-events-none" // Critical: prevent overlay from intercepting clicks
+        );
+
+        const expandIcon = document.createElement("div");
+        expandIcon.classList.add("pointer-events-none"); // Also disable pointer events on icon
+        expandIcon.innerHTML = `
+          <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path>
+          </svg>
+        `;
+
+        overlay.appendChild(expandIcon);
+
         link.appendChild(img);
         imageContainer.appendChild(link);
+        imageContainer.appendChild(overlay);
         container.appendChild(imageContainer);
       });
 

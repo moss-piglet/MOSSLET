@@ -5,6 +5,8 @@
     phx-hook="ReplyComposer"
     id="timeline-container"
   >
+    <!-- Separate element for image download hook -->
+    <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
     <%!-- Timeline header with calmer mobile spacing --%>
     <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="mx-auto max-w-2xl text-center">
@@ -348,6 +350,16 @@
       default_block_type={@block_default_type}
       block_update?={@block_update?}
       block_reply_context={assigns[:block_reply_context]}
+    />
+
+    <%!-- Image viewer modal --%>
+    <MossletWeb.DesignSystem.liquid_image_modal
+      id="timeline-image-modal"
+      show={@show_image_modal}
+      images={@current_images}
+      current_index={@current_image_index}
+      can_download={@can_download_images}
+      on_cancel={JS.push("close_image_modal")}
     />
   </div>
 </.layout>

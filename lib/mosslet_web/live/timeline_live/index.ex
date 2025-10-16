@@ -80,6 +80,11 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:post_loading_done, false)
       |> assign(:post_finished_loading_list, [])
       |> assign(:image_urls, [])
+      |> assign(:show_image_modal, false)
+      |> assign(:current_images, [])
+      |> assign(:current_image_index, 0)
+      |> assign(:current_post_for_images, nil)
+      |> assign(:can_download_images, false)
       |> assign(:delete_post_from_cloud_message, nil)
       |> assign(:delete_reply_from_cloud_message, nil)
       |> assign(:uploads_in_progress, false)
@@ -504,6 +509,21 @@ defmodule MossletWeb.TimelineLive.Index do
       uconn.user_id == current_user.id && uconn.confirmed_at ->
         {:noreply, socket |> push_patch(to: return_url)}
 
+      # If user connection affects the current user's permissions and modal is open
+      uconn.reverse_user_id == current_user.id && socket.assigns.show_image_modal ->
+        post = socket.assigns.current_post_for_images
+        can_download = check_download_permission(post, current_user)
+
+        socket =
+          socket
+          |> assign(:can_download_images, can_download)
+
+        {:noreply, socket}
+
+      # If user connection affects the current user's permissions but modal is closed
+      uconn.reverse_user_id == current_user.id ->
+        {:noreply, socket}
+
       true ->
         {:noreply, socket}
     end
@@ -853,6 +873,11 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info(_message, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("restore-body-scroll", _params, socket) do
+    socket = put_flash(socket, :success, "Download complete!")
     {:noreply, socket}
   end
 
@@ -2595,6 +2620,141 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  # Image modal event handlers
+  def handle_event(
+        "show_timeline_images",
+        %{"post_id" => post_id, "image_index" => image_index, "images" => images},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        # Check if user can download images
+        can_download = check_download_permission(post, current_user)
+
+        {:noreply,
+         socket
+         |> assign(:show_image_modal, true)
+         |> assign(:current_images, images)
+         |> assign(:current_image_index, image_index)
+         |> assign(:current_post_for_images, post)
+         |> assign(:can_download_images, can_download)}
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  def handle_event("show_timeline_images", %{"post_id" => post_id} = _params, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        # Check if user can see this post and download images
+        can_download = check_download_permission(post, current_user)
+
+        # Get decrypted image URLs
+        case post.image_urls do
+          urls when is_list(urls) and length(urls) > 0 ->
+            post_key = get_post_key(post, current_user)
+
+            decrypted_urls =
+              Enum.map(urls, fn encrypted_url ->
+                decr_item(encrypted_url, current_user, post_key, key, post, "body")
+              end)
+              |> Enum.filter(&(!is_nil(&1)))
+
+            {:noreply,
+             socket
+             |> assign(:show_image_modal, true)
+             |> assign(:current_images, decrypted_urls)
+             |> assign(:current_image_index, 0)
+             |> assign(:current_post_for_images, post)
+             |> assign(:can_download_images, can_download)}
+
+          _ ->
+            {:noreply, put_flash(socket, :info, "No images found in this post")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  def handle_event("close_image_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_image_modal, false)
+     |> assign(:current_images, [])
+     |> assign(:current_image_index, 0)
+     |> assign(:current_post_for_images, nil)
+     |> assign(:can_download_images, false)
+     |> push_event("restore-body-scroll", %{})}
+  end
+
+  def handle_event("next_timeline_image", _params, socket) do
+    current_index = socket.assigns.current_image_index
+    max_index = length(socket.assigns.current_images) - 1
+
+    new_index = if current_index < max_index, do: current_index + 1, else: current_index
+
+    {:noreply, assign(socket, :current_image_index, new_index)}
+  end
+
+  def handle_event("prev_timeline_image", _params, socket) do
+    current_index = socket.assigns.current_image_index
+    new_index = if current_index > 0, do: current_index - 1, else: 0
+
+    {:noreply, assign(socket, :current_image_index, new_index)}
+  end
+
+  def handle_event("goto_timeline_image", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    max_index = length(socket.assigns.current_images) - 1
+
+    new_index = max(0, min(index, max_index))
+
+    {:noreply, assign(socket, :current_image_index, new_index)}
+  end
+
+  def handle_event("download_timeline_image", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    current_user = socket.assigns.current_user
+
+    if socket.assigns.can_download_images do
+      case socket.assigns.current_post_for_images do
+        %Mosslet.Timeline.Post{} = post ->
+          # Generate a secure token for the download
+          token =
+            Phoenix.Token.sign(MossletWeb.Endpoint, "timeline_image_download", %{
+              "post_id" => post.id,
+              "image_index" => index,
+              "user_id" => current_user.id
+            })
+
+          # Generate download URL
+          download_url = ~p"/app/timeline/images/download/#{token}"
+
+          {:noreply,
+           socket
+           |> push_event("download-file", %{
+             url: download_url,
+             filename: "timeline-image-#{index + 1}"
+           })
+           |> push_event("restore-body-scroll", %{})
+           |> put_flash(:info, "Downloading image...")}
+
+        nil ->
+          {:noreply, put_flash(socket, :error, "No post selected for image download")}
+      end
+    else
+      {:noreply,
+       put_flash(socket, :error, "You don't have permission to download images from this post")}
+    end
+  end
+
   def handle_async(:update_post_body, {:ok, {message, _post}}, socket) do
     socket =
       socket
@@ -4154,5 +4314,26 @@ defmodule MossletWeb.TimelineLive.Index do
       end
     end)
     |> Enum.filter(&(&1 != nil))
+  end
+
+  # Helper function to check download permissions
+  defp check_download_permission(post, current_user) do
+    cond do
+      # User can always download their own post images
+      post.user_id == current_user.id ->
+        true
+
+      # For shared posts, check if user has photos permission
+      post.visibility in [:connections, :specific_users] ->
+        can_download_photos_from_shared_item?(post, current_user)
+
+      # Public posts can be viewed but not downloaded unless there's a connection
+      post.visibility == :public ->
+        can_download_photos_from_shared_item?(post, current_user)
+
+      # Default: no download permission
+      true ->
+        false
+    end
   end
 end

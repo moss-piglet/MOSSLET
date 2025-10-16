@@ -5,8 +5,6 @@ defmodule Mosslet.Extensions.AvatarProcessor do
   """
   use GenServer
 
-  require Logger
-
   ## Client
 
   def start_link(_) do
@@ -89,7 +87,6 @@ defmodule Mosslet.Extensions.AvatarProcessor do
     # Mark as recently updated to prevent S3 re-fetch
     mark_avatar_recently_updated(connection_id)
 
-    Logger.info("Global avatar cache updated for connection #{connection_id}")
     {:noreply, state}
   end
 
@@ -102,7 +99,6 @@ defmodule Mosslet.Extensions.AvatarProcessor do
     # Mark as recently updated to prevent S3 re-fetch of deleted avatar
     mark_avatar_recently_updated(connection_id)
 
-    Logger.info("Global avatar cache cleared for connection #{connection_id}")
     {:noreply, state}
   end
 
