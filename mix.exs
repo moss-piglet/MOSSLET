@@ -4,8 +4,8 @@ defmodule Mosslet.MixProject do
   def project do
     [
       app: :mosslet,
-      version: "0.9.3",
-      elixir: "~> 1.18",
+      version: "0.9.4",
+      elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
