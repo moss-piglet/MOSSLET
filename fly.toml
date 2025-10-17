@@ -6,7 +6,7 @@
 app = 'mosslet'
 kill_signal = 'SIGTERM'
 swap_size_mb = 512
-primary_region = 'bos'
+primary_region = 'ewr'
 
 [deploy]
   release_command = '/app/bin/migrate'
