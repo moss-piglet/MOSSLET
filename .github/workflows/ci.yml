@@ -137,8 +137,9 @@ jobs:
             ${{ env.KEY_BASE }}-
 
       # Run dialyzer for type checking
-      - name: Dialyzer static analysis
-        run: mix dialyzer --format github
+      # disable until elixir 1.19 and erlang 28 bugs fixed
+      # - name: Dialyzer static analysis
+      #  run: mix dialyzer --format github
 
       # Clean outdated dependencies
       - name: Check unused dependencies
