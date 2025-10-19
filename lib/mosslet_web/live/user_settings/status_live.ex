@@ -466,28 +466,52 @@ defmodule MossletWeb.UserSettings.StatusLive do
   # Event handlers
 
   def handle_event("set_status", %{"status" => status}, socket) do
-    status_form =
-      socket.assigns.status_form
-      |> to_form()
-      |> Map.put(:status, status)
-
+    # Get current form data and update the status field properly
+    current_data = socket.assigns.status_form.source
+    updated_data = Map.put(current_data, "status", status)
+    
+    # Create new form with updated data
+    status_form = to_form(updated_data)
+    
     {:noreply, assign(socket, status_form: status_form)}
   end
 
-  def handle_event("validate_status", %{"status" => status_params}, socket) do
-    status_form = to_form(status_params)
+  def handle_event("validate_status", params, socket) do
+    # Handle both nested and direct parameter formats using pattern matching
+    status_params = 
+      case params do
+        %{"status" => nested_params} -> nested_params
+        direct_params -> direct_params
+      end
+    
+    # Merge with current form data to preserve other fields
+    current_data = socket.assigns.status_form.source
+    updated_data = Map.merge(current_data, status_params)
+    
+    status_form = to_form(updated_data)
     {:noreply, assign(socket, status_form: status_form)}
   end
 
-  def handle_event("update_status", %{"status" => status_params}, socket) do
+  def handle_event("update_status", params, socket) do
     user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # Convert status to atom
+    # Handle both full status updates and partial updates using pattern matching
+    status_params = 
+      case params do
+        %{"status" => nested_params} -> nested_params
+        direct_params -> direct_params
+      end
+
+    # Build attrs safely with pattern matching for missing fields
     attrs = %{
-      status: String.to_existing_atom(status_params["status"]),
-      status_message: status_params["status_message"],
-      auto_status: status_params["auto_status"] == "true"
+      status: 
+        case Map.get(status_params, "status") do
+          nil -> user.status || :offline
+          status_string -> String.to_existing_atom(status_string)
+        end,
+      status_message: Map.get(status_params, "status_message", user.status_message),
+      auto_status: Map.get(status_params, "auto_status") == "true"
     }
 
     case Status.update_user_status(user, attrs, user: user, key: key) do

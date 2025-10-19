@@ -4620,6 +4620,13 @@ defmodule MossletWeb.DesignSystem do
     ]
   end
 
+  defp timeline_status_classes("active") do
+    [
+      "bg-emerald-50/80 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
+      "border-emerald-200/60 dark:border-emerald-700/60"
+    ]
+  end
+
   defp timeline_status_classes("away") do
     [
       "bg-amber-50/80 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300",
