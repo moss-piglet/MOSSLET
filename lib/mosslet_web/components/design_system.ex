@@ -4634,19 +4634,150 @@ defmodule MossletWeb.DesignSystem do
     ]
   end
 
+  defp timeline_status_classes("offline") do
+    [
+      "bg-slate-50/80 dark:bg-slate-800/20 text-slate-600 dark:text-slate-400",
+      "border-slate-200/60 dark:border-slate-600/60"
+    ]
+  end
+
   defp timeline_status_dot_size("online"), do: "w-2 h-2"
+  defp timeline_status_dot_size("active"), do: "w-2.5 h-2.5"
   defp timeline_status_dot_size("calm"), do: "w-2.5 h-2.5"
   defp timeline_status_dot_size("away"), do: "w-2 h-2"
   defp timeline_status_dot_size("busy"), do: "w-2 h-2"
+  defp timeline_status_dot_size("offline"), do: "w-1.5 h-1.5"
 
   defp timeline_status_dot_classes("online"), do: "bg-emerald-500"
+  defp timeline_status_dot_classes("active"), do: "bg-gradient-to-br from-blue-400 to-emerald-500"
   defp timeline_status_dot_classes("calm"), do: "bg-gradient-to-br from-teal-400 to-emerald-500"
   defp timeline_status_dot_classes("away"), do: "bg-amber-500"
   defp timeline_status_dot_classes("busy"), do: "bg-rose-500"
+  defp timeline_status_dot_classes("offline"), do: "bg-slate-400"
 
   defp timeline_status_ping_classes("online"), do: "bg-emerald-400"
+  defp timeline_status_ping_classes("active"), do: "bg-blue-400"
   defp timeline_status_ping_classes("calm"), do: "bg-teal-400"
   defp timeline_status_ping_classes(_), do: ""
+
+  @doc """
+  User status indicator for timeline posts and avatars.
+  Shows a small dot indicating user's current status.
+  """
+  attr :status, :string, required: true
+  attr :online, :boolean, default: false
+  attr :animate, :boolean, default: false
+  attr :class, :any, default: ""
+
+  def liquid_user_status_indicator(assigns) do
+    ~H"""
+    <div class={[
+      "absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white dark:ring-slate-800",
+      timeline_status_dot_size(@status),
+      timeline_status_dot_classes(@status),
+      @class
+    ]}>
+      <%!-- Pulse animation for active statuses --%>
+      <div
+        :if={@animate and @status in ["online", "calm"]}
+        class={[
+          "absolute inset-0 rounded-full animate-ping opacity-75",
+          timeline_status_ping_classes(@status)
+        ]}
+      >
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Status selector component for user settings.
+  Beautiful grid of status options with liquid metal styling.
+  """
+  attr :current_status, :string, required: true
+  attr :phx_click, :string, default: "set_status"
+  attr :class, :any, default: ""
+
+  def liquid_status_selector(assigns) do
+    ~H"""
+    <div class={["space-y-4", @class]}>
+      <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+        Your Status
+      </label>
+      
+      <%!-- Status options with visual hierarchy --%>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <button
+          :for={status <- ["offline", "calm", "active", "busy", "away"]}
+          type="button"
+          class={[
+            "group relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ease-out",
+            "hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
+            status_selector_classes(status, @current_status)
+          ]}
+          phx-click={@phx_click}
+          phx-value-status={status}
+        >
+          <%!-- Status dot --%>
+          <div class={[
+            "relative rounded-full mb-2 transition-all duration-300 ease-out group-hover:scale-110",
+            timeline_status_dot_size(status),
+            timeline_status_dot_classes(status)
+          ]}>
+            <%!-- Pulse animation for active statuses --%>
+            <div
+              :if={status in ["calm", "active"] and @current_status == status}
+              class={[
+                "absolute inset-0 rounded-full animate-ping opacity-75",
+                timeline_status_ping_classes(status)
+              ]}
+            >
+            </div>
+          </div>
+          
+          <%!-- Status label --%>
+          <span class="text-xs font-medium group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors duration-200">
+            {String.capitalize(status)}
+          </span>
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper function for status selector button classes
+  defp status_selector_classes(status, current_status) when status == current_status do
+    case status do
+      "offline" -> [
+        "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600",
+        "text-slate-700 dark:text-slate-300 shadow-md"
+      ]
+      "calm" -> [
+        "bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30",
+        "border-teal-300 dark:border-teal-600 text-teal-700 dark:text-teal-300 shadow-md shadow-teal-500/20"
+      ]
+      "active" -> [
+        "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30",
+        "border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-md shadow-emerald-500/20"
+      ]
+      "busy" -> [
+        "bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/30 dark:to-pink-900/30",
+        "border-rose-300 dark:border-rose-600 text-rose-700 dark:text-rose-300 shadow-md shadow-rose-500/20"
+      ]
+      "away" -> [
+        "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30",
+        "border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 shadow-md shadow-amber-500/20"
+      ]
+    end
+  end
+
+  defp status_selector_classes(_status, _current_status) do
+    [
+      "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+      "text-slate-600 dark:text-slate-400 hover:border-teal-300 dark:hover:border-teal-600",
+      "hover:text-teal-700 dark:hover:text-teal-300 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
+    ]
+  end
 
   @doc """
   Simple liquid metal FAQ component following our design system.

@@ -9,6 +9,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
   import Ecto.Changeset
 
   alias Mosslet.Accounts.User
+  alias Mosslet.Encrypted
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -33,14 +34,14 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     # Encrypted list of muted keywords - double encryption:
     # 1. Each keyword asymmetrically encrypted with user_key (enacl)
     # 2. List of encrypted values symmetrically encrypted for storage (Cloak StringList)
-    field :mute_keywords, Mosslet.Encrypted.StringList
-    field :mute_keywords_hash, Mosslet.Encrypted.HMAC
+    field :mute_keywords, Encrypted.StringList, skip_default_validation: true
+    field :mute_keywords_hash, Encrypted.HMAC
 
     # Encrypted list of muted user IDs - double encryption:
     # 1. Each user_id asymmetrically encrypted with user_key (enacl)
     # 2. List of encrypted values symmetrically encrypted for storage (Cloak StringList)
-    field :muted_users, Mosslet.Encrypted.StringList
-    field :muted_users_hash, Mosslet.Encrypted.HMAC
+    field :muted_users, Encrypted.StringList, skip_default_validation: true
+    field :muted_users_hash, Encrypted.HMAC
 
     belongs_to :user, User
 

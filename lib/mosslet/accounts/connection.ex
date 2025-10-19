@@ -30,6 +30,31 @@ defmodule Mosslet.Accounts.Connection do
     # When status was last updated
     field :status_updated_at, :naive_datetime
 
+    # Status Visibility Controls - shared based on user.visibility
+    field :status_visibility, Ecto.Enum,
+      values: [:nobody, :connections, :specific_groups, :specific_users],
+      default: :nobody
+
+    # Encrypted lists of group/user IDs who can see status (encrypted with conn_key)
+    field :status_visible_to_groups, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
+    field :status_visible_to_users, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
+    # Online presence controls
+    field :show_online_presence, :boolean, default: false
+
+    field :presence_visible_to_groups, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
+    field :presence_visible_to_users, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
     embeds_one :profile, ConnectionProfile, on_replace: :update do
       field :name, Encrypted.Binary
       field :about, Encrypted.Binary
@@ -129,6 +154,18 @@ defmodule Mosslet.Accounts.Connection do
     conn
     |> cast(attrs, [:status, :status_message, :status_message_hash, :status_updated_at])
     |> add_status_message_hash()
+  end
+
+  def update_status_visibility_changeset(conn, attrs \\ %{}) do
+    conn
+    |> cast(attrs, [
+      :status_visibility,
+      :status_visible_to_groups,
+      :status_visible_to_users,
+      :show_online_presence,
+      :presence_visible_to_groups,
+      :presence_visible_to_users
+    ])
   end
 
   def update_username_changeset(conn, attrs \\ %{}) do

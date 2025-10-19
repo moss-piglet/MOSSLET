@@ -937,6 +937,18 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+    Returns an `%Ecto.Changeset{}` for changing the user status visibility.
+
+    ## Examples
+
+        iex> change_user_status_visibility(user, attrs, opts)
+        %Ecto.Changeset{data: %User{}}
+  """
+  def change_user_status_visibility(user, attrs \\ %{}, opts \\ []) do
+    User.status_visibility_changeset(user, attrs, user: opts[:user], key: opts[:key])
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing the user's is_forgot_pwd? boolean.
 
   ## Examples

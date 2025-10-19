@@ -182,6 +182,13 @@ defmodule MossletWeb.Menus do
           icon: "hero-eye"
         },
         %{
+          name: :status,
+          label: gettext("Status"),
+          description: gettext("Manage your online status and presence"),
+          path: ~p"/app/users/status",
+          icon: "hero-signal"
+        },
+        %{
           name: :edit_password,
           label: gettext("Password"),
           description: gettext("Update your login password"),
@@ -274,6 +281,15 @@ defmodule MossletWeb.Menus do
       label: gettext("Change visibility"),
       path: ~p"/app/users/edit-visibility",
       icon: "hero-eye"
+    }
+  end
+
+  def get_link(:status = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Status"),
+      path: ~p"/app/users/status",
+      icon: "hero-signal"
     }
   end
 

@@ -12,8 +12,8 @@
       <div class="mx-auto max-w-2xl text-center">
         <MossletWeb.DesignSystem.liquid_timeline_header
           user_name={user_name(@current_user, @key)}
-          status="calm"
-          status_message="Mindfully connected"
+          status={Atom.to_string(@current_user.status || :offline)}
+          status_message={get_current_user_status_message(@current_user, @key)}
           class="space-y-2 sm:space-y-3"
         />
       </div>

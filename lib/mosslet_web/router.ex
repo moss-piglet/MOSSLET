@@ -164,6 +164,7 @@ defmodule MossletWeb.Router do
       live "/users/edit-profile", EditProfileLive
       live "/users/edit-email", EditEmailLive
       live "/users/edit-visibility", EditVisibilityLive
+      live "/users/status", UserSettings.StatusLive
       live "/users/manage-data", ManageDataLive
       live "/users/blocked-users", BlockedUsersLive
       live "/users/change-password", EditPasswordLive

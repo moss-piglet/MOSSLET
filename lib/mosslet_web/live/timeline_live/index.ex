@@ -3932,6 +3932,25 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper functions for decrypting and formatting post data
+  
+  # Get current user's decrypted status message for timeline header
+  defp get_current_user_status_message(user, key) do
+    if user.status_message do
+      case Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.status_message, user, key) do
+        {:ok, decrypted_message} -> decrypted_message
+        _ -> "Mindfully connected"  # Fallback message
+      end
+    else
+      case user.status do
+        :calm -> "Mindfully connected"
+        :active -> "Active and engaged"
+        :busy -> "Focused and productive"
+        :away -> "Away for a while"
+        _ -> "Taking a peaceful break"
+      end
+    end
+  end
+  
   defp get_decrypted_post_images(post, current_user, key) do
     cond do
       is_list(post.image_urls) and length(post.image_urls) > 0 ->
