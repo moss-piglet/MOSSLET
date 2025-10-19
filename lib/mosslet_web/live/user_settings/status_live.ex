@@ -15,6 +15,8 @@ defmodule MossletWeb.UserSettings.StatusLive do
     only: [
       get_decrypted_connection_name: 3,
       get_decrypted_connection_label: 3,
+      get_decrypted_connection_username: 3,
+      get_connection_avatar_src: 3,
       get_decrypted_group_name: 3,
       get_decrypted_group_description: 3
     ]
@@ -249,24 +251,118 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
                   <label
                     :for={connection <- @user_connections}
-                    class="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                    class={[
+                      "flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer",
+                      "bg-white/95 dark:bg-slate-800/95 border-slate-200/40 dark:border-slate-700/40",
+                      "hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-amber-300/60 dark:hover:border-amber-600/60",
+                      "hover:shadow-amber-500/10"
+                    ]}
                   >
                     <input
                       type="checkbox"
                       name="status_visible_to_users[]"
                       value={connection.id}
                       checked={connection.id in (@status_visibility_form[:status_visible_to_users].value || [])}
-                      class="rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700 h-4 w-4"
+                      class="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700"
                     />
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                      <.phx_icon name="hero-user" class="h-4 w-4 text-white" />
+                    
+                    <%!-- Connection avatar with color theming --%>
+                    <div class={[
+                      "relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0",
+                      "bg-gradient-to-br",
+                      case connection.color do
+                        :teal -> "from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-teal-900/40"
+                        :emerald -> "from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/40 dark:via-teal-900/30 dark:to-emerald-900/40"
+                        :cyan -> "from-cyan-100 via-blue-50 to-cyan-100 dark:from-cyan-900/40 dark:via-blue-900/30 dark:to-cyan-900/40"
+                        :purple -> "from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/40 dark:via-violet-900/30 dark:to-purple-900/40"
+                        :rose -> "from-rose-100 via-pink-50 to-rose-100 dark:from-rose-900/40 dark:via-pink-900/30 dark:to-rose-900/40"
+                        :amber -> "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
+                        :orange -> "from-orange-100 via-amber-50 to-orange-100 dark:from-orange-900/40 dark:via-amber-900/30 dark:to-orange-900/40"
+                        :indigo -> "from-indigo-100 via-blue-50 to-indigo-100 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-indigo-900/40"
+                        _ -> "from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800/40 dark:via-slate-700/30 dark:to-slate-800/40"
+                      end
+                    ]}>
+                      <img
+                        src={get_connection_avatar_src(connection, @current_user, @key)}
+                        alt="{get_decrypted_connection_label(connection, @current_user, @key)} avatar"
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     </div>
-                    <div class="flex-1">
-                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {get_decrypted_connection_label(connection, @current_user, @key)}
-                      </p>
-                      <p class="text-xs text-slate-500 dark:text-slate-400">
-                        Connected user
+                    
+                    <%!-- Connection info with color theming --%>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <%!-- Connection color indicator --%>
+                        <div class={[
+                          "w-3 h-3 rounded-full flex-shrink-0",
+                          case connection.color do
+                            :teal -> "bg-gradient-to-br from-teal-400 to-emerald-500"
+                            :emerald -> "bg-gradient-to-br from-emerald-400 to-teal-500"
+                            :cyan -> "bg-gradient-to-br from-cyan-400 to-blue-500"
+                            :purple -> "bg-gradient-to-br from-purple-400 to-violet-500"
+                            :rose -> "bg-gradient-to-br from-rose-400 to-pink-500"
+                            :amber -> "bg-gradient-to-br from-amber-400 to-orange-500"
+                            :orange -> "bg-gradient-to-br from-orange-400 to-amber-500"
+                            :indigo -> "bg-gradient-to-br from-indigo-400 to-blue-500"
+                            _ -> "bg-gradient-to-br from-slate-400 to-slate-500"
+                          end
+                        ]}>
+                        </div>
+                        
+                        <%!-- Connection name --%>
+                        <p class={[
+                          "text-sm font-medium truncate",
+                          case connection.color do
+                            :teal -> "text-teal-800 dark:text-teal-200"
+                            :emerald -> "text-emerald-800 dark:text-emerald-200"
+                            :cyan -> "text-cyan-800 dark:text-cyan-200"
+                            :purple -> "text-purple-800 dark:text-purple-200"
+                            :rose -> "text-rose-800 dark:text-rose-200"
+                            :amber -> "text-amber-800 dark:text-amber-200"
+                            :orange -> "text-orange-800 dark:text-orange-200"
+                            :indigo -> "text-indigo-800 dark:text-indigo-200"
+                            _ -> "text-slate-800 dark:text-slate-200"
+                          end
+                        ]}>
+                          {get_decrypted_connection_label(connection, @current_user, @key)}
+                        </p>
+                        
+                        <%!-- Connection badge with color theming --%>
+                        <span class={[
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+                          case connection.color do
+                            :teal -> "bg-teal-100/80 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                            :emerald -> "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                            :cyan -> "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
+                            :purple -> "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                            :rose -> "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
+                            :amber -> "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                            :orange -> "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                            :indigo -> "bg-indigo-100/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                            _ -> "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
+                          end
+                        ]}>
+                          Connected
+                        </span>
+                      </div>
+                      
+                      <%!-- Username display --%>
+                      <p class={[
+                        "text-xs leading-relaxed",
+                        case connection.color do
+                          :teal -> "text-teal-600 dark:text-teal-400"
+                          :emerald -> "text-emerald-600 dark:text-emerald-400"
+                          :cyan -> "text-cyan-600 dark:text-cyan-400"
+                          :purple -> "text-purple-600 dark:text-purple-400"
+                          :rose -> "text-rose-600 dark:text-rose-400"
+                          :amber -> "text-amber-600 dark:text-amber-400"
+                          :orange -> "text-orange-600 dark:text-orange-400"
+                          :indigo -> "text-indigo-600 dark:text-indigo-400"
+                          _ -> "text-slate-600 dark:text-slate-400"
+                        end
+                      ]}>
+                        @{get_decrypted_connection_username(connection, @current_user, @key)}
                       </p>
                     </div>
                   </label>
