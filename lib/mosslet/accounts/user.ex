@@ -578,10 +578,17 @@ defmodule Mosslet.Accounts.User do
       if status_users && length(status_users) > 0 do
         # Re-encrypt with conn_key for sharing
         c_encrypted_status_users =
-          Enum.map(status_users, fn encrypted_user_id ->
-            # First decrypt with user_key, then encrypt with conn_key
-            {:ok, user_id} = Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, opts[:user], opts[:key])
-            Encrypted.Utils.encrypt(%{key: d_conn_key, payload: user_id})
+          Enum.map(status_users, fn user_id ->
+            # Check if the user_id is already encrypted or is a plain UUID
+            case Encrypted.Users.Utils.decrypt_user_data(user_id, opts[:user], opts[:key]) do
+              {:ok, decrypted_user_id} -> 
+                # Successfully decrypted, now encrypt with connection key
+                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: decrypted_user_id})
+              _ -> 
+                # If decryption fails, the value is likely already a plain UUID from form input
+                # Encrypt the plain UUID directly with connection key
+                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: user_id})
+            end
           end)
         Map.put(connection_map_updates, :c_status_visible_to_users, c_encrypted_status_users)
       else
