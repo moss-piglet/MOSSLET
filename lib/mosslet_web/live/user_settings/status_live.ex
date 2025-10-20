@@ -61,7 +61,8 @@ defmodule MossletWeb.UserSettings.StatusLive do
        status_form: status_form,
        status_visibility_form: status_visibility_form,
        user_visibility_groups: visibility_groups,
-       user_connections: user_connections
+       user_connections: user_connections,
+       status_message: get_decrypted_status_message(user, key) || ""
      )}
   end
 
@@ -96,7 +97,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                 <%!-- Current status indicator --%>
                 <DesignSystem.liquid_timeline_status
                   status={to_string(@status_form[:status].value || :offline)}
-                  message={get_status_message_for_preview(@status_form)}
+                  message={if @status_message != "", do: @status_message, else: nil}
                   class="ml-auto"
                 />
               </div>
@@ -125,7 +126,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                   label="Status message (optional)"
                   placeholder="What are you up to?"
                   maxlength="160"
-                  value={if @current_user.status_message, do: MossletWeb.Helpers.decr(@current_user.status_message, @current_user, @key) || "", else: ""}
+                  value={@status_message || ""}
                   help="Share what you're doing with people who can see your status"
                 />
               </div>
@@ -514,9 +515,20 @@ defmodule MossletWeb.UserSettings.StatusLive do
       end
       
     # Ensure all keys are strings for the changeset
+    # Make sure to use the decrypted status message, not the encrypted one
+    # Clear status message if going offline, otherwise preserve current input or existing message
+    status_message = 
+      if status == "offline" do
+        ""
+      else
+        # Preserve current input from the form or fall back to existing message
+        socket.assigns.status_message || get_decrypted_status_message(user, key) || ""
+      end
+    
     attrs = 
       current_changes
       |> Map.put("status", status)
+      |> Map.put("status_message", status_message)
       |> Enum.map(fn 
         {k, v} when is_atom(k) -> {Atom.to_string(k), v}
         {k, v} -> {k, v}
@@ -526,7 +538,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
     changeset = Accounts.change_user_status(user, attrs, user: user, key: key)
     status_form = to_form(changeset)
 
-    {:noreply, assign(socket, status_form: status_form)}
+    {:noreply, assign(socket, status_form: status_form, status_message: status_message)}
   end
 
   def handle_event("validate_status", params, socket) do
@@ -611,7 +623,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
     # Log the form values
     Logger.debug("validate_status form status_message value: #{inspect(status_form[:status_message].value)}")
 
-    {:noreply, assign(socket, status_form: status_form)}
+    # Update the status_message assign to show current input value for the input field
+    current_status_message = Map.get(normalized_params, "status_message", socket.assigns.status_message)
+
+    {:noreply, assign(socket, status_form: status_form, status_message: current_status_message)}
   end
 
   def handle_event("update_status", params, socket) do
@@ -656,7 +671,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
         {:noreply,
          socket
          |> put_flash(:success, "Your status has been updated successfully!")
-         |> assign(status_form: status_form)}
+         |> assign(status_form: status_form, status_message: get_decrypted_status_message(updated_user, key) || "")}
 
       {:error, changeset} ->
         # Log the error for debugging
