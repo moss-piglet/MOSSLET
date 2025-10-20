@@ -2497,6 +2497,19 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  # Status broadcasting functions
+  def broadcast_user_status({:ok, %User{} = user}, event) do
+    # Broadcast to user's own channel for real-time updates
+    Phoenix.PubSub.broadcast(Mosslet.PubSub, "user_status:#{user.id}", {event, user})
+
+    # Broadcast to connections topic for real-time updates to connections
+    # update to call our broadcast_connections function based on the
+    # status_visibility
+    # Phoenix.PubSub.broadcast(Mosslet.PubSub, "connections", {event, user})
+
+    {:ok, user}
+  end
+
   defp broadcast({:ok, %UserConnection{} = uconn}, event) do
     Phoenix.PubSub.broadcast(Mosslet.PubSub, "accounts:#{uconn.user_id}", {event, uconn})
     {:ok, uconn}
@@ -2551,6 +2564,14 @@ defmodule Mosslet.Accounts do
 
   def subscribe_account_deleted() do
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "account_deleted")
+  end
+
+  def subscribe_user_status(user_id) when is_binary(user_id) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "user_status:#{user_id}")
+  end
+
+  def subscribe_user_status(%User{id: user_id}) do
+    subscribe_user_status(user_id)
   end
 
   def admin_subscribe(user) do

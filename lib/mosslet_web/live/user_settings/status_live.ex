@@ -25,20 +25,12 @@ defmodule MossletWeb.UserSettings.StatusLive do
     user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # Debug logging
-    require Logger
-    Logger.debug("Mount - user.auto_status: #{inspect(user.auto_status)}")
-
     # Create forms for status and status visibility
     initial_status_attrs = %{
       "status" => to_string(user.status || :offline),
       "status_message" => get_decrypted_status_message(user, key) || "",
       "auto_status" => user.auto_status || false
     }
-
-    Logger.debug(
-      "Mount - initial_status_attrs auto_status: #{inspect(initial_status_attrs["auto_status"])}"
-    )
 
     status_changeset =
       Accounts.change_user_status(user, initial_status_attrs, user: user, key: key)
@@ -63,7 +55,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
     visibility_groups = Mosslet.Accounts.get_user_visibility_groups_with_connections(user)
     user_connections = Mosslet.Accounts.filter_user_connections(%{}, user)
 
-    Logger.debug("Mount - auto_status assign: #{inspect(user.auto_status || false)}")
+    # Subscribe to user's own status updates to refresh the sidebar avatar
+    if connected?(socket) do
+      Accounts.subscribe_user_status(user)
+    end
 
     {:ok,
      assign(socket,
@@ -144,7 +139,6 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
               <%!-- Auto Status Toggle --%>
               <div class="space-y-3">
-                {inspect @status_form[:auto_status].value}
                 <.phx_input
                   field={@status_form[:auto_status]}
                   type="checkbox"
@@ -499,6 +493,36 @@ defmodule MossletWeb.UserSettings.StatusLive do
     """
   end
 
+  def handle_info({:status_updated, user}, socket) do
+    # Only handle updates for the current user (to refresh the sidebar avatar)
+    current_user = socket.assigns.current_user
+
+    if user.id == current_user.id do
+      {:noreply,
+       socket
+       |> assign(current_user: user)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:status_visibility_updated, user}, socket) do
+    # Only handle updates for the current user (to refresh the sidebar avatar)
+    current_user = socket.assigns.current_user
+
+    if user.id == current_user.id do
+      # Update the current_user assign with the new status to refresh the sidebar
+      {:noreply, assign(socket, current_user: user)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(message, socket) do
+    IO.inspect(message, label: "MESSAGE BROADCAST")
+    {:noreply, socket}
+  end
+
   # Event handlers
 
   def handle_event("set_status", %{"status" => status}, socket) do
@@ -623,25 +647,9 @@ defmodule MossletWeb.UserSettings.StatusLive do
       |> Enum.map(fn {k, v} -> {to_string(k), v} end)
       |> Enum.into(%{})
 
-    # Add logging to debug form validation
-    require Logger
-    Logger.debug("validate_status string_params: #{inspect(string_params)}")
-
     changeset = Accounts.change_user_status(user, string_params, user: user, key: key)
 
-    # Log the changeset for debugging
-    Logger.debug("validate_status changeset changes: #{inspect(changeset.changes)}")
-
-    Logger.debug(
-      "validate_status changeset data.status_message: #{inspect(changeset.data.status_message)}"
-    )
-
     status_form = to_form(changeset)
-
-    # Log the form values
-    Logger.debug(
-      "validate_status form status_message value: #{inspect(status_form[:status_message].value)}"
-    )
 
     # Update the status_message assign to show current input value for the input field
     current_status_message =
@@ -705,11 +713,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
            auto_status: updated_user.auto_status
          )}
 
-      {:error, changeset} ->
-        # Log the error for debugging
-        require Logger
-        Logger.error("Status update failed: #{inspect(changeset.errors)}")
-
+      {:error, _changeset} ->
         {:noreply,
          socket
          |> put_flash(:error, "There was an error updating your status. Please try again.")}
@@ -923,76 +927,57 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
   # Helper function to get the display version of status message
   defp get_display_status_message(form_value, user, key) do
-    # Add logging to debug the issue
-    require Logger
-    Logger.debug("get_display_status_message called with: #{inspect(form_value)}")
-
     result =
       cond do
         # If it's nil or empty, return nil (status component will show just the status type)
         is_nil(form_value) or form_value == "" ->
-          Logger.debug("Returning nil - value is nil or empty")
           nil
 
         # If it looks like an encrypted string (base64-ish), try to decrypt it
         # BUT also check if this is a fresh form input vs stored encrypted value
         is_binary(form_value) and String.length(form_value) > 50 and
             String.contains?(form_value, ["+", "/", "="]) ->
-          Logger.debug("Attempting to decrypt value: #{inspect(form_value)}")
           # Try to decrypt - if it fails, this might be a form validation case
           # where the changeset already encrypted the user input
           case decrypt_status_message_value(form_value, user, key) do
             nil ->
-              Logger.debug("Decryption returned nil - this might be a changeset encrypted value")
               # If decryption fails, this could be the changeset trying to encrypt form input
               # In that case, we should look for the original input in the changeset params
               nil
 
             decrypted when decrypted == "" ->
-              Logger.debug("Decryption returned empty string")
               nil
 
             decrypted ->
-              Logger.debug("Decryption successful: #{inspect(decrypted)}")
               decrypted
           end
 
         # Otherwise, it's already a plain text value from form input - show it for live preview
         is_binary(form_value) ->
-          Logger.debug("Returning plain text value: #{inspect(form_value)}")
           form_value
 
         # Fallback
         true ->
-          Logger.debug("Fallback - returning nil")
           nil
       end
 
-    Logger.debug("get_display_status_message returning: #{inspect(result)}")
     result
   end
 
   # New helper function to get status message for preview - bypasses encryption
   defp get_status_message_for_preview(status_form) do
-    require Logger
-    Logger.debug("get_status_message_for_preview called with form: #{inspect(status_form)}")
-
     # For live preview, we want to show the raw form input, not the encrypted version
     case status_form.source do
       %Ecto.Changeset{params: params} when is_map(params) ->
-        Logger.debug("Found changeset with params: #{inspect(params)}")
         # Get the raw status_message from params - this is the user's input
         case params do
           %{"status_message" => msg} when is_binary(msg) and msg != "" ->
-            Logger.debug("Found status_message in params: #{inspect(msg)}")
             msg
 
           %{"user" => %{"status_message" => msg}} when is_binary(msg) and msg != "" ->
-            Logger.debug("Found status_message in user params: #{inspect(msg)}")
             msg
 
           _ ->
-            Logger.debug("No status_message found in params, falling back to form value")
             # Fall back to the form field value
             case status_form[:status_message].value do
               msg when is_binary(msg) and msg != "" -> msg
@@ -1001,15 +986,12 @@ defmodule MossletWeb.UserSettings.StatusLive do
         end
 
       _changeset_or_data ->
-        Logger.debug("No params found, using form field value")
         # Fall back to the form field value (which should be the decrypted message after save)
         case status_form[:status_message].value do
           msg when is_binary(msg) and msg != "" ->
-            Logger.debug("Found form field value: #{inspect(msg)}")
             msg
 
           _ ->
-            Logger.debug("No form field value found")
             nil
         end
     end

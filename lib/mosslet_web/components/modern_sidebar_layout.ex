@@ -167,6 +167,7 @@ defmodule MossletWeb.ModernSidebarLayout do
               <%!-- User menu --%>
               <.modern_user_menu
                 :if={@user_menu_items != []}
+                id={"modern-user-menu-#{@current_user.id}"}
                 user_menu_items={@user_menu_items}
                 current_user={@current_user}
                 key={@key}
@@ -192,7 +193,6 @@ defmodule MossletWeb.ModernSidebarLayout do
       class="relative"
       x-data="{ open: false }"
       @click.away="open = false"
-      phx-update="ignore"
       id="user-menu-dropdown"
     >
       <button
@@ -226,11 +226,14 @@ defmodule MossletWeb.ModernSidebarLayout do
             alt="User avatar"
           />
           <%!-- Status indicator with pulse (only when user is signed in) --%>
-          <MossletWeb.DesignSystem.liquid_user_status_indicator
-            :if={@current_user}
-            status={to_string(@current_user.status || "offline")}
-            animate={true}
-          />
+          <div id={"status-indicator-container-#{@current_user.id}"}>
+            <MossletWeb.DesignSystem.liquid_user_status_indicator
+              :if={@current_user}
+              id={"status-indicator-#{@current_user.id}"}
+              status={to_string(@current_user.status || "offline")}
+              animate={true}
+            />
+          </div>
         </div>
       </button>
 

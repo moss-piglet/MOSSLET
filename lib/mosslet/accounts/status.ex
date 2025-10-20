@@ -36,10 +36,10 @@ defmodule Mosslet.Accounts.Status do
                # Update activity timestamp
                update_user_activity(updated_user)
 
-               # Broadcast status change to connections
-               broadcast_status_update(updated_user)
-
+               # Broadcast status change using accounts context
+               # Delegate to accounts context for broadcasting
                {:ok, updated_user}
+               |> Accounts.broadcast_user_status(:status_updated)
 
              {:error, changeset} ->
                {:error, changeset}
@@ -69,17 +69,13 @@ defmodule Mosslet.Accounts.Status do
              {:ok, updated_user} ->
                # Update connection record (shared status visibility) if connection_map was set
                if updated_user.connection_map do
-                 IO.inspect(updated_user.connection_map, label: "DEBUG: Connection map to save")
-                 result = update_connection_status_visibility(updated_user, updated_user.connection_map)
-                 IO.inspect(result, label: "DEBUG: Connection update result")
-               else
-                 IO.inspect("DEBUG: No connection_map found on updated_user")
+                 result =
+                   update_connection_status_visibility(updated_user, updated_user.connection_map)
                end
 
                # Broadcast status visibility change to connections
-               broadcast_status_visibility_update(updated_user)
-
                {:ok, updated_user}
+               |> Accounts.broadcast_user_status(:status_visibility_updated)
 
              {:error, changeset} ->
                {:error, changeset}
@@ -249,22 +245,6 @@ defmodule Mosslet.Accounts.Status do
       _ ->
         "Unable to decrypt status"
     end
-  end
-
-  defp broadcast_status_update(user) do
-    # Broadcast to user's connections that their status changed
-    Phoenix.PubSub.broadcast(
-      Mosslet.PubSub,
-      "user_status:#{user.id}",
-      {:status_updated, user.id, user.status, user.status_updated_at}
-    )
-
-    # Broadcast to connections topic for real-time updates
-    Phoenix.PubSub.broadcast(
-      Mosslet.PubSub,
-      "connections",
-      {:user_status_changed, user.id, user.status}
-    )
   end
 
   # Enhanced Status Visibility Functions
@@ -518,8 +498,9 @@ defmodule Mosslet.Accounts.Status do
                presence_visible_to_groups: connection_map[:c_presence_visible_to_groups],
                presence_visible_to_users: connection_map[:c_presence_visible_to_users]
              }
+
              IO.inspect(mapped_attrs, label: "DEBUG: Mapped connection attrs")
-             
+
              user.connection
              |> Connection.update_status_visibility_changeset(mapped_attrs)
              |> Repo.update()
@@ -530,14 +511,7 @@ defmodule Mosslet.Accounts.Status do
     end
   end
 
-  defp broadcast_status_visibility_update(user) do
-    # Broadcast to connections that user's status visibility changed
-    Phoenix.PubSub.broadcast(
-      Mosslet.PubSub,
-      "user_status_visibility:#{user.id}",
-      {:status_visibility_updated, user.id, user.status_visibility}
-    )
-  end
+  # Status visibility broadcast moved to Mosslet.Accounts context
 
   # Decryption helper functions
   defp decrypt_status_visible_users(user, session_key) do
