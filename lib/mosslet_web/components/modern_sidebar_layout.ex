@@ -198,7 +198,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <button
         @click="open = !open"
         class={[
-          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-hidden",
+          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-visible",
           "bg-gradient-to-br from-slate-50 via-white to-slate-100",
           "dark:from-slate-800 dark:via-slate-700 dark:to-slate-800",
           "ring-1 ring-slate-200/60 dark:ring-slate-600/40",
@@ -225,17 +225,12 @@ defmodule MossletWeb.ModernSidebarLayout do
             class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-white dark:ring-slate-600 group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
             alt="User avatar"
           />
-          <%!-- Online indicator with pulse (only when user is signed in) --%>
-          <div
+          <%!-- Status indicator with pulse (only when user is signed in) --%>
+          <MossletWeb.DesignSystem.liquid_user_status_indicator
             :if={@current_user}
-            class={[
-              "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full",
-              "bg-gradient-to-br from-emerald-400 to-emerald-500",
-              "ring-2 ring-white dark:ring-slate-800",
-              "animate-pulse group-hover:animate-bounce"
-            ]}
-          >
-          </div>
+            status={to_string(@current_user.status || "offline")}
+            animate={true}
+          />
         </div>
       </button>
 
