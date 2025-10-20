@@ -251,11 +251,17 @@ defmodule Mosslet.Accounts.Connection do
   # is coming through already encrypted correctly from the user changeset.
   defp add_status_message_hash(changeset) do
     if Map.has_key?(changeset.changes, :status_message_hash) do
-      changeset
-      |> put_change(
-        :status_message_hash,
-        String.downcase(get_field(changeset, :status_message_hash))
-      )
+      case get_field(changeset, :status_message_hash) do
+        nil -> 
+          changeset
+        "" -> 
+          changeset
+        hash_value when is_binary(hash_value) ->
+          changeset
+          |> put_change(:status_message_hash, String.downcase(hash_value))
+        _ ->
+          changeset
+      end
     else
       changeset
     end

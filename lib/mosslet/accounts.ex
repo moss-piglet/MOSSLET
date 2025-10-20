@@ -949,6 +949,18 @@ defmodule Mosslet.Accounts do
   end
 
   @doc """
+  Returns an `%Ecto.Changeset{}` for changing the user status.
+
+  ## Examples
+
+      iex> change_user_status(user, attrs, opts)
+      %Ecto.Changeset{data: %User{}}
+  """
+  def change_user_status(user, attrs \\ %{}, opts \\ []) do
+    User.status_changeset(user, attrs, opts)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing the user's is_forgot_pwd? boolean.
 
   ## Examples

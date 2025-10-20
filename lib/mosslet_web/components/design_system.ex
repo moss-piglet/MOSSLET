@@ -4206,7 +4206,7 @@ defmodule MossletWeb.DesignSystem do
   @doc """
   Timeline status indicator showing online/calm status.
   """
-  attr :status, :string, default: "calm", values: ~w(online calm away busy)
+  attr :status, :string, default: "calm", values: ~w(online calm away active busy offline)
   attr :message, :string, default: nil
   attr :class, :any, default: ""
 
@@ -4226,7 +4226,7 @@ defmodule MossletWeb.DesignSystem do
       ]}>
         <%!-- Pulse animation for certain statuses --%>
         <div
-          :if={@status in ["online", "calm"]}
+          :if={@status in ["online", "calm", "active", "busy", "away"]}
           class={[
             "absolute inset-0 rounded-full animate-ping opacity-75",
             timeline_status_ping_classes(@status)
@@ -4622,8 +4622,8 @@ defmodule MossletWeb.DesignSystem do
 
   defp timeline_status_classes("active") do
     [
-      "bg-emerald-50/80 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
-      "border-emerald-200/60 dark:border-emerald-700/60"
+      "bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300",
+      "border-blue-200/60 dark:border-blue-700/60"
     ]
   end
 
@@ -4655,16 +4655,19 @@ defmodule MossletWeb.DesignSystem do
   defp timeline_status_dot_size("busy"), do: "w-2 h-2"
   defp timeline_status_dot_size("offline"), do: "w-1.5 h-1.5"
 
-  defp timeline_status_dot_classes("online"), do: "bg-emerald-500"
+  defp timeline_status_dot_classes("online"), do: "bg-gradient-to-br from-emerald-400 to-teal-500"
   defp timeline_status_dot_classes("active"), do: "bg-gradient-to-br from-blue-400 to-emerald-500"
   defp timeline_status_dot_classes("calm"), do: "bg-gradient-to-br from-teal-400 to-emerald-500"
-  defp timeline_status_dot_classes("away"), do: "bg-amber-500"
-  defp timeline_status_dot_classes("busy"), do: "bg-rose-500"
-  defp timeline_status_dot_classes("offline"), do: "bg-slate-400"
+  defp timeline_status_dot_classes("away"), do: "bg-gradient-to-br from-amber-400 to-orange-500"
+  defp timeline_status_dot_classes("busy"), do: "bg-gradient-to-br from-rose-400 to-pink-500"
+  defp timeline_status_dot_classes("offline"), do: "bg-gradient-to-br from-slate-400 to-gray-500"
 
   defp timeline_status_ping_classes("online"), do: "bg-emerald-400"
   defp timeline_status_ping_classes("active"), do: "bg-blue-400"
+  defp timeline_status_ping_classes("away"), do: "bg-amber-400"
+  defp timeline_status_ping_classes("busy"), do: "bg-rose-400"
   defp timeline_status_ping_classes("calm"), do: "bg-teal-400"
+  defp timeline_status_ping_classes("offline"), do: "bg-slate-400"
   defp timeline_status_ping_classes(_), do: ""
 
   @doc """
@@ -4711,7 +4714,7 @@ defmodule MossletWeb.DesignSystem do
       <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
         Your Status
       </label>
-      
+
       <%!-- Status options with visual hierarchy --%>
       <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <button
@@ -4741,7 +4744,7 @@ defmodule MossletWeb.DesignSystem do
             >
             </div>
           </div>
-          
+
           <%!-- Status label --%>
           <span class="text-xs font-medium group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors duration-200">
             {String.capitalize(status)}
@@ -4755,26 +4758,35 @@ defmodule MossletWeb.DesignSystem do
   # Helper function for status selector button classes
   defp status_selector_classes(status, current_status) when status == current_status do
     case status do
-      "offline" -> [
-        "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600",
-        "text-slate-700 dark:text-slate-300 shadow-md"
-      ]
-      "calm" -> [
-        "bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30",
-        "border-teal-300 dark:border-teal-600 text-teal-700 dark:text-teal-300 shadow-md shadow-teal-500/20"
-      ]
-      "active" -> [
-        "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30",
-        "border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-md shadow-emerald-500/20"
-      ]
-      "busy" -> [
-        "bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/30 dark:to-pink-900/30",
-        "border-rose-300 dark:border-rose-600 text-rose-700 dark:text-rose-300 shadow-md shadow-rose-500/20"
-      ]
-      "away" -> [
-        "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30",
-        "border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 shadow-md shadow-amber-500/20"
-      ]
+      "offline" ->
+        [
+          "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600",
+          "text-slate-700 dark:text-slate-300 shadow-md"
+        ]
+
+      "calm" ->
+        [
+          "bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30",
+          "border-teal-300 dark:border-teal-600 text-teal-700 dark:text-teal-300 shadow-md shadow-teal-500/20"
+        ]
+
+      "active" ->
+        [
+          "bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30",
+          "border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-md shadow-emerald-500/20"
+        ]
+
+      "busy" ->
+        [
+          "bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/30 dark:to-pink-900/30",
+          "border-rose-300 dark:border-rose-600 text-rose-700 dark:text-rose-300 shadow-md shadow-rose-500/20"
+        ]
+
+      "away" ->
+        [
+          "bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30",
+          "border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 shadow-md shadow-amber-500/20"
+        ]
     end
   end
 

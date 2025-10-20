@@ -372,9 +372,9 @@ defmodule Mosslet.Accounts.User do
   end
 
   defp encrypt_status_change(changeset, opts) do
-    if opts[:key] && get_field(changeset, :status_message) do
-      status_message = get_field(changeset, :status_message)
-
+    status_message = get_field(changeset, :status_message)
+    
+    if opts[:key] && status_message && status_message != "" do
       changeset
       # Connection table
       |> encrypt_connection_map_status_change(opts, status_message)
@@ -382,32 +382,67 @@ defmodule Mosslet.Accounts.User do
       |> put_change(:status_message, encrypt_user_data(status_message, opts[:user], opts[:key]))
       |> put_change(:status_message_hash, String.downcase(status_message))
     else
-      changeset
+      # No status message, but we still need to update connection status if status changed
+      if get_field(changeset, :status) && get_field(changeset, :status) != changeset.data.status do
+        encrypt_connection_map_status_only(changeset, opts)
+      else
+        changeset
+      end
     end
   end
 
   defp encrypt_connection_map_status_change(changeset, opts, status_message) do
     # decrypt the user connection key and encrypt status for sharing
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(
-        opts[:user].conn_key,
-        opts[:user],
-        opts[:key]
-      )
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, d_conn_key} ->
+        c_encrypted_status_message =
+          Encrypted.Utils.encrypt(%{key: d_conn_key, payload: status_message})
 
-    c_encrypted_status_message =
-      Encrypted.Utils.encrypt(%{key: d_conn_key, payload: status_message})
+        changeset
+        |> put_change(:connection_map, %{
+          # Status enum (plaintext)
+          c_status: get_field(changeset, :status),
+          # Encrypted message for connections
+          c_status_message: c_encrypted_status_message,
+          # Hash for connection searching
+          c_status_message_hash: String.downcase(status_message),
+          c_status_updated_at: NaiveDateTime.utc_now()
+        })
 
-    changeset
-    |> put_change(:connection_map, %{
-      # Status enum (plaintext)
-      c_status: get_field(changeset, :status),
-      # Encrypted message for connections
-      c_status_message: c_encrypted_status_message,
-      # Hash for connection searching
-      c_status_message_hash: String.downcase(status_message),
-      c_status_updated_at: NaiveDateTime.utc_now()
-    })
+      {:error, _reason} ->
+        # If connection key decryption fails, skip connection status update
+        # but still allow the user status update to proceed
+        changeset
+    end
+  end
+
+  defp encrypt_connection_map_status_only(changeset, opts) do
+    # Update connection status without message
+    case Encrypted.Users.Utils.decrypt_user_attrs_key(
+           opts[:user].conn_key,
+           opts[:user],
+           opts[:key]
+         ) do
+      {:ok, _d_conn_key} ->
+        changeset
+        |> put_change(:connection_map, %{
+          # Status enum (plaintext)
+          c_status: get_field(changeset, :status),
+          # No message changes
+          c_status_message: nil,
+          c_status_message_hash: nil,
+          c_status_updated_at: NaiveDateTime.utc_now()
+        })
+
+      {:error, _reason} ->
+        # If connection key decryption fails, skip connection status update
+        # but still allow the user status update to proceed
+        changeset
+    end
   end
 
   # Status visibility validation and encryption functions
@@ -1249,12 +1284,12 @@ defmodule Mosslet.Accounts.User do
   """
   def status_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:status, :status_message])
+    |> cast(attrs, [:status, :status_message, :auto_status])
     |> validate_status(opts)
     |> encrypt_status_change(opts)
     |> case do
       %{changes: changes} = changeset when map_size(changes) > 0 ->
-        put_change(changeset, :status_updated_at, NaiveDateTime.utc_now())
+        put_change(changeset, :status_updated_at, NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second))
 
       %{} = changeset ->
         add_error(changeset, :status, "did not change")

@@ -26,12 +26,16 @@ defmodule MossletWeb.UserSettings.StatusLive do
     key = socket.assigns.key
 
     # Create forms for status and status visibility
-    status_form =
-      to_form(%{
-        "status" => Atom.to_string(user.status || :offline),
-        "status_message" => get_decrypted_status_message(user, key) || "",
-        "auto_status" => user.auto_status || false
-      })
+    initial_status_attrs = %{
+      "status" => to_string(user.status || :offline),
+      "status_message" => get_decrypted_status_message(user, key) || "",
+      "auto_status" => user.auto_status || false
+    }
+
+    status_changeset =
+      Accounts.change_user_status(user, initial_status_attrs, user: user, key: key)
+
+    status_form = to_form(status_changeset)
 
     # Load saved status visibility selections from connection record
     {saved_groups, saved_users, saved_presence_groups, saved_presence_users} =
@@ -91,8 +95,8 @@ defmodule MossletWeb.UserSettings.StatusLive do
                 <span>Your Status</span>
                 <%!-- Current status indicator --%>
                 <DesignSystem.liquid_timeline_status
-                  status={@status_form["status"].value || "offline"}
-                  message={@status_form["status_message"].value}
+                  status={to_string(@status_form[:status].value || :offline)}
+                  message={get_status_message_for_preview(@status_form)}
                   class="ml-auto"
                 />
               </div>
@@ -104,20 +108,24 @@ defmodule MossletWeb.UserSettings.StatusLive do
               phx-change="validate_status"
               class="space-y-6"
             >
+              <%!-- Hidden status field to ensure status gets submitted --%>
+              <.phx_input field={@status_form[:status]} type="hidden" />
+
               <%!-- Status Selector --%>
               <DesignSystem.liquid_status_selector
-                current_status={@status_form["status"].value || "offline"}
+                current_status={to_string(@status_form[:status].value || :offline)}
                 phx_click="set_status"
               />
 
               <%!-- Status Message Input --%>
-              <div :if={@status_form["status"].value != "offline"} class="space-y-3">
+              <div :if={to_string(@status_form[:status].value) != "offline"} class="space-y-3">
                 <.phx_input
                   field={@status_form[:status_message]}
                   type="text"
                   label="Status message (optional)"
                   placeholder="What are you up to?"
                   maxlength="160"
+                  value={if @current_user.status_message, do: MossletWeb.Helpers.decr(@current_user.status_message, @current_user, @key) || "", else: ""}
                   help="Share what you're doing with people who can see your status"
                 />
               </div>
@@ -265,7 +273,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                       checked={connection.id in (@status_visibility_form[:status_visible_to_users].value || [])}
                       class="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700"
                     />
-                    
+
                     <%!-- Connection avatar with color theming --%>
                     <div class={[
                       "relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0",
@@ -289,7 +297,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                         loading="lazy"
                       />
                     </div>
-                    
+
                     <%!-- Connection info with color theming --%>
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-1">
@@ -309,7 +317,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                           end
                         ]}>
                         </div>
-                        
+
                         <%!-- Connection name --%>
                         <p class={[
                           "text-sm font-medium truncate",
@@ -327,7 +335,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                         ]}>
                           {get_decrypted_connection_label(connection, @current_user, @key)}
                         </p>
-                        
+
                         <%!-- Connection badge with color theming --%>
                         <span class={[
                           "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
@@ -346,7 +354,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                           Connected
                         </span>
                       </div>
-                      
+
                       <%!-- Username display --%>
                       <p class={[
                         "text-xs leading-relaxed",
@@ -374,12 +382,30 @@ defmodule MossletWeb.UserSettings.StatusLive do
                 <h3 class="text-base font-medium text-slate-900 dark:text-slate-100">
                   Online Presence
                 </h3>
-                <.phx_input
-                  field={@status_visibility_form[:show_online_presence]}
-                  type="checkbox"
-                  label="Show when I'm online"
-                  help="Let people who can see your status know when you're actively using MOSSLET"
-                />
+                <div class="group flex items-center gap-3 p-2 -m-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-out">
+                  <div class="relative">
+                    <input type="hidden" name="show_online_presence" value="false" />
+                    <input
+                      type="checkbox"
+                      id="show_online_presence"
+                      name="show_online_presence"
+                      value="true"
+                      checked={@status_visibility_form[:show_online_presence].value || false}
+                      class="h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500/50 dark:focus:ring-emerald-400/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 checked:border-emerald-600 dark:checked:border-emerald-400 shadow-sm hover:shadow-md"
+                    />
+                  </div>
+                  <div class="flex-1">
+                    <label
+                      for="show_online_presence"
+                      class="text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 ease-out"
+                    >
+                      Show when I'm online
+                    </label>
+                    <div class="mt-1 text-sm text-slate-500 dark:text-slate-500">
+                      Let people who can see your status know when you're actively using MOSSLET
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <%!-- Action button --%>
@@ -466,29 +492,125 @@ defmodule MossletWeb.UserSettings.StatusLive do
   # Event handlers
 
   def handle_event("set_status", %{"status" => status}, socket) do
-    # Get current form data and update the status field properly
-    current_data = socket.assigns.status_form.source
-    updated_data = Map.put(current_data, "status", status)
-    
-    # Create new form with updated data
-    status_form = to_form(updated_data)
-    
+    # Get current user and create a changeset with the new status
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Build attrs from current changeset plus new status
+    # Handle both changeset and map sources
+    current_changes = 
+      case socket.assigns.status_form.source do
+        %Ecto.Changeset{} = changeset -> 
+          # Convert to string keys
+          (changeset.changes || %{})
+          |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+          |> Enum.into(%{})
+        source_map when is_map(source_map) -> 
+          # Convert to string keys
+          source_map
+          |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+          |> Enum.into(%{})
+        _ -> %{}
+      end
+      
+    # Ensure all keys are strings for the changeset
+    attrs = 
+      current_changes
+      |> Map.put("status", status)
+      |> Enum.map(fn 
+        {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+        {k, v} -> {k, v}
+      end)
+      |> Enum.into(%{})
+
+    changeset = Accounts.change_user_status(user, attrs, user: user, key: key)
+    status_form = to_form(changeset)
+
     {:noreply, assign(socket, status_form: status_form)}
   end
 
   def handle_event("validate_status", params, socket) do
     # Handle both nested and direct parameter formats using pattern matching
-    status_params = 
+    status_params =
       case params do
-        %{"status" => nested_params} -> nested_params
-        direct_params -> direct_params
+        %{"user" => user_params} -> user_params
+        %{"status" => nested_params} when is_map(nested_params) -> nested_params
+        direct_params when is_map(direct_params) -> direct_params
+        _ -> %{}
       end
+
+    # Create a changeset to validate the parameters
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Get current changeset data to preserve existing changes
+    # Handle both changeset and map sources
+    current_changeset = socket.assigns.status_form.source
     
-    # Merge with current form data to preserve other fields
-    current_data = socket.assigns.status_form.source
-    updated_data = Map.merge(current_data, status_params)
+    current_changes = 
+      case current_changeset do
+        %Ecto.Changeset{} = changeset -> 
+          # Convert changeset changes to string keys to match incoming params
+          (changeset.changes || %{})
+          |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+          |> Enum.into(%{})
+        source_map when is_map(source_map) -> 
+          # Ensure all keys are strings
+          source_map
+          |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+          |> Enum.into(%{})
+        _ -> 
+          %{}
+      end
+
+    # Convert string values to appropriate types and merge with current state
+    # Ensure status_params is enumerable before processing
+    normalized_params =
+      if is_map(status_params) do
+        status_params
+        |> Enum.reject(fn {k, _v} -> 
+          (is_binary(k) and String.starts_with?(k, "_unused_")) or
+          k in ["_target", "_csrf_token", "_persistent_id"]
+        end)
+        |> Enum.map(fn {k, v} ->
+          case k do
+            "status" when is_binary(v) -> {"status", v}
+            "auto_status" when is_binary(v) -> {"auto_status", v == "true"}
+            "status_message" when is_binary(v) -> {"status_message", v}
+            key when is_binary(key) -> {key, v}
+            {key, val} -> {to_string(key), val}
+          end
+        end)
+        |> Enum.into(%{})
+      else
+        %{}
+      end
+
+    # Merge normalized params with current changes to preserve all form state
+    # Ensure all keys are strings and all values are properly typed
+    merged_params = Map.merge(current_changes, normalized_params)
+
+    # Ensure all keys in merged_params are strings to avoid mixed key errors
+    string_params = 
+      merged_params
+      |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+      |> Enum.into(%{})
+
+    # Add logging to debug form validation
+    require Logger
+    Logger.debug("validate_status string_params: #{inspect(string_params)}")
+
+    changeset = Accounts.change_user_status(user, string_params, user: user, key: key)
     
-    status_form = to_form(updated_data)
+    # Log the changeset for debugging
+    Logger.debug("validate_status changeset changes: #{inspect(changeset.changes)}")
+    Logger.debug("validate_status changeset data.status_message: #{inspect(changeset.data.status_message)}")
+    
+    status_form = to_form(changeset)
+    
+    # Log the form values
+    Logger.debug("validate_status form status_message value: #{inspect(status_form[:status_message].value)}")
+
     {:noreply, assign(socket, status_form: status_form)}
   end
 
@@ -497,28 +619,36 @@ defmodule MossletWeb.UserSettings.StatusLive do
     key = socket.assigns.key
 
     # Handle both full status updates and partial updates using pattern matching
-    status_params = 
+    status_params =
       case params do
+        %{"user" => nested_params} -> nested_params
         %{"status" => nested_params} -> nested_params
         direct_params -> direct_params
       end
 
     # Build attrs safely with pattern matching for missing fields
     attrs = %{
-      status: 
+      "status" =>
         case Map.get(status_params, "status") do
-          nil -> user.status || :offline
-          status_string -> String.to_existing_atom(status_string)
+          nil -> to_string(user.status || :offline)
+          status_string -> status_string
         end,
-      status_message: Map.get(status_params, "status_message", user.status_message),
-      auto_status: Map.get(status_params, "auto_status") == "true"
+      "status_message" => Map.get(status_params, "status_message", ""),
+      "auto_status" => Map.get(status_params, "auto_status") == "true"
     }
 
-    case Status.update_user_status(user, attrs, user: user, key: key) do
+    # Convert string status to atom for the Status module
+    status_attrs = %{
+      status: String.to_existing_atom(attrs["status"]),
+      status_message: attrs["status_message"],
+      auto_status: attrs["auto_status"]
+    }
+
+    case Status.update_user_status(user, status_attrs, user: user, key: key) do
       {:ok, updated_user} ->
         status_form =
           to_form(%{
-            "status" => Atom.to_string(updated_user.status),
+            "status" => to_string(updated_user.status),
             "status_message" => get_decrypted_status_message(updated_user, key) || "",
             "auto_status" => updated_user.auto_status
           })
@@ -528,7 +658,11 @@ defmodule MossletWeb.UserSettings.StatusLive do
          |> put_flash(:success, "Your status has been updated successfully!")
          |> assign(status_form: status_form)}
 
-      {:error, _changeset} ->
+      {:error, changeset} ->
+        # Log the error for debugging
+        require Logger
+        Logger.error("Status update failed: #{inspect(changeset.errors)}")
+        
         {:noreply,
          socket
          |> put_flash(:error, "There was an error updating your status. Please try again.")}
@@ -537,58 +671,59 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
   def handle_event("validate_status_visibility", params, socket) do
     # Extract the status_visibility value from different parameter structures
-    status_visibility = 
+    status_visibility =
       case params do
         %{"status_visibility_form" => %{"status_visibility" => val}} -> val
         %{"user" => %{"status_visibility" => val}} -> val
         %{"status_visibility" => val} -> val
         _ -> "nobody"
       end
-    
+
     # Extract checkbox selections for groups and users
     selected_groups = extract_checkbox_values(params, "status_visible_to_groups")
     selected_users = extract_checkbox_values(params, "status_visible_to_users")
     selected_presence_groups = extract_checkbox_values(params, "presence_visible_to_groups")
     selected_presence_users = extract_checkbox_values(params, "presence_visible_to_users")
-    
-    # Extract other form values
-    show_online_presence = 
+
+    # Extract other form values - the form sends parameters directly at top level
+    show_online_presence =
       case params do
+        %{"show_online_presence" => val} -> val == "true"
         %{"status_visibility_form" => %{"show_online_presence" => val}} -> val == "true"
         %{"user" => %{"show_online_presence" => val}} -> val == "true"
-        %{"show_online_presence" => val} -> val == "true"
         _ -> false
       end
-    
+
     # Create updated form with current selections
-    status_visibility_form = to_form(%{
-      "status_visibility" => normalize_status_visibility(status_visibility),
-      "show_online_presence" => show_online_presence,
-      "status_visible_to_groups" => selected_groups,
-      "status_visible_to_users" => selected_users,
-      "presence_visible_to_groups" => selected_presence_groups,
-      "presence_visible_to_users" => selected_presence_users
-    })
+    status_visibility_form =
+      to_form(%{
+        "status_visibility" => normalize_status_visibility(status_visibility),
+        "show_online_presence" => show_online_presence,
+        "status_visible_to_groups" => selected_groups,
+        "status_visible_to_users" => selected_users,
+        "presence_visible_to_groups" => selected_presence_groups,
+        "presence_visible_to_users" => selected_presence_users
+      })
 
     {:noreply, assign(socket, status_visibility_form: status_visibility_form)}
   end
 
   def handle_event("update_status_visibility", params, socket) do
     # Handle different form parameter structures using pattern matching
-    visibility_params = 
+    visibility_params =
       case params do
         %{"status_visibility_form" => form_params} -> form_params
         %{"user" => user_params} -> user_params
         raw_params when is_map(raw_params) -> raw_params
         _ -> %{}
       end
-      
+
     # Extract groups and users from form arrays using pattern matching
     selected_groups = extract_checkbox_values(params, "status_visible_to_groups")
     selected_users = extract_checkbox_values(params, "status_visible_to_users")
     selected_presence_groups = extract_checkbox_values(params, "presence_visible_to_groups")
     selected_presence_users = extract_checkbox_values(params, "presence_visible_to_users")
-    
+
     # Build normalized params
     formatted_params = %{
       "status_visibility" => visibility_params["status_visibility"] || "nobody",
@@ -607,10 +742,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
     key = socket.assigns.key
 
     # Safely convert visibility to atom using pattern matching
-    status_visibility = 
+    status_visibility =
       case visibility_params["status_visibility"] do
         "nobody" -> :nobody
-        "connections" -> :connections  
+        "connections" -> :connections
         "specific_groups" -> :specific_groups
         "specific_users" -> :specific_users
         "public" -> :public
@@ -654,14 +789,17 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
       {:error, changeset} ->
         # Show specific validation errors if available using pattern matching
-        error_message = 
+        error_message =
           case changeset.errors do
-            [] -> "There was an error updating your status visibility. Please try again."
-            errors -> 
-              "Validation errors: " <> 
-              (Enum.map(errors, fn {field, {msg, _}} -> "#{field}: #{msg}" end) |> Enum.join(", "))
+            [] ->
+              "There was an error updating your status visibility. Please try again."
+
+            errors ->
+              "Validation errors: " <>
+                (Enum.map(errors, fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+                 |> Enum.join(", "))
           end
-          
+
         {:noreply,
          socket
          |> put_flash(:error, error_message)}
@@ -680,7 +818,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
       _ -> "nobody"
     end
   end
-  
+
   # Helper function to check if current value matches target visibility
   defp status_visibility_matches?(current_value, target) do
     normalized_current = normalize_status_visibility(current_value)
@@ -692,7 +830,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
   defp extract_checkbox_values(params, field_name) do
     # Build the array field name
     array_field_name = field_name <> "[]"
-    
+
     # Pattern match different form parameter structures
     case params do
       # Pattern 1: status_visibility_form[field_name][]
@@ -700,14 +838,17 @@ defmodule MossletWeb.UserSettings.StatusLive do
         cond do
           Map.has_key?(form_params, array_field_name) and is_list(form_params[array_field_name]) ->
             form_params[array_field_name]
+
           Map.has_key?(form_params, field_name) and is_list(form_params[field_name]) ->
             form_params[field_name]
+
           Map.has_key?(form_params, field_name) and is_binary(form_params[field_name]) ->
             [form_params[field_name]]
+
           true ->
             []
         end
-        
+
       # Pattern 2: Direct field[] at top level
       %{} when is_map_key(params, array_field_name) ->
         case params[array_field_name] do
@@ -715,7 +856,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
           value when is_binary(value) -> [value]
           _ -> []
         end
-        
+
       # Pattern 3: Direct field at top level
       %{} when is_map_key(params, field_name) ->
         case params[field_name] do
@@ -723,7 +864,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
           value when is_binary(value) -> [value]
           _ -> []
         end
-        
+
       # Pattern 4: No match, return empty list
       _ ->
         []
@@ -732,7 +873,103 @@ defmodule MossletWeb.UserSettings.StatusLive do
     |> List.flatten()
     |> Enum.filter(&is_binary/1)
   end
-  
+
+  # Helper function to get the display version of status message
+  defp get_display_status_message(form_value, user, key) do
+    # Add logging to debug the issue
+    require Logger
+    Logger.debug("get_display_status_message called with: #{inspect(form_value)}")
+    
+    result = cond do
+      # If it's nil or empty, return nil (status component will show just the status type)
+      is_nil(form_value) or form_value == "" ->
+        Logger.debug("Returning nil - value is nil or empty")
+        nil
+
+      # If it looks like an encrypted string (base64-ish), try to decrypt it
+      # BUT also check if this is a fresh form input vs stored encrypted value
+      is_binary(form_value) and String.length(form_value) > 50 and
+          String.contains?(form_value, ["+", "/", "="]) ->
+        Logger.debug("Attempting to decrypt value: #{inspect(form_value)}")
+        # Try to decrypt - if it fails, this might be a form validation case
+        # where the changeset already encrypted the user input
+        case decrypt_status_message_value(form_value, user, key) do
+          nil -> 
+            Logger.debug("Decryption returned nil - this might be a changeset encrypted value")
+            # If decryption fails, this could be the changeset trying to encrypt form input
+            # In that case, we should look for the original input in the changeset params
+            nil
+          decrypted when decrypted == "" -> 
+            Logger.debug("Decryption returned empty string")
+            nil
+          decrypted -> 
+            Logger.debug("Decryption successful: #{inspect(decrypted)}")
+            decrypted
+        end
+
+      # Otherwise, it's already a plain text value from form input - show it for live preview
+      is_binary(form_value) ->
+        Logger.debug("Returning plain text value: #{inspect(form_value)}")
+        form_value
+
+      # Fallback
+      true ->
+        Logger.debug("Fallback - returning nil")
+        nil
+    end
+    
+    Logger.debug("get_display_status_message returning: #{inspect(result)}")
+    result
+  end
+
+  # New helper function to get status message for preview - bypasses encryption
+  defp get_status_message_for_preview(status_form) do
+    require Logger
+    Logger.debug("get_status_message_for_preview called with form: #{inspect(status_form)}")
+    
+    # For live preview, we want to show the raw form input, not the encrypted version
+    case status_form.source do
+      %Ecto.Changeset{params: params} when is_map(params) ->
+        Logger.debug("Found changeset with params: #{inspect(params)}")
+        # Get the raw status_message from params - this is the user's input
+        case params do
+          %{"status_message" => msg} when is_binary(msg) and msg != "" -> 
+            Logger.debug("Found status_message in params: #{inspect(msg)}")
+            msg
+          %{"user" => %{"status_message" => msg}} when is_binary(msg) and msg != "" -> 
+            Logger.debug("Found status_message in user params: #{inspect(msg)}")
+            msg
+          _ -> 
+            Logger.debug("No status_message found in params, falling back to form value")
+            # Fall back to the form field value
+            case status_form[:status_message].value do
+              msg when is_binary(msg) and msg != "" -> msg
+              _ -> nil
+            end
+        end
+      
+      _changeset_or_data ->
+        Logger.debug("No params found, using form field value")
+        # Fall back to the form field value (which should be the decrypted message after save)
+        case status_form[:status_message].value do
+          msg when is_binary(msg) and msg != "" ->
+            Logger.debug("Found form field value: #{inspect(msg)}")
+            msg
+          _ ->
+            Logger.debug("No form field value found")
+            nil
+        end
+    end
+  end
+
+  # Helper function to decrypt a specific status message value (for form preview)
+  defp decrypt_status_message_value(encrypted_value, user, key) do
+    case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_value, user, key) do
+      {:ok, decrypted_message} -> decrypted_message
+      _ -> nil
+    end
+  end
+
   # Helper functions
 
   defp get_saved_status_visibility_selections(user, key) do
@@ -761,18 +998,25 @@ defmodule MossletWeb.UserSettings.StatusLive do
     # Use pattern matching instead of try/rescue
     case encrypted_data do
       # Empty cases
-      nil -> []
-      "" -> []
-      [] -> []
-      
+      nil ->
+        []
+
+      "" ->
+        []
+
+      [] ->
+        []
+
       # List of encrypted strings
       encrypted_list when is_list(encrypted_list) ->
         case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key) do
           {:ok, d_conn_key} ->
             encrypted_list
             |> Enum.map(fn encrypted_item ->
-              with {:ok, decrypted_item} <- Mosslet.Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_item}),
-                   {:ok, group_id} <- Mosslet.Encrypted.Users.Utils.decrypt_user_data(decrypted_item, user, key) do
+              with {:ok, decrypted_item} <-
+                     Mosslet.Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_item}),
+                   {:ok, group_id} <-
+                     Mosslet.Encrypted.Users.Utils.decrypt_user_data(decrypted_item, user, key) do
                 group_id
               else
                 # Handle direct string values using pattern matching
@@ -781,8 +1025,9 @@ defmodule MossletWeb.UserSettings.StatusLive do
               end
             end)
             |> Enum.filter(&(&1 != nil))
-            
-          _ -> []
+
+          _ ->
+            []
         end
 
       # Single encrypted string
@@ -796,22 +1041,34 @@ defmodule MossletWeb.UserSettings.StatusLive do
                   group_id when is_binary(group_id) -> [group_id]
                   _ -> []
                 end
-              _ -> []
+
+              _ ->
+                []
             end
-            
-          _ -> []
+
+          _ ->
+            []
         end
 
       # Unknown format
-      _ -> []
+      _ ->
+        []
     end
   end
 
   defp get_decrypted_status_message(user, key) do
     if user.status_message do
+      # Use decrypt_user_data since status_message is encrypted with user_key
       case Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.status_message, user, key) do
-        {:ok, decrypted_message} -> decrypted_message
-        _ -> nil
+        {:ok, decrypted_message} ->
+          decrypted_message
+        
+        # Handle direct return value (no tuple wrapping)
+        decrypted_message when is_binary(decrypted_message) ->
+          decrypted_message
+
+        _ ->
+          nil
       end
     else
       nil
