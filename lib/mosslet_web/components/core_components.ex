@@ -929,7 +929,7 @@ defmodule MossletWeb.CoreComponents do
               if @apply_classes?,
                 do: @classes,
                 else:
-                  "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500/50 dark:focus:ring-emerald-400/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 checked:border-emerald-600 dark:checked:border-emerald-400 shadow-sm hover:shadow-md"
+                  "h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 accent-emerald-600 dark:accent-emerald-400 focus:ring-emerald-500/50 dark:focus:ring-emerald-400/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-400 shadow-sm hover:shadow-md"
             }
             {@rest}
           />
