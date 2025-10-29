@@ -6,7 +6,8 @@ defmodule MossletWeb.UserSettings.StatusLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.{Status, User}
+  alias Mosslet.Accounts.User
+  alias Mosslet.Statuses
   alias MossletWeb.DesignSystem
   import MossletWeb.DesignSystem
 
@@ -44,11 +45,13 @@ defmodule MossletWeb.UserSettings.StatusLive do
     status_visibility_form =
       to_form(%{
         "status_visibility" => Atom.to_string(user.status_visibility || :nobody),
-        "show_online_presence" => user.show_online_presence || false,
+        "show_online_presence" => user.show_online_presence,
         "status_visible_to_groups" => saved_groups,
         "status_visible_to_users" => saved_users,
-        "presence_visible_to_groups" => saved_presence_groups,
-        "presence_visible_to_users" => saved_presence_users
+        # simply match
+        "presence_visible_to_groups" => saved_groups,
+        # simply match
+        "presence_visible_to_users" => saved_users
       })
 
     # Get visibility groups and connections using existing functions
@@ -111,8 +114,8 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
             <.form
               for={@status_form}
-              phx-submit="update_status"
               phx-change="validate_status"
+              phx-submit="update_status"
               class="space-y-6"
             >
               <%!-- Hidden status field to ensure status gets submitted --%>
@@ -132,6 +135,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                   label="Status message (optional)"
                   placeholder="What are you up to?"
                   maxlength="160"
+                  phx-debounce="200"
                   value={@status_message || ""}
                   help="Share what you're doing with people who can see your status"
                 />
@@ -142,6 +146,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
                 <.phx_input
                   field={@status_form[:auto_status]}
                   type="checkbox"
+                  phx-debounce="200"
                   label="Automatically update status based on activity"
                   help="Let MOSSLET update your status when you're active, away, or offline"
                 />
@@ -175,15 +180,20 @@ defmodule MossletWeb.UserSettings.StatusLive do
                   color={visibility_badge_color(@status_visibility_form[:status_visibility].value)}
                   size="sm"
                 >
-                  {String.capitalize(ensure_string(@status_visibility_form[:status_visibility].value || @status_visibility_form[:status_visibility] || "nobody"))}
+                  {String.capitalize(
+                    ensure_string(
+                      @status_visibility_form[:status_visibility].value ||
+                        @status_visibility_form[:status_visibility] || "nobody"
+                    )
+                  )}
                 </DesignSystem.liquid_badge>
               </div>
             </:title>
 
             <.form
               for={@status_visibility_form}
-              phx-submit="update_status_visibility"
               phx-change="validate_status_visibility"
+              phx-submit="update_status_visibility"
               class="space-y-6"
             >
               <%!-- Current visibility status --%>
@@ -195,7 +205,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
                   </span>
                 </div>
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                  {status_visibility_help_text(@status_visibility_form[:status_visibility].value, @current_user.visibility)}
+                  {status_visibility_help_text(
+                    @status_visibility_form[:status_visibility].value,
+                    @current_user.visibility
+                  )}
                 </p>
               </div>
 
@@ -211,17 +224,32 @@ defmodule MossletWeb.UserSettings.StatusLive do
               </div>
 
               <%!-- Group selector (if specific_groups selected) --%>
-              <div :if={status_visibility_matches?(@status_visibility_form[:status_visibility].value, :specific_groups)} class="space-y-3">
+              <div
+                :if={
+                  status_visibility_matches?(
+                    @status_visibility_form[:status_visibility].value,
+                    :specific_groups
+                  )
+                }
+                class="space-y-3"
+              >
                 <label class="text-sm font-medium text-slate-900 dark:text-slate-100">
                   Choose which groups can see your status:
                 </label>
                 <div class="space-y-2 max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-800/50">
-                  <div :if={Enum.empty?(@user_visibility_groups)} class="text-center py-4 text-slate-500 dark:text-slate-400">
+                  <div
+                    :if={Enum.empty?(@user_visibility_groups)}
+                    class="text-center py-4 text-slate-500 dark:text-slate-400"
+                  >
                     <p class="text-sm">No visibility groups created yet.</p>
                     <p class="text-xs mt-1">
-                      <.link navigate={~p"/app/users/connections"} class="text-teal-600 hover:text-teal-700">
+                      <.link
+                        navigate={~p"/app/users/connections"}
+                        class="text-teal-600 hover:text-teal-700"
+                      >
                         Create visibility groups
-                      </.link> to organize your connections.
+                      </.link>
+                      to organize your connections.
                     </p>
                   </div>
 
@@ -233,7 +261,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
                       type="checkbox"
                       name="status_visible_to_groups[]"
                       value={group_data.group.id}
-                      checked={group_data.group.id in (@status_visibility_form[:status_visible_to_groups].value || [])}
+                      checked={
+                        group_data.group.id in (@status_visibility_form[:status_visible_to_groups].value ||
+                                                  [])
+                      }
                       class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-700 h-4 w-4"
                     />
                     <div class={["w-3 h-3 rounded-full bg-#{group_data.group.color}-500"]}></div>
@@ -241,7 +272,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
                       <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
                         {get_decrypted_group_name(group_data, @current_user, @key)}
                       </p>
-                      <p :if={group_data.group.description} class="text-xs text-slate-500 dark:text-slate-400">
+                      <p
+                        :if={group_data.group.description}
+                        class="text-xs text-slate-500 dark:text-slate-400"
+                      >
                         {get_decrypted_group_description(group_data, @current_user, @key)}
                       </p>
                     </div>
@@ -250,17 +284,32 @@ defmodule MossletWeb.UserSettings.StatusLive do
               </div>
 
               <%!-- User selector (if specific_users selected) --%>
-              <div :if={status_visibility_matches?(@status_visibility_form[:status_visibility].value, :specific_users)} class="space-y-3">
+              <div
+                :if={
+                  status_visibility_matches?(
+                    @status_visibility_form[:status_visibility].value,
+                    :specific_users
+                  )
+                }
+                class="space-y-3"
+              >
                 <label class="text-sm font-medium text-slate-900 dark:text-slate-100">
                   Choose which users can see your status:
                 </label>
                 <div class="space-y-2 max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-800/50">
-                  <div :if={Enum.empty?(@user_connections)} class="text-center py-4 text-slate-500 dark:text-slate-400">
+                  <div
+                    :if={Enum.empty?(@user_connections)}
+                    class="text-center py-4 text-slate-500 dark:text-slate-400"
+                  >
                     <p class="text-sm">No connections found.</p>
                     <p class="text-xs mt-1">
-                      <.link navigate={~p"/app/users/connections"} class="text-teal-600 hover:text-teal-700">
+                      <.link
+                        navigate={~p"/app/users/connections"}
+                        class="text-teal-600 hover:text-teal-700"
+                      >
                         Connect with people
-                      </.link> to share your status with specific users.
+                      </.link>
+                      to share your status with specific users.
                     </p>
                   </div>
 
@@ -276,8 +325,12 @@ defmodule MossletWeb.UserSettings.StatusLive do
                     <input
                       type="checkbox"
                       name="status_visible_to_users[]"
-                      value={connection.id}
-                      checked={connection.id in (@status_visibility_form[:status_visible_to_users].value || [])}
+                      value={connection.connection.user_id}
+                      checked={
+                        connection.connection.user_id in (@status_visibility_form[
+                                                            :status_visible_to_users
+                                                          ].value || [])
+                      }
                       class="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700"
                     />
 
@@ -286,15 +339,32 @@ defmodule MossletWeb.UserSettings.StatusLive do
                       "relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0",
                       "bg-gradient-to-br",
                       case connection.color do
-                        :teal -> "from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-teal-900/40"
-                        :emerald -> "from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/40 dark:via-teal-900/30 dark:to-emerald-900/40"
-                        :cyan -> "from-cyan-100 via-blue-50 to-cyan-100 dark:from-cyan-900/40 dark:via-blue-900/30 dark:to-cyan-900/40"
-                        :purple -> "from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/40 dark:via-violet-900/30 dark:to-purple-900/40"
-                        :rose -> "from-rose-100 via-pink-50 to-rose-100 dark:from-rose-900/40 dark:via-pink-900/30 dark:to-rose-900/40"
-                        :amber -> "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
-                        :orange -> "from-orange-100 via-amber-50 to-orange-100 dark:from-orange-900/40 dark:via-amber-900/30 dark:to-orange-900/40"
-                        :indigo -> "from-indigo-100 via-blue-50 to-indigo-100 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-indigo-900/40"
-                        _ -> "from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800/40 dark:via-slate-700/30 dark:to-slate-800/40"
+                        :teal ->
+                          "from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-teal-900/40"
+
+                        :emerald ->
+                          "from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/40 dark:via-teal-900/30 dark:to-emerald-900/40"
+
+                        :cyan ->
+                          "from-cyan-100 via-blue-50 to-cyan-100 dark:from-cyan-900/40 dark:via-blue-900/30 dark:to-cyan-900/40"
+
+                        :purple ->
+                          "from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/40 dark:via-violet-900/30 dark:to-purple-900/40"
+
+                        :rose ->
+                          "from-rose-100 via-pink-50 to-rose-100 dark:from-rose-900/40 dark:via-pink-900/30 dark:to-rose-900/40"
+
+                        :amber ->
+                          "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
+
+                        :orange ->
+                          "from-orange-100 via-amber-50 to-orange-100 dark:from-orange-900/40 dark:via-amber-900/30 dark:to-orange-900/40"
+
+                        :indigo ->
+                          "from-indigo-100 via-blue-50 to-indigo-100 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-indigo-900/40"
+
+                        _ ->
+                          "from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800/40 dark:via-slate-700/30 dark:to-slate-800/40"
                       end
                     ]}>
                       <img
@@ -347,15 +417,32 @@ defmodule MossletWeb.UserSettings.StatusLive do
                         <span class={[
                           "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
                           case connection.color do
-                            :teal -> "bg-teal-100/80 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-                            :emerald -> "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                            :cyan -> "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
-                            :purple -> "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-                            :rose -> "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
-                            :amber -> "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                            :orange -> "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                            :indigo -> "bg-indigo-100/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-                            _ -> "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
+                            :teal ->
+                              "bg-teal-100/80 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+
+                            :emerald ->
+                              "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+
+                            :cyan ->
+                              "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
+
+                            :purple ->
+                              "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+
+                            :rose ->
+                              "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
+
+                            :amber ->
+                              "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+
+                            :orange ->
+                              "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+
+                            :indigo ->
+                              "bg-indigo-100/80 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+
+                            _ ->
+                              "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
                           end
                         ]}>
                           Connected
@@ -391,13 +478,9 @@ defmodule MossletWeb.UserSettings.StatusLive do
                 </h3>
                 <div class="group flex items-center gap-3 p-2 -m-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-out">
                   <div class="relative">
-                    <input type="hidden" name="show_online_presence" value="false" />
-                    <input
+                    <.phx_input
                       type="checkbox"
-                      id="show_online_presence"
-                      name="show_online_presence"
-                      value="true"
-                      checked={@status_visibility_form[:show_online_presence].value || false}
+                      field={@status_visibility_form[:show_online_presence]}
                       class="h-5 w-5 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 accent-emerald-600 dark:accent-emerald-400 focus:ring-emerald-500/50 dark:focus:ring-emerald-400/50 focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-all duration-200 ease-out hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-400 shadow-sm hover:shadow-md"
                     />
                   </div>
@@ -518,8 +601,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
     end
   end
 
-  def handle_info(message, socket) do
-    IO.inspect(message, label: "MESSAGE BROADCAST")
+  def handle_info(_message, socket) do
     {:noreply, socket}
   end
 
@@ -672,17 +754,21 @@ defmodule MossletWeb.UserSettings.StatusLive do
     # Handle both full status updates and partial updates using pattern matching
     status_params =
       case params do
-        %{"user" => nested_params} -> nested_params
-        %{"status" => nested_params} -> nested_params
+        %{"user" => nested_params} when is_map(nested_params) -> nested_params
+        %{"status" => nested_params} when is_map(nested_params) -> nested_params
         direct_params -> direct_params
       end
 
     # Build attrs safely with pattern matching for missing fields
     attrs = %{
       "status" =>
-        case Map.get(status_params, "status") do
-          nil -> to_string(user.status || :offline)
-          status_string -> status_string
+        if is_map(status_params) do
+          case Map.get(status_params, "status") do
+            nil -> "offline"
+            status_string -> status_string
+          end
+        else
+          status_params
         end,
       "status_message" => Map.get(status_params, "status_message", ""),
       "auto_status" => Map.get(status_params, "auto_status") == "true"
@@ -695,8 +781,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
       auto_status: attrs["auto_status"]
     }
 
-    case Status.update_user_status(user, status_attrs, user: user, key: key) do
+    case Statuses.update_user_status(user, status_attrs, user: user, key: key) do
       {:ok, updated_user} ->
+        updated_user = Accounts.get_user_with_preloads(updated_user.id)
+
         status_form =
           to_form(%{
             "status" => to_string(updated_user.status),
@@ -733,16 +821,19 @@ defmodule MossletWeb.UserSettings.StatusLive do
     # Extract checkbox selections for groups and users
     selected_groups = extract_checkbox_values(params, "status_visible_to_groups")
     selected_users = extract_checkbox_values(params, "status_visible_to_users")
-    selected_presence_groups = extract_checkbox_values(params, "presence_visible_to_groups")
-    selected_presence_users = extract_checkbox_values(params, "presence_visible_to_users")
+
+    # Auto-match presence visibility to status visibility for UX simplicity
+    # If someone can see your status, they can also see your presence
+    selected_presence_groups = selected_groups
+    selected_presence_users = selected_users
 
     # Extract other form values - the form sends parameters directly at top level
     show_online_presence =
       case params do
-        %{"show_online_presence" => val} -> val == "true"
-        %{"status_visibility_form" => %{"show_online_presence" => val}} -> val == "true"
-        %{"user" => %{"show_online_presence" => val}} -> val == "true"
-        _ -> false
+        %{"show_online_presence" => val} -> val
+        %{"status_visibility_form" => %{"show_online_presence" => val}} -> val
+        %{"user" => %{"show_online_presence" => val}} -> val
+        _rest -> false
       end
 
     # Create updated form with current selections
@@ -752,8 +843,10 @@ defmodule MossletWeb.UserSettings.StatusLive do
         "show_online_presence" => show_online_presence,
         "status_visible_to_groups" => selected_groups,
         "status_visible_to_users" => selected_users,
-        "presence_visible_to_groups" => selected_presence_groups,
-        "presence_visible_to_users" => selected_presence_users
+        # simply match
+        "presence_visible_to_groups" => selected_groups,
+        # simply match
+        "presence_visible_to_users" => selected_users
       })
 
     {:noreply, assign(socket, status_visibility_form: status_visibility_form)}
@@ -772,17 +865,15 @@ defmodule MossletWeb.UserSettings.StatusLive do
     # Extract groups and users from form arrays using pattern matching
     selected_groups = extract_checkbox_values(params, "status_visible_to_groups")
     selected_users = extract_checkbox_values(params, "status_visible_to_users")
-    selected_presence_groups = extract_checkbox_values(params, "presence_visible_to_groups")
-    selected_presence_users = extract_checkbox_values(params, "presence_visible_to_users")
 
     # Build normalized params
     formatted_params = %{
       "status_visibility" => visibility_params["status_visibility"] || "nobody",
-      "show_online_presence" => visibility_params["show_online_presence"] || "false",
+      "show_online_presence" => visibility_params["show_online_presence"],
       "status_visible_to_groups" => selected_groups,
       "status_visible_to_users" => selected_users,
-      "presence_visible_to_groups" => selected_presence_groups,
-      "presence_visible_to_users" => selected_presence_users
+      "presence_visible_to_groups" => selected_groups,
+      "presence_visible_to_users" => selected_users
     }
 
     handle_status_visibility_update(formatted_params, socket)
@@ -807,26 +898,26 @@ defmodule MossletWeb.UserSettings.StatusLive do
     # Prepare attrs
     attrs = %{
       status_visibility: status_visibility,
-      show_online_presence: visibility_params["show_online_presence"] == "true",
+      show_online_presence: visibility_params["show_online_presence"],
       status_visible_to_groups: visibility_params["status_visible_to_groups"] || [],
       status_visible_to_users: visibility_params["status_visible_to_users"] || [],
-      presence_visible_to_groups: visibility_params["presence_visible_to_groups"] || [],
-      presence_visible_to_users: visibility_params["presence_visible_to_users"] || []
+      presence_visible_to_groups: visibility_params["status_visible_to_groups"] || [],
+      presence_visible_to_users: visibility_params["status_visible_to_users"] || []
     }
 
-    case Status.update_user_status_visibility(user, attrs, user: user, key: key) do
+    case Statuses.update_user_status_visibility(user, attrs, user: user, key: key) do
       {:ok, updated_user} ->
         # Preserve the selected groups from the original form submission
         selected_groups = visibility_params["status_visible_to_groups"] || []
         selected_users = visibility_params["status_visible_to_users"] || []
-        selected_presence_groups = visibility_params["presence_visible_to_groups"] || []
-        selected_presence_users = visibility_params["presence_visible_to_users"] || []
+        selected_presence_groups = visibility_params["status_visible_to_groups"] || []
+        selected_presence_users = visibility_params["status_visible_to_users"] || []
 
         # Recreate form with updated data but preserve selections
         status_visibility_form =
           to_form(%{
             "status_visibility" => Atom.to_string(updated_user.status_visibility || :nobody),
-            "show_online_presence" => updated_user.show_online_presence || false,
+            "show_online_presence" => updated_user.show_online_presence,
             "status_visible_to_groups" => selected_groups,
             "status_visible_to_users" => selected_users,
             "presence_visible_to_groups" => selected_presence_groups,
@@ -1008,25 +1099,17 @@ defmodule MossletWeb.UserSettings.StatusLive do
   # Helper functions
 
   defp get_saved_status_visibility_selections(user, key) do
-    # Load the user's connection record to get saved status visibility selections
-    user_with_connection = user |> Mosslet.Repo.Local.preload(:connection)
-    connection = user_with_connection.connection
+    # Decrypt the saved group/user selections if they exist
+    saved_groups = decrypt_selection_list(user.connection.status_visible_to_groups, user, key)
+    saved_users = decrypt_selection_list(user.connection.status_visible_to_users, user, key)
 
-    if connection do
-      # Decrypt the saved group/user selections if they exist
-      saved_groups = decrypt_selection_list(connection.status_visible_to_groups, user, key)
-      saved_users = decrypt_selection_list(connection.status_visible_to_users, user, key)
+    saved_presence_groups =
+      decrypt_selection_list(user.connection.presence_visible_to_groups, user, key)
 
-      saved_presence_groups =
-        decrypt_selection_list(connection.presence_visible_to_groups, user, key)
+    saved_presence_users =
+      decrypt_selection_list(user.connection.presence_visible_to_users, user, key)
 
-      saved_presence_users =
-        decrypt_selection_list(connection.presence_visible_to_users, user, key)
-
-      {saved_groups, saved_users, saved_presence_groups, saved_presence_users}
-    else
-      {[], [], [], []}
-    end
+    {saved_groups, saved_users, saved_presence_groups, saved_presence_users}
   end
 
   defp decrypt_selection_list(encrypted_data, user, key) do
@@ -1044,45 +1127,30 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
       # List of encrypted strings
       encrypted_list when is_list(encrypted_list) ->
-        case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key) do
-          {:ok, d_conn_key} ->
-            encrypted_list
-            |> Enum.map(fn encrypted_item ->
-              with {:ok, decrypted_item} <-
-                     Mosslet.Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_item}),
-                   {:ok, group_id} <-
-                     Mosslet.Encrypted.Users.Utils.decrypt_user_data(decrypted_item, user, key) do
-                group_id
-              else
-                # Handle direct string values using pattern matching
-                group_id when is_binary(group_id) -> group_id
-                _ -> nil
-              end
-            end)
-            |> Enum.filter(&(&1 != nil))
-
-          _ ->
-            []
-        end
+        encrypted_list
+        |> Enum.map(fn encrypted_id ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+                 encrypted_id,
+                 user,
+                 user.conn_key,
+                 key
+               ) do
+            item_id when is_binary(item_id) -> item_id
+            :failed_verification -> nil
+          end
+        end)
+        |> Enum.filter(&(&1 != nil))
 
       # Single encrypted string
       encrypted_string when is_binary(encrypted_string) ->
-        case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key) do
-          {:ok, d_conn_key} ->
-            case Mosslet.Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_string}) do
-              {:ok, decrypted_item} ->
-                case Mosslet.Encrypted.Users.Utils.decrypt_user_data(decrypted_item, user, key) do
-                  {:ok, group_id} -> [group_id]
-                  group_id when is_binary(group_id) -> [group_id]
-                  _ -> []
-                end
-
-              _ ->
-                []
-            end
-
-          _ ->
-            []
+        case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+               encrypted_string,
+               user,
+               user.conn_key,
+               key
+             ) do
+          item_id when is_binary(item_id) -> [item_id]
+          :failed_verification -> []
         end
 
       # Unknown format
@@ -1092,12 +1160,14 @@ defmodule MossletWeb.UserSettings.StatusLive do
   end
 
   defp get_decrypted_status_message(user, key) do
-    if user.status_message do
+    if user.connection.status_message do
       # Use decrypt_user_data since status_message is encrypted with user_key
-      case Mosslet.Encrypted.Users.Utils.decrypt_user_data(user.status_message, user, key) do
-        {:ok, decrypted_message} ->
-          decrypted_message
-
+      case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+             user.connection.status_message,
+             user,
+             user.conn_key,
+             key
+           ) do
         # Handle direct return value (no tuple wrapping)
         decrypted_message when is_binary(decrypted_message) ->
           decrypted_message

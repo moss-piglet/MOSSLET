@@ -2502,10 +2502,8 @@ defmodule Mosslet.Accounts do
     # Broadcast to user's own channel for real-time updates
     Phoenix.PubSub.broadcast(Mosslet.PubSub, "user_status:#{user.id}", {event, user})
 
-    # Broadcast to connections topic for real-time updates to connections
-    # update to call our broadcast_connections function based on the
-    # status_visibility
-    # Phoenix.PubSub.broadcast(Mosslet.PubSub, "connections", {event, user})
+    # Privacy-aware broadcasting to connections based on status_visibility
+    broadcast_status_to_authorized_users(user, event)
 
     {:ok, user}
   end
@@ -2513,6 +2511,70 @@ defmodule Mosslet.Accounts do
   defp broadcast({:ok, %UserConnection{} = uconn}, event) do
     Phoenix.PubSub.broadcast(Mosslet.PubSub, "accounts:#{uconn.user_id}", {event, uconn})
     {:ok, uconn}
+  end
+
+  # Privacy-aware status broadcasting function
+  defp broadcast_status_to_authorized_users(user, event) do
+    case user.status_visibility do
+      :nobody ->
+        # No broadcasting to connections
+        :ok
+
+      :connections ->
+        # Broadcast to all connections
+        broadcast_status_to_all_connections(user, event)
+
+      :specific_groups ->
+        # Broadcast only to users in specific groups
+        broadcast_status_to_specific_groups(user, event)
+
+      :specific_users ->
+        # Broadcast only to specific users
+        broadcast_status_to_specific_users(user, event)
+
+      :public ->
+        # For public status, broadcast to all connections (could also broadcast to public channel)
+        broadcast_status_to_all_connections(user, event)
+
+      _ ->
+        # Default: no broadcasting
+        :ok
+    end
+  end
+
+  defp broadcast_status_to_all_connections(user, event) do
+    # Get all user connections for this user
+    user_connections = get_all_user_connections(user.id)
+
+    Enum.each(user_connections, fn user_connection ->
+      # Determine which user to notify (the other user in the connection)
+      target_user_id =
+        if user_connection.user_id == user.id do
+          user_connection.reverse_user_id
+        else
+          user_connection.user_id
+        end
+
+      # Broadcast to the connection's status updates channel
+      Phoenix.PubSub.broadcast(
+        Mosslet.PubSub,
+        "connection_status:#{target_user_id}",
+        {event, user}
+      )
+    end)
+  end
+
+  defp broadcast_status_to_specific_users(user, event) do
+    # Get the list of specific users from user.status_visible_to_users (encrypted)
+    # This would need to be decrypted, but for now we'll implement a simpler approach
+    # by broadcasting to all connections and letting the frontend handle visibility
+    broadcast_status_to_all_connections(user, event)
+  end
+
+  defp broadcast_status_to_specific_groups(user, event) do
+    # Similar to specific users, but for groups
+    # For now, broadcast to all connections
+    broadcast_status_to_all_connections(user, event)
   end
 
   defp broadcast_admin({:ok, struct}, event) do
@@ -2572,6 +2634,14 @@ defmodule Mosslet.Accounts do
 
   def subscribe_user_status(%User{id: user_id}) do
     subscribe_user_status(user_id)
+  end
+
+  def subscribe_connection_status(user_id) when is_binary(user_id) do
+    Phoenix.PubSub.subscribe(Mosslet.PubSub, "connection_status:#{user_id}")
+  end
+
+  def subscribe_connection_status(%User{id: user_id}) do
+    subscribe_connection_status(user_id)
   end
 
   def admin_subscribe(user) do
@@ -2999,21 +3069,21 @@ defmodule Mosslet.Accounts do
   Updates a user's status and status message following the dual-update pattern.
   """
   def update_user_status(user, attrs, opts \\ []) do
-    Mosslet.Accounts.Status.update_user_status(user, attrs, opts)
+    Mosslet.Statuses.update_user_status(user, attrs, opts)
   end
 
   @doc """
   Tracks user activity and potentially updates auto-status.
   """
   def track_user_activity(user, activity_type \\ :general) do
-    Mosslet.Accounts.Status.track_user_activity(user, activity_type)
+    Mosslet.Statuses.track_user_activity(user, activity_type)
   end
 
   @doc """
   Gets the visible status for a user as seen by another user.
   """
   def get_user_status_for_connection(user, viewing_user, session_key) do
-    Mosslet.Accounts.Status.get_user_status_for_connection(user, viewing_user, session_key)
+    Mosslet.Statuses.get_user_status_for_connection(user, viewing_user, session_key)
   end
 
   @doc """

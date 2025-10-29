@@ -19,6 +19,14 @@ defmodule MossletWeb.UserConnectionLive.Index do
       get_connection_avatar_src: 3
     ]
 
+  import MossletWeb.Helpers.StatusHelpers,
+    only: [
+      get_user_status_message: 3,
+      get_user_status_info: 3,
+      get_connection_status_message: 3,
+      get_connection_user_status: 3
+    ]
+
   @page_default 1
   @per_page_default 8
 
@@ -30,6 +38,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
       Accounts.private_subscribe(user)
       Accounts.subscribe_account_deleted()
       Accounts.block_subscribe(user)
+      Accounts.subscribe_connection_status(user)
     end
 
     {:ok,
@@ -528,6 +537,46 @@ defmodule MossletWeb.UserConnectionLive.Index do
      |> assign(:show_edit_connection_modal, false)
      |> assign(:editing_connection, nil)
      |> put_flash(:success, "Label updated!")}
+  end
+
+  @impl true
+  def handle_info({:status_updated, user}, socket) do
+    # When a connected user's status changes, find their user_connection and update it
+    # Since we're already subscribed to connection_status:#{current_user.id}, we know
+    # that this status update is relevant to one of our connections
+
+    current_user = socket.assigns.current_user
+
+    # Find the user_connection that represents our connection to this user
+    case get_uconn_for_users(user, current_user) do
+      %{} = user_connection ->
+        # Update the stream with the user_connection to trigger re-render
+        {:noreply, stream_insert(socket, :user_connections, user_connection, at: -1)}
+
+      nil ->
+        # No connection found, no update needed
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:status_visibility_updated, user}, socket) do
+    # When a connected user's status changes, find their user_connection and update it
+    # Since we're already subscribed to connection_status:#{current_user.id}, we know
+    # that this status update is relevant to one of our connections
+
+    current_user = socket.assigns.current_user
+
+    # Find the user_connection that represents our connection to this user
+    case get_uconn_for_users(user, current_user) do
+      %{} = user_connection ->
+        # Update the stream with the user_connection to trigger re-render
+        {:noreply, stream_insert(socket, :user_connections, user_connection, at: -1)}
+
+      nil ->
+        # No connection found, no update needed
+        {:noreply, socket}
+    end
   end
 
   @impl true
@@ -1239,4 +1288,9 @@ defmodule MossletWeb.UserConnectionLive.Index do
       _ -> false
     end
   end
+
+  # Status helper functions moved to MossletWeb.Helpers.StatusHelpers
+
+  # Status message functions have been moved to MossletWeb.Helpers.StatusHelpers
+  # and are imported above for consistent handling across the application
 end

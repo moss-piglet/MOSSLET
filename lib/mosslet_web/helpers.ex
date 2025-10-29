@@ -2,8 +2,6 @@ defmodule MossletWeb.Helpers do
   @moduledoc false
   use MossletWeb, :verified_routes
 
-  require Logger
-
   use Gettext, backend: MossletWeb.Gettext
 
   alias Mosslet.Accounts
@@ -1357,6 +1355,10 @@ defmodule MossletWeb.Helpers do
     else
       Accounts.get_user_connection_between_users(user.id, current_user.id)
     end
+  end
+
+  def get_uconn_for_users(user, current_user) do
+    Accounts.get_user_connection_between_users(user.id, current_user.id)
   end
 
   # Muted user coming from the hydrated SharedUser mapping

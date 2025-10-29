@@ -2,9 +2,9 @@
 defmodule Expo.MixProject do
   use Mix.Project
 
-  @version "1.1.0"
+  @version "1.1.1"
   @source_url "https://github.com/elixir-gettext/expo"
-  @description "Low-level Gettext file handling (.po/.pot/.mo file writer and parser)."
+  @description "Low-level Gettext file handling (.po/.pot/.mo file writer and parser)"
 
   def project do
     [
@@ -24,14 +24,6 @@ defmodule Expo.MixProject do
           else
             []
           end,
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.html": :test,
-        "coveralls.json": :test,
-        "coveralls.post": :test,
-        "coveralls.xml": :test
-      ],
       package: package(),
       yecc_options: if(Mix.env() in [:dev, :test], do: [verbose: true])
     ]
@@ -55,6 +47,19 @@ defmodule Expo.MixProject do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test,
+        "coveralls.post": :test,
+        "coveralls.xml": :test
+      ]
+    ]
+  end
+
   defp docs do
     [
       source_url: @source_url,
@@ -70,6 +75,7 @@ defmodule Expo.MixProject do
       {:credo, "~> 1.7", only: [:dev], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:ex_doc, ">= 0.0.0", only: [:dev], runtime: false},
+      {:castore, "~> 1.0", only: [:test], runtime: false},
       {:excoveralls, "~> 0.17", only: [:test], runtime: false}
     ]
   end

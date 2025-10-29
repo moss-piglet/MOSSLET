@@ -134,6 +134,8 @@ defmodule MossletWeb do
       import MossletWeb.CoreComponents
       import MossletWeb.DesignSystem
       import MossletWeb.Helpers
+      import MossletWeb.Helpers.StatusHelpers
+      import MossletWeb.Helpers.StatusHelpers
       import Phoenix.HTML
 
       # Shortcut for generating JS commands

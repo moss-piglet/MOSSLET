@@ -520,6 +520,8 @@ topbar.config({
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
+
+
 // connect if there are any LiveViews on the page
 liveSocket.getSocket().onOpen(() => execJS("#connection-status", "js-hide"));
 liveSocket.getSocket().onError(() => execJS("#connection-status", "js-show"));

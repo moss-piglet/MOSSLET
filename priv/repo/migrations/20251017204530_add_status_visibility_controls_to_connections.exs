@@ -13,7 +13,7 @@ defmodule Mosslet.Repo.Local.Migrations.AddStatusVisibilityControlsToConnections
       add :presence_visible_to_groups, :binary
       add :presence_visible_to_users, :binary
     end
-    
+
     # Add indexes for status visibility queries
     create index(:connections, [:status_visibility])
     create index(:connections, [:show_online_presence])

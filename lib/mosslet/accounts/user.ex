@@ -75,9 +75,10 @@ defmodule Mosslet.Accounts.User do
     field :last_post_at, :naive_datetime
 
     # Status Visibility Controls - Privacy-first presence system
-    field :status_visibility, Ecto.Enum, 
-      values: [:nobody, :connections, :specific_groups, :specific_users], 
+    field :status_visibility, Ecto.Enum,
+      values: [:nobody, :connections, :specific_groups, :specific_users],
       default: :nobody
+
     # Virtual fields for granular status sharing (reuses visibility_groups system)
     field :status_visible_to_groups, {:array, :string}, virtual: true, default: []
     field :status_visible_to_users, {:array, :string}, virtual: true, default: []
@@ -373,8 +374,8 @@ defmodule Mosslet.Accounts.User do
 
   defp encrypt_status_change(changeset, opts) do
     status_message = get_field(changeset, :status_message)
-    
-    if opts[:key] && status_message && status_message != "" do
+
+    if opts[:key] && status_message && status_message != "" && not is_nil(status_message) do
       changeset
       # Connection table
       |> encrypt_connection_map_status_change(opts, status_message)
@@ -383,7 +384,7 @@ defmodule Mosslet.Accounts.User do
       |> put_change(:status_message_hash, String.downcase(status_message))
     else
       # No status message, but we still need to update connection status if status changed
-      if get_field(changeset, :status) && get_field(changeset, :status) != changeset.data.status do
+      if get_field(changeset, :status) do
         encrypt_connection_map_status_only(changeset, opts)
       else
         changeset
@@ -410,7 +411,7 @@ defmodule Mosslet.Accounts.User do
           c_status_message: c_encrypted_status_message,
           # Hash for connection searching
           c_status_message_hash: String.downcase(status_message),
-          c_status_updated_at: NaiveDateTime.utc_now()
+          c_status_updated_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
         })
 
       {:error, _reason} ->
@@ -420,76 +421,77 @@ defmodule Mosslet.Accounts.User do
     end
   end
 
-  defp encrypt_connection_map_status_only(changeset, opts) do
+  defp encrypt_connection_map_status_only(changeset, _opts) do
     # Update connection status without message
-    case Encrypted.Users.Utils.decrypt_user_attrs_key(
-           opts[:user].conn_key,
-           opts[:user],
-           opts[:key]
-         ) do
-      {:ok, _d_conn_key} ->
-        changeset
-        |> put_change(:connection_map, %{
-          # Status enum (plaintext)
-          c_status: get_field(changeset, :status),
-          # No message changes
-          c_status_message: nil,
-          c_status_message_hash: nil,
-          c_status_updated_at: NaiveDateTime.utc_now()
-        })
-
-      {:error, _reason} ->
-        # If connection key decryption fails, skip connection status update
-        # but still allow the user status update to proceed
-        changeset
-    end
+    changeset
+    |> put_change(:connection_map, %{
+      # Status enum (plaintext)
+      c_status: get_field(changeset, :status),
+      # No message changes
+      c_status_message: nil,
+      c_status_message_hash: nil,
+      c_status_updated_at: NaiveDateTime.utc_now()
+    })
   end
 
   # Status visibility validation and encryption functions
   defp validate_status_visibility_hierarchy(changeset) do
     user_visibility = get_field(changeset, :visibility) || changeset.data.visibility
     status_visibility = get_field(changeset, :status_visibility)
-    
+
     case {user_visibility, status_visibility} do
       # Private users can only set status to nobody or connections
       {:private, status_vis} when status_vis not in [:nobody, :connections] ->
-        add_error(changeset, :status_visibility, 
-          "private users can only share status with nobody or connections")
-      
-      # Connections users can share status with anybody except public  
+        add_error(
+          changeset,
+          :status_visibility,
+          "private users can only share status with nobody or connections"
+        )
+
+      # Connections users can share status with anybody except public
       {:connections, :public} ->
-        add_error(changeset, :status_visibility,
-          "connections users cannot make status public - upgrade to public visibility first")
-      
+        add_error(
+          changeset,
+          :status_visibility,
+          "connections users cannot make status public - upgrade to public visibility first"
+        )
+
       # Public users can use any status visibility
-      _ -> changeset
+      _ ->
+        changeset
     end
   end
-  
+
   defp validate_status_visibility_groups(changeset, _opts) do
     status_visibility = get_field(changeset, :status_visibility)
     status_visible_to_groups = get_field(changeset, :status_visible_to_groups) || []
-    
+
     if status_visibility == :specific_groups and Enum.empty?(status_visible_to_groups) do
-      add_error(changeset, :status_visible_to_groups,
-        "must specify at least one group when using specific groups visibility")
+      add_error(
+        changeset,
+        :status_visible_to_groups,
+        "must specify at least one group when using specific groups visibility"
+      )
     else
       changeset
     end
   end
-  
+
   defp validate_status_visibility_users(changeset, _opts) do
     status_visibility = get_field(changeset, :status_visibility)
     status_visible_to_users = get_field(changeset, :status_visible_to_users) || []
-    
+
     if status_visibility == :specific_users and Enum.empty?(status_visible_to_users) do
-      add_error(changeset, :status_visible_to_users,
-        "must specify at least one user when using specific users visibility")
+      add_error(
+        changeset,
+        :status_visible_to_users,
+        "must specify at least one user when using specific users visibility"
+      )
     else
       changeset
     end
   end
-  
+
   defp encrypt_status_visibility_change(changeset, opts) do
     if opts[:key] && changeset.valid? do
       changeset
@@ -501,63 +503,66 @@ defmodule Mosslet.Accounts.User do
       changeset
     end
   end
-  
+
   defp encrypt_status_visibility_groups(changeset, opts) do
     status_visible_to_groups = get_field(changeset, :status_visible_to_groups)
-    
+
     if status_visible_to_groups && length(status_visible_to_groups) > 0 do
       # Encrypt each group ID with user_key (personal data)
-      encrypted_group_ids = 
+      encrypted_group_ids =
         Enum.map(status_visible_to_groups, fn group_id ->
           encrypt_user_data(group_id, opts[:user], opts[:key])
         end)
-      
+
       changeset
       |> put_change(:status_visible_to_groups, encrypted_group_ids)
     else
       changeset
     end
   end
-  
+
   defp encrypt_status_visibility_users(changeset, opts) do
     status_visible_to_users = get_field(changeset, :status_visible_to_users)
-    
+
     if status_visible_to_users && length(status_visible_to_users) > 0 do
       # Encrypt each user ID with user_key (personal data)
-      encrypted_user_ids = 
+      encrypted_user_ids =
         Enum.map(status_visible_to_users, fn user_id ->
           encrypt_user_data(user_id, opts[:user], opts[:key])
         end)
-      
+
       changeset
       |> put_change(:status_visible_to_users, encrypted_user_ids)
     else
       changeset
     end
   end
-  
+
   defp encrypt_presence_visibility_controls(changeset, opts) do
     # Encrypt presence visibility groups and users
-    changeset = if presence_groups = get_field(changeset, :presence_visible_to_groups) do
-      if presence_groups && length(presence_groups) > 0 do
-        encrypted_presence_groups = 
-          Enum.map(presence_groups, fn group_id ->
-            encrypt_user_data(group_id, opts[:user], opts[:key])
-          end)
-        put_change(changeset, :presence_visible_to_groups, encrypted_presence_groups)
+    changeset =
+      if presence_groups = get_field(changeset, :presence_visible_to_groups) do
+        if presence_groups && length(presence_groups) > 0 do
+          encrypted_presence_groups =
+            Enum.map(presence_groups, fn group_id ->
+              encrypt_user_data(group_id, opts[:user], opts[:key])
+            end)
+
+          put_change(changeset, :presence_visible_to_groups, encrypted_presence_groups)
+        else
+          changeset
+        end
       else
         changeset
       end
-    else
-      changeset
-    end
-    
+
     if presence_users = get_field(changeset, :presence_visible_to_users) do
       if presence_users && length(presence_users) > 0 do
-        encrypted_presence_users = 
+        encrypted_presence_users =
           Enum.map(presence_users, fn user_id ->
             encrypt_user_data(user_id, opts[:user], opts[:key])
           end)
+
         put_change(changeset, :presence_visible_to_users, encrypted_presence_users)
       else
         changeset
@@ -566,7 +571,7 @@ defmodule Mosslet.Accounts.User do
       changeset
     end
   end
-  
+
   defp encrypt_connection_map_status_visibility_change(changeset, opts) do
     # Update connection table with status visibility settings
     {:ok, d_conn_key} =
@@ -575,95 +580,122 @@ defmodule Mosslet.Accounts.User do
         opts[:user],
         opts[:key]
       )
-    
+
     # Encrypt status visibility lists for sharing via connections
     connection_map_updates = %{
       c_status_visibility: get_field(changeset, :status_visibility),
       c_show_online_presence: get_field(changeset, :show_online_presence)
     }
-    
-    # Encrypt group IDs for connection sharing
-    connection_map_updates = if status_groups = get_field(changeset, :status_visible_to_groups) do
-      if status_groups && length(status_groups) > 0 do
-        # Re-encrypt with conn_key for sharing
-        c_encrypted_status_groups =
-          Enum.map(status_groups, fn encrypted_group_id ->
-            # First decrypt with user_key, then encrypt with conn_key
-            case Encrypted.Users.Utils.decrypt_user_data(encrypted_group_id, opts[:user], opts[:key]) do
-              {:ok, group_id} -> 
-                # Successfully decrypted, now encrypt with connection key
-                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: group_id})
-              _ -> 
-                # If decryption fails, the value might already be a plain UUID from form input
-                # This can happen if the encryption step didn't work correctly
-                # Encrypt the plain UUID directly with connection key
-                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: encrypted_group_id})
-            end
-          end)
-        Map.put(connection_map_updates, :c_status_visible_to_groups, c_encrypted_status_groups)
+
+    # Encrypt group IDs for connection sharing AND expand groups to user IDs
+    connection_map_updates =
+      if status_groups = get_field(changeset, :status_visible_to_groups) do
+        if status_groups && length(status_groups) > 0 do
+          # Re-encrypt with conn_key for sharing
+          c_encrypted_status_groups =
+            Enum.map(status_groups, fn encrypted_group_id ->
+              # First decrypt with user_key, then encrypt with conn_key
+              case decrypt_user_data(
+                     encrypted_group_id,
+                     opts[:user],
+                     opts[:key]
+                   ) do
+                group_id when is_binary(group_id) ->
+                  # Successfully decrypted, now encrypt with connection key
+                  Encrypted.Utils.encrypt(%{key: d_conn_key, payload: group_id})
+
+                :failed_verification ->
+                  # If decryption fails, the value might already be a plain UUID from form input
+                  # This can happen if the encryption step didn't work correctly
+                  # Encrypt the plain UUID directly with connection key
+                  Encrypted.Utils.encrypt(%{key: d_conn_key, payload: encrypted_group_id})
+              end
+            end)
+
+          # Expand groups to user IDs for access control
+
+          expanded_user_ids =
+            Enum.map(status_groups, fn encrypted_group_id ->
+              # First decrypt with user_key, then encrypt with conn_key
+              case decrypt_user_data(
+                     encrypted_group_id,
+                     opts[:user],
+                     opts[:key]
+                   ) do
+                group_id when is_binary(group_id) ->
+                  # Successfully decrypted, now find matching group and decrypt the group's connection_ids
+                  Enum.map(opts[:user].visibility_groups, fn group ->
+                    if group.id == group_id do
+                      Enum.map(group.connection_ids, fn encrypted_connection_id ->
+                        decrypt_user_data(
+                          encrypted_connection_id,
+                          opts[:user],
+                          opts[:key]
+                        )
+                      end)
+                    end
+                  end)
+                  |> List.flatten()
+                  |> Enum.reject(&is_nil/1)
+              end
+            end)
+            |> List.flatten()
+
+          c_encrypted_expanded_user_ids =
+            Enum.map(expanded_user_ids, fn user_id ->
+              Encrypted.Utils.encrypt(%{key: d_conn_key, payload: user_id})
+            end)
+
+          connection_map_updates
+          |> Map.put(:c_status_visible_to_groups, c_encrypted_status_groups)
+          |> Map.put(:c_status_visible_to_groups_user_ids, c_encrypted_expanded_user_ids)
+          |> Map.put(:c_presence_visible_to_groups, c_encrypted_status_groups)
+          |> Map.put(:c_presence_visible_to_groups_user_ids, c_encrypted_expanded_user_ids)
+        else
+          connection_map_updates
+        end
       else
         connection_map_updates
       end
-    else
-      connection_map_updates
-    end
-    
-    # Encrypt user IDs for connection sharing
-    connection_map_updates = if status_users = get_field(changeset, :status_visible_to_users) do
-      if status_users && length(status_users) > 0 do
-        # Re-encrypt with conn_key for sharing
-        c_encrypted_status_users =
-          Enum.map(status_users, fn user_id ->
-            # Check if the user_id is already encrypted or is a plain UUID
-            case Encrypted.Users.Utils.decrypt_user_data(user_id, opts[:user], opts[:key]) do
-              {:ok, decrypted_user_id} -> 
-                # Successfully decrypted, now encrypt with connection key
-                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: decrypted_user_id})
-              _ -> 
-                # If decryption fails, the value is likely already a plain UUID from form input
-                # Encrypt the plain UUID directly with connection key
-                Encrypted.Utils.encrypt(%{key: d_conn_key, payload: user_id})
-            end
-          end)
-        Map.put(connection_map_updates, :c_status_visible_to_users, c_encrypted_status_users)
+
+    # Encrypt user IDs for connection sharing (follows same pattern as email/username/avatar)
+    connection_map_updates =
+      if status_users = get_field(changeset, :status_visible_to_users) do
+        if status_users && length(status_users) > 0 do
+          # status_users come from form as plain UUIDs - encrypt directly with conn_key
+
+          c_encrypted_status_users =
+            Enum.map(status_users, fn encrypted_user_id ->
+              # First decrypt with user_key, then encrypt with conn_key
+
+              case decrypt_user_data(
+                     encrypted_user_id,
+                     opts[:user],
+                     opts[:key]
+                   ) do
+                user_id when is_binary(user_id) ->
+                  # Successfully decrypted, now encrypt with connection key
+                  Encrypted.Utils.encrypt(%{key: d_conn_key, payload: user_id})
+
+                :failed_verification ->
+                  # If decryption fails, the value might already be a plain UUID from form input
+                  # This can happen if the encryption step didn't work correctly
+                  # Encrypt the plain UUID directly with connection key
+                  Encrypted.Utils.encrypt(%{key: d_conn_key, payload: encrypted_user_id})
+              end
+            end)
+
+          connection_map_updates =
+            connection_map_updates
+            |> Map.put(:c_status_visible_to_users, c_encrypted_status_users)
+            |> Map.put(:c_presence_visible_to_users, c_encrypted_status_users)
+        else
+          connection_map_updates
+        end
       else
         connection_map_updates
       end
-    else
-      connection_map_updates
-    end
-    
-    # Add presence visibility controls
-    connection_map_updates = if presence_groups = get_field(changeset, :presence_visible_to_groups) do
-      if presence_groups && length(presence_groups) > 0 do
-        c_encrypted_presence_groups =
-          Enum.map(presence_groups, fn encrypted_group_id ->
-            {:ok, group_id} = Encrypted.Users.Utils.decrypt_user_data(encrypted_group_id, opts[:user], opts[:key])
-            Encrypted.Utils.encrypt(%{key: d_conn_key, payload: group_id})
-          end)
-        Map.put(connection_map_updates, :c_presence_visible_to_groups, c_encrypted_presence_groups)
-      else
-        connection_map_updates
-      end
-    else
-      connection_map_updates
-    end
-    
-    connection_map_updates = if presence_users = get_field(changeset, :presence_visible_to_users) do
-      if presence_users && length(presence_users) > 0 do
-        c_encrypted_presence_users =
-          Enum.map(presence_users, fn encrypted_user_id ->
-            {:ok, user_id} = Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, opts[:user], opts[:key])
-            Encrypted.Utils.encrypt(%{key: d_conn_key, payload: user_id})
-          end)
-        Map.put(connection_map_updates, :c_presence_visible_to_users, c_encrypted_presence_users)
-      else
-        connection_map_updates
-      end
-    else
-      connection_map_updates
-    end
-    
+
     changeset
     |> put_change(:connection_map, connection_map_updates)
   end
@@ -1289,35 +1321,43 @@ defmodule Mosslet.Accounts.User do
     |> encrypt_status_change(opts)
     |> case do
       %{changes: changes} = changeset when map_size(changes) > 0 ->
-        put_change(changeset, :status_updated_at, NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second))
+        put_change(
+          changeset,
+          :status_updated_at,
+          NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
+        )
 
       %{} = changeset ->
-        add_error(changeset, :status, "did not change")
+        # no changes but we don't need to make it an error
+        changeset
     end
   end
 
   @doc """
   A user changeset for changing status visibility controls.
-  
+
   Follows the dual-update pattern:
   1. Updates user status visibility settings (encrypted with user_key)
   2. Updates connection status visibility settings (encrypted with conn_key)
   3. Respects user.visibility hierarchy (private users can't share status publicly)
   """
   def status_visibility_changeset(user, attrs, opts \\ []) do
-    user
-    |> cast(attrs, [
-      :status_visibility, 
-      :status_visible_to_groups, 
-      :status_visible_to_users,
-      :show_online_presence,
-      :presence_visible_to_groups,
-      :presence_visible_to_users
-    ])
-    |> validate_status_visibility_hierarchy()
-    |> validate_status_visibility_groups(opts)
-    |> validate_status_visibility_users(opts)
-    |> encrypt_status_visibility_change(opts)
+    changeset =
+      user
+      |> cast(attrs, [
+        :status_visibility,
+        :status_visible_to_groups,
+        :status_visible_to_users,
+        :show_online_presence,
+        :presence_visible_to_groups,
+        :presence_visible_to_users
+      ])
+      |> validate_status_visibility_hierarchy()
+      |> validate_status_visibility_groups(opts)
+      |> validate_status_visibility_users(opts)
+      |> encrypt_status_visibility_change(opts)
+
+    changeset
   end
 
   @doc """

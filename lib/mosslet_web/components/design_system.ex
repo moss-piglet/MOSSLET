@@ -2585,9 +2585,15 @@ defmodule MossletWeb.DesignSystem do
   attr :name, :string, required: true
   attr :size, :string, default: "md", values: ~w(xs sm md lg xl)
   attr :status, :string, default: "offline", values: ~w(online calm active away busy offline)
+  attr :status_message, :string, default: nil
   attr :verified, :boolean, default: false
   attr :class, :any, default: ""
   attr :clickable, :boolean, default: false
+
+  attr :id, :string,
+    default: nil,
+    doc: "Unique identifier for this avatar context (e.g., post ID)"
+
   attr :rest, :global
 
   def liquid_avatar(assigns) do
@@ -2596,9 +2602,9 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div
       class={[
-        "relative flex-shrink-0",
+        "relative flex-shrink-0 group/avatar",
         avatar_container_size_classes(@size),
-        if(@clickable, do: "cursor-pointer group", else: ""),
+        if(@clickable, do: "cursor-pointer", else: ""),
         @class
       ]}
       {@rest}
@@ -2608,7 +2614,10 @@ defmodule MossletWeb.DesignSystem do
         "relative overflow-hidden transition-all duration-300 ease-out transform-gpu",
         avatar_size_classes(@size),
         "rounded-xl",
-        if(@clickable, do: "group-hover:scale-105 group-active:scale-95", else: "")
+        if(@clickable,
+          do: "group-hover/avatar:scale-105 group-active/avatar:scale-95",
+          else: "group-hover/avatar:scale-[1.02]"
+        )
       ]}>
         <%!-- Liquid background gradient --%>
         <div class={[
@@ -2623,16 +2632,13 @@ defmodule MossletWeb.DesignSystem do
         ]}>
         </div>
 
-        <%!-- Shimmer effect on hover (if clickable) --%>
-        <div
-          :if={@clickable}
-          class={[
-            "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
-            "bg-gradient-to-r from-transparent via-emerald-200/40 to-transparent",
-            "dark:via-emerald-400/20",
-            "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"
-          ]}
-        >
+        <%!-- Shimmer effect on hover (always enabled for status avatars) --%>
+        <div class={[
+          "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
+          "bg-gradient-to-r from-transparent via-emerald-200/40 to-transparent",
+          "dark:via-emerald-400/20",
+          "group-hover/avatar:opacity-100 group-hover/avatar:translate-x-full -translate-x-full"
+        ]}>
         </div>
 
         <%!-- Avatar image --%>
@@ -2659,30 +2665,23 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </div>
 
-      <%!-- Status indicator --%>
-      <div
-        :if={@status && @status != "offline"}
-        class={[
-          "absolute -bottom-0.5 -right-0.5 rounded-full p-1",
-          "bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-800",
-          "shadow-lg"
-        ]}
-      >
-        <div class={[
-          "rounded-full transition-all duration-300 ease-out",
-          avatar_status_size_classes(@size),
-          avatar_status_color_classes(@status)
-        ]}>
-          <%!-- Pulse animation for active statuses --%>
-          <div
-            :if={@status in ["online", "calm", "active", "busy", "away"]}
-            class={[
-              "absolute inset-0 rounded-full animate-ping opacity-75",
-              avatar_status_ping_classes(@status)
-            ]}
-          >
-          </div>
-        </div>
+      <%!-- Status indicator with enhanced status message card (triggers on avatar hover) --%>
+      <div :if={@status && @status != "offline"}>
+        <MossletWeb.DesignSystem.liquid_user_status_indicator
+          id={"avatar-status-#{@id}-#{@status}"}
+          status={@status}
+          animate={true}
+          class=""
+        />
+
+        <%!-- Enhanced status message card --%>
+        <.liquid_status_message_card
+          id={"status-card-#{@id}-#{@status}"}
+          status={@status}
+          message={@status_message}
+          position="right"
+          class=""
+        />
       </div>
     </div>
     """
@@ -2908,7 +2907,7 @@ defmodule MossletWeb.DesignSystem do
             src={@user_avatar}
             name={@user_name}
             size="md"
-            status="calm"
+            status={to_string(@current_user.status || "offline")}
           />
 
           <%!-- Compose area with character counter --%>
@@ -3496,6 +3495,7 @@ defmodule MossletWeb.DesignSystem do
   attr :user_name, :string, required: true
   attr :user_handle, :string, required: true
   attr :user_avatar, :string, default: nil
+  attr :user_status, :string, default: nil
   attr :timestamp, :string, required: true
   attr :content, :string, required: true
   attr :images, :list, default: []
@@ -3583,6 +3583,8 @@ defmodule MossletWeb.DesignSystem do
             size="md"
             verified={@verified}
             clickable={true}
+            status={@user_status}
+            id={"avatar-#{@post.id}"}
           />
 
           <%!-- User info --%>
@@ -4676,6 +4678,77 @@ defmodule MossletWeb.DesignSystem do
   defp timeline_status_ping_classes(_), do: ""
 
   @doc """
+  Liquid metal tooltip component with premium styling.
+  Perfect for showing status messages and rich content on hover.
+  """
+  attr :content, :string, required: true
+  attr :position, :string, default: "top", values: ~w(top bottom left right)
+  attr :class, :any, default: ""
+  attr :id, :string, required: true, doc: "a unique id required for the tooltip to display"
+
+  slot :inner_block, required: true
+
+  def liquid_tooltip(assigns) do
+    ~H"""
+    <div id={@id} class={["relative group", @class]}>
+      {render_slot(@inner_block)}
+
+      <%!-- Liquid metal tooltip --%>
+      <div class={[
+        "absolute z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible",
+        "transition-all duration-300 ease-out transform group-hover:scale-100 scale-95",
+        "px-3 py-2 text-sm font-medium text-white",
+        "bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800",
+        "dark:from-slate-900 dark:via-slate-800 dark:to-slate-900",
+        "rounded-xl shadow-xl border border-slate-600/50 dark:border-slate-700/50",
+        "backdrop-blur-sm whitespace-nowrap",
+        "before:absolute before:w-2 before:h-2 before:bg-slate-800 dark:before:bg-slate-900",
+        "before:border-l before:border-t before:border-slate-600/50 dark:before:border-slate-700/50",
+        "before:rotate-45 before:transform",
+        tooltip_position_classes(@position)
+      ]}>
+        <%!-- Liquid shimmer effect --%>
+        <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-teal-400/10 to-transparent animate-pulse opacity-60">
+        </div>
+
+        <%!-- Content --%>
+        <div class="relative z-10">
+          {@content}
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp tooltip_position_classes("top") do
+    [
+      "-top-2 left-1/2 transform -translate-x-1/2 -translate-y-full",
+      "before:top-full before:left-1/2 before:-translate-x-1/2 before:-mt-1"
+    ]
+  end
+
+  defp tooltip_position_classes("bottom") do
+    [
+      "-bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full",
+      "before:bottom-full before:left-1/2 before:-translate-x-1/2 before:-mb-1 before:rotate-[225deg]"
+    ]
+  end
+
+  defp tooltip_position_classes("left") do
+    [
+      "top-1/2 -left-2 transform -translate-y-1/2 -translate-x-full",
+      "before:left-full before:top-1/2 before:-translate-y-1/2 before:-ml-1 before:rotate-[135deg]"
+    ]
+  end
+
+  defp tooltip_position_classes("right") do
+    [
+      "top-1/2 -right-2 transform -translate-y-1/2 translate-x-full",
+      "before:right-full before:top-1/2 before:-translate-y-1/2 before:-mr-1 before:rotate-[-45deg]"
+    ]
+  end
+
+  @doc """
   User status indicator for timeline posts and avatars.
   Shows a small dot indicating user's current status.
   """
@@ -4686,12 +4759,15 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_user_status_indicator(assigns) do
     ~H"""
-    <div class={[
-      "absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white dark:ring-slate-800 z-10",
-      timeline_status_dot_size(@status),
-      timeline_status_dot_classes(@status),
-      @class
-    ]}>
+    <div
+      class={[
+        "absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white dark:ring-slate-800 z-10",
+        timeline_status_dot_size(@status),
+        timeline_status_dot_classes(@status),
+        @class
+      ]}
+      data-status-indicator="true"
+    >
       <%!-- Pulse animation for active statuses --%>
       <div
         :if={@animate and @status in ["online", "calm", "active", "busy", "away"]}
@@ -4802,6 +4878,172 @@ defmodule MossletWeb.DesignSystem do
       "hover:text-teal-700 dark:hover:text-teal-300 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
     ]
   end
+
+  @doc """
+  Enhanced status message card that slides out from status indicators.
+
+  Displays status information in a beautiful liquid metal card that appears on hover.
+  Perfect for showing rich status context without cluttering the UI.
+
+  ## Examples
+
+      <.liquid_status_message_card status="calm" message="Working on some cool features!" />
+      <.liquid_status_message_card status="busy" message="In a meeting" />
+      <.liquid_status_message_card status="away" />
+  """
+  attr :status, :string, required: true, values: ~w(offline calm active busy away)
+  attr :message, :string, default: nil
+  attr :position, :string, default: "right", values: ~w(left right top bottom)
+  attr :class, :any, default: ""
+  attr :id, :string, required: true
+
+  def liquid_status_message_card(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={[
+        "absolute z-30 opacity-0 pointer-events-none transition-all duration-400 ease-out",
+        "group-hover/avatar:opacity-100 group-hover/avatar:pointer-events-auto",
+        status_card_position_classes(@position),
+        @class
+      ]}
+      data-status-message="true"
+    >
+      <%!-- Connecting line --%>
+      <div class={[
+        "absolute bg-gradient-to-r from-teal-400/60 to-transparent",
+        status_card_line_classes(@position)
+      ]}>
+      </div>
+
+      <%!-- Status message card --%>
+      <div class="relative rounded-2xl overflow-hidden
+                  bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm
+                  border border-slate-200/60 dark:border-slate-700/60
+                  shadow-xl shadow-slate-900/10 dark:shadow-slate-900/20
+                  p-4 min-w-64 max-w-80">
+        <%!-- Liquid background --%>
+        <div class={[
+          "absolute inset-0",
+          status_card_liquid_bg_classes(@status)
+        ]}>
+        </div>
+
+        <%!-- Shimmer effect --%>
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent
+                    via-emerald-200/30 dark:via-emerald-400/15 to-transparent
+                    -translate-x-full group-hover/avatar:translate-x-full
+                    transition-transform duration-1000 ease-out">
+        </div>
+
+        <%!-- Content --%>
+        <div class="relative">
+          <%!-- Status header --%>
+          <div class="flex items-center gap-2 mb-2">
+            <%!-- Status dot with same colors as the main indicator --%>
+            <div class={[
+              "w-2.5 h-2.5 rounded-full flex-shrink-0",
+              timeline_status_dot_classes(@status)
+            ]}>
+            </div>
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {status_display_name(@status)}
+            </span>
+          </div>
+
+          <%!-- Custom message --%>
+          <div
+            :if={@message && String.trim(@message) != ""}
+            class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
+            data-status-message-content="true"
+          >
+            {@message}
+          </div>
+
+          <%!-- Default message if no custom message --%>
+          <div
+            :if={!@message || String.trim(@message) == ""}
+            class="text-xs text-slate-500 dark:text-slate-400"
+            data-status-message-content="true"
+          >
+            {default_status_message(@status)}
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Position classes for the status card
+  defp status_card_position_classes("right") do
+    "top-0 left-full ml-2 translate-x-2 group-hover/avatar:translate-x-0"
+  end
+
+  defp status_card_position_classes("left") do
+    "top-0 right-full mr-2 -translate-x-2 group-hover/avatar:translate-x-0"
+  end
+
+  defp status_card_position_classes("top") do
+    "bottom-full left-1/2 mb-2 -translate-x-1/2 -translate-y-2 group-hover/avatar:translate-y-0"
+  end
+
+  defp status_card_position_classes("bottom") do
+    "top-full left-1/2 mt-2 -translate-x-1/2 translate-y-2 group-hover/avatar:translate-y-0"
+  end
+
+  # Connecting line classes
+  defp status_card_line_classes("right") do
+    "left-0 top-4 w-2 h-px"
+  end
+
+  defp status_card_line_classes("left") do
+    "right-0 top-4 w-2 h-px transform rotate-180"
+  end
+
+  defp status_card_line_classes("top") do
+    "bottom-0 left-1/2 w-px h-2 transform -translate-x-1/2 rotate-90"
+  end
+
+  defp status_card_line_classes("bottom") do
+    "top-0 left-1/2 w-px h-2 transform -translate-x-1/2 -rotate-90"
+  end
+
+  # Liquid background classes based on status
+  defp status_card_liquid_bg_classes("offline") do
+    "bg-gradient-to-br from-slate-50/30 via-slate-50/20 to-slate-100/30 dark:from-slate-900/20 dark:via-slate-800/15 dark:to-slate-900/20"
+  end
+
+  defp status_card_liquid_bg_classes("calm") do
+    "bg-gradient-to-br from-teal-50/30 via-emerald-50/20 to-cyan-50/30 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20"
+  end
+
+  defp status_card_liquid_bg_classes("active") do
+    "bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-emerald-50/30 dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-emerald-900/20"
+  end
+
+  defp status_card_liquid_bg_classes("busy") do
+    "bg-gradient-to-br from-rose-50/30 via-pink-50/20 to-rose-50/30 dark:from-rose-900/20 dark:via-pink-900/15 dark:to-rose-900/20"
+  end
+
+  defp status_card_liquid_bg_classes("away") do
+    "bg-gradient-to-br from-amber-50/30 via-orange-50/20 to-amber-50/30 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-amber-900/20"
+  end
+
+  # Status display names - proper human-readable labels for your status values
+  defp status_display_name("offline"), do: "Offline"
+  defp status_display_name("calm"), do: "Calm"
+  defp status_display_name("active"), do: "Active"
+  defp status_display_name("busy"), do: "Busy"
+  defp status_display_name("away"), do: "Away"
+  defp status_display_name(status), do: String.capitalize(status)
+
+  # Default status messages
+  defp default_status_message("offline"), do: "Currently offline"
+  defp default_status_message("calm"), do: "Quietly online"
+  defp default_status_message("active"), do: "Active and engaged"
+  defp default_status_message("busy"), do: "Please don't disturb"
+  defp default_status_message("away"), do: "Away from keyboard"
+  defp default_status_message(_), do: "Status unknown"
 
   @doc """
   Simple liquid metal FAQ component following our design system.
@@ -7045,13 +7287,15 @@ defmodule MossletWeb.DesignSystem do
   attr :zen?, :boolean, default: false
   attr :photos?, :boolean, default: false
   attr :show_interactions?, :boolean, default: true
+  attr :status, :string, default: nil
+  attr :status_message, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_connection_card(assigns) do
     ~H"""
     <div class="relative">
       <article class={[
-        "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+        "group/card relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
         "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
         "border border-slate-200/60 dark:border-slate-700/60",
         "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
@@ -7061,11 +7305,11 @@ defmodule MossletWeb.DesignSystem do
         @class
       ]}>
         <%!-- Liquid background effect on hover --%>
-        <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+        <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover/card:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
         </div>
 
         <%!-- Shimmer effect --%>
-        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover:translate-x-full -translate-x-full">
+        <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out group-hover/card:opacity-100 bg-gradient-to-r from-transparent via-emerald-200/20 dark:via-emerald-400/10 to-transparent group-hover/card:translate-x-full -translate-x-full">
         </div>
 
         <%!-- Card content --%>
@@ -7078,12 +7322,12 @@ defmodule MossletWeb.DesignSystem do
                 src={@avatar_src}
                 name={@name}
                 size="lg"
+                status={@status}
+                status_message={@status_message}
                 clickable={true}
               />
 
-              <%!-- Online status indicator (future enhancement) --%>
-              <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full">
-              </div>
+              <%!-- Status indicator now handled by liquid_avatar component --%>
             </div>
 
             <%!-- User info --%>

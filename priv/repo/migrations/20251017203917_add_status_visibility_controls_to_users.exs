@@ -8,7 +8,7 @@ defmodule Mosslet.Repo.Local.Migrations.AddStatusVisibilityControlsToUsers do
       # Online presence controls (separate from status message)
       add :show_online_presence, :boolean, default: false, null: false
     end
-    
+
     # Add index for status visibility queries
     create index(:users, [:status_visibility])
     create index(:users, [:show_online_presence])

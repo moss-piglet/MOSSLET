@@ -26,6 +26,7 @@ import ScrollDown from "./scroll";
 import RestoreBodyScroll from "./restore-body-scroll";
 import ImageDownloadHook from "./image-download-hook";
 import DisableContextMenu from "./disable-context-menu";
+import StatusIndicatorHook from "./status-indicator-hook";
 
 export default {
   CharacterCounter,
@@ -56,4 +57,5 @@ export default {
   ContentWarningHook,
   ImageDownloadHook,
   DisableContextMenu,
+  StatusIndicatorHook,
 };

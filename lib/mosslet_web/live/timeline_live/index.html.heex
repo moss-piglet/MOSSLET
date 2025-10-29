@@ -7,13 +7,16 @@
   >
     <!-- Separate element for image download hook -->
     <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
+    <!-- Status indicator hook for real-time status updates -->
+    <div phx-hook="StatusIndicatorHook" id="status-indicator-handler" style="display: none;">
+    </div>
     <%!-- Timeline header with calmer mobile spacing --%>
     <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="mx-auto max-w-2xl text-center">
         <MossletWeb.DesignSystem.liquid_timeline_header
           user_name={user_name(@current_user, @key)}
           status={Atom.to_string(@current_user.status || :offline)}
-          status_message={get_current_user_status_message(@current_user, @key)}
+          status_message={get_user_status_message(@current_user, @current_user, @key)}
           class="space-y-2 sm:space-y-3"
         />
       </div>
@@ -167,7 +170,12 @@
       <div class="space-y-4 sm:space-y-5">
         <%!-- Real timeline posts from encrypted backend --%>
         <div id="timeline-posts" phx-update="stream" class="space-y-4 sm:space-y-5">
-          <div :for={{dom_id, post} <- @streams.posts} id={dom_id} class="timeline-post-container">
+          <div
+            :for={{dom_id, post} <- @streams.posts}
+            id={dom_id}
+            class="timeline-post-container"
+            data-user-id={post.user_id}
+          >
             <div id={"timeline-card-container-#{post.id}"} class="timeline-post-item new-post">
               <MossletWeb.DesignSystem.liquid_timeline_post
                 user_name={get_post_author_name(post, @current_user, @key)}
@@ -176,6 +184,7 @@
                   _ -> "author"
                 end)}
                 user_avatar={get_post_author_avatar(post, @current_user, @key)}
+                user_status={get_post_author_status(post, @current_user, @key)}
                 timestamp={format_post_timestamp(post.inserted_at)}
                 verified={false}
                 content_warning?={post.content_warning?}

@@ -9,8 +9,8 @@
       <div class="mx-auto max-w-4xl text-center">
         <MossletWeb.DesignSystem.liquid_connections_header
           user_name={user_name(@current_user, @key)}
-          status="calm"
-          status_message="Mindfully connected"
+          status={Atom.to_string(@current_user.status || :offline)}
+          status_message={get_user_status_message(@current_user, @current_user, @key)}
           class="space-y-2 sm:space-y-3"
         />
       </div>
@@ -311,6 +311,8 @@
                 connection_id={connection.id}
                 zen?={connection.zen?}
                 photos?={connection.photos?}
+                status={get_connection_user_status(connection, @current_user, @key)}
+                status_message={get_connection_status_message(connection, @current_user, @key)}
                 show_interactions?={
                   !blocked_by_connection?(connection, @current_user) &&
                     connection.connection.profile

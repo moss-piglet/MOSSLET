@@ -55,6 +55,15 @@ defmodule Mosslet.Accounts.Connection do
       default: [],
       skip_default_validation: true
 
+    # Expanded user lists from groups (for access control)
+    field :status_visible_to_groups_user_ids, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
+    field :presence_visible_to_groups_user_ids, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true
+
     embeds_one :profile, ConnectionProfile, on_replace: :update do
       field :name, Encrypted.Binary
       field :about, Encrypted.Binary
@@ -164,7 +173,9 @@ defmodule Mosslet.Accounts.Connection do
       :status_visible_to_users,
       :show_online_presence,
       :presence_visible_to_groups,
-      :presence_visible_to_users
+      :presence_visible_to_users,
+      :status_visible_to_groups_user_ids,
+      :presence_visible_to_groups_user_ids
     ])
   end
 
@@ -252,13 +263,16 @@ defmodule Mosslet.Accounts.Connection do
   defp add_status_message_hash(changeset) do
     if Map.has_key?(changeset.changes, :status_message_hash) do
       case get_field(changeset, :status_message_hash) do
-        nil -> 
+        nil ->
           changeset
-        "" -> 
+
+        "" ->
           changeset
+
         hash_value when is_binary(hash_value) ->
           changeset
           |> put_change(:status_message_hash, String.downcase(hash_value))
+
         _ ->
           changeset
       end
