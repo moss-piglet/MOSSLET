@@ -907,6 +907,7 @@ defmodule MossletWeb.DesignSystem do
   attr :save_tooltip, :string, default: nil
   attr :description, :string, required: true
   attr :note, :string, default: nil
+  attr :note_disclosure, :string, default: nil
   attr :cta_text, :string, required: true
   attr :cta_href, :string, required: true
   attr :cta_icon, :string, default: nil
@@ -974,7 +975,24 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Description --%>
       <p class="relative text-base leading-7 text-slate-600 dark:text-slate-400 mb-6">
         {@description}
-        <small :if={@note} class="block mt-2 text-slate-500">{@note}</small>
+        <small :if={@note && !@note_disclosure} class="block mt-2 text-slate-500">{@note}</small>
+        <small
+          :if={@note && @note_disclosure}
+          id={"note-disclosure-#{String.downcase(@title)}"}
+          class="block mt-2 text-slate-500 cursor-help group transition-colors duration-200 hover:text-emerald-600 dark:hover:text-emerald-400"
+          phx-hook="TippyHook"
+          data-tippy-content={@note_disclosure}
+          data-tippy-theme="light"
+          data-tippy-placement="bottom"
+          data-tippy-maxWidth="400"
+          data-tippy-interactive="true"
+        >
+          {@note}
+          <.phx_icon
+            name="hero-information-circle"
+            class="inline-block h-3 w-3 ml-1 opacity-60 group-hover:opacity-100 transition-opacity duration-200 align-middle -mt-0.5"
+          />
+        </small>
       </p>
 
       <%!-- Features list --%>

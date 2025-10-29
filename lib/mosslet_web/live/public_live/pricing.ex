@@ -76,6 +76,7 @@ defmodule MossletWeb.PublicLive.Pricing do
                   save_tooltip="Special price while we're in beta"
                   description="Own your privacy forever with one simple payment. No subscriptions, no recurring fees – just pure digital freedom."
                   note="Affirm payment plans available."
+                  note_disclosure="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders. CA residents: Loans by Affirm Loan Services, LLC are made or arranged pursuant to a California Finance Lenders Law license."
                   cta_text="Get Lifetime Access"
                   cta_href="/auth/register"
                   cta_icon="hero-rocket-launch"
