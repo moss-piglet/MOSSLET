@@ -1,4 +1,4 @@
-elixir 1.19.0-otp-28 global
-erlang 28.1 global
+elixir 1.19.1-otp-28 global
+erlang 28.1.1 global
 postgres 15.2
 rebar3 3.24.0

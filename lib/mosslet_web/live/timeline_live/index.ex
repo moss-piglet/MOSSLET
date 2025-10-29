@@ -3631,52 +3631,27 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to get the post author's status if visible to current user
   defp get_post_author_status(post, current_user, key) do
-    require Logger
-
-    # Debug specifically for Mark's post
-    is_mark_post = post.id == "77272fbe-8ce0-4a18-8fda-3331489856e6"
-
-    if is_mark_post do
-      Logger.warn("🔴 MARK'S POST: #{post.id}, user_id: #{post.user_id}")
-    end
-
     cond do
       post.user_id == current_user.id ->
         # Current user's own post - always show their status
-        result = to_string(current_user.status || "offline")
-        if is_mark_post, do: Logger.warn("🔴 MARK'S POST - Own post, returning: #{result}")
-        result
+        to_string(current_user.status || "offline")
 
       true ->
         # Other user's post - check if they've made their status visible via connection
-        case Accounts.get_user(post.user_id) do
+        case Accounts.get_user_with_preloads(post.user_id) do
           %{} = post_author ->
-            if is_mark_post do
-              Logger.warn(
-                "🔴 MARK'S POST - Post author: #{post_author.id}, status: #{post_author.status}, visibility: #{post_author.status_visibility}"
-              )
-            end
-
             # Check if the current user is allowed to see this author's status
             case can_see_post_author_status?(post_author, current_user, key) do
               true ->
-                result = to_string(post_author.status || "offline")
-
-                if is_mark_post,
-                  do: Logger.warn("🔴 MARK'S POST - Status visible, returning: #{result}")
-
-                result
+                to_string(post_author.status || "offline")
 
               false ->
-                if is_mark_post,
-                  do: Logger.warn("🔴 MARK'S POST - Status NOT visible, returning nil")
-
                 nil
             end
 
           nil ->
             # User account not found
-            if is_mark_post, do: Logger.warn("🔴 MARK'S POST - Post author not found")
+
             nil
         end
     end
