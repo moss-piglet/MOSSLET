@@ -2515,24 +2515,29 @@ defmodule Mosslet.Accounts do
 
   # Privacy-aware status broadcasting function
   defp broadcast_status_to_authorized_users(user, event) do
-    case user.status_visibility do
-      :nobody ->
-        # No broadcasting to connections
+    case {user.status_visibility, event} do
+      # Special case: always broadcast status_visibility_updated to connections
+      # so they know to update their UI when someone's visibility changes
+      {_, :status_visibility_updated} ->
+        broadcast_status_to_all_connections(user, event)
+
+      {:nobody, _} ->
+        # No broadcasting to connections for status updates when visibility is nobody
         :ok
 
-      :connections ->
+      {:connections, _} ->
         # Broadcast to all connections
         broadcast_status_to_all_connections(user, event)
 
-      :specific_groups ->
+      {:specific_groups, _} ->
         # Broadcast only to users in specific groups
         broadcast_status_to_specific_groups(user, event)
 
-      :specific_users ->
+      {:specific_users, _} ->
         # Broadcast only to specific users
         broadcast_status_to_specific_users(user, event)
 
-      :public ->
+      {:public, _} ->
         # For public status, broadcast to all connections (could also broadcast to public channel)
         broadcast_status_to_all_connections(user, event)
 

@@ -9,6 +9,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   import MossletWeb.Helpers.StatusHelpers,
     only: [
+      can_view_status?: 3,
       get_user_status_message: 3,
       get_user_status_info: 3,
       get_connection_status_message: 3,
@@ -277,16 +278,27 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
+    # DEBUGGING: Log when this handle_info is triggered
+    require Logger
+    Logger.info("🔥 handle_info(:status_updated) triggered for user #{user.id}")
+    Logger.info("🔥 Current user: #{current_user.id}")
+
     # Find the user_connection that represents our connection to this user
     case get_uconn_for_users(user, current_user) do
       %{} = _user_connection ->
+        Logger.info("🔥 Found user connection - proceeding with status update")
+
         # Use consolidated StatusHelpers for consistent status handling
-        user_with_connection = user |> Mosslet.Repo.Local.preload(:connection)
+        user_with_connection = Accounts.get_user_with_preloads(user.id)
 
         status_info = get_user_status_info(user_with_connection, current_user, key)
 
         new_status = status_info.status || "offline"
         new_status_message = status_info.status_message
+
+        Logger.info(
+          "🔥 Sending push_event with status: #{new_status}, message: #{new_status_message}"
+        )
 
         # Send JS event to update only status elements without disrupting the timeline
         {:noreply,
@@ -297,7 +309,68 @@ defmodule MossletWeb.TimelineLive.Index do
          })}
 
       nil ->
+        Logger.info("🔥 No user connection found for user #{user.id} - no update needed")
         # No connection found, no update needed
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({:status_visibility_updated, user}, socket) do
+    # Handle status visibility updates - when someone changes their status visibility,
+    # we need to check if the current user can still see their status or not
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    # Only process if we have a connection to this user (i.e., they appear on our timeline)
+    case get_uconn_for_users(user, current_user) do
+      %{} = _user_connection ->
+        # Get the user with their connection data
+        user_with_connection = Accounts.get_user_with_preloads(user.id)
+
+        case can_view_status?(user_with_connection, current_user, key) do
+          true ->
+            # Check if current_user can see user's status with the new visibility settings
+            status_info = get_user_status_info(user_with_connection, current_user, key)
+
+            case status_info do
+              %{status: status, status_message: status_message} when not is_nil(status) ->
+                # Current user can see the status - show it
+                {:noreply,
+                 push_event(socket, "update_user_status", %{
+                   user_id: user.id,
+                   status: status,
+                   status_message: status_message,
+                   visible: true
+                 })}
+
+              %{status: nil} ->
+                # Current user cannot see the status - hide it
+                {:noreply,
+                 push_event(socket, "update_user_status", %{
+                   user_id: user.id,
+                   visible: false
+                 })}
+
+              _ ->
+                # Fallback - hide status
+                {:noreply,
+                 push_event(socket, "update_user_status", %{
+                   user_id: user.id,
+                   visible: false
+                 })}
+            end
+
+          false ->
+            {:noreply,
+             push_event(socket, "update_user_status", %{
+               status: nil,
+               status_message: nil,
+               user_id: user.id,
+               visible: false
+             })}
+        end
+
+      nil ->
         {:noreply, socket}
     end
   end
@@ -3630,69 +3703,36 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to get the post author's status if visible to current user
+  # REPLACED: Now uses consolidated StatusHelpers for consistency
   defp get_post_author_status(post, current_user, key) do
-    cond do
-      post.user_id == current_user.id ->
-        # Current user's own post - always show their status
-        to_string(current_user.status || "offline")
-
-      true ->
-        # Other user's post - check if they've made their status visible via connection
-        case Accounts.get_user_with_preloads(post.user_id) do
-          %{} = post_author ->
-            # Check if the current user is allowed to see this author's status
-            case can_see_post_author_status?(post_author, current_user, key) do
-              true ->
-                to_string(post_author.status || "offline")
-
-              false ->
-                nil
-            end
-
-          nil ->
-            # User account not found
-
-            nil
+    case Accounts.get_user_with_preloads(post.user_id) do
+      %{} = post_author ->
+        case get_user_status_info(post_author, current_user, key) do
+          %{status: status} when is_binary(status) -> status
+          _ -> nil
         end
+
+      nil ->
+        # User account not found
+        nil
     end
   end
 
-  # Helper function to check if current user can see post author's status
-  defp can_see_post_author_status?(post_author, current_user, key) do
-    # FIXED: Use the proper Status context which correctly implements the privacy logic
-    # The issue was that this function was checking connection.status_visibility instead of post_author.status_visibility
-    # and using the wrong direction for user connections
-    require Logger
+  # Helper function to get the post author's status message if visible to current user
+  # Uses consolidated StatusHelpers for consistency
+  defp get_post_author_status_message(post, current_user, key) do
+    case Accounts.get_user_with_preloads(post.user_id) do
+      %{} = post_author ->
+        get_user_status_message(post_author, current_user, key)
 
-    Logger.debug(
-      "=== STATUS VISIBILITY DEBUG ===\npost_author=#{post_author.id}\ncurrent_user=#{current_user.id}\npost_author.status=#{post_author.status}\npost_author.status_visibility=#{post_author.status_visibility}"
-    )
-
-    result = Mosslet.Statuses.can_view_user_status?(post_author, current_user, key)
-    Logger.debug("Status visibility result: #{inspect(result)}")
-
-    case result do
-      {:ok, :full_access} ->
-        Logger.debug("✅ FULL ACCESS - returning true")
-        true
-
-      {:ok, :presence_only} ->
-        Logger.debug("✅ PRESENCE ONLY - returning true")
-        true
-
-      {:error, :private} ->
-        Logger.debug("❌ PRIVATE - returning false")
-        false
-
-      {:error, reason} ->
-        Logger.debug("❌ ERROR: #{inspect(reason)} - returning false")
-        false
-
-      other ->
-        Logger.debug("❓ UNEXPECTED: #{inspect(other)} - returning false")
-        false
+      nil ->
+        # User account not found
+        nil
     end
   end
+
+  # REMOVED: can_see_post_author_status? function - now handled by StatusHelpers.get_user_status_info/3
+  # This provides consistent privacy checking across the entire application
 
   # Helper function to get the post author's display name
   defp get_post_author_name(post, current_user, key) do
@@ -4037,13 +4077,7 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper functions for decrypting and formatting post data
-
-  # Status message function moved to MossletWeb.Helpers.StatusHelpers
-  # Use get_user_status_message/3 from imported StatusHelpers instead
-
-  # Status helper functions moved to MossletWeb.Helpers.StatusHelpers
-
-  # Helper function replaced by consolidated StatusHelpers.get_user_status_message/3
+  # All status-related functions have been moved to MossletWeb.Helpers.StatusHelpers for consistency
 
   defp get_decrypted_post_images(post, current_user, key) do
     cond do

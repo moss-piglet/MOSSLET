@@ -185,6 +185,7 @@
                 end)}
                 user_avatar={get_post_author_avatar(post, @current_user, @key)}
                 user_status={get_post_author_status(post, @current_user, @key)}
+                user_status_message={get_post_author_status_message(post, @current_user, @key)}
                 timestamp={format_post_timestamp(post.inserted_at)}
                 verified={false}
                 content_warning?={post.content_warning?}

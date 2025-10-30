@@ -400,22 +400,24 @@ defmodule Mosslet.Statuses do
       end
     else
       # Fall back to presence-only if they have presence access
-      check_presence_only_access(target_user, viewing_user, session_key)
+      # check_presence_only_access(target_user, viewing_user, session_key)
+      {:error, :private}
     end
   end
 
   defp check_specific_users_status_access(user, current_user, session_key) do
     # Check if current_user is explicitly in user's status-visible users list
-    in_specific_users = user_in_status_visible_users?(user, current_user, session_key)
+    in_specific_users? = user_in_status_visible_users?(user, current_user, session_key)
 
-    if in_specific_users do
-      case user.connection.show_online_presence do
+    if in_specific_users? do
+      case user.show_online_presence do
         true -> {:ok, :full_access}
         false -> {:error, :private}
       end
     else
       # Fall back to presence-only if they have presence access
-      check_presence_only_access(user, current_user, session_key)
+      # check_presence_only_access(user, current_user, session_key)
+      {:error, :private}
     end
   end
 
@@ -463,43 +465,42 @@ defmodule Mosslet.Statuses do
   end
 
   defp user_in_status_visible_users?(user, current_user, session_key) do
-    case {user.connection && user.connection.status_visible_to_users} do
-      {%{status_visible_to_users: encrypted_list}, encrypted_list}
-      when is_list(encrypted_list) and length(encrypted_list) > 0 ->
-        # We need the UserConnection where current_user.id is the user_id
-        # This contains the target user's conn_key encrypted for current_user
-        # Based on our debugging, this is the reverse direction
-        user_connection = Accounts.get_user_connection_between_users(user.id, current_user.id)
+    if user.connection && user.connection.status_visible_to_users do
+      # We need the UserConnection where current_user.id is the user_id
+      # This contains the target user's conn_key encrypted for current_user
+      # Based on our debugging, this is the reverse direction
+      user_connection = Accounts.get_user_connection_between_users(user.id, current_user.id)
 
-        case user_connection do
-          nil ->
-            false
+      case user_connection do
+        nil ->
+          false
 
-          uc ->
-            # First decrypt the connection key, then decrypt the user IDs
-            decrypted_user_ids =
-              encrypted_list
-              |> Enum.map(fn encrypted_user_id ->
-                case Mosslet.Encrypted.Users.Utils.decrypt_item(
-                       encrypted_user_id,
-                       current_user,
-                       uc.key,
-                       session_key
-                     ) do
-                  user_id when is_binary(user_id) ->
-                    user_id
+        uc ->
+          # First decrypt the connection key, then decrypt the user IDs
+          encrypted_list = user.connection.status_visible_to_users
 
-                  :failed_verification ->
-                    nil
-                end
-              end)
-              |> Enum.reject(&is_nil/1)
+          decrypted_user_ids =
+            encrypted_list
+            |> Enum.map(fn encrypted_user_id ->
+              case Mosslet.Encrypted.Users.Utils.decrypt_item(
+                     encrypted_user_id,
+                     current_user,
+                     uc.key,
+                     session_key
+                   ) do
+                user_id when is_binary(user_id) ->
+                  user_id
 
-            current_user.id in decrypted_user_ids
-        end
+                :failed_verification ->
+                  nil
+              end
+            end)
+            |> Enum.reject(&is_nil/1)
 
-      _ ->
-        false
+          current_user.id in decrypted_user_ids
+      end
+    else
+      false
     end
   end
 
@@ -550,7 +551,7 @@ defmodule Mosslet.Statuses do
     presence_visible_users =
       decrypt_presence_visible_users(target_user, viewing_user, session_key)
 
-    viewing_user.id in (presence_visible_users || [])
+    viewing_user.id in presence_visible_users
   end
 
   defp get_decrypted_status_with_message(target_user, viewing_user, session_key) do

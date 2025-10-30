@@ -30,6 +30,13 @@ defmodule MossletWeb.DesignSystem do
       get_uconn_for_shared_item: 2
     ]
 
+  # Import StatusHelpers for consistent status message handling
+  import MossletWeb.Helpers.StatusHelpers,
+    only: [
+      get_status_fallback_message: 1,
+      get_user_status_message: 3
+    ]
+
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
@@ -2926,6 +2933,8 @@ defmodule MossletWeb.DesignSystem do
             name={@user_name}
             size="md"
             status={to_string(@current_user.status || "offline")}
+            status_message={get_user_status_message(@current_user, @current_user, @key)}
+            id="composer-avatar"
           />
 
           <%!-- Compose area with character counter --%>
@@ -3514,6 +3523,7 @@ defmodule MossletWeb.DesignSystem do
   attr :user_handle, :string, required: true
   attr :user_avatar, :string, default: nil
   attr :user_status, :string, default: nil
+  attr :user_status_message, :string, default: nil
   attr :timestamp, :string, required: true
   attr :content, :string, required: true
   attr :images, :list, default: []
@@ -3602,6 +3612,7 @@ defmodule MossletWeb.DesignSystem do
             verified={@verified}
             clickable={true}
             status={@user_status}
+            status_message={@user_status_message}
             id={"avatar-#{@post.id}"}
           />
 
@@ -4261,7 +4272,7 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <span class="font-medium">
-        {@message || String.capitalize(@status)}
+        {@message || get_status_fallback_message(String.to_existing_atom(@status))}
       </span>
     </div>
     """
@@ -4959,12 +4970,18 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Status header --%>
           <div class="flex items-center gap-2 mb-2">
             <%!-- Status dot with same colors as the main indicator --%>
-            <div class={[
-              "w-2.5 h-2.5 rounded-full flex-shrink-0",
-              timeline_status_dot_classes(@status)
-            ]}>
+            <div
+              class={[
+                "w-2.5 h-2.5 rounded-full flex-shrink-0",
+                timeline_status_dot_classes(@status)
+              ]}
+              data-status-dot="true"
+            >
             </div>
-            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <span
+              class="text-sm font-semibold text-slate-700 dark:text-slate-200"
+              data-status-header="true"
+            >
               {status_display_name(@status)}
             </span>
           </div>
@@ -5055,13 +5072,12 @@ defmodule MossletWeb.DesignSystem do
   defp status_display_name("away"), do: "Away"
   defp status_display_name(status), do: String.capitalize(status)
 
-  # Default status messages
-  defp default_status_message("offline"), do: "Currently offline"
-  defp default_status_message("calm"), do: "Quietly online"
-  defp default_status_message("active"), do: "Active and engaged"
-  defp default_status_message("busy"), do: "Please don't disturb"
-  defp default_status_message("away"), do: "Away from keyboard"
-  defp default_status_message(_), do: "Status unknown"
+  # Status messages using StatusHelpers for consistency
+  defp default_status_message(status) do
+    get_status_fallback_message(String.to_existing_atom(status))
+  rescue
+    ArgumentError -> "Status unknown"
+  end
 
   @doc """
   Simple liquid metal FAQ component following our design system.

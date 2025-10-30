@@ -223,4 +223,14 @@ defmodule MossletWeb.Helpers.StatusHelpers do
         end
     end
   end
+
+  def can_view_status?(user, current_user, session_key) do
+    case Statuses.can_view_user_status?(user, current_user, session_key) do
+      {:error, :private} ->
+        false
+
+      _rest ->
+        true
+    end
+  end
 end
