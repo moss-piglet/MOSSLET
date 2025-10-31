@@ -60,7 +60,7 @@ defmodule MossletWeb.TimelineLive.Index do
       )
 
       # Privately track user activity for auto-status functionality
-      Accounts.track_user_activity(current_user, key, :general)
+      Accounts.track_user_activity(current_user, :general)
     end
 
     # Create changeset with all required fields populated
@@ -1632,7 +1632,7 @@ defmodule MossletWeb.TimelineLive.Index do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
           {:ok, _post} ->
             # Track user activity for auto-status (post creation is significant activity)
-            Accounts.track_user_activity(current_user, key, :post)
+            Accounts.track_user_activity(current_user, :post)
 
             # Reset form to clean state after successful post creation
             clean_changeset =
@@ -2026,7 +2026,6 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
-    key = socket.assigns.key
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
@@ -2069,7 +2068,7 @@ defmodule MossletWeb.TimelineLive.Index do
           case Timeline.create_bookmark(current_user, post, %{}) do
             {:ok, _bookmark} ->
               # Track user activity for auto-status (bookmarking is user interaction)
-              Accounts.track_user_activity(current_user, key, :interaction)
+              Accounts.track_user_activity(current_user, :interaction)
 
               # Recalculate bookmark count
               # Use cached content filters from socket assigns
@@ -2130,7 +2129,7 @@ defmodule MossletWeb.TimelineLive.Index do
            ) do
         {:ok, updated_post} ->
           # Track user activity for auto-status (liking is user interaction)
-          Accounts.track_user_activity(current_user, key, :interaction)
+          Accounts.track_user_activity(current_user, :interaction)
 
           socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You loved this post!")}
@@ -2167,7 +2166,7 @@ defmodule MossletWeb.TimelineLive.Index do
            ) do
         {:ok, updated_post} ->
           # Track user activity for auto-status (unliking is user interaction)
-          Accounts.track_user_activity(current_user, key, :interaction)
+          Accounts.track_user_activity(current_user, :interaction)
 
           socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You removed love from this post.")}
@@ -2294,7 +2293,7 @@ defmodule MossletWeb.TimelineLive.Index do
             )
 
           # Track user activity for auto-status (reposting is user interaction)
-          Accounts.track_user_activity(user, key, :interaction)
+          Accounts.track_user_activity(user, :interaction)
 
           socket =
             socket

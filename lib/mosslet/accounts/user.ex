@@ -385,7 +385,8 @@ defmodule Mosslet.Accounts.User do
     else
       # No status message, but we still need to update connection status if status changed
       if get_field(changeset, :status) do
-        encrypt_connection_map_status_only(changeset, opts)
+        # this simply preserves the existing encrypted data
+        preserve_encrypted_connection_map_status_only(changeset)
       else
         changeset
       end
@@ -421,7 +422,7 @@ defmodule Mosslet.Accounts.User do
     end
   end
 
-  defp encrypt_connection_map_status_only(changeset, opts) do
+  defp preserve_encrypted_connection_map_status_only(changeset) do
     # Update connection status while preserving existing message
     user = changeset.data
 

@@ -7106,13 +7106,17 @@ defmodule MossletWeb.DesignSystem do
   attr :status, :string, default: "calm"
   attr :status_message, :string, default: nil
   attr :class, :any, default: ""
+  attr :id, :string, default: nil
 
   def liquid_connections_header(assigns) do
     ~H"""
-    <div class={[
-      "relative p-6 text-center",
-      @class
-    ]}>
+    <div
+      id={@id}
+      class={[
+        "relative p-6 text-center",
+        @class
+      ]}
+    >
       <%!-- Meaningful header about connections and privacy --%>
       <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
         {@user_name}'s

@@ -13,7 +13,6 @@ defmodule Mosslet.Statuses do
   alias Mosslet.Accounts.{User, Connection}
   alias Mosslet.Repo
 
-  import MossletWeb.Helpers.StatusHelpers, only: [get_current_user_status_message: 2]
   require Logger
 
   @doc """
@@ -165,7 +164,7 @@ defmodule Mosslet.Statuses do
   Updates user activity timestamp.
   Called on posts, likes, replies, etc.
   """
-  def track_user_activity(user, session_key, activity_type \\ :general) do
+  def track_user_activity(user, activity_type \\ :general) do
     attrs = %{last_activity_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)}
 
     attrs =

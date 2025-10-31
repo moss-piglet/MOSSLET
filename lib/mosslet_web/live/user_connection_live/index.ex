@@ -32,7 +32,6 @@ defmodule MossletWeb.UserConnectionLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
-    key = socket.assigns.key
 
     if connected?(socket) do
       Accounts.private_subscribe(user)
@@ -44,7 +43,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
       MossletWeb.Presence.track_connections_activity(self(), user.id)
 
       # Track user activity for auto-status functionality
-      Accounts.track_user_activity(user, key, :general)
+      Accounts.track_user_activity(user, :general)
     end
 
     {:ok,
