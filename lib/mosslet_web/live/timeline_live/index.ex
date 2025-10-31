@@ -1878,20 +1878,6 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("set-user-default", %{"id" => id, "text" => text}, socket) do
-    options =
-      if text == "" do
-        socket.assigns.shared_users
-      else
-        socket.assigns.shared_users
-        |> Enum.filter(&(String.downcase(&1[:label]) |> String.contains?(String.downcase(text))))
-      end
-
-    send_update(LiveSelect.Component, options: options, id: id)
-
-    {:noreply, socket}
-  end
-
   def handle_event("scroll_to_top", _params, socket) do
     {:noreply, push_event(socket, "scroll-to-top", %{})}
   end
