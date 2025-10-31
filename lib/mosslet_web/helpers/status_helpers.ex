@@ -138,7 +138,6 @@ defmodule MossletWeb.Helpers.StatusHelpers do
                    session_key
                  ) do
               {:ok, :full_access} -> to_string(connected_user.status || "offline")
-              {:ok, :presence_only} -> to_string(connected_user.status || "offline")
               {:error, :private} -> nil
             end
 

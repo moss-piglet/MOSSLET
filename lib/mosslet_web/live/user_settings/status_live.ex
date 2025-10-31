@@ -6,7 +6,6 @@ defmodule MossletWeb.UserSettings.StatusLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.User
   alias Mosslet.Statuses
   alias MossletWeb.DesignSystem
   import MossletWeb.DesignSystem
@@ -14,7 +13,6 @@ defmodule MossletWeb.UserSettings.StatusLive do
   # Import connection helper functions
   import MossletWeb.DesignSystem,
     only: [
-      get_decrypted_connection_name: 3,
       get_decrypted_connection_label: 3,
       get_decrypted_connection_username: 3,
       get_connection_avatar_src: 3,
@@ -39,7 +37,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
     status_form = to_form(status_changeset)
 
     # Load saved status visibility selections from connection record
-    {saved_groups, saved_users, saved_presence_groups, saved_presence_users} =
+    {saved_groups, saved_users} =
       get_saved_status_visibility_selections(user, key)
 
     status_visibility_form =
@@ -822,11 +820,6 @@ defmodule MossletWeb.UserSettings.StatusLive do
     selected_groups = extract_checkbox_values(params, "status_visible_to_groups")
     selected_users = extract_checkbox_values(params, "status_visible_to_users")
 
-    # Auto-match presence visibility to status visibility for UX simplicity
-    # If someone can see your status, they can also see your presence
-    selected_presence_groups = selected_groups
-    selected_presence_users = selected_users
-
     # Extract other form values - the form sends parameters directly at top level
     show_online_presence =
       case params do
@@ -1016,86 +1009,6 @@ defmodule MossletWeb.UserSettings.StatusLive do
     |> Enum.filter(&is_binary/1)
   end
 
-  # Helper function to get the display version of status message
-  defp get_display_status_message(form_value, user, key) do
-    result =
-      cond do
-        # If it's nil or empty, return nil (status component will show just the status type)
-        is_nil(form_value) or form_value == "" ->
-          nil
-
-        # If it looks like an encrypted string (base64-ish), try to decrypt it
-        # BUT also check if this is a fresh form input vs stored encrypted value
-        is_binary(form_value) and String.length(form_value) > 50 and
-            String.contains?(form_value, ["+", "/", "="]) ->
-          # Try to decrypt - if it fails, this might be a form validation case
-          # where the changeset already encrypted the user input
-          case decrypt_status_message_value(form_value, user, key) do
-            nil ->
-              # If decryption fails, this could be the changeset trying to encrypt form input
-              # In that case, we should look for the original input in the changeset params
-              nil
-
-            decrypted when decrypted == "" ->
-              nil
-
-            decrypted ->
-              decrypted
-          end
-
-        # Otherwise, it's already a plain text value from form input - show it for live preview
-        is_binary(form_value) ->
-          form_value
-
-        # Fallback
-        true ->
-          nil
-      end
-
-    result
-  end
-
-  # New helper function to get status message for preview - bypasses encryption
-  defp get_status_message_for_preview(status_form) do
-    # For live preview, we want to show the raw form input, not the encrypted version
-    case status_form.source do
-      %Ecto.Changeset{params: params} when is_map(params) ->
-        # Get the raw status_message from params - this is the user's input
-        case params do
-          %{"status_message" => msg} when is_binary(msg) and msg != "" ->
-            msg
-
-          %{"user" => %{"status_message" => msg}} when is_binary(msg) and msg != "" ->
-            msg
-
-          _ ->
-            # Fall back to the form field value
-            case status_form[:status_message].value do
-              msg when is_binary(msg) and msg != "" -> msg
-              _ -> nil
-            end
-        end
-
-      _changeset_or_data ->
-        # Fall back to the form field value (which should be the decrypted message after save)
-        case status_form[:status_message].value do
-          msg when is_binary(msg) and msg != "" ->
-            msg
-
-          _ ->
-            nil
-        end
-    end
-  end
-
-  # Helper function to decrypt a specific status message value (for form preview)
-  defp decrypt_status_message_value(encrypted_value, user, key) do
-    case Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_value, user, key) do
-      {:ok, decrypted_message} -> decrypted_message
-      _ -> nil
-    end
-  end
-
   # Helper functions
 
   defp get_saved_status_visibility_selections(user, key) do
@@ -1103,13 +1016,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
     saved_groups = decrypt_selection_list(user.connection.status_visible_to_groups, user, key)
     saved_users = decrypt_selection_list(user.connection.status_visible_to_users, user, key)
 
-    saved_presence_groups =
-      decrypt_selection_list(user.connection.presence_visible_to_groups, user, key)
-
-    saved_presence_users =
-      decrypt_selection_list(user.connection.presence_visible_to_users, user, key)
-
-    {saved_groups, saved_users, saved_presence_groups, saved_presence_users}
+    {saved_groups, saved_users}
   end
 
   defp decrypt_selection_list(encrypted_data, user, key) do

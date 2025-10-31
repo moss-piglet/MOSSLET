@@ -3480,28 +3480,6 @@ defmodule MossletWeb.DesignSystem do
   defp avatar_size_classes("lg"), do: "w-16 h-16"
   defp avatar_size_classes("xl"), do: "w-20 h-20"
 
-  defp avatar_status_size_classes("xs"), do: "w-1.5 h-1.5"
-  defp avatar_status_size_classes("sm"), do: "w-2 h-2"
-  defp avatar_status_size_classes("md"), do: "w-2.5 h-2.5"
-  defp avatar_status_size_classes("lg"), do: "w-3 h-3"
-  defp avatar_status_size_classes("xl"), do: "w-3.5 h-3.5"
-
-  defp avatar_status_color_classes("online"), do: "bg-gradient-to-br from-emerald-400 to-teal-500"
-  defp avatar_status_color_classes("calm"), do: "bg-gradient-to-br from-teal-400 to-emerald-500"
-  defp avatar_status_color_classes("active"), do: "bg-gradient-to-br from-blue-400 to-emerald-500"
-  defp avatar_status_color_classes("away"), do: "bg-gradient-to-br from-amber-400 to-orange-500"
-  defp avatar_status_color_classes("busy"), do: "bg-gradient-to-br from-rose-400 to-pink-500"
-  defp avatar_status_color_classes("offline"), do: "bg-gradient-to-br from-slate-400 to-gray-500"
-  defp avatar_status_color_classes(_), do: "bg-gradient-to-br from-slate-400 to-gray-500"
-
-  defp avatar_status_ping_classes("online"), do: "bg-emerald-400"
-  defp avatar_status_ping_classes("calm"), do: "bg-teal-400"
-  defp avatar_status_ping_classes("active"), do: "bg-blue-400"
-  defp avatar_status_ping_classes("away"), do: "bg-amber-400"
-  defp avatar_status_ping_classes("busy"), do: "bg-rose-400"
-  defp avatar_status_ping_classes("offline"), do: "bg-slate-400"
-  defp avatar_status_ping_classes(_), do: ""
-
   # Helper function to get or create a reply form for a specific post
 
   @doc """
@@ -4785,6 +4763,7 @@ defmodule MossletWeb.DesignSystem do
   attr :online, :boolean, default: false
   attr :animate, :boolean, default: false
   attr :class, :any, default: ""
+  attr :id, :string, default: nil
 
   def liquid_user_status_indicator(assigns) do
     ~H"""

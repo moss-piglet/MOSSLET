@@ -685,10 +685,9 @@ defmodule Mosslet.Accounts.User do
               end
             end)
 
-          connection_map_updates =
-            connection_map_updates
-            |> Map.put(:c_status_visible_to_users, c_encrypted_status_users)
-            |> Map.put(:c_presence_visible_to_users, c_encrypted_status_users)
+          connection_map_updates
+          |> Map.put(:c_status_visible_to_users, c_encrypted_status_users)
+          |> Map.put(:c_presence_visible_to_users, c_encrypted_status_users)
         else
           connection_map_updates
         end

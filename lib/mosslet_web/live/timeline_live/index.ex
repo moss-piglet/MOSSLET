@@ -11,9 +11,7 @@ defmodule MossletWeb.TimelineLive.Index do
     only: [
       can_view_status?: 3,
       get_user_status_message: 3,
-      get_user_status_info: 3,
-      get_connection_status_message: 3,
-      get_connection_user_status: 3
+      get_user_status_info: 3
     ]
 
   alias Phoenix.LiveView.AsyncResult

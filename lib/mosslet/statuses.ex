@@ -55,7 +55,7 @@ defmodule Mosslet.Statuses do
 
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:user, changeset)
-         |> Ecto.Multi.update(:update_connection, fn %{user: user} ->
+         |> Ecto.Multi.update(:update_connection, fn %{user: _user} ->
            Connection.update_status_changeset(conn, %{
              status: c_attrs.c_status,
              status_message: c_attrs.c_status_message,
@@ -230,24 +230,6 @@ defmodule Mosslet.Statuses do
 
   # Private functions
 
-  defp update_connection_status(user, connection_map) do
-    if user.connection do
-      case Repo.transaction_on_primary(fn ->
-             user.connection
-             |> Connection.update_status_changeset(%{
-               status: connection_map[:c_status],
-               status_message: connection_map[:c_status_message],
-               status_message_hash: connection_map[:c_status_message_hash],
-               status_updated_at: connection_map[:c_status_updated_at]
-             })
-             |> Repo.update()
-           end) do
-        {:ok, {:ok, _connection}} -> :ok
-        _ -> :error
-      end
-    end
-  end
-
   defp update_user_activity(user) do
     case Repo.transaction_on_primary(fn ->
            user
@@ -312,11 +294,6 @@ defmodule Mosslet.Statuses do
       {:ok, :full_access} ->
         Logger.debug("✅ Full access granted - decrypting status message")
         # Full status access - decrypt everything
-        get_decrypted_status_with_message(target_user, viewing_user, session_key)
-
-      {:ok, :presence_only} ->
-        Logger.debug("⚠️ Presence only access")
-        # Only online/offline, no status message
         get_decrypted_status_with_message(target_user, viewing_user, session_key)
 
       {:error, :private} ->
@@ -399,8 +376,6 @@ defmodule Mosslet.Statuses do
         false -> {:error, :private}
       end
     else
-      # Fall back to presence-only if they have presence access
-      # check_presence_only_access(target_user, viewing_user, session_key)
       {:error, :private}
     end
   end
@@ -413,24 +388,6 @@ defmodule Mosslet.Statuses do
       case user.show_online_presence do
         true -> {:ok, :full_access}
         false -> {:error, :private}
-      end
-    else
-      # Fall back to presence-only if they have presence access
-      # check_presence_only_access(user, current_user, session_key)
-      {:error, :private}
-    end
-  end
-
-  defp check_presence_only_access(target_user, viewing_user, session_key) do
-    if target_user.show_online_presence do
-      # Check if user can see presence (different from status message)
-      if user_can_see_presence?(target_user, viewing_user, session_key) do
-        case target_user.show_online_presence do
-          true -> {:ok, :presence_only}
-          false -> {:error, :private}
-        end
-      else
-        {:error, :private}
       end
     else
       {:error, :private}
@@ -504,56 +461,6 @@ defmodule Mosslet.Statuses do
     end
   end
 
-  defp user_can_see_presence?(target_user, viewing_user, session_key) do
-    # Similar logic but for presence visibility controls
-    case {target_user.connection.presence_visible_to_groups,
-          target_user.connection.presence_visible_to_users} do
-      {[], []} ->
-        # If no specific groups/users set, fall back to connection access
-        # FIXED: Pass User structs, not IDs
-        Accounts.has_user_connection?(target_user, viewing_user)
-
-      _ ->
-        # Check specific presence groups/users
-        user_in_presence_visible_groups?(target_user, viewing_user, session_key) or
-          user_in_presence_visible_users?(target_user, viewing_user, session_key)
-    end
-  end
-
-  defp user_in_presence_visible_groups?(target_user, viewing_user, session_key) do
-    # Similar to status groups but for presence
-    # FIXED: Pass user IDs, not structs
-    # Get the current user's UserConnection that points to the target user
-    # This contains the target user's conn_key encrypted for the current user
-    case Accounts.get_user_connection_between_users(target_user.id, viewing_user.id) do
-      nil ->
-        false
-
-      user_connection ->
-        presence_groups_user_ids =
-          decrypt_presence_visible_groups_user_ids(
-            target_user,
-            viewing_user,
-            user_connection,
-            session_key
-          )
-
-        reverse_connection =
-          Accounts.get_user_connection_between_users(viewing_user.id, target_user.id)
-
-        viewing_user.id in [reverse_connection.user_id, reverse_connection.reverse_user_id] &&
-          reverse_connection.id in presence_groups_user_ids
-    end
-  end
-
-  defp user_in_presence_visible_users?(target_user, viewing_user, session_key) do
-    # Check if viewing_user is in target_user's presence-visible users list
-    presence_visible_users =
-      decrypt_presence_visible_users(target_user, viewing_user, session_key)
-
-    viewing_user.id in presence_visible_users
-  end
-
   defp get_decrypted_status_with_message(target_user, viewing_user, session_key) do
     # Get decrypted status message via connection
     case Accounts.get_user_connection_between_users(target_user.id, viewing_user.id) do
@@ -593,15 +500,6 @@ defmodule Mosslet.Statuses do
             online: is_user_online?(target_user)
           }
         end
-    end
-  end
-
-  defp get_presence_status(user) do
-    # Get basic presence status (online/offline/away/etc.) without message
-    if is_user_online?(user) do
-      user.status || :calm
-    else
-      :offline
     end
   end
 
@@ -650,30 +548,6 @@ defmodule Mosslet.Statuses do
       |> Enum.map(fn encrypted_group_user_id ->
         case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
                encrypted_group_user_id,
-               viewing_user,
-               user_connection.key,
-               session_key
-             ) do
-          user_id when is_binary(user_id) -> user_id
-          :failed_verification -> nil
-        end
-      end)
-      |> Enum.reject(&is_nil/1)
-    else
-      _ -> []
-    end
-  end
-
-  defp decrypt_presence_visible_users(target_user, viewing_user, session_key) do
-    with encrypted_list when is_list(encrypted_list) and length(encrypted_list) > 0 <-
-           target_user.connection.presence_visible_to_users do
-      user_connection =
-        Accounts.get_user_connection_between_users(target_user.id, viewing_user.id)
-
-      encrypted_list
-      |> Enum.map(fn encrypted_user_id ->
-        case Mosslet.Encrypted.Users.Utils.decrypt_item(
-               encrypted_user_id,
                viewing_user,
                user_connection.key,
                session_key
