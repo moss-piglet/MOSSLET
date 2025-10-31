@@ -2691,7 +2691,7 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <%!-- Status indicator with enhanced status message card (triggers on avatar hover) --%>
-      <div :if={@status && @status != "offline"}>
+      <div :if={@status}>
         <MossletWeb.DesignSystem.liquid_user_status_indicator
           id={"avatar-status-#{@id}-#{@status}"}
           status={@status}

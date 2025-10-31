@@ -217,7 +217,7 @@ defmodule MossletWeb.Helpers.StatusHelpers do
               status_message: status_message
             }
 
-          _ ->
+          _rest ->
             %{status: nil, status_message: nil}
         end
     end
@@ -225,11 +225,8 @@ defmodule MossletWeb.Helpers.StatusHelpers do
 
   def can_view_status?(user, current_user, session_key) do
     case Statuses.can_view_user_status?(user, current_user, session_key) do
-      {:error, :private} ->
-        false
-
-      _rest ->
-        true
+      {:error, :private} -> false
+      _rest -> true
     end
   end
 end

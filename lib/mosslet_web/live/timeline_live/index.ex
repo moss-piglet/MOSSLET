@@ -276,16 +276,9 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # DEBUGGING: Log when this handle_info is triggered
-    require Logger
-    Logger.info("🔥 handle_info(:status_updated) triggered for user #{user.id}")
-    Logger.info("🔥 Current user: #{current_user.id}")
-
     # Find the user_connection that represents our connection to this user
     case get_uconn_for_users(user, current_user) do
       %{} = _user_connection ->
-        Logger.info("🔥 Found user connection - proceeding with status update")
-
         # Use consolidated StatusHelpers for consistent status handling
         user_with_connection = Accounts.get_user_with_preloads(user.id)
 
@@ -293,10 +286,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
         new_status = status_info.status || "offline"
         new_status_message = status_info.status_message
-
-        Logger.info(
-          "🔥 Sending push_event with status: #{new_status}, message: #{new_status_message}"
-        )
 
         # Send JS event to update only status elements without disrupting the timeline
         {:noreply,
@@ -307,8 +296,6 @@ defmodule MossletWeb.TimelineLive.Index do
          })}
 
       nil ->
-        Logger.info("🔥 No user connection found for user #{user.id} - no update needed")
-        # No connection found, no update needed
         {:noreply, socket}
     end
   end
