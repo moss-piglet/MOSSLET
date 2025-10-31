@@ -26,7 +26,19 @@ defmodule Mosslet.Accounts.UserConnection do
     field :request_email_hash, Encrypted.HMAC
 
     field :color, Ecto.Enum,
-      values: [:emerald, :teal, :orange, :purple, :rose, :amber, :yellow, :cyan, :indigo, :pink]
+      values: [
+        :emerald,
+        :teal,
+        :orange,
+        :purple,
+        :rose,
+        :amber,
+        :yellow,
+        :cyan,
+        :indigo,
+        :pink,
+        :zinc
+      ]
 
     belongs_to :connection, Connection
     belongs_to :user, User
