@@ -550,15 +550,21 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
     current_user = socket.assigns.current_user
 
-    # Find the user_connection that represents our connection to this user
-    case get_uconn_for_users(user, current_user) do
-      %{} = user_connection ->
-        # Update the stream with the user_connection to trigger re-render
-        {:noreply, stream_insert(socket, :user_connections, user_connection, at: -1)}
+    if user.id == current_user.id do
+      {:noreply,
+       socket
+       |> assign(current_user: user)}
+    else
+      # Find the user_connection that represents our connection to this user
+      case get_uconn_for_users(user, current_user) do
+        %{} = user_connection ->
+          # Update the stream with the user_connection to trigger re-render
+          {:noreply, stream_insert(socket, :user_connections, user_connection, at: -1)}
 
-      nil ->
-        # No connection found, no update needed
-        {:noreply, socket}
+        nil ->
+          # No connection found, no update needed
+          {:noreply, socket}
+      end
     end
   end
 

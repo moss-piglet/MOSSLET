@@ -69,7 +69,8 @@ defmodule MossletWeb.UserSettings.StatusLive do
        user_visibility_groups: visibility_groups,
        user_connections: user_connections,
        status_message: get_decrypted_status_message(user, key) || "",
-       auto_status: user.auto_status || false
+       auto_status: user.auto_status || false,
+       show_auto_status_explanation: false
      )}
   end
 
@@ -139,15 +140,203 @@ defmodule MossletWeb.UserSettings.StatusLive do
                 />
               </div>
 
-              <%!-- Auto Status Toggle --%>
-              <div class="space-y-3">
+              <%!-- Auto Status Toggle with Collapsible Beautiful Explanation --%>
+              <div class="space-y-4">
                 <.phx_input
                   field={@status_form[:auto_status]}
                   type="checkbox"
                   phx-debounce="200"
                   label="Automatically update status based on activity"
-                  help="Let MOSSLET update your status when you're active, away, or offline"
+                  help="Let MOSSLET intelligently update your status when you're active, away, or offline"
                 />
+
+                <%!-- Expandable explanation trigger (only show when auto_status is enabled) --%>
+                <div :if={@status_form[:auto_status].value} class="">
+                  <button
+                    type="button"
+                    phx-click="toggle_auto_status_explanation"
+                    class="group inline-flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors duration-200"
+                  >
+                    <.phx_icon name="hero-sparkles" class="h-4 w-4" />
+                    <span>How does auto-status work?</span>
+                    <.phx_icon
+                      name={
+                        if @show_auto_status_explanation,
+                          do: "hero-chevron-up",
+                          else: "hero-chevron-down"
+                      }
+                      class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
+                    />
+                  </button>
+                </div>
+
+                <%!-- Beautiful Auto-Status Explanation Card (Collapsible) --%>
+                <div
+                  :if={@status_form[:auto_status].value && @show_auto_status_explanation}
+                  class="animate-in slide-in-from-top-2 duration-300 ease-out relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-50/80 via-teal-50/60 to-cyan-50/40 dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/10 border border-emerald-200/60 dark:border-emerald-700/30 backdrop-blur-sm"
+                >
+                  <%!-- Subtle animated background --%>
+                  <div class="absolute inset-0 bg-gradient-to-r from-emerald-400/5 via-transparent to-teal-400/5 animate-pulse">
+                  </div>
+
+                  <div class="relative p-6 space-y-5">
+                    <%!-- Header with close button --%>
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3">
+                        <div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500/20 via-teal-500/15 to-emerald-500/20 dark:from-emerald-400/30 dark:via-teal-400/25 dark:to-emerald-400/30">
+                          <.phx_icon
+                            name="hero-sparkles"
+                            class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                          />
+                        </div>
+                        <h4 class="text-lg font-semibold bg-gradient-to-r from-emerald-700 via-teal-600 to-emerald-700 dark:from-emerald-300 dark:via-teal-300 dark:to-emerald-300 bg-clip-text text-transparent">
+                          How Auto-Status Works
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="toggle_auto_status_explanation"
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800/50 transition-all duration-200"
+                        title="Close explanation"
+                      >
+                        <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <%!-- Status flow visualization --%>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <%!-- Active Status --%>
+                      <div class="group relative p-4 rounded-xl bg-white/60 dark:bg-slate-800/60 backdrop-blur border border-white/40 dark:border-slate-700/40 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all duration-300">
+                        <div class="flex flex-col items-center gap-3 text-center">
+                          <div class="relative">
+                            <div class="h-3 w-3 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 animate-pulse">
+                            </div>
+                            <div class="absolute inset-0 h-3 w-3 rounded-full bg-blue-400/30 animate-ping">
+                            </div>
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Active</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                              Recently interacting
+                            </p>
+                            <p class="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                              &lt; 2 minutes
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <%!-- Calm Status --%>
+                      <div class="group relative p-4 rounded-xl bg-white/60 dark:bg-slate-800/60 backdrop-blur border border-white/40 dark:border-slate-700/40 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all duration-300">
+                        <div class="flex flex-col items-center gap-3 text-center">
+                          <div class="h-3 w-3 rounded-full bg-gradient-to-br from-green-400 to-emerald-500">
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                              Calm
+                            </p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                              Quietly browsing
+                            </p>
+                            <p class="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                              2-10 minutes
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <%!-- Away Status --%>
+                      <div class="group relative p-4 rounded-xl bg-white/60 dark:bg-slate-800/60 backdrop-blur border border-white/40 dark:border-slate-700/40 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all duration-300">
+                        <div class="flex flex-col items-center gap-3 text-center">
+                          <div class="h-3 w-3 rounded-full bg-gradient-to-br from-amber-400 to-orange-500">
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-amber-700 dark:text-amber-300">Away</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                              Connected but idle
+                            </p>
+                            <p class="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                              10+ minutes
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <%!-- Offline Status --%>
+                      <div class="group relative p-4 rounded-xl bg-white/60 dark:bg-slate-800/60 backdrop-blur border border-white/40 dark:border-slate-700/40 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all duration-300">
+                        <div class="flex flex-col items-center gap-3 text-center">
+                          <div class="h-3 w-3 rounded-full bg-gradient-to-br from-slate-400 to-slate-500">
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              Offline
+                            </p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                              Not connected
+                            </p>
+                            <p class="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                              Disconnected
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <%!-- Key features --%>
+                    <div class="space-y-4">
+                      <div class="flex items-start gap-3">
+                        <div class="mt-1 h-2 w-2 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex-shrink-0">
+                        </div>
+                        <div>
+                          <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                            Intelligent Detection
+                          </p>
+                          <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mt-1">
+                            Uses your connection status and recent activity like posting, liking, and commenting to determine your engagement level
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="flex items-start gap-3">
+                        <div class="mt-1 h-2 w-2 rounded-full bg-gradient-to-br from-red-400 to-rose-500 flex-shrink-0">
+                        </div>
+                        <div>
+                          <p class="text-sm font-medium text-red-800 dark:text-red-200">
+                            Respects Busy Status
+                          </p>
+                          <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mt-1">
+                            Never automatically changes your status when you've manually set it to "Busy" - your intentional status always takes priority
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="flex items-start gap-3">
+                        <div class="mt-1 h-2 w-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex-shrink-0">
+                        </div>
+                        <div>
+                          <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            Preserves Your Message
+                          </p>
+                          <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mt-1">
+                            Your custom status message is always preserved - only the status indicator changes automatically
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <%!-- Privacy note --%>
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-emerald-200/40 dark:border-emerald-700/40">
+                      <.phx_icon
+                        name="hero-shield-check"
+                        class="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+                      />
+                      <p class="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                        <span class="font-medium">Privacy-friendly:</span>
+                        Auto-status only works when you're actively using MOSSLET and respects all your visibility settings.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <%!-- Action button --%>
@@ -604,6 +793,11 @@ defmodule MossletWeb.UserSettings.StatusLive do
   end
 
   # Event handlers
+
+  def handle_event("toggle_auto_status_explanation", _params, socket) do
+    current_state = socket.assigns.show_auto_status_explanation
+    {:noreply, assign(socket, :show_auto_status_explanation, !current_state)}
+  end
 
   def handle_event("set_status", %{"status" => status}, socket) do
     # Get current user and create a changeset with the new status

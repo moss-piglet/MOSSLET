@@ -8,6 +8,7 @@
     <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="mx-auto max-w-4xl text-center">
         <MossletWeb.DesignSystem.liquid_connections_header
+          id="user-connections-liquid-header"
           user_name={user_name(@current_user, @key)}
           status={Atom.to_string(@current_user.status || :offline)}
           status_message={get_user_status_message(@current_user, @current_user, @key)}
