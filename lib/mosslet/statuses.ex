@@ -322,33 +322,61 @@ defmodule Mosslet.Statuses do
         {:error, :private}
 
       {:private, :connections} ->
-        check_connection_status_access(user, current_user)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_connection_status_access(user, current_user)
+        end
 
       # Connections users: can share with connections, groups, users (but not public)
       {:connections, :nobody} ->
         {:error, :private}
 
       {:connections, :connections} ->
-        check_connection_status_access(user, current_user)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_connection_status_access(user, current_user)
+        end
 
       {:connections, :specific_groups} ->
-        check_specific_groups_status_access(user, current_user, session_key)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_specific_groups_status_access(user, current_user, session_key)
+        end
 
       {:connections, :specific_users} ->
-        check_specific_users_status_access(user, current_user, session_key)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_specific_users_status_access(user, current_user, session_key)
+        end
 
       # Public users: can use any status visibility including public
       {:public, :nobody} ->
         {:error, :private}
 
       {:public, :connections} ->
-        check_connection_status_access(user, current_user)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_connection_status_access(user, current_user)
+        end
 
       {:public, :specific_groups} ->
-        check_specific_groups_status_access(user, current_user, session_key)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_specific_groups_status_access(user, current_user, session_key)
+        end
 
       {:public, :specific_users} ->
-        check_specific_users_status_access(user, current_user, session_key)
+        if user.id == current_user.id do
+          {:ok, :full_access}
+        else
+          check_specific_users_status_access(user, current_user, session_key)
+        end
 
       # Public status for everyone
       {:public, :public} ->

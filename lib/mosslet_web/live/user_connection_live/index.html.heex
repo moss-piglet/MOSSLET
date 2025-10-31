@@ -12,6 +12,7 @@
           user_name={user_name(@current_user, @key)}
           status={Atom.to_string(@current_user.status || :offline)}
           status_message={get_user_status_message(@current_user, @current_user, @key)}
+          show_status={can_view_status?(@current_user, @current_user, @key)}
           class="space-y-2 sm:space-y-3"
         />
       </div>

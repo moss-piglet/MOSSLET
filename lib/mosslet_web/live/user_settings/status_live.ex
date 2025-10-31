@@ -962,9 +962,20 @@ defmodule MossletWeb.UserSettings.StatusLive do
         else
           status_params
         end,
-      "status_message" => Map.get(status_params, "status_message", ""),
       "auto_status" => Map.get(status_params, "auto_status") == "true"
     }
+
+    # Only include status_message if it's explicitly provided and not empty
+    # This allows clearing the message when user intentionally empties it
+    attrs =
+      case Map.get(status_params, "status_message") do
+        # Don't update status_message
+        nil -> attrs
+        # Explicitly clear it
+        "" -> Map.put(attrs, "status_message", nil)
+        # Set the message
+        message -> Map.put(attrs, "status_message", message)
+      end
 
     # Convert string status to atom for the Status module
     status_attrs = %{

@@ -375,21 +375,34 @@ defmodule Mosslet.Accounts.User do
   defp encrypt_status_change(changeset, opts) do
     status_message = get_field(changeset, :status_message)
 
-    if opts[:key] && status_message && status_message != "" && not is_nil(status_message) do
-      changeset
-      # Connection table
-      |> encrypt_connection_map_status_change(opts, status_message)
-      # User table
-      |> put_change(:status_message, encrypt_user_data(status_message, opts[:user], opts[:key]))
-      |> put_change(:status_message_hash, String.downcase(status_message))
-    else
-      # No status message, but we still need to update connection status if status changed
-      if get_field(changeset, :status) do
+    # Check if status_message was explicitly set in the changeset (including nil)
+    status_message_explicitly_set = Map.has_key?(changeset.changes, :status_message)
+
+    cond do
+      # Case 1: Status message was explicitly set to a non-empty value
+      opts[:key] && status_message && status_message != "" && not is_nil(status_message) ->
+        changeset
+        # Connection table
+        |> encrypt_connection_map_status_change(opts, status_message)
+        # User table
+        |> put_change(:status_message, encrypt_user_data(status_message, opts[:user], opts[:key]))
+        |> put_change(:status_message_hash, String.downcase(status_message))
+
+      # Case 2: Status message was explicitly set to nil/empty (user wants to clear it)
+      status_message_explicitly_set && (is_nil(status_message) || status_message == "") ->
+        changeset
+        |> put_change(:status_message, nil)
+        |> put_change(:status_message_hash, nil)
+        |> clear_connection_status_message()
+
+      # Case 3: Status message not provided (auto-update) - preserve existing message
+      get_field(changeset, :status) ->
         # this simply preserves the existing encrypted data
         preserve_encrypted_connection_map_status_only(changeset)
-      else
+
+      # Case 4: No changes at all
+      true ->
         changeset
-      end
     end
   end
 
@@ -448,6 +461,19 @@ defmodule Mosslet.Accounts.User do
       # Preserve existing message instead of clearing it
       c_status_message: current_status_message,
       c_status_message_hash: current_status_message_hash,
+      c_status_updated_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
+    })
+  end
+
+  defp clear_connection_status_message(changeset) do
+    # Clear status message from both user and connection
+    changeset
+    |> put_change(:connection_map, %{
+      # Status enum (plaintext) - update if status changed
+      c_status: get_field(changeset, :status),
+      # Clear the status message
+      c_status_message: nil,
+      c_status_message_hash: nil,
       c_status_updated_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
     })
   end

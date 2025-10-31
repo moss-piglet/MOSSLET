@@ -33,6 +33,7 @@ defmodule MossletWeb.DesignSystem do
   # Import StatusHelpers for consistent status message handling
   import MossletWeb.Helpers.StatusHelpers,
     only: [
+      can_view_status?: 3,
       get_status_fallback_message: 1,
       get_user_status_info: 3,
       get_user_status_message: 3
@@ -2621,6 +2622,10 @@ defmodule MossletWeb.DesignSystem do
     default: nil,
     doc: "Unique identifier for this avatar context (e.g., post ID)"
 
+  attr :show_status, :boolean,
+    default: true,
+    doc: "Whether to show the status indicator (based on privacy settings)"
+
   attr :rest, :global
 
   def liquid_avatar(assigns) do
@@ -2693,7 +2698,7 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <%!-- Status indicator with enhanced status message card (triggers on avatar hover) --%>
-      <div :if={@status}>
+      <div :if={not is_nil(@status) and @show_status}>
         <MossletWeb.DesignSystem.liquid_user_status_indicator
           id={"avatar-status-#{@id}-#{@status}"}
           status={@status}
@@ -2940,6 +2945,7 @@ defmodule MossletWeb.DesignSystem do
             size="md"
             status={to_string(@current_user.status || "offline")}
             status_message={get_user_status_message(@current_user, @current_user, @key)}
+            show_status={can_view_status?(@current_user, @current_user, @key)}
             id={"composer-avatar-#{@id}"}
           />
 
@@ -3534,6 +3540,10 @@ defmodule MossletWeb.DesignSystem do
   # Report modal state
   attr :show_report_modal?, :boolean, default: false
 
+  attr :show_post_author_status, :boolean,
+    default: true,
+    doc: "Whether to show the status indicator (based on privacy settings)"
+
   def liquid_timeline_post(assigns) do
     ~H"""
     <article
@@ -3597,6 +3607,7 @@ defmodule MossletWeb.DesignSystem do
             clickable={true}
             status={@user_status}
             status_message={@user_status_message}
+            show_status={@show_post_author_status}
             id={"avatar-#{@post.id}"}
           />
 
@@ -4228,16 +4239,24 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :status, :string, default: "calm", values: ~w(online calm away active busy offline)
   attr :message, :string, default: nil
+
+  attr :show_status, :boolean,
+    default: true,
+    doc: "Whether to show the status indicator (based on privacy settings)"
+
   attr :class, :any, default: ""
 
   def liquid_timeline_status(assigns) do
     ~H"""
-    <div class={[
-      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
-      "border transition-all duration-200 ease-out",
-      timeline_status_classes(@status),
-      @class
-    ]}>
+    <div
+      :if={@show_status}
+      class={[
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+        "border transition-all duration-200 ease-out",
+        timeline_status_classes(@status),
+        @class
+      ]}
+    >
       <%!-- Status indicator --%>
       <div class={[
         "relative flex-shrink-0 rounded-full transition-all duration-300 ease-out",
@@ -4257,6 +4276,28 @@ defmodule MossletWeb.DesignSystem do
 
       <span class="font-medium">
         {@message || get_status_fallback_message(String.to_existing_atom(@status))}
+      </span>
+    </div>
+
+    <div
+      :if={!@show_status}
+      class={[
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+        "border transition-all duration-200 ease-out",
+        timeline_status_classes("offline"),
+        @class
+      ]}
+    >
+      <%!-- Status indicator --%>
+      <div class={[
+        "relative flex-shrink-0 rounded-full transition-all duration-300 ease-out",
+        timeline_status_dot_size("offline"),
+        timeline_status_dot_classes("offline")
+      ]}>
+      </div>
+
+      <span class="font-medium">
+        {"Not sharing status"}
       </span>
     </div>
     """
@@ -4375,6 +4416,11 @@ defmodule MossletWeb.DesignSystem do
   attr :user_name, :string, required: true
   attr :status, :string, default: "calm"
   attr :status_message, :string, default: nil
+
+  attr :show_status, :boolean,
+    default: true,
+    doc: "Whether to show the status indicator (based on privacy settings)"
+
   attr :class, :any, default: ""
   attr :id, :string, default: nil
 
@@ -4401,7 +4447,11 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Status indicator --%>
       <div class="flex justify-center">
-        <.liquid_timeline_status status={@status} message={@status_message} />
+        <.liquid_timeline_status
+          status={@status}
+          message={@status_message}
+          show_status={@show_status}
+        />
       </div>
     </div>
     """
@@ -4859,8 +4909,8 @@ defmodule MossletWeb.DesignSystem do
     case status do
       "offline" ->
         [
-          "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600",
-          "text-slate-700 dark:text-slate-300 shadow-md"
+          "bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-500",
+          "text-slate-700 dark:text-slate-200 shadow-md ring-2 ring-slate-300/50 dark:ring-slate-500/50"
         ]
 
       "calm" ->
@@ -7105,6 +7155,11 @@ defmodule MossletWeb.DesignSystem do
   attr :user_name, :string, required: true
   attr :status, :string, default: "calm"
   attr :status_message, :string, default: nil
+
+  attr :show_status, :boolean,
+    default: true,
+    doc: "Whether to show the status indicator (based on privacy settings)"
+
   attr :class, :any, default: ""
   attr :id, :string, default: nil
 
@@ -7131,7 +7186,11 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Status indicator --%>
       <div class="flex justify-center">
-        <.liquid_timeline_status status={@status} message={@status_message} />
+        <.liquid_timeline_status
+          status={@status}
+          message={@status_message}
+          show_status={@show_status}
+        />
       </div>
     </div>
     """

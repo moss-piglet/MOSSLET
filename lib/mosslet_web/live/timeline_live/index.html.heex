@@ -18,6 +18,7 @@
           user_name={user_name(@current_user, @key)}
           status={Atom.to_string(@current_user.status || :offline)}
           status_message={get_user_status_message(@current_user, @current_user, @key)}
+          show_status={can_view_status?(@current_user, @current_user, @key)}
           class="space-y-2 sm:space-y-3"
         />
       </div>
@@ -188,6 +189,13 @@
                 user_avatar={get_post_author_avatar(post, @current_user, @key)}
                 user_status={get_post_author_status(post, @current_user, @key)}
                 user_status_message={get_post_author_status_message(post, @current_user, @key)}
+                show_post_author_status={
+                  can_view_status?(
+                    Accounts.get_user_with_preloads(post.user_id),
+                    @current_user,
+                    @key
+                  )
+                }
                 timestamp={format_post_timestamp(post.inserted_at)}
                 verified={false}
                 content_warning?={post.content_warning?}
