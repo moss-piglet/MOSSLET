@@ -225,15 +225,6 @@ defmodule MossletWeb.ModernSidebarLayout do
             class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-white dark:ring-slate-600 group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
             alt="User avatar"
           />
-          <%!-- Status indicator with pulse (only when user is signed in) --%>
-          <div id={"status-indicator-container-#{@current_user.id}"}>
-            <MossletWeb.DesignSystem.liquid_user_status_indicator
-              :if={@current_user}
-              id={"status-indicator-#{@current_user.id}"}
-              status={to_string(@current_user.status || "offline")}
-              animate={true}
-            />
-          </div>
         </div>
       </button>
 
