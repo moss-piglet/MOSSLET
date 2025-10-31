@@ -191,7 +191,10 @@ defmodule MossletWeb.TimelineLiveTest do
             status: "busy",
             status_message: "In a meeting",
             status_visibility: :connections
-          }, user: friend, key: friend_key)
+          },
+          user: friend,
+          key: friend_key
+        )
 
       # Broadcast the status update
       Phoenix.PubSub.broadcast(
@@ -321,14 +324,22 @@ defmodule MossletWeb.TimelineLiveTest do
     {:ok, customer} = create_billing_customer(user, key)
     {:ok, _payment_intent} = create_payment_intent(customer, user, key)
 
-    # Create friend user
+    # Create friend user - using the exact same pattern as user_connection_live tests
     friend =
-      user_fixture(%{username: "friend_user", email: @friend_email, password: @valid_password})
+      user_fixture(%{
+        username: "reverse_group_friend",
+        email: @friend_email,
+        password: @valid_password
+      })
 
     friend = Accounts.confirm_user!(friend)
     {:ok, friend} = Accounts.update_user_onboarding(friend, %{is_onboarded?: true})
 
     friend_key = get_key(friend, @valid_password)
+
+    # Update the visibility
+    {:ok, friend} =
+      Accounts.update_user_visibility(friend, %{visibility: :connections}, key: friend_key)
 
     {:ok, friend} =
       Accounts.update_user_onboarding_profile(friend, %{name: "Friend User"},
@@ -341,14 +352,14 @@ defmodule MossletWeb.TimelineLiveTest do
     {:ok, friend_customer} = create_billing_customer(friend, friend_key)
     {:ok, _friend_payment_intent} = create_payment_intent(friend_customer, friend, friend_key)
 
-    # Create confirmed connection between users using the working pattern
+    # Create confirmed connection between users using the EXACT same pattern as user_connection_live tests
     uconn_attrs = %{
-      "color" => "blue",
+      "color" => "rose",
       "temp_label" => "friend",
       "connection_id" => user.connection.id,
       "reverse_user_id" => user.id,
       "selector" => "username",
-      "username" => "friend_user"
+      "username" => "reverse_group_friend"
     }
 
     user_connection =
@@ -379,14 +390,20 @@ defmodule MossletWeb.TimelineLiveTest do
         %{
           body: "User's own post",
           visibility: "connections"
-        }, user: user, key: key)
+        },
+        user: user,
+        key: key
+      )
 
     friend_post =
       post_fixture(
         %{
           body: "Friend's post",
           visibility: "connections"
-        }, user: friend, key: friend_key)
+        },
+        user: friend,
+        key: friend_key
+      )
 
     Map.merge(context, %{
       user: user,
