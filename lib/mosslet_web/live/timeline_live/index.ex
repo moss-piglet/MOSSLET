@@ -37,13 +37,30 @@ defmodule MossletWeb.TimelineLive.Index do
     # Store the user token from session for later use in uploads
     user_token = session["user_token"]
 
-    # PRIVACY-FIRST: Track user presence for cache optimization only
-    # No usernames or identifying info shared - just for performance
     if connected?(socket) do
+      Accounts.private_subscribe(current_user)
+      Accounts.subscribe_account_deleted()
+      Accounts.subscribe_user_status(current_user)
+      Accounts.subscribe_connection_status(current_user)
+      Timeline.private_subscribe(current_user)
+      Timeline.private_reply_subscribe(current_user)
+      Timeline.connections_subscribe(current_user)
+      Timeline.connections_reply_subscribe(current_user)
+      # Subscribe to public posts for discover tab realtime updates
+      Timeline.subscribe()
+      Timeline.reply_subscribe()
+      # Subscribe to block events for real-time filtering
+      Accounts.block_subscribe(current_user)
+
+      # PRIVACY-FIRST: Track user presence for cache optimization only
+      # No usernames or identifying info shared - just for performance
       MossletWeb.Presence.track_timeline_activity(
         self(),
         current_user.id
       )
+
+      # Privately track user activity for auto-status functionality
+      Accounts.track_user_activity(current_user, key, :general)
     end
 
     # Create changeset with all required fields populated
@@ -141,22 +158,6 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_params(params, _url, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
-
-    if connected?(socket) do
-      Accounts.private_subscribe(current_user)
-      Accounts.subscribe_account_deleted()
-      Accounts.subscribe_user_status(current_user)
-      Accounts.subscribe_connection_status(current_user)
-      Timeline.private_subscribe(current_user)
-      Timeline.private_reply_subscribe(current_user)
-      Timeline.connections_subscribe(current_user)
-      Timeline.connections_reply_subscribe(current_user)
-      # Subscribe to public posts for discover tab realtime updates
-      Timeline.subscribe()
-      Timeline.reply_subscribe()
-      # Subscribe to block events for real-time filtering
-      Accounts.block_subscribe(current_user)
-    end
 
     post_sort_by = valid_sort_by(params)
     post_sort_order = valid_sort_order(params)
@@ -276,27 +277,33 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # Find the user_connection that represents our connection to this user
-    case get_uconn_for_users(user, current_user) do
-      %{} = _user_connection ->
-        # Use consolidated StatusHelpers for consistent status handling
-        user_with_connection = Accounts.get_user_with_preloads(user.id)
+    if user.id == current_user.id do
+      {:noreply,
+       socket
+       |> assign(current_user: user)}
+    else
+      # Find the user_connection that represents our connection to this user
+      case get_uconn_for_users(user, current_user) do
+        %{} = _user_connection ->
+          # Use consolidated StatusHelpers for consistent status handling
+          user_with_connection = Accounts.get_user_with_preloads(user.id)
 
-        status_info = get_user_status_info(user_with_connection, current_user, key)
+          status_info = get_user_status_info(user_with_connection, current_user, key)
 
-        new_status = status_info.status || "offline"
-        new_status_message = status_info.status_message
+          new_status = status_info.status || "offline"
+          new_status_message = status_info.status_message
 
-        # Send JS event to update only status elements without disrupting the timeline
-        {:noreply,
-         push_event(socket, "update_user_status", %{
-           user_id: user.id,
-           status: new_status,
-           status_message: new_status_message
-         })}
+          # Send JS event to update only status elements without disrupting the timeline
+          {:noreply,
+           push_event(socket, "update_user_status", %{
+             user_id: user.id,
+             status: new_status,
+             status_message: new_status_message
+           })}
 
-      nil ->
-        {:noreply, socket}
+        nil ->
+          {:noreply, socket}
+      end
     end
   end
 
@@ -1624,6 +1631,9 @@ defmodule MossletWeb.TimelineLive.Index do
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
           {:ok, _post} ->
+            # Track user activity for auto-status (post creation is significant activity)
+            Accounts.track_user_activity(current_user, key, :post)
+
             # Reset form to clean state after successful post creation
             clean_changeset =
               Timeline.change_post(
@@ -2016,6 +2026,7 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
+    key = socket.assigns.key
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
@@ -2057,6 +2068,9 @@ defmodule MossletWeb.TimelineLive.Index do
           # Create new bookmark
           case Timeline.create_bookmark(current_user, post, %{}) do
             {:ok, _bookmark} ->
+              # Track user activity for auto-status (bookmarking is user interaction)
+              Accounts.track_user_activity(current_user, key, :interaction)
+
               # Recalculate bookmark count
               # Use cached content filters from socket assigns
               content_filter_prefs = socket.assigns.content_filters
@@ -2115,6 +2129,9 @@ defmodule MossletWeb.TimelineLive.Index do
              post_key: encrypted_post_key
            ) do
         {:ok, updated_post} ->
+          # Track user activity for auto-status (liking is user interaction)
+          Accounts.track_user_activity(current_user, key, :interaction)
+
           socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You loved this post!")}
 
@@ -2149,6 +2166,9 @@ defmodule MossletWeb.TimelineLive.Index do
              post_key: encrypted_post_key
            ) do
         {:ok, updated_post} ->
+          # Track user activity for auto-status (unliking is user interaction)
+          Accounts.track_user_activity(current_user, key, :interaction)
+
           socket = stream_insert(socket, :posts, updated_post, at: -1)
           {:noreply, put_flash(socket, :success, "You removed love from this post.")}
 
@@ -2272,6 +2292,9 @@ defmodule MossletWeb.TimelineLive.Index do
               key: key,
               post_key: encrypted_post_key
             )
+
+          # Track user activity for auto-status (reposting is user interaction)
+          Accounts.track_user_activity(user, key, :interaction)
 
           socket =
             socket

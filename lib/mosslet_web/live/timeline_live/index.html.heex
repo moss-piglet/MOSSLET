@@ -14,6 +14,7 @@
     <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="mx-auto max-w-2xl text-center">
         <MossletWeb.DesignSystem.liquid_timeline_header
+          id={"timeline-header-#{@active_tab}"}
           user_name={user_name(@current_user, @key)}
           status={Atom.to_string(@current_user.status || :offline)}
           status_message={get_user_status_message(@current_user, @current_user, @key)}
@@ -146,6 +147,7 @@
           class="relative"
         >
           <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
+            id={"timeline-composer-enhanced-#{@active_tab}"}
             user_name={user_name(@current_user, @key) || "Private Author"}
             user_avatar={
               if show_avatar?(@current_user),

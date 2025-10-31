@@ -34,9 +34,11 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.Helpers.StatusHelpers,
     only: [
       get_status_fallback_message: 1,
+      get_user_status_info: 3,
       get_user_status_message: 3
     ]
 
+  alias Mosslet.Accounts
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
@@ -2907,19 +2909,23 @@ defmodule MossletWeb.DesignSystem do
   attr :content_warning_enabled?, :boolean, default: false
   attr :current_user, :any, default: nil
   attr :key, :any, default: nil
+  attr :id, :string, default: nil
 
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
-    <div class={[
-      "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-      "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-      "border border-slate-200/60 dark:border-slate-700/60",
-      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
-      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
-      "focus-within:border-emerald-500/60 dark:focus-within:border-emerald-400/60",
-      "focus-within:shadow-xl focus-within:shadow-emerald-500/10",
-      @class
-    ]}>
+    <div
+      id={@id}
+      class={[
+        "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+        "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+        "focus-within:border-emerald-500/60 dark:focus-within:border-emerald-400/60",
+        "focus-within:shadow-xl focus-within:shadow-emerald-500/10",
+        @class
+      ]}
+    >
       <%!-- Liquid background on focus --%>
       <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-cyan-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 focus-within:opacity-100">
       </div>
@@ -2934,7 +2940,7 @@ defmodule MossletWeb.DesignSystem do
             size="md"
             status={to_string(@current_user.status || "offline")}
             status_message={get_user_status_message(@current_user, @current_user, @key)}
-            id="composer-avatar"
+            id={"composer-avatar-#{@id}"}
           />
 
           <%!-- Compose area with character counter --%>
@@ -4370,13 +4376,17 @@ defmodule MossletWeb.DesignSystem do
   attr :status, :string, default: "calm"
   attr :status_message, :string, default: nil
   attr :class, :any, default: ""
+  attr :id, :string, default: nil
 
   def liquid_timeline_header(assigns) do
     ~H"""
-    <div class={[
-      "relative p-6 text-center",
-      @class
-    ]}>
+    <div
+      id={@id}
+      class={[
+        "relative p-6 text-center",
+        @class
+      ]}
+    >
       <%!-- Meaningful header about community and privacy --%>
       <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
         {@user_name}'s
@@ -5700,8 +5710,11 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex items-start gap-3">
           <%!-- Reply author avatar (small) --%>
           <.liquid_avatar
+            id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_user.id}"}
             src={get_reply_author_avatar(@reply, @current_user, @key)}
             name={get_reply_author_name(@reply, @current_user, @key)}
+            status={get_reply_author_status(@reply, @current_user, @key)}
+            status_message={get_reply_author_status_message(@reply, @current_user, @key)}
             size="sm"
             class="flex-shrink-0 mt-0.5"
           />
@@ -5921,6 +5934,35 @@ defmodule MossletWeb.DesignSystem do
 
       _ ->
         {:error, :no_access}
+    end
+  end
+
+  # Helper function to get the reply author's status if visible to current user
+  # Similar to get_post_author_status but for replies
+  def get_reply_author_status(reply, current_user, key) do
+    case Accounts.get_user_with_preloads(reply.user_id) do
+      %{} = reply_author ->
+        case get_user_status_info(reply_author, current_user, key) do
+          %{status: status} when is_binary(status) -> status
+          _ -> "offline"
+        end
+
+      nil ->
+        # User account not found
+        "offline"
+    end
+  end
+
+  # Helper function to get the reply author's status message if visible to current user
+  # Similar to get_post_author_status_message but for replies
+  def get_reply_author_status_message(reply, current_user, key) do
+    case Accounts.get_user_with_preloads(reply.user_id) do
+      %{} = reply_author ->
+        get_user_status_message(reply_author, current_user, key)
+
+      nil ->
+        # User account not found
+        nil
     end
   end
 
@@ -7332,6 +7374,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Avatar --%>
             <div class="relative flex-shrink-0">
               <.liquid_avatar
+                id={"liquid-avatar-#{@connection_id}"}
                 src={@avatar_src}
                 name={@name}
                 size="lg"
@@ -7627,6 +7670,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Avatar with better mobile sizing --%>
             <div class="flex-shrink-0">
               <.liquid_avatar
+                id={"liquid-avatar-#{@arrival_id}"}
                 src={@avatar_src}
                 name={@name}
                 size="lg"

@@ -77,9 +77,12 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
               <div class="flex items-start gap-3">
                 <%!-- User avatar (smaller for replies) --%>
                 <MossletWeb.DesignSystem.liquid_avatar
+                  id={"reply-composer-avatar-#{@post_id}"}
                   src={@user_avatar}
                   name={@user_name}
                   size="sm"
+                  status={Atom.to_string(@current_user.status || :offline)}
+                  status_message={get_user_status_message(@current_user, @current_user, @key)}
                   class="flex-shrink-0"
                 />
 

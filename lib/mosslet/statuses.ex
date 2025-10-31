@@ -13,6 +13,7 @@ defmodule Mosslet.Statuses do
   alias Mosslet.Accounts.{User, Connection}
   alias Mosslet.Repo
 
+  import MossletWeb.Helpers.StatusHelpers, only: [get_current_user_status_message: 2]
   require Logger
 
   @doc """
@@ -138,17 +139,20 @@ defmodule Mosslet.Statuses do
   end
 
   @doc """
-  Auto-updates user status based on their activity.
-  Called periodically or on user actions.
+  Auto-updates user status based on presence and activity.
+  Uses Phoenix Presence for online/offline detection and activity timestamps for engagement level.
+  Preserves existing status message when auto-updating status.
   """
   def auto_update_status_from_activity(user) do
     if user.auto_status do
-      last_activity = user.last_activity_at || user.inserted_at
-      new_status = determine_status_from_activity(last_activity)
+      new_status = determine_status_from_presence_and_activity(user)
 
-      if new_status != String.to_existing_atom(user.status) do
-        # Only update status enum, not status_message
-        update_user_status(user, %{status: new_status}, auto_update: true)
+      if new_status != user.status do
+        # For auto-updates, only change the status enum, don't touch status_message
+        # The updated encrypt_connection_map_status_only function will preserve existing messages
+        attrs = %{status: new_status}
+
+        update_user_status(user, attrs, auto_update: true)
       else
         {:ok, user}
       end
@@ -161,13 +165,16 @@ defmodule Mosslet.Statuses do
   Updates user activity timestamp.
   Called on posts, likes, replies, etc.
   """
-  def track_user_activity(user, activity_type \\ :general) do
-    attrs = %{last_activity_at: NaiveDateTime.utc_now()}
+  def track_user_activity(user, session_key, activity_type \\ :general) do
+    attrs = %{last_activity_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)}
 
     attrs =
       case activity_type do
-        :post -> Map.put(attrs, :last_post_at, NaiveDateTime.utc_now())
-        _ -> attrs
+        :post ->
+          Map.put(attrs, :last_post_at, NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second))
+
+        _ ->
+          attrs
       end
 
     case Repo.transaction_on_primary(fn ->
@@ -176,7 +183,7 @@ defmodule Mosslet.Statuses do
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_user}} ->
-        # Check if auto-status should be updated
+        # Check if auto-status should be updated and return the result
         auto_update_status_from_activity(updated_user)
 
       {:ok, {:error, changeset}} ->
@@ -245,19 +252,33 @@ defmodule Mosslet.Statuses do
     end
   end
 
-  defp determine_status_from_activity(last_activity) do
-    minutes_ago = NaiveDateTime.diff(NaiveDateTime.utc_now(), last_activity, :second) / 60
+  defp determine_status_from_presence_and_activity(user) do
+    # Never auto-change from manually set :busy status
+    if user.status == :busy do
+      :busy
+    else
+      if MossletWeb.Presence.user_active_on_timeline?(user.id) do
+        # User is online (WebSocket connected) - determine activity level
+        minutes_since_activity = get_minutes_since_last_activity(user)
 
-    cond do
-      # Active in last 5 minutes
-      minutes_ago < 5 -> :active
-      # Recently active but not posting
-      minutes_ago < 30 -> :calm
-      # Away for 1-2 hours
-      minutes_ago < 120 -> :away
-      # Offline for 2+ hours
-      true -> :offline
+        cond do
+          # Very recent interaction
+          minutes_since_activity < 2 -> :active
+          # Recent activity
+          minutes_since_activity < 10 -> :calm
+          # Online but inactive 10+ min
+          true -> :away
+        end
+      else
+        # Not in presence = offline (WebSocket disconnected)
+        :offline
+      end
     end
+  end
+
+  defp get_minutes_since_last_activity(user) do
+    last_activity = user.last_activity_at || user.inserted_at
+    NaiveDateTime.diff(NaiveDateTime.utc_now(), last_activity, :second) / 60
   end
 
   defp decrypt_connection_status_message(

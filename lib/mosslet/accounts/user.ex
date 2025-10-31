@@ -421,16 +421,33 @@ defmodule Mosslet.Accounts.User do
     end
   end
 
-  defp encrypt_connection_map_status_only(changeset, _opts) do
-    # Update connection status without message
+  defp encrypt_connection_map_status_only(changeset, opts) do
+    # Update connection status while preserving existing message
+    user = changeset.data
+
+    # Get current connection status message to preserve it
+    current_status_message =
+      if user.connection && user.connection.status_message do
+        user.connection.status_message
+      else
+        nil
+      end
+
+    current_status_message_hash =
+      if user.connection && user.connection.status_message_hash do
+        user.connection.status_message_hash
+      else
+        nil
+      end
+
     changeset
     |> put_change(:connection_map, %{
       # Status enum (plaintext)
       c_status: get_field(changeset, :status),
-      # No message changes
-      c_status_message: nil,
-      c_status_message_hash: nil,
-      c_status_updated_at: NaiveDateTime.utc_now()
+      # Preserve existing message instead of clearing it
+      c_status_message: current_status_message,
+      c_status_message_hash: current_status_message_hash,
+      c_status_updated_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
     })
   end
 

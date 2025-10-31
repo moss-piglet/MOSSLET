@@ -3080,8 +3080,8 @@ defmodule Mosslet.Accounts do
   @doc """
   Tracks user activity and potentially updates auto-status.
   """
-  def track_user_activity(user, activity_type \\ :general) do
-    Mosslet.Statuses.track_user_activity(user, activity_type)
+  def track_user_activity(user, session_key, activity_type \\ :general) do
+    Mosslet.Statuses.track_user_activity(user, session_key, activity_type)
   end
 
   @doc """
