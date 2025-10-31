@@ -36,9 +36,12 @@ defmodule MossletWeb.UserConnectionLive.Index do
 
     if connected?(socket) do
       Accounts.private_subscribe(user)
+      Accounts.subscribe_user_status(user)
       Accounts.subscribe_account_deleted()
       Accounts.block_subscribe(user)
       Accounts.subscribe_connection_status(user)
+      # Track user presence for online/offline detection in auto-status
+      MossletWeb.Presence.track_connections_activity(self(), user.id)
 
       # Track user activity for auto-status functionality
       Accounts.track_user_activity(user, key, :general)

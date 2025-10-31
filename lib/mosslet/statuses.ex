@@ -257,7 +257,7 @@ defmodule Mosslet.Statuses do
     if user.status == :busy do
       :busy
     else
-      if MossletWeb.Presence.user_active_on_timeline?(user.id) do
+      if MossletWeb.Presence.user_active_in_app?(user.id) do
         # User is online (WebSocket connected) - determine activity level
         minutes_since_activity = get_minutes_since_last_activity(user)
 
