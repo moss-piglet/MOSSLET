@@ -130,8 +130,10 @@ defmodule Mosslet.Statuses do
         {:error, changeset}
 
       error ->
-        Logger.error("Transaction failed with error: #{inspect(error)}")
-        error
+        Logger.info("Error updating user status visibility.")
+        Logger.info(inspect(error))
+        Logger.error(error)
+        {:error, "Error updating user status visibility"}
     end
   end
 
@@ -264,13 +266,6 @@ defmodule Mosslet.Statuses do
          viewing_user,
          session_key
        ) do
-    Logger.debug(
-      "🔐 decrypt_connection_status_message: encrypted_message present: #{!!encrypted_message}"
-    )
-
-    Logger.debug("🔐 user_connection.key present: #{!!user_connection.key}")
-    Logger.debug("🔐 session_key present: #{!!session_key}")
-
     Mosslet.Encrypted.Users.Utils.decrypt_item(
       encrypted_message,
       viewing_user,
@@ -286,19 +281,11 @@ defmodule Mosslet.Statuses do
   Replaces get_user_status_for_connection with privacy-aware logic.
   """
   def get_user_status_for_viewer(target_user, viewing_user, session_key) do
-    Logger.debug(
-      "🔍 get_user_status_for_viewer: target=#{target_user.id}, viewer=#{viewing_user.id}, session_key_present=#{!!session_key}"
-    )
-
     case can_view_user_status?(target_user, viewing_user, session_key) do
       {:ok, :full_access} ->
-        Logger.debug("✅ Full access granted - decrypting status message")
-        # Full status access - decrypt everything
         get_decrypted_status_with_message(target_user, viewing_user, session_key)
 
       {:error, :private} ->
-        Logger.debug("❌ Private status - no access")
-        # No status visibility
         %{status: :offline, status_message: nil, updated_at: nil, online: false}
     end
   end
