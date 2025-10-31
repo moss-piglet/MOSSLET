@@ -2298,6 +2298,10 @@ defmodule MossletWeb.DesignSystem do
     do:
       "from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
 
+  defp badge_soft_color_classes("zinc"),
+    do:
+      "from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
+
   defp badge_soft_color_classes("teal"),
     do:
       "from-teal-100 to-emerald-200 text-teal-800 dark:from-teal-800 dark:to-emerald-700 dark:text-teal-200 border border-teal-300 dark:border-teal-600"
@@ -2344,6 +2348,7 @@ defmodule MossletWeb.DesignSystem do
 
   # Solid variant color classes with liquid metal gradients
   defp badge_solid_color_classes("slate"), do: "bg-gradient-to-r from-slate-500 to-slate-600"
+  defp badge_solid_color_classes("zinc"), do: "bg-gradient-to-r from-slate-500 to-slate-600"
   defp badge_solid_color_classes("teal"), do: "bg-gradient-to-r from-teal-500 to-emerald-500"
   defp badge_solid_color_classes("emerald"), do: "bg-gradient-to-r from-emerald-500 to-teal-500"
   defp badge_solid_color_classes("blue"), do: "bg-gradient-to-r from-blue-500 to-cyan-500"
@@ -2358,6 +2363,9 @@ defmodule MossletWeb.DesignSystem do
 
   # Outline variant color classes
   defp badge_outline_color_classes("slate"),
+    do: "border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"
+
+  defp badge_outline_color_classes("zinc"),
     do: "border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"
 
   defp badge_outline_color_classes("teal"),
