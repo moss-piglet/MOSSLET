@@ -15,7 +15,8 @@ defmodule Mosslet.Groups do
   @existing_unconfirmed_group_event_atoms_list [
     :group_created_unconfirmed,
     :group_joined_unconfirmed,
-    :group_updated_unconfirmed
+    :group_updated_unconfirmed,
+    :group_deleted_unconfirmed
   ]
 
   @doc """
