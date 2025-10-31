@@ -12,6 +12,12 @@ defmodule Mosslet.Groups do
   alias Mosslet.Encrypted
   alias Mosslet.Groups.{Group, UserGroup}
 
+  @existing_unconfirmed_group_event_atoms_list [
+    :group_created_unconfirmed,
+    :group_joined_unconfirmed,
+    :group_updated_unconfirmed
+  ]
+
   @doc """
   Returns the list of groups for a user.
 
@@ -665,11 +671,15 @@ defmodule Mosslet.Groups do
     Enum.each(group.user_groups, fn user_group ->
       cond do
         is_nil(user_group.confirmed_at) ->
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "group:#{user_group.user_id}",
-            {String.to_existing_atom(Atom.to_string(event) <> "_unconfirmed"), group}
-          )
+          existing_event_atom = String.to_existing_atom(Atom.to_string(event) <> "_unconfirmed")
+
+          if existing_event_atom in @existing_unconfirmed_group_event_atoms_list do
+            Phoenix.PubSub.broadcast(
+              Mosslet.PubSub,
+              "group:#{user_group.user_id}",
+              {existing_event_atom, group}
+            )
+          end
 
         true ->
           Phoenix.PubSub.broadcast(

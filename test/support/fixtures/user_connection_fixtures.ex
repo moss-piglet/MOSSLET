@@ -15,7 +15,7 @@ defmodule Mosslet.UserConnectionFixtures do
       "reverse_user_id" => attrs["reverse_user_id"],
       "selector" => "username",
       "username" => attrs["username"] || unique_username(),
-      "user_id" => attrs["user_id"] || ""
+      "user_id" => attrs["user_id"]
     })
   end
 
