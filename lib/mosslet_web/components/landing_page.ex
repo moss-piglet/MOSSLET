@@ -122,9 +122,9 @@ defmodule MossletWeb.Components.LandingPage do
                 <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full">
                 </div>
 
-                <span class="relative">The fight for democracy in the age of surveillance</span>
+                <span class="relative">Reclaim your wellbeing and autonomy</span>
                 <a
-                  href="https://journals.sagepub.com/doi/full/10.1177/26317877221129290"
+                  href="https://www.cigionline.org/articles/shoshana-zuboff-undetectable-indecipherable-world-surveillance-capitalism/"
                   rel="noopener"
                   target="_blank"
                   class="relative font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"

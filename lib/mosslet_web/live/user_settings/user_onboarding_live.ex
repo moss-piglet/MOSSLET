@@ -58,7 +58,7 @@ defmodule MossletWeb.UserOnboardingLive do
 
               <%!-- Subtitle --%>
               <p class="text-base text-slate-600 dark:text-slate-300">
-                Join the movement for digital privacy
+                Choose privacy-first social
               </p>
             </div>
 

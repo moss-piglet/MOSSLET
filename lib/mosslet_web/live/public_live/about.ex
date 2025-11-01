@@ -139,7 +139,7 @@ defmodule MossletWeb.PublicLive.About do
               <div class="mt-6 flex flex-col gap-x-8 gap-y-20 lg:flex-row">
                 <div class="lg:w-full lg:max-w-2xl lg:flex-auto">
                   <p class="text-xl/8 text-slate-600 dark:text-slate-400">
-                    We are part of the growing movement for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media.
+                    We are part of the growing community for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media.
                   </p>
                   <p class="mt-10 max-w-xl text-base/7 text-slate-700 dark:text-slate-300">
                     The alarming trend of authorities targeting individuals because of their opinions expressed online adds to the concern. The utilization of personal photographs, including those of minors, for the training of AI systems presents serious dangers as well. None of this is inevitable. People make these systems and people can change them. We aim to provide a safer, private online space where you can connect without being monitored or having your humanity sold to the highest bidder.
@@ -165,7 +165,7 @@ defmodule MossletWeb.PublicLive.About do
                     </div>
                     <div class="flex flex-col-reverse gap-y-4">
                       <dt class="text-base/7 text-slate-600 dark:text-slate-400">
-                        Surveillance capitalists blocked
+                        Data collection companies blocked
                       </dt>
                       <dd class="text-5xl font-semibold tracking-tight bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
                         186,892
@@ -309,7 +309,7 @@ defmodule MossletWeb.PublicLive.About do
                 and we provide you with a service that respects and protects your digital privacy. That's it. We're not in this to get-rich-quick or take the big exit — we're here for the long haul, for you (and us!).
               </p>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                We use MOSSLET and trust it with our own families (unlike the leaders of Big Tech who knowingly forbid their children from using their services). We're tired of surveillance capitalism and its secret control of our lives. We're tired of never-ending subscription fees, making the cost for a service increase the longer you use it, yikes! We think you're tired too, which is why you're probably here.
+                We use MOSSLET and trust it with our own families (unlike the leaders of Big Tech who knowingly forbid their children from using their services). We're tired of data collection business models and their influence on our lives. We're tired of never-ending subscription fees, making the cost for a service increase the longer you use it, yikes! We think you're tired too, which is why you're probably here.
               </p>
 
               <h3 class="mt-10 font-semibold text-lg font-bold tracking-tight text-pretty sm:text-xl lg:text-2xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -460,7 +460,7 @@ defmodule MossletWeb.PublicLive.About do
      |> assign_new(:max_width, fn -> "full" end)
      |> assign(:page_title, "About")
      |> assign_new(:meta_description, fn ->
-       "We are part of the growing movement for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media."
+       "We are part of the growing community for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media."
      end)}
   end
 end

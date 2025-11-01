@@ -223,7 +223,7 @@ defmodule MossletWeb.PublicLive.Myob do
                 It's none of our business, so it's not our business
               </h2>
               <p class="mt-8 text-lg text-slate-600 dark:text-slate-400 sm:text-xl/8">
-                Unlike the surveillance economy of Big Tech, we've built MOSSLET on the radical idea that your privacy is valuable — and worth protecting.
+                Unlike the surveillance model of Big Tech, we've built MOSSLET on the simple idea that your privacy is valuable — and worth protecting.
               </p>
             </div>
 
@@ -259,7 +259,7 @@ defmodule MossletWeb.PublicLive.Myob do
                   <strong class="text-slate-900 dark:text-slate-200">
                     Privacy is personal to us:
                   </strong>
-                  We've been building and using computers for thirty years. We were around in 2000 when Google pioneered the invisible prison of surveillance capitalism and hid behind the thin veil of "Don't Be Evil". We've seen their strategies for collecting, selling, and abusing personal data on an industrial scale spread to every industry. We remember when Facebook rose from The FaceBook to the pusher of algorithmically-engineered traps of attention and worse. The internet didn't use to be like this, and it doesn't have to be like that today either.
+                  We've been building and using computers for thirty years. We were around in 2000 when Google pioneered the data collection business model and hid behind the thin veil of "Don't Be Evil". We've seen their strategies for collecting, selling, and using personal data spread to every industry. We remember when Facebook rose from The FaceBook to the platform designed to capture and hold your attention. The internet didn't use to be like this, and it doesn't have to be like that today either.
                 </p>
               </.liquid_card>
             </div>
@@ -273,7 +273,7 @@ defmodule MossletWeb.PublicLive.Myob do
               </:title>
               <div class="space-y-8 text-lg leading-8 text-slate-600 dark:text-slate-400">
                 <p>
-                  But right now it just is. You have to defend yourself from these Big Tech giants, and the legion of companies following their nasty example. Collect It All has sunk into the ideology of the commercial internet, so most companies don't even think about it. It's just what they do.
+                  But right now it just is. You have to be mindful about protecting yourself from these companies and the many others following their business model. Data collection has become standard practice on the commercial internet, so most companies don't even think about it. It's just what they do.
                 </p>
                 <p>
                   <strong class="text-slate-900 dark:text-slate-200">
