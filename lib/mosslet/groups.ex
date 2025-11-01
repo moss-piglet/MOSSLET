@@ -16,7 +16,8 @@ defmodule Mosslet.Groups do
     :group_created_unconfirmed,
     :group_joined_unconfirmed,
     :group_updated_unconfirmed,
-    :group_deleted_unconfirmed
+    :group_deleted_unconfirmed,
+    :group_updated_members_removed_unconfirmed
   ]
 
   @doc """
