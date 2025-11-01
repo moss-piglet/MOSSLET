@@ -42,32 +42,32 @@
               %{
                 key: "home",
                 label: "Home",
-                count: @timeline_counts.home || 12,
-                unread: @unread_counts.home || 0
+                count: @timeline_counts[:home] || 12,
+                unread: @unread_counts[:home] || 0
               },
               %{
                 key: "connections",
                 label: "Connections",
-                count: @timeline_counts.connections || 4,
-                unread: @unread_counts.connections || 0
+                count: @timeline_counts[:connections] || 4,
+                unread: @unread_counts[:connections] || 0
               },
               %{
                 key: "groups",
                 label: "Groups",
-                count: @timeline_counts.groups || 2,
-                unread: @unread_counts.groups || 0
+                count: @timeline_counts[:groups] || 2,
+                unread: @unread_counts[:groups] || 0
               },
               %{
                 key: "bookmarks",
                 label: "Bookmarks",
-                count: @timeline_counts.bookmarks || 8,
-                unread: @unread_counts.bookmarks || 0
+                count: @timeline_counts[:bookmarks] || 8,
+                unread: @unread_counts[:bookmarks] || 0
               },
               %{
                 key: "discover",
                 label: "Discover",
-                count: @timeline_counts.discover || 0,
-                unread: @unread_counts.discover || 0
+                count: @timeline_counts[:discover] || 0,
+                unread: @unread_counts[:discover] || 0
               }
             ]}
             active_tab={@active_tab || "home"}
@@ -170,155 +170,244 @@
       </div>
 
       <%!-- Timeline feed with calmer spacing and visual flow --%>
+      <%!-- Timeline feed with async loading states --%>
       <div class="space-y-4 sm:space-y-5">
-        <%!-- Real timeline posts from encrypted backend --%>
-        <div id="timeline-posts" phx-update="stream" class="space-y-4 sm:space-y-5">
-          <div
-            :for={{dom_id, post} <- @streams.posts}
-            id={dom_id}
-            class="timeline-post-container"
-            data-user-id={post.user_id}
-          >
-            <div id={"timeline-card-container-#{post.id}"} class="timeline-post-item new-post">
-              <MossletWeb.DesignSystem.liquid_timeline_post
-                user_name={get_post_author_name(post, @current_user, @key)}
-                user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
+        <%!-- Async result wrapper for posts with beautiful loading states --%>
+        <.async_result :let={_timeline_data} assign={@timeline_data}>
+          <%!-- Beautiful loading state with elegant skeleton animation --%>
+          <:loading>
+            <%!-- Timeline loading skeleton with elegant animation --%>
+            <div class="animate-pulse space-y-4">
+              <%!-- Post loading skeletons --%>
+              <%= for i <- 1..3 do %>
+                <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg p-6">
+                  <div class="flex items-start space-x-4">
+                    <%!-- Avatar skeleton --%>
+                    <div class="h-12 w-12 bg-gradient-to-br from-emerald-200/60 to-teal-200/60 dark:from-emerald-800/40 dark:to-teal-800/40 rounded-full animate-pulse">
+                    </div>
+                    <div class="flex-1 space-y-3">
+                      <%!-- Name and handle skeleton --%>
+                      <div class="space-y-2">
+                        <div class="h-4 bg-gradient-to-r from-emerald-200/60 to-teal-200/60 dark:from-emerald-800/40 dark:to-teal-800/40 rounded-lg w-32 animate-pulse">
+                        </div>
+                        <div class="h-3 bg-gradient-to-r from-slate-200/60 to-slate-300/60 dark:from-slate-700/40 dark:to-slate-600/40 rounded w-24 animate-pulse">
+                        </div>
+                      </div>
+                      <%!-- Content skeleton --%>
+                      <div class="space-y-2">
+                        <div class="h-4 bg-gradient-to-r from-slate-200/60 to-slate-300/60 dark:from-slate-700/40 dark:to-slate-600/40 rounded w-full animate-pulse">
+                        </div>
+                        <div class="h-4 bg-gradient-to-r from-slate-200/60 to-slate-300/60 dark:from-slate-700/40 dark:to-slate-600/40 rounded w-3/4 animate-pulse">
+                        </div>
+                      </div>
+                      <%!-- Actions skeleton --%>
+                      <div class="flex space-x-6 pt-2">
+                        <%= for j <- 1..3 do %>
+                          <div class="h-8 w-16 bg-gradient-to-r from-slate-200/60 to-slate-300/60 dark:from-slate-700/40 dark:to-slate-600/40 rounded-lg animate-pulse">
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Loading indicator with pulsing animation --%>
+            <div class="text-center py-8">
+              <div class="inline-flex flex-col items-center gap-4 px-8 py-6 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-teal-50/40 to-cyan-50/60 dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/20 border border-emerald-200/50 dark:border-emerald-700/40">
+                <div class="relative">
+                  <div class="h-8 w-8 rounded-full border-2 border-emerald-200 dark:border-emerald-700 animate-spin border-t-emerald-500 dark:border-t-emerald-400">
+                  </div>
+                  <div class="absolute inset-0 h-8 w-8 rounded-full border-2 border-transparent border-t-emerald-500/30 dark:border-t-emerald-400/30 animate-ping">
+                  </div>
+                </div>
+                <div class="text-center">
+                  <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
+                    Loading your timeline...
+                  </p>
+                  <p class="text-xs text-slate-600 dark:text-slate-400">
+                    Preparing your personalized content
+                  </p>
+                </div>
+              </div>
+            </div>
+          </:loading>
+
+          <%!-- Error state with retry button --%>
+          <:failed :let={_failure}>
+            <div class="text-center py-12">
+              <div class="inline-flex flex-col items-center gap-4 px-8 py-6 rounded-2xl bg-gradient-to-br from-red-50/60 via-orange-50/40 to-red-50/60 dark:from-red-900/20 dark:via-orange-900/10 dark:to-red-900/20 border border-red-200/50 dark:border-red-700/40">
+                <.phx_icon name="hero-exclamation-triangle" class="h-8 w-8 text-red-500" />
+                <div class="text-center">
+                  <p class="text-sm font-medium text-red-700 dark:text-red-300 mb-1">
+                    Unable to load timeline
+                  </p>
+                  <p class="text-xs text-slate-600 dark:text-slate-400">
+                    Please check your connection and try again
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+                  phx-click="retry_timeline_load"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </:failed>
+          <%!-- Real timeline posts from encrypted backend --%>
+          <div id="timeline-posts" phx-update="stream" class="space-y-4 sm:space-y-5">
+            <div
+              :for={{dom_id, post} <- @streams.posts}
+              id={dom_id}
+              class="timeline-post-container"
+              data-user-id={post.user_id}
+            >
+              <div id={"timeline-card-container-#{post.id}"} class="timeline-post-item new-post">
+                <MossletWeb.DesignSystem.liquid_timeline_post
+                  user_name={get_post_author_name(post, @current_user, @key)}
+                  user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
                   result when is_binary(result) -> result
                   _ -> "author"
                 end)}
-                user_avatar={get_post_author_avatar(post, @current_user, @key)}
-                user_status={get_post_author_status(post, @current_user, @key)}
-                user_status_message={get_post_author_status_message(post, @current_user, @key)}
-                show_post_author_status={
-                  can_view_status?(
-                    Accounts.get_user_with_preloads(post.user_id),
-                    @current_user,
-                    @key
-                  )
-                }
-                timestamp={format_post_timestamp(post.inserted_at)}
-                verified={false}
-                content_warning?={post.content_warning?}
-                content_warning={
-                  if post.content_warning? do
-                    case post.visibility do
-                      :public ->
-                        decr_item(
-                          post.content_warning,
-                          @current_user,
-                          get_post_key(post),
-                          @key,
-                          post,
-                          "body"
-                        ) || "[Could not decrypt content]"
-
-                      _ ->
-                        decr_item(
-                          post.content_warning,
-                          @current_user,
-                          get_post_key(post, @current_user),
-                          @key,
-                          post,
-                          "body"
-                        ) || "[Could not decrypt content]"
-                    end
-                  end
-                }
-                content_warning_category={
-                  if post.content_warning? do
-                    case post.visibility do
-                      :public ->
-                        decr_item(
-                          post.content_warning_category,
-                          @current_user,
-                          get_post_key(post),
-                          @key,
-                          post,
-                          "body"
-                        ) || "[Could not decrypt content]"
-
-                      _ ->
-                        decr_item(
-                          post.content_warning_category,
-                          @current_user,
-                          get_post_key(post, @current_user),
-                          @key,
-                          post,
-                          "body"
-                        ) || "[Could not decrypt content]"
-                    end
-                  end
-                }
-                content={
-                  case post.visibility do
-                    :public ->
-                      decr_item(
-                        post.body,
-                        @current_user,
-                        get_post_key(post),
-                        @key,
-                        post,
-                        "body"
-                      ) || "[Could not decrypt content]"
-
-                    _ ->
-                      decr_item(
-                        post.body,
-                        @current_user,
-                        get_post_key(post, @current_user),
-                        @key,
-                        post,
-                        "body"
-                      ) || "[Could not decrypt content]"
-                  end
-                }
-                images={get_decrypted_post_images(post, @current_user, @key)}
-                stats={
-                  %{
-                    replies:
-                      cond do
-                        is_list(post.replies) -> length(post.replies)
-                        Ecto.assoc_loaded?(post.replies) -> length(post.replies)
-                        true -> 0
-                      end,
-                    shares: post.reposts_count || 0,
-                    likes: post.favs_count || 0
+                  user_avatar={get_post_author_avatar(post, @current_user, @key)}
+                  user_status={get_post_author_status(post, @current_user, @key)}
+                  user_status_message={get_post_author_status_message(post, @current_user, @key)}
+                  show_post_author_status={
+                    can_view_status?(
+                      Accounts.get_user_with_preloads(post.user_id),
+                      @current_user,
+                      @key
+                    )
                   }
-                }
-                post_id={post.id}
-                current_user_id={@current_user.id}
-                post={post}
-                current_user={@current_user}
-                key={@key}
-                is_repost={post.repost || false}
-                liked={get_post_liked_status(post, @current_user, @key)}
-                bookmarked={get_post_bookmarked_status(post, @current_user)}
-                can_repost={can_repost_with_decryption?(post, @current_user, @key)}
-                can_reply?={can_reply?(post, @current_user)}
-                can_bookmark?={can_bookmark?(post, @current_user)}
-                unread?={get_post_unread_status(post, @current_user)}
-                class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
-              />
+                  timestamp={format_post_timestamp(post.inserted_at)}
+                  verified={false}
+                  content_warning?={post.content_warning?}
+                  content_warning={
+                    if post.content_warning? do
+                      case post.visibility do
+                        :public ->
+                          decr_item(
+                            post.content_warning,
+                            @current_user,
+                            get_post_key(post),
+                            @key,
+                            post,
+                            "body"
+                          ) || "[Could not decrypt content]"
+
+                        _ ->
+                          decr_item(
+                            post.content_warning,
+                            @current_user,
+                            get_post_key(post, @current_user),
+                            @key,
+                            post,
+                            "body"
+                          ) || "[Could not decrypt content]"
+                      end
+                    end
+                  }
+                  content_warning_category={
+                    if post.content_warning? do
+                      case post.visibility do
+                        :public ->
+                          decr_item(
+                            post.content_warning_category,
+                            @current_user,
+                            get_post_key(post),
+                            @key,
+                            post,
+                            "body"
+                          ) || "[Could not decrypt content]"
+
+                        _ ->
+                          decr_item(
+                            post.content_warning_category,
+                            @current_user,
+                            get_post_key(post, @current_user),
+                            @key,
+                            post,
+                            "body"
+                          ) || "[Could not decrypt content]"
+                      end
+                    end
+                  }
+                  content={
+                    case post.visibility do
+                      :public ->
+                        decr_item(
+                          post.body,
+                          @current_user,
+                          get_post_key(post),
+                          @key,
+                          post,
+                          "body"
+                        ) || "[Could not decrypt content]"
+
+                      _ ->
+                        decr_item(
+                          post.body,
+                          @current_user,
+                          get_post_key(post, @current_user),
+                          @key,
+                          post,
+                          "body"
+                        ) || "[Could not decrypt content]"
+                    end
+                  }
+                  images={get_decrypted_post_images(post, @current_user, @key)}
+                  stats={
+                    %{
+                      replies:
+                        cond do
+                          is_list(post.replies) -> length(post.replies)
+                          Ecto.assoc_loaded?(post.replies) -> length(post.replies)
+                          true -> 0
+                        end,
+                      shares: post.reposts_count || 0,
+                      likes: post.favs_count || 0
+                    }
+                  }
+                  post_id={post.id}
+                  current_user_id={@current_user.id}
+                  post={post}
+                  current_user={@current_user}
+                  key={@key}
+                  is_repost={post.repost || false}
+                  liked={get_post_liked_status(post, @current_user, @key)}
+                  bookmarked={get_post_bookmarked_status(post, @current_user)}
+                  can_repost={can_repost_with_decryption?(post, @current_user, @key)}
+                  can_reply?={can_reply?(post, @current_user)}
+                  can_bookmark?={can_bookmark?(post, @current_user)}
+                  unread?={get_post_unread_status(post, @current_user)}
+                  class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <%!-- Show gentle message when no posts available --%>
-        <div class="hidden only:block text-center py-8 sm:py-12">
-          <div class="inline-flex flex-col items-center gap-3 sm:gap-4 px-6 sm:px-8 py-5 sm:py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
-            <.phx_icon name="hero-sparkles" class="h-7 sm:h-8 w-7 sm:w-8 text-emerald-500" />
-            <div class="text-center">
-              <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
-                Your timeline awaits
-              </p>
-              <p class="text-xs text-slate-600 dark:text-slate-400 max-w-xs leading-relaxed">
-                Share something meaningful or connect with others to see their posts here.
-              </p>
+          <%!-- Show gentle message when no posts available --%>
+          <div class="hidden only:block text-center py-8 sm:py-12">
+            <div class="inline-flex flex-col items-center gap-3 sm:gap-4 px-6 sm:px-8 py-5 sm:py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
+              <.phx_icon name="hero-sparkles" class="h-7 sm:h-8 w-7 sm:w-8 text-emerald-500" />
+              <div class="text-center">
+                <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
+                  Your timeline awaits
+                </p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 max-w-xs leading-relaxed">
+                  Share something meaningful or connect with others to see their posts here.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </.async_result>
+      </div>
 
-        <%!-- Enhanced load more button with dynamic remaining count and tab colors --%>
+      <%!-- Enhanced load more button with dynamic remaining count and tab colors (only show when data is loaded) --%>
+      <div :if={@timeline_data.ok?}>
         <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
           remaining_count={
             calculate_remaining_posts(@timeline_counts, @active_tab, @loaded_posts_count)

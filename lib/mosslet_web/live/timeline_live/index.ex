@@ -140,6 +140,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:block_user_id, nil)
       |> assign(:block_user_name, nil)
       |> stream(:posts, [])
+      # Initialize timeline_data as an AsyncResult for loading states
+      |> assign(:timeline_data, AsyncResult.loading())
       # Configure photo uploads with proper constraints and encryption-ready settings
       |> allow_upload(:photos,
         accept: ~w(.jpg .jpeg .png),
@@ -191,83 +193,104 @@ defmodule MossletWeb.TimelineLive.Index do
     # Get the current active tab from socket assigns or default to "home"
     current_tab = socket.assigns[:active_tab] || "home"
 
-    # Load posts for the current active tab with content filtering applied in Timeline context
-    # Use cached content filters from socket assigns (loaded in mount)
-    content_filter_prefs = socket.assigns.content_filters
-    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+    # Prepare shared users first as they're needed for both posts and counts
+    post_shared_users =
+      decrypt_shared_user_connections(
+        Accounts.get_all_confirmed_user_connections(current_user.id),
+        current_user,
+        key,
+        :post
+      )
 
-    posts =
-      case current_tab do
-        "discover" ->
-          # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(current_user, options_with_filters)
-
-        "connections" ->
-          # Use dedicated Timeline function for connections
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
-        "home" ->
-          # Use dedicated Timeline function for user's own posts
-          Timeline.list_user_own_posts(current_user, options_with_filters)
-
-        "bookmarks" ->
-          # Load bookmarks with filtering applied
-          Timeline.list_user_bookmarks(current_user, options_with_filters)
-
-        "groups" ->
-          # Use dedicated Timeline function for group posts (specific_groups visibility)
-          Timeline.list_group_posts(current_user, options_with_filters)
-
-        _ ->
-          # Use the helper function for other tabs
-          # Pass tab information to caching system
-          options_with_tab = Map.put(options_with_filters, :tab, current_tab)
-
-          Timeline.filter_timeline_posts(current_user, options_with_tab)
-          |> apply_tab_filtering(current_tab, current_user)
-      end
-
-    post_loading_list = Enum.with_index(posts, fn element, index -> {index, element} end)
-
-    # Calculate timeline counts using cached content filters and smart updates
-    content_filter_prefs = socket.assigns.content_filters
-    options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
-
-    # Track pagination state for load more functionality
-    loaded_posts_count = length(posts)
-    current_page = options.post_page
+    # Hydrate content filters with post_shared_users
+    hydrated_content_filters =
+      hydrate_content_filters(socket.assigns.content_filters, post_shared_users)
 
     socket =
       socket
-      |> assign(
-        :post_shared_users,
-        decrypt_shared_user_connections(
-          Accounts.get_all_confirmed_user_connections(current_user.id),
-          current_user,
-          key,
-          :post
-        )
-      )
-      |> assign(:post_loading_list, post_loading_list)
-      |> assign(:post_count, Timeline.timeline_post_count(current_user, options))
+      |> assign(:post_shared_users, post_shared_users)
+      |> assign(:content_filters, hydrated_content_filters)
       |> assign(:options, options)
       |> assign(:return_url, url)
-
-    # Hydrate content filters with post_shared_users now that both are available
-    hydrated_content_filters =
-      hydrate_content_filters(socket.assigns.content_filters, socket.assigns.post_shared_users)
-
-    socket =
-      socket
-      |> assign(:content_filters, hydrated_content_filters)
       |> assign(:filter, filter)
       |> assign(:show_content_filter, false)
       |> assign_keyword_filter_form()
-      |> maybe_update_timeline_counts(current_user, options_with_filters, true)
-      |> assign(:loaded_posts_count, loaded_posts_count)
-      |> assign(:current_page, current_page)
       |> assign(:load_more_loading, false)
-      |> stream(:posts, posts, reset: true)
+
+    # Start async operation to load timeline data (posts and counts together)
+    # This ensures data synchronization while providing loading UI
+    current_user_id = current_user.id
+    content_filter_prefs = hydrated_content_filters
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+    current_tab_for_async = current_tab
+
+    socket =
+      socket
+      |> assign(:timeline_data, AsyncResult.loading())
+      |> start_async(:load_timeline_data, fn ->
+        # Load posts for the current active tab with content filtering
+        posts =
+          case current_tab_for_async do
+            "discover" ->
+              Timeline.list_discover_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "connections" ->
+              Timeline.list_connection_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "home" ->
+              Timeline.list_user_own_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "bookmarks" ->
+              Timeline.list_user_bookmarks(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "groups" ->
+              Timeline.list_group_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            _ ->
+              options_with_tab = Map.put(options_with_filters, :tab, current_tab_for_async)
+              user = Accounts.get_user!(current_user_id)
+
+              Timeline.filter_timeline_posts(user, options_with_tab)
+              |> apply_tab_filtering(current_tab_for_async, user)
+          end
+
+        # Calculate all timeline counts with the SAME filtering options
+        # This ensures perfect synchronization between displayed posts and counts
+        user = Accounts.get_user!(current_user_id)
+
+        options_with_content_filters =
+          Map.put(options_with_filters, :content_filter_prefs, content_filter_prefs)
+
+        timeline_counts = calculate_timeline_counts(user, options_with_content_filters)
+        unread_counts = calculate_unread_counts(user, options_with_content_filters)
+        post_count = Timeline.timeline_post_count(user, options)
+
+        # Return synchronized data as a single unit
+        %{
+          posts: posts,
+          timeline_counts: timeline_counts,
+          unread_counts: unread_counts,
+          post_count: post_count,
+          loaded_posts_count: length(posts),
+          current_page: options.post_page,
+          post_loading_list: Enum.with_index(posts, fn element, index -> {index, element} end)
+        }
+      end)
 
     {:noreply, socket}
   end
@@ -1753,7 +1776,6 @@ defmodule MossletWeb.TimelineLive.Index do
             {:noreply, socket}
 
           {:error, reason} ->
-            require Logger
             Logger.error("Failed to add keyword filter: #{inspect(reason)}")
             {:noreply, put_flash(socket, :error, "Failed to add filter")}
         end
@@ -1947,63 +1969,172 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     current_user = socket.assigns.current_user
+
     # Reset pagination when switching tabs
     options =
       socket.assigns.options
       |> Map.put(:timeline_tab, tab)
       |> Map.put(:post_page, 1)
 
-    # Load posts for the specific tab with content filtering applied in Timeline context
-    # Use cached content filters from socket assigns
-    content_filter_prefs = socket.assigns.content_filters
-    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
-
-    posts =
-      case tab do
-        "discover" ->
-          # Show public posts using dedicated Timeline function for discovery
-          Timeline.list_discover_posts(current_user, options_with_filters)
-
-        "connections" ->
-          # Use dedicated Timeline function for connections
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
-        "home" ->
-          # Use dedicated Timeline function for user's own posts
-          Timeline.list_user_own_posts(current_user, options_with_filters)
-
-        "bookmarks" ->
-          # Load bookmarks with filtering applied and pagination
-          Timeline.list_user_bookmarks(current_user, options_with_filters)
-
-        "groups" ->
-          # Use dedicated Timeline function for group posts (specific_groups visibility)
-          Timeline.list_group_posts(current_user, options_with_filters)
-
-        _ ->
-          # Use the helper function for other tabs
-          Timeline.filter_timeline_posts(current_user, options_with_filters)
-          |> apply_tab_filtering(tab, current_user)
-      end
-
-    # Update tab counts using proper counting logic with filter support
-    options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
-    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
-    unread_counts = calculate_unread_counts(current_user, options_with_filters)
-
-    # Reset pagination state when switching tabs
-    loaded_posts_count = length(posts)
-
+    # Update the active tab immediately for responsive UI
     socket =
       socket
       |> assign(:active_tab, tab)
-      |> assign(:timeline_counts, timeline_counts)
-      |> assign(:unread_counts, unread_counts)
+      |> assign(:timeline_data, AsyncResult.loading())
+
+    # Prepare variables for async operation
+    current_user_id = current_user.id
+    content_filter_prefs = socket.assigns.content_filters
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+    tab_for_async = tab
+
+    # Start async operation to load tab data
+    socket =
+      socket
       |> assign(:options, options)
-      |> assign(:loaded_posts_count, loaded_posts_count)
-      |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
-      |> stream(:posts, posts, reset: true)
+      |> start_async(:load_timeline_data, fn ->
+        # Load posts for the specific tab with content filtering
+        posts =
+          case tab_for_async do
+            "discover" ->
+              Timeline.list_discover_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "connections" ->
+              Timeline.list_connection_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "home" ->
+              Timeline.list_user_own_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "bookmarks" ->
+              Timeline.list_user_bookmarks(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "groups" ->
+              Timeline.list_group_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            _ ->
+              user = Accounts.get_user!(current_user_id)
+
+              Timeline.filter_timeline_posts(user, options_with_filters)
+              |> apply_tab_filtering(tab_for_async, user)
+          end
+
+        # Update tab counts using proper counting logic with filter support
+        user = Accounts.get_user!(current_user_id)
+
+        options_with_content_filters =
+          Map.put(options_with_filters, :content_filter_prefs, content_filter_prefs)
+
+        timeline_counts = calculate_timeline_counts(user, options_with_content_filters)
+        unread_counts = calculate_unread_counts(user, options_with_content_filters)
+
+        # Return synchronized data
+        %{
+          posts: posts,
+          timeline_counts: timeline_counts,
+          unread_counts: unread_counts,
+          post_count: Timeline.timeline_post_count(user, options),
+          loaded_posts_count: length(posts),
+          current_page: 1,
+          post_loading_list: Enum.with_index(posts, fn element, index -> {index, element} end)
+        }
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("retry_timeline_load", _params, socket) do
+    # Re-trigger the async timeline data loading
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filter_prefs = socket.assigns.content_filters
+    options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
+
+    current_user_id = current_user.id
+    current_tab_for_async = current_tab
+
+    socket =
+      socket
+      |> assign(:timeline_data, AsyncResult.loading())
+      |> start_async(:load_timeline_data, fn ->
+        # Load posts for the current active tab with content filtering
+        posts =
+          case current_tab_for_async do
+            "discover" ->
+              Timeline.list_discover_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "connections" ->
+              Timeline.list_connection_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "home" ->
+              Timeline.list_user_own_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "bookmarks" ->
+              Timeline.list_user_bookmarks(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            "groups" ->
+              Timeline.list_group_posts(
+                Accounts.get_user!(current_user_id),
+                options_with_filters
+              )
+
+            _ ->
+              options_with_tab = Map.put(options_with_filters, :tab, current_tab_for_async)
+              user = Accounts.get_user!(current_user_id)
+
+              Timeline.filter_timeline_posts(user, options_with_tab)
+              |> apply_tab_filtering(current_tab_for_async, user)
+          end
+
+        # Calculate all timeline counts with the SAME filtering options
+        user = Accounts.get_user!(current_user_id)
+
+        options_with_content_filters =
+          Map.put(options_with_filters, :content_filter_prefs, content_filter_prefs)
+
+        timeline_counts = calculate_timeline_counts(user, options_with_content_filters)
+        unread_counts = calculate_unread_counts(user, options_with_content_filters)
+        post_count = Timeline.timeline_post_count(user, options)
+
+        # Return synchronized data
+        %{
+          posts: posts,
+          timeline_counts: timeline_counts,
+          unread_counts: unread_counts,
+          post_count: post_count,
+          loaded_posts_count: length(posts),
+          current_page: options.post_page,
+          post_loading_list: Enum.with_index(posts, fn element, index -> {index, element} end)
+        }
+      end)
 
     {:noreply, socket}
   end
@@ -2859,6 +2990,46 @@ defmodule MossletWeb.TimelineLive.Index do
       {:noreply,
        put_flash(socket, :error, "You don't have permission to download images from this post")}
     end
+  end
+
+  def handle_async(:load_timeline_data, {:ok, timeline_result}, socket) do
+    # Update all assigns with synchronized data from our async operation
+    # All data comes from the same query context, ensuring perfect synchronization
+    %{
+      posts: posts,
+      timeline_counts: timeline_counts,
+      unread_counts: unread_counts,
+      post_count: post_count,
+      loaded_posts_count: loaded_posts_count,
+      current_page: current_page,
+      post_loading_list: post_loading_list
+    } = timeline_result
+
+    {:noreply,
+     socket
+     |> assign(:timeline_data, AsyncResult.ok(socket.assigns.timeline_data, timeline_result))
+     |> assign(:post_loading_list, post_loading_list)
+     |> assign(:post_count, post_count)
+     |> assign(:timeline_counts, timeline_counts)
+     |> assign(:unread_counts, unread_counts)
+     |> assign(:loaded_posts_count, loaded_posts_count)
+     |> assign(:current_page, current_page)
+     |> stream(:posts, posts, reset: true)}
+  end
+
+  def handle_async(:load_timeline_data, {:exit, reason}, socket) do
+    # Handle async operation failure gracefully with beautiful error state
+    Logger.error("Timeline data loading failed: #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(:timeline_data, AsyncResult.failed(socket.assigns.timeline_data, {:exit, reason}))
+     |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
+     |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
+     |> assign(:loaded_posts_count, 0)
+     |> assign(:current_page, 1)
+     |> assign(:post_count, 0)
+     |> stream(:posts, [], reset: true)}
   end
 
   def handle_async(:update_post_body, {:ok, {message, _post}}, socket) do

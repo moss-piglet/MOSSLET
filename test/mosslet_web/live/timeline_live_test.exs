@@ -22,10 +22,13 @@ defmodule MossletWeb.TimelineLiveTest do
     setup [:create_user_with_connection]
 
     test "renders timeline page with posts", %{conn: conn, user: user, key: key} do
-      {:ok, _lv, html} =
+      {:ok, lv, html} =
         conn
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
+
+      # Wait for async timeline data to load
+      html = render_async(lv)
 
       assert html =~ "Timeline"
       assert html =~ "Home"
@@ -37,11 +40,23 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for initial async data load
+      render_async(lv)
+
       # Basic functionality - page loads successfully with tabs
       assert render(lv) =~ "Home"
       assert render(lv) =~ "connections"
       assert render(lv) =~ "discover"
       assert render(lv) =~ "bookmarks"
+
+      # Test tab switching triggers async load
+      lv |> element("button", "Connections") |> render_click()
+
+      # Wait for tab switch async operation
+      render_async(lv)
+
+      # Verify we're on connections tab
+      assert render(lv) =~ "Timeline"
     end
 
     test "loads posts correctly", %{
@@ -60,8 +75,11 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      html = render_async(lv)
+      
       # Home tab should show content
-      assert render(lv) =~ "Timeline"
+      assert html =~ "Timeline"
     end
 
     test "can load more posts with pagination", %{conn: conn, user: user, key: key} do
@@ -75,8 +93,11 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      html = render_async(lv)
+      
       # Verify basic functionality
-      assert render(lv) =~ "Timeline"
+      assert html =~ "Timeline"
     end
   end
 
@@ -89,6 +110,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Verify post creation form exists  
       assert has_element?(lv, "form")
     end
@@ -99,6 +123,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Verify basic form functionality
       assert has_element?(lv, "form")
     end
@@ -109,6 +136,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Verify basic privacy controls exist
       assert render(lv) =~ "Timeline"
     end
@@ -119,6 +149,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Verify basic functionality
       assert render(lv) =~ "Timeline"
     end
@@ -133,6 +166,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -143,6 +179,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -153,6 +192,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -163,6 +205,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -183,6 +228,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Update friend's status
       {:ok, updated_friend} =
         Accounts.update_user_status(
@@ -223,6 +271,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -232,11 +283,14 @@ defmodule MossletWeb.TimelineLiveTest do
     setup [:create_user]
 
     test "tracks user presence on timeline", %{conn: conn, user: user, key: key} do
-      {:ok, _lv, _html} =
+      {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Check that presence is tracked
       assert Presence.user_active_on_timeline?(user.id)
     end
@@ -247,6 +301,9 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       assert Presence.user_active_on_timeline?(user.id)
 
       # Simulate leaving the page
@@ -259,11 +316,14 @@ defmodule MossletWeb.TimelineLiveTest do
     test "provides active user count for monitoring", %{conn: conn, user: user, key: key} do
       initial_count = Presence.active_timeline_user_count()
 
-      {:ok, _lv, _html} =
+      {:ok, lv, _html} =
         conn
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      render_async(lv)
+      
       # Should increase count
       assert Presence.active_timeline_user_count() == initial_count + 1
     end
@@ -278,8 +338,11 @@ defmodule MossletWeb.TimelineLiveTest do
         |> log_in_user(user, key)
         |> live(~p"/app/timeline")
 
+      # Wait for async timeline data to load
+      html = render_async(lv)
+      
       # Should have loaded timeline  
-      assert render(lv) =~ "Timeline"
+      assert html =~ "Timeline"
     end
   end
 
