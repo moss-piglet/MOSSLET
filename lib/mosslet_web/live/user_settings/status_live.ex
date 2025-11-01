@@ -544,11 +544,17 @@ defmodule MossletWeb.UserSettings.StatusLive do
                         :amber ->
                           "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
 
+                        :yellow ->
+                          "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
+
                         :orange ->
                           "from-orange-100 via-amber-50 to-orange-100 dark:from-orange-900/40 dark:via-amber-900/30 dark:to-orange-900/40"
 
                         :indigo ->
                           "from-indigo-100 via-blue-50 to-indigo-100 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-indigo-900/40"
+
+                        :pink ->
+                          "from-pink-100 via-rose-50 to-pink-100 dark:from-pink-900/40 dark:via-rose-900/30 dark:to-pink-900/40"
 
                         _ ->
                           "from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800/40 dark:via-slate-700/30 dark:to-slate-800/40"
