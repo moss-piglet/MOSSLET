@@ -77,7 +77,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       html = render_async(lv)
-      
+
       # Home tab should show content
       assert html =~ "Timeline"
     end
@@ -95,7 +95,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       html = render_async(lv)
-      
+
       # Verify basic functionality
       assert html =~ "Timeline"
     end
@@ -112,7 +112,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Verify post creation form exists  
       assert has_element?(lv, "form")
     end
@@ -125,7 +125,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Verify basic form functionality
       assert has_element?(lv, "form")
     end
@@ -138,7 +138,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Verify basic privacy controls exist
       assert render(lv) =~ "Timeline"
     end
@@ -151,7 +151,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Verify basic functionality
       assert render(lv) =~ "Timeline"
     end
@@ -168,7 +168,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -181,7 +181,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -194,7 +194,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -207,7 +207,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -230,7 +230,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Update friend's status
       {:ok, updated_friend} =
         Accounts.update_user_status(
@@ -273,7 +273,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Basic functionality test
       assert render(lv) =~ "Timeline"
     end
@@ -290,7 +290,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Check that presence is tracked
       assert Presence.user_active_on_timeline?(user.id)
     end
@@ -303,7 +303,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       assert Presence.user_active_on_timeline?(user.id)
 
       # Simulate leaving the page
@@ -323,7 +323,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       render_async(lv)
-      
+
       # Should increase count
       assert Presence.active_timeline_user_count() == initial_count + 1
     end
@@ -340,7 +340,7 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Wait for async timeline data to load
       html = render_async(lv)
-      
+
       # Should have loaded timeline  
       assert html =~ "Timeline"
     end
