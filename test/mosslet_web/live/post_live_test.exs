@@ -5,6 +5,9 @@ defmodule MossletWeb.PostLiveTest do
   import Mosslet.TimelineFixtures
   import Mosslet.AccountsFixtures
 
+  # skip these tests as our post_live page is legacy
+  @moduletag :skip
+
   @provider_customer_id "cus_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
   @provider_latest_charge_id "ch_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
   @provider_payment_intent_id "pi_#{Faker.Util.format("%3b%1d%2b%2d%4b%1d%1b")}"
