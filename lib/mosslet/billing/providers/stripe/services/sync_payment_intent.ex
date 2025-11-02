@@ -13,11 +13,13 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncPaymentIntent do
   alias Mosslet.Billing.PaymentIntents.PaymentIntent
   alias Mosslet.Orgs
 
+  require Logger
+
   def call(%Stripe.PaymentIntent{} = stripe_payment_intent) do
     with {:customer, %Customer{} = customer} <-
            {:customer,
             Customers.get_customer_by_provider_customer_id!(stripe_payment_intent.customer)},
-         {:source, source} <-
+         {:source, _source} <-
            {:source, get_source(customer)} do
       payment_intent_attrs =
         stripe_payment_intent
@@ -28,36 +30,37 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncPaymentIntent do
              stripe_payment_intent.id
            ) do
         nil ->
-          {:ok, payment_intent} = PaymentIntents.create_payment_intent!(payment_intent_attrs)
+          case PaymentIntents.create_payment_intent!(payment_intent_attrs) do
+            {:ok, _payment_intent} ->
+              :ok
 
-          Accounts.user_lifecycle_action("billing.create_payment_intent", source, %{
-            payment_intent: payment_intent,
-            customer: customer
-          })
-
-          :ok
+            rest ->
+              Logger.warning("Error creating payment intent")
+              Logger.debug("Error creating payment intent: #{inspect(rest)}")
+              :ok
+          end
 
         %PaymentIntent{} = payment_intent ->
-          {:ok, payment_intent} =
-            PaymentIntents.update_payment_intent(payment_intent, payment_intent_attrs)
+          case PaymentIntents.update_payment_intent(payment_intent, payment_intent_attrs) do
+            {:ok, _payment_intent} ->
+              :ok
 
-          Accounts.user_lifecycle_action("billing.update_payment_intent", source, %{
-            payment_intent: payment_intent,
-            customer: customer
-          })
-
-          :ok
+            rest ->
+              Logger.warning("Error updating payment intent")
+              Logger.debug("Error updating payment intent: #{inspect(rest)}")
+              :ok
+          end
 
         {:ok, payment_intent} ->
-          {:ok, payment_intent} =
-            PaymentIntents.update_payment_intent(payment_intent, payment_intent_attrs)
+          case PaymentIntents.update_payment_intent(payment_intent, payment_intent_attrs) do
+            {:ok, _payment_intent} ->
+              :ok
 
-          Accounts.user_lifecycle_action("billing.update_payment_intent", source, %{
-            payment_intent: payment_intent,
-            customer: customer
-          })
-
-          :ok
+            rest ->
+              Logger.warning("Error updating payment intent")
+              Logger.debug("Error updating payment intent: #{inspect(rest)}")
+              :ok
+          end
       end
     else
       error -> {:error, error}

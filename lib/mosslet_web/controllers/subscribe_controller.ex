@@ -1,7 +1,6 @@
 defmodule MossletWeb.SubscribeController do
   use MossletWeb, :controller
 
-  alias Mosslet.Accounts
   alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Subscriptions
@@ -60,14 +59,7 @@ defmodule MossletWeb.SubscribeController do
            source_id,
            conn.private.plug_session["key"]
          ) do
-      {:ok, customer, session} ->
-        Accounts.user_lifecycle_action("billing.after_click_subscribe_button", user, %{
-          plan: plan,
-          customer: customer,
-          billing_provider: @billing_provider,
-          billing_provider_session: session
-        })
-
+      {:ok, _customer, session} ->
         redirect(conn, external: @billing_provider.checkout_url(session))
     end
   end

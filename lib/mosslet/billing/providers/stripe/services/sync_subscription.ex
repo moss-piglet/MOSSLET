@@ -12,11 +12,13 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
+  require Logger
+
   def call(%Stripe.Subscription{} = stripe_subscription) do
     with {:customer, %Customer{} = customer} <-
            {:customer,
             Customers.get_customer_by_provider_customer_id!(stripe_subscription.customer)},
-         {:source, source} <-
+         {:source, _source} <-
            {:source, get_source(customer)} do
       subscription_attrs =
         stripe_subscription
@@ -25,27 +27,26 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
 
       case Subscriptions.get_subscription_by_provider_subscription_id(stripe_subscription.id) do
         nil ->
-          {:ok, subscription} = Subscriptions.create_subscription!(subscription_attrs)
+          case Subscriptions.create_subscription!(subscription_attrs) do
+            {:ok, _subscription} ->
+              :ok
 
-          Accounts.user_lifecycle_action("billing.create_subscription", source, %{
-            subscription: subscription,
-            customer: customer
-          })
-
-          check_for_too_many_subscriptions(source, customer, subscription)
-
-          :ok
+            rest ->
+              Logger.warning("Error creating subscription")
+              Logger.debug("Error  creating subscription: #{inspect(rest)}")
+              :ok
+          end
 
         subscription ->
-          {:ok, subscription} =
-            Subscriptions.update_subscription(subscription, subscription_attrs)
+          case Subscriptions.update_subscription(subscription, subscription_attrs) do
+            {:ok, _subscription} ->
+              :ok
 
-          Accounts.user_lifecycle_action("billing.update_subscription", source, %{
-            subscription: subscription,
-            customer: customer
-          })
-
-          :ok
+            rest ->
+              Logger.warning("Error updating subscription")
+              Logger.debug("Error  updating subscription: #{inspect(rest)}")
+              :ok
+          end
       end
     else
       error -> {:error, error}
@@ -58,23 +59,5 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
 
   defp get_source(%Customer{org_id: org_id}) do
     Orgs.get_org_by_id(org_id)
-  end
-
-  defp check_for_too_many_subscriptions(source, customer, subscription) do
-    active_sub_count = Subscriptions.active_count(customer.id)
-
-    # There should be only 1 active subscription per customer. It may be possible for a
-    # user to make a second payment (e.g. they open 2 tabs, then purchase via each tab)
-    if active_sub_count > 1 do
-      Accounts.user_lifecycle_action(
-        "billing.more_than_one_active_subscription_warning",
-        source,
-        %{
-          subscription: subscription,
-          customer: customer,
-          active_subscriptions_count: active_sub_count
-        }
-      )
-    end
   end
 end

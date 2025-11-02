@@ -646,7 +646,7 @@ defmodule MossletWeb.DeleteAccountLive do
     end
   end
 
-  defp cancel_subscription(user, %{assigns: assigns} = socket) do
+  defp cancel_subscription(_user, %{assigns: assigns} = socket) do
     provider_sub = assigns.provider_subscription_async.result
 
     if is_nil(provider_sub) do
@@ -657,15 +657,6 @@ defmodule MossletWeb.DeleteAccountLive do
            %Subscription{} = subscription <-
              Subscriptions.get_subscription_by_provider_subscription_id(provider_subscription.id),
            {:ok, _suscription} <- Subscriptions.cancel_subscription(subscription) do
-        Accounts.user_lifecycle_action(
-          "billing.cancel_subscription",
-          user,
-          %{
-            subscription: subscription,
-            customer: assigns.customer
-          }
-        )
-
         :canceled
       else
         nil ->

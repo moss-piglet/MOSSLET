@@ -18,7 +18,6 @@ defmodule Mosslet.Accounts do
     UserTOTP
   }
 
-  alias Mosslet.Billing.Plans
   alias Mosslet.Encrypted
   alias Mosslet.Groups
   alias Mosslet.Groups.Group
@@ -2740,113 +2739,8 @@ defmodule Mosslet.Accounts do
     Logs.log_async("request_new_email", %{user: user})
   end
 
-  def user_lifecycle_action("after_passwordless_pin_sent", user, %{pin: pin}) do
-    # Removed passwordless_pin_sent logging - not security essential
-
-    # Allow devs to see the pin in the server logs to sign in with
-    if Mosslet.config(:env) == :dev do
-      Logger.info("----------- PIN ------------")
-      Logger.info(pin)
-    end
-  end
-
-  def user_lifecycle_action("billing.after_click_subscribe_button", user, %{
-        plan: plan,
-        customer: customer,
-        billing_provider: billing_provider,
-        billing_provider_session: billing_provider_session
-      }) do
-    Mosslet.Slack.message("""
-    :scream_cat: #{user.name} has clicked a subscribe button for "#{plan.id}"...
-    """)
-
-    # Removed billing.click_subscribe_button logging - contains unencrypted customer IDs
-  end
-
-  def user_lifecycle_action("billing.create_subscription", user, %{
-        subscription: subscription,
-        customer: customer
-      }) do
-    plan = Plans.get_plan_by_subscription!(subscription)
-
-    Mosslet.Slack.message("""
-    :moneybag: #{user.name} (##{user.id}) just purchased a subscription!
-    **Plan:** "#{plan.id}"
-    """)
-
-    # Removed billing.subscribe_subscription logging - contains unencrypted customer IDs
-  end
-
-  def user_lifecycle_action("billing.update_subscription", user, %{
-        subscription: subscription,
-        customer: customer
-      }) do
-    Mosslet.Slack.message("""
-    #{user.name} (##{user.id}) just updated a subscription for the plan: "#{subscription.plan_id}"
-    """)
-
-    # Removed billing.update_subscription logging - contains unencrypted customer IDs
-  end
-
-  def user_lifecycle_action("billing.create_payment_intent", user, %{
-        payment_intent: payment_intent,
-        customer: customer
-      }) do
-    Mosslet.Slack.message("""
-    :moneybag: #{user.name} (##{user.id}) just purchased a membership!
-    """)
-
-    # Removed billing.create_payment_intent logging - contains unencrypted customer IDs
-  end
-
-  def user_lifecycle_action("billing.update_payment_intent", user, %{
-        payment_intent: payment_intent,
-        customer: customer
-      }) do
-    Mosslet.Slack.message("""
-    #{user.name} (##{user.id}) just updated a payment_intent: "#{payment_intent.id}"
-    """)
-
-    # Removed billing.update_payment_intent logging - contains unencrypted customer IDs
-  end
-
-  def user_lifecycle_action("billing.cancel_subscription", user, %{
-        subscription: subscription,
-        customer: customer
-      }) do
-    Mosslet.Slack.message("""
-    #{user.name} (##{user.id}) just cancelled a subscription for the plan: "#{subscription.plan_id}"
-    """)
-
-    # Removed billing.cancel_subscription logging - contains unencrypted customer IDs
-  end
-
-  def user_lifecycle_action("billing.more_than_one_active_subscription_warning", _user, %{
-        subscription: subscription,
-        customer: customer,
-        active_subscriptions_count: active_subscriptions_count
-      }) do
-    Mosslet.Slack.message("""
-    :exclamation: *Customer #{customer.id} now has #{active_subscriptions_count} active subscriptions.* They may have been double charged. This is possible if Stripe processes multiple purchases in multiple tabs.
-    Stripe Customer: #{customer.provider_customer_id}
-    Stripe Subscription: #{subscription.provider_subscription_id}
-    """)
-
-    # Removed billing.more_than_one_active_subscription_warning logging - contains unencrypted customer IDs
-  end
-
-  # we need to have a key to decrypt the user's name
-  def user_lifecycle_action("after_register", user, key, %{registration_type: registration_type}) do
-    # Removed register logging - not security essential
-
+  def user_lifecycle_action("after_register", user, _key, %{registration_type: _registration_type}) do
     Mosslet.Orgs.sync_user_invitations(user)
-
-    Mosslet.Slack.message("""
-    :bust_in_silhouette: *A new user joined!*
-    *Name*: #{MossletWeb.Helpers.user_name(user, key)}
-
-    #{MossletWeb.Router.Helpers.admin_dash_url(MossletWeb.Endpoint, :index)}
-    """)
   end
 
   defp decrypt_profile_about(user, key) do
