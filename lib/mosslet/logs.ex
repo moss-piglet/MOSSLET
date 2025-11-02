@@ -120,4 +120,50 @@ defmodule Mosslet.Logs do
     |> QueryExt.limit(1)
     |> Mosslet.Repo.one()
   end
+
+  @doc """
+  Deletes all logs older than the specified number of days.
+
+  Returns the number of deleted records.
+
+  ## Examples
+
+      # Delete logs older than 7 days
+      Logs.delete_logs_older_than(7)
+      
+      # Delete logs older than 30 days
+      Logs.delete_logs_older_than(30)
+  """
+  def delete_logs_older_than(days) when is_integer(days) and days > 0 do
+    cutoff_date = DateTime.utc_now() |> DateTime.add(-days, :day)
+
+    from(l in Log, where: l.inserted_at < ^cutoff_date)
+    |> Repo.delete_all()
+  end
+
+  @doc """
+  Deletes logs containing sensitive metadata for privacy compliance.
+
+  This specifically targets logs with email addresses or other PII.
+  Returns the number of deleted records.
+  """
+  def delete_sensitive_logs do
+    # Delete logs that contain email metadata (from before we removed email logging)
+    from(l in Log,
+      where: fragment("?->'new_email' IS NOT NULL", l.metadata)
+    )
+    |> Repo.delete_all()
+  end
+
+  @doc """
+  Deletes all logs for a specific user. Useful for user deletion/GDPR compliance.
+
+  Returns the number of deleted records.
+  """
+  def delete_user_logs(user_id) do
+    from(l in Log,
+      where: l.user_id == ^user_id or l.target_user_id == ^user_id
+    )
+    |> Repo.delete_all()
+  end
 end

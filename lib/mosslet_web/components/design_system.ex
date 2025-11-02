@@ -1463,8 +1463,7 @@ defmodule MossletWeb.DesignSystem do
             ** Premium features available ($500/month)
           </p>
           <p class="text-xs text-slate-500 dark:text-slate-500">
-            *** Collects minimal operational data necessary for service functionality:
-            MOSSLET (encrypted payment info, security logs), Signal (phone numbers for messaging)
+            *** Collects minimal operational data necessary for service functionality
           </p>
           <p class="text-sm text-slate-600 dark:text-slate-400">
             Data value estimates based on research by

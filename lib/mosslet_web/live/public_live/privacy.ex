@@ -258,19 +258,29 @@ defmodule MossletWeb.PublicLive.Privacy do
               <%!-- Collapsible Sections --%>
               <div class="space-y-4">
                 <%!-- What is your data? --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200 group"
+                    phx-click={
+                      JS.toggle(to: "#privacy-section-1")
+                      |> JS.toggle_class("rotate-180", to: "#chevron-1")
+                    }
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         What is your data?
                       </h3>
                       <.icon
+                        id="chevron-1"
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    id="privacy-section-1"
+                    class="hidden px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       Your data on MOSSLET is information specific to your account.
                     </p>
@@ -292,22 +302,33 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Where is your data stored? --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Where is your data stored?
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <div class="pt-4">
                       <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">
                         Object Data (avatars, files)
@@ -355,11 +376,17 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Data Ownership --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         You own 100% of your data
@@ -367,11 +394,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       This means that you are in full control of your account information on MOSSLET and can even delete your account, and all of its information, at any time from within your account settings.
                     </p>
@@ -411,11 +443,17 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Encryption & Security --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Your data is encrypted
@@ -423,11 +461,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       We use encryption algorithms that are recommended by leading security and cryptography experts like Matthew Green, Niels Ferguson, and Bruce Schneier.
                     </p>
@@ -455,11 +498,17 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- No Manipulation --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         You are not manipulated
@@ -469,11 +518,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       We do not participate in the surveilling and profiling of our customers (or anyone). We do not create psychometric profiles on you (or anyone). We do not conduct "invisible" (just outside of your awareness) experiments on you (or anyone).
                     </p>
@@ -483,11 +537,17 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- No Data Sharing --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Your data is not shared
@@ -497,11 +557,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       We do not share, sell, or otherwise transfer your data to anyone outside of our company ever. Your data is used only in the service of your account (support & troubleshooting), to address a
                       <.link
@@ -513,11 +578,17 @@ defmodule MossletWeb.PublicLive.Privacy do
                       violation, or to comply with a court-ordered legal request.
                     </p>
                   </div>
-                </details>
+                </div>
 
                 <%!-- No Tracking --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         You are not spied on
@@ -528,11 +599,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       We do not use behavioral tracking technologies like advertising cookies or
                       <.link
@@ -550,27 +626,40 @@ defmodule MossletWeb.PublicLive.Privacy do
                         Minimal operational data collection:
                       </p>
                       <ul class="space-y-1 text-sm">
-                        <li>• Encrypted payment information (processed by Stripe for billing)</li>
                         <li>
-                          • Security logs (asymmetrically encrypted login times and IP addresses for your account security - only you can decrypt them for viewing where you last signed in)
+                          • <strong>Your personal content:</strong>
+                          Profile, posts, messages, and connections (asymmetrically encrypted - only you can decrypt)
                         </li>
                         <li>
-                          • Basic account functionality data (account confirmation status, etc.)
+                          • <strong>Payment information:</strong>
+                          Processed and stored by Stripe, not by us (we only store your asymmetrically encrypted Stripe customer ID so you can view your billing page - we can't decrypt it ourselves)
+                        </li>
+                        <li>
+                          • <strong>Security logs:</strong>
+                          Minimal login events and 2FA security changes (automatically deleted after 7 days)
+                        </li>
+                        <li>
+                          • <strong>Service operation data:</strong>
+                          Non-sensitive UI preferences and account status flags (e.g., "account confirmed: true")
                         </li>
                       </ul>
                       <p class="text-sm mt-2">
-                        This operational data is encrypted, never monetized, and used solely for service functionality and security.
+                        All asymmetrically encrypted data (your personal content) is wrapped in a second layer of symmetric encryption when stored in our database. Service operation data consists of non-sensitive boolean flags and UI preferences needed for the app to function - things like your preferred number of posts per page or whether your account is confirmed.
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Metadata & Payment Information --%>
-                <details
-                  class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
                   id="privacy_policy_metadata"
+                  x-data="{ open: false }"
                 >
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Metadata & Payments
@@ -578,11 +667,16 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-6 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-6 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <div class="pt-4">
                       <p class="mb-4">
                         To the best of our knowledge, the extent of the possible information that could leak about your account (metadata) is all related to paying for your account. And in this regard, the information provided is your email address, name, card information, and device IP address.
@@ -700,22 +794,33 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </div>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Additional Information --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Additional Resources
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <div class="pt-4">
                       <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">
                         Educational Resources
@@ -754,22 +859,33 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Updates & Contact --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Updates & Feedback
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <div class="pt-4">
                       <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">
                         Policy Updates
@@ -802,7 +918,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
               </div>
             </div>
           </div>

@@ -2698,7 +2698,7 @@ defmodule Mosslet.Accounts do
   def user_lifecycle_action(action, user, opts \\ %{})
 
   def user_lifecycle_action("after_confirm_email", user, _) do
-    Logs.log_async("confirm_email", %{user: user})
+    # Removed confirm_email logging - not security essential
     Mosslet.Orgs.sync_user_invitations(user)
   end
 
@@ -2727,21 +2727,21 @@ defmodule Mosslet.Accounts do
   end
 
   def user_lifecycle_action("after_update_profile", user, _) do
-    Logs.log_async("update_profile", %{user: user})
+    # Removed update_profile logging - not security essential
     Mosslet.MailBluster.sync_user_async(user)
   end
 
   def user_lifecycle_action("after_confirm_new_email", user, _) do
-    Logs.log_async("confirm_new_email", %{user: user})
+    # Removed confirm_new_email logging - not security essential
     Mosslet.Orgs.sync_user_invitations(user)
   end
 
-  def user_lifecycle_action("request_new_email", user, %{new_email: new_email}) do
-    Logs.log_async("request_new_email", %{user: user, metadata: %{new_email: new_email}})
+  def user_lifecycle_action("request_new_email", user, %{new_email: _new_email}) do
+    Logs.log_async("request_new_email", %{user: user})
   end
 
   def user_lifecycle_action("after_passwordless_pin_sent", user, %{pin: pin}) do
-    Logs.log_async("passwordless_pin_sent", %{user: user})
+    # Removed passwordless_pin_sent logging - not security essential
 
     # Allow devs to see the pin in the server logs to sign in with
     if Mosslet.config(:env) == :dev do
@@ -2760,16 +2760,7 @@ defmodule Mosslet.Accounts do
     :scream_cat: #{user.name} has clicked a subscribe button for "#{plan.id}"...
     """)
 
-    Logs.log_async("billing.click_subscribe_button", %{
-      user: user,
-      customer: customer,
-      org: if(customer.org_id, do: customer.org),
-      metadata: %{
-        plan_id: plan.id,
-        billing_provider: billing_provider,
-        billing_provider_session_id: billing_provider_session.id
-      }
-    })
+    # Removed billing.click_subscribe_button logging - contains unencrypted customer IDs
   end
 
   def user_lifecycle_action("billing.create_subscription", user, %{
@@ -2783,15 +2774,7 @@ defmodule Mosslet.Accounts do
     **Plan:** "#{plan.id}"
     """)
 
-    Logs.log_async("billing.subscribe_subscription", %{
-      customer: customer,
-      user_id: customer.user_id,
-      org_id: customer.org_id,
-      metadata: %{
-        subscription_id: subscription.id,
-        plan_id: plan.id
-      }
-    })
+    # Removed billing.subscribe_subscription logging - contains unencrypted customer IDs
   end
 
   def user_lifecycle_action("billing.update_subscription", user, %{
@@ -2802,15 +2785,7 @@ defmodule Mosslet.Accounts do
     #{user.name} (##{user.id}) just updated a subscription for the plan: "#{subscription.plan_id}"
     """)
 
-    Logs.log_async("billing.update_subscription", %{
-      customer: customer,
-      user_id: customer.user_id,
-      org_id: customer.org_id,
-      metadata: %{
-        subscription_id: subscription.id,
-        plan_id: subscription.plan_id
-      }
-    })
+    # Removed billing.update_subscription logging - contains unencrypted customer IDs
   end
 
   def user_lifecycle_action("billing.create_payment_intent", user, %{
@@ -2821,15 +2796,7 @@ defmodule Mosslet.Accounts do
     :moneybag: #{user.name} (##{user.id}) just purchased a membership!
     """)
 
-    Logs.log_async("billing.create_payment_intent", %{
-      customer: customer,
-      user_id: customer.user_id,
-      org_id: customer.org_id,
-      metadata: %{
-        payment_intent_id: payment_intent.id,
-        customer_id: payment_intent.customer
-      }
-    })
+    # Removed billing.create_payment_intent logging - contains unencrypted customer IDs
   end
 
   def user_lifecycle_action("billing.update_payment_intent", user, %{
@@ -2840,15 +2807,7 @@ defmodule Mosslet.Accounts do
     #{user.name} (##{user.id}) just updated a payment_intent: "#{payment_intent.id}"
     """)
 
-    Logs.log_async("billing.update_payment_intent", %{
-      customer: customer,
-      user_id: customer.user_id,
-      org_id: customer.org_id,
-      metadata: %{
-        payment_intent_id: payment_intent.id,
-        customer_id: payment_intent.customer
-      }
-    })
+    # Removed billing.update_payment_intent logging - contains unencrypted customer IDs
   end
 
   def user_lifecycle_action("billing.cancel_subscription", user, %{
@@ -2859,15 +2818,7 @@ defmodule Mosslet.Accounts do
     #{user.name} (##{user.id}) just cancelled a subscription for the plan: "#{subscription.plan_id}"
     """)
 
-    Logs.log_async("billing.cancel_subscription", %{
-      customer: customer,
-      user_id: customer.user_id,
-      org_id: customer.org_id,
-      metadata: %{
-        subscription_id: subscription.id,
-        plan_id: subscription.plan_id
-      }
-    })
+    # Removed billing.cancel_subscription logging - contains unencrypted customer IDs
   end
 
   def user_lifecycle_action("billing.more_than_one_active_subscription_warning", _user, %{
@@ -2881,22 +2832,12 @@ defmodule Mosslet.Accounts do
     Stripe Subscription: #{subscription.provider_subscription_id}
     """)
 
-    Logs.log_async("billing.more_than_one_active_subscription_warning", %{
-      user_id: customer.user_id,
-      org_id: customer.org_id,
-      metadata: %{
-        subscription_id: subscription.id,
-        plan_id: subscription.plan_id
-      }
-    })
+    # Removed billing.more_than_one_active_subscription_warning logging - contains unencrypted customer IDs
   end
 
   # we need to have a key to decrypt the user's name
   def user_lifecycle_action("after_register", user, key, %{registration_type: registration_type}) do
-    Logs.log_async("register", %{
-      user: user,
-      metadata: %{registration_type: registration_type}
-    })
+    # Removed register logging - not security essential
 
     Mosslet.Orgs.sync_user_invitations(user)
 

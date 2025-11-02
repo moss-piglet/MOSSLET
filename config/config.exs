@@ -118,7 +118,9 @@ config :mosslet, Oban,
         args: %{"action" => "optimize_cache", "optimization_type" => "memory_cleanup"}},
        # Ephemeral post cleanup every hour (privacy-respecting automatic deletion)
        {"0 * * * *", Mosslet.Timeline.Jobs.EphemeralPostCleanupJob,
-        args: %{"action" => "cleanup_expired_posts", "cleanup_type" => "bulk_expired"}}
+        args: %{"action" => "cleanup_expired_posts", "cleanup_type" => "bulk_expired"}},
+       # Log cleanup daily at 2 AM UTC (privacy-compliant 7-day retention)
+       {"0 2 * * *", Mosslet.Logs.Jobs.LogCleanupJob, args: %{"action" => "cleanup_old_logs"}}
      ]}
   ],
   queues: [

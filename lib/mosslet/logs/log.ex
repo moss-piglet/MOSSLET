@@ -4,19 +4,15 @@ defmodule Mosslet.Logs.Log do
 
   @user_type_options ["user", "admin"]
   @action_options [
-    "update_profile",
-    "register",
+    # Essential security logging only
     "sign_in",
-    "passwordless_pin_sent",
-    "passwordless_pin_too_many_incorrect_attempts",
-    "passwordless_pin_expired",
-    "sign_out",
-    "confirm_email",
-    "request_new_email",
-    "confirm_new_email",
-    "delete_user",
+    "totp.enable",
+    "totp.disable",
+    "totp.invalid_code_used",
     "impersonate_user",
     "restore_impersonator",
+
+    # Org actions (if needed for security)
     "orgs.create",
     "orgs.delete_member",
     "orgs.update_member",
@@ -24,20 +20,9 @@ defmodule Mosslet.Logs.Log do
     "orgs.delete_invitation",
     "orgs.accept_invitation",
     "orgs.reject_invitation",
-    "billing.click_subscribe_button",
-    "billing.subscribe_subscription",
-    "billing.over_charge",
-    "billing.renew_subscription",
-    "billing.cancel_subscription",
-    "billing.update_subscription",
-    "billing.more_than_one_active_subscription_warning",
-    "totp.enable",
-    "totp.update",
-    "totp.disable",
-    "totp.regenerate_backup_codes",
-    "totp.validate",
-    "totp.validate_with_backup_code",
-    "totp.invalid_code_used"
+
+    # User management (admin actions)
+    "delete_user"
   ]
 
   @primary_key {:id, :binary_id, autogenerate: true}

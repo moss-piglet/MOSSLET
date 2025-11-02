@@ -622,9 +622,7 @@ defmodule MossletWeb.EditTotpLive do
     # Use send/2 to schedule showing the modal again after a brief delay
     Process.send_after(self(), :show_regenerated_codes, 50)
 
-    Mosslet.Logs.log_async("totp.regenerate_backup_codes", %{
-      user: socket.assigns.current_user
-    })
+    # Removed totp.regenerate_backup_codes logging - not security essential
 
     {:noreply, socket}
   end
@@ -632,11 +630,14 @@ defmodule MossletWeb.EditTotpLive do
   @impl true
   def handle_event("update_totp", %{"user_totp" => params}, socket) do
     editing_totp = socket.assigns.editing_totp
-    log_type = if is_nil(editing_totp.id), do: "totp.enable", else: "totp.update"
+    # Only log enable, not update
+    log_type = if is_nil(editing_totp.id), do: "totp.enable", else: nil
 
     case Accounts.upsert_user_totp(editing_totp, params) do
       {:ok, current_totp} ->
-        Mosslet.Logs.log_async(log_type, %{user: socket.assigns.current_user})
+        if log_type do
+          Mosslet.Logs.log_async(log_type, %{user: socket.assigns.current_user})
+        end
 
         {:noreply,
          socket

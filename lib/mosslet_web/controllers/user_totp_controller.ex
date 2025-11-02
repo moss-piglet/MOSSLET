@@ -22,14 +22,14 @@ defmodule MossletWeb.UserTOTPController do
 
     case Accounts.validate_user_totp(current_user, user_params["code"]) do
       :valid_totp ->
-        Mosslet.Logs.log("totp.validate", %{user: current_user})
+        # Removed totp.validate logging - successful auth not security essential
 
         conn
         |> delete_session(@pending)
         |> UserAuth.redirect_user_after_login_with_remember_me(current_user, user_params)
 
       {:valid_backup_code, remaining} ->
-        Mosslet.Logs.log("totp.validate_with_backup_code", %{user: current_user})
+        # Removed totp.validate_with_backup_code logging - successful auth not security essential
         plural = ngettext("backup code", "backup codes", remaining)
 
         conn
