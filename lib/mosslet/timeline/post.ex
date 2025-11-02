@@ -338,7 +338,11 @@ defmodule Mosslet.Timeline.Post do
         if Accounts.has_any_user_connections?(opts[:user]) do
           changeset
         else
-          changeset |> add_error(:body, "Woopsy, first we need to make some connections.")
+          changeset
+          |> add_error(
+            :body,
+            "Woops! You need to make some connections first."
+          )
         end
 
       :specific_groups ->

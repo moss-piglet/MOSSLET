@@ -2475,6 +2475,23 @@ defmodule MossletWeb.CoreComponents do
     end)
   end
 
+  @doc """
+  Use for when you want to combine all form errors into one message (maybe to display in a flash)
+  without the key in the message.
+  """
+  def combine_changeset_error_messages_sans_key(changeset) do
+    errors =
+      Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+        Enum.reduce(opts, msg, fn {key, value}, acc ->
+          String.replace(acc, "%{#{key}}", to_string(value))
+        end)
+      end)
+
+    Enum.map_join(errors, "\n", fn {_key, errors} ->
+      "#{Enum.join(errors, ", ")}\n"
+    end)
+  end
+
   slot :title, required: true
   slot :right
   slot :links

@@ -1690,10 +1690,13 @@ defmodule MossletWeb.TimelineLive.Index do
             {:noreply, socket}
 
           {:error, changeset} ->
+            error_message =
+              MossletWeb.CoreComponents.combine_changeset_error_messages_sans_key(changeset)
+
             socket =
               socket
               |> assign(:post_form, to_form(changeset, action: :validate))
-              |> put_flash(:error, "Failed to create post. Please check your input.")
+              |> put_flash(:warning, String.trim(error_message))
               |> push_patch(to: socket.assigns.return_url)
 
             {:noreply, socket}
