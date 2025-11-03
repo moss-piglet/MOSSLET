@@ -118,6 +118,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loaded_posts_count, 0)
       |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
+      # Track dynamic stream limit
+      |> assign(:stream_limit, @post_per_page_default)
       # Store user token for uploads
       |> assign(:user_token, user_token)
       # Content warning state
@@ -538,7 +540,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Add the new post to the top of the stream - CSS animations will trigger automatically
       socket =
         socket
-        |> stream_insert(:posts, post, at: 0)
+        |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_new_post_notification(post, current_user)
 
@@ -554,10 +556,38 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_info({:post_updated, _post}, socket) do
-    return_url = socket.assigns.return_url
+  def handle_info({:post_updated, post}, socket) do
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
-    {:noreply, socket |> push_patch(to: return_url)}
+    # Check if this updated post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+
+    # Apply content filtering to the updated post
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      # Update the post in the stream - this will update the existing post in place
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_post_notification(post, current_user, "updated")
+
+      {:noreply, socket}
+    else
+      # Post no longer matches current tab or is now filtered out
+      # Remove it from stream and update counts
+      socket =
+        socket
+        |> stream_delete(:posts, post)
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:post_updated_fav, post}, socket) do
@@ -571,18 +601,19 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:post_deleted, post}, socket) do
-    return_url = socket.assigns.return_url
     current_user = socket.assigns.current_user
+    options = socket.assigns.options
 
-    # Always invalidate cache when receiving post_deleted message
-    # This ensures fresh data when switching tabs or refreshing
-    Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+    # Always remove the post from the stream regardless of tab
+    # since it's been deleted and shouldn't appear anywhere
+    socket =
+      socket
+      |> stream_delete(:posts, post)
+      |> recalculate_counts_after_new_post(current_user, options)
 
-    if post.user_id == current_user.id do
-      {:noreply, socket}
-    else
-      {:noreply, socket |> stream_delete(:posts, post) |> push_patch(to: return_url)}
-    end
+    # No notification needed for deleted posts - just remove silently
+
+    {:noreply, socket}
   end
 
   def handle_info({:post_reposted, post}, socket) do
@@ -594,7 +625,7 @@ defmodule MossletWeb.TimelineLive.Index do
     else
       {:noreply,
        socket
-       |> stream_insert(:posts, post, at: 0)
+       |> stream_insert(:posts, post, at: 0, limit: @post_per_page_default)
        |> push_patch(to: return_url)}
     end
   end
@@ -1683,12 +1714,27 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:selected_visibility_groups, [])
               |> assign(:selected_visibility_users, [])
               |> put_flash(:success, "Post created successfully")
-              # CRITICAL FIX: Invalidate cache immediately after post creation
-              # This ensures fresh timeline data when push_patch triggers handle_params
-              |> tap(fn _socket ->
-                Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
-              end)
-              |> push_patch(to: socket.assigns.return_url)
+
+            # Instead of push_patch (page reload), update stream and counts like handle_info does
+            current_tab = socket.assigns.active_tab || "home"
+            options = socket.assigns.options
+            content_filters = socket.assigns.content_filters
+
+            # Check if this new post should appear in the current tab
+            should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+            passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+            socket =
+              if should_show_post and passes_content_filters do
+                # Add the new post to the top of the stream - same as handle_info
+                socket
+                |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
+                |> recalculate_counts_after_new_post(current_user, options)
+              else
+                # Post doesn't match current tab, just update counts
+                socket
+                |> recalculate_counts_after_new_post(current_user, options)
+              end
 
             {:noreply, socket}
 
@@ -1700,15 +1746,13 @@ defmodule MossletWeb.TimelineLive.Index do
               socket
               |> assign(:post_form, to_form(changeset, action: :validate))
               |> put_flash(:warning, String.trim(error_message))
-              |> push_patch(to: socket.assigns.return_url)
 
             {:noreply, socket}
         end
       else
         {:noreply,
          socket
-         |> put_flash(:warning, "You do not have permission to create this post.")
-         |> push_patch(to: socket.assigns.return_url)}
+         |> put_flash(:warning, "You do not have permission to create this post.")}
       end
     else
       {:noreply,
@@ -1716,8 +1760,7 @@ defmodule MossletWeb.TimelineLive.Index do
        |> put_flash(
          :warning,
          "You are not connected to the internet. Please refresh your page and try again."
-       )
-       |> push_patch(to: socket.assigns.return_url)}
+       )}
     end
   end
 
@@ -1914,14 +1957,19 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     current_options = socket.assigns.options
-    current_page = socket.assigns.current_page
-    loaded_count = socket.assigns.loaded_posts_count
 
     # Set loading state
     socket = assign(socket, :load_more_loading, true)
 
     # Calculate next page parameters
-    next_page = current_page + 1
+    # CRITICAL FIX: When posts get trimmed by real-time inserts, pagination gets out of sync
+    # We need to calculate the actual page based on what we have in the stream vs total available
+    # This is what we actually have in the stream
+    actual_loaded_count = socket.assigns.stream_limit
+    posts_per_page = current_options.post_per_page
+
+    # Calculate which page we should load next based on actual stream content
+    next_page = div(actual_loaded_count, posts_per_page) + 1
     updated_options = Map.put(current_options, :post_page, next_page)
 
     # Always use fresh filter preferences for load more
@@ -1951,8 +1999,12 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
-    # Calculate updated counts
-    new_loaded_count = loaded_count + length(new_posts)
+    # Calculate updated counts and pagination
+    new_loaded_count = actual_loaded_count + length(new_posts)
+
+    # Increase stream limit to accommodate new posts loaded
+    # This ensures real-time posts don't prune the posts user just loaded
+    new_stream_limit = socket.assigns.stream_limit + length(new_posts)
 
     # CRITICAL FIX: Recalculate timeline counts to ensure accurate remaining count
     options_with_filters = Map.put(updated_options, :content_filter_prefs, content_filter_prefs)
@@ -1968,6 +2020,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:loaded_posts_count, new_loaded_count)
       |> assign(:current_page, next_page)
+      # Update dynamic limit
+      |> assign(:stream_limit, new_stream_limit)
       |> assign(:load_more_loading, false)
 
     {:noreply, socket}
@@ -2209,7 +2263,11 @@ defmodule MossletWeb.TimelineLive.Index do
                 if current_tab == "bookmarks" do
                   # On bookmarks tab: add the newly bookmarked post to the top of the stream
                   updated_post = Timeline.get_post!(post_id)
-                  stream_insert(socket, :posts, updated_post, at: 0)
+
+                  stream_insert(socket, :posts, updated_post,
+                    at: 0,
+                    limit: @post_per_page_default
+                  )
                 else
                   # On other tabs: update the post with new bookmark status
                   updated_post = Timeline.get_post!(post_id)
@@ -2455,7 +2513,6 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("delete_post", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user
-    return_url = socket.assigns.return_url
     key = socket.assigns.key
 
     if post.user_id == current_user.id do
@@ -2495,7 +2552,7 @@ defmodule MossletWeb.TimelineLive.Index do
               end
             )
 
-          {:noreply, push_patch(socket, to: return_url)}
+          {:noreply, socket |> stream_delete(:posts, post)}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to delete post. Please try again.")}
@@ -3708,8 +3765,8 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Helper function to recalculate counts after a new post arrives
-  defp recalculate_counts_after_new_post(socket, current_user, options) do
+  # Helper function to recalculate counts after any post change (create/update/delete)
+  defp recalculate_counts_after_post_change(socket, current_user, options) do
     # Include filter preferences for accurate counts
     # Use cached content filters from socket assigns
     content_filter_prefs = socket.assigns.content_filters
@@ -3722,18 +3779,35 @@ defmodule MossletWeb.TimelineLive.Index do
     |> assign(:unread_counts, unread_counts)
   end
 
-  # Helper function to add a subtle new post notification
-  defp add_new_post_notification(socket, post, current_user) do
-    # Get author name safely
-    # we don't show an extra notification for the person who made the post
+  # Backward compatibility alias
+  defp recalculate_counts_after_new_post(socket, current_user, options) do
+    recalculate_counts_after_post_change(socket, current_user, options)
+  end
+
+  # Generic function to add post notifications (create/update/delete)
+  defp add_post_notification(socket, post, current_user, action) do
+    # we don't show notifications for the current user's own posts
     if post.user_id === current_user.id do
       socket
     else
       author_name = get_safe_post_author_name(post, current_user, socket.assigns.key)
 
-      # Add a gentle flash message for the new post
-      put_flash(socket, :info, "New post from #{author_name}")
+      message =
+        case action do
+          "new" -> "New post from #{author_name}"
+          "updated" -> "Post updated by #{author_name}"
+          "deleted" -> "Post deleted by #{author_name}"
+          _ -> "Post from #{author_name}"
+        end
+
+      # Add a gentle flash message
+      put_flash(socket, :info, message)
     end
+  end
+
+  # Backward compatibility alias
+  defp add_new_post_notification(socket, post, current_user) do
+    add_post_notification(socket, post, current_user, "new")
   end
 
   # Safe version of get_post_author_name that returns the author name string
