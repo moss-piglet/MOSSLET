@@ -47,10 +47,12 @@ defmodule Mosslet.Application do
         Mosslet.Extensions.MemoryProcessor,
         # Start the Timeline Cache (separate from avatar cache)
         Mosslet.Timeline.Performance.TimelineCache,
-        # Start the Email Notifications Processor
+        # Start the Email Notifications Processor (coordinator)
         Mosslet.Notifications.EmailNotificationsProcessor,
-        # Start the Timeline Broadway Pipeline (ethical batch processing)
-        {Mosslet.Timeline.Performance.TimelineBroadway, []},
+        # Start the Email Notifications GenServer (rate-limited email processing)
+        {Mosslet.Notifications.EmailNotificationsGenServer, []},
+        # Start the Timeline GenServer (background timeline processing)
+        {Mosslet.Timeline.Performance.TimelineGenServer, []},
         # Start the Storj Task Supervisor,
         {Task.Supervisor, name: Mosslet.StorjTask},
         # Start PlugAttack storage (1 hour = 3_600_000 milliseconds)

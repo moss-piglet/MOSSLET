@@ -1,18 +1,21 @@
 defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   @moduledoc """
-  GenServer that processes email notifications in a privacy-preserving way.
+  Coordinator for email notifications that now delegates to the Broadway pipeline.
 
-  This processor handles all filtering, offline checking, decryption of user emails
-  and sends notifications within the session context, avoiding the security issue
-  of storing decrypted data in Oban jobs.
+  This processor handles all filtering, offline checking, and coordinates with the
+  Broadway-based email processing system for better backpressure and rate limiting.
+
+  🔄 UPDATED: Now uses Broadway for actual email processing
+  🔐 PRIVACY: Maintains session-based decryption approach
+  📧 RATE LIMITED: 30 emails per minute via Broadway
   """
 
   use GenServer
   use MossletWeb, :verified_routes
   require Logger
 
-  alias Mosslet.{Accounts, Timeline, Mailer}
-  alias Mosslet.Notifications.Email
+  alias Mosslet.Accounts
+  alias Mosslet.Notifications.EmailNotificationsGenServer
 
   ## Client API
 
@@ -24,7 +27,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   Process email notifications for a new post.
 
   This handles all filtering logic including visibility, offline checking,
-  and user preferences before sending notifications.
+  and user preferences before delegating to the Broadway pipeline.
   """
   def process_post_notifications(post, current_user, session_key) do
     GenServer.cast(__MODULE__, {:process_post_notifications, post, current_user, session_key})
@@ -48,7 +51,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   @impl true
   def handle_cast({:process_post_notifications, post, current_user, session_key}, state) do
     Task.Supervisor.start_child(Mosslet.BackgroundTask, fn ->
-      process_post_notifications_safely(post, current_user, session_key)
+      process_post_notifications_with_broadway(post, current_user, session_key)
     end)
 
     {:noreply, state}
@@ -56,8 +59,9 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
 
   @impl true
   def handle_cast({:process_email, user_id, post_id, current_user, session_key}, state) do
+    # For individual emails, we'll push directly to Broadway
     Task.Supervisor.start_child(Mosslet.BackgroundTask, fn ->
-      process_email_safely(user_id, post_id, current_user, session_key)
+      push_single_email_to_broadway(user_id, post_id, current_user, session_key)
     end)
 
     {:noreply, state}
@@ -65,7 +69,22 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
 
   ## Private Functions
 
-  defp process_post_notifications_safely(post, current_user, session_key) do
+  defp push_single_email_to_broadway(user_id, post_id, current_user, session_key) do
+    Logger.info(
+      "📧 Pushing single email notification to GenServer: user #{user_id}, post #{post_id}"
+    )
+
+    EmailNotificationsGenServer.queue_email_notification(
+      user_id,
+      post_id,
+      current_user.id,
+      session_key
+    )
+
+    Logger.info("✅ Single email notification queued in GenServer")
+  end
+
+  defp process_post_notifications_with_broadway(post, current_user, session_key) do
     Logger.info(
       "🔍 Starting email notification processing for post #{post.id} from user #{current_user.id}"
     )
@@ -86,13 +105,19 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
       eligible_users = filter_eligible_users(target_user_ids, current_user)
       Logger.info("🔍 Eligible users after filtering: #{inspect(eligible_users)}")
 
-      eligible_users
-      |> Enum.each(fn user_id ->
-        Logger.info("🔍 Processing individual email for user #{user_id}")
-        process_email_safely(user_id, post.id, current_user, session_key)
-      end)
+      # 🔄 NEW: Push all eligible users to GenServer for rate-limited processing
+      if length(eligible_users) > 0 do
+        Logger.info("📧 Pushing #{length(eligible_users)} email notifications to GenServer")
 
-      Logger.info("✅ Completed processing all email notifications")
+        EmailNotificationsGenServer.queue_post_notifications(
+          post,
+          eligible_users,
+          current_user,
+          session_key
+        )
+
+        Logger.info("✅ Email notifications queued in GenServer with rate limiting")
+      end
     end
   end
 
@@ -138,148 +163,17 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
     end)
   end
 
-  defp process_email_safely(user_id, post_id, current_user, session_key) do
-    with {:ok, target_user_connection} <- get_user_connection(user_id, current_user),
-         {:ok, post} <- get_post(post_id),
-         {:ok, should_process} <-
-           should_process_email?(target_user_connection, post, current_user),
-         true <- should_process,
-         {:ok, unread_count} <- get_unread_count_for_connection(target_user_connection),
-         {:ok, decrypted_email} <-
-           decrypt_user_email(target_user_connection, current_user, session_key),
-         {:ok, _result} <-
-           send_email_notification(decrypted_email, unread_count, target_user_connection) do
-    else
-      {:skip, reason} ->
-        Logger.info("⚠️ Skipping email notification for user #{user_id}: #{reason}")
-
-      {:error, reason} ->
-        Logger.error(
-          "❌ Failed to process email notification for user #{user_id}: #{inspect(reason)}"
-        )
-
-      false ->
-        Logger.info("⚠️ Email notification not needed for user #{user_id}")
-
-      error ->
-        Logger.error("❌ Unexpected error for user #{user_id}: #{inspect(error)}")
-    end
-  end
-
-  defp get_user_connection(user_id, current_user) do
-    # We want to get the user connection from the target user's perspective
-    # where they have a connection TO the current_user (post creator)
-    case Accounts.get_user_connection_between_users(user_id, current_user.id) do
-      nil -> {:error, "User connection not found"}
-      user_connection -> {:ok, user_connection}
-    end
-  end
-
-  defp get_post(post_id) do
-    case Timeline.get_post(post_id) do
-      nil -> {:error, "Post not found"}
-      post -> {:ok, post}
-    end
-  end
-
-  defp should_process_email?(user_connection, post, _current_user) do
-    # Get the actual user from the connection
-    target_user = Accounts.get_user!(user_connection.reverse_user_id)
-
-    cond do
-      target_user.id == post.user_id ->
-        {:skip, "post creator"}
-
-      not target_user.is_subscribed_to_email_notifications ->
-        {:skip, "email notifications disabled"}
-
-      already_sent_email_today?(target_user) ->
-        {:skip, "already sent email today (daily limit)"}
-
-      true ->
-        {:ok, true}
-    end
-  end
-
-  defp already_sent_email_today?(user) do
-    case user.last_email_notification_received_at do
-      nil ->
-        # Never sent an email before
-        false
-
-      last_sent_at ->
-        # Check if it was sent today
-        today = Date.utc_today()
-        last_sent_date = DateTime.to_date(last_sent_at)
-
-        case Date.compare(last_sent_date, today) do
-          :eq ->
-            # Same day - already sent today
-            Logger.info("📅 User #{user.id} already received email today (#{last_sent_at})")
-            true
-
-          _ ->
-            # Different day - can send
-            false
-        end
-    end
-  end
-
-  defp get_unread_count_for_connection(user_connection) do
-    target_user = Accounts.get_user!(user_connection.reverse_user_id)
-    unread_count = Timeline.count_unread_posts_for_user(target_user)
-
-    if unread_count > 0 do
-      {:ok, unread_count}
-    else
-      {:skip, "no unread posts"}
-    end
-  end
-
-  defp decrypt_user_email(user_connection, current_user, session_key) do
-    case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
-           user_connection.connection.email,
-           current_user,
-           user_connection.key,
-           session_key
-         ) do
-      :failed_verification -> :failed_verification
-      decrypted_email -> {:ok, decrypted_email}
-    end
-  end
-
-  defp send_email_notification(decrypted_email, unread_count, user_connection) do
-    timeline_url = url(~p"/app/timeline")
-
-    email =
-      Email.unread_posts_notification_with_email(
-        decrypted_email,
-        unread_count,
-        timeline_url
-      )
-
-    case Mailer.deliver(email) do
-      {:ok, result} ->
-        # Update the user's last email notification timestamp
-        target_user = Accounts.get_user!(user_connection.reverse_user_id)
-
-        case Accounts.update_user_email_notification_received_at(target_user) do
-          {:ok, _updated_user} ->
-            Logger.info(
-              "📅 Updated last_email_notification_received_at for user #{target_user.id}"
-            )
-
-          {:error, changeset} ->
-            Logger.error("❌ Failed to update email timestamp: #{inspect(changeset.errors)}")
-        end
-
-        {:ok, result}
-
-      {:error, reason} ->
-        {:error, "delivery failed: #{inspect(reason)}"}
-
-      rest ->
-        {:error, "delievery failed: #{inspect(rest)}"}
-    end
-  end
+  # 🔄 NOTE: The following functions have been moved to EmailNotificationsGenServer
+  # for better rate limiting and backpressure control:
+  # - process_email_safely/4
+  # - get_user_connection/2
+  # - get_post/1
+  # - should_process_email?/3
+  # - already_sent_email_today?/1
+  # - get_unread_count_for_connection/1
+  # - decrypt_user_email/3
+  # - send_email_notification/3
+  #
+  # These functions are now handled by the GenServer with proper
+  # backpressure and rate limiting (30 emails per minute).
 end
