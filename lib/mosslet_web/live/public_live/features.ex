@@ -388,20 +388,46 @@ defmodule MossletWeb.PublicLive.Features do
                 <:title>
                   <div class="flex items-center gap-4">
                     <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 shadow-lg">
-                      <.phx_icon name="hero-bolt" class="size-7 text-white" />
+                      <.phx_icon name="hero-bell" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent font-bold">
-                      Safe Real-time Connection
+                      Calm Notifications System
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Stay connected with friends in real-time, but only when you want to. No pressure, no FOMO-inducing notifications.
+                  In-app notifications that only appear while you're using MOSSLET. Optional email digest with privacy-first design and daily rate limiting.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
                     <div class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
-                    Gentle updates • No addiction tactics • Respect your time
+                    No interruptions • Max 1 email/day • Privacy-first • Respect your time
+                  </div>
+                </div>
+              </.liquid_card>
+
+              <%!-- Email Notifications Feature --%>
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <div class="flex items-center gap-4">
+                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 shadow-lg">
+                      <.phx_icon name="hero-envelope" class="size-7 text-white" />
+                    </div>
+                    <span class="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent font-bold">
+                      Peaceful Email Digests
+                    </span>
+                  </div>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                  Stay connected without inbox overwhelm. Privacy-first daily email digest with smart rate limiting and zero content leakage.
+                </p>
+                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
+                  <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
+                    <.phx_icon name="hero-calendar-days" class="size-3" />
+                    Max 1 email/day • Privacy-first design • No content revealed • Offline detection
                   </div>
                 </div>
               </.liquid_card>
@@ -795,7 +821,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  In-app notifications that don't pressure you. Take your time, respond when you want to.
+                  In-app notifications that don't pressure you. Optional email digest limited to 1 per day maximum - privacy-first and peaceful.
                 </p>
               </.liquid_card>
 
