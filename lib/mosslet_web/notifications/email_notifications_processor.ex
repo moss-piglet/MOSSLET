@@ -249,7 +249,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   end
 
   defp send_email_notification(decrypted_email, unread_count, user_connection) do
-    timeline_url = ~p"/app/timeline"
+    timeline_url = url(~p"/app/timeline")
 
     email =
       Email.unread_posts_notification_with_email(
