@@ -104,10 +104,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
     # Schedule periodic batch processing for cache updates
     :timer.send_interval(@cache_batch_interval_ms, :process_cache_batch)
 
-    Logger.info(
-      "📊 TimelineGenServer started with batching: #{@batch_size} timeline ops, #{@cache_batch_size} cache ops"
-    )
-
     state = %{
       timeline_queue: [],
       cache_queue: [],
@@ -123,11 +119,10 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
     case queue_size_ok?(state) do
       true ->
         new_state = route_to_appropriate_queue(update_request, state)
-        Logger.debug("📊 Queued #{update_request.type} operation")
+
         {:reply, :ok, new_state}
 
       false ->
-        Logger.warning("⚠️ Timeline queue full, rejecting operation (backpressure)")
         {:reply, {:error, :queue_full}, state}
     end
   end
@@ -141,11 +136,9 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
             route_to_appropriate_queue(operation, acc_state)
           end)
 
-        Logger.info("📊 Queued batch of #{length(operations)} timeline operations")
         {:reply, :ok, new_state}
 
       false ->
-        Logger.warning("⚠️ Timeline queue would overflow, rejecting batch (backpressure)")
         {:reply, {:error, :queue_full}, state}
     end
   end
@@ -168,8 +161,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
     {batch, remaining_queue} = take_batch_from_queue(state.timeline_queue, @batch_size)
 
     if length(batch) > 0 do
-      Logger.info("🔄 Processing timeline batch of #{length(batch)} operations")
-
       # Process the batch (same logic as Broadway)
       processed_count = process_timeline_batch(batch)
 
@@ -180,7 +171,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
           last_batch_processed_at: DateTime.utc_now()
       }
 
-      Logger.info("✅ Processed timeline batch: #{processed_count} operations")
       {:noreply, new_state}
     else
       {:noreply, state}
@@ -192,8 +182,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
     {batch, remaining_queue} = take_batch_from_queue(state.cache_queue, @cache_batch_size)
 
     if length(batch) > 0 do
-      Logger.debug("🔄 Processing cache batch of #{length(batch)} operations")
-
       # Process cache operations
       processed_count = process_cache_batch(batch)
 
@@ -203,7 +191,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
           total_processed: state.total_processed + processed_count
       }
 
-      Logger.debug("✅ Processed cache batch: #{processed_count} operations")
       {:noreply, new_state}
     else
       {:noreply, state}
@@ -315,7 +302,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
 
     case Mosslet.Accounts.get_user(user_id) do
       nil ->
-        Logger.warning("User not found for timeline operations: #{user_id}")
         0
 
       user ->
@@ -352,7 +338,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
                 length(ops)
 
               _ ->
-                Logger.debug("Unknown timeline operation: #{op_type}")
                 0
             end
 
@@ -365,10 +350,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
   defp process_post_update_operation(operation) do
     post_id = operation.post_id
     affected_users = operation.affected_users || []
-
-    Logger.debug(
-      "Processing post update for post #{post_id}, affecting #{length(affected_users)} users"
-    )
 
     # Process feed updates for all affected users concurrently (same as Broadway)
     Task.async_stream(
@@ -388,8 +369,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
   # All the helper functions from Broadway (EXACTLY THE SAME LOGIC)
 
   defp regenerate_multiple_feeds(user, tabs) do
-    Logger.debug("Regenerating feeds for user #{user.id}, tabs: #{inspect(tabs)}")
-
     Task.async_stream(
       tabs,
       fn tab ->
@@ -414,8 +393,6 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
   end
 
   defp warm_multiple_tabs(user, tabs) do
-    Logger.debug("Warming cache for user #{user.id}, tabs: #{inspect(tabs)}")
-
     Task.async_stream(
       tabs,
       fn tab ->
@@ -430,16 +407,11 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
     |> Stream.run()
   end
 
-  defp optimize_user_feed(user_id) do
-    # Placeholder for advanced feed optimization
-    # Could include ML-based post ranking, engagement prediction, etc.
-    Logger.debug("Feed optimization placeholder for user #{user_id}")
+  defp optimize_user_feed(_user_id) do
     :ok
   end
 
-  defp update_user_feed_for_post(user_id, post_id) do
-    Logger.debug("Updating feed for user #{user_id} after post #{post_id} change")
-
+  defp update_user_feed_for_post(user_id, _post_id) do
     # Invalidate relevant caches
     TimelineCache.invalidate_timeline(user_id, "home")
 

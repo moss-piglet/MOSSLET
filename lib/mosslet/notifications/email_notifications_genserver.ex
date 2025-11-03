@@ -103,10 +103,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     # Schedule rate limit reset every minute
     :timer.send_interval(60_000, :reset_rate_limit)
 
-    Logger.info(
-      "📧 EmailNotificationsGenServer started with rate limiting: #{@rate_limit_per_minute} emails/minute"
-    )
-
     state = %{
       queue: [],
       emails_sent_this_minute: 0,
@@ -123,11 +119,10 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     case queue_size_ok?(state) do
       true ->
         new_state = %{state | queue: [notification | state.queue]}
-        Logger.debug("📧 Queued email notification for user #{notification.target_user_id}")
+
         {:reply, :ok, new_state}
 
       false ->
-        Logger.warning("⚠️ Email queue full, rejecting notification (backpressure)")
         {:reply, {:error, :queue_full}, state}
     end
   end
@@ -137,11 +132,10 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     case queue_size_ok?(state, length(notifications)) do
       true ->
         new_state = %{state | queue: notifications ++ state.queue}
-        Logger.info("📧 Queued #{length(notifications)} email notifications")
+
         {:reply, :ok, new_state}
 
       false ->
-        Logger.warning("⚠️ Email queue would overflow, rejecting batch (backpressure)")
         {:reply, {:error, :queue_full}, state}
     end
   end
@@ -164,8 +158,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     {batch, remaining_queue} = take_batch_from_queue(state.queue)
 
     if length(batch) > 0 and can_send_emails?(state, length(batch)) do
-      Logger.info("🔄 Processing batch of #{length(batch)} email notifications")
-
       # Process the batch (same logic as Broadway)
       {successful, failed} = process_email_batch(batch)
 
@@ -178,20 +170,14 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
           last_batch_processed_at: DateTime.utc_now()
       }
 
-      Logger.info("✅ Processed batch: #{successful} successful, #{failed} failed")
       {:noreply, new_state}
     else
-      if length(batch) > 0 do
-        Logger.info("⏸️ Rate limit reached, skipping batch (#{length(batch)} emails queued)")
-      end
-
       {:noreply, state}
     end
   end
 
   @impl true
   def handle_info(:reset_rate_limit, state) do
-    Logger.debug("🔄 Resetting rate limit counter")
     {:noreply, %{state | emails_sent_this_minute: 0}}
   end
 
@@ -224,7 +210,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
             :failure
 
           :skip ->
-            Logger.info("⚠️ Skipped email notification")
             # Count skips as successful (not failures)
             :success
         end
@@ -243,8 +228,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
     sender_user_id = notification.sender_user_id
     session_key_ref = notification.session_key_ref
 
-    Logger.info("📧 Processing email notification for user #{target_user_id}, post #{post_id}")
-
     with {:ok, target_user_connection} <- get_user_connection(target_user_id, sender_user_id),
          {:ok, post} <- get_post(post_id),
          {:ok, sender_user} <- get_user(sender_user_id),
@@ -256,11 +239,9 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
            decrypt_user_email(target_user_connection, sender_user, session_key),
          {:ok, _result} <-
            send_email_notification(decrypted_email, unread_count, target_user_connection) do
-      Logger.info("✅ Email notification sent successfully to user #{target_user_id}")
       :ok
     else
-      {:skip, reason} ->
-        Logger.info("⚠️ Skipping email notification for user #{target_user_id}: #{reason}")
+      {:skip, _reason} ->
         :skip
 
       {:error, reason} ->
@@ -271,7 +252,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
         {:error, reason}
 
       false ->
-        Logger.info("⚠️ Email notification not needed for user #{target_user_id}")
         :skip
 
       error ->
@@ -335,7 +315,6 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
 
         case Date.compare(last_sent_date, today) do
           :eq ->
-            Logger.info("📅 User #{user.id} already received email today (#{last_sent_at})")
             true
 
           _ ->
@@ -391,9 +370,7 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
 
         case Accounts.update_user_email_notification_received_at(target_user) do
           {:ok, _updated_user} ->
-            Logger.info(
-              "📅 Updated last_email_notification_received_at for user #{target_user.id}"
-            )
+            :ok
 
           {:error, changeset} ->
             Logger.error("❌ Failed to update email timestamp: #{inspect(changeset.errors)}")

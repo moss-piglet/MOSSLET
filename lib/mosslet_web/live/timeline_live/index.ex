@@ -686,32 +686,47 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_info({:post_reposted, post}, socket) do
     current_user = socket.assigns.current_user
-    return_url = socket.assigns.return_url
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
-    if current_user.id == post.user_id do
+    # Check if this reposted post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      # Add the reposted post to the top of the stream
+      socket =
+        socket
+        |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_post_notification(post, current_user, "reposted")
+
       {:noreply, socket}
     else
-      {:noreply,
-       socket
-       |> stream_insert(:posts, post, at: 0, limit: @post_per_page_default)
-       |> push_patch(to: return_url)}
+      # Post doesn't match current tab or is filtered out, but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
     end
   end
 
   def handle_info({:repost_deleted, post}, socket) do
     current_user = socket.assigns.current_user
-    return_url = socket.assigns.return_url
-    # this is handling the broadcasted message
-    # so it will be a different user than the current user
-    # if the post is not deleted directly by the current user
-    if current_user.id == post.user_id do
-      {:noreply, socket}
-    else
-      {:noreply,
-       socket
-       |> stream_delete(:posts, post)
-       |> push_patch(to: return_url)}
-    end
+    options = socket.assigns.options
+
+    # Always remove the repost from the stream regardless of tab
+    # since it's been deleted and shouldn't appear anywhere
+    socket =
+      socket
+      |> stream_delete(:posts, post)
+      |> recalculate_counts_after_new_post(current_user, options)
+
+    # No notification needed for deleted reposts - just remove silently
+
+    {:noreply, socket}
   end
 
   def handle_info({:memory_created, _memory}, socket) do
@@ -3865,6 +3880,7 @@ defmodule MossletWeb.TimelineLive.Index do
           "new" -> "New post from #{author_name}"
           "updated" -> "Post updated by #{author_name}"
           "deleted" -> "Post deleted by #{author_name}"
+          "reposted" -> "Post reposted by #{author_name}"
           _ -> "Post from #{author_name}"
         end
 
