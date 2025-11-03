@@ -1,0 +1,61 @@
+<h1>New Posts on MOSSLET 🌱</h1>
+
+<p>
+  Oh, hey! ✌️🌿 You have <strong>{@unread_count}</strong>
+  unread {if @unread_count == 1, do: "post", else: "posts"} waiting for you on MOSSLET.
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.gray_box>
+  <div style="text-align: center;">
+    <div style="font-size: 32px; margin-bottom: 12px;">📬</div>
+    <strong style="font-size: 18px; color: #065F46;">
+      {@unread_count} Unread {if @unread_count == 1, do: "Post", else: "Posts"}
+    </strong>
+    <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
+      From your connections and groups
+    </p>
+  </div>
+</EmailComponents.gray_box>
+
+<EmailComponents.gap />
+
+<p>
+  We believe in privacy-first notifications. That's why we don't reveal who posted what
+  or share any post content in this email. Your timeline stays private until you
+  choose to check it.
+</p>
+
+<EmailComponents.status type="info">
+  <strong>🔒 Privacy-First:</strong>
+  This email only tells you that you have unread content. No personal details,
+  post content, or poster information is included to protect everyone's privacy.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<EmailComponents.button_centered to={@timeline_url} color="teal" size="lg">
+  View Your Timeline
+</EmailComponents.button_centered>
+
+<EmailComponents.gap />
+
+<p style="text-align: center; color: #6B7280; font-size: 14px;">
+  <strong>Calm by Design:</strong> This is the only email you'll receive about new posts.
+  We won't flood your inbox or send follow-ups.
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    You're receiving this because you enabled email notifications in your MOSSLET settings.
+    You can disable email notifications anytime by visiting your account settings.
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you're having trouble clicking the button above, copy and paste this URL into your web browser:
+    <a href={@timeline_url} style="color: #14B8A6;">{"https://mosslet.com#{@timeline_url}"}</a>
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

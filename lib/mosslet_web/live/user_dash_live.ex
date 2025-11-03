@@ -40,114 +40,6 @@ defmodule MossletWeb.UserDashLive do
             </div>
           </.liquid_card>
         </div>
-        <div :if={
-          @current_user.is_subscribed_to_marketing_notifications &&
-            !Enum.empty?(@streams.unread_posts.inserts)
-        }>
-          <%!-- Notifications --%>
-          <section aria-labelledby="home-notifications-title" class="flex justify-center w-full">
-            <div
-              aria-live="assertive"
-              class="w-full max-w-xl bg-white dark:bg-gray-800 px-4 py-5 mt-6 shadow dark:shadow-emerald-500/50 rounded-lg sm:px-6"
-            >
-              <h2
-                id="notifications-title-heading"
-                class="text-lg font-medium text-gray-900 dark:text-gray-100"
-              >
-                Notifications
-              </h2>
-              <div
-                id="unread-posts"
-                class="flex border-t border-gray-200 w-full flex-col items-center py-4 space-y-2 sm:items-center overflow-y-auto h-48"
-                phx-update="stream"
-              >
-                <div id="unread_posts-empty" class="only:block only:col-span-4 hidden">
-                  😌
-                </div>
-                <div
-                  :for={{dom_id, unread_post} <- @streams.unread_posts}
-                  id={dom_id}
-                  class="bg-background-50 dark:bg-gray-900 shadow dark:shadow-emerald-500/50 pointer-events-auto flex w-full max-w-md rounded-lg shadow-lg ring-1 ring-black/5 mb-2"
-                >
-                  <div class="w-0 flex-1 p-4">
-                    <div class="flex items-start">
-                      <div class="shrink-0 pt-0.5">
-                        <% user_connection =
-                          Accounts.get_user_connection_for_reply_shared_users(
-                            unread_post.user_id,
-                            @current_user.id
-                          ) %>
-                        <.phx_avatar
-                          :if={user_connection}
-                          class="size-10 rounded-full"
-                          src={
-                            if !show_avatar?(user_connection),
-                              do: "",
-                              else:
-                                maybe_get_avatar_src(
-                                  unread_post,
-                                  @current_user,
-                                  @key,
-                                  @streams.unread_posts
-                                )
-                          }
-                          alt="avatar for unread post"
-                        />
-
-                        <.phx_avatar
-                          :if={!user_connection && unread_post.user_id == @current_user.id}
-                          class="size-10 rounded-full"
-                          src={
-                            if !show_avatar?(@current_user) ||
-                                 maybe_get_user_avatar(@current_user, @key) ==
-                                   "",
-                               do: ~p"/images/logo.svg",
-                               else: maybe_get_user_avatar(@current_user, @key)
-                          }
-                          alt="Your avatar"
-                        />
-                      </div>
-                      <div class="ml-3 w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {decr_item(
-                            unread_post.username,
-                            @current_user,
-                            get_post_key(unread_post, @current_user),
-                            @key,
-                            unread_post,
-                            "username"
-                          )}
-                        </p>
-
-                        <p
-                          :if={unread_post.user_id == @current_user.id}
-                          class="mt-1 text-sm text-gray-500 dark:text-gray-400"
-                        >
-                          This Post from you is unread.
-                        </p>
-                        <p
-                          :if={unread_post.user_id != @current_user.id}
-                          class="mt-1 text-sm text-gray-500 dark:text-gray-400"
-                        >
-                          Shared a new Post with you.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="flex border-l border-gray-200 dark:border-gray-700">
-                    <.link
-                      navigate={~p"/app/timeline#timeline-card-#{unread_post.id}"}
-                      class="flex w-full items-center justify-center rounded-none rounded-r-lg border border-transparent p-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-300 focus:outline-hidden"
-                    >
-                      View
-                    </.link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
         <.alert
           :if={is_nil(@current_user.connection.profile) && !@current_user.confirmed_at}
           color="warning"
@@ -193,14 +85,7 @@ defmodule MossletWeb.UserDashLive do
   end
 
   def handle_params(_params, _url, socket) do
-    current_user = socket.assigns.current_user
-
-    unread_posts =
-      if current_user.is_subscribed_to_marketing_notifications,
-        do: Timeline.unread_posts(current_user),
-        else: []
-
-    {:noreply, socket |> stream(:unread_posts, unread_posts, reset: true)}
+    {:noreply, socket}
   end
 
   def handle_event("onboard", %{"id" => id}, socket) do
@@ -225,18 +110,6 @@ defmodule MossletWeb.UserDashLive do
              |> put_flash(:success, info)
              |> redirect(to: ~p"/app")}
         end
-    end
-  end
-
-  def handle_info({:post_created, post}, socket) do
-    current_user = socket.assigns.current_user
-
-    if current_user.is_subscribed_to_marketing_notifications do
-      unread_post = Timeline.get_unread_post_for_user_and_post(post, current_user)
-
-      {:noreply, stream_insert(socket, :unread_posts, unread_post, at: 0)}
-    else
-      {:noreply, socket}
     end
   end
 

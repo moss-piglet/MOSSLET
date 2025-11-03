@@ -1,9 +1,9 @@
-defmodule Mosslet.Email do
+defmodule Mosslet.Notifications.Email do
   @moduledoc """
   Houses functions that generate Swoosh email structs.
   An Swoosh email struct can be delivered by a Swoosh mailer (see mailer.ex & user_notifier.ex). Eg:
 
-      Mosslet.Email.confirm_register_email(user.email, url)
+      Mosslet.Notifications.Email.confirm_register_email(user.email, url)
       |> Mosslet.Mailer.deliver()
   """
 
@@ -73,6 +73,29 @@ defmodule Mosslet.Email do
     |> premail()
   end
 
+  def unread_posts_notification_with_email(email, unread_count, timeline_url) do
+    new()
+    |> to(email)
+    |> from({"Notifications @ MOSSLET", "notifications@mosslet.com"})
+    |> subject(gettext("You have %{count} unread posts on MOSSLET", count: unread_count))
+    |> render_body("unread_posts_notification.html", %{
+      unread_count: unread_count,
+      timeline_url: timeline_url
+    })
+    |> premail()
+  end
+
+  def unread_posts_notification(user, unread_count, timeline_url) do
+    base_email()
+    |> to(user.email)
+    |> subject(gettext("You have %{count} unread posts on MOSSLET", count: unread_count))
+    |> render_body("unread_posts_notification.html", %{
+      unread_count: unread_count,
+      timeline_url: timeline_url
+    })
+    |> premail()
+  end
+
   def passwordless_pin(email, pin) do
     base_email()
     |> to(email)
@@ -92,11 +115,8 @@ defmodule Mosslet.Email do
   end
 
   defp base_email(opts \\ []) do
-    {unsubscribe_url, _opts} = Keyword.pop(opts, :unsubscribe_url)
-
     new()
     |> from({from_name(), from_email()})
-    |> assign(:unsubscribe_url, unsubscribe_url)
   end
 
   # Inlines your CSS and adds a text option (email clients prefer this)
@@ -117,11 +137,4 @@ defmodule Mosslet.Email do
     Mosslet.config(:mailer_default_from_email)
   end
 
-  # Use this when you want to have different types of emails a user can sub/unsub to.
-  # User field must begin with "is_subscribed_to_"
-  # Eg:  user.is_subscribed_to_comment_replies
-  # base_email(unsubscribe_url: unsub_url(comment_owner, "comment_replies"))
-  def get_unsubscribe_url(user, email_kind) do
-    Mosslet.Accounts.NotificationSubscriptions.unsubscribe_url(user, email_kind)
-  end
 end

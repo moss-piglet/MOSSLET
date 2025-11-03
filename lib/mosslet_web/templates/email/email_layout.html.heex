@@ -547,7 +547,7 @@
                         </a>
                       </p>
 
-                      <%= if @unsubscribe_url do %>
+                      <%= if assigns[:unsubscribe_url] do %>
                         <a
                           class="font-fallback sub align-center"
                           href={@unsubscribe_url}

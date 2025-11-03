@@ -100,28 +100,58 @@ defmodule MossletWeb.UserOnboardingLive do
               </div>
 
               <%!-- Notifications Section --%>
-              <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-200/30 dark:border-emerald-700/20">
-                <.phx_input
-                  field={@form[:is_subscribed_to_marketing_notifications]}
-                  type="checkbox"
-                  label={gettext("Allow calm, in-app notifications")}
-                  apply_classes?={true}
-                  classes={[
-                    "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600",
-                    "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
-                    "dark:focus:ring-offset-slate-800",
-                    "transition-all duration-200 ease-out",
-                    "hover:border-emerald-400 dark:hover:border-emerald-500",
-                    "checked:bg-gradient-to-br checked:from-emerald-500 checked:to-teal-600",
-                    "checked:border-emerald-500 dark:checked:border-emerald-400"
-                  ]}
-                >
-                  <:description_block>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      These will appear on your home page when you're already using our service. We won't pull you back in when you're offline, and you can always change this later in your settings.
-                    </p>
-                  </:description_block>
-                </.phx_input>
+              <div class="space-y-4">
+                <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-200/30 dark:border-emerald-700/20">
+                  <.phx_input
+                    field={@form[:is_subscribed_to_marketing_notifications]}
+                    type="checkbox"
+                    label={gettext("Allow calm notifications")}
+                    apply_classes?={true}
+                    classes={[
+                      "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600",
+                      "text-emerald-600 focus:ring-emerald-500/50 focus:ring-2 focus:ring-offset-2",
+                      "dark:focus:ring-offset-slate-800",
+                      "transition-all duration-200 ease-out",
+                      "hover:border-emerald-400 dark:hover:border-emerald-500",
+                      "checked:bg-gradient-to-br checked:from-emerald-500 checked:to-teal-600",
+                      "checked:border-emerald-500 dark:checked:border-emerald-400"
+                    ]}
+                  >
+                    <:description_block>
+                      <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        These will appear softly when you're already using our service. We won't pull you back in when you're offline.
+                      </p>
+                    </:description_block>
+                  </.phx_input>
+                </div>
+
+                <div class="p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/10 dark:to-cyan-900/10 border border-blue-200/30 dark:border-blue-700/20">
+                  <.phx_input
+                    field={@form[:is_subscribed_to_email_notifications]}
+                    type="checkbox"
+                    label={gettext("Allow email notifications")}
+                    apply_classes?={true}
+                    classes={[
+                      "h-5 w-5 rounded border-2 border-slate-300 dark:border-slate-600",
+                      "text-blue-600 focus:ring-blue-500/50 focus:ring-2 focus:ring-offset-2",
+                      "dark:focus:ring-offset-slate-800",
+                      "transition-all duration-200 ease-out",
+                      "hover:border-blue-400 dark:hover:border-blue-500",
+                      "checked:bg-gradient-to-br checked:from-blue-500 checked:to-cyan-600",
+                      "checked:border-blue-500 dark:checked:border-blue-400"
+                    ]}
+                  >
+                    <:description_block>
+                      <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Receive privacy-first email summaries when you have unread posts. No poster details revealed, just counts.
+                      </p>
+                    </:description_block>
+                  </.phx_input>
+                </div>
+
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center">
+                  You can always change these settings later in your preferences.
+                </p>
               </div>
 
               <%!-- Action Buttons --%>

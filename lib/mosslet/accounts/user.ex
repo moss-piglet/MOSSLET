@@ -58,6 +58,7 @@ defmodule Mosslet.Accounts.User do
     field :last_signed_in_ip_hash, Encrypted.HMAC
     field :last_signed_in_datetime, :utc_datetime
     field :is_subscribed_to_marketing_notifications, :boolean, default: false
+    field :is_subscribed_to_email_notifications, :boolean, default: false
 
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
@@ -1278,7 +1279,12 @@ defmodule Mosslet.Accounts.User do
 
   def profile_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:name, :is_subscribed_to_marketing_notifications, :is_onboarded?])
+    |> cast(attrs, [
+      :name,
+      :is_subscribed_to_marketing_notifications,
+      :is_subscribed_to_email_notifications,
+      :is_onboarded?
+    ])
     |> validate_name(opts)
     |> case do
       %{changes: %{name: _}} = changeset -> changeset
@@ -1417,9 +1423,15 @@ defmodule Mosslet.Accounts.User do
   """
   def notifications_changeset(user, attrs \\ %{}, _opts \\ []) do
     user
-    |> cast(attrs, [:is_subscribed_to_marketing_notifications])
+    |> cast(attrs, [
+      :is_subscribed_to_marketing_notifications,
+      :is_subscribed_to_email_notifications
+    ])
     |> case do
       %{changes: %{is_subscribed_to_marketing_notifications: _}} = changeset ->
+        changeset
+
+      %{changes: %{is_subscribed_to_email_notifications: _}} = changeset ->
         changeset
 
       %{} = changeset ->

@@ -21,7 +21,7 @@ defmodule MossletWeb.EditNotificationsLive do
               Notification Settings
             </h1>
             <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
-              Control your calm, in-app notification preferences for a peaceful experience.
+              Control your notification preferences for a peaceful experience.
             </p>
           </div>
           <%!-- Decorative accent line --%>
@@ -58,7 +58,7 @@ defmodule MossletWeb.EditNotificationsLive do
                     ]}
                   />
                 </div>
-                <span>In-App Notifications</span>
+                <span>Calm Notifications</span>
                 <span class={[
                   "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
                   if(@current_user.is_subscribed_to_marketing_notifications,
@@ -121,10 +121,10 @@ defmodule MossletWeb.EditNotificationsLive do
                       )
                     ]}>
                       <span :if={@current_user.is_subscribed_to_marketing_notifications}>
-                        You'll receive gentle, in-app notifications that appear only when you're actively using MOSSLET. These won't interrupt you or pull your attention away from other activities.
+                        You'll receive gentle, calm notifications that appear only when you're actively using MOSSLET. These won't interrupt you or pull your attention away from other activities.
                       </span>
                       <span :if={!@current_user.is_subscribed_to_marketing_notifications}>
-                        You won't receive any in-app notifications. You can always check your timeline and connections manually when you visit MOSSLET.
+                        You won't receive any calm notifications. You can always check your timeline and connections manually when you visit MOSSLET.
                       </span>
                     </p>
                   </div>
@@ -148,7 +148,7 @@ defmodule MossletWeb.EditNotificationsLive do
               <%!-- What notifications include --%>
               <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
                 <h4 class="font-medium text-sm text-slate-900 dark:text-slate-100 mb-3">
-                  What in-app notifications include:
+                  What calm notifications include:
                 </h4>
                 <div class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                   <div class="flex items-start gap-2">
@@ -185,7 +185,7 @@ defmodule MossletWeb.EditNotificationsLive do
               >
                 <DesignSystem.liquid_checkbox
                   field={@form[:is_subscribed_to_marketing_notifications]}
-                  label="Enable calm in-app notifications"
+                  label="Enable calm notifications"
                   help={
                     if @current_user.is_subscribed_to_marketing_notifications,
                       do:
@@ -194,7 +194,131 @@ defmodule MossletWeb.EditNotificationsLive do
                         "Enable to receive calm, non-intrusive notifications that only appear while you're using the app."
                   }
                 />
+
+                <DesignSystem.liquid_checkbox
+                  field={@form[:is_subscribed_to_email_notifications]}
+                  label="Enable email notifications"
+                  help={
+                    if @current_user.is_subscribed_to_email_notifications,
+                      do:
+                        "You will receive emails when friends share posts with you and you're offline.",
+                      else:
+                        "Enable to receive email notifications when friends share posts with you and you're not actively online."
+                  }
+                />
               </.form>
+            </div>
+          </DesignSystem.liquid_card>
+
+          <%!-- Email Notifications Card --%>
+          <DesignSystem.liquid_card class="bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10">
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+                  <.phx_icon name="hero-envelope" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div class="flex items-center gap-3">
+                  <span>Email Notifications</span>
+                  <span class={[
+                    "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
+                    if(@current_user.is_subscribed_to_email_notifications,
+                      do:
+                        "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
+                      else:
+                        "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
+                    )
+                  ]}>
+                    {if @current_user.is_subscribed_to_email_notifications,
+                      do: "Enabled",
+                      else: "Disabled"}
+                  </span>
+                </div>
+              </div>
+            </:title>
+
+            <div class="space-y-4">
+              <div class={[
+                "p-4 rounded-lg border",
+                if(@current_user.is_subscribed_to_email_notifications,
+                  do:
+                    "bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 border-emerald-200 dark:border-emerald-700",
+                  else:
+                    "bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-800/50 dark:to-slate-700/20 border-slate-200 dark:border-slate-700"
+                )
+              ]}>
+                <div class="flex items-start gap-3">
+                  <.phx_icon
+                    name={
+                      if @current_user.is_subscribed_to_email_notifications,
+                        do: "hero-check-circle",
+                        else: "hero-minus-circle"
+                    }
+                    class={[
+                      "h-5 w-5 mt-0.5 flex-shrink-0",
+                      if(@current_user.is_subscribed_to_email_notifications,
+                        do: "text-emerald-600 dark:text-emerald-400",
+                        else: "text-slate-500 dark:text-slate-400"
+                      )
+                    ]}
+                  />
+                  <div class="space-y-2">
+                    <h4 class={[
+                      "font-medium text-sm",
+                      if(@current_user.is_subscribed_to_email_notifications,
+                        do: "text-emerald-800 dark:text-emerald-200",
+                        else: "text-slate-700 dark:text-slate-300"
+                      )
+                    ]}>
+                      {if @current_user.is_subscribed_to_email_notifications,
+                        do: "Email Notifications Enabled",
+                        else: "Email Notifications Disabled"}
+                    </h4>
+                    <p class={[
+                      "text-sm leading-relaxed",
+                      if(@current_user.is_subscribed_to_email_notifications,
+                        do: "text-emerald-700 dark:text-emerald-300",
+                        else: "text-slate-600 dark:text-slate-400"
+                      )
+                    ]}>
+                      <span :if={@current_user.is_subscribed_to_email_notifications}>
+                        You will receive email notifications when friends share posts with you and you're not currently online. This helps you stay connected without being interrupted while actively using other apps.
+                      </span>
+                      <span :if={!@current_user.is_subscribed_to_email_notifications}>
+                        You won't receive any email notifications. You can always check your timeline and connections manually when you visit MOSSLET.
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+                <h5 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  What email notifications include:
+                </h5>
+                <div class="space-y-2 text-sm text-blue-700 dark:text-blue-300">
+                  <div class="flex items-start gap-2">
+                    <.phx_icon
+                      name="hero-power"
+                      class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
+                    />
+                    <span>Only sent when you're offline or not actively using MOSSLET</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <.phx_icon
+                      name="hero-users"
+                      class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
+                    />
+                    <span>When friends share posts directly with you</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <.phx_icon
+                      name="hero-shield-check"
+                      class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
+                    />
+                    <span>Privacy-first: No content details revealed, just notification counts</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </DesignSystem.liquid_card>
 
@@ -219,7 +343,7 @@ defmodule MossletWeb.EditNotificationsLive do
                     </span>
                   </div>
                   <p class="text-sm text-purple-700 dark:text-purple-300 ml-6">
-                    We never send push notifications, emails, or SMS
+                    Calm notifications never interrupt you outside the app
                   </p>
                 </div>
 
@@ -269,8 +393,8 @@ defmodule MossletWeb.EditNotificationsLive do
               <div class="pt-4 border-t border-purple-200 dark:border-purple-700">
                 <p class="text-sm text-purple-700 dark:text-purple-300">
                   <span class="font-medium">Remember:</span>
-                  MOSSLET notifications are designed to inform, not distract. They only exist within the app
-                  and respect your digital wellness by never pulling you back when you're focusing elsewhere.
+                  MOSSLET calm notifications are designed to inform, not distract. They only exist within the app
+                  and respect your digital wellness. Email notifications are optional and privacy-first, never revealing poster details.
                 </p>
               </div>
             </div>

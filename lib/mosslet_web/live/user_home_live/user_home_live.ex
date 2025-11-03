@@ -52,11 +52,6 @@ defmodule MossletWeb.UserHomeLive do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    unread_posts =
-      if current_user.is_subscribed_to_marketing_notifications,
-        do: Timeline.unread_posts(current_user),
-        else: []
-
     # Calculate activity stats using existing functions
     activity_stats = %{
       posts: get_user_post_count(current_user),
@@ -67,7 +62,6 @@ defmodule MossletWeb.UserHomeLive do
 
     socket =
       socket
-      |> stream(:unread_posts, unread_posts, reset: true)
       |> assign(:activity_stats, activity_stats)
       |> start_async(:assign_post_shared_users, fn ->
         decrypt_shared_user_connections(
@@ -84,18 +78,6 @@ defmodule MossletWeb.UserHomeLive do
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
     {:noreply, assign(socket, :current_user, user)}
-  end
-
-  def handle_info({:post_created, post}, socket) do
-    current_user = socket.assigns.current_user
-
-    if current_user.is_subscribed_to_marketing_notifications do
-      unread_post = Timeline.get_unread_post_for_user_and_post(post, current_user)
-
-      {:noreply, stream_insert(socket, :unread_posts, unread_post, at: 0)}
-    else
-      {:noreply, socket}
-    end
   end
 
   def handle_info(_message, socket) do

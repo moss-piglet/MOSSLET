@@ -47,6 +47,8 @@ defmodule Mosslet.Application do
         Mosslet.Extensions.MemoryProcessor,
         # Start the Timeline Cache (separate from avatar cache)
         Mosslet.Timeline.Performance.TimelineCache,
+        # Start the Email Notifications Processor
+        Mosslet.Notifications.EmailNotificationsProcessor,
         # Start the Timeline Broadway Pipeline (ethical batch processing)
         {Mosslet.Timeline.Performance.TimelineBroadway, []},
         # Start the Storj Task Supervisor,

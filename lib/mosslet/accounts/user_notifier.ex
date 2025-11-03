@@ -1,10 +1,10 @@
 defmodule Mosslet.Accounts.UserNotifier do
   @moduledoc """
-  When sending an email we use the functions in Mosslet.Email to generate the Email struct ready for Swoosh to send off.
+  When sending an email we use the functions in Mosslet.Notifications.Email to generate the Email struct ready for Swoosh to send off.
   Here we generate an Email struct based on a user and then deliver it.
   For some emails, we also filter which users can actually be sent an email (see can_receive_mail?/1)
   """
-  alias Mosslet.Email
+  alias Mosslet.Notifications.Email
   alias Mosslet.Mailer
 
   require Logger

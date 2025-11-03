@@ -1653,9 +1653,12 @@ defmodule MossletWeb.TimelineLive.Index do
 
       if post_params["user_id"] == current_user.id do
         case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
-          {:ok, _post} ->
+          {:ok, post} ->
             # Track user activity for auto-status (post creation is significant activity)
             Accounts.track_user_activity(current_user, :post)
+
+            # Send email notifications to offline users who received this post
+            process_email_notifications_for_offline_users(post, current_user, key)
 
             # Reset form to clean state after successful post creation
             clean_changeset =
@@ -4649,5 +4652,22 @@ defmodule MossletWeb.TimelineLive.Index do
       true ->
         false
     end
+  end
+
+  # Email notification helper function
+  defp process_email_notifications_for_offline_users(post, current_user, session_key) do
+    require Logger
+    Logger.info("🔔 STARTING EMAIL NOTIFICATION PROCESS for post #{post.id} from user #{current_user.id}")
+    Logger.info("🔔 Post visibility: #{post.visibility}")
+    
+    # Simply pass the post data to the EmailNotificationsProcessor
+    # It will handle all filtering, offline checking, and processing
+    Mosslet.Notifications.EmailNotificationsProcessor.process_post_notifications(
+      post,
+      current_user,
+      session_key
+    )
+    
+    Logger.info("🔔 Email notification process initiated")
   end
 end

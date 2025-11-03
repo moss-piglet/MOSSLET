@@ -575,6 +575,20 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Gets the total count of unread posts for a user.
+  Uses the same logic as unread_posts/1 but optimized for counting.
+  """
+  def count_unread_posts_for_user(user) do
+    Post
+    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+    |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
+    |> where([p, up, upr], upr.user_id == ^user.id)
+    |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
+    |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
   Returns a list of posts for the current_user that
   have not been read yet.
   """

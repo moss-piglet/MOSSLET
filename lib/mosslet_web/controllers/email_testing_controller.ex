@@ -1,7 +1,7 @@
 defmodule MossletWeb.EmailTestingController do
   use MossletWeb, :controller
 
-  alias Mosslet.Email
+  alias Mosslet.Notifications.Email
   alias Mosslet.Mailer
 
   @default_template "template"

@@ -130,7 +130,8 @@ config :mosslet, Oban,
     storage: 10,
     timeline: 5,
     cache_maintenance: 2,
-    ephemeral_cleanup: 3
+    ephemeral_cleanup: 3,
+    email_notifications: 5
   ],
   peer: Oban.Peers.Global
 
