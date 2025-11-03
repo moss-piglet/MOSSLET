@@ -643,7 +643,6 @@ defmodule MossletWeb.TimelineLive.Index do
         # Update existing post
         |> stream_insert(:posts, post, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
-        |> add_post_notification(post, current_user, "updated")
 
       {:noreply, socket}
     else
@@ -700,7 +699,6 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
-        |> add_post_notification(post, current_user, "reposted")
 
       {:noreply, socket}
     else
@@ -2512,7 +2510,6 @@ defmodule MossletWeb.TimelineLive.Index do
     post_key = get_post_key(post, user)
     key = socket.assigns.key
     post_shared_users = socket.assigns.post_shared_users
-    return_url = socket.assigns.return_url
 
     # Decrypt reposts list to check if user already reposted
     decrypted_reposts = decrypt_post_reposts_list(post, user, key)
@@ -2538,7 +2535,7 @@ defmodule MossletWeb.TimelineLive.Index do
         |> add_shared_users_list(post_shared_users)
 
       case Timeline.create_repost(repost_params, user: user, key: key, trix_key: post_key) do
-        {:ok, _repost} ->
+        {:ok, repost} ->
           {:ok, post} = Timeline.inc_reposts(post)
 
           # Add user to decrypted reposts list
@@ -2559,11 +2556,32 @@ defmodule MossletWeb.TimelineLive.Index do
           # Track user activity for auto-status (reposting is user interaction)
           Accounts.track_user_activity(user, :interaction)
 
+          # Follow same pattern as save_post - update stream and counts instead of page reload
+          current_tab = socket.assigns.active_tab || "home"
+          options = socket.assigns.options
+          content_filters = socket.assigns.content_filters
+
+          # Check if this repost should appear in the current tab
+          should_show_post = post_matches_current_tab?(repost, current_tab, user)
+          passes_content_filters = post_passes_content_filters?(repost, content_filters)
+
           socket =
             socket
             |> put_flash(:success, "Post reposted successfully.")
 
-          {:noreply, push_navigate(socket, to: return_url)}
+          socket =
+            if should_show_post and passes_content_filters do
+              # Add the repost to the top of the stream - same as handle_info
+              socket
+              |> stream_insert(:posts, repost, at: 0, limit: socket.assigns.stream_limit)
+              |> recalculate_counts_after_new_post(user, options)
+            else
+              # Repost doesn't match current tab, just update counts
+              socket
+              |> recalculate_counts_after_new_post(user, options)
+            end
+
+          {:noreply, socket}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to repost. Please try again.")}

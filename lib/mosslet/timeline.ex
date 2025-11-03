@@ -2905,6 +2905,15 @@ defmodule Mosslet.Timeline do
       user = Accounts.get_user!(opts[:user].id)
       conn = Accounts.get_connection_from_item(post, user)
 
+      # BEFORE deleting, get all reposts to broadcast individual deletions
+      reposts_query =
+        from(p in Post,
+          where: p.original_post_id == ^post.id,
+          preload: [:user_posts, :group, :user_group, :original_post]
+        )
+
+      reposts = Repo.all(reposts_query)
+
       query = from(p in Post, where: p.id == ^post.id or p.original_post_id == ^post.id)
 
       post =
@@ -2916,14 +2925,19 @@ defmodule Mosslet.Timeline do
         {:ok, {:error, changeset}} ->
           {:error, changeset}
 
-        {:ok, {count, _posts}} ->
-          if count > 1 do
-            {:ok, conn, post}
+        {:ok, {_count, _posts}} ->
+          # Broadcast deletion for each individual repost to their respective networks
+          Enum.each(reposts, fn repost ->
+            repost_user = Accounts.get_user!(repost.user_id)
+            repost_conn = Accounts.get_connection_from_item(repost, repost_user)
+
+            {:ok, repost_conn, repost}
             |> broadcast(:repost_deleted)
-          else
-            {:ok, conn, post}
-            |> broadcast(:post_deleted)
-          end
+          end)
+
+          # Broadcast deletion for the original post
+          {:ok, conn, post}
+          |> broadcast(:post_deleted)
 
         rest ->
           Logger.warning("Error deleting post")
@@ -2936,6 +2950,15 @@ defmodule Mosslet.Timeline do
         user = Accounts.get_user!(opts[:user_id])
         conn = Accounts.get_connection_from_item(post, user)
 
+        # BEFORE deleting, get all reposts to broadcast individual deletions
+        reposts_query =
+          from(p in Post,
+            where: p.original_post_id == ^post.id,
+            preload: [:user_posts, :group, :user_group, :original_post]
+          )
+
+        reposts = Repo.all(reposts_query)
+
         query = from(p in Post, where: p.id == ^post.id or p.original_post_id == ^post.id)
 
         post =
@@ -2947,14 +2970,19 @@ defmodule Mosslet.Timeline do
           {:ok, {:error, changeset}} ->
             {:error, changeset}
 
-          {:ok, {count, _posts}} ->
-            if count > 1 do
-              {:ok, conn, post}
+          {:ok, {_count, _posts}} ->
+            # Broadcast deletion for each individual repost to their respective networks
+            Enum.each(reposts, fn repost ->
+              repost_user = Accounts.get_user!(repost.user_id)
+              repost_conn = Accounts.get_connection_from_item(repost, repost_user)
+
+              {:ok, repost_conn, repost}
               |> broadcast(:repost_deleted)
-            else
-              {:ok, conn, post}
-              |> broadcast(:post_deleted)
-            end
+            end)
+
+            # Broadcast deletion for the original post
+            {:ok, conn, post}
+            |> broadcast(:post_deleted)
 
           rest ->
             Logger.warning("Error deleting post")
