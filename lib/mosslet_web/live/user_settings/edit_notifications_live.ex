@@ -201,9 +201,9 @@ defmodule MossletWeb.EditNotificationsLive do
                   help={
                     if @current_user.is_subscribed_to_email_notifications,
                       do:
-                        "You will receive emails when friends share posts with you and you're offline.",
+                        "You will receive up to 1 email per day when friends share posts with you and you're offline.",
                       else:
-                        "Enable to receive email notifications when friends share posts with you and you're not actively online."
+                        "Enable to receive up to 1 daily email when friends share posts with you and you're not actively online."
                   }
                 />
               </.form>
@@ -281,7 +281,7 @@ defmodule MossletWeb.EditNotificationsLive do
                       )
                     ]}>
                       <span :if={@current_user.is_subscribed_to_email_notifications}>
-                        You will receive email notifications when friends share posts with you and you're not currently online. This helps you stay connected without being interrupted while actively using other apps.
+                        You will receive up to 1 email per day when friends share posts with you and you're not currently online. This gentle daily digest keeps you connected without overwhelming your inbox.
                       </span>
                       <span :if={!@current_user.is_subscribed_to_email_notifications}>
                         You won't receive any email notifications. You can always check your timeline and connections manually when you visit MOSSLET.
@@ -296,6 +296,13 @@ defmodule MossletWeb.EditNotificationsLive do
                   What email notifications include:
                 </h5>
                 <div class="space-y-2 text-sm text-blue-700 dark:text-blue-300">
+                  <div class="flex items-start gap-2">
+                    <.phx_icon
+                      name="hero-calendar-days"
+                      class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
+                    />
+                    <span>Maximum 1 email per day (calm by design)</span>
+                  </div>
                   <div class="flex items-start gap-2">
                     <.phx_icon
                       name="hero-power"
@@ -349,6 +356,21 @@ defmodule MossletWeb.EditNotificationsLive do
 
                 <div class="space-y-2">
                   <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-calendar-days"
+                      class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                    />
+                    <span class="text-sm font-semibold text-purple-800 dark:text-purple-200">
+                      Daily email digest
+                    </span>
+                  </div>
+                  <p class="text-sm text-purple-700 dark:text-purple-300 ml-6">
+                    Maximum 1 email per day, never overwhelming your inbox
+                  </p>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2">
                     <.phx_icon name="hero-clock" class="h-4 w-4 text-purple-600 dark:text-purple-400" />
                     <span class="text-sm font-semibold text-purple-800 dark:text-purple-200">
                       Your time, your choice
@@ -394,7 +416,7 @@ defmodule MossletWeb.EditNotificationsLive do
                 <p class="text-sm text-purple-700 dark:text-purple-300">
                   <span class="font-medium">Remember:</span>
                   MOSSLET calm notifications are designed to inform, not distract. They only exist within the app
-                  and respect your digital wellness. Email notifications are optional and privacy-first, never revealing poster details.
+                  and respect your digital wellness. Email notifications are limited to 1 per day and are privacy-first, never revealing poster details.
                 </p>
               </div>
             </div>

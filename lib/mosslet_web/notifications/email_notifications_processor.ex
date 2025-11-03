@@ -193,8 +193,35 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
       not target_user.is_subscribed_to_email_notifications ->
         {:skip, "email notifications disabled"}
 
+      already_sent_email_today?(target_user) ->
+        {:skip, "already sent email today (daily limit)"}
+
       true ->
         {:ok, true}
+    end
+  end
+
+  defp already_sent_email_today?(user) do
+    case user.last_email_notification_received_at do
+      nil ->
+        # Never sent an email before
+        false
+
+      last_sent_at ->
+        # Check if it was sent today
+        today = Date.utc_today()
+        last_sent_date = DateTime.to_date(last_sent_at)
+
+        case Date.compare(last_sent_date, today) do
+          :eq ->
+            # Same day - already sent today
+            Logger.info("📅 User #{user.id} already received email today (#{last_sent_at})")
+            true
+
+          _ ->
+            # Different day - can send
+            false
+        end
     end
   end
 
@@ -221,7 +248,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
     end
   end
 
-  defp send_email_notification(decrypted_email, unread_count, _user_connection) do
+  defp send_email_notification(decrypted_email, unread_count, user_connection) do
     timeline_url = ~p"/app/timeline"
 
     email =
@@ -233,6 +260,19 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
 
     case Mailer.deliver(email) do
       {:ok, result} ->
+        # Update the user's last email notification timestamp
+        target_user = Accounts.get_user!(user_connection.reverse_user_id)
+
+        case Accounts.update_user_email_notification_received_at(target_user) do
+          {:ok, _updated_user} ->
+            Logger.info(
+              "📅 Updated last_email_notification_received_at for user #{target_user.id}"
+            )
+
+          {:error, changeset} ->
+            Logger.error("❌ Failed to update email timestamp: #{inspect(changeset.errors)}")
+        end
+
         {:ok, result}
 
       {:error, reason} ->

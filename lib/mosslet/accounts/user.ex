@@ -59,6 +59,7 @@ defmodule Mosslet.Accounts.User do
     field :last_signed_in_datetime, :utc_datetime
     field :is_subscribed_to_marketing_notifications, :boolean, default: false
     field :is_subscribed_to_email_notifications, :boolean, default: false
+    field :last_email_notification_received_at, :utc_datetime
 
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
@@ -1437,6 +1438,16 @@ defmodule Mosslet.Accounts.User do
       %{} = changeset ->
         add_error(changeset, :is_subscribed_to_marketing_notifications, "did not change")
     end
+  end
+
+  @doc """
+  A user changeset for updating when the user last received an email notification.
+  Used for daily email rate limiting.
+  """
+  def email_notification_received_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:last_email_notification_received_at])
+    |> validate_required([:last_email_notification_received_at])
   end
 
   @doc """

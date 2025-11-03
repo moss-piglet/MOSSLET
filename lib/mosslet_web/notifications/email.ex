@@ -114,7 +114,7 @@ defmodule Mosslet.Notifications.Email do
     |> cc(cc)
   end
 
-  defp base_email(opts \\ []) do
+  defp base_email(_opts \\ []) do
     new()
     |> from({from_name(), from_email()})
   end
@@ -136,5 +136,4 @@ defmodule Mosslet.Notifications.Email do
   defp from_email do
     Mosslet.config(:mailer_default_from_email)
   end
-
 end

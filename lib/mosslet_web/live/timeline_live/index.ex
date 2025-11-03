@@ -4657,9 +4657,13 @@ defmodule MossletWeb.TimelineLive.Index do
   # Email notification helper function
   defp process_email_notifications_for_offline_users(post, current_user, session_key) do
     require Logger
-    Logger.info("🔔 STARTING EMAIL NOTIFICATION PROCESS for post #{post.id} from user #{current_user.id}")
+
+    Logger.info(
+      "🔔 STARTING EMAIL NOTIFICATION PROCESS for post #{post.id} from user #{current_user.id}"
+    )
+
     Logger.info("🔔 Post visibility: #{post.visibility}")
-    
+
     # Simply pass the post data to the EmailNotificationsProcessor
     # It will handle all filtering, offline checking, and processing
     Mosslet.Notifications.EmailNotificationsProcessor.process_post_notifications(
@@ -4667,7 +4671,7 @@ defmodule MossletWeb.TimelineLive.Index do
       current_user,
       session_key
     )
-    
+
     Logger.info("🔔 Email notification process initiated")
   end
 end
