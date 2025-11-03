@@ -501,27 +501,95 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_info({:reply_created, _post, reply}, socket) do
+  def handle_info({:reply_created, post, reply}, socket) do
     current_user = socket.assigns.current_user
-    return_url = socket.assigns.return_url
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
-    if current_user.id == reply.user_id do
+    # Check if this post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      # Update the post in the stream to show the new reply
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_reply_notification(reply, current_user, "created")
+
       {:noreply, socket}
     else
-      {:noreply, push_patch(socket, to: return_url)}
+      # Post doesn't match current tab but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
     end
   end
 
-  def handle_info({:reply_updated, _post, _reply}, socket) do
-    return_url = socket.assigns.return_url
+  def handle_info({:reply_updated, post, reply}, socket) do
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
-    {:noreply, push_patch(socket, to: return_url)}
+    # Check if this post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      # Update the post in the stream to show the updated reply
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_reply_notification(reply, current_user, "updated")
+
+      {:noreply, socket}
+    else
+      # Post doesn't match current tab but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
+    end
   end
 
-  def handle_info({:reply_deleted, _post, _reply}, socket) do
-    return_url = socket.assigns.return_url
+  def handle_info({:reply_deleted, post, _reply}, socket) do
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
-    {:noreply, push_patch(socket, to: return_url)}
+    # Check if this post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      # Update the post in the stream to show the reply deletion
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      # No notification needed for deleted replies - just silent removal
+
+      {:noreply, socket}
+    else
+      # Post doesn't match current tab but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:post_created, post}, socket) do
@@ -3808,6 +3876,56 @@ defmodule MossletWeb.TimelineLive.Index do
   # Backward compatibility alias
   defp add_new_post_notification(socket, post, current_user) do
     add_post_notification(socket, post, current_user, "new")
+  end
+
+  # Reply notification function
+  defp add_reply_notification(socket, reply, current_user, action) do
+    # Don't show notifications for the current user's own replies
+    if reply.user_id === current_user.id do
+      socket
+    else
+      # Get reply author name safely
+      author_name = get_safe_reply_author_name(reply, current_user, socket.assigns.key)
+
+      message =
+        case action do
+          "created" -> "New reply from #{author_name}"
+          "updated" -> "Reply updated by #{author_name}"
+          _ -> "Reply from #{author_name}"
+        end
+
+      # Add a gentle flash message
+      put_flash(socket, :info, message)
+    end
+  end
+
+  # Safe version to get reply author name
+  defp get_safe_reply_author_name(reply, current_user, key) do
+    case reply.user_id do
+      user_id when user_id == current_user.id ->
+        "You"
+
+      _ ->
+        # Try to get the actual username if they're connected
+        case reply do
+          %{username: username} when is_binary(username) ->
+            # Reply has encrypted username - try to decrypt it
+            case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+                   username,
+                   current_user,
+                   get_post_key(reply.post, current_user),
+                   key
+                 ) do
+              :failed_verification -> "@private_author"
+              decrypted_name when is_binary(decrypted_name) -> "@" <> decrypted_name
+              _ -> "@private_author"
+            end
+
+          _ ->
+            # Fallback to generic identifier
+            "@private_author"
+        end
+    end
   end
 
   # Safe version of get_post_author_name that returns the author name string
