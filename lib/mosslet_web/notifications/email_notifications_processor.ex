@@ -50,9 +50,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
 
   @impl true
   def handle_cast({:process_post_notifications, post, current_user, session_key}, state) do
-    Task.Supervisor.start_child(Mosslet.BackgroundTask, fn ->
-      process_post_notifications_with_broadway(post, current_user, session_key)
-    end)
+    process_post_notifications_with_broadway(post, current_user, session_key)
 
     {:noreply, state}
   end
@@ -60,9 +58,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   @impl true
   def handle_cast({:process_email, user_id, post_id, current_user, session_key}, state) do
     # For individual emails, we'll push directly to Broadway
-    Task.Supervisor.start_child(Mosslet.BackgroundTask, fn ->
-      push_single_email_to_broadway(user_id, post_id, current_user, session_key)
-    end)
+    push_single_email_to_broadway(user_id, post_id, current_user, session_key)
 
     {:noreply, state}
   end
@@ -70,53 +66,32 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   ## Private Functions
 
   defp push_single_email_to_broadway(user_id, post_id, current_user, session_key) do
-    Logger.info(
-      "📧 Pushing single email notification to GenServer: user #{user_id}, post #{post_id}"
-    )
-
     EmailNotificationsGenServer.queue_email_notification(
       user_id,
       post_id,
       current_user.id,
       session_key
     )
-
-    Logger.info("✅ Single email notification queued in GenServer")
   end
 
   defp process_post_notifications_with_broadway(post, current_user, session_key) do
-    Logger.info(
-      "🔍 Starting email notification processing for post #{post.id} from user #{current_user.id}"
-    )
-
-    Logger.info("🔍 Post visibility: #{post.visibility}")
-
     # Get target user IDs based on post visibility
     target_user_ids = get_target_user_ids_for_post(post, current_user)
-
-    Logger.info("🔍 Target user IDs found: #{inspect(target_user_ids)}")
 
     if target_user_ids == [] do
       Logger.info("❌ No target users for post #{post.id} with visibility #{post.visibility}")
     else
-      Logger.info("✅ Processing email notifications for #{length(target_user_ids)} users")
-
       # Filter and process each user
       eligible_users = filter_eligible_users(target_user_ids, current_user)
-      Logger.info("🔍 Eligible users after filtering: #{inspect(eligible_users)}")
 
       # 🔄 NEW: Push all eligible users to GenServer for rate-limited processing
       if length(eligible_users) > 0 do
-        Logger.info("📧 Pushing #{length(eligible_users)} email notifications to GenServer")
-
         EmailNotificationsGenServer.queue_post_notifications(
           post,
           eligible_users,
           current_user,
           session_key
         )
-
-        Logger.info("✅ Email notifications queued in GenServer with rate limiting")
       end
     end
   end
@@ -124,30 +99,17 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
   defp get_target_user_ids_for_post(post, current_user) do
     case post.visibility do
       :specific_users ->
-        Logger.info("Post visibility: specific_users")
-        target_user_ids = Enum.map(post.shared_users, & &1.user_id)
-        Logger.info("Target user IDs: #{inspect(target_user_ids)}")
-        target_user_ids
+        Enum.map(post.shared_users, & &1.user_id)
 
       :connections ->
-        Logger.info("Post visibility: connections")
-
-        connection_user_ids =
-          Accounts.get_all_confirmed_user_connections(current_user.id)
-          |> Enum.map(& &1.reverse_user_id)
-
-        Logger.info("Connection user IDs: #{inspect(connection_user_ids)}")
-        connection_user_ids
+        Accounts.get_all_confirmed_user_connections(current_user.id)
+        |> Enum.map(& &1.reverse_user_id)
 
       :specific_groups ->
-        Logger.info("Post visibility: specific_groups")
         # For group posts, get users from the shared_users list
-        target_user_ids = Enum.map(post.shared_users, & &1.user_id)
-        Logger.info("Group target user IDs: #{inspect(target_user_ids)}")
-        target_user_ids
+        Enum.map(post.shared_users, & &1.user_id)
 
       _ ->
-        Logger.info("Post visibility #{post.visibility} - no email notifications")
         # No email notifications for public or private posts
         []
     end
