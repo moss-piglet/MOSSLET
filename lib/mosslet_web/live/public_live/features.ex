@@ -576,7 +576,7 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
 
             <div class="grid max-w-xl mx-auto grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-3">
-              <%!-- Asymmetric Encryption --%>
+              <%!-- Strong Encryption --%>
               <.liquid_card
                 padding="lg"
                 class="group hover:scale-105 transition-all duration-300 ease-out"
@@ -587,12 +587,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-key" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent font-bold">
-                      Asymmetric Encryption
+                      Strong Encryption
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your posts, replies, and preferences are encrypted with your personal key pair. Only you can decrypt your content.
+                  Your posts and messages use asymmetric encryption with password-derived keys. Searchable data uses SHA-512 hashing (2x the NIST recommendation). Everything gets an additional layer of AES-GCM symmetric encryption at rest.
                 </p>
               </.liquid_card>
 
@@ -612,7 +612,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  We can't read your posts, messages, or even your username. Your data is encrypted before it reaches our servers.
+                  We can't read your posts, messages, or even your username. Our system is designed so that you are in control of who can access your data. Even if forced by courts to hand over your data, we can only provide encrypted bits and non-personal information.
                 </p>
               </.liquid_card>
 
@@ -632,7 +632,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Choose exactly who can see each post: private, connections only, or public. Your encryption keys control access.
+                  Choose exactly who can see each post: private, connections only, or public. Set expiration dates for automatic deletion. Delete posts in real-time, anytime, and they're gone from all recipients — no copies, no cached versions, no permanent records.
                 </p>
               </.liquid_card>
             </div>
