@@ -1,7 +1,7 @@
 defmodule Cldr.Mixfile do
   use Mix.Project
 
-  @version "2.43.2"
+  @version "2.44.0"
 
   def project do
     [
@@ -20,8 +20,8 @@ defmodule Cldr.Mixfile do
       aliases: aliases(),
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
-        ignore_warnings: ".dialyzer_ignore_warnings",
         plt_add_apps: ~w(gettext inets jason mix sweet_xml nimble_parsec)a,
+        ignore_warnings: ".dialyzer_ignore-warnings",
         flags: [
           :error_handling,
           :unknown,
@@ -129,7 +129,8 @@ defmodule Cldr.Mixfile do
         "priv/cldr/validity/variants.json",
         "priv/cldr/validity/units.json",
         "priv/cldr/bcp47/u.json",
-        "priv/cldr/bcp47/t.json"
+        "priv/cldr/bcp47/t.json",
+        "priv/cldr/language_matching.json"
       ]
     ]
   end
@@ -184,7 +185,10 @@ defmodule Cldr.Mixfile do
 
   defp groups_for_modules do
     [
-      "Language Tag": ~r/^Cldr.LanguageTag.?/,
+      "Language Tag": [
+        ~r/^Cldr.LanguageTag.?/,
+        ~r/^Cldr.Locale.?/
+      ],
       "Plural Rules": ~r/^Cldr.Number.?/,
       Protocols: [
         Cldr.Chars,

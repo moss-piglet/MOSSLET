@@ -57,6 +57,7 @@ defmodule Cldr.Config do
   @app_name Mix.Project.config()[:app]
   @cldr_data_dir Path.join(Application.app_dir(@app_name), "priv/cldr")
   @external_resource Path.join(@cldr_data_dir, "version.json")
+  @external_resource Path.join(@cldr_data_dir, "language_data.json")
 
   @root_locale_name :und
   @default_locale_name :"en-001"
@@ -426,7 +427,6 @@ defmodule Cldr.Config do
 
       locales
       |> Enum.reject(&is_nil/1)
-      |> Enum.map(&locale_name_from_posix/1)
       |> Enum.uniq()
       |> Enum.sort()
     else
@@ -703,6 +703,70 @@ defmodule Cldr.Config do
       {k, v} when is_binary(v) -> {underscores(k), underscores(v)}
       {k, v} -> {underscores(k), v}
     end)
+  end
+
+  @doc """
+  Returns the language matching data
+
+  """
+  @language_matching_file "language_matching.json"
+  def language_matching do
+    Path.join(cldr_data_dir(), @language_matching_file)
+    |> File.read!()
+    |> json_library().decode!
+    |> Cldr.Map.atomize_keys()
+    |> Cldr.Map.atomize_values(filter: :match_variables)
+    |> format_matches()
+  end
+
+  defp format_matches(matching) do
+    language_matches = Enum.map(matching.language_match, &format_match/1)
+    Map.put(matching, :language_match, language_matches)
+  end
+
+  defp format_match(match) do
+    supported = format_locale(match.supported)
+    desired = format_locale(match.desired)
+
+    match
+    |> Map.put(:supported, supported)
+    |> Map.put(:desired, desired)
+  end
+
+  defp format_locale(["*", script, territory]) do
+    format_locale([:"*", script, territory])
+  end
+
+  defp format_locale([language, script, territory]) do
+    [language, String.to_atom(script), format_territory(territory)]
+  end
+
+  defp format_locale(["*", script]) do
+    [:"*", String.to_atom(script)]
+  end
+
+  defp format_locale([language, script]) do
+    [language, String.to_atom(script)]
+  end
+
+  defp format_locale(["*"]) do
+    [:"*"]
+  end
+
+  defp format_locale([language]) do
+    [language]
+  end
+
+  defp format_territory(["not_in", territory]) do
+    {:not_in, String.to_atom(territory)}
+  end
+
+  defp format_territory(["in", territory]) do
+    {:in, String.to_atom(territory)}
+  end
+
+  defp format_territory(territory) do
+    String.to_atom(territory)
   end
 
   @doc """
@@ -1004,15 +1068,16 @@ defmodule Cldr.Config do
 
       iex> Cldr.Config.known_number_systems()
       [:adlm, :ahom, :arab, :arabext, :armn, :armnlow, :bali, :beng, :bhks, :brah,
-       :cakm, :cham, :cyrl, :deva, :diak, :ethi, :fullwide, :gara, :geor, :gong,
-       :gonm, :grek, :greklow, :gujr, :gukh, :guru, :hanidays, :hanidec, :hans,
-       :hansfin, :hant, :hantfin, :hebr, :hmng, :hmnp, :java, :jpan, :jpanfin,
-       :jpanyear, :kali, :kawi, :khmr, :knda, :krai, :lana, :lanatham, :laoo, :latn,
-       :lepc, :limb, :mathbold, :mathdbl, :mathmono, :mathsanb, :mathsans, :mlym,
-       :modi, :mong, :mroo, :mtei, :mymr, :mymrepka, :mymrpao, :mymrshan, :mymrtlng,
-       :nagm, :newa, :nkoo, :olck, :onao, :orya, :osma, :outlined, :rohg, :roman,
-       :romanlow, :saur, :segment, :shrd, :sind, :sinh, :sora, :sund, :sunu, :takr,
-       :talu, :taml, :tamldec, :telu, :thai, :tibt, :tirh, :tnsa, :vaii, :wara, :wcho]
+      :cakm, :cham, :cyrl, :deva, :diak, :ethi, :fullwide, :gara, :geor, :gong,
+      :gonm, :grek, :greklow, :gujr, :gukh, :guru, :hanidays, :hanidec, :hans,
+      :hansfin, :hant, :hantfin, :hebr, :hmng, :hmnp, :java, :jpan, :jpanfin,
+      :jpanyear, :kali, :kawi, :khmr, :knda, :krai, :lana, :lanatham, :laoo, :latn,
+      :lepc, :limb, :mathbold, :mathdbl, :mathmono, :mathsanb, :mathsans, :mlym,
+      :modi, :mong, :mroo, :mtei, :mymr, :mymrepka, :mymrpao, :mymrshan, :mymrtlng,
+      :nagm, :newa, :nkoo, :olck, :onao, :orya, :osma, :outlined, :rohg, :roman,
+      :romanlow, :saur, :segment, :shrd, :sind, :sinh, :sora, :sund, :sunu, :takr,
+      :talu, :taml, :tamldec, :telu, :thai, :tibt, :tirh, :tnsa, :tols, :vaii, :wara,
+      :wcho]
 
   """
   def known_number_systems do
@@ -1498,7 +1563,7 @@ defmodule Cldr.Config do
               [{:timezone_to, timezone}]
 
             other ->
-              raise inspect(other, label: "Unexpected key")
+              raise "Unexpected key: #{inspect(other)}"
           end)
           |> Map.new()
 
@@ -1713,16 +1778,39 @@ defmodule Cldr.Config do
     Regex.match?(regex, Atom.to_string(locale_name))
   end
 
+  # This function matches a requested locale to a CLDR
+  # locale name taking care of "_" to "-", consistent
+  # casing. In addition, if a locale name doesn't match,
+  # but its base language does, return the base language.
+  # This means "en-US" will return "en" and "bg-BG" will
+  # return "bg".
+
   def canonical_name(locale_name) do
-    name =
+    bcp47_name =
       locale_name
       |> locale_name_from_posix()
       |> String.downcase()
+      |> String.split("-")
 
-    Map.get(known_locales_map(), name, locale_name)
+    find_matching_locale(locale_name, bcp47_name)
   end
 
-  defp known_locales_map do
+  defp find_matching_locale(bcp47_name, [language, script, territory | _rest]) do
+    Map.get(known_locales_map(), language <> "-" <> script <> "-" <> territory) ||
+      find_matching_locale(bcp47_name, [language, script])
+  end
+
+  defp find_matching_locale(bcp47_name, [language, script]) do
+    Map.get(known_locales_map(), language <> "-" <> script) ||
+      find_matching_locale(bcp47_name, [language])
+  end
+
+  defp find_matching_locale(bcp47_name, [language]) do
+    Map.get(known_locales_map(), language, bcp47_name)
+  end
+
+  @doc false
+  def known_locales_map do
     all_locale_names()
     |> Enum.map(fn x -> {Atom.to_string(x) |> String.downcase(), x} end)
     |> Map.new()
@@ -1857,11 +1945,6 @@ defmodule Cldr.Config do
       iex> Cldr.Config.territories()[:GB]
       %{
         currency: [GBP: %{from: ~D[1694-07-27]}],
-        measurement_system: %{
-          default: :uksystem,
-          paper_size: :a4,
-          temperature: :uksystem
-        },
         language_population: %{
           "ar" => %{population_percent: 0.3},
           "bn" => %{population_percent: 0.4},
@@ -1882,6 +1965,7 @@ defmodule Cldr.Config do
           "kw" => %{population_percent: 0.0029},
           "lt" => %{population_percent: 0.2},
           "pa" => %{population_percent: 3.6},
+          "pi" => %{population_percent: 0.0002},
           "pl" => %{population_percent: 4},
           "pt" => %{population_percent: 0.2},
           "ro" => %{population_percent: 0.8},
@@ -1892,9 +1976,14 @@ defmodule Cldr.Config do
           "ur" => %{population_percent: 3.5},
           "zh-Hant" => %{population_percent: 0.3}
         },
+        population: 68459100,
+        measurement_system: %{
+          default: :uksystem,
+          paper_size: :a4,
+          temperature: :uksystem
+        },
         gdp: 3700000000000,
-        literacy_percent: 99,
-        population: 68459100
+        literacy_percent: 99
       }
 
   """
@@ -2171,8 +2260,8 @@ defmodule Cldr.Config do
       %{
         calendar_system: :solar,
         eras: [
-          [0, %{end: [0, 12, 31], aliases: ["bc", "bce"], code: :gregory_inverse}],
-          [1, %{start: [1, 1, 1], aliases: ["ad", "ce"], code: :gregory}]
+          [0, %{code: :bce, end: [0, 12, 31], aliases: ["bc"]}],
+          [1, %{code: :ce, start: [1, 1, 1], aliases: ["ad"]}]
         ]
       }
 
@@ -2468,6 +2557,7 @@ defmodule Cldr.Config do
     |> Enum.map(&Map.delete(&1, :currency_spacing))
     |> Enum.map(&Map.delete(&1, :currency_long))
     |> Enum.map(&Map.delete(&1, :currency_with_iso))
+    |> Enum.map(&Map.delete(&1, :rational))
     |> Enum.map(&Map.delete(&1, :other))
     |> Enum.map(&Map.values/1)
     |> List.flatten()
@@ -2673,17 +2763,17 @@ defmodule Cldr.Config do
     gettext_locales = known_gettext_locale_names(config)
 
     unknown_locales =
-      Enum.filter(gettext_locales, &(String.to_atom(&1) not in all_locale_names()))
+      Enum.filter(gettext_locales, fn locale ->
+        canonical_name(locale) not in all_locale_names()
+      end)
 
     case unknown_locales do
       [] ->
         config
 
       [unknown_locale] ->
-        unknown = locale_name_to_posix(unknown_locale)
-
         note(
-          "The locale #{inspect(unknown)} is configured in the #{inspect(gettext)} " <>
+          "The locale #{inspect(unknown_locale)} is configured in the #{inspect(gettext)} " <>
             "gettext backend but is unknown to CLDR. It will not be used to configure CLDR " <>
             "but it will still be used to match CLDR locales to Gettext locales at runtime.",
           config
@@ -2692,16 +2782,14 @@ defmodule Cldr.Config do
         Map.put(config, :locales, locales -- [unknown_locale])
 
       unknown_locales ->
-        unknown = Enum.map(unknown_locales, &locale_name_to_posix/1)
-
         note(
-          "The locales #{inspect(unknown)} are configured in the #{inspect(gettext)} " <>
+          "The locales #{inspect(unknown_locales)} are configured in the #{inspect(gettext)} " <>
             "gettext backend but are unknown to CLDR. They will not be used to configure CLDR " <>
             "but they will still be used to match CLDR locales to Gettext locales at runtime.",
           config
         )
 
-        Map.put(config, :locales, locales -- unknown_locales)
+      Map.put(config, :locales, locales -- unknown_locales)
     end
   end
 

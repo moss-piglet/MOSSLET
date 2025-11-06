@@ -2,6 +2,36 @@
 
 **Note that `ex_cldr` version 2.39.0 and later are supported on Elixir 1.12 and later only.**
 
+## Cldr v2.44.0
+
+This is the changelog for Cldr v2.44.0 released on November 6th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)
+
+### Breaking Changes
+
+* Some data formats have changed and the changes are reflected in the locale `.json` files. These changes should not normally affect consumers since consumers are not normally expected to deal with the underlying data.
+
+  * Relative ordinal date field localized names are now captured as a map not a list. In addition, `2` and `-2` ordinal names are added to the data.
+  * Locale display names and language names now have a subtype of `menu` which is a map containing the keys `:core`, `:extension` and `:default`. More or more of these entries may be `nil`.
+
+### Bug Fixes
+
+* Parsing language tags with the `und` (unknown) language now correctly substituted for a known language name if one can be found in `Cldr.Locale.likely_subtags/0`. For example:
+
+```elixir
+iex> Cldr.validate_locale("und-TW")
+{:ok, TestBackend.Cldr.Locale.new!("zh-Hant-TW")}
+```
+
+* The `:gettext_locale_name` field of a `t:Cldr.LanguageTag.t/0` is now set exactly as returned from `Gettext.known_locale_names/1`. Previously it was being tranformed to a BCP 47 format locale (replacing "_" with "-"). That is no longer the case.
+
+* Territory containment was previously not considering nested containers and is now doing so. For example, territory "019" (Americas) includes "419" (Latin America and the Carribbean) but "419" was not appearing in the list for "019" since CLDR categorises "grouping" territories separately. This should not affect any consumers, only library writers.
+
+### Enhancements
+
+* Update to [CLDR 48](https://cldr.unicode.org/downloads/cldr-48) data.
+
+* Add `Cldr.Locale.Match.best_match/2` and `Cldr.Locale.Match.match_distance/3` to implement the [CLDR Language Matching algorithm](https://www.unicode.org/reports/tr35/tr35.html#LanguageMatching). This is a more formal and testable approach that the previous mechanism. This new function will be use to implement better matching between a known CLDR locale name and supported Gettext locale names. Therefore it is possible that the `gettext_locale_name` field of a `t:Cldr.LanguageTag.t/0` may change with this release.
+
 ## Cldr v2.43.2
 
 This is the changelog for Cldr v2.43.2 released on September 13th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr/tags)

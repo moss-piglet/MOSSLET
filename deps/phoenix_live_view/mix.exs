@@ -1,7 +1,7 @@
 defmodule Phoenix.LiveView.MixProject do
   use Mix.Project
 
-  @version "1.1.16"
+  @version "1.1.17"
 
   def project do
     [
@@ -22,7 +22,7 @@ defmodule Phoenix.LiveView.MixProject do
       description: """
       Rich, real-time user experiences with server-rendered HTML
       """,
-      listeners: [Phoenix.CodeReloader],
+      listeners: [],
       # ignore misnamed test file warnings for e2e support files
       test_ignore_filters: [&String.starts_with?(&1, "test/e2e/support")]
     ]

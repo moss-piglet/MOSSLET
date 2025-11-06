@@ -2,6 +2,24 @@
 
 **Note that `ex_cldr_calendars` version 1.24.0 and later are supported on Elixir 1.12 and later only.**
 
+## Cldr.Calendars v2.4.0
+
+This is the changelog for Cldr Calendars v2.4.0 released on November 6th 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr_calendars/tags)
+
+### Bug Fixes
+
+* Fix `year/1`, `month/2` and `days_in_month/2` for Julian calendars.
+
+* CLDR 48 fixes the dates for some Japanese eras.
+
+### Enhancements
+
+* Use [CLDR 48](https://cldr.unicode.org/downloads/cldr-48) calendar data. The primary change for calendars is to the era dates for the Japanese calendar.
+
+* Adds `use Cldr.Calendar.Julian, new_year_starting_month_and_day: {month_of_year, day_of_month}` to allow modelling Julian calendars that don't start on January 1st.
+
+* Adds `Cldr.Calendar.convert/2` which converts either a date or a date range to another calendar.
+
 ## Cldr.Calendars v2.3.1
 
 This is the changelog for Cldr Calendars v2.3.1 released on September 10th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr_calendars/tags)

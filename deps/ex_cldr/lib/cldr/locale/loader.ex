@@ -112,7 +112,7 @@ defmodule Cldr.Locale.Loader do
     do_get_locale(locale, path, Cldr.Locale.Cache.compiling?())
   end
 
-  @alt_keys ["default", "menu", "short", "long", "variant", "standard"]
+  @alt_keys ["default", "menu", "short", "long", "variant", "standard", "medium"]
   @lenient_parse_keys ["date", "general", "number"]
   @language_keys ["language", "language_variants"]
 
@@ -132,13 +132,16 @@ defmodule Cldr.Locale.Loader do
     |> assert_valid_keys!(locale)
     |> Cldr.Map.integerize_keys(filter: "list_formats")
     |> Cldr.Map.integerize_keys(filter: "number_formats")
+    |> Cldr.Map.integerize_keys(filter: "date_fields")
     |> Cldr.Map.atomize_values(filter: "number_systems")
     |> Cldr.Map.atomize_keys(filter: "locale_display_names", skip: @language_keys)
     |> Cldr.Map.atomize_keys(filter: :language, only: @alt_keys)
     |> Cldr.Map.atomize_keys(filter: "languages", only: @alt_keys)
+
     |> Cldr.Map.atomize_keys(filter: "lenient_parse", only: @lenient_parse_keys)
     |> Cldr.Map.atomize_keys(filter: @remaining_modules)
     |> Cldr.Map.atomize_values(filter: :layout)
+    |> Cldr.Map.atomize_values(only: :usage)
     |> structure_date_formats()
     |> Cldr.Map.atomize_keys(level: 1..1)
     |> parse_version()
@@ -176,8 +179,6 @@ defmodule Cldr.Locale.Loader do
     "short",
     "daylight",
     "formal",
-    # TODO Remove when we publish with CLDR 48
-    "daylight_savings",
     "generic",
     "type"
   ]
@@ -198,10 +199,10 @@ defmodule Cldr.Locale.Loader do
       |> Cldr.Map.atomize_keys(only: @date_atoms)
       |> Cldr.Map.atomize_keys(filter: "calendars", skip: :number_system)
       |> Cldr.Map.atomize_keys(filter: "time_zone_names", level: 1..2)
+      |> Cldr.Map.atomize_values(filter: :date_formats)
+      |> Cldr.Map.atomize_values(filter: :time_formats)
       |> Cldr.Map.atomize_values(only: [:type])
       |> Cldr.Map.atomize_keys(level: 1..1)
-      # TODO remove when we publish CLDR 48
-      |> Cldr.Map.rename_keys(:daylight_savings, :daylight)
 
     Map.put(content, :dates, dates)
   end

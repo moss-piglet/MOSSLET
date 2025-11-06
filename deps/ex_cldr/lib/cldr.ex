@@ -159,6 +159,7 @@ defmodule Cldr do
          canonical_locale_name: "pl",
          cldr_locale_name: :pl,
          extensions: %{},
+         gettext_locale_name: nil,
          language: "pl",
          locale: %{},
          private_use: [],
@@ -307,12 +308,12 @@ defmodule Cldr do
         {:ok, "en"}
 
         iex> import Cldr.LanguageTag.Sigil
-        iex> Cldr.put_gettext_locale(~l"de")
+        iex> Cldr.put_gettext_locale(~l"ru")
         {
           :error,
           {
             Cldr.UnknownLocaleError,
-            "Locale TestBackend.Cldr.Locale.new!(\\"de-DE\\") does not map to a known gettext locale name"
+            "Locale TestBackend.Cldr.Locale.new!(\\"ru-RU\\") does not map to a known gettext locale name"
           }
         }
     """
@@ -469,7 +470,7 @@ defmodule Cldr do
         cldr_locale_name: :"en-001",
         language_subtags: [],
         extensions: %{},
-        gettext_locale_name: "en",
+        gettext_locale_name: "en_GB",
         language: "en",
         locale: %{},
         private_use: [],
@@ -520,7 +521,7 @@ defmodule Cldr do
         cldr_locale_name: :"en-001",
         language_subtags: [],
         extensions: %{},
-        gettext_locale_name: "en",
+        gettext_locale_name: "en_GB",
         language: "en",
         locale: %{},
         private_use: [],
@@ -691,7 +692,7 @@ defmodule Cldr do
 
   """
   @spec display_name(term(), Keyword.t()) :: String.t()
-  @display_name_options [prefer: :default, dialect: true]
+  @display_name_options [prefer: :standard, language_display: :dialect]
 
   def display_name(term, options \\ []) do
     options = Keyword.merge(@display_name_options, options)
@@ -798,7 +799,7 @@ defmodule Cldr do
         canonical_locale_name: "af",
         cldr_locale_name: :af,
         extensions: %{},
-        gettext_locale_name: nil,
+        gettext_locale_name: "en",
         language: "af",
         locale: %{},
         private_use: [],
@@ -878,7 +879,7 @@ defmodule Cldr do
         canonical_locale_name: "af",
         cldr_locale_name: :af,
         extensions: %{},
-        gettext_locale_name: nil,
+        gettext_locale_name: "en",
         language: "af",
         locale: %{},
         private_use: [],
@@ -1280,11 +1281,11 @@ defmodule Cldr do
 
   ## Examples
 
-      iex> Cldr.quote("Quoted String", MyApp.Cldr)
+      iex> Cldr.quote("Quoted String", MyApp.Cldr, locale: :en)
       "“Quoted String”"
 
-      iex> Cldr.quote("Quoted String", MyApp.Cldr, prefer: :variant)
-      "‘Quoted String’"
+      iex> Cldr.quote("Quoted String", MyApp.Cldr, prefer: :variant, locale: :de)
+      "‚Quoted String‘"
 
       iex> Cldr.quote("Quoted String", MyApp.Cldr, locale: "ja")
       "「Quoted String」"
@@ -1844,14 +1845,14 @@ defmodule Cldr do
   ## Examples
 
       iex> Cldr.territory_chain "US"
-      {:ok, [:US, :"021", :"019", :"001"]}
+      {:ok,  [:US, :UN, :"001"]}
 
       iex> Cldr.territory_chain :AU
-      {:ok, [:AU, :"053", :"009", :"001"]}
+      {:ok, [:AU, :UN, :"001"]}
 
       iex> {:ok, locale} = Cldr.validate_locale("en-US-u-rg-CAzzzz", MyApp.Cldr)
       iex> Cldr.territory_chain locale
-      {:ok, [:CA, :"021", :"019", :"001"]}
+      {:ok,  [:CA, :UN, :"001"]}
 
       iex> Cldr.territory_chain :"001"
       {:ok, [:"001"]}
@@ -1911,7 +1912,7 @@ defmodule Cldr do
   ## Examples
 
       iex> Cldr.territory_chain "en-US-u-rg-CAzzzz", MyApp.Cldr
-      {:ok, [:CA, :"021", :"019", :"001"]}
+      {:ok,  [:CA, :UN, :"001"]}
 
   """
   def territory_chain(locale_name, backend) when is_atom(backend) do
@@ -2099,7 +2100,8 @@ defmodule Cldr do
        :modi, :mong, :mroo, :mtei, :mymr, :mymrepka, :mymrpao, :mymrshan, :mymrtlng,
        :nagm, :newa, :nkoo, :olck, :onao, :orya, :osma, :outlined, :rohg, :roman,
        :romanlow, :saur, :segment, :shrd, :sind, :sinh, :sora, :sund, :sunu, :takr,
-       :talu, :taml, :tamldec, :telu, :thai, :tibt, :tirh, :tnsa, :vaii, :wara, :wcho]
+       :talu, :taml, :tamldec, :telu, :thai, :tibt, :tirh, :tnsa, :tols, :vaii, :wara,
+       :wcho]
 
   """
   @known_number_systems Cldr.Config.known_number_systems()
@@ -2114,7 +2116,7 @@ defmodule Cldr do
   ## Arguments
 
   * `number_system` is any number system name returned by
-    `Cldr.known_number_systems/0`
+    `Cldr.known_number_systems/0`.
 
   ## Returns
 

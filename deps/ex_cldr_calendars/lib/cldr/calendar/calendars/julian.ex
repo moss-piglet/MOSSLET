@@ -11,6 +11,13 @@ defmodule Cldr.Calendar.Julian do
   @months_in_quarter 3
   @days_in_week 7
 
+  defmacro __using__(options \\ []) do
+    quote bind_quoted: [options: options] do
+      @options options
+      @before_compile Cldr.Calendar.Julian.Compiler
+    end
+  end
+
   @doc """
   Defines the CLDR calendar type for this calendar.
 
@@ -510,6 +517,11 @@ defmodule Cldr.Calendar.Julian do
     {new_year, new_month, new_day}
   end
 
+  def plus(year, month, day, :days, days, _options) do
+    iso_days = date_to_iso_days(year, month, day) + days
+    date_from_iso_days(iso_days)
+  end
+
   @doc """
   Returns if the given year is a leap year.
 
@@ -669,6 +681,22 @@ defmodule Cldr.Calendar.Julian do
                 zone_abbr,
                 utc_offset,
                 std_offset
+              ),
+              to: Calendar.ISO
+
+  defdelegate datetime_to_string(
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                second,
+                microsecond,
+                time_zone,
+                zone_abbr,
+                utc_offset,
+                std_offset,
+                format
               ),
               to: Calendar.ISO
 

@@ -49,7 +49,7 @@ defmodule Cldr.DateTime.Formatter.Backend do
 
         ## Examples
 
-            iex> #{inspect(__MODULE__)}.format ~U[2017-09-03 10:23:00.0Z], "yy/MM/dd hh:MM", "en"
+            iex> #{inspect(__MODULE__)}.format(~U[2017-09-03 10:23:00.0Z], "yy/MM/dd hh:MM", "en")
             {:ok, "17/09/03 10:09"}
 
         """
@@ -89,10 +89,8 @@ defmodule Cldr.DateTime.Formatter.Backend do
               transforms = apply_transforms(tokens, date, locale, options)
               format_transforms(date, format, transforms, locale, options)
 
-            {:error, {_, :date_time_format_lexer, {_, error}}, _} ->
-              {:error,
-               {Cldr.DateTime.Compiler.ParseError,
-                "Could not tokenize #{inspect(format)}. Error detected at #{inspect(error)}"}}
+            other ->
+              other
           end
         end
 

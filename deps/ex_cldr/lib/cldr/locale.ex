@@ -40,23 +40,23 @@ defmodule Cldr.Locale do
   return an `{:ok, language_tag}` tuple even when the locale returned does
   not exactly match the requested locale name.  For example, the following
   attempts to create a locale matching the non-existent "english as spoken
-  in Japan" local name.  Here `Cldr` will match to the nearest configured
+  in China" local name.  Here `Cldr` will match to the nearest configured
   locale, which in this case will be "en".
 
-      iex> Cldr.Locale.new("en-JP", TestBackend.Cldr)
+      iex> Cldr.Locale.new("en-CN", TestBackend.Cldr)
       {:ok, %Cldr.LanguageTag{
         backend: TestBackend.Cldr,
-        canonical_locale_name: "en-JP",
+        canonical_locale_name: "en-CN",
         cldr_locale_name: :en,
         extensions: %{},
-        gettext_locale_name: "en",
+        gettext_locale_name: "en_GB",
         language: "en",
         locale: %{},
         private_use: [],
         rbnf_locale_name: :en,
-        requested_locale_name: "en-JP",
+        requested_locale_name: "en-CN",
         script: :Latn,
-        territory: :JP,
+        territory: :CN,
         transform: %{},
         language_variants: []
       }}
@@ -153,7 +153,7 @@ defmodule Cldr.Locale do
         canonical_locale_name: "en-XX",
         cldr_locale_name: :en,
         extensions: %{},
-        gettext_locale_name: "en",
+        gettext_locale_name: "en_GB",
         language: "en",
         locale: %{},
         private_use: [],
@@ -192,7 +192,7 @@ defmodule Cldr.Locale do
           canonical_locale_name: "en-AU-u-cf-account-tz-ausyd",
           cldr_locale_name: :"en-AU",
           extensions: %{},
-          gettext_locale_name: "en",
+          gettext_locale_name: "en_GB",
           language: "en",
           language_subtags: [],
           language_variants: [],
@@ -294,6 +294,7 @@ defmodule Cldr.Locale do
   scripts and territories
 
   """
+  @external_resource Path.join(Cldr.Config.cldr_data_dir(), "language_data.json")
   @language_data Cldr.Config.language_data()
                  |> Enum.map(fn
                    {language,
@@ -1552,6 +1553,8 @@ defmodule Cldr.Locale do
     likely_subtags? = Keyword.get(options, :add_likely_subtags, true)
     omit_singular_script? = Keyword.get(options, :omit_singular_script?, true)
     skip_gettext_and_cldr? = Keyword.get(options, :skip_gettext_and_cldr, false)
+    skip_rbnf_name? = Keyword.get(options, :skip_rbnf_name, false)
+    rbnf_locales = Keyword.get(options, :rbnf_locales, [])
 
     language_tag =
       language_tag
@@ -1570,7 +1573,7 @@ defmodule Cldr.Locale do
       |> maybe_put_likely_subtags(likely_subtags?)
       |> put_gettext_locale_name(skip_gettext_and_cldr?)
       |> put_cldr_locale_name(skip_gettext_and_cldr?)
-      |> put_rbnf_locale_name(options)
+      |> put_rbnf_locale_name(rbnf_locales, skip_rbnf_name?)
       |> wrap(:ok)
     end
   end
@@ -1591,15 +1594,6 @@ defmodule Cldr.Locale do
 
   defp maybe_put_likely_subtags(language_tag, true), do: put_likely_subtags(language_tag)
   defp maybe_put_likely_subtags(language_tag, _), do: language_tag
-
-  @doc false
-  # def canonical_language_tag(%LanguageTag{backend: nil} = language_tag) do
-  #   canonical_language_tag(language_tag, Cldr.default_backend!(), add_likely_subtags: false)
-  # end
-  #
-  # def canonical_language_tag(%LanguageTag{backend: backend} = language_tag) do
-  #   canonical_language_tag(language_tag, backend, add_likely_subtags: false)
-  # end
 
   defp wrap(term, tag) do
     {tag, term}
@@ -1703,6 +1697,21 @@ defmodule Cldr.Locale do
       updated_tag
     else
       substitute_aliases(updated_tag)
+    end
+  end
+
+  defp substitute(%LanguageTag{language: nil} = language_tag, :requested_name) do
+    locale_name = language_tag.requested_locale_name
+
+    if replacement_tag = aliases(locale_name, :language) do
+      type_tag = Cldr.LanguageTag.Parser.parse!(locale_name)
+
+      replacement_tag =
+        Map.put(replacement_tag, :language_variants, language_tag.language_variants)
+
+      merge_language_tags(replacement_tag, language_tag, type_tag)
+    else
+      language_tag
     end
   end
 
@@ -1844,11 +1853,14 @@ defmodule Cldr.Locale do
     %{language_tag | cldr_locale_name: cldr_locale_name}
   end
 
-  @spec put_rbnf_locale_name(language_tag :: Cldr.LanguageTag.t(), options :: Keyword.t()) ::
+  @spec put_rbnf_locale_name(language_tag :: Cldr.LanguageTag.t(), options :: Keyword.t(), skip :: boolean) ::
           Cldr.LanguageTag.t()
-  defp put_rbnf_locale_name(%LanguageTag{} = language_tag, options) do
-    rbnf_locales = Keyword.get(options, :rbnf_locales, [])
 
+  defp put_rbnf_locale_name(%LanguageTag{} = language_tag, _rbnf_locales, true = _skip?) do
+    language_tag
+  end
+
+  defp put_rbnf_locale_name(%LanguageTag{} = language_tag, rbnf_locales, false = _skip?) do
     rbnf_locale_name = rbnf_locale_name(language_tag, rbnf_locales)
     %{language_tag | rbnf_locale_name: rbnf_locale_name}
   end
@@ -1916,16 +1928,25 @@ defmodule Cldr.Locale do
 
   @spec gettext_locale_name(Cldr.LanguageTag.t()) :: String.t() | nil
   defp gettext_locale_name(%LanguageTag{} = language_tag) do
-    language_tag
-    |> first_match(&known_gettext_locale_name(&1, &2, language_tag.backend))
-    |> locale_name_to_posix
+    backend = language_tag.backend
+    gettext_locales = backend.known_gettext_locale_names()
+    gettext_match(language_tag, gettext_locales, backend)
   end
 
   # Used at compile time only
   defp gettext_locale_name(%LanguageTag{} = language_tag, config) do
-    language_tag
-    |> first_match(&known_gettext_locale_name(&1, &2, config))
-    |> locale_name_to_posix
+    gettext_locales = Cldr.Config.known_gettext_locale_names(config)
+    gettext_match(language_tag, gettext_locales, config.backend)
+  end
+
+  defp gettext_match(language_tag, supported, backend) do
+    case Cldr.Locale.Match.best_match(language_tag, backend: backend, supported: supported) do
+      {:ok, locale, _index} ->
+        locale
+
+      {:error, _reason} ->
+        nil
+    end
   end
 
   @spec known_gettext_locale_name(locale_name(), Cldr.backend() | Cldr.Config.t()) ::
@@ -1939,7 +1960,7 @@ defmodule Cldr.Locale do
   end
 
   # This clause is only called at compile time when we're
-  # building a backend.  In normal use is should not be used.
+  # building a backend.  In normal use it should not be used.
   @doc false
   def known_gettext_locale_name(locale_name, _tags, config) when is_map(config) do
     gettext_locales = Cldr.Config.known_gettext_locale_names(config)
@@ -2052,7 +2073,7 @@ defmodule Cldr.Locale do
       "en"
 
   """
-  @spec locale_name_from(Cldr.LanguageTag.t()) :: locale_name()
+  @spec locale_name_from(Cldr.LanguageTag.t()) :: String.t()
 
   def locale_name_from(language_tag, omit_singular_script? \\ true)
 
@@ -2265,8 +2286,12 @@ defmodule Cldr.Locale do
   def put_likely_subtags(%LanguageTag{} = language_tag) do
     %LanguageTag{language: language, script: script, territory: territory} = language_tag
     subtags = likely_subtags(language, script, territory, [])
-
-    Map.merge(subtags, language_tag, fn _k, v1, v2 -> if empty?(v2), do: v1, else: v2 end)
+    Map.merge(subtags, language_tag, fn
+      :language, v1, "und" ->
+        v1
+      _k, v1, v2 ->
+        if empty?(v2), do: v1, else: v2
+    end)
   end
 
   # The process of applying alias substitutions is a map merge.
