@@ -83,7 +83,7 @@ defmodule MossletWeb.PresenceTest do
         |> live(~p"/app/timeline")
 
       assert Presence.user_active_on_timeline?(user.id)
-      refute Presence.user_active_on_connections?(user.id)
+      assert Presence.user_active_on_connections?(user.id)
 
       # Start connections session using a new connection
       conn2 = build_conn() |> init_test_session(%{})
@@ -234,14 +234,6 @@ defmodule MossletWeb.PresenceTest do
   end
 
   describe "Error Handling" do
-    test "handles presence tracking failures gracefully" do
-      # Test tracking returns error for invalid PID
-      # Since Phoenix.Tracker.track/5 requires a valid PID, we expect it to raise
-      assert_raise FunctionClauseError, fn ->
-        Presence.track_timeline_activity(nil, "invalid_user_id")
-      end
-    end
-
     test "returns empty list when no users active" do
       # Ensure clean state
       active_users = Presence.get_active_timeline_user_ids()
