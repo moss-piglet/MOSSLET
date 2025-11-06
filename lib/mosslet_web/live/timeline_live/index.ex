@@ -37,31 +37,48 @@ defmodule MossletWeb.TimelineLive.Index do
     # Store the user token from session for later use in uploads
     user_token = session["user_token"]
 
-    if connected?(socket) do
-      Accounts.private_subscribe(current_user)
-      Accounts.subscribe_account_deleted()
-      Accounts.subscribe_user_status(current_user)
-      Accounts.subscribe_connection_status(current_user)
-      Timeline.private_subscribe(current_user)
-      Timeline.private_reply_subscribe(current_user)
-      Timeline.connections_subscribe(current_user)
-      Timeline.connections_reply_subscribe(current_user)
-      # Subscribe to public posts for discover tab realtime updates
-      Timeline.subscribe()
-      Timeline.reply_subscribe()
-      # Subscribe to block events for real-time filtering
-      Accounts.block_subscribe(current_user)
+    socket = stream(socket, :presences, [])
 
-      # PRIVACY-FIRST: Track user presence for cache optimization only
-      # No usernames or identifying info shared - just for performance
-      MossletWeb.Presence.track_timeline_activity(
-        self(),
-        current_user.id
-      )
+    socket =
+      if connected?(socket) do
+        Accounts.private_subscribe(current_user)
+        Accounts.subscribe_account_deleted()
+        Accounts.subscribe_user_status(current_user)
+        Accounts.subscribe_connection_status(current_user)
+        Timeline.private_subscribe(current_user)
+        Timeline.private_reply_subscribe(current_user)
+        Timeline.connections_subscribe(current_user)
+        Timeline.connections_reply_subscribe(current_user)
+        # Subscribe to public posts for discover tab realtime updates
+        Timeline.subscribe()
+        Timeline.reply_subscribe()
+        # Subscribe to block events for real-time filtering
+        Accounts.block_subscribe(current_user)
 
-      # Privately track user activity for auto-status functionality
-      Accounts.track_user_activity(current_user, :general)
-    end
+        # PRIVACY-FIRST: Track user presence for cache optimization only
+        # No usernames or identifying info shared - just for performance
+        MossletWeb.Presence.track_activity(
+          self(),
+          %{
+            id: current_user.id,
+            live_view_name: "timeline",
+            joined_at: System.system_time(:second),
+            user_id: current_user.id,
+            cache_optimization: true
+          }
+        )
+
+        MossletWeb.Presence.subscribe()
+
+        socket = stream(socket, :presences, MossletWeb.Presence.list_online_users())
+
+        # Privately track user activity for auto-status functionality
+        Accounts.track_user_activity(current_user, :general)
+
+        socket
+      else
+        socket
+      end
 
     # Create changeset with all required fields populated
     changeset =
@@ -297,6 +314,18 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  def handle_info({MossletWeb.Presence, {:join, presence}}, socket) do
+    {:noreply, stream_insert(socket, :presences, presence)}
+  end
+
+  def handle_info({MossletWeb.Presence, {:leave, presence}}, socket) do
+    if presence.metas == [] do
+      {:noreply, stream_delete(socket, :presences, presence)}
+    else
+      {:noreply, stream_insert(socket, :presences, presence)}
+    end
+  end
+
   def handle_info({:status_updated, user}, socket) do
     # Handle status updates for both current user and connected users
     current_user = socket.assigns.current_user
@@ -473,6 +502,8 @@ defmodule MossletWeb.TimelineLive.Index do
                visibility: visibility
              ) do
           {:ok, _reply} ->
+            # Track user activity for auto-status (reply creation is significant activity)
+            Accounts.track_user_activity(current_user, :interaction)
             # Update the post with new reply count in the stream
             # Get fresh post with updated reply count
             updated_post = Timeline.get_post!(post_id)
@@ -512,6 +543,14 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      reply_user = Accounts.get_user_with_preloads(reply.user_id)
+      status_info = get_user_status_info(reply_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
+
       # Update the post in the stream to show the new reply
       socket =
         socket
@@ -520,12 +559,18 @@ defmodule MossletWeb.TimelineLive.Index do
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_reply_notification(reply, current_user, "created")
 
-      {:noreply, socket}
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: current_user.id,
+         status: new_status,
+         status_message: new_status_message
+       })}
     else
       # Post doesn't match current tab but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
+        |> add_subtle_tab_indicator(current_user, options)
 
       {:noreply, socket}
     end
@@ -542,6 +587,14 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      reply_user = Accounts.get_user_with_preloads(reply.user_id)
+      status_info = get_user_status_info(reply_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
+
       # Update the post in the stream to show the updated reply
       socket =
         socket
@@ -550,7 +603,12 @@ defmodule MossletWeb.TimelineLive.Index do
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_reply_notification(reply, current_user, "updated")
 
-      {:noreply, socket}
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: reply.user_id,
+         status: new_status,
+         status_message: new_status_message
+       })}
     else
       # Post doesn't match current tab but still update counts
       socket =
@@ -605,6 +663,14 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      post_user = Accounts.get_user_with_preloads(post.user_id)
+      status_info = get_user_status_info(post_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
+
       # Add the new post to the top of the stream - CSS animations will trigger automatically
       socket =
         socket
@@ -612,7 +678,12 @@ defmodule MossletWeb.TimelineLive.Index do
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_new_post_notification(post, current_user)
 
-      {:noreply, socket}
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: current_user.id,
+         status: new_status,
+         status_message: new_status_message
+       })}
     else
       # Post doesn't match current tab or is filtered out, but still update counts
       socket =
@@ -637,6 +708,13 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      post_user = Accounts.get_user_with_preloads(post.user_id)
+      status_info = get_user_status_info(post_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
       # Update the post in the stream - this will update the existing post in place
       socket =
         socket
@@ -644,7 +722,12 @@ defmodule MossletWeb.TimelineLive.Index do
         |> stream_insert(:posts, post, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
 
-      {:noreply, socket}
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: current_user.id,
+         status: new_status,
+         status_message: new_status_message
+       })}
     else
       # Post no longer matches current tab or is now filtered out
       # Remove it from stream and update counts
@@ -658,13 +741,91 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:post_updated_fav, post}, socket) do
-    {:noreply, socket |> stream_insert(:posts, post, at: -1)}
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
+
+    # Check if this updated post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+
+    # Apply content filtering to the updated post
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      post_user = Accounts.get_user_with_preloads(post.user_id)
+      status_info = get_user_status_info(post_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
+      # Update the post in the stream - this will update the existing post in place
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: current_user.id,
+         status: new_status,
+         status_message: new_status_message
+       })}
+    else
+      # Post no longer matches current tab or is now filtered out
+      # Remove it from stream and update counts
+      socket =
+        socket
+        |> stream_delete(:posts, post)
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
+    end
   end
 
-  def handle_info({:reply_updated_fav, post, _reply}, socket) do
-    # When a reply is favorited, we need to update the post that contains it
-    # so the reply thread reflects the new favorite state
-    {:noreply, socket |> stream_insert(:posts, post, at: -1)}
+  def handle_info({:reply_updated_fav, post, reply}, socket) do
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
+
+    # Check if this post should appear in the current tab
+    should_show_post = post_matches_current_tab?(post, current_tab, current_user)
+    passes_content_filters = post_passes_content_filters?(post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      reply_user = Accounts.get_user_with_preloads(reply.user_id)
+      status_info = get_user_status_info(reply_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
+
+      # Update the post in the stream to show the updated reply
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_reply_notification(reply, current_user, "updated")
+
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: reply.user_id,
+         status: new_status,
+         status_message: new_status_message
+       })}
+    else
+      # Post doesn't match current tab but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:post_deleted, post}, socket) do
@@ -694,13 +855,25 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      post_user = Accounts.get_user_with_preloads(post.user_id)
+      status_info = get_user_status_info(post_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
       # Add the reposted post to the top of the stream
       socket =
         socket
         |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
 
-      {:noreply, socket}
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: post.user_id,
+         status: new_status,
+         status_message: new_status_message
+       })}
     else
       # Post doesn't match current tab or is filtered out, but still update counts
       socket =
@@ -813,13 +986,51 @@ defmodule MossletWeb.TimelineLive.Index do
     # Update the post stream to reflect the new nested reply
     updated_post = Timeline.get_post!(post_id)
 
-    socket =
-      socket
-      |> put_flash(:success, "Reply posted!")
-      |> stream_insert(:posts, updated_post, at: -1)
-      |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply_id})
+    current_user = socket.assigns.current_user
+    current_tab = socket.assigns.active_tab || "home"
+    options = socket.assigns.options
+    content_filters = socket.assigns.content_filters
 
-    {:noreply, socket}
+    # Check if this post should appear in the current tab
+    should_show_post = post_matches_current_tab?(updated_post, current_tab, current_user)
+    passes_content_filters = post_passes_content_filters?(updated_post, content_filters)
+
+    if should_show_post and passes_content_filters do
+      key = socket.assigns.key
+      current_user = Accounts.get_user_with_preloads(current_user.id)
+      # this event is sent from the user's nested reply composer so the reply_user is
+      # the current user
+      status_info = get_user_status_info(current_user, current_user, key)
+
+      new_status = status_info.status || "offline"
+      new_status_message = status_info.status_message
+
+      # Update the post in the stream to show the new reply
+      socket =
+        socket
+        # Update existing post
+        |> stream_insert(:posts, updated_post, at: -1)
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> put_flash(:success, "Reply created!")
+        |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply_id})
+
+      {:noreply,
+       push_event(socket, "update_user_status", %{
+         user_id: current_user.id,
+         status: new_status,
+         status_message: new_status_message
+       })}
+
+      {:noreply, socket}
+    else
+      # Post doesn't match current tab but still update counts
+      socket =
+        socket
+        |> recalculate_counts_after_new_post(current_user, options)
+        |> add_subtle_tab_indicator(current_user, options)
+
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:nested_reply_error, error_message}, socket) do
@@ -1114,6 +1325,40 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_info(_message, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event(
+        "expand_nested_replies",
+        %{"reply-id" => _reply_id, "post-id" => _post_id},
+        socket
+      ) do
+    # TODO: This event handler would typically increase the max_depth for a specific reply thread
+    # or load more nested replies. For now, we'll add a simple response.
+    # In a full implementation, you might want to:
+    # 1. Store expanded state in socket assigns
+    # 2. Use JS to show/hide nested replies
+    # 3. Or load additional nested replies from the database
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Actively under construction 🚧, thank you for your patience. 💜")}
+  end
+
+  def handle_event(
+        "load_more_replies",
+        %{"post-id" => _post_id},
+        socket
+      ) do
+    # TODO: This event handler would typically increase the max_depth for a specific reply thread
+    # or load more nested replies. For now, we'll add a simple response.
+    # In a full implementation, you might want to:
+    # 1. Store expanded state in socket assigns
+    # 2. Use JS to show/hide nested replies
+    # 3. Or load additional nested replies from the database
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Actively under construction 🚧, thank you for your patience. 💜")}
   end
 
   def handle_event("restore-body-scroll", _params, socket) do
@@ -2293,7 +2538,9 @@ defmodule MossletWeb.TimelineLive.Index do
           bookmark = Timeline.get_bookmark(current_user, post)
 
           case Timeline.delete_bookmark(bookmark, current_user) do
-            {:ok, _} ->
+            {:ok, _bookmark} ->
+              # Track user activity for auto-status (bookmarking is user interaction)
+              Accounts.track_user_activity(current_user, :interaction)
               # Recalculate bookmark count
               # Use cached content filters from socket assigns
               content_filter_prefs = socket.assigns.content_filters
@@ -2454,6 +2701,8 @@ defmodule MossletWeb.TimelineLive.Index do
                  user: current_user
                ) do
             {:ok, _reply} ->
+              # Track user activity for auto-status (reply fav is significant activity)
+              Accounts.track_user_activity(current_user, :interaction)
               {:noreply, put_flash(socket, :success, "You loved this reply!")}
 
             {:error, _changeset} ->
@@ -2481,6 +2730,8 @@ defmodule MossletWeb.TimelineLive.Index do
                  user: current_user
                ) do
             {:ok, _reply} ->
+              # Track user activity for auto-status (reply unfav is significant activity)
+              Accounts.track_user_activity(current_user, :interaction)
               {:noreply, put_flash(socket, :success, "You removed love from this reply.")}
 
             {:error, _changeset} ->

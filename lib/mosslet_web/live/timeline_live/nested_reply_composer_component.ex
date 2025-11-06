@@ -4,6 +4,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
   import MossletWeb.CoreComponents, only: [phx_input: 1, phx_icon: 1]
   import MossletWeb.DesignSystem, only: [liquid_button: 1]
 
+  alias Mosslet.Accounts
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Reply
 
@@ -89,6 +90,8 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
            visibility: post.visibility
          ) do
       {:ok, _reply} ->
+        # Track user activity for auto-status (reply creation is significant activity)
+        Accounts.track_user_activity(current_user, :interaction)
         # Clear the form like main reply composer
         changeset =
           Timeline.change_reply(%Reply{}, %{
@@ -106,7 +109,6 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
         socket =
           socket
           |> assign(:form, form)
-          |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply.id})
 
         # Send success message to parent LiveView
         send(self(), {:nested_reply_created, post.id, parent_reply.id})

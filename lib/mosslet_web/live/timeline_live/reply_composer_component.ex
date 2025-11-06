@@ -81,9 +81,11 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                   src={@user_avatar}
                   name={@user_name}
                   size="sm"
-                  status={Atom.to_string(@current_user.status || :offline)}
+                  status={to_string(@current_user.status || :offline)}
                   status_message={get_user_status_message(@current_user, @current_user, @key)}
+                  show_status={can_view_status?(@current_user, @current_user, @key)}
                   class="flex-shrink-0"
+                  user_id={@current_user.id}
                 />
 
                 <div class="flex-1 min-w-0">

@@ -170,7 +170,7 @@ defmodule MossletWeb.PresenceTest do
       assert Presence.user_active_on_timeline?(user.id)
 
       # Get the raw presence data to verify minimal storage
-      presence_list = Phoenix.Presence.list(Presence, "timeline:activity")
+      presence_list = Phoenix.Presence.list(Presence, "proxy:online_users")
       user_presence = Map.get(presence_list, user.id)
 
       # Should only contain metadata for cache optimization

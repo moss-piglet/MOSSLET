@@ -2624,6 +2624,7 @@ defmodule MossletWeb.DesignSystem do
   attr :verified, :boolean, default: false
   attr :class, :any, default: ""
   attr :clickable, :boolean, default: false
+  attr :user_id, :string, default: nil, doc: "user_id for targeting status updates via JS"
 
   attr :id, :string,
     default: nil,
@@ -2647,6 +2648,7 @@ defmodule MossletWeb.DesignSystem do
         @class
       ]}
       {@rest}
+      data-user-id={@user_id}
     >
       <%!-- Main avatar container with liquid styling --%>
       <div class={[
@@ -2951,6 +2953,7 @@ defmodule MossletWeb.DesignSystem do
             name={@user_name}
             size="md"
             status={to_string(@current_user.status || "offline")}
+            user_id={@current_user.id}
             status_message={get_user_status_message(@current_user, @current_user, @key)}
             show_status={can_view_status?(@current_user, @current_user, @key)}
             id={"composer-avatar-#{@id}"}
@@ -3615,6 +3618,7 @@ defmodule MossletWeb.DesignSystem do
             status={@user_status}
             status_message={@user_status_message}
             show_status={@show_post_author_status}
+            user_id={@post.user_id}
             id={"avatar-#{@post.id}"}
           />
 
@@ -5600,7 +5604,11 @@ defmodule MossletWeb.DesignSystem do
           </div>
 
           <%!-- Render only top-level replies (those without a parent) --%>
-          <div :for={reply <- filter_top_level_replies(@replies)} class="reply-item relative">
+          <div
+            :for={reply <- filter_top_level_replies(@replies)}
+            class="reply-item relative"
+            data-user-id={reply.user_id}
+          >
             <%!-- Individual reply connection --%>
             <div class="absolute -left-4 sm:-left-6 top-6 w-3 sm:w-4 h-px bg-gradient-to-r from-emerald-300/60 to-transparent dark:from-emerald-400/60">
             </div>
@@ -5622,7 +5630,7 @@ defmodule MossletWeb.DesignSystem do
               size="sm"
               color="emerald"
               phx-click="load_more_replies"
-              phx-value-id={@post_id}
+              phx-value-post-id={@post_id}
               class="text-emerald-600 dark:text-emerald-400"
             >
               Load {min(@reply_count - length(@replies), 5)} more replies
@@ -5705,6 +5713,9 @@ defmodule MossletWeb.DesignSystem do
           variant="ghost"
           size="sm"
           color="emerald"
+          phx-click="expand_nested_replies"
+          phx-value-reply-id={@reply.id}
+          phx-value-post-id={@post_id}
           class="text-xs text-emerald-600 dark:text-emerald-400"
         >
           View {length(get_child_replies(@reply))} more replies
@@ -5772,6 +5783,7 @@ defmodule MossletWeb.DesignSystem do
             name={get_reply_author_name(@reply, @current_user, @key)}
             status={get_reply_author_status(@reply, @current_user, @key)}
             status_message={get_reply_author_status_message(@reply, @current_user, @key)}
+            user_id={@reply.user_id}
             size="sm"
             class="flex-shrink-0 mt-0.5"
           />

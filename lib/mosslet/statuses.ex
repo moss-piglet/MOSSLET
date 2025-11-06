@@ -66,7 +66,7 @@ defmodule Mosslet.Statuses do
          |> Repo.transaction_on_primary() do
       # Update activity timestamp
       {:ok, %{update_connection: _connection, user: user}} ->
-        user = update_user_activity(user)
+        # user = update_user_activity(user)
 
         # Broadcast status change using accounts context
         # Delegate to accounts context for broadcasting
@@ -165,12 +165,19 @@ defmodule Mosslet.Statuses do
   Called on posts, likes, replies, etc.
   """
   def track_user_activity(user, activity_type \\ :general) do
-    attrs = %{last_activity_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)}
+    attrs = %{}
 
     attrs =
       case activity_type do
         :post ->
           Map.put(attrs, :last_post_at, NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second))
+
+        :interaction ->
+          Map.put(
+            attrs,
+            :last_activity_at,
+            NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
+          )
 
         _ ->
           attrs
@@ -182,7 +189,6 @@ defmodule Mosslet.Statuses do
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_user}} ->
-        # Check if auto-status should be updated and return the result
         auto_update_status_from_activity(updated_user)
 
       {:ok, {:error, changeset}} ->
@@ -238,19 +244,6 @@ defmodule Mosslet.Statuses do
 
   # Private functions
 
-  defp update_user_activity(user) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.activity_changeset(%{
-             last_activity_at: NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
-           })
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, user}} -> user
-      _ -> :error
-    end
-  end
-
   defp determine_status_from_presence_and_activity(user) do
     # Never auto-change from manually set :busy status
     if user.status == :busy do
@@ -276,7 +269,27 @@ defmodule Mosslet.Statuses do
   end
 
   defp get_minutes_since_last_activity(user) do
-    last_activity = user.last_activity_at || user.inserted_at
+    last_activity =
+      case {user.last_activity_at, user.last_post_at} do
+        {nil, nil} ->
+          # No activity recorded, use account creation time
+          user.inserted_at
+
+        {activity_at, nil} ->
+          activity_at
+
+        {nil, post_at} ->
+          post_at
+
+        {activity_at, post_at} ->
+          # Pick the most recent of the two
+          if NaiveDateTime.compare(activity_at, post_at) == :gt do
+            activity_at
+          else
+            post_at
+          end
+      end
+
     NaiveDateTime.diff(NaiveDateTime.utc_now(), last_activity, :second) / 60
   end
 

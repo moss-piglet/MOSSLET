@@ -31,32 +31,61 @@ defmodule MossletWeb.Presence do
 
   require Logger
 
-  @timeline_topic "timeline:activity"
-  @connections_topic "connections:activity"
+  @presence_topic "proxy:online_users"
 
-  @doc """
-  Track a user's presence on the connections page for cache optimization.
+  def init(_opts) do
+    {:ok, %{}}
+  end
 
-  PRIVACY: Only stores user_id for performance optimization.
-  No usernames, no public visibility.
-  """
-  def track_connections_activity(pid, user_id) do
-    # Only store minimal data needed for cache optimization
-    presence_meta = %{
-      joined_at: System.system_time(:second),
-      # No username, no identifying info - just for cache management
-      cache_optimization: true
-    }
-
-    case track(pid, @connections_topic, user_id, presence_meta) do
-      {:ok, _ref} ->
-        Logger.debug("Connections activity tracked for cache optimization")
-        :ok
-
-      {:error, reason} ->
-        Logger.warning("Failed to track connections activity: #{inspect(reason)}")
-        {:error, reason}
+  def fetch(_topic, presences) do
+    for {key, %{metas: [meta | metas]}} <- presences, into: %{} do
+      # user can be populated here from the database here we populate
+      {key,
+       %{
+         metas: [meta | metas],
+         id: meta.id,
+         live_view_name: meta.live_view_name,
+         user: %{id: meta.user_id},
+         joined_at: meta.joined_at,
+         cache_optimization: meta.cache_optimization
+       }}
     end
+  end
+
+  def handle_metas(topic, %{joins: joins, leaves: leaves}, presences, state) do
+    for {user_id, presence} <- joins do
+      user_data = %{id: user_id, user: presence.user, metas: Map.fetch!(presences, user_id)}
+      msg = {__MODULE__, {:join, user_data}}
+
+      case presence.live_view_name do
+        "timeline" ->
+          # broadcast to timeline_cache for invalidation/refresh
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "timeline_cache_presence",
+            {:user_joined_timeline, user_id}
+          )
+
+          Phoenix.PubSub.broadcast(Mosslet.PubSub, topic, msg)
+
+        _rest ->
+          Phoenix.PubSub.broadcast(Mosslet.PubSub, topic, msg)
+      end
+    end
+
+    for {user_id, presence} <- leaves do
+      metas =
+        case Map.fetch(presences, user_id) do
+          {:ok, presence_metas} -> presence_metas
+          :error -> []
+        end
+
+      user_data = %{id: user_id, user: presence.user, metas: metas}
+      msg = {__MODULE__, {:leave, user_data}}
+      Phoenix.PubSub.broadcast(Mosslet.PubSub, topic, msg)
+    end
+
+    {:ok, state}
   end
 
   @doc """
@@ -65,32 +94,15 @@ defmodule MossletWeb.Presence do
   PRIVACY: Only stores user_id for performance optimization.
   No usernames, no public visibility.
   """
-  def track_timeline_activity(pid, user_id) do
-    # Only store minimal data needed for cache optimization
-    presence_meta = %{
-      joined_at: System.system_time(:second),
-      # No username, no identifying info - just for cache management
-      cache_optimization: true
-    }
-
-    case track(pid, @timeline_topic, user_id, presence_meta) do
-      {:ok, _ref} ->
-        Logger.debug("Timeline activity tracked for cache optimization")
-
-        # Notify timeline cache about new active user
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "timeline_cache_presence",
-          {:user_joined_timeline, user_id}
-        )
-
-        :ok
-
-      {:error, reason} ->
-        Logger.warning("Failed to track timeline activity: #{inspect(reason)}")
-        {:error, reason}
-    end
+  def track_activity(_live_view_pid, params) do
+    track(self(), @presence_topic, params.user_id, params)
   end
+
+  def list_online_users(),
+    do: list(@presence_topic) |> Enum.map(fn {_id, presence} -> presence end)
+
+  def subscribe(),
+    do: Phoenix.PubSub.subscribe(Mosslet.PubSub, @presence_topic)
 
   @doc """
   Get active user IDs for cache subscription optimization.
@@ -99,7 +111,7 @@ defmodule MossletWeb.Presence do
   No usernames or metadata exposed.
   """
   def get_active_timeline_user_ids do
-    @timeline_topic
+    @presence_topic
     |> list()
     |> Map.keys()
   end
@@ -108,7 +120,7 @@ defmodule MossletWeb.Presence do
   Get count of active users (for monitoring, no privacy concerns).
   """
   def active_timeline_user_count do
-    @timeline_topic
+    @presence_topic
     |> list()
     |> map_size()
   end
@@ -128,7 +140,7 @@ defmodule MossletWeb.Presence do
   PRIVACY: Internal use only for cache optimization and status.
   """
   def user_active_on_connections?(user_id) do
-    @connections_topic
+    @presence_topic
     |> list()
     |> Map.has_key?(user_id)
   end
@@ -139,7 +151,7 @@ defmodule MossletWeb.Presence do
   PRIVACY: Internal use only for cache optimization and status.
   """
   def user_active_on_timeline?(user_id) do
-    @timeline_topic
+    @presence_topic
     |> list()
     |> Map.has_key?(user_id)
   end

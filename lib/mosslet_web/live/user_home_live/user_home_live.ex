@@ -16,15 +16,42 @@ defmodule MossletWeb.UserHomeLive do
   def mount(%{"slug" => slug} = _params, _session, socket) do
     current_user = socket.assigns.current_user
 
-    if connected?(socket) do
-      if current_user do
-        Accounts.private_subscribe(current_user)
-        Timeline.private_subscribe(current_user)
-        Timeline.connections_subscribe(current_user)
+    socket = stream(socket, :presences, [])
+
+    socket =
+      if connected?(socket) do
+        if current_user do
+          Accounts.private_subscribe(current_user)
+          Timeline.private_subscribe(current_user)
+          Timeline.connections_subscribe(current_user)
+
+          # PRIVACY-FIRST: Track user presence for cache optimization only
+          # No usernames or identifying info shared - just for performance
+          MossletWeb.Presence.track_activity(
+            self(),
+            %{
+              id: current_user.id,
+              live_view_name: "home",
+              joined_at: System.system_time(:second),
+              user_id: current_user.id,
+              cache_optimization: true
+            }
+          )
+
+          MossletWeb.Presence.subscribe()
+
+          socket = stream(socket, :presences, MossletWeb.Presence.list_online_users())
+
+          # Privately track user activity for auto-status functionality
+          Accounts.track_user_activity(current_user, :general)
+          socket
+        else
+          Accounts.subscribe()
+          socket
+        end
       else
-        Accounts.subscribe()
+        socket
       end
-    end
 
     user = Accounts.get_user_from_profile_slug!(slug)
 
@@ -73,6 +100,18 @@ defmodule MossletWeb.UserHomeLive do
       end)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  def handle_info({MossletWeb.Presence, {:join, presence}}, socket) do
+    {:noreply, stream_insert(socket, :presences, presence)}
+  end
+
+  def handle_info({MossletWeb.Presence, {:leave, presence}}, socket) do
+    if presence.metas == [] do
+      {:noreply, stream_delete(socket, :presences, presence)}
+    else
+      {:noreply, stream_insert(socket, :presences, presence)}
+    end
   end
 
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do

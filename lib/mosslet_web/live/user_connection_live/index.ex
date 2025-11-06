@@ -34,18 +34,39 @@ defmodule MossletWeb.UserConnectionLive.Index do
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
 
-    if connected?(socket) do
-      Accounts.private_subscribe(user)
-      Accounts.subscribe_user_status(user)
-      Accounts.subscribe_account_deleted()
-      Accounts.block_subscribe(user)
-      Accounts.subscribe_connection_status(user)
-      # Track user presence for online/offline detection in auto-status
-      MossletWeb.Presence.track_connections_activity(self(), user.id)
+    socket = stream(socket, :presences, [])
 
-      # Track user activity for auto-status functionality
-      Accounts.track_user_activity(user, :general)
-    end
+    socket =
+      if connected?(socket) do
+        Accounts.private_subscribe(user)
+        Accounts.subscribe_user_status(user)
+        Accounts.subscribe_account_deleted()
+        Accounts.block_subscribe(user)
+        Accounts.subscribe_connection_status(user)
+
+        # PRIVACY-FIRST: Track user presence for cache optimization only
+        # No usernames or identifying info shared - just for performance
+        MossletWeb.Presence.track_activity(
+          self(),
+          %{
+            id: user.id,
+            live_view_name: "connections",
+            joined_at: System.system_time(:second),
+            user_id: user.id,
+            cache_optimization: true
+          }
+        )
+
+        MossletWeb.Presence.subscribe()
+
+        socket = stream(socket, :presences, MossletWeb.Presence.list_online_users())
+
+        # Privately track user activity for auto-status functionality
+        Accounts.track_user_activity(user, :general)
+        socket
+      else
+        socket
+      end
 
     {:ok,
      socket
@@ -146,6 +167,18 @@ defmodule MossletWeb.UserConnectionLive.Index do
       |> stream(:visibility_groups, visibility_groups, reset: true)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  def handle_info({MossletWeb.Presence, {:join, presence}}, socket) do
+    {:noreply, stream_insert(socket, :presences, presence)}
+  end
+
+  def handle_info({MossletWeb.Presence, {:leave, presence}}, socket) do
+    if presence.metas == [] do
+      {:noreply, stream_delete(socket, :presences, presence)}
+    else
+      {:noreply, stream_insert(socket, :presences, presence)}
+    end
   end
 
   @impl true
