@@ -30,6 +30,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_08"
+                date="November 7, 2025"
+                title="Meta Layoffs Included Employees Who Monitored Risks to User Privacy"
+                preview="Mark Zuckerberg once said that people who trusted him with their personal information were 'f***ing stupid.' This week's news from Meta proves he was being honest about his company's true priorities — and it's not protecting your privacy."
+                link={~p"/blog/articles/08"}
+              />
+              <.blog_entry
                 id="blog_07"
                 date="September 4, 2025"
                 title="Smart Doorbells Spying for Insurance Companies"
