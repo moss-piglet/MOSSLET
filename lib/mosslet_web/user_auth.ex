@@ -159,7 +159,7 @@ defmodule MossletWeb.UserAuth do
   """
   def log_out_user(conn) do
     user_token = get_session(conn, :user_token)
-    user = Accounts.get_user_by_session_token(user_token)
+    user = if user_token, do: Accounts.get_user_by_session_token(user_token)
     # update user's presence to :offline if :auto_status true
     # Force status to offline during logout (bypass presence check)
     if user && user.auto_status do

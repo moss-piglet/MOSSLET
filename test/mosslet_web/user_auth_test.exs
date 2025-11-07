@@ -88,12 +88,25 @@ defmodule MossletWeb.UserAuthTest do
       refute Accounts.get_user_by_session_token(user_token)
     end
 
-    test "broadcasts to the given live_socket_id", %{conn: conn} do
+    test "broadcasts to the given live_socket_id", %{conn: conn, user: user, params: params} do
+      user_token = Accounts.generate_user_session_token(user)
+
+      key =
+        case Accounts.User.valid_key_hash?(user, params["password"]) do
+          {:ok, key} ->
+            key
+
+          {:error, _} ->
+            nil
+        end
+
       live_socket_id = "users_sessions:abcdef-token"
       MossletWeb.Endpoint.subscribe(live_socket_id)
 
       conn
       |> put_session(:live_socket_id, live_socket_id)
+      |> put_session(:user_token, user_token)
+      |> put_session(:key, key)
       |> UserAuth.log_out_user()
 
       assert_receive %Phoenix.Socket.Broadcast{event: "disconnect", topic: ^live_socket_id}
