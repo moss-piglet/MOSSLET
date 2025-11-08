@@ -66,6 +66,9 @@ defmodule MossletWeb.Layouts do
   def og_image_type(%{assigns: %{og_image_type: og_image_type}}), do: og_image_type
   def og_image_type(_conn), do: "image/png"
 
+  def og_image_alt(%{assigns: %{og_image_alt: og_image_alt}}), do: og_image_alt
+  def og_image_alt(_conn), do: "MOSSLET - Privacy-first social network logo and branding"
+
   def current_page_url(%{request_path: request_path}),
     do: MossletWeb.Endpoint.url() <> request_path
 

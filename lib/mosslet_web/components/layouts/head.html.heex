@@ -10,6 +10,7 @@
   <.favicon_link_meta />
   <%!-- Open Graph (used by Facebook/Twitter/LinkedIn et al). See layout_view.ex for relevant function --%>
   <meta prefix="og: http://ogp.me/ns#" property="og:type" content="website" />
+  <meta prefix="og: http://ogp.me/ns#" property="og:site_name" content={app_name()} />
   <meta prefix="og: http://ogp.me/ns#" property="og:url" content={current_page_url(@conn)} />
   <meta prefix="og: http://ogp.me/ns#" property="og:title" content={title(@conn)} />
   <meta prefix="og: http://ogp.me/ns#" property="og:description" content={description(@conn)} />
@@ -21,10 +22,15 @@
     content={og_image_height(@conn)}
   />
   <meta prefix="og: http://ogp.me/ns#" property="og:image:type" content={og_image_type(@conn)} />
-  <%!-- Twitter only --%>
-  <meta name="twitter:card" content="summary" />
+  <meta prefix="og: http://ogp.me/ns#" property="og:image:alt" content={og_image_alt(@conn)} />
+  <%!-- Twitter optimized tags --%>
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content={twitter_site(@conn)} />
   <meta name="twitter:creator" content={twitter_creator(@conn)} />
+  <meta name="twitter:title" content={title(@conn)} />
+  <meta name="twitter:description" content={description(@conn)} />
+  <meta name="twitter:image" content={og_image(@conn)} />
+  <meta name="twitter:image:alt" content={og_image_alt(@conn)} />
   <%!-- Helps keep 80% of duplicate content errors on Google away by default --%>
   <link rel="canonical" href={@conn.request_path} />
 
