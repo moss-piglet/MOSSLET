@@ -412,8 +412,8 @@ defmodule MossletWeb.Menus do
   #  }
   # end
 
-  def get_link(:subscribe = name, _current_user) do
-    if Customers.entity() == :user do
+  def get_link(:subscribe = name, current_user) do
+    if Customers.entity() == :user && not MossletWeb.Helpers.user_has_paid?(current_user) do
       %{
         name: name,
         label: gettext("Pay Once"),

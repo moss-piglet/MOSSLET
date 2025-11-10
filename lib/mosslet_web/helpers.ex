@@ -199,6 +199,35 @@ defmodule MossletWeb.Helpers do
     Map.get(current_user.customer, :id)
   end
 
+  @doc """
+  Check if a user has already paid for the service.
+  Returns true if they have either:
+  1. An active payment intent
+  2. An active legacy subscription
+  """
+  def user_has_paid?(current_user) do
+    alias Mosslet.Billing.{Customers, PaymentIntents, Subscriptions}
+
+    case Customers.get_customer_by_source(:user, current_user.id) do
+      %Customers.Customer{} = customer ->
+        # Check for active payment intent first (new one-time payment system)
+        case PaymentIntents.get_active_payment_intent_by_customer_id(customer.id) do
+          %PaymentIntents.PaymentIntent{} ->
+            true
+
+          _ ->
+            # Check for legacy subscription
+            case Subscriptions.get_active_subscription_by_customer_id(customer.id) do
+              %Subscriptions.Subscription{} -> true
+              _ -> false
+            end
+        end
+
+      _ ->
+        false
+    end
+  end
+
   ## Numbers
 
   def number_to_string(number) do
@@ -1355,10 +1384,6 @@ defmodule MossletWeb.Helpers do
     else
       Accounts.get_user_connection_between_users(user.id, current_user.id)
     end
-  end
-
-  def get_uconn_for_users(user, current_user) do
-    Accounts.get_user_connection_between_users(user.id, current_user.id)
   end
 
   # Muted user coming from the hydrated SharedUser mapping
