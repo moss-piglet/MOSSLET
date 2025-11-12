@@ -182,10 +182,10 @@ defmodule MossletWeb.Menus do
           icon: "hero-eye"
         },
         %{
-          name: :status,
+          name: :edit_status,
           label: gettext("Status"),
           description: gettext("Manage your online status and presence"),
-          path: ~p"/app/users/status",
+          path: ~p"/app/users/edit-status",
           icon: "hero-signal"
         },
         %{
@@ -288,7 +288,7 @@ defmodule MossletWeb.Menus do
     %{
       name: name,
       label: gettext("Status"),
-      path: ~p"/app/users/status",
+      path: ~p"/app/users/edit-status",
       icon: "hero-signal"
     }
   end

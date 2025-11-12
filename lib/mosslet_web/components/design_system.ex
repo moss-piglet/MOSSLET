@@ -2618,7 +2618,7 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :src, :string, default: nil
   attr :name, :string, required: true
-  attr :size, :string, default: "md", values: ~w(xs sm md lg xl)
+  attr :size, :string, default: "md", values: ~w(xs sm md lg xl xxl)
   attr :status, :string, default: "offline", values: ~w(online calm active away busy offline)
   attr :status_message, :string, default: nil
   attr :verified, :boolean, default: false
@@ -3495,12 +3495,14 @@ defmodule MossletWeb.DesignSystem do
   defp avatar_container_size_classes("md"), do: "w-12 h-12"
   defp avatar_container_size_classes("lg"), do: "w-16 h-16"
   defp avatar_container_size_classes("xl"), do: "w-20 h-20"
+  defp avatar_container_size_classes("xxl"), do: "w-32 h-32"
 
   defp avatar_size_classes("xs"), do: "w-6 h-6"
   defp avatar_size_classes("sm"), do: "w-8 h-8"
   defp avatar_size_classes("md"), do: "w-12 h-12"
   defp avatar_size_classes("lg"), do: "w-16 h-16"
   defp avatar_size_classes("xl"), do: "w-20 h-20"
+  defp avatar_size_classes("xxl"), do: "w-32 h-32"
 
   # Helper function to get or create a reply form for a specific post
 

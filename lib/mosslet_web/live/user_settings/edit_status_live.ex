@@ -1,4 +1,4 @@
-defmodule MossletWeb.UserSettings.StatusLive do
+defmodule MossletWeb.EditStatusLive do
   @moduledoc """
   LiveView for managing user status and presence settings.
   Privacy-first approach with granular controls.
@@ -63,7 +63,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
     {:ok,
      assign(socket,
-       page_title: "Status Settings",
+       page_title: "Settings",
        status_form: status_form,
        status_visibility_form: status_visibility_form,
        user_visibility_groups: visibility_groups,
@@ -76,7 +76,7 @@ defmodule MossletWeb.UserSettings.StatusLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_user={@current_user} current_page={:status_settings} key={@key} type="sidebar">
+    <.layout current_user={@current_user} current_page={:edit_status} key={@key} type="sidebar">
       <DesignSystem.liquid_container max_width="lg" class="py-16">
         <%!-- Page header with liquid metal styling --%>
         <div class="mb-12">

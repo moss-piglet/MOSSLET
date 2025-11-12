@@ -9,8 +9,6 @@ defmodule MossletWeb.UserHomeLive do
   alias Mosslet.Groups
   alias Mosslet.Repo
 
-  import MossletWeb.UserHomeLive.Components
-
   @folder "uploads/trix"
 
   def mount(%{"slug" => slug} = _params, _session, socket) do
