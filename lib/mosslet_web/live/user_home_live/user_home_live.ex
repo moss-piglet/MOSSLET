@@ -392,15 +392,24 @@ defmodule MossletWeb.UserHomeLive do
                   <div class="space-y-1">
                     <h1
                       :if={@current_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white"
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
                     >
-                      {decr_item(
-                        @current_user.connection.profile.name,
+                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
+                        {"#{decr_item(@current_user.connection.profile.name,
                         @current_user,
                         @current_user.conn_key,
                         @key,
-                        @current_user.connection.profile
-                      )}
+                        @current_user.connection.profile)} 🌿"}
+                      </span>
+                    </h1>
+
+                    <h1
+                      :if={!@current_user.connection.profile.show_name?}
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
+                    >
+                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
+                        {"Private 🌿"}
+                      </span>
                     </h1>
                     <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-emerald-600 dark:text-emerald-400">
                       <%!-- username badge --%>
@@ -951,15 +960,23 @@ defmodule MossletWeb.UserHomeLive do
                   <div class="space-y-1">
                     <h1
                       :if={@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white"
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
                     >
-                      {decr_item(
-                        @profile_user.connection.profile.name,
+                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
+                        {"#{decr_item(@profile_user.connection.profile.name,
                         @current_user,
                         @user_connection.key,
                         @key,
-                        @profile_user.connection.profile
-                      )}
+                        @profile_user.connection.profile)} 🌿"}
+                      </span>
+                    </h1>
+                    <h1
+                      :if={!@profile_user.connection.profile.show_name?}
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
+                    >
+                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
+                        {"Profile 🌿"}
+                      </span>
                     </h1>
                     <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-slate-600 dark:text-slate-400">
                       <%!-- username badge --%>

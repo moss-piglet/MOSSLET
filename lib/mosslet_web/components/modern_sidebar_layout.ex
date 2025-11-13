@@ -135,7 +135,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <div class="lg:pl-72">
         <%!-- Top bar --%>
         <div class={[
-          "sticky top-0 z-20 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
+          "sticky top-0 z-15 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
           "border-b border-slate-200/60 dark:border-slate-700/60",
           "bg-gradient-to-r from-white/90 via-slate-50/80 to-white/90",
           "dark:from-slate-800/90 dark:via-slate-800/80 dark:to-slate-800/90",
@@ -165,6 +165,7 @@ defmodule MossletWeb.ModernSidebarLayout do
               {render_slot(@top_right)}
 
               <%!-- User menu --%>
+
               <.modern_user_menu
                 :if={@user_menu_items != []}
                 id={"modern-user-menu-#{@current_user.id}"}
@@ -198,7 +199,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <button
         @click="open = !open"
         class={[
-          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-visible",
+          "group relative flex items-center gap-x-2 rounded-full p-1.5 overflow-hidden",
           "bg-gradient-to-br from-slate-50 via-white to-slate-100",
           "dark:from-slate-800 dark:via-slate-700 dark:to-slate-800",
           "ring-1 ring-slate-200/60 dark:ring-slate-600/40",
@@ -210,22 +211,22 @@ defmodule MossletWeb.ModernSidebarLayout do
       >
         <span class="sr-only">Open user menu</span>
 
+        <%!-- Enhanced liquid background effect --%>
+        <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 group-hover:opacity-100 rounded-xl">
+        </div>
         <%!-- Shimmer effect on hover (with proper clipping for rounded button) --%>
         <div class={[
           "absolute inset-0 opacity-0 transition-all duration-500 overflow-hidden rounded-full",
           "bg-gradient-to-r from-transparent via-white/30 to-transparent",
-          "dark:via-emerald-400/20",
+          "dark:via-gray-800/20",
           "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
         ]}>
         </div>
-
-        <div class="relative">
-          <MossletWeb.CoreComponents.phx_avatar
-            src={maybe_get_user_avatar(@current_user, @key)}
-            class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-white dark:ring-slate-600 group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
-            alt="User avatar"
-          />
-        </div>
+        <MossletWeb.CoreComponents.phx_avatar
+          src={maybe_get_user_avatar(@current_user, @key)}
+          class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-transparent group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
+          alt="User avatar"
+        />
       </button>
 
       <div
