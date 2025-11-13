@@ -314,7 +314,6 @@ defmodule MossletWeb.UserHomeLive do
 
   defp apply_action(socket, :show, _params) do
     socket
-    |> assign(:page_title, "Home")
   end
 
   defp get_file_key(url) do
@@ -392,24 +391,20 @@ defmodule MossletWeb.UserHomeLive do
                   <div class="space-y-1">
                     <h1
                       :if={@current_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
-                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
-                        {"#{decr_item(@current_user.connection.profile.name,
-                        @current_user,
-                        @current_user.conn_key,
-                        @key,
-                        @current_user.connection.profile)} 🌿"}
-                      </span>
+                      {"#{decr_item(@current_user.connection.profile.name,
+                      @current_user,
+                      @current_user.conn_key,
+                      @key,
+                      @current_user.connection.profile)}"}
                     </h1>
 
                     <h1
                       :if={!@current_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
-                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
-                        {"Private 🌿"}
-                      </span>
+                      {"Profile 🌿"}
                     </h1>
                     <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-emerald-600 dark:text-emerald-400">
                       <%!-- username badge --%>
@@ -904,7 +899,6 @@ defmodule MossletWeb.UserHomeLive do
   defp render_connections_profile(assigns) do
     ~H"""
     <%!-- Connection Profile Page - Current user viewing their connection's profile --%>
-    <% uconn = get_uconn_for_users!(@profile_user.id, @current_user.id) %>
     <.layout current_page={:home} current_user={@current_user} key={@key} type="sidebar">
       <%!-- Hero Section with responsive design --%>
       <div class="relative overflow-hidden">
@@ -960,23 +954,19 @@ defmodule MossletWeb.UserHomeLive do
                   <div class="space-y-1">
                     <h1
                       :if={@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
-                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
-                        {"#{decr_item(@profile_user.connection.profile.name,
-                        @current_user,
-                        @user_connection.key,
-                        @key,
-                        @profile_user.connection.profile)} 🌿"}
-                      </span>
+                      {"#{decr_item(@profile_user.connection.profile.name,
+                      @current_user,
+                      @user_connection.key,
+                      @key,
+                      @profile_user.connection.profile)}"}
                     </h1>
                     <h1
                       :if={!@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white py-3"
+                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
-                      <span class="px-4 py-1.5 rounded-xl bg-gradient-to-r shadow-sm from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
-                        {"Profile 🌿"}
-                      </span>
+                      {"Profile 🌿"}
                     </h1>
                     <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-slate-600 dark:text-slate-400">
                       <%!-- username badge --%>
@@ -1036,7 +1026,12 @@ defmodule MossletWeb.UserHomeLive do
                 class="prose prose-slate dark:prose-invert max-w-none"
               >
                 <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {decr_uconn(@profile_user.connection.profile.about, @current_user, uconn.key, @key)}
+                  {decr_uconn(
+                    @profile_user.connection.profile.about,
+                    @current_user,
+                    @user_connection.key,
+                    @key
+                  )}
                 </p>
               </div>
               <div
