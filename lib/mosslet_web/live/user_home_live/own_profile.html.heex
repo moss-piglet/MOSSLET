@@ -196,25 +196,27 @@
         <%!-- AT Protocol Federation Card --%>
         <MossletWeb.DesignSystem.liquid_card class="border-blue-200/40 dark:border-blue-700/40">
           <:title>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <.phx_icon name="hero-share" class="size-5 text-blue-600" />
-                AT Protocol Federation
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <.phx_icon name="hero-share" class="size-5 text-blue-600 flex-shrink-0" />
+                <span class="truncate sm:truncate">AT Protocol Federation</span>
               </div>
-              <MossletWeb.DesignSystem.liquid_badge
-                variant="soft"
-                color={if(assigns[:federation_enabled], do: "amber", else: "slate")}
-                size="sm"
-              >
-                {"Under construction 🚧"}
-              </MossletWeb.DesignSystem.liquid_badge>
-              <MossletWeb.DesignSystem.liquid_badge
-                variant="soft"
-                color={if(assigns[:federation_enabled], do: "blue", else: "slate")}
-                size="sm"
-              >
-                {if(assigns[:federation_enabled], do: "Connected", else: "Not Connected")}
-              </MossletWeb.DesignSystem.liquid_badge>
+              <div class="flex items-center gap-2 flex-wrap justify-start sm:justify-end w-full sm:w-auto">
+                <MossletWeb.DesignSystem.liquid_badge
+                  variant="soft"
+                  color={if(assigns[:federation_enabled], do: "amber", else: "slate")}
+                  size="sm"
+                >
+                  {"Under construction 🚧"}
+                </MossletWeb.DesignSystem.liquid_badge>
+                <MossletWeb.DesignSystem.liquid_badge
+                  variant="soft"
+                  color={if(assigns[:federation_enabled], do: "blue", else: "slate")}
+                  size="sm"
+                >
+                  {if(assigns[:federation_enabled], do: "Connected", else: "Not Connected")}
+                </MossletWeb.DesignSystem.liquid_badge>
+              </div>
             </div>
           </:title>
 
@@ -379,7 +381,10 @@
       </div>
 
       <%!-- Right Column: Quick Actions & Profile Management --%>
-      <div class="lg:col-span-1 space-y-6">
+      <div
+        :if={@current_user && @current_user.id == @profile_user.id}
+        class="lg:col-span-1 space-y-6"
+      >
         <%!-- Quick Navigation --%>
         <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
           <:title>
@@ -459,16 +464,16 @@
             <div class="flex items-center justify-between">
               <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
               <span class="font-semibold text-slate-900 dark:text-white">
-                {if @current_user.inserted_at,
-                  do: Calendar.strftime(@current_user.inserted_at, "%B %Y"),
+                {if @profile_user.inserted_at,
+                  do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
                   else: "—"}
               </span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
               <span class="font-semibold text-slate-900 dark:text-white">
-                {if @current_user.last_activity_at,
-                  do: "#{Calendar.strftime(@current_user.last_activity_at, "%b %d")}",
+                {if @profile_user.last_activity_at,
+                  do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
                   else: "Now"}
               </span>
             </div>
@@ -476,7 +481,10 @@
         </MossletWeb.DesignSystem.liquid_card>
 
         <%!-- Privacy & Security --%>
-        <MossletWeb.DesignSystem.liquid_card class="border-emerald-200/40 dark:border-emerald-700/40">
+        <MossletWeb.DesignSystem.liquid_card
+          :if={@current_user && @current_user.id == @profile_user.id}
+          class="border-emerald-200/40 dark:border-emerald-700/40"
+        >
           <:title>
             <div class="flex items-center gap-2">
               <.phx_icon name="hero-shield-check" class="size-5 text-emerald-600" />

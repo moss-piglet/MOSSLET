@@ -135,7 +135,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <div class="lg:pl-72">
         <%!-- Top bar --%>
         <div class={[
-          "sticky top-0 z-10 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
+          "sticky top-0 z-20 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
           "border-b border-slate-200/60 dark:border-slate-700/60",
           "bg-gradient-to-r from-white/90 via-slate-50/80 to-white/90",
           "dark:from-slate-800/90 dark:via-slate-800/80 dark:to-slate-800/90",
