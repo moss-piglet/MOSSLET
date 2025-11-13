@@ -7426,6 +7426,7 @@ defmodule MossletWeb.DesignSystem do
   attr :zen?, :boolean, default: false
   attr :photos?, :boolean, default: false
   attr :show_interactions?, :boolean, default: true
+  attr :show_profile?, :boolean, default: false
   attr :status, :string, default: nil
   attr :status_message, :string, default: nil
   attr :class, :any, default: ""
@@ -7542,15 +7543,18 @@ defmodule MossletWeb.DesignSystem do
               --%>
 
               <%!-- View profile button --%>
-              <button
+
+              <.link
+                :if={@show_profile?}
                 id={"profile-button-#{@connection_id}"}
                 phx-hook="TippyHook"
-                data-tippy-content="Coming Soon"
+                navigate={~p"/app/profile/#{@username}"}
+                data-tippy-content="View profile"
                 type="button"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-600/30 border border-slate-200/40 dark:border-slate-600/40 rounded-full transition-all duration-200 ease-out hover:scale-105"
               >
                 <.phx_icon name="hero-user" class="h-3.5 w-3.5" /> Profile
-              </button>
+              </.link>
             </div>
 
             <%!-- Placeholder when interactions are hidden (to maintain layout) --%>

@@ -508,7 +508,7 @@ defmodule MossletWeb.UserHomeLive do
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-user" class="size-5 text-teal-600" /> About
+                  <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
                 </div>
               </:title>
               <div
@@ -553,7 +553,10 @@ defmodule MossletWeb.UserHomeLive do
               <:title>
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
                   <div class="flex items-center gap-2 min-w-0">
-                    <.phx_icon name="hero-share" class="size-5 text-blue-600 flex-shrink-0" />
+                    <.phx_icon
+                      name="hero-share"
+                      class="size-5 text-blue-600 dark:text-blue-400 flex-shrink-0"
+                    />
                     <span class="truncate sm:truncate">AT Protocol Federation</span>
                   </div>
                   <div class="flex items-center gap-2 flex-wrap justify-start sm:justify-end w-full sm:w-auto">
@@ -695,8 +698,10 @@ defmodule MossletWeb.UserHomeLive do
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-chart-bar" class="size-5 text-emerald-600" />
-                  Activity Overview
+                  <.phx_icon
+                    name="hero-chart-bar"
+                    class="size-5 text-emerald-600 dark:text-emerald-400"
+                  /> Activity Overview
                 </div>
               </:title>
               <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -743,9 +748,10 @@ defmodule MossletWeb.UserHomeLive do
             <%!-- Quick Navigation --%>
             <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
               <:title>
-                <h3 class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
-                  <.phx_icon name="hero-bolt" class="size-5" /> Quick Actions
-                </h3>
+                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
+                  <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
+                  Quick Actions
+                </div>
               </:title>
               <div class="space-y-3">
                 <%!-- Timeline --%>
@@ -806,7 +812,10 @@ defmodule MossletWeb.UserHomeLive do
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-chart-pie" class="size-5 text-purple-600" /> Profile Stats
+                  <.phx_icon
+                    name="hero-chart-pie"
+                    class="size-5 text-purple-600 dark:text-purple-400"
+                  /> Profile Stats
                 </div>
               </:title>
               <div class="space-y-4">
@@ -842,8 +851,10 @@ defmodule MossletWeb.UserHomeLive do
             >
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-shield-check" class="size-5 text-emerald-600" />
-                  Privacy & Security
+                  <.phx_icon
+                    name="hero-shield-check"
+                    class="size-5 text-emerald-600 dark:text-emerald-400"
+                  /> Privacy & Security
                 </div>
               </:title>
               <div class="space-y-3">
@@ -1018,7 +1029,7 @@ defmodule MossletWeb.UserHomeLive do
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-user" class="size-5 text-teal-600" /> About
+                  <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
                 </div>
               </:title>
               <div
@@ -1052,8 +1063,10 @@ defmodule MossletWeb.UserHomeLive do
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-chart-bar" class="size-5 text-emerald-600" />
-                  Activity Overview
+                  <.phx_icon
+                    name="hero-chart-bar"
+                    class="size-5 text-emerald-600 dark:text-emerald-400"
+                  /> Activity Overview
                 </div>
               </:title>
               <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1098,7 +1111,10 @@ defmodule MossletWeb.UserHomeLive do
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-chart-pie" class="size-5 text-purple-600" /> Profile Stats
+                  <.phx_icon
+                    name="hero-chart-pie"
+                    class="size-5 text-purple-600 dark:text-purple-400"
+                  /> Profile Stats
                 </div>
               </:title>
               <div class="space-y-4">
@@ -1130,9 +1146,10 @@ defmodule MossletWeb.UserHomeLive do
             <%!-- Quick Actions --%>
             <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
               <:title>
-                <h3 class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
-                  <.phx_icon name="hero-bolt" class="size-5" /> Actions
-                </h3>
+                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
+                  <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
+                  Quick Actions
+                </div>
               </:title>
               <div class="space-y-3">
                 <MossletWeb.DesignSystem.liquid_button
