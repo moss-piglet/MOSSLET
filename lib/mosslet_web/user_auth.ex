@@ -332,34 +332,34 @@ defmodule MossletWeb.UserAuth do
 
     view_list = Atom.to_string(socket.view) |> String.split(".")
 
-    # Check if this is a public route first
     if Enum.any?(@public_list, fn view -> view in view_list end) do
       {:cont, socket}
     else
-      if socket.assigns.current_user && socket.assigns.key do
-        {:cont, socket}
-      else
-        if socket.assigns.current_user do
+      cond do
+        socket.assigns.current_user && socket.assigns.key ->
+          {:cont, socket}
+
+        socket.assigns.current_user && !socket.assigns.key ->
           socket =
             socket
             |> Phoenix.LiveView.put_flash(
               :info,
-              "Your session key has expired, please log in again."
+              "Please enter your password to unlock your session."
             )
-            |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
+            |> Phoenix.LiveView.redirect(to: ~p"/auth/unlock")
 
           {:halt, socket}
-        else
+
+        true ->
           socket =
             socket
             |> Phoenix.LiveView.put_flash(
               :info,
-              "Your session key has expired, please log in again."
+              "You must log in to access this page."
             )
             |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
 
           {:halt, socket}
-        end
       end
     end
   end
