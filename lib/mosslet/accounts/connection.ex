@@ -32,7 +32,7 @@ defmodule Mosslet.Accounts.Connection do
 
     # Status Visibility Controls - shared based on user.visibility
     field :status_visibility, Ecto.Enum,
-      values: [:nobody, :connections, :specific_groups, :specific_users],
+      values: [:nobody, :connections, :specific_groups, :specific_users, :public],
       default: :nobody
 
     # Encrypted lists of group/user IDs who can see status (encrypted with conn_key)
@@ -148,7 +148,7 @@ defmodule Mosslet.Accounts.Connection do
       :opts_map,
       :temp_username
     ])
-    |> validate_length(:about, max: 500)
+    |> validate_length(:about, max: 1_500)
     |> build_slug()
     |> maybe_encrypt_attrs(opts_map)
   end

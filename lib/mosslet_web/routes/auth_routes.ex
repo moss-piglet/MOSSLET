@@ -12,6 +12,8 @@ defmodule MossletWeb.AuthRoutes do
           live "/confirm/:token", UserConfirmationLive, :edit
           live "/confirm", UserConfirmationInstructionsLive, :new
           live "/reset-password/:token", UserResetPasswordLive, :edit
+          get "/unlock", UnlockSessionController, :new
+          post "/unlock", UnlockSessionController, :create
         end
       end
 

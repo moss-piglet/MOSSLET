@@ -6,7 +6,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
   use MossletWeb, :verified_routes
 
   alias Mosslet.Accounts
-  alias MossletWeb.MemoryLive.Components, as: MemoryComponents
   alias Mosslet.Timeline
   alias Phoenix.LiveView.JS
 
@@ -214,214 +213,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
         </div>
       </div>
     </div>
-    """
-  end
-
-  def user_connection_memories(assigns) do
-    ~H"""
-    <div class="bg-gray-50 dark:bg-gray-900 shadow dark:shadow-emerald-500/50 sm:rounded-lg">
-      <div class="flex justify-between items-center align-middle px-4 py-5 sm:px-6">
-        <div class="inline-flex">
-          <h2
-            id="memory-connection-title"
-            class="text-lg/6 font-medium text-gray-900 dark:text-gray-100"
-          >
-            Memories
-          </h2>
-        </div>
-        <div class="inline-flex max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-          <.phx_button
-            id="new-memory-button"
-            phx-click="new_memory"
-            phx-value-url={@return_url}
-            phx-value-username={
-              decr_uconn(
-                @user_connection.connection.username,
-                @current_user,
-                @user_connection.key,
-                @key
-              )
-            }
-            phx-value-email={
-              decr_uconn(
-                @user_connection.connection.email,
-                @current_user,
-                @user_connection.key,
-                @key
-              )
-            }
-            class="inline-flex items-center align-middle text-sm rounded-full"
-            phx-hook="TippyHook"
-            data-tippy-content={"Share a new Memory with @ #{decr_uconn(
-                @user_connection.connection.username,
-                @current_user,
-                @user_connection.key,
-                @key
-              )}"}
-          >
-            <.phx_icon name="hero-photo" class="size-5 mr-1" /> New Memory
-          </.phx_button>
-        </div>
-      </div>
-
-      <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:px-6">
-        <.user_connection_memory_cards
-          options={@options}
-          memories={@memories}
-          memory_count={@memory_count}
-          memory_loading={@memory_loading}
-          memory_loading_count={@memory_loading_count}
-          loading_list={@loading_list}
-          finished_loading_list={@finished_loading_list}
-          user_connection={@user_connection}
-          current_user={@current_user}
-          key={@key}
-          return_url={@return_url}
-        />
-      </div>
-
-      <%!-- Pagination --%>
-      <div>
-        <.user_connection_memory_pagination
-          options={@options}
-          memory_count={@memory_count}
-          user_connection={@user_connection}
-        />
-      </div>
-    </div>
-    """
-  end
-
-  attr :options, :map, doc: "the pagination options map"
-  attr :memory_count, :integer, doc: "the total count of current_user's memories"
-  attr :group, Mosslet.Groups.Group, default: nil, doc: "the optional group struct"
-
-  attr :user_connection, Mosslet.Accounts.UserConnection,
-    default: nil,
-    doc: "the user connection struct"
-
-  def user_connection_memory_pagination(assigns) do
-    ~H"""
-    <nav
-      :if={@memory_count > 0}
-      id="memory-pagination"
-      class="flex bg-gray-50 dark:bg-gray-800 items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 pb-4 sm:rounded-b-lg"
-    >
-      <div class="-mt-px flex w-0 flex-1">
-        <.link
-          :if={@options.memory_page > 1}
-          patch={
-            if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | memory_page: @options.memory_page - 1}}",
-              else:
-                ~p"/app/users/connections/#{@user_connection}?#{%{@options | memory_page: @options.memory_page - 1}}"
-          }
-          class="inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-gray-300 hover:text-gray-700"
-        >
-          <svg
-            class="mr-3 h-5 w-5 text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M18 10a.75.75 0 01-.75.75H4.66l2.1 1.95a.75.75 0 11-1.02 1.1l-3.5-3.25a.75.75 0 010-1.1l3.5-3.25a.75.75 0 111.02 1.1l-2.1 1.95h12.59A.75.75 0 0118 10z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          Previous
-        </.link>
-      </div>
-      <div class="sm:-mt-px sm:flex">
-        <.link
-          :for={{memory_page_number, memory_current_page?} <- memory_pages(@options, @memory_count)}
-          class={
-            if memory_current_page?,
-              do:
-                "inline-flex items-center border-t-2 border-primary-500 px-4 pt-4 text-sm font-medium text-primary-600",
-              else:
-                "inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-gray-300 hover:text-gray-700"
-          }
-          patch={
-            if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | memory_page: memory_page_number}}",
-              else:
-                ~p"/app/users/connections/#{@user_connection}?#{%{@options | memory_page: memory_page_number}}"
-          }
-          aria-current="memory page"
-        >
-          {memory_page_number}
-        </.link>
-      </div>
-      <div class="-mt-px flex w-0 flex-1 justify-end">
-        <.link
-          :if={more_memory_pages?(@options, @memory_count)}
-          patch={
-            if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | memory_page: @options.memory_page + 1}}",
-              else:
-                ~p"/app/users/connections/#{@user_connection}?#{%{@options | memory_page: @options.memory_page + 1}}"
-          }
-          class="inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-gray-300 hover:text-gray-700"
-        >
-          Next
-          <svg
-            class="ml-3 h-5 w-5 text-gray-400"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </.link>
-      </div>
-    </nav>
-    """
-  end
-
-  def user_connection_memory_cards(assigns) do
-    ~H"""
-    <ul
-      id="memories"
-      role="list"
-      phx-update="stream"
-      class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 xl:gap-x-8"
-    >
-      <div id="memories-empty" class="only:block only:col-span-4 hidden">
-        <.empty_memory_state />
-      </div>
-
-      <li :for={{dom_id, memory} <- @memories} id={dom_id}>
-        <MemoryComponents.memory
-          id={dom_id <> "-card"}
-          memory={memory}
-          current_user={@current_user}
-          key={@key}
-          color={get_uconn_color_for_shared_item(memory, @current_user) || :purple}
-          memory_index={dom_id}
-          memory_loading_count={@memory_loading_count}
-          memory_loading={@memory_loading}
-          memory_list={@loading_list}
-          card_click={
-            fn memory ->
-              JS.navigate(~p"/app/memories/#{memory.id}")
-              |> JS.push("show_memory", value: %{id: memory.id, url: @return_url})
-            end
-          }
-          loading_id={
-            Enum.find_index(@loading_list, fn {_index, element} ->
-              Kernel.to_string(element.id) == String.trim(dom_id, "memories-")
-            end)
-          }
-          finished_loading_list={@finished_loading_list}
-        />
-      </li>
-    </ul>
     """
   end
 
@@ -1353,17 +1144,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
     """
   end
 
-  def empty_memory_state(assigns) do
-    ~H"""
-    <div class="text-center">
-      <.phx_icon name="hero-photo" class="mx-auto size-8 text-gray-400" />
-      <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">No Memories</h3>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">You have no shared Memories yet.</p>
-      <div class="mt-6"></div>
-    </div>
-    """
-  end
-
   attr :id, :string, required: true
   attr :stream, :any, required: true
   attr :card_click, :any, default: nil, doc: "the function for handling phx-click on each card"
@@ -1677,22 +1457,6 @@ defmodule MossletWeb.UserConnectionLive.Components do
       if page_number <= page_count do
         current_page? = page_number == options.page
         {page_number, current_page?}
-      end
-    end
-  end
-
-  defp more_memory_pages?(options, memory_count) do
-    options.memory_page * options.memory_per_page < memory_count
-  end
-
-  defp memory_pages(options, memory_count) do
-    memory_page_count = ceil(memory_count / options.memory_per_page)
-
-    for memory_page_number <- (options.memory_page - 3)..(options.memory_page + 3),
-        memory_page_number > 0 do
-      if memory_page_number <= memory_page_count do
-        memory_current_page? = memory_page_number == options.memory_page
-        {memory_page_number, memory_current_page?}
       end
     end
   end

@@ -11,7 +11,7 @@ defmodule Mosslet.Timeline.Bookmark do
   import Ecto.Changeset
 
   alias Mosslet.Encrypted
-  alias Mosslet.Accounts.User
+  alias Mosslet.Accounts.{User, UserConnection}
   alias Mosslet.Timeline.{Post, BookmarkCategory}
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -30,6 +30,8 @@ defmodule Mosslet.Timeline.Bookmark do
     belongs_to :user, User
     # Post being bookmarked
     belongs_to :post, Post
+    # Optional user_connection
+    belongs_to :user_connection, UserConnection
     # Optional categorization
     belongs_to :category, BookmarkCategory
 
@@ -50,7 +52,7 @@ defmodule Mosslet.Timeline.Bookmark do
   """
   def changeset(bookmark, attrs, opts \\ []) do
     bookmark
-    |> cast(attrs, [:notes, :user_id, :post_id, :category_id])
+    |> cast(attrs, [:notes, :user_id, :post_id, :category_id, :user_connection_id])
     |> validate_required([:user_id, :post_id])
     |> validate_length(:notes, max: 10_000)
     |> encrypt_notes_with_post_key(opts)

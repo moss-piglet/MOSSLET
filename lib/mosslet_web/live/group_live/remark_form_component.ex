@@ -66,7 +66,7 @@ defmodule MossletWeb.GroupLive.RemarkFormComponent do
     user = socket.assigns.current_user
     key = socket.assigns.key
     memory = socket.assigns.memory
-    memory_key = get_memory_key(memory, user)
+    memory_key = Memories.get_user_memory(memory, user).key
 
     case Memories.create_remark(remark_params, user: user, key: key, memory_key: memory_key) do
       {:ok, remark} ->

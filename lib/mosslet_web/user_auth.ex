@@ -7,7 +7,6 @@ defmodule MossletWeb.UserAuth do
   use Gettext, backend: MossletWeb.Gettext
 
   alias Mosslet.Accounts
-  alias Mosslet.Memories
   alias Mosslet.Timeline
 
   alias Mosslet.Repo
@@ -31,6 +30,7 @@ defmodule MossletWeb.UserAuth do
     "HomeLive",
     "Public",
     "PublicShow",
+    "PublicProfileLive",
     "UserHomeLive",
     "Ai",
     "About",
@@ -332,34 +332,34 @@ defmodule MossletWeb.UserAuth do
 
     view_list = Atom.to_string(socket.view) |> String.split(".")
 
-    # Check if this is a public route first
     if Enum.any?(@public_list, fn view -> view in view_list end) do
       {:cont, socket}
     else
-      if socket.assigns.current_user && socket.assigns.key do
-        {:cont, socket}
-      else
-        if socket.assigns.current_user do
+      cond do
+        socket.assigns.current_user && socket.assigns.key ->
+          {:cont, socket}
+
+        socket.assigns.current_user && !socket.assigns.key ->
           socket =
             socket
             |> Phoenix.LiveView.put_flash(
               :info,
-              "Your session key has expired, please log in again."
+              "Please enter your password to unlock your session."
             )
-            |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
+            |> Phoenix.LiveView.redirect(to: ~p"/auth/unlock")
 
           {:halt, socket}
-        else
+
+        true ->
           socket =
             socket
             |> Phoenix.LiveView.put_flash(
               :info,
-              "Your session key has expired, please log in again."
+              "You must log in to access this page."
             )
             |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
 
           {:halt, socket}
-        end
       end
     end
   end
@@ -458,55 +458,6 @@ defmodule MossletWeb.UserAuth do
                   info
                 )
                 |> Phoenix.LiveView.redirect(to: ~p"/app/timeline")
-
-              {:halt, socket}
-          end
-      end
-    else
-      {:cont, socket}
-    end
-  end
-
-  def on_mount(:maybe_ensure_private_memories, params, session, socket) do
-    socket =
-      socket
-      |> mount_current_user(session)
-      |> mount_current_user_session_key(session)
-
-    info = "You do not have permission to view this page or it does not exist."
-
-    if String.to_existing_atom("Elixir.MossletWeb.MemoryLive.Show") == socket.view do
-      with %Memories.Memory{} = memory <- Memories.get_memory(params["id"]),
-           true <- memory.user_id == socket.assigns.current_user.id do
-        {:cont, socket}
-      else
-        nil ->
-          socket =
-            socket
-            |> Phoenix.LiveView.put_flash(
-              :info,
-              info
-            )
-            |> Phoenix.LiveView.redirect(to: ~p"/app/memories")
-
-          {:halt, socket}
-
-        false ->
-          memory = Memories.get_memory!(params["id"])
-
-          cond do
-            memory.visibility == :connections &&
-                MossletWeb.Helpers.has_user_connection?(memory, socket.assigns.current_user) ->
-              {:cont, socket}
-
-            true ->
-              socket =
-                socket
-                |> Phoenix.LiveView.put_flash(
-                  :info,
-                  info
-                )
-                |> Phoenix.LiveView.redirect(to: ~p"/app/memories")
 
               {:halt, socket}
           end

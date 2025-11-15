@@ -8,7 +8,7 @@ defmodule MossletWeb.Helpers do
   alias Mosslet.Accounts.{User, UserConnection}
   alias Mosslet.Billing.{Plans, Subscriptions}
   alias Mosslet.Encrypted
-  alias Mosslet.Extensions.{AvatarProcessor, MemoryProcessor}
+  alias Mosslet.Extensions.AvatarProcessor
   alias Mosslet.Groups
   alias Mosslet.Groups.{Group, UserGroup}
   alias Mosslet.Memories
@@ -422,12 +422,7 @@ defmodule MossletWeb.Helpers do
           group = Groups.get_group!(item.group_id)
           user_group = get_user_group(group, user)
 
-          if is_nil(user_group) do
-            uconn = get_uconn_for_shared_item(item, user)
-            maybe_decrypt_item_with_uconn(payload, uconn, item, user, key, item_key)
-          else
-            Encrypted.Users.Utils.decrypt_item(payload, user, user_group.key, key)
-          end
+          Encrypted.Users.Utils.decrypt_item(payload, user, user_group.key, key)
         else
           case item do
             %Reply{} = reply = _item ->
@@ -482,23 +477,6 @@ defmodule MossletWeb.Helpers do
 
       _rest ->
         data
-    end
-  end
-
-  defp maybe_decrypt_item_with_uconn(payload, uconn, item, user, key, item_key) do
-    case uconn do
-      nil ->
-        if item do
-          Encrypted.Users.Utils.decrypt_user_item(
-            payload,
-            user,
-            get_username_remark_key(item, user),
-            key
-          )
-        end
-
-      _rest ->
-        Encrypted.Users.Utils.decrypt_item(payload, user, item_key, key)
     end
   end
 
@@ -1008,22 +986,6 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  # only to be used if public memory
-  def get_memory_key(memory) do
-    Enum.at(memory.user_memories, 0).key
-  end
-
-  def get_memory_key(memory, current_user) do
-    cond do
-      memory.visibility == :connections || memory.visibility == :private ->
-        user_memory = Memories.get_user_memory(memory, current_user)
-        user_memory.key
-
-      true ->
-        Enum.at(memory.user_memories, 0).key
-    end
-  end
-
   def get_username_remark_key(remark, current_user) do
     memory = Memories.get_memory!(remark.memory_id)
 
@@ -1038,11 +1000,6 @@ defmodule MossletWeb.Helpers do
       true ->
         Enum.at(memory.user_memories, 0).key
     end
-  end
-
-  def get_body_remark_key(remark, current_user) do
-    memory = Memories.get_memory!(remark.memory_id)
-    Memories.get_user_memory(memory, current_user).key
   end
 
   defp maybe_get_uconn_key(uconn, %Memory{} = item) do
@@ -1405,24 +1362,6 @@ defmodule MossletWeb.Helpers do
     else
       nil
     end
-  end
-
-  @doc """
-  Checks if the user can download
-  shared memories, based on the `UserConnection%{:photos?}`.
-
-  The user_id is the current_user's id.
-
-  DEPRECATED: This function has the same logic flaw as get_user_connection_from_shared_item.
-  Use can_download_photos_from_shared_item? instead for new code.
-  """
-  def check_if_user_can_download_shared_memory(memory_user_id, user_id) do
-    uconns = Accounts.get_both_user_connections_between_users!(memory_user_id, user_id)
-    # we are matching on the reverse_user_id in the user_connection
-    # to determine if they can download the memory that's being shared
-    Enum.find_value(uconns, fn uconn ->
-      uconn.reverse_user_id == user_id && uconn.photos? == true
-    end)
   end
 
   @doc """
@@ -2230,228 +2169,6 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  def get_user_memory(user, key, memory \\ nil, current_user \\ nil, memory_list \\ [])
-
-  def get_user_memory(nil, _key, _memory, _current_user, _memory_list), do: ""
-
-  def get_user_memory(%User{} = user, key, memory, current_user, memory_list) do
-    user = preload_connection(user)
-
-    user_memory = Memories.get_user_memory(memory, user)
-
-    cond do
-      is_nil(memory.memory_url) ->
-        ""
-
-      not is_nil(
-        memory_binary =
-            MemoryProcessor.get_ets_memory(
-              "user:#{user.id}-memory:#{memory.id}-key:#{user.connection.id}"
-            )
-      ) ->
-        image =
-          Encrypted.Users.Utils.decrypt_item(memory_binary, user, user_memory.key, key)
-          |> Base.encode64()
-
-        "data:image/jpg;base64," <> image
-
-      is_nil(
-        _memory_binary =
-            MemoryProcessor.get_ets_memory(
-              "user:#{user.id}-memory:#{memory.id}-key:#{user.connection.id}"
-            )
-      ) ->
-        memories_bucket = Encrypted.Session.memories_bucket()
-
-        Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-          with {:ok, %{body: obj}} <-
-                 ExAws.S3.get_object(
-                   memories_bucket,
-                   decr_item(
-                     memory.memory_url,
-                     user,
-                     user_memory.key,
-                     key,
-                     memory
-                   )
-                 )
-                 |> ExAws.request(),
-               _decrypted_obj <-
-                 decr_item(
-                   obj,
-                   user,
-                   user_memory.key,
-                   key,
-                   memory
-                 ) do
-            # Put the encrypted memory binary in ets.
-
-            MemoryProcessor.put_ets_memory(
-              "user:#{user.id}-memory:#{memory.id}-key:#{user.connection.id}",
-              obj
-            )
-
-            # We return this tuple to pattern match on our handle info and
-            # pull the encrypted memory binary out of ets
-            {"get_user_memory", memory.id, memory_list, current_user.id}
-          else
-            {:error, _rest} ->
-              "error"
-          end
-        end)
-    end
-  end
-
-  def get_user_memory(%UserConnection{} = _uconn, key, memory, current_user, memory_list) do
-    user_memory = Memories.get_user_memory(memory, current_user)
-
-    case memory do
-      nil ->
-        ""
-
-      %Memory{} = memory ->
-        # we handle decrypting the memory for the user connection and
-        # possibly the current user if the memory is their own.
-        cond do
-          not is_nil(
-            memory_binary =
-                MemoryProcessor.get_ets_memory(
-                  "user:#{memory.user_id}-memory:#{memory.id}-key:#{user_memory.id}"
-                )
-          ) ->
-            image = decrypt_memory_binary(memory_binary, user_memory, memory, key, current_user)
-            "data:image/jpg;base64," <> image
-
-          is_nil(
-            _memory_binary =
-                MemoryProcessor.get_ets_memory(
-                  "user:#{memory.user_id}-memory:#{memory.id}-key:#{user_memory.id}"
-                )
-          ) &&
-            not is_nil(current_user) && current_user != memory.user_id ->
-            memories_bucket = Encrypted.Session.memories_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       memories_bucket,
-                       decr_item(
-                         memory.memory_url,
-                         current_user,
-                         user_memory.key,
-                         key,
-                         memory
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_item(
-                       obj,
-                       current_user,
-                       user_memory.key,
-                       key,
-                       memory
-                     ) do
-                # Put the encrypted memory binary in ets.
-                MemoryProcessor.put_ets_memory(
-                  "user:#{memory.user_id}-memory:#{memory.id}-key:#{user_memory.id}",
-                  obj
-                )
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_memory", memory.id, memory_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-
-          is_nil(
-            _memory_binary =
-                MemoryProcessor.get_ets_memory(
-                  "user:#{memory.user_id}-memory:#{memory.id}-key:#{user_memory.id}"
-                )
-          ) &&
-            not is_nil(current_user) && current_user.id == memory.user_id ->
-            memories_bucket = Encrypted.Session.memories_bucket()
-
-            Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-              with {:ok, %{body: obj}} <-
-                     ExAws.S3.get_object(
-                       memories_bucket,
-                       decr_item(
-                         memory.memory_url,
-                         current_user,
-                         user_memory.key,
-                         key,
-                         memory
-                       )
-                     )
-                     |> ExAws.request(),
-                   _decrypted_obj <-
-                     decr_item(
-                       obj,
-                       current_user,
-                       user_memory.key,
-                       key,
-                       memory
-                     ) do
-                # Put the encrypted memory binary in ets.
-
-                MemoryProcessor.put_ets_memory(
-                  "user:#{memory.user_id}-memory:#{memory.id}-key:#{user_memory.id}",
-                  obj
-                )
-
-                # We return this tuple to pattern match on our handle info and
-                # pull the encrypted memory binary out of ets
-                {"get_user_memory", memory.id, memory_list, current_user.id}
-              else
-                {:error, _rest} ->
-                  "error"
-              end
-            end)
-        end
-    end
-  end
-
-  def maybe_get_memory_src(memory, current_user, key, memory_list) do
-    return =
-      get_user_memory(
-        get_uconn_for_shared_item(memory, current_user),
-        key,
-        memory,
-        current_user,
-        memory_list
-      )
-
-    case return do
-      %Task{} = _return ->
-        ""
-
-      _rest ->
-        return
-    end
-  end
-
-  def maybe_get_public_memory_src(user, memory, _current_user, memory_list) do
-    return =
-      get_public_user_memory(
-        user,
-        memory,
-        memory_list
-      )
-
-    case return do
-      %Task{} = _return ->
-        ""
-
-      _rest ->
-        return
-    end
-  end
-
   # Handle uconns differently.
   # we want the other user than the current user
   def maybe_get_avatar_src(%UserConnection{} = uconn, current_user, key, item_list) do
@@ -2522,74 +2239,6 @@ defmodule MossletWeb.Helpers do
       _rest ->
         return
     end
-  end
-
-  def get_public_user_memory(user, memory, memory_list) do
-    user_memory = Memories.get_public_user_memory(memory)
-
-    cond do
-      is_nil(memory) ->
-        ""
-
-      is_nil(memory.memory_url) ->
-        ""
-
-      not is_nil(
-        memory_binary =
-            MemoryProcessor.get_ets_memory(
-              "profile-user:#{user.id}-memory:#{memory.id}-key:#{user_memory.id}"
-            )
-      ) ->
-        image = decr_public_item(memory_binary, get_memory_key(memory)) |> Base.encode64()
-        "data:image/jpg;base64," <> image
-
-      is_nil(
-        _memory_binary =
-            MemoryProcessor.get_ets_memory(
-              "profile-user:#{user.id}-memory:#{memory.id}-key:#{user_memory.id}"
-            )
-      ) ->
-        memories_bucket = Encrypted.Session.memories_bucket()
-        d_url = decr_public_item(memory.memory_url, get_memory_key(memory))
-
-        Task.Supervisor.async_nolink(Mosslet.StorjTask, fn ->
-          with {:ok, %{body: obj}} <-
-                 ExAws.S3.get_object(
-                   memories_bucket,
-                   d_url
-                 )
-                 |> ExAws.request(),
-               _decrypted_obj <-
-                 decr_public_item(
-                   obj,
-                   get_memory_key(memory)
-                 ) do
-            # Put the encrypted memory binary in ets.
-
-            MemoryProcessor.put_ets_memory(
-              "profile-user:#{user.id}-memory:#{memory.id}-key:#{user_memory.id}",
-              obj
-            )
-
-            # We return this tuple to pattern match on our handle info and
-            # pull the encrypted memory binary out of ets
-            {"get_user_public_memory", memory.id, memory_list, user.id}
-          else
-            {:error, _rest} ->
-              "error"
-          end
-        end)
-    end
-  end
-
-  defp decrypt_memory_binary(memory_binary, user_memory, _memory, key, current_user) do
-    Encrypted.Users.Utils.decrypt_item(
-      memory_binary,
-      current_user,
-      user_memory.key,
-      key
-    )
-    |> Base.encode64()
   end
 
   defp decrypt_user_or_uconn_binary(avatar_binary, uconn, post, key, current_user) do

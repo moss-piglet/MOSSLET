@@ -1,0 +1,175 @@
+<.mosslet_auth_layout conn={@conn} title="Unlock Session">
+  <:logo>
+    <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
+  </:logo>
+  <:top_right>
+    <MossletWeb.Layouts.theme_toggle />
+  </:top_right>
+
+  <%!-- Header with lock icon and welcoming message --%>
+  <div class="text-center mb-8 sm:mb-10">
+    <%!-- Lock icon --%>
+    <div class="mb-6">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/30 mb-4">
+        <span class="text-2xl">🔐</span>
+        <span class="text-sm font-medium text-teal-700 dark:text-teal-300">Session Locked</span>
+      </div>
+    </div>
+
+    <%!-- Main heading --%>
+    <h1 class={[
+      "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-4",
+      "bg-gradient-to-r from-teal-500 to-emerald-500",
+      "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
+      "bg-clip-text text-transparent"
+    ]}>
+      Welcome back!
+    </h1>
+
+    <%!-- Subtitle with user info --%>
+    <p class="text-lg text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+      Enter your password to unlock your encrypted content
+    </p>
+  </div>
+
+  <%!-- Unlock form --%>
+  <div class="space-y-6">
+    <.form
+      for={@form}
+      id="unlock_form"
+      action={~p"/auth/unlock"}
+      method="post"
+      class="space-y-6"
+    >
+      <%!-- Password field --%>
+      <div>
+        <%!-- Label with eye toggle inline --%>
+        <div class="flex justify-between items-center mb-2">
+          <label
+            for="unlock-password"
+            class="block text-sm font-semibold leading-6 text-zinc-800 dark:text-white"
+          >
+            Password<span class="text-red-500"> *</span>
+          </label>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              id="eye"
+              data-tippy-content="Show password"
+              phx-hook="TippyHook"
+              phx-click={
+                JS.set_attribute({"type", "text"}, to: "#unlock-password")
+                |> JS.remove_class("hidden", to: "#eye-slash")
+                |> JS.add_class("hidden", to: "#eye")
+              }
+              class="group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+            >
+              <.phx_icon
+                name="hero-eye"
+                class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors"
+              />
+            </button>
+            <button
+              type="button"
+              id="eye-slash"
+              data-tippy-content="Hide password"
+              phx-hook="TippyHook"
+              class="hidden group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+              phx-click={
+                JS.set_attribute({"type", "password"}, to: "#unlock-password")
+                |> JS.add_class("hidden", to: "#eye-slash")
+                |> JS.remove_class("hidden", to: "#eye")
+              }
+            >
+              <.phx_icon
+                name="hero-eye-slash"
+                class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors"
+              />
+            </button>
+          </div>
+        </div>
+        <%!-- Input field without label (since we added it above) --%>
+        <input
+          type="password"
+          name="unlock[password]"
+          id="unlock-password"
+          required
+          autofocus
+          autocomplete="current-password"
+          placeholder="Enter your password"
+          class={[
+            "block w-full rounded-xl border-0 py-4 px-4 text-slate-900 dark:text-white",
+            "bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm",
+            "ring-1 ring-inset ring-slate-300/50 dark:ring-slate-600/50",
+            "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+            "focus:ring-2 focus:ring-inset focus:ring-emerald-500/50",
+            "transition-all duration-200 ease-out",
+            "hover:ring-emerald-400/50 dark:hover:ring-emerald-500/50",
+            "text-base sm:text-sm sm:leading-6"
+          ]}
+        />
+      </div>
+
+      <%!-- Submit button --%>
+      <div>
+        <button
+          type="submit"
+          class={[
+            "group relative w-full px-6 py-3.5 rounded-xl font-semibold text-white",
+            "bg-gradient-to-r from-teal-500 to-emerald-500",
+            "hover:from-teal-600 hover:to-emerald-600",
+            "dark:from-teal-600 dark:to-emerald-600",
+            "dark:hover:from-teal-500 dark:hover:to-emerald-500",
+            "shadow-lg shadow-teal-500/25 dark:shadow-teal-900/30",
+            "hover:shadow-xl hover:shadow-teal-500/30 dark:hover:shadow-teal-900/40",
+            "transform transition-all duration-300 ease-out",
+            "hover:scale-[1.02] active:scale-[0.98]",
+            "focus:outline-none focus:ring-4 focus:ring-teal-500/50 dark:focus:ring-teal-400/30"
+          ]}
+        >
+          <span class="relative z-10 flex items-center justify-center gap-2">
+            <.phx_icon name="hero-lock-open" class="h-5 w-5" />
+            <span>Unlock Session</span>
+          </span>
+          <%!-- Shimmer effect on hover --%>
+          <div class="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out pointer-events-none">
+          </div>
+        </button>
+      </div>
+    </.form>
+
+    <%!-- Footer links --%>
+    <div class="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-700/50">
+      <%!-- Not you link --%>
+      <p class="text-center text-sm text-slate-600 dark:text-slate-400">
+        Not you?
+        <.link
+          navigate={~p"/auth/sign_out"}
+          class="font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
+        >
+          Sign out
+        </.link>
+      </p>
+
+      <%!-- Security notice --%>
+      <div class="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50">
+        <div class="flex gap-3">
+          <div class="flex-shrink-0">
+            <.phx_icon
+              name="hero-shield-check"
+              class="h-5 w-5 text-teal-600 dark:text-teal-400"
+            />
+          </div>
+          <div class="flex-1">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+              Auto-lock enabled
+            </h3>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              For your security, your encrypted data is automatically locked when you close your browser. This prevents unauthorized access to your personal information.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</.mosslet_auth_layout>

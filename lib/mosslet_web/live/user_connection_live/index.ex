@@ -1337,7 +1337,12 @@ defmodule MossletWeb.UserConnectionLive.Index do
   # Helper function to return true/false if the user_connection has
   # a visibility set to :connections or :public.
   defp show_profile?(connection) do
-    connection.connection.profile.visibility in [:connections, :public]
+    cond do
+      is_nil(connection) -> false
+      is_nil(connection.connection) -> false
+      is_nil(connection.connection.profile) -> false
+      true -> connection.connection.profile.visibility in [:connections, :public]
+    end
   end
 
   # Status helper functions moved to MossletWeb.Helpers.StatusHelpers

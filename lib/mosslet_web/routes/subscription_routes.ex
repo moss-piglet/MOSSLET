@@ -4,14 +4,19 @@ defmodule MossletWeb.SubscriptionRoutes do
   defmacro __using__(_) do
     quote do
       scope "/app", MossletWeb do
-        pipe_through [:browser, :authenticated, :subscribed_user]
+        pipe_through [
+          :browser,
+          :authenticated,
+          :require_confirmed_user,
+          :require_session_key,
+          :subscribed_user
+        ]
 
         live_session :subscription_authenticated_user,
           on_mount: [
             {MossletWeb.UserOnMountHooks, :require_authenticated_user},
             {MossletWeb.UserAuth, :ensure_session_key},
             {MossletWeb.UserAuth, :maybe_ensure_connection},
-            {MossletWeb.UserAuth, :maybe_ensure_private_memories},
             {MossletWeb.UserAuth, :maybe_ensure_private_posts},
             {MossletWeb.SubscriptionPlugs, :subscribed_user}
           ] do
@@ -42,17 +47,6 @@ defmodule MossletWeb.SubscriptionRoutes do
                GroupLive.GroupSettings.EditGroupMembersLive,
                :edit_member
 
-          # Memories
-          live "/memories", MemoryLive.Index, :index
-          live "/memories/new", MemoryLive.Index, :new
-          live "/memories/:id", MemoryLive.Show
-
-          get "/memories/:id/shared/download", MemoryDownloadController, :download_shared_memory,
-            as: :memory_download
-
-          get "/memories/:id/download", MemoryDownloadController, :download_memory,
-            as: :memory_download
-
           # Posts
           live "/posts/new", PostLive.Index, :new
           live "/posts/:id/edit", PostLive.Show, :edit
@@ -68,6 +62,28 @@ defmodule MossletWeb.SubscriptionRoutes do
           post "/trix-uploads", TrixUploadsController, :create
           delete "/trix-uploads", TrixUploadsController, :delete
           get "/trix-uploads", TrixUploadsController, :get
+        end
+      end
+
+      # Authenticated profile access (for connections and self)
+      scope "/", MossletWeb do
+        pipe_through [
+          :browser,
+          :profile,
+          :authenticated,
+          :require_confirmed_user,
+          :require_session_key,
+          :subscribed_user
+        ]
+
+        live_session :app_profile,
+          on_mount: [
+            {MossletWeb.UserAuth, :ensure_authenticated},
+            {MossletWeb.UserAuth, :ensure_confirmed},
+            {MossletWeb.UserAuth, :ensure_session_key},
+            {MossletWeb.UserAuth, :maybe_ensure_private_profile}
+          ] do
+          live "/app/profile/:slug", UserHomeLive, :show
         end
       end
     end

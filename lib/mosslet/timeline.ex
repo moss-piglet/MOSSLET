@@ -3330,6 +3330,15 @@ defmodule Mosslet.Timeline do
   def create_bookmark(user, post, attrs \\ %{}) do
     # Get the post_key using existing mechanism (same as post decryption)
     post_key = MossletWeb.Helpers.get_post_key(post, user)
+    # Get the user_connection if post is a connection's post
+    user_connection =
+      if user.id != post.user_id && post.visibility != :public,
+        do: Accounts.get_user_connection_between_users(post.user_id, user.id)
+
+    attrs =
+      if user_connection,
+        do: attrs |> Map.put(:user_connection_id, user_connection.id),
+        else: attrs
 
     if post_key do
       attrs = attrs |> Map.put(:user_id, user.id) |> Map.put(:post_id, post.id)
