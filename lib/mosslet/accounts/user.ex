@@ -78,7 +78,7 @@ defmodule Mosslet.Accounts.User do
 
     # Status Visibility Controls - Privacy-first presence system
     field :status_visibility, Ecto.Enum,
-      values: [:nobody, :connections, :specific_groups, :specific_users],
+      values: [:nobody, :connections, :specific_groups, :specific_users, :public],
       default: :nobody
 
     # Virtual fields for granular status sharing (reuses visibility_groups system)

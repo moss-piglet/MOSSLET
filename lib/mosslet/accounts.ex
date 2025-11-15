@@ -1787,7 +1787,7 @@ defmodule Mosslet.Accounts do
       MossletWeb.Helpers.decr_item(
         memory.memory_url,
         user,
-        MossletWeb.Helpers.get_memory_key(memory, user),
+        Mosslet.Memories.get_user_memory(memory, user).key,
         key,
         memory
       )
@@ -2533,32 +2533,36 @@ defmodule Mosslet.Accounts do
   end
 
   # Privacy-aware status broadcasting function
+  # we broadcast to the public channel as well to enable realtime changes (like removing status)
+  # the UI of specific liveview handles whether to display based on status setting
   defp broadcast_status_to_authorized_users(user, event) do
     case {user.status_visibility, event} do
-      # Special case: always broadcast status_visibility_updated to connections
-      # so they know to update their UI when someone's visibility changes
-      {_, :status_visibility_updated} ->
-        broadcast_status_to_all_connections(user, event)
-
       {:nobody, _} ->
         # No broadcasting to connections for status updates when visibility is nobody
-        :ok
+        # we have to broadcast to everyone as it could be removing the visibility
+        broadcast_status_to_specific_users(user, event)
+        broadcast_status_to_specific_groups(user, event)
+        broadcast_status_to_public(user, event)
 
       {:connections, _} ->
         # Broadcast to all connections
         broadcast_status_to_all_connections(user, event)
+        broadcast_status_to_public(user, event)
 
       {:specific_groups, _} ->
         # Broadcast only to users in specific groups
         broadcast_status_to_specific_groups(user, event)
+        broadcast_status_to_public(user, event)
 
       {:specific_users, _} ->
         # Broadcast only to specific users
         broadcast_status_to_specific_users(user, event)
+        broadcast_status_to_public(user, event)
 
       {:public, _} ->
         # For public status, broadcast to all connections (could also broadcast to public channel)
         broadcast_status_to_all_connections(user, event)
+        broadcast_status_to_public(user, event)
 
       _ ->
         # Default: no broadcasting
@@ -2599,6 +2603,10 @@ defmodule Mosslet.Accounts do
     # Similar to specific users, but for groups
     # For now, broadcast to all connections
     broadcast_status_to_all_connections(user, event)
+  end
+
+  defp broadcast_status_to_public(user, event) do
+    broadcast_public({:ok, user}, event)
   end
 
   defp broadcast_admin({:ok, struct}, event) do

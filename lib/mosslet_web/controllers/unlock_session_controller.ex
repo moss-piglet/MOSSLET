@@ -8,7 +8,7 @@ defmodule MossletWeb.UnlockSessionController do
       render(conn, "unlock_session.html",
         page_title: "Unlock Session",
         user: user,
-        error_message: get_flash(conn, :error),
+        error_message: Phoenix.Flash.get(conn.flash, :error),
         form: to_form(%{}, as: :unlock),
         trigger_submit: false
       )

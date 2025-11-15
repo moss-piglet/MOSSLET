@@ -30,6 +30,10 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   """
   def get_user_status_message(user, current_user, session_key) do
     cond do
+      # public profile without a connected user
+      is_nil(current_user) ->
+        %{status: nil, status_message: nil}
+
       # Case 1: Current user's own status -> decrypt with user_key
       user.id == current_user.id ->
         get_current_user_status_message(user, session_key)
@@ -224,9 +228,14 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   end
 
   def can_view_status?(user, current_user, session_key) do
-    case Statuses.can_view_user_status?(user, current_user, session_key) do
-      {:error, :private} -> false
-      _rest -> true
+    if is_nil(current_user) do
+      # public without a connected user
+      user.visibility == :public && user.show_online_presence
+    else
+      case Statuses.can_view_user_status?(user, current_user, session_key) do
+        {:error, :private} -> false
+        _rest -> true
+      end
     end
   end
 end

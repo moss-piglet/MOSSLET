@@ -4109,8 +4109,7 @@ defmodule MossletWeb.TimelineLive.Index do
         post.visibility == :public
 
       "bookmarks" ->
-        # Don't auto-add to bookmarks (user has to manually bookmark)
-        false
+        Timeline.bookmarked?(current_user, post)
 
       _ ->
         false

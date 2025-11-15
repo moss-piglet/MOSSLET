@@ -4,7 +4,7 @@ defmodule MossletWeb.Router do
   import MossletWeb.UserAuth
   import MossletWeb.SubscriptionPlugs
 
-  alias MossletWeb.Plugs.PlugAttack
+  alias MossletWeb.Plugs.{PlugAttack, ProfilePlug}
   alias MossletWeb.OnboardingPlug
 
   pipeline :browser do
@@ -36,6 +36,10 @@ defmodule MossletWeb.Router do
   pipeline :authenticated_not_confirmed do
     plug :require_authenticated_user_not_confirmed
     plug OnboardingPlug
+  end
+
+  pipeline :profile do
+    plug ProfilePlug
   end
 
   pipeline :subscribed_entity do
@@ -83,41 +87,18 @@ defmodule MossletWeb.Router do
   end
 
   scope "/", MossletWeb do
-    pipe_through [
-      :browser,
-      :authenticated,
-      :require_confirmed_user,
-      :require_session_key,
-      :maybe_require_connection
-    ]
+    pipe_through [:browser, :profile]
 
-    # potenitally public routes
-    # currently not public
-
-    live_session :app_profile,
+    live_session :public_profile,
       on_mount: [
-        {MossletWeb.UserAuth, :ensure_authenticated},
-        {MossletWeb.UserAuth, :ensure_confirmed},
+        MossletWeb.AllowEctoSandboxHook,
+        {MossletWeb.UserAuth, :mount_current_user},
+        {MossletWeb.UserAuth, :mount_current_user_session_key},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
         {MossletWeb.UserAuth, :maybe_ensure_private_profile}
       ] do
-      # Home / Profile
-      live "/app/profile/:slug", UserHomeLive, :show
-      live "/app/profile/:slug/memory/:id", UserHomeLive, :show_memory
-
-      get "/app/profile/:slug/memory/:id/public/shared-download",
-          MemoryDownloadController,
-          :download_shared_public_memory,
-          as: :memory_download
-
-      get "/app/profile/:slug/memory/:id/public/download",
-          MemoryDownloadController,
-          :download_public_memory,
-          as: :memory_download
-
-      live "/app/profile/:slug/:id/reply", UserHomeLive, :reply
-      live "/app/profile/:slug/:id/:reply_id/edit", UserHomeLive, :reply_edit
+      live "/profile/:slug", PublicProfileLive, :show
     end
   end
 
