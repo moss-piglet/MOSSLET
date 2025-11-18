@@ -235,24 +235,17 @@ defmodule MossletWeb.EditProfileLive do
                         :if={@current_user.connection.avatar_url}
                         field={f_nested[:show_avatar?]}
                         label="Show your avatar?"
+                        help="Display your avatar on your profile page (deleting your avatar will disable this)."
                       />
                       <DesignSystem.liquid_checkbox
                         field={f_nested[:show_email?]}
                         label="Show your email?"
+                        help="Your email may be personal, choose whether you want to display it."
                       />
                       <DesignSystem.liquid_checkbox
                         field={f_nested[:show_name?]}
                         label="Show your name?"
-                      />
-                      <DesignSystem.liquid_checkbox
-                        field={f_nested[:show_public_memories?]}
-                        label="Show your public Memories?"
-                        help="Public Memories are a potential feature in the future (TBD)."
-                      />
-                      <DesignSystem.liquid_checkbox
-                        field={f_nested[:show_public_posts?]}
-                        label="Show your public Posts?"
-                        help="Public Posts are a potential feature in the future (TBD)."
+                        help="Display your name for future profile verification badge (TBD)."
                       />
                     </div>
                   </div>

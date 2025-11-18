@@ -5,12 +5,7 @@ defmodule MossletWeb.UserHomeLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
-  alias Mosslet.Timeline
-  alias Mosslet.Timeline.Post
-  alias Mosslet.Groups
-  alias Mosslet.Repo
-
-  @folder "uploads/trix"
+  alias MossletWeb.Helpers.StatusHelpers
 
   def mount(%{"slug" => slug} = _params, _session, socket) do
     current_user = socket.assigns.current_user
@@ -21,18 +16,14 @@ defmodule MossletWeb.UserHomeLive do
 
     socket =
       if connected?(socket) do
-        if current_user do
-          Accounts.subscribe()
-          Accounts.subscribe_user_status(current_user)
-          Accounts.subscribe_account_deleted()
-          Accounts.block_subscribe(current_user)
-          Accounts.subscribe_connection_status(current_user)
-          Accounts.private_subscribe(current_user)
-          Timeline.private_subscribe(current_user)
-          Timeline.connections_subscribe(current_user)
+        Accounts.subscribe_user_status(current_user)
+        Accounts.subscribe_account_deleted()
+        Accounts.block_subscribe(current_user)
+        Accounts.subscribe_connection_status(current_user)
+        Accounts.private_subscribe(current_user)
 
-          # PRIVACY-FIRST: Track user presence for cache optimization only
-          # No usernames or identifying info shared - just for performance
+        # Only track presence when viewing YOUR OWN profile
+        if profile_owner? do
           MossletWeb.Presence.track_activity(
             self(),
             %{
@@ -43,18 +34,15 @@ defmodule MossletWeb.UserHomeLive do
               cache_optimization: true
             }
           )
-
-          MossletWeb.Presence.subscribe()
-
-          socket = stream(socket, :presences, MossletWeb.Presence.list_online_users())
-
-          # Privately track user activity for auto-status functionality
-          Accounts.track_user_activity(current_user, :general)
-          socket
-        else
-          Accounts.subscribe()
-          socket
         end
+
+        MossletWeb.Presence.subscribe()
+
+        socket = stream(socket, :presences, MossletWeb.Presence.list_online_users())
+
+        # Privately track user activity for auto-status functionality
+        Accounts.track_user_activity(current_user, :general)
+        socket
       else
         socket
       end
@@ -62,7 +50,6 @@ defmodule MossletWeb.UserHomeLive do
     # display the user_home_live.html.heex layout (default)
     {:ok,
      socket
-     |> assign(:post_shared_users_result, Phoenix.LiveView.AsyncResult.loading())
      |> assign(:slug, slug)
      |> assign(:page_title, if(profile_owner?, do: "Home", else: "Profile"))
      |> assign(:image_urls, [])
@@ -95,29 +82,6 @@ defmodule MossletWeb.UserHomeLive do
   profile is public and the session is not signed in).
   """
   def handle_params(params, _url, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
-
-    # Calculate activity stats using existing functions
-    activity_stats = %{
-      posts: get_user_post_count(current_user),
-      connections: length(Accounts.get_all_confirmed_user_connections(current_user.id)),
-      replies: get_user_reply_count(current_user),
-      groups: length(Groups.list_groups(current_user))
-    }
-
-    socket =
-      socket
-      |> assign(:activity_stats, activity_stats)
-      |> start_async(:assign_post_shared_users, fn ->
-        decrypt_shared_user_connections(
-          Accounts.get_all_confirmed_user_connections(current_user.id),
-          current_user,
-          key,
-          :post
-        )
-      end)
-
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
@@ -158,31 +122,78 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  def handle_info({:uconn_updated, _uconn}, socket) do
-    current_user = socket.assigns.current_user
-    slug = socket.assigns.slug
-    profile_user = socket.assigns.profile_user
+  def handle_info({:uconn_visibility_updated, uconn}, socket) do
     profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_user = socket.assigns.profile_user
 
     cond do
-      profile_user.connection.profile &&
-          profile_user.connection.profile.visibility in [:connections] ->
-        {:noreply,
-         socket
-         |> assign(
-           :user_connection,
-           if(profile_owner?,
-             do: nil,
-             else: get_uconn_for_users!(profile_user.id, current_user.id)
-           )
-         )}
-
-      profile_user.connection.profile &&
-          profile_user.connection.profile.visibility in [:public] ->
-        {:noreply, push_navigate(socket, to: ~p"/app/profile/#{slug}")}
+      # its the reverse_user_id since the current_user is subscribed at the uconn.user_id
+      # in their accounts:#{user_id} channel
+      !profile_owner? && uconn.reverse_user_id == profile_user.id ->
+        user = Accounts.get_user_with_preloads(uconn.reverse_user_id)
+        {:noreply, assign(socket, :profile_user, user)}
 
       true ->
-        {:noreply, push_navigate(socket, to: ~p"/app/profile/#{slug}")}
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({:uconn_updated, uconn}, socket) do
+    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_user = socket.assigns.profile_user
+
+    cond do
+      # its the reverse_user_id since the current_user is subscribed at the uconn.user_id
+      # in their accounts:#{user_id} channel
+      !profile_owner? && uconn.reverse_user_id == profile_user.id ->
+        user = Accounts.get_user_with_preloads(uconn.reverse_user_id)
+
+        if user.connection.profile.visibility in [:connections, :public] do
+          {:noreply, assign(socket, :profile_user, user)}
+        else
+          {:noreply, push_navigate(socket, to: ~p"/app")}
+        end
+
+      true ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({:uconn_avatar_updated, uconn}, socket) do
+    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_user = socket.assigns.profile_user
+
+    cond do
+      # its the reverse_user_id since the current_user is subscribed at the uconn.user_id
+      # in their accounts:#{user_id} channel
+      !profile_owner? && uconn.reverse_user_id == profile_user.id ->
+        user = Accounts.get_user_with_preloads(uconn.reverse_user_id)
+        {:noreply, assign(socket, :profile_user, user)}
+
+      true ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({:conn_updated, uconn}, socket) do
+    profile_owner? = socket.assigns.current_user_is_profile_owner?
+    profile_user = socket.assigns.profile_user
+
+    cond do
+      # its the reverse_user_id since the current_user is subscribed at the uconn.user_id
+      # in their accounts:#{user_id} channel
+      !profile_owner? && uconn.reverse_user_id == profile_user.id ->
+        user = Accounts.get_user_with_preloads(uconn.reverse_user_id)
+
+        if user.connection.profile.visibility in [:connections, :public] do
+          {:noreply, assign(socket, :profile_user, user)}
+        else
+          {:noreply, push_navigate(socket, to: ~p"/app")}
+        end
+
+      true ->
+        raise "HERE HERE HERE"
+        {:noreply, socket}
     end
   end
 
@@ -190,201 +201,8 @@ defmodule MossletWeb.UserHomeLive do
     {:noreply, socket}
   end
 
-  def handle_event("new_post", _params, socket) do
-    post_shared_users = socket.assigns.post_shared_users
-
-    socket =
-      socket
-      |> assign(:live_action, :new_post)
-      |> assign(:post_shared_users, post_shared_users)
-      |> assign(:post, %Post{})
-
-    {:noreply, socket}
-  end
-
-  def handle_event("uploads_in_progress", %{"flag" => flag}, socket) do
-    socket =
-      socket
-      |> assign(:uploads_in_progress, flag)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("file_too_large", %{"message" => message, "flag" => flag}, socket) do
-    socket = assign(socket, :uploads_in_progress, flag)
-    {:noreply, put_flash(socket, :warning, message)}
-  end
-
-  def handle_event("nsfw", %{"message" => message, "flag" => flag}, socket) do
-    socket =
-      socket
-      |> assign(:uploads_in_progress, flag)
-      |> put_flash(:warning, message)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("remove_files", %{"flag" => flag}, socket) do
-    socket =
-      socket
-      |> clear_flash(:warning)
-      |> assign(:uploads_in_progress, flag)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("error_uploading", %{"message" => message, "flag" => flag}, socket) do
-    socket = assign(socket, :uploads_in_progress, flag)
-    {:noreply, put_flash(socket, :warning, message)}
-  end
-
-  def handle_event(
-        "error_removing",
-        %{"message" => message, "url" => url, "flag" => flag},
-        socket
-      ) do
-    Logger.error("Error removing Trix image in UserHomeLive")
-    Logger.debug(inspect(url))
-    Logger.error("Error removing Trix image in UserHomeLive: #{url}")
-    socket = assign(socket, :uploads_in_progress, flag)
-
-    {:noreply, put_flash(socket, :warning, message)}
-  end
-
-  def handle_event("trix_key", _params, socket) do
-    current_user = socket.assigns.current_user
-    # we check if there's a post assigned to the socket,
-    # if so, then we can infer that it's a Reply being
-    # created and the trix_key will be the already saved
-    # post_key (it'll also already be encrypted as well)
-    #
-    # In this instance we are working with a live_component,
-    # so this may be slightly different than the implementation
-    # in TimelineLive.Index.
-    post = socket.assigns[:post]
-
-    trix_key = socket.assigns.trix_key
-
-    trix_key = if trix_key, do: trix_key, else: generate_and_encrypt_trix_key(current_user, post)
-
-    socket =
-      socket
-      |> assign(:trix_key, trix_key)
-
-    {:reply, %{response: "success", trix_key: trix_key}, socket}
-  end
-
-  def handle_event(
-        "add_image_urls",
-        %{"preview_url" => preview_url, "content_type" => content_type},
-        socket
-      ) do
-    file_ext = ext(content_type)
-    file_key = get_file_key(preview_url)
-    file_path = "#{@folder}/#{file_key}.#{file_ext}"
-
-    image_urls = socket.assigns.image_urls
-    updated_urls = [file_path | image_urls] |> Enum.uniq()
-
-    socket =
-      socket
-      |> assign(:image_urls, updated_urls)
-
-    {:reply, %{response: "success"}, socket}
-  end
-
-  def handle_event(
-        "remove_image_urls",
-        %{"preview_url" => preview_url, "content_type" => content_type},
-        socket
-      ) do
-    file_ext = ext(content_type)
-    file_key = get_file_key_from_remove_event(preview_url)
-    file_path = "#{@folder}/#{file_key}.#{file_ext}"
-
-    image_urls = socket.assigns.image_urls
-
-    updated_urls = Enum.reject(image_urls, fn url -> url == file_path end)
-
-    {:reply, %{response: "success"}, assign(socket, :image_urls, updated_urls)}
-  end
-
-  def handle_event("log_error", %{"error" => error} = error_message, socket) do
-    Logger.warning("Trix Error in UserHomeLive")
-    Logger.debug(inspect(error_message))
-    Logger.error(error)
-
-    {:noreply, socket}
-  end
-
-  def handle_async(:assign_post_shared_users, {:ok, fetched_shared_users}, socket) do
-    %{post_shared_users_result: result} = socket.assigns
-
-    socket =
-      socket
-      |> assign(
-        :post_shared_users_result,
-        Phoenix.LiveView.AsyncResult.ok(result, fetched_shared_users)
-      )
-      |> assign(:post_shared_users, fetched_shared_users)
-
-    {:noreply, socket}
-  end
-
-  def handle_async(:assign_post_shared_users, {:exit, reason}, socket) do
-    %{post_shared_users_result: result} = socket.assigns
-
-    socket =
-      socket
-      |> assign(
-        :post_shared_users_result,
-        Phoenix.LiveView.AsyncResult.failed(result, {:exit, reason})
-      )
-
-    {:noreply, socket}
-  end
-
-  defp get_user_post_count(user) do
-    import Ecto.Query
-
-    from(up in Timeline.UserPost,
-      inner_join: p in Timeline.Post,
-      on: up.post_id == p.id,
-      where: up.user_id == ^user.id
-    )
-    |> Repo.aggregate(:count, :id)
-  end
-
-  defp get_user_reply_count(user) do
-    import Ecto.Query
-
-    from(r in Timeline.Reply,
-      inner_join: p in Timeline.Post,
-      on: r.post_id == p.id,
-      where: r.user_id == ^user.id
-    )
-    |> Repo.aggregate(:count, :id)
-  end
-
   defp apply_action(socket, :show, _params) do
     socket
-  end
-
-  defp get_file_key(url) do
-    url |> String.split("/") |> List.last()
-  end
-
-  defp get_file_key_from_remove_event(url) do
-    url
-    |> String.split("/")
-    |> List.last()
-    |> String.split(".")
-    |> List.first()
-  end
-
-  defp ext(content_type) do
-    [ext | _] = MIME.extensions(content_type)
-    ext
   end
 
   defp render_own_profile(assigns) do
@@ -399,7 +217,7 @@ defmodule MossletWeb.UserHomeLive do
           <div
             :if={get_banner_image_for_connection(@profile_user.connection) != ""}
             class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('#{~p"/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}"}')"}
+            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
           >
             <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
           </div>
@@ -460,7 +278,7 @@ defmodule MossletWeb.UserHomeLive do
                     >
                       {"Profile 🌿"}
                     </h1>
-                    <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-emerald-600 dark:text-emerald-400">
+                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
                       <%!-- username badge --%>
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
@@ -474,6 +292,31 @@ defmodule MossletWeb.UserHomeLive do
                       >
                         @{decr_item(
                           @current_user.connection.profile.username,
+                          @current_user,
+                          @current_user.connection.profile.profile_key,
+                          @key,
+                          @current_user.connection.profile
+                        )}
+                      </MossletWeb.DesignSystem.liquid_badge>
+
+                      <%!-- Email badge if show_email? is true --%>
+                      <MossletWeb.DesignSystem.liquid_badge
+                        :if={
+                          @current_user.connection.profile.show_email? &&
+                            @current_user.connection.profile.email
+                        }
+                        variant="soft"
+                        color={
+                          if(@current_user.connection.profile.visibility == "public",
+                            do: "cyan",
+                            else: "emerald"
+                          )
+                        }
+                        size="sm"
+                      >
+                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                        {decr_item(
+                          @current_user.connection.profile.email,
                           @current_user,
                           @current_user.connection.profile.profile_key,
                           @key,
@@ -747,51 +590,6 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- Activity Overview Card --%>
-            <MossletWeb.DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-bar"
-                    class="size-5 text-emerald-600 dark:text-emerald-400"
-                  /> Activity Overview
-                </div>
-              </:title>
-              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <%!-- Posts --%>
-                <div class="text-center p-4 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/20 dark:to-emerald-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                    {@activity_stats.posts}
-                  </div>
-                  <div class="text-sm text-teal-600 dark:text-teal-400 font-medium">Posts</div>
-                </div>
-
-                <%!-- Connections --%>
-                <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {@activity_stats.connections}
-                  </div>
-                  <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">Connections</div>
-                </div>
-
-                <%!-- Replies --%>
-                <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {@activity_stats.replies}
-                  </div>
-                  <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">Replies</div>
-                </div>
-
-                <%!-- Groups --%>
-                <div class="text-center p-4 bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-indigo-900/20 dark:to-blue-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {@activity_stats.groups}
-                  </div>
-                  <div class="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Groups</div>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <%!-- Right Column: Quick Actions & Profile Management --%>
@@ -799,7 +597,7 @@ defmodule MossletWeb.UserHomeLive do
             :if={@current_user && @current_user.id == @profile_user.id}
             class="lg:col-span-1 space-y-6"
           >
-            <%!-- Quick Navigation --%>
+            <%!-- Quick Actions --%>
             <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
               <:title>
                 <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
@@ -808,7 +606,6 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </:title>
               <div class="space-y-3">
-                <%!-- Timeline --%>
                 <MossletWeb.DesignSystem.liquid_button
                   navigate={~p"/app/timeline"}
                   variant="primary"
@@ -819,19 +616,6 @@ defmodule MossletWeb.UserHomeLive do
                   View Timeline
                 </MossletWeb.DesignSystem.liquid_button>
 
-                <%!-- Create Post
-            <MossletWeb.DesignSystem.liquid_button
-              phx-click="new_post"
-              variant="secondary"
-              color="emerald"
-              icon="hero-plus"
-              class="w-full"
-            >
-              Create Post
-            </MossletWeb.DesignSystem.liquid_button>
-            --%>
-
-                <%!-- Navigation Links --%>
                 <div class="space-y-2 pt-2">
                   <MossletWeb.DesignSystem.liquid_nav_item
                     navigate={~p"/app/users/connections"}
@@ -848,16 +632,6 @@ defmodule MossletWeb.UserHomeLive do
                   >
                     Join Groups
                   </MossletWeb.DesignSystem.liquid_nav_item>
-
-                  <%!--
-              <MossletWeb.DesignSystem.liquid_nav_item
-                navigate={~p"/app/memories"}
-                icon="hero-heart"
-                class="rounded-xl group hover:from-rose-50 hover:via-pink-50 hover:to-rose-50 dark:hover:from-rose-900/20 dark:hover:via-pink-900/20 dark:hover:to-rose-900/20"
-              >
-                Memories
-              </MossletWeb.DesignSystem.liquid_nav_item>
-              --%>
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
@@ -961,7 +735,7 @@ defmodule MossletWeb.UserHomeLive do
           <div
             :if={get_banner_image_for_connection(@profile_user.connection) != ""}
             class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('#{~p"/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}"}')"}
+            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
           >
             <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
           </div>
@@ -978,7 +752,10 @@ defmodule MossletWeb.UserHomeLive do
               <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div class="relative flex-shrink-0">
                   <MossletWeb.DesignSystem.liquid_avatar
-                    src={get_public_avatar(@profile_user, @current_user)}
+                    src={
+                      if @profile_user.connection.profile.show_avatar?,
+                        do: get_public_avatar(@profile_user, @current_user)
+                    }
                     name={
                       decrypt_public_field(
                         @profile_user.connection.profile.name,
@@ -1013,7 +790,7 @@ defmodule MossletWeb.UserHomeLive do
                       {"Profile 🌿"}
                     </h1>
 
-                    <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-emerald-600 dark:text-emerald-400">
+                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color="cyan"
@@ -1021,6 +798,22 @@ defmodule MossletWeb.UserHomeLive do
                       >
                         @{decrypt_public_field(
                           @profile_user.connection.profile.username,
+                          @profile_user.connection.profile.profile_key
+                        )}
+                      </MossletWeb.DesignSystem.liquid_badge>
+
+                      <MossletWeb.DesignSystem.liquid_badge
+                        :if={
+                          @profile_user.connection.profile.show_email? &&
+                            @profile_user.connection.profile.email
+                        }
+                        variant="soft"
+                        color="cyan"
+                        size="sm"
+                      >
+                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                        {decrypt_public_field(
+                          @profile_user.connection.profile.email,
                           @profile_user.connection.profile.profile_key
                         )}
                       </MossletWeb.DesignSystem.liquid_badge>
@@ -1047,21 +840,6 @@ defmodule MossletWeb.UserHomeLive do
                       class="w-full sm:w-auto"
                     >
                       Connect
-                    </MossletWeb.DesignSystem.liquid_button>
-                  </div>
-
-                  <div
-                    :if={@current_user_is_profile_owner?}
-                    class="flex flex-col sm:flex-row items-center gap-3"
-                  >
-                    <MossletWeb.DesignSystem.liquid_button
-                      navigate={~p"/app/profile/#{@slug}"}
-                      variant="primary"
-                      color="teal"
-                      icon="hero-arrow-right"
-                      class="w-full sm:w-auto"
-                    >
-                      View Full Profile
                     </MossletWeb.DesignSystem.liquid_button>
                   </div>
                 </div>
@@ -1104,49 +882,51 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
-
-            <MossletWeb.DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-bar"
-                    class="size-5 text-emerald-600 dark:text-emerald-400"
-                  /> Activity Overview
-                </div>
-              </:title>
-              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/20 dark:to-emerald-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                    {@activity_stats.posts}
-                  </div>
-                  <div class="text-sm text-teal-600 dark:text-teal-400 font-medium">Posts</div>
-                </div>
-
-                <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {@activity_stats.connections}
-                  </div>
-                  <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">Connections</div>
-                </div>
-
-                <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {@activity_stats.replies}
-                  </div>
-                  <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">Replies</div>
-                </div>
-
-                <div class="text-center p-4 bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-indigo-900/20 dark:to-blue-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {@activity_stats.groups}
-                  </div>
-                  <div class="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Groups</div>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <div class="lg:col-span-1 space-y-6">
+            <%!-- Quick Actions --%>
+            <MossletWeb.DesignSystem.liquid_card
+              :if={!@current_user_is_profile_owner?}
+              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
+            >
+              <:title>
+                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
+                  <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
+                  Quick Actions
+                </div>
+              </:title>
+              <div class="space-y-3">
+                <MossletWeb.DesignSystem.liquid_button
+                  navigate={~p"/app/timeline"}
+                  variant="primary"
+                  color="teal"
+                  icon="hero-newspaper"
+                  class="w-full"
+                >
+                  View Timeline
+                </MossletWeb.DesignSystem.liquid_button>
+
+                <div class="space-y-2 pt-2">
+                  <MossletWeb.DesignSystem.liquid_nav_item
+                    navigate={~p"/app/users/connections"}
+                    icon="hero-users"
+                    class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
+                  >
+                    Manage Connections
+                  </MossletWeb.DesignSystem.liquid_nav_item>
+
+                  <MossletWeb.DesignSystem.liquid_nav_item
+                    navigate={~p"/app/groups"}
+                    icon="hero-user-group"
+                    class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
+                  >
+                    Join Groups
+                  </MossletWeb.DesignSystem.liquid_nav_item>
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
+
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
@@ -1175,44 +955,6 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
-
-            <MossletWeb.DesignSystem.liquid_card
-              :if={!@current_user}
-              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-            >
-              <:title>
-                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                  <.phx_icon name="hero-user-plus" class="size-5 text-teal-600 dark:text-teal-400" />
-                  Join Mosslet
-                </div>
-              </:title>
-              <div class="space-y-3">
-                <p class="text-sm text-slate-600 dark:text-slate-400">
-                  Create an account to connect with {decrypt_public_field(
-                    @profile_user.connection.profile.username,
-                    @profile_user.connection.profile.profile_key
-                  ) || "this user"} and discover more.
-                </p>
-                <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/auth/register"}
-                  variant="primary"
-                  color="teal"
-                  icon="hero-sparkles"
-                  class="w-full"
-                >
-                  Sign Up
-                </MossletWeb.DesignSystem.liquid_button>
-                <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/auth/sign_in"}
-                  variant="secondary"
-                  color="emerald"
-                  icon="hero-arrow-right-on-rectangle"
-                  class="w-full"
-                >
-                  Sign In
-                </MossletWeb.DesignSystem.liquid_button>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
           </div>
         </div>
       </main>
@@ -1232,7 +974,7 @@ defmodule MossletWeb.UserHomeLive do
           <div
             :if={get_banner_image_for_connection(@profile_user.connection) != ""}
             class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('#{~p"/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}"}')"}
+            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
           >
             <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
           </div>
@@ -1253,7 +995,10 @@ defmodule MossletWeb.UserHomeLive do
                 <%!-- Enhanced Avatar --%>
                 <div class="relative flex-shrink-0">
                   <MossletWeb.DesignSystem.liquid_avatar
-                    src={get_connection_avatar_src(@user_connection, @current_user, @key)}
+                    src={
+                      if @profile_user.connection.profile.show_avatar?,
+                        do: get_connection_avatar_src(@user_connection, @current_user, @key)
+                    }
                     name={
                       decr_item(
                         @profile_user.connection.profile.name,
@@ -1292,7 +1037,7 @@ defmodule MossletWeb.UserHomeLive do
                     >
                       {"Profile 🌿"}
                     </h1>
-                    <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-slate-600 dark:text-slate-400">
+                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-slate-600 dark:text-slate-400">
                       <%!-- username badge --%>
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
@@ -1306,6 +1051,31 @@ defmodule MossletWeb.UserHomeLive do
                       >
                         @{decr_item(
                           @profile_user.connection.profile.username,
+                          @current_user,
+                          @user_connection.key,
+                          @key,
+                          @profile_user.connection.profile
+                        )}
+                      </MossletWeb.DesignSystem.liquid_badge>
+
+                      <%!-- Email badge if show_email? is true --%>
+                      <MossletWeb.DesignSystem.liquid_badge
+                        :if={
+                          @profile_user.connection.profile.show_email? &&
+                            @profile_user.connection.profile.email
+                        }
+                        variant="soft"
+                        color={
+                          if(@current_user.connection.profile.visibility == "public",
+                            do: "cyan",
+                            else: "emerald"
+                          )
+                        }
+                        size="sm"
+                      >
+                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                        {decr_item(
+                          @profile_user.connection.profile.email,
                           @current_user,
                           @user_connection.key,
                           @key,
@@ -1371,91 +1141,10 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- Activity Overview Card --%>
-            <MossletWeb.DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-bar"
-                    class="size-5 text-emerald-600 dark:text-emerald-400"
-                  /> Activity Overview
-                </div>
-              </:title>
-              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <%!-- Posts --%>
-                <div class="text-center p-4 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/20 dark:to-emerald-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                    {@activity_stats.posts}
-                  </div>
-                  <div class="text-sm text-teal-600 dark:text-teal-400 font-medium">Posts</div>
-                </div>
-
-                <%!-- Connections --%>
-                <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {@activity_stats.connections}
-                  </div>
-                  <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">Connections</div>
-                </div>
-
-                <%!-- Replies --%>
-                <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {@activity_stats.replies}
-                  </div>
-                  <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">Replies</div>
-                </div>
-
-                <%!-- Groups --%>
-                <div class="text-center p-4 bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-indigo-900/20 dark:to-blue-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {@activity_stats.groups}
-                  </div>
-                  <div class="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Groups</div>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <%!-- Right Column: Connection Info & Stats --%>
           <div class="lg:col-span-1 space-y-6">
-            <%!-- Connection Stats --%>
-            <MossletWeb.DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-pie"
-                    class="size-5 text-purple-600 dark:text-purple-400"
-                  /> Profile Stats
-                </div>
-              </:title>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.inserted_at,
-                      do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                      else: "—"}
-                  </span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.last_activity_at,
-                      do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                      else: "Now"}
-                  </span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Status</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {String.capitalize(to_string(@profile_user.status))}
-                  </span>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
             <%!-- Quick Actions --%>
             <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
               <:title>
@@ -1491,6 +1180,42 @@ defmodule MossletWeb.UserHomeLive do
                   >
                     Join Groups
                   </MossletWeb.DesignSystem.liquid_nav_item>
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
+
+            <%!-- Connection Stats --%>
+            <MossletWeb.DesignSystem.liquid_card>
+              <:title>
+                <div class="flex items-center gap-2">
+                  <.phx_icon
+                    name="hero-chart-pie"
+                    class="size-5 text-purple-600 dark:text-purple-400"
+                  /> Profile Stats
+                </div>
+              </:title>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
+                  <span class="font-semibold text-slate-900 dark:text-white">
+                    {if @profile_user.inserted_at,
+                      do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
+                      else: "—"}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
+                  <span class="font-semibold text-slate-900 dark:text-white">
+                    {if @profile_user.last_activity_at,
+                      do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
+                      else: "Now"}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-slate-600 dark:text-slate-400">Status</span>
+                  <span class="font-semibold text-slate-900 dark:text-white">
+                    {String.capitalize(to_string(@profile_user.status))}
+                  </span>
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
@@ -1531,7 +1256,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp get_public_status(profile_user) do
-    if profile_user.show_online_presence && profile_user.status do
+    if StatusHelpers.can_view_status?(profile_user, nil, nil) && profile_user.status do
       to_string(profile_user.status)
     else
       nil
@@ -1539,7 +1264,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp get_public_status_message(profile_user) do
-    if profile_user.show_online_presence && profile_user.status_message do
+    if StatusHelpers.can_view_status?(profile_user, nil, nil) && profile_user.status_message do
       decrypt_public_field(
         profile_user.status_message,
         profile_user.connection.profile.profile_key

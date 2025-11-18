@@ -21,6 +21,8 @@ defmodule Mosslet.Timeline.Post do
     field :image_urls, Encrypted.StringList, default: [], skip_default_validation: true
     field :image_urls_updated_at, :naive_datetime
     field :favs_list, Encrypted.StringList, default: [], skip_default_validation: true
+    field :url_preview, Encrypted.Map
+    field :url_preview_fetched_at, Encrypted.NaiveDateTime
 
     field :reposts_list, Encrypted.StringList,
       default: [],
@@ -109,6 +111,8 @@ defmodule Mosslet.Timeline.Post do
       :user_group_id,
       :image_urls,
       :image_urls_updated_at,
+      :url_preview,
+      :url_preview_fetched_at,
       # Content warning fields
       :content_warning,
       :content_warning_category,
@@ -163,6 +167,8 @@ defmodule Mosslet.Timeline.Post do
       :user_group_id,
       :image_urls,
       :image_urls_updated_at,
+      :url_preview,
+      :url_preview_fetched_at,
       :content_warning,
       :content_warning_category,
       :content_warning?,
@@ -566,6 +572,7 @@ defmodule Mosslet.Timeline.Post do
           |> encrypt_favs_list(post_key, opts)
           |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
+          |> encrypt_url_preview_if_present(post_key, opts)
 
         visibility === :private ->
           changeset
@@ -577,6 +584,7 @@ defmodule Mosslet.Timeline.Post do
           |> encrypt_favs_list(post_key, opts)
           |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
+          |> encrypt_url_preview_if_present(post_key, opts)
 
         visibility in [:connections, :specific_groups, :specific_users] ->
           changeset
@@ -588,10 +596,35 @@ defmodule Mosslet.Timeline.Post do
           |> encrypt_favs_list(post_key, opts)
           |> encrypt_reposts_list(post_key, opts)
           |> encrypt_content_warning_if_present(post_key, opts)
+          |> encrypt_url_preview_if_present(post_key, opts)
 
         true ->
           changeset |> add_error(:body, "There was an error determining the visibility.")
       end
+    else
+      changeset
+    end
+  end
+
+  defp encrypt_url_preview_if_present(changeset, post_key, _opts) do
+    url_preview = get_field(changeset, :url_preview)
+
+    if url_preview && is_map(url_preview) && map_size(url_preview) > 0 do
+      encrypted_preview =
+        url_preview
+        |> Enum.map(fn {key, value} ->
+          encrypted_value =
+            if is_binary(value) do
+              Utils.encrypt(%{key: post_key, payload: value})
+            else
+              value
+            end
+
+          {key, encrypted_value}
+        end)
+        |> Enum.into(%{})
+
+      put_change(changeset, :url_preview, encrypted_preview)
     else
       changeset
     end

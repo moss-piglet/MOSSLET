@@ -1046,13 +1046,13 @@ defmodule Mosslet.Accounts do
 
     cond do
       conn.profile.visibility == :public ->
-        broadcast_public_connection(conn, :uconn_updated)
-        broadcast_connection(conn, :uconn_updated)
+        broadcast_public_connection(conn, :conn_updated)
+        broadcast_connection(conn, :conn_updated)
         broadcast_public_user_connections(uconns, :uconn_updated)
         {:ok, conn}
 
       true ->
-        broadcast_connection(conn, :uconn_updated)
+        broadcast_connection(conn, :conn_updated)
         broadcast_public_user_connections(uconns, :uconn_updated)
         {:ok, conn}
     end
@@ -1325,7 +1325,8 @@ defmodule Mosslet.Accounts do
                 user: user,
                 key: opts[:key],
                 update_profile: true,
-                encrypt: true
+                encrypt: true,
+                visibility_changed: true
               })
             )
 
@@ -1336,14 +1337,26 @@ defmodule Mosslet.Accounts do
                    update_profile: true,
                    encrypt: true
                  ) do
-            broadcast_connection(conn, :uconn_visibility_updated)
+            if user.visibility == :public do
+              broadcast_connection(conn, :uconn_visibility_updated)
+              broadcast_public_connection(conn, :conn_visibility_updated)
 
-            {:ok, user}
+              {:ok, user}
+            else
+              broadcast_connection(conn, :uconn_visibility_updated)
+              {:ok, user}
+            end
           end
         else
-          broadcast_connection(user.connection, :uconn_visibility_updated)
+          if user.visibility == :public do
+            broadcast_connection(user.connection, :uconn_visibility_updated)
+            broadcast_public_connection(user.connection, :conn_visibility_updated)
 
-          {:ok, user}
+            {:ok, user}
+          else
+            broadcast_connection(user.connection, :uconn_visibility_updated)
+            {:ok, user}
+          end
         end
 
       {:error, changeset} ->
@@ -2634,7 +2647,16 @@ defmodule Mosslet.Accounts do
 
   defp broadcast_connection(conn, event) do
     conn = conn |> Repo.preload([:user_connections])
-    broadcast_user_connections(conn.user_connections, event)
+    # filter out the user who belongs to the connection as they are
+    # the user who made the update (and we only want to broadcast to
+    # their connections to avoid unnecessary broadcasts)
+    filtered_user_connections =
+      Enum.filter(conn.user_connections, fn uconn -> uconn.user_id != conn.user_id end)
+
+    broadcast_user_connections(
+      filtered_user_connections,
+      event
+    )
   end
 
   defp broadcast_public_connection(conn, event) do

@@ -325,17 +325,26 @@ defmodule MossletWeb.Helpers do
   def decr(_payload, _user, _key), do: nil
 
   def decr_avatar(payload, user, item_key, key) do
-    case Encrypted.Users.Utils.decrypt_user_item(
-           payload,
-           user,
-           item_key,
-           key
-         ) do
-      :failed_verification ->
-        "failed_verification"
+    case payload do
+      nil ->
+        nil
 
-      payload ->
-        payload
+      "" ->
+        nil
+
+      _ ->
+        case Encrypted.Users.Utils.decrypt_user_item(
+               payload,
+               user,
+               item_key,
+               key
+             ) do
+          :failed_verification ->
+            "failed_verification"
+
+          decrypted_payload ->
+            decrypted_payload
+        end
     end
   end
 

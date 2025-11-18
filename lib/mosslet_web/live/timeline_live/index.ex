@@ -20,6 +20,7 @@ defmodule MossletWeb.TimelineLive.Index do
   alias Mosslet.Encrypted
   alias Mosslet.Timeline
   alias Mosslet.Timeline.{Post, Reply, ContentFilter}
+  alias Mosslet.Extensions.URLPreviewServer
 
   @post_page_default 1
   @post_per_page_default 10
@@ -148,6 +149,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:selected_visibility_users, [])
       # Load and cache content filters once in mount
       |> assign(:content_filters, load_and_decrypt_content_filters(current_user, key))
+      # Initialize URL preview state
+      |> assign(:url_preview, nil)
+      |> assign(:url_preview_loading, false)
       # Cache timeline counts to avoid repeated DB queries
       |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
       |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
@@ -1434,7 +1438,22 @@ defmodule MossletWeb.TimelineLive.Index do
     # Let Timeline.change_post handle all the changeset logic
     changeset = Timeline.change_post(%Post{}, complete_params, user: current_user)
 
-    # Update stored visibility groups/users if they were provided in the form
+    socket =
+      if url = extract_first_url(post_params["body"]) do
+        socket
+        |> assign(:url_preview_loading, true)
+        |> start_async(:url_preview_task, fn ->
+          case Mosslet.Extensions.URLPreviewServer.fetch(url) do
+            {:ok, preview} -> {:ok, preview}
+            {:error, _reason} -> {:error, nil}
+          end
+        end)
+      else
+        socket
+        |> assign(:url_preview, nil)
+        |> assign(:url_preview_loading, false)
+      end
+
     socket =
       socket
       |> maybe_update_visibility_groups(post_params)
@@ -1905,6 +1924,10 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, :show_content_filter, !current_state)}
   end
 
+  def handle_event("remove_url_preview", _params, socket) do
+    {:noreply, assign(socket, url_preview: nil, url_preview_loading: false)}
+  end
+
   def handle_event("composer_toggle_content_warning", _params, socket) do
     # Toggle content warning state
     current_state = socket.assigns.content_warning_enabled?
@@ -1964,6 +1987,11 @@ defmodule MossletWeb.TimelineLive.Index do
         |> Map.put("visibility", socket.assigns.selector)
         |> Map.put("user_id", current_user.id)
         |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
+        |> maybe_put_url_preview(socket)
+        |> Map.put(
+          "url_preview_fetched_at",
+          if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+        )
         # Handle interaction controls - use stored values if not in form params
         |> Map.put(
           "allow_replies",
@@ -2039,6 +2067,8 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:content_warning_enabled?, false)
               |> assign(:selected_visibility_groups, [])
               |> assign(:selected_visibility_users, [])
+              |> assign(:url_preview, nil)
+              |> assign(:url_preview_loading, false)
               |> put_flash(:success, "Post created successfully")
 
             # Instead of push_patch (page reload), update stream and counts like handle_info does
@@ -3548,6 +3578,18 @@ defmodule MossletWeb.TimelineLive.Index do
      )}
   end
 
+  def handle_async(:url_preview_task, {:ok, {:ok, preview}}, socket) do
+    {:noreply, assign(socket, url_preview: preview, url_preview_loading: false)}
+  end
+
+  def handle_async(:url_preview_task, {:ok, {:error, _}}, socket) do
+    {:noreply, assign(socket, url_preview: nil, url_preview_loading: false)}
+  end
+
+  def handle_async(:url_preview_task, {:exit, _reason}, socket) do
+    {:noreply, assign(socket, url_preview: nil, url_preview_loading: false)}
+  end
+
   # Helper function to update stored visibility groups when they change in the form
   defp maybe_update_visibility_groups(socket, post_params) do
     case post_params["visibility_groups"] do
@@ -4739,6 +4781,51 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  defp get_decrypted_url_preview(post, current_user, key) do
+    if post.url_preview && is_map(post.url_preview) do
+      case get_cached_url_preview(post.id) do
+        nil ->
+          encrypted_url_preview = update_and_fetch_url_preview_cache(post)
+          post_key = get_post_key(post, current_user)
+          decrypt_url_preview_with_post_key(encrypted_url_preview, post_key, current_user, key)
+
+        encrypted_url_preview ->
+          post_key = get_post_key(post, current_user)
+          decrypt_url_preview_with_post_key(encrypted_url_preview, post_key, current_user, key)
+      end
+    else
+      nil
+    end
+  end
+
+  defp update_and_fetch_url_preview_cache(post) do
+    case put_into_cache_url_preview(post.id, post.url_preview) do
+      :ok ->
+        get_cached_url_preview(post.id)
+
+      rest ->
+        IO.inspect(rest, label: "REST")
+        nil
+    end
+  end
+
+  # returns the encrypted map or nil
+  defp get_cached_url_preview(post_id) do
+    URLPreviewServer.get_cached_preview(post_id)
+  end
+
+  # returns :ok
+  defp put_into_cache_url_preview(post_id, encrypted_url_preview) do
+    URLPreviewServer.cache_preview(post_id, encrypted_url_preview)
+  end
+
+  defp decrypt_url_preview_with_post_key(encrypted_url_preview, post_key, current_user, key) do
+    {:ok, d_post_key} =
+      Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(post_key, current_user, key)
+
+    URLPreviewServer.decrypt_preview_with_key(encrypted_url_preview, d_post_key)
+  end
+
   defp format_post_timestamp(naive_datetime) do
     now = NaiveDateTime.utc_now()
     diff_seconds = NaiveDateTime.diff(now, naive_datetime, :second)
@@ -5132,14 +5219,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Email notification helper function
   defp process_email_notifications_for_offline_users(post, current_user, session_key) do
-    require Logger
-
-    Logger.info(
-      "🔔 STARTING EMAIL NOTIFICATION PROCESS for post #{post.id} from user #{current_user.id}"
-    )
-
-    Logger.info("🔔 Post visibility: #{post.visibility}")
-
     # Simply pass the post data to the EmailNotificationsProcessor
     # It will handle all filtering, offline checking, and processing
     Mosslet.Notifications.EmailNotificationsProcessor.process_post_notifications(
@@ -5147,7 +5226,20 @@ defmodule MossletWeb.TimelineLive.Index do
       current_user,
       session_key
     )
+  end
 
-    Logger.info("🔔 Email notification process initiated")
+  # For previewing post urls (URL Preview Server)
+  defp extract_first_url(text) do
+    case Regex.run(~r/https?:\/\/[^\s]+/, text || "") do
+      [url | _] -> url
+      _ -> nil
+    end
+  end
+
+  defp maybe_put_url_preview(params, socket) do
+    case socket.assigns[:url_preview] do
+      nil -> params
+      preview when is_map(preview) -> Map.put(params, "url_preview", preview)
+    end
   end
 end
