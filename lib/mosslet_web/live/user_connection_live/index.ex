@@ -111,6 +111,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
     current_user = socket.assigns.current_user
     sort_by = valid_sort_by(params)
     sort_order = valid_sort_order(params)
+    key = socket.assigns.key
 
     # Search functionality
     search_query = params["search"]
@@ -150,7 +151,9 @@ defmodule MossletWeb.UserConnectionLive.Index do
     connections_count = length(connections)
 
     # Load visibility groups for streaming
-    visibility_groups = Accounts.get_user_visibility_groups_with_connections(current_user)
+    visibility_groups =
+      Accounts.get_user_visibility_groups_with_connections(current_user)
+      |> validate_and_clean_visibility_groups(connections, current_user, key)
 
     socket =
       socket
@@ -1343,6 +1346,57 @@ defmodule MossletWeb.UserConnectionLive.Index do
       is_nil(connection.connection.profile) -> false
       true -> connection.connection.profile.visibility in [:connections, :public]
     end
+  end
+
+  defp validate_and_clean_visibility_groups(visibility_groups, user_connections, user, key) do
+    valid_connection_ids = MapSet.new(user_connections, & &1.id)
+
+    {_result, groups} =
+      Enum.map_reduce(visibility_groups, user, fn group_data, current_user ->
+        group = group_data.group
+        connection_ids = group.connection_ids || []
+
+        cleaned_ids =
+          connection_ids
+          |> Enum.filter(&valid_connection_id?(&1, valid_connection_ids, user, key))
+
+        if length(cleaned_ids) == length(connection_ids) do
+          {group_data, current_user}
+        else
+          case update_group_and_get_updated(group, cleaned_ids, current_user, user, key) do
+            {:ok, updated_user} -> {group_data, updated_user}
+            {:error, _reason} -> {group_data, current_user}
+          end
+        end
+      end)
+
+    Accounts.get_user_visibility_groups_with_connections(groups)
+  end
+
+  defp valid_connection_id?(encrypted_id, valid_ids, user, key) do
+    with decrypted_id when is_binary(decrypted_id) <-
+           Mosslet.Encrypted.Users.Utils.decrypt_user_item(encrypted_id, user, user.user_key, key) do
+      decrypted_id in valid_ids
+    else
+      _ -> false
+    end
+  end
+
+  defp update_group_and_get_updated(group, cleaned_ids, current_user, user, key) do
+    decrypted_ids = Enum.map(cleaned_ids, &decrypt_user_item(&1, user, key))
+
+    group_params = %{
+      "name" => decrypt_user_item(group.name, user, key),
+      "description" => decrypt_user_item(group.description, user, key) || "",
+      "color" => Atom.to_string(group.color),
+      "connection_ids" => decrypted_ids
+    }
+
+    Accounts.update_visibility_group(current_user, group.id, group_params, user: user, key: key)
+  end
+
+  defp decrypt_user_item(encrypted_item, user, key) do
+    Mosslet.Encrypted.Users.Utils.decrypt_user_item(encrypted_item, user, user.user_key, key)
   end
 
   # Status helper functions moved to MossletWeb.Helpers.StatusHelpers
