@@ -1538,6 +1538,8 @@ defmodule Mosslet.Timeline do
     |> where([p, up, upr], p.user_id == ^user_id)
   end
 
+  defp filter_by_user_id(query, _options), do: query
+
   defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
     order_by(query, {^sort_order, ^sort_by})
   end

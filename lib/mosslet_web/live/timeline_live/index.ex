@@ -5506,4 +5506,13 @@ defmodule MossletWeb.TimelineLive.Index do
         Map.put(params, "url_preview", preview)
     end
   end
+
+  defp count_all_replies(replies) when is_list(replies) do
+    Enum.reduce(replies, 0, fn reply, acc ->
+      child_count = count_all_replies(Map.get(reply, :child_replies, []))
+      acc + 1 + child_count
+    end)
+  end
+
+  defp count_all_replies(_), do: 0
 end

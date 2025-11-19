@@ -364,12 +364,7 @@
                   decrypted_url_preview={get_decrypted_url_preview(post, @current_user, @key)}
                   stats={
                     %{
-                      replies:
-                        cond do
-                          is_list(post.replies) -> length(post.replies)
-                          Ecto.assoc_loaded?(post.replies) -> length(post.replies)
-                          true -> 0
-                        end,
+                      replies: count_all_replies(post.replies),
                       shares: post.reposts_count || 0,
                       likes: post.favs_count || 0
                     }
