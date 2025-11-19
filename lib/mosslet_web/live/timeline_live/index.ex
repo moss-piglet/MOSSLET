@@ -152,6 +152,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Initialize URL preview state
       |> assign(:url_preview, nil)
       |> assign(:url_preview_loading, false)
+      |> assign(:current_preview_url, nil)
       # Cache timeline counts to avoid repeated DB queries
       |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
       |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
@@ -1438,22 +1439,32 @@ defmodule MossletWeb.TimelineLive.Index do
     # Let Timeline.change_post handle all the changeset logic
     changeset = Timeline.change_post(%Post{}, complete_params, user: current_user)
 
-    socket =
-      if url = extract_first_url(post_params["body"]) do
-        user_id = socket.assigns.current_user.id
+    current_preview_url = socket.assigns[:current_preview_url]
+    new_url = extract_first_url(post_params["body"])
 
-        socket
-        |> assign(:url_preview_loading, true)
-        |> start_async(:url_preview_task, fn ->
-          case Mosslet.Extensions.URLPreviewServer.fetch(url, user_id: user_id) do
-            {:ok, preview} -> {:ok, preview}
-            {:error, reason} -> {:error, reason}
-          end
-        end)
-      else
-        socket
-        |> assign(:url_preview, nil)
-        |> assign(:url_preview_loading, false)
+    socket =
+      cond do
+        new_url && new_url != current_preview_url ->
+          user_id = socket.assigns.current_user.id
+
+          socket
+          |> assign(:current_preview_url, new_url)
+          |> assign(:url_preview_loading, true)
+          |> start_async(:url_preview_task, fn ->
+            case Mosslet.Extensions.URLPreviewServer.fetch(new_url, user_id: user_id) do
+              {:ok, preview} -> {:ok, preview}
+              {:error, reason} -> {:error, reason}
+            end
+          end)
+
+        new_url == nil && current_preview_url != nil ->
+          socket
+          |> assign(:current_preview_url, nil)
+          |> assign(:url_preview, nil)
+          |> assign(:url_preview_loading, false)
+
+        true ->
+          socket
       end
 
     socket =
@@ -2121,6 +2132,7 @@ defmodule MossletWeb.TimelineLive.Index do
               |> assign(:selected_visibility_users, [])
               |> assign(:url_preview, nil)
               |> assign(:url_preview_loading, false)
+              |> assign(:current_preview_url, nil)
               |> put_flash(:success, "Post created successfully")
 
             # Instead of push_patch (page reload), update stream and counts like handle_info does
