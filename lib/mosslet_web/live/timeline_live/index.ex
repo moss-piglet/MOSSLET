@@ -1952,9 +1952,19 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
-        post_key = get_post_key(post, current_user)
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, current_user)
+          end
 
-        case fetch_and_decrypt_url_preview_image(presigned_url, post_key, current_user, key) do
+        case fetch_and_decrypt_url_preview_image(
+               presigned_url,
+               encrypted_post_key,
+               current_user,
+               key,
+               post.visibility
+             ) do
           {:ok, decrypted_image} ->
             {:reply, %{response: "success", decrypted_image: decrypted_image}, socket}
 
@@ -3619,7 +3629,12 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_async(:url_preview_task, {:ok, {:ok, preview}}, socket) do
-    {:noreply, assign(socket, url_preview: preview, url_preview_loading: false)}
+    socket =
+      socket
+      |> assign(url_preview: preview, url_preview_loading: false)
+      |> normalize_url_in_post_body(preview)
+
+    {:noreply, socket}
   end
 
   def handle_async(:url_preview_task, {:ok, {:error, _}}, socket) do
@@ -4810,10 +4825,14 @@ defmodule MossletWeb.TimelineLive.Index do
   defp get_decrypted_post_images(post, current_user, key) do
     cond do
       is_list(post.image_urls) and length(post.image_urls) > 0 ->
-        post_key = get_post_key(post, current_user)
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, current_user)
+          end
 
         Enum.map(post.image_urls, fn encrypted_url ->
-          decr_item(encrypted_url, current_user, post_key, key, post, "body")
+          decr_item(encrypted_url, current_user, encrypted_post_key, key, post, "body")
         end)
 
       true ->
@@ -4823,17 +4842,44 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp get_decrypted_url_preview(post, current_user, key) do
     if post.url_preview && is_map(post.url_preview) do
-      post_key = get_post_key(post, current_user)
+      encrypted_post_key =
+        case post.visibility do
+          :public -> get_post_key(post)
+          _ -> get_post_key(post, current_user)
+        end
 
-      {:ok, d_post_key} =
-        Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(post_key, current_user, key)
+      d_post_key =
+        case post.visibility do
+          :public ->
+            case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+              decrypted when is_binary(decrypted) -> decrypted
+              _ -> nil
+            end
 
-      decrypted_preview = URLPreviewServer.decrypt_preview_with_key(post.url_preview, d_post_key)
+          _ ->
+            case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                   encrypted_post_key,
+                   current_user,
+                   key
+                 ) do
+              {:ok, decrypted} -> decrypted
+              _ -> nil
+            end
+        end
 
-      if decrypted_preview && decrypted_preview["url"] do
-        url_hash = :crypto.hash(:sha512, decrypted_preview["url"]) |> Base.encode16(case: :lower)
-        cache_preview_in_ets(url_hash, post.url_preview)
-        decrypted_preview
+      if d_post_key do
+        decrypted_preview =
+          URLPreviewServer.decrypt_preview_with_key(post.url_preview, d_post_key)
+
+        if decrypted_preview && decrypted_preview["url"] do
+          url_hash =
+            :crypto.hash(:sha512, decrypted_preview["url"]) |> Base.encode16(case: :lower)
+
+          cache_preview_in_ets(url_hash, post.url_preview)
+          decrypted_preview
+        else
+          nil
+        end
       else
         nil
       end
@@ -4842,12 +4888,33 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  defp fetch_and_decrypt_url_preview_image(presigned_url, post_key, current_user, key) do
-    with {:ok, d_post_key} <-
-           Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(post_key, current_user, key),
+  defp fetch_and_decrypt_url_preview_image(
+         presigned_url,
+         encrypted_post_key,
+         current_user,
+         key,
+         visibility
+       ) do
+    d_post_key =
+      case visibility do
+        :public ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+            decrypted when is_binary(decrypted) -> {:ok, decrypted}
+            _ -> {:error, :decryption_failed}
+          end
+
+        _ ->
+          Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+            encrypted_post_key,
+            current_user,
+            key
+          )
+      end
+
+    with {:ok, decrypted_key} <- d_post_key,
          {:ok, %{status: 200, body: encrypted_image}} <- Req.get(presigned_url),
          {:ok, decrypted_binary} <-
-           Encrypted.Utils.decrypt(%{key: d_post_key, payload: encrypted_image}) do
+           Encrypted.Utils.decrypt(%{key: decrypted_key, payload: encrypted_image}) do
       data_url = "data:image/jpeg;base64," <> Base.encode64(decrypted_binary)
       {:ok, data_url}
     else
@@ -5269,36 +5336,123 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # For previewing post urls (URL Preview Server)
   defp extract_first_url(text) do
-    regex = ~r/https?:\/\/[^\s]+/
+    regex_with_protocol = ~r/https?:\/\/[^\s<>\"]+/
+    regex_without_protocol = ~r/\b[a-zA-Z0-9][-a-zA-Z0-9]*(\.[a-zA-Z0-9][-a-zA-Z0-9]*)+[^\s]*/
 
-    case Regex.run(regex, text || "") do
-      [url | _] -> clean_url(url)
-      _ -> nil
+    case Regex.run(regex_with_protocol, text || "") do
+      [url | _] ->
+        clean_url(url)
+
+      nil ->
+        case Regex.run(regex_without_protocol, text || "") do
+          [url | _] -> clean_url(url)
+          _ -> nil
+        end
     end
   end
 
   defp clean_url(url) do
-    cleaned =
-      url
-      |> String.trim_trailing(")")
-      |> String.trim_trailing("]")
-      |> String.trim_trailing("}")
-      |> String.trim_trailing(".")
-      |> String.trim_trailing(",")
-      |> String.trim_trailing(";")
-      |> String.trim_trailing(":")
-      |> String.trim_trailing("!")
-      |> String.trim_trailing("?")
-      |> String.trim_trailing("'")
-      |> String.trim_trailing("\"")
+    graphemes = String.graphemes(url)
 
-    open_parens = cleaned |> String.graphemes() |> Enum.count(&(&1 == "("))
-    close_parens = cleaned |> String.graphemes() |> Enum.count(&(&1 == ")"))
+    reversed_valid =
+      graphemes
+      |> Enum.reverse()
+      |> drop_trailing_punctuation([])
+      |> Enum.reverse()
+
+    result = Enum.join(reversed_valid)
+    balance_parentheses(result)
+  end
+
+  defp drop_trailing_punctuation([], acc), do: acc
+
+  defp drop_trailing_punctuation([char | rest] = all_chars, acc) do
+    cond do
+      char in [")", "]", "}"] ->
+        matching_open = matching_bracket(char)
+
+        open_in_rest = Enum.count(rest, &(&1 == matching_open))
+        close_in_all = Enum.count(all_chars, &(&1 == char))
+        close_in_acc = Enum.count(acc, &(&1 == char))
+
+        close_in_rest = close_in_all - close_in_acc - 1
+
+        if close_in_rest >= open_in_rest do
+          drop_trailing_punctuation(rest, acc)
+        else
+          [char | rest]
+        end
+
+      char in ["!", "?", ".", ",", ";", ":", "'", "\""] and acc == [] ->
+        drop_trailing_punctuation(rest, acc)
+
+      true ->
+        all_chars
+    end
+  end
+
+  defp matching_bracket(")"), do: "("
+  defp matching_bracket("]"), do: "["
+  defp matching_bracket("}"), do: "{"
+
+  defp balance_parentheses(url) do
+    graphemes = String.graphemes(url)
+    open_parens = Enum.count(graphemes, &(&1 == "("))
+    close_parens = Enum.count(graphemes, &(&1 == ")"))
 
     if open_parens > close_parens do
-      cleaned <> String.duplicate(")", open_parens - close_parens)
+      url <> String.duplicate(")", open_parens - close_parens)
     else
-      cleaned
+      url
+    end
+  end
+
+  defp normalize_url_in_post_body(socket, preview) do
+    normalized_url = preview["url"]
+    current_body = get_in(socket.assigns.post_form.params, ["body"]) || ""
+
+    if normalized_url && current_body != "" do
+      original_url = extract_first_url(current_body)
+
+      if original_url && original_url != normalized_url do
+        updated_body = replace_url_preserve_punctuation(current_body, normalized_url)
+
+        current_user = socket.assigns.current_user
+        key = socket.assigns.key
+
+        updated_params =
+          socket.assigns.post_form.params
+          |> Map.put("body", updated_body)
+          |> Map.put("user_id", current_user.id)
+          |> Map.put("key", key)
+
+        changeset = Timeline.change_post(%Post{}, updated_params, user: current_user)
+
+        assign(socket, :post_form, to_form(changeset, action: :validate))
+      else
+        socket
+      end
+    else
+      socket
+    end
+  end
+
+  defp replace_url_preserve_punctuation(text, normalized_url) do
+    regex = ~r/https?:\/\/[^\s<>\"]+/
+
+    case Regex.run(regex, text, return: :index) do
+      [{start_pos, length}] ->
+        captured = String.slice(text, start_pos, length)
+        cleaned = clean_url(captured)
+
+        before = String.slice(text, 0, start_pos)
+        trimmed_suffix = String.slice(captured, String.length(cleaned)..-1//1)
+        after_url = String.slice(text, start_pos + length, String.length(text))
+
+        before <> normalized_url <> trimmed_suffix <> after_url
+
+      _ ->
+        text
     end
   end
 

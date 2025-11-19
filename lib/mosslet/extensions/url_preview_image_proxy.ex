@@ -6,7 +6,6 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
   """
 
   alias Mosslet.Encrypted
-  require Logger
 
   @folder "url_previews"
   @max_image_size 5_242_880
@@ -35,8 +34,7 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
          {:ok, presigned_url} <- generate_presigned_url(file_path) do
       {:ok, presigned_url}
     else
-      {:error, reason} = error ->
-        Logger.debug("Failed to proxy preview image: #{inspect(reason)}")
+      {:error, _reason} = error ->
         error
     end
   end
@@ -119,8 +117,7 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
           {:error, :image_too_large}
         end
 
-      {:ok, %{status: status}} ->
-        Logger.debug("Failed to fetch preview image, status: #{status}")
+      {:ok, %{status: _status}} ->
         {:error, :fetch_failed}
 
       {:error, reason} ->
@@ -144,18 +141,13 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
         error
     end
   rescue
-    error ->
-      Logger.error("Failed to resize preview image for timeline: #{inspect(error)}")
+    _error ->
       {:error, :resize_failed}
   end
 
   defp encrypt_image(image_binary, post_key) do
     encrypted_binary = Encrypted.Utils.encrypt(%{key: post_key, payload: image_binary})
     {:ok, encrypted_binary}
-  rescue
-    error ->
-      Logger.error("Failed to encrypt preview image: #{inspect(error)}")
-      {:error, :encryption_failed}
   end
 
   defp upload_to_tigris(encrypted_image, url_hash, post_id) do
@@ -168,8 +160,7 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
       {:ok, %{status_code: 200}} ->
         {:ok, file_path}
 
-      {:error, reason} ->
-        Logger.error("Failed to upload preview image to Tigris: #{inspect(reason)}")
+      {:error, _reason} ->
         {:error, :upload_failed}
     end
   end

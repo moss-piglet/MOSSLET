@@ -17,6 +17,7 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.Helpers,
     only: [
       contains_html?: 1,
+      format_decrypted_content: 1,
       decr: 3,
       decr_uconn: 4,
       html_block: 1,
@@ -3875,13 +3876,13 @@ defmodule MossletWeb.DesignSystem do
               {html_block(@content)}
             </p>
 
-            <%!-- Modern posts with plain text (escaped automatically by HEEx) --%>
-            <p
+            <%!-- Modern posts with plain text (linkified and sanitized) --%>
+            <div
               :if={!contains_html?(@content)}
               class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
             >
-              {@content}
-            </p>
+              {format_decrypted_content(@content)}
+            </div>
 
             <%!-- Images with enhanced encrypted display system --%>
             <div :if={@post && photos?(@post.image_urls)} class="mb-4">
@@ -3899,13 +3900,13 @@ defmodule MossletWeb.DesignSystem do
               {html_block(@content)}
             </p>
 
-            <%!-- Modern posts with plain text (escaped automatically by HEEx) --%>
-            <p
+            <%!-- Modern posts with plain text (linkified and sanitized) --%>
+            <div
               :if={!contains_html?(@content)}
               class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
             >
-              {@content}
-            </p>
+              {format_decrypted_content(@content)}
+            </div>
 
             <%!-- Images with enhanced encrypted display system --%>
             <div :if={@post && photos?(@post.image_urls)} class="mb-4"></div>

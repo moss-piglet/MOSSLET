@@ -1,6 +1,5 @@
 defmodule Mosslet.Extensions.URLPreviewServer do
   use GenServer
-  require Logger
 
   alias Mosslet.Encrypted.Utils
 
@@ -130,8 +129,8 @@ defmodule Mosslet.Extensions.URLPreviewServer do
             {:preview_ready, preview}
           )
 
-        {:error, reason} ->
-          Logger.debug("URL preview failed for #{url}: #{inspect(reason)}")
+        {:error, _reason} ->
+          nil
       end
     end)
 
@@ -205,8 +204,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
           preview = parse_metadata(html, normalized_url)
           {:ok, preview}
 
-        {:ok, %{status: status}} ->
-          Logger.debug("URL preview HTTP #{status} for #{url}")
+        {:ok, %{status: _status}} ->
           {:error, :http_error}
 
         {:error, reason} ->
@@ -221,7 +219,10 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     url = String.trim(url)
 
     cond do
-      String.starts_with?(url, "http://") or String.starts_with?(url, "https://") ->
+      String.starts_with?(url, "http://") ->
+        {:ok, String.replace_prefix(url, "http://", "https://")}
+
+      String.starts_with?(url, "https://") ->
         {:ok, url}
 
       String.match?(url, ~r/^[a-zA-Z0-9]/) ->
@@ -333,7 +334,6 @@ defmodule Mosslet.Extensions.URLPreviewServer do
               Map.put(preview, "image", proxied_url)
 
             {:error, _reason} ->
-              Logger.debug("Failed to proxy preview image, using original URL")
               preview
           end
         else
@@ -371,7 +371,6 @@ defmodule Mosslet.Extensions.URLPreviewServer do
             |> Map.put("original_image_url", image_url)
 
           {:error, _reason} ->
-            Logger.debug("Failed to fetch preview image as data URL, skipping image")
             Map.put(preview, "image", nil)
         end
 
@@ -401,15 +400,13 @@ defmodule Mosslet.Extensions.URLPreviewServer do
               {:ok, data_url}
 
             error ->
-              Logger.debug("Failed to resize preview image: #{inspect(error)}")
               error
           end
         else
           {:error, :image_too_large}
         end
 
-      {:ok, %{status: status}} ->
-        Logger.debug("Failed to fetch preview image, status: #{status}")
+      {:ok, %{status: _status}} ->
         {:error, :fetch_failed}
 
       {:error, reason} ->
@@ -432,10 +429,6 @@ defmodule Mosslet.Extensions.URLPreviewServer do
       {:error, _reason} = error ->
         error
     end
-  rescue
-    error ->
-      Logger.debug("Error resizing preview image: #{inspect(error)}")
-      {:error, :resize_failed}
   end
 
   defp extract_content_type(headers) do
