@@ -3918,10 +3918,14 @@ defmodule MossletWeb.DesignSystem do
                 rel="noopener noreferrer"
                 class="block rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
               >
-                <%!-- Preview Image --%>
                 <div
                   :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
                   class="aspect-[2/1] overflow-hidden bg-slate-100 dark:bg-slate-800"
+                  phx-hook="URLPreviewHook"
+                  id={"url-preview-#{@post.id}"}
+                  data-post-id={@post.id}
+                  data-image-hash={@decrypted_url_preview["image_hash"]}
+                  data-url-preview-fetched-at={@post.url_preview_fetched_at}
                 >
                   <img
                     src={@decrypted_url_preview["image"]}
@@ -3931,7 +3935,6 @@ defmodule MossletWeb.DesignSystem do
                   />
                 </div>
 
-                <%!-- Preview Content --%>
                 <div class="p-4 bg-white/95 dark:bg-slate-800/95">
                   <div class="flex items-center gap-2 mb-2">
                     <.phx_icon name="hero-link" class="h-4 w-4 text-slate-400" />

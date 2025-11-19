@@ -20,10 +20,18 @@ defmodule Mosslet.Extensions.URLPreviewServer do
 
   @doc """
   Simple fetch - fetches URL metadata without encryption
-  Returns plain preview data for display in LiveView forms
+  Returns plain preview data with data URL image for CSP-safe display in composer
   """
-  def fetch(url, timeout \\ 5_000) do
+  def fetch(url, timeout \\ 10_000) do
     GenServer.call(__MODULE__, {:fetch, url}, timeout)
+  end
+
+  @doc """
+  Fetch preview image and convert to data URL for CSP-safe display
+  Returns {:ok, data_url} or {:error, reason}
+  """
+  def fetch_image_as_data_url(image_url, timeout \\ 10_000) do
+    GenServer.call(__MODULE__, {:fetch_image_as_data_url, image_url}, timeout)
   end
 
   @doc """
@@ -34,24 +42,24 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   end
 
   @doc """
-  Sync fetch and cache - fetches URL metadata, encrypts with post_key, and caches by post_id
+  Sync fetch and cache - fetches URL metadata, encrypts with post_key, and caches by url_hash
   Returns encrypted preview data ready for database storage
   """
-  def fetch_and_cache(url, post_id, post_key, timeout \\ 5_000) do
-    GenServer.call(__MODULE__, {:fetch_and_cache, url, post_id, post_key}, timeout)
+  def fetch_and_cache(url, url_hash, post_key, timeout \\ 10_000) do
+    GenServer.call(__MODULE__, {:fetch_and_cache, url, url_hash, post_key}, timeout)
   end
 
   @doc """
-  Get cached encrypted preview by post_id
+  Get cached encrypted preview by url_hash
   Returns the encrypted preview map or nil if not cached
   """
-  def get_cached_preview(post_id) do
-    case :ets.lookup(@table_name, post_id) do
-      [{^post_id, encrypted_preview, expires_at}] ->
+  def get_cached_preview(url_hash) do
+    case :ets.lookup(@table_name, url_hash) do
+      [{^url_hash, encrypted_preview, expires_at}] ->
         if System.system_time(:millisecond) < expires_at do
           encrypted_preview
         else
-          :ets.delete(@table_name, post_id)
+          :ets.delete(@table_name, url_hash)
           nil
         end
 
@@ -61,10 +69,10 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   end
 
   @doc """
-  Cache an encrypted preview by post_id
+  Cache an encrypted preview by url_hash
   """
-  def cache_preview(post_id, encrypted_preview) do
-    GenServer.cast(__MODULE__, {:cache, post_id, encrypted_preview})
+  def cache_preview(url_hash, encrypted_preview) do
+    GenServer.cast(__MODULE__, {:cache, url_hash, encrypted_preview})
   end
 
   @doc """
@@ -130,24 +138,39 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:noreply, state}
   end
 
-  def handle_cast({:cache, post_id, encrypted_preview}, state) do
-    do_cache_preview(post_id, encrypted_preview)
+  def handle_cast({:cache, url_hash, encrypted_preview}, state) do
+    do_cache_preview(url_hash, encrypted_preview)
     {:noreply, state}
   end
 
   def handle_call({:fetch, url}, _from, state) do
-    result = fetch_preview(url)
+    result =
+      case fetch_preview(url) do
+        {:ok, preview} ->
+          preview_with_data_url = maybe_fetch_image_as_data_url(preview)
+          {:ok, preview_with_data_url}
+
+        error ->
+          error
+      end
+
     {:reply, result, state}
   end
 
-  def handle_call({:fetch_and_cache, url, post_id, post_key}, _from, state) do
+  def handle_call({:fetch_image_as_data_url, image_url}, _from, state) do
+    result = do_fetch_image_as_data_url(image_url)
+    {:reply, result, state}
+  end
+
+  def handle_call({:fetch_and_cache, url, url_hash, post_key}, _from, state) do
     result =
-      case get_cached_preview(post_id) do
+      case get_cached_preview(url_hash) do
         nil ->
           case fetch_preview(url) do
             {:ok, preview} ->
-              encrypted_preview = encrypt_preview_with_key(preview, post_key)
-              do_cache_preview(post_id, encrypted_preview)
+              preview_with_proxied_image = maybe_proxy_preview_image(preview, url_hash, post_key)
+              encrypted_preview = encrypt_preview_with_key(preview_with_proxied_image, post_key)
+              do_cache_preview(url_hash, encrypted_preview)
               {:ok, encrypted_preview}
 
             error ->
@@ -209,9 +232,9 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     end
   end
 
-  defp do_cache_preview(post_id, encrypted_preview) do
+  defp do_cache_preview(url_hash, encrypted_preview) do
     expires_at = System.system_time(:millisecond) + @cache_ttl
-    :ets.insert(@table_name, {post_id, encrypted_preview, expires_at})
+    :ets.insert(@table_name, {url_hash, encrypted_preview, expires_at})
   end
 
   defp parse_metadata(html, url) do
@@ -280,10 +303,154 @@ defmodule Mosslet.Extensions.URLPreviewServer do
 
     @table_name
     |> :ets.tab2list()
-    |> Enum.each(fn {post_id, _encrypted_preview, expires_at} ->
+    |> Enum.each(fn {url_hash, _encrypted_preview, expires_at} ->
       if now >= expires_at do
-        :ets.delete(@table_name, post_id)
+        :ets.delete(@table_name, url_hash)
       end
     end)
+  end
+
+  defp maybe_proxy_preview_image(preview, post_id, post_key) do
+    case preview["image"] do
+      nil ->
+        preview
+
+      "" ->
+        preview
+
+      image_url when is_binary(image_url) ->
+        if external_image_url?(image_url) do
+          url_hash =
+            :crypto.hash(:sha3_512, "#{image_url}-#{post_id}") |> Base.encode16(case: :lower)
+
+          case Mosslet.Extensions.URLPreviewImageProxy.fetch_and_store_preview_image(
+                 image_url,
+                 url_hash,
+                 post_key,
+                 post_id
+               ) do
+            {:ok, proxied_url} ->
+              Map.put(preview, "image", proxied_url)
+
+            {:error, _reason} ->
+              Logger.debug("Failed to proxy preview image, using original URL")
+              preview
+          end
+        else
+          preview
+        end
+
+      _ ->
+        preview
+    end
+  end
+
+  defp external_image_url?(url) when is_binary(url) do
+    memories_bucket = Mosslet.Encrypted.Session.memories_bucket()
+    s3_host = Mosslet.Encrypted.Session.s3_host()
+    bucket_host = "#{memories_bucket}.#{s3_host}"
+
+    not String.contains?(url, bucket_host)
+  end
+
+  defp external_image_url?(_), do: false
+
+  defp maybe_fetch_image_as_data_url(preview) do
+    case preview["image"] do
+      nil ->
+        preview
+
+      "" ->
+        preview
+
+      image_url when is_binary(image_url) ->
+        case do_fetch_image_as_data_url(image_url) do
+          {:ok, data_url} ->
+            preview
+            |> Map.put("image", data_url)
+            |> Map.put("original_image_url", image_url)
+
+          {:error, _reason} ->
+            Logger.debug("Failed to fetch preview image as data URL, skipping image")
+            Map.put(preview, "image", nil)
+        end
+
+      _ ->
+        preview
+    end
+  end
+
+  defp do_fetch_image_as_data_url(image_url) do
+    case Req.get(image_url,
+           max_redirects: 3,
+           retry: :transient,
+           max_retries: 2,
+           receive_timeout: 10_000,
+           headers: [
+             {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
+           ]
+         ) do
+      {:ok, %{status: 200, body: body, headers: headers}} when is_binary(body) ->
+        if byte_size(body) <= 5_242_880 do
+          content_type = extract_content_type(headers)
+
+          case resize_preview_image(body) do
+            {:ok, resized_binary} ->
+              base64 = Base.encode64(resized_binary)
+              data_url = "data:#{content_type};base64,#{base64}"
+              {:ok, data_url}
+
+            error ->
+              Logger.debug("Failed to resize preview image: #{inspect(error)}")
+              error
+          end
+        else
+          {:error, :image_too_large}
+        end
+
+      {:ok, %{status: status}} ->
+        Logger.debug("Failed to fetch preview image, status: #{status}")
+        {:error, :fetch_failed}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp resize_preview_image(binary) do
+    case Image.from_binary(binary) do
+      {:ok, image} ->
+        {:ok, resized} =
+          Image.thumbnail(image, "1200x1200",
+            resize: :down,
+            crop: :none,
+            intent: :perceptual
+          )
+
+        Image.write(resized, :memory, suffix: ".jpg", quality: 100)
+
+      {:error, _reason} = error ->
+        error
+    end
+  rescue
+    error ->
+      Logger.debug("Error resizing preview image: #{inspect(error)}")
+      {:error, :resize_failed}
+  end
+
+  defp extract_content_type(headers) do
+    headers
+    |> Enum.find(fn {key, _} -> String.downcase(to_string(key)) == "content-type" end)
+    |> case do
+      {_, content_type} ->
+        content_type
+        |> to_string()
+        |> String.split(";")
+        |> List.first()
+        |> String.trim()
+
+      nil ->
+        "image/jpeg"
+    end
   end
 end

@@ -624,7 +624,12 @@ defmodule Mosslet.Timeline.Post do
         end)
         |> Enum.into(%{})
 
-      put_change(changeset, :url_preview, encrypted_preview)
+      changeset
+      |> put_change(:url_preview, encrypted_preview)
+      |> put_change(
+        :url_preview_fetched_at,
+        NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      )
     else
       changeset
     end

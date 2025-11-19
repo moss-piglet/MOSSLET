@@ -39,7 +39,7 @@ defmodule MossletWeb.PublicLive.Features do
                 <div class="mx-auto max-w-2xl text-center">
                   <%!-- Enhanced hero title focused on wellbeing --%>
                   <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
-                    Social media for your wellbeing.
+                    Social media for you.
                   </h1>
 
                   <%!-- Enhanced subtitle focused on mental health --%>
@@ -401,7 +401,7 @@ defmodule MossletWeb.PublicLive.Features do
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
                     <div class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
-                    No interruptions • Max 1 email/day • Privacy-first • Respect your time
+                    No interruptions • Privacy-first • Respect your time
                   </div>
                 </div>
               </.liquid_card>
@@ -427,7 +427,7 @@ defmodule MossletWeb.PublicLive.Features do
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-calendar-days" class="size-3" />
-                    Max 1 email/day • Privacy-first design • No content revealed • Offline detection
+                    Max 1 email/day • Privacy-first • No content revealed
                   </div>
                 </div>
               </.liquid_card>
@@ -505,7 +505,7 @@ defmodule MossletWeb.PublicLive.Features do
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-2">
                     <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                    No pressure • Private tracking • For your convenience only
+                    No pressure • Privacy-first • For your convenience only
                   </div>
                 </div>
               </.liquid_card>
@@ -526,12 +526,12 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Share photos with complete privacy. Every image is encrypted before leaving your device.
+                  Share photos with complete privacy. Only you, and who you choose to share with, can see your images.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-shield-check" class="size-3" />
-                    Military-grade encryption • Your photos, your control • No data harvesting
+                    Strong encryption • Your photos, your control • No data harvesting
                   </div>
                 </div>
               </.liquid_card>
@@ -854,12 +854,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-semibold">
-                      Military-Grade Encryption
+                      Strong Encryption
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Strong asymmetric encryption ensures only you can access your data. Double-encrypted for extra security.
+                  Strong asymmetric encryption ensures only you can access your data. Second layer of symmetric encryption at-rest for extra security.
                 </p>
               </.liquid_card>
             </div>

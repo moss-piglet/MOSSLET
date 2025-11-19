@@ -1928,6 +1928,46 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, url_preview: nil, url_preview_loading: false)}
   end
 
+  def handle_event(
+        "regenerate_preview_url",
+        %{"image_hash" => image_hash, "post_id" => post_id},
+        socket
+      ) do
+    case Mosslet.Extensions.URLPreviewImageProxy.regenerate_presigned_url(image_hash, post_id) do
+      {:ok, new_presigned_url} ->
+        {:reply, %{response: "success", presigned_url: new_presigned_url}, socket}
+
+      {:error, _reason} ->
+        {:reply, %{response: "failed"}, socket}
+    end
+  end
+
+  def handle_event(
+        "decrypt_url_preview_image",
+        %{"presigned_url" => presigned_url, "post_id" => post_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        post_key = get_post_key(post, current_user)
+
+        case fetch_and_decrypt_url_preview_image(presigned_url, post_key, current_user, key) do
+          {:ok, decrypted_image} ->
+            {:reply, %{response: "success", decrypted_image: decrypted_image}, socket}
+
+          {:error, reason} ->
+            Logger.error("Failed to decrypt URL preview image: #{inspect(reason)}")
+            {:reply, %{response: "failed"}, socket}
+        end
+
+      nil ->
+        {:reply, %{response: "failed"}, socket}
+    end
+  end
+
   def handle_event("composer_toggle_content_warning", _params, socket) do
     # Toggle content warning state
     current_state = socket.assigns.content_warning_enabled?
@@ -4783,47 +4823,46 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp get_decrypted_url_preview(post, current_user, key) do
     if post.url_preview && is_map(post.url_preview) do
-      case get_cached_url_preview(post.id) do
-        nil ->
-          encrypted_url_preview = update_and_fetch_url_preview_cache(post)
-          post_key = get_post_key(post, current_user)
-          decrypt_url_preview_with_post_key(encrypted_url_preview, post_key, current_user, key)
+      post_key = get_post_key(post, current_user)
 
-        encrypted_url_preview ->
-          post_key = get_post_key(post, current_user)
-          decrypt_url_preview_with_post_key(encrypted_url_preview, post_key, current_user, key)
+      {:ok, d_post_key} =
+        Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(post_key, current_user, key)
+
+      decrypted_preview = URLPreviewServer.decrypt_preview_with_key(post.url_preview, d_post_key)
+
+      if decrypted_preview && decrypted_preview["url"] do
+        url_hash = :crypto.hash(:sha512, decrypted_preview["url"]) |> Base.encode16(case: :lower)
+        cache_preview_in_ets(url_hash, post.url_preview)
+        decrypted_preview
+      else
+        nil
       end
     else
       nil
     end
   end
 
-  defp update_and_fetch_url_preview_cache(post) do
-    case put_into_cache_url_preview(post.id, post.url_preview) do
-      :ok ->
-        get_cached_url_preview(post.id)
+  defp fetch_and_decrypt_url_preview_image(presigned_url, post_key, current_user, key) do
+    with {:ok, d_post_key} <-
+           Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(post_key, current_user, key),
+         {:ok, %{status: 200, body: encrypted_image}} <- Req.get(presigned_url),
+         {:ok, decrypted_binary} <-
+           Encrypted.Utils.decrypt(%{key: d_post_key, payload: encrypted_image}) do
+      data_url = "data:image/jpeg;base64," <> Base.encode64(decrypted_binary)
+      {:ok, data_url}
+    else
+      {:error, reason} = error ->
+        Logger.error("Failed to fetch/decrypt URL preview image: #{inspect(reason)}")
+        error
 
-      rest ->
-        IO.inspect(rest, label: "REST")
-        nil
+      error ->
+        Logger.error("Unexpected error fetching/decrypting URL preview image: #{inspect(error)}")
+        {:error, :unknown}
     end
   end
 
-  # returns the encrypted map or nil
-  defp get_cached_url_preview(post_id) do
-    URLPreviewServer.get_cached_preview(post_id)
-  end
-
-  # returns :ok
-  defp put_into_cache_url_preview(post_id, encrypted_url_preview) do
-    URLPreviewServer.cache_preview(post_id, encrypted_url_preview)
-  end
-
-  defp decrypt_url_preview_with_post_key(encrypted_url_preview, post_key, current_user, key) do
-    {:ok, d_post_key} =
-      Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(post_key, current_user, key)
-
-    URLPreviewServer.decrypt_preview_with_key(encrypted_url_preview, d_post_key)
+  defp cache_preview_in_ets(url_hash, encrypted_url_preview) do
+    URLPreviewServer.cache_preview(url_hash, encrypted_url_preview)
   end
 
   defp format_post_timestamp(naive_datetime) do
@@ -5230,16 +5269,46 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # For previewing post urls (URL Preview Server)
   defp extract_first_url(text) do
-    case Regex.run(~r/https?:\/\/[^\s]+/, text || "") do
-      [url | _] -> url
+    regex = ~r/https?:\/\/[^\s]+/
+
+    case Regex.run(regex, text || "") do
+      [url | _] -> clean_url(url)
       _ -> nil
+    end
+  end
+
+  defp clean_url(url) do
+    cleaned =
+      url
+      |> String.trim_trailing(")")
+      |> String.trim_trailing("]")
+      |> String.trim_trailing("}")
+      |> String.trim_trailing(".")
+      |> String.trim_trailing(",")
+      |> String.trim_trailing(";")
+      |> String.trim_trailing(":")
+      |> String.trim_trailing("!")
+      |> String.trim_trailing("?")
+      |> String.trim_trailing("'")
+      |> String.trim_trailing("\"")
+
+    open_parens = cleaned |> String.graphemes() |> Enum.count(&(&1 == "("))
+    close_parens = cleaned |> String.graphemes() |> Enum.count(&(&1 == ")"))
+
+    if open_parens > close_parens do
+      cleaned <> String.duplicate(")", open_parens - close_parens)
+    else
+      cleaned
     end
   end
 
   defp maybe_put_url_preview(params, socket) do
     case socket.assigns[:url_preview] do
-      nil -> params
-      preview when is_map(preview) -> Map.put(params, "url_preview", preview)
+      nil ->
+        params
+
+      preview when is_map(preview) ->
+        Map.put(params, "url_preview", preview)
     end
   end
 end

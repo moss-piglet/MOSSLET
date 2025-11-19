@@ -17,17 +17,20 @@ defmodule MossletWeb.Helpers do
   alias Mosslet.Timeline.{Post, Reply}
 
   @folder "uploads/trix"
-  # just less than 1 week (604,800)
   @url_expires_in 600_000
 
   ## AWS (s3)
 
-  def url_expired?(post_updated_at) do
+  def url_expired?(updated_at) do
     duration = Timex.Duration.from_seconds(@url_expires_in)
-    expiration_time = Timex.shift(post_updated_at, seconds: duration.seconds)
+    expiration_time = Timex.shift(updated_at, seconds: duration.seconds)
     offset_time = Timex.shift(expiration_time, seconds: -200)
 
     Timex.before?(offset_time, Timex.now())
+  end
+
+  def preview_url_expired?(url_preview_fetched_at) do
+    url_expired?(url_preview_fetched_at)
   end
 
   @doc """
