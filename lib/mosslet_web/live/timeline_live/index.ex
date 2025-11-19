@@ -1440,12 +1440,14 @@ defmodule MossletWeb.TimelineLive.Index do
 
     socket =
       if url = extract_first_url(post_params["body"]) do
+        user_id = socket.assigns.current_user.id
+
         socket
         |> assign(:url_preview_loading, true)
         |> start_async(:url_preview_task, fn ->
-          case Mosslet.Extensions.URLPreviewServer.fetch(url) do
+          case Mosslet.Extensions.URLPreviewServer.fetch(url, user_id: user_id) do
             {:ok, preview} -> {:ok, preview}
-            {:error, _reason} -> {:error, nil}
+            {:error, reason} -> {:error, reason}
           end
         end)
       else
@@ -3633,6 +3635,33 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
       |> assign(url_preview: preview, url_preview_loading: false)
       |> normalize_url_in_post_body(preview)
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:url_preview_task, {:ok, {:error, :rate_limit_per_minute}}, socket) do
+    socket =
+      socket
+      |> assign(url_preview: nil, url_preview_loading: false)
+      |> put_flash(:error, "Too many URL preview requests. Please wait a minute and try again.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:url_preview_task, {:ok, {:error, :rate_limit_per_hour}}, socket) do
+    socket =
+      socket
+      |> assign(url_preview: nil, url_preview_loading: false)
+      |> put_flash(:error, "URL preview rate limit reached. Please try again later.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:url_preview_task, {:ok, {:error, :private_ip}}, socket) do
+    socket =
+      socket
+      |> assign(url_preview: nil, url_preview_loading: false)
+      |> put_flash(:warning, "Cannot preview URLs pointing to private networks.")
 
     {:noreply, socket}
   end

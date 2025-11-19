@@ -6,6 +6,7 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
   """
 
   alias Mosslet.Encrypted
+  alias Mosslet.Extensions.URLPreviewSecurity
 
   @folder "url_previews"
   @max_image_size 5_242_880
@@ -101,27 +102,29 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
   end
 
   defp fetch_image(url) do
-    case Req.get(url,
-           max_redirects: 3,
-           retry: :transient,
-           max_retries: 2,
-           receive_timeout: 10_000,
-           headers: [
-             {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
-           ]
-         ) do
-      {:ok, %{status: 200, body: body}} when is_binary(body) ->
-        if byte_size(body) <= @max_image_size do
-          {:ok, body}
-        else
-          {:error, :image_too_large}
-        end
+    with {:ok, validated_url} <- URLPreviewSecurity.validate_and_normalize_url(url) do
+      case Req.get(validated_url,
+             max_redirects: 3,
+             retry: :transient,
+             max_retries: 2,
+             receive_timeout: 10_000,
+             headers: [
+               {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
+             ]
+           ) do
+        {:ok, %{status: 200, body: body}} when is_binary(body) ->
+          if byte_size(body) <= @max_image_size do
+            {:ok, body}
+          else
+            {:error, :image_too_large}
+          end
 
-      {:ok, %{status: _status}} ->
-        {:error, :fetch_failed}
+        {:ok, %{status: _status}} ->
+          {:error, :fetch_failed}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 

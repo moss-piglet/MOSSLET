@@ -2,6 +2,8 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   use GenServer
 
   alias Mosslet.Encrypted.Utils
+  alias Mosslet.Extensions.URLPreviewSecurity
+  alias Mosslet.Extensions.URLPreviewRateLimiter
 
   @table_name :url_preview_cache
   @cache_ttl :timer.hours(24)
@@ -13,6 +15,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
 
   def init(state) do
     :ets.new(@table_name, [:named_table, :set, :public, read_concurrency: true])
+    URLPreviewRateLimiter.init()
     schedule_cleanup()
     {:ok, state}
   end
@@ -20,9 +23,15 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   @doc """
   Simple fetch - fetches URL metadata without encryption
   Returns plain preview data with data URL image for CSP-safe display in composer
+
+  ## Options
+    - user_id: Optional user ID for rate limiting. If not provided, rate limiting is skipped.
   """
-  def fetch(url, timeout \\ 10_000) do
-    GenServer.call(__MODULE__, {:fetch, url}, timeout)
+  def fetch(url, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, 10_000)
+    user_id = Keyword.get(opts, :user_id)
+
+    GenServer.call(__MODULE__, {:fetch, url, user_id}, timeout)
   end
 
   @doc """
@@ -43,9 +52,16 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   @doc """
   Sync fetch and cache - fetches URL metadata, encrypts with post_key, and caches by url_hash
   Returns encrypted preview data ready for database storage
+
+  ## Options
+    - timeout: Request timeout (default: 10_000ms)
+    - user_id: Optional user ID for rate limiting. If not provided, rate limiting is skipped.
   """
-  def fetch_and_cache(url, url_hash, post_key, timeout \\ 10_000) do
-    GenServer.call(__MODULE__, {:fetch_and_cache, url, url_hash, post_key}, timeout)
+  def fetch_and_cache(url, url_hash, post_key, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, 10_000)
+    user_id = Keyword.get(opts, :user_id)
+
+    GenServer.call(__MODULE__, {:fetch_and_cache, url, url_hash, post_key, user_id}, timeout)
   end
 
   @doc """
@@ -142,15 +158,12 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:noreply, state}
   end
 
-  def handle_call({:fetch, url}, _from, state) do
+  def handle_call({:fetch, url, user_id}, _from, state) do
     result =
-      case fetch_preview(url) do
-        {:ok, preview} ->
-          preview_with_data_url = maybe_fetch_image_as_data_url(preview)
-          {:ok, preview_with_data_url}
-
-        error ->
-          error
+      with :ok <- maybe_check_rate_limit(user_id),
+           {:ok, preview} <- fetch_preview(url) do
+        preview_with_data_url = maybe_fetch_image_as_data_url(preview)
+        {:ok, preview_with_data_url}
       end
 
     {:reply, result, state}
@@ -161,23 +174,27 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:reply, result, state}
   end
 
-  def handle_call({:fetch_and_cache, url, url_hash, post_key}, _from, state) do
+  def handle_call({:fetch_and_cache, url, url_hash, post_key, user_id}, _from, state) do
     result =
-      case get_cached_preview(url_hash) do
-        nil ->
-          case fetch_preview(url) do
-            {:ok, preview} ->
-              preview_with_proxied_image = maybe_proxy_preview_image(preview, url_hash, post_key)
-              encrypted_preview = encrypt_preview_with_key(preview_with_proxied_image, post_key)
-              do_cache_preview(url_hash, encrypted_preview)
-              {:ok, encrypted_preview}
+      with :ok <- maybe_check_rate_limit(user_id) do
+        case get_cached_preview(url_hash) do
+          nil ->
+            case fetch_preview(url) do
+              {:ok, preview} ->
+                preview_with_proxied_image =
+                  maybe_proxy_preview_image(preview, url_hash, post_key)
 
-            error ->
-              error
-          end
+                encrypted_preview = encrypt_preview_with_key(preview_with_proxied_image, post_key)
+                do_cache_preview(url_hash, encrypted_preview)
+                {:ok, encrypted_preview}
 
-        cached_encrypted_preview ->
-          {:ok, cached_encrypted_preview}
+              error ->
+                error
+            end
+
+          cached_encrypted_preview ->
+            {:ok, cached_encrypted_preview}
+        end
       end
 
     {:reply, result, state}
@@ -190,7 +207,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   end
 
   defp fetch_preview(url) do
-    with {:ok, normalized_url} <- normalize_url(url) do
+    with {:ok, normalized_url} <- URLPreviewSecurity.validate_and_normalize_url(url) do
       case Req.get(normalized_url,
              max_redirects: 3,
              retry: :transient,
@@ -202,7 +219,8 @@ defmodule Mosslet.Extensions.URLPreviewServer do
            ) do
         {:ok, %{status: 200, body: html}} ->
           preview = parse_metadata(html, normalized_url)
-          {:ok, preview}
+          sanitized_preview = URLPreviewSecurity.sanitize_metadata(preview)
+          {:ok, sanitized_preview}
 
         {:ok, %{status: _status}} ->
           {:error, :http_error}
@@ -212,24 +230,6 @@ defmodule Mosslet.Extensions.URLPreviewServer do
       end
     else
       error -> error
-    end
-  end
-
-  defp normalize_url(url) do
-    url = String.trim(url)
-
-    cond do
-      String.starts_with?(url, "http://") ->
-        {:ok, String.replace_prefix(url, "http://", "https://")}
-
-      String.starts_with?(url, "https://") ->
-        {:ok, url}
-
-      String.match?(url, ~r/^[a-zA-Z0-9]/) ->
-        {:ok, "https://" <> url}
-
-      true ->
-        {:error, :invalid_url}
     end
   end
 
@@ -380,37 +380,39 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   end
 
   defp do_fetch_image_as_data_url(image_url) do
-    case Req.get(image_url,
-           max_redirects: 3,
-           retry: :transient,
-           max_retries: 2,
-           receive_timeout: 10_000,
-           headers: [
-             {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
-           ]
-         ) do
-      {:ok, %{status: 200, body: body, headers: headers}} when is_binary(body) ->
-        if byte_size(body) <= 5_242_880 do
-          content_type = extract_content_type(headers)
+    with {:ok, validated_url} <- URLPreviewSecurity.validate_and_normalize_url(image_url) do
+      case Req.get(validated_url,
+             max_redirects: 3,
+             retry: :transient,
+             max_retries: 2,
+             receive_timeout: 10_000,
+             headers: [
+               {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
+             ]
+           ) do
+        {:ok, %{status: 200, body: body, headers: headers}} when is_binary(body) ->
+          if byte_size(body) <= 5_242_880 do
+            content_type = extract_content_type(headers)
 
-          case resize_preview_image(body) do
-            {:ok, resized_binary} ->
-              base64 = Base.encode64(resized_binary)
-              data_url = "data:#{content_type};base64,#{base64}"
-              {:ok, data_url}
+            case resize_preview_image(body) do
+              {:ok, resized_binary} ->
+                base64 = Base.encode64(resized_binary)
+                data_url = "data:#{content_type};base64,#{base64}"
+                {:ok, data_url}
 
-            error ->
-              error
+              error ->
+                error
+            end
+          else
+            {:error, :image_too_large}
           end
-        else
-          {:error, :image_too_large}
-        end
 
-      {:ok, %{status: _status}} ->
-        {:error, :fetch_failed}
+        {:ok, %{status: _status}} ->
+          {:error, :fetch_failed}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
@@ -445,5 +447,11 @@ defmodule Mosslet.Extensions.URLPreviewServer do
       nil ->
         "image/jpeg"
     end
+  end
+
+  defp maybe_check_rate_limit(nil), do: :ok
+
+  defp maybe_check_rate_limit(user_id) do
+    URLPreviewRateLimiter.check_rate_limit(user_id)
   end
 end
