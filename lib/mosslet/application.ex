@@ -45,6 +45,8 @@ defmodule Mosslet.Application do
         Mosslet.Extensions.AvatarProcessor,
         # Start the ETS MemoryProcessor
         Mosslet.Extensions.MemoryProcessor,
+        # Start the URL Preview Server for previewing post urls
+        Mosslet.Extensions.URLPreviewServer,
         # Start the Timeline Cache (separate from avatar cache)
         Mosslet.Timeline.Performance.TimelineCache,
         # Start the Email Notifications Processor (coordinator)

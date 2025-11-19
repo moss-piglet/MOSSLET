@@ -17,6 +17,7 @@ defmodule MossletWeb.DesignSystem do
   import MossletWeb.Helpers,
     only: [
       contains_html?: 1,
+      format_decrypted_content: 1,
       decr: 3,
       decr_uconn: 4,
       html_block: 1,
@@ -2924,6 +2925,8 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user, :any, default: nil
   attr :key, :any, default: nil
   attr :id, :string, default: nil
+  attr :url_preview, :map, default: nil
+  attr :url_preview_loading, :boolean, default: false
 
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
@@ -3015,6 +3018,63 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Photo upload preview section --%>
         <.liquid_photo_upload_preview :if={@uploads} uploads={@uploads} class="" />
+        <%!-- URL Preview Section --%>
+        <div :if={assigns[:url_preview_loading]} class="mt-4 animate-pulse">
+          <div class="h-32 bg-slate-200 dark:bg-slate-700 rounded-xl flex items-center justify-center gap-2">
+            <div class="h-4 w-4 rounded-full border-2 border-slate-400 dark:border-slate-500 animate-spin border-t-emerald-500 dark:border-t-emerald-400">
+            </div>
+            <span class="text-sm text-slate-500 dark:text-slate-400">Loading preview...</span>
+          </div>
+        </div>
+
+        <div :if={assigns[:url_preview] && !assigns[:url_preview_loading]} class="mt-4">
+          <div class="relative group">
+            <button
+              type="button"
+              phx-click="remove_url_preview"
+              class="absolute -top-2 -right-2 z-10 p-1 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition-all opacity-0 group-hover:opacity-100"
+            >
+              <.phx_icon name="hero-x-mark" class="w-4 h-4" />
+            </button>
+
+            <div class="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200">
+              <div
+                :if={@url_preview["image"] && @url_preview["image"] != ""}
+                class="aspect-[2/1] overflow-hidden bg-slate-100 dark:bg-slate-800"
+              >
+                <img
+                  src={@url_preview["image"]}
+                  alt={@url_preview["title"] || "Preview image"}
+                  class="w-full h-full object-cover"
+                  onerror="this.parentElement.style.display='none'"
+                />
+              </div>
+
+              <div class="p-4 bg-white/95 dark:bg-slate-800/95">
+                <div class="flex items-center gap-2 mb-2">
+                  <.phx_icon name="hero-link" class="h-4 w-4 text-emerald-500" />
+                  <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {@url_preview["site_name"]}
+                  </span>
+                </div>
+
+                <h4
+                  :if={@url_preview["title"]}
+                  class="font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2"
+                >
+                  {@url_preview["title"]}
+                </h4>
+
+                <p
+                  :if={@url_preview["description"]}
+                  class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2"
+                >
+                  {@url_preview["description"]}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <%!-- Actions row with responsive layout --%>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50 gap-3 sm:gap-0">
@@ -3549,6 +3609,7 @@ defmodule MossletWeb.DesignSystem do
   attr :content_warning?, :boolean, default: false
   attr :content_warning, :string, default: nil
   attr :content_warning_category, :string, default: nil
+  attr :decrypted_url_preview, :map, default: nil
   # Report modal state
   attr :show_report_modal?, :boolean, default: false
 
@@ -3815,13 +3876,13 @@ defmodule MossletWeb.DesignSystem do
               {html_block(@content)}
             </p>
 
-            <%!-- Modern posts with plain text (escaped automatically by HEEx) --%>
-            <p
+            <%!-- Modern posts with plain text (linkified and sanitized) --%>
+            <div
               :if={!contains_html?(@content)}
               class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
             >
-              {@content}
-            </p>
+              {format_decrypted_content(@content)}
+            </div>
 
             <%!-- Images with enhanced encrypted display system --%>
             <div :if={@post && photos?(@post.image_urls)} class="mb-4">
@@ -3839,17 +3900,65 @@ defmodule MossletWeb.DesignSystem do
               {html_block(@content)}
             </p>
 
-            <%!-- Modern posts with plain text (escaped automatically by HEEx) --%>
-            <p
+            <%!-- Modern posts with plain text (linkified and sanitized) --%>
+            <div
               :if={!contains_html?(@content)}
               class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
             >
-              {@content}
-            </p>
+              {format_decrypted_content(@content)}
+            </div>
 
             <%!-- Images with enhanced encrypted display system --%>
-            <div :if={@post && photos?(@post.image_urls)} class="mb-4">
-              <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
+            <div :if={@post && photos?(@post.image_urls)} class="mb-4"></div>
+
+            <%!-- URL Preview Card (if available) --%>
+            <div :if={@decrypted_url_preview} class="mb-4">
+              <a
+                href={@decrypted_url_preview["url"]}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
+              >
+                <div
+                  :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
+                  class="aspect-[2/1] overflow-hidden bg-slate-100 dark:bg-slate-800"
+                  phx-hook="URLPreviewHook"
+                  id={"url-preview-#{@post.id}"}
+                  data-post-id={@post.id}
+                  data-image-hash={@decrypted_url_preview["image_hash"]}
+                  data-url-preview-fetched-at={@post.url_preview_fetched_at}
+                >
+                  <img
+                    src={@decrypted_url_preview["image"]}
+                    alt={@decrypted_url_preview["title"] || "Preview image"}
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onerror="this.parentElement.style.display='none'"
+                  />
+                </div>
+
+                <div class="p-4 bg-white/95 dark:bg-slate-800/95">
+                  <div class="flex items-center gap-2 mb-2">
+                    <.phx_icon name="hero-link" class="h-4 w-4 text-slate-400" />
+                    <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {@decrypted_url_preview["site_name"] || "External Link"}
+                    </span>
+                  </div>
+
+                  <h4
+                    :if={@decrypted_url_preview["title"]}
+                    class="font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2"
+                  >
+                    {@decrypted_url_preview["title"]}
+                  </h4>
+
+                  <p
+                    :if={@decrypted_url_preview["description"]}
+                    class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2"
+                  >
+                    {@decrypted_url_preview["description"]}
+                  </p>
+                </div>
+              </a>
             </div>
           </div>
         <% end %>

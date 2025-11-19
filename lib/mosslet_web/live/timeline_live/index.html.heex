@@ -165,6 +165,8 @@
             content_warning_enabled?={@content_warning_enabled?}
             current_user={@current_user}
             key={@key}
+            url_preview={@url_preview}
+            url_preview_loading={@url_preview_loading}
           />
         </.form>
       </div>
@@ -359,6 +361,7 @@
                     end
                   }
                   images={get_decrypted_post_images(post, @current_user, @key)}
+                  decrypted_url_preview={get_decrypted_url_preview(post, @current_user, @key)}
                   stats={
                     %{
                       replies:

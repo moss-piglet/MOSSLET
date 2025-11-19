@@ -4,10 +4,8 @@ defmodule MossletWeb.PublicProfileLive do
   require Logger
 
   alias Mosslet.Accounts
-  alias Mosslet.Timeline
-  alias Mosslet.Groups
-  alias Mosslet.Repo
   alias Mosslet.Encrypted
+  alias MossletWeb.Helpers.StatusHelpers
 
   def mount(%{"slug" => slug}, _session, socket) do
     if connected?(socket) do
@@ -44,16 +42,7 @@ defmodule MossletWeb.PublicProfileLive do
   end
 
   def handle_params(_params, _url, socket) do
-    profile_user = socket.assigns.profile_user
-
-    activity_stats = %{
-      posts: get_user_post_count(profile_user),
-      connections: length(Accounts.get_all_confirmed_user_connections(profile_user.id)),
-      replies: get_user_reply_count(profile_user),
-      groups: length(Groups.list_groups(profile_user))
-    }
-
-    {:noreply, assign(socket, :activity_stats, activity_stats)}
+    {:noreply, socket}
   end
 
   def render(assigns) do
@@ -64,7 +53,7 @@ defmodule MossletWeb.PublicProfileLive do
           <div
             :if={get_banner_image_for_connection(@profile_user.connection) != ""}
             class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('#{~p"/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}"}')"}
+            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
           >
             <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
           </div>
@@ -116,7 +105,7 @@ defmodule MossletWeb.PublicProfileLive do
                       {"Profile 🌿"}
                     </h1>
 
-                    <div class="flex items-center justify-center sm:justify-start gap-2 text-lg text-emerald-600 dark:text-emerald-400">
+                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color="cyan"
@@ -124,6 +113,22 @@ defmodule MossletWeb.PublicProfileLive do
                       >
                         @{decrypt_public_field(
                           @profile_user.connection.profile.username,
+                          @profile_user.connection.profile.profile_key
+                        )}
+                      </MossletWeb.DesignSystem.liquid_badge>
+
+                      <MossletWeb.DesignSystem.liquid_badge
+                        :if={
+                          @profile_user.connection.profile.show_email? &&
+                            @profile_user.connection.profile.email
+                        }
+                        variant="soft"
+                        color="cyan"
+                        size="sm"
+                      >
+                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                        {decrypt_public_field(
+                          @profile_user.connection.profile.email,
                           @profile_user.connection.profile.profile_key
                         )}
                       </MossletWeb.DesignSystem.liquid_badge>
@@ -207,46 +212,6 @@ defmodule MossletWeb.PublicProfileLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
-
-            <MossletWeb.DesignSystem.liquid_card>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-bar"
-                    class="size-5 text-emerald-600 dark:text-emerald-400"
-                  /> Activity Overview
-                </div>
-              </:title>
-              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-900/20 dark:to-emerald-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                    {@activity_stats.posts}
-                  </div>
-                  <div class="text-sm text-teal-600 dark:text-teal-400 font-medium">Posts</div>
-                </div>
-
-                <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {@activity_stats.connections}
-                  </div>
-                  <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">Connections</div>
-                </div>
-
-                <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-900/20 dark:to-violet-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {@activity_stats.replies}
-                  </div>
-                  <div class="text-sm text-purple-600 dark:text-purple-400 font-medium">Replies</div>
-                </div>
-
-                <div class="text-center p-4 bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-indigo-900/20 dark:to-blue-800/20 rounded-xl">
-                  <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {@activity_stats.groups}
-                  </div>
-                  <div class="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Groups</div>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <div class="lg:col-span-1 space-y-6">
@@ -323,42 +288,55 @@ defmodule MossletWeb.PublicProfileLive do
     """
   end
 
-  def handle_info({:uconn_updated, connection}, socket) do
-    cond do
-      Map.has_key?(connection, :connection) && is_map(connection.connection.profile) &&
-          connection.connection.profile.visibility == :public ->
-        {:noreply, socket}
+  def handle_info({:status_updated, user}, socket) do
+    profile_user = socket.assigns.profile_user
 
-      true ->
-        info = "This profile is not viewable or does not exist."
-        {:noreply, socket |> put_flash(:info, info) |> push_navigate(to: ~p"/")}
+    if user.id == profile_user.id do
+      {:noreply, assign(socket, :profile_user, user)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:status_visibility_updated, user}, socket) do
+    profile_user = socket.assigns.profile_user
+
+    if user.id == profile_user.id do
+      {:noreply, assign(socket, :profile_user, user)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:conn_visibility_updated, conn}, socket) do
+    slug = socket.assigns.slug
+    profile_user = socket.assigns.profile_user
+
+    if conn.user_id == profile_user.id do
+      {:noreply, push_navigate(socket, to: ~p"/profile/#{slug}")}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:uconn_updated, uconn}, socket) do
+    profile_user = socket.assigns.profile_user
+
+    if uconn.user_id == profile_user.id do
+      user = Accounts.get_user_with_preloads(uconn.user_id)
+
+      if user.connection.profile.visibility == :public do
+        {:noreply, assign(socket, :profile_user, user)}
+      else
+        {:noreply, push_navigate(socket, to: ~p"/")}
+      end
+    else
+      {:noreply, socket}
     end
   end
 
   def handle_info(_message, socket) do
     {:noreply, socket}
-  end
-
-  defp get_user_post_count(user) do
-    import Ecto.Query
-
-    from(up in Timeline.UserPost,
-      inner_join: p in Timeline.Post,
-      on: up.post_id == p.id,
-      where: up.user_id == ^user.id
-    )
-    |> Repo.aggregate(:count, :id)
-  end
-
-  defp get_user_reply_count(user) do
-    import Ecto.Query
-
-    from(r in Timeline.Reply,
-      inner_join: p in Timeline.Post,
-      on: r.post_id == p.id,
-      where: r.user_id == ^user.id
-    )
-    |> Repo.aggregate(:count, :id)
   end
 
   defp decrypt_public_field(encrypted_value, encrypted_profile_key) do
@@ -389,9 +367,9 @@ defmodule MossletWeb.PublicProfileLive do
   end
 
   defp get_public_status_message(profile_user) do
-    if profile_user.show_online_presence && profile_user.status_message do
+    if StatusHelpers.can_view_status?(profile_user, nil, nil) && profile_user.status_message do
       decrypt_public_field(
-        profile_user.status_message,
+        profile_user.connection.status_message,
         profile_user.connection.profile.profile_key
       )
     else

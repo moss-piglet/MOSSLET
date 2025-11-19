@@ -230,7 +230,8 @@ defmodule MossletWeb.Helpers.StatusHelpers do
   def can_view_status?(user, current_user, session_key) do
     if is_nil(current_user) do
       # public without a connected user
-      user.visibility == :public && user.show_online_presence
+      user.visibility == :public && user.show_online_presence &&
+        user.status_visibility in [:public]
     else
       case Statuses.can_view_user_status?(user, current_user, session_key) do
         {:error, :private} -> false

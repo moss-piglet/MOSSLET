@@ -116,7 +116,7 @@ defmodule Mosslet.MixProject do
       {:premailex, "~> 0.3.0"},
       {:query_builder, "~> 1.0"},
       {:remote_ip, "~> 1.0"},
-      {:req, "~> 0.4"},
+      {:req, "~> 0.5"},
       {:sentry, "~> 8.0"},
       {:sizeable, "~> 1.0"},
       {:slugify, "~> 1.3"},

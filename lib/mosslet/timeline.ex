@@ -2064,6 +2064,9 @@ defmodule Mosslet.Timeline do
             |> Ecto.Changeset.put_assoc(:group, group)
             |> Ecto.Changeset.put_assoc(:user_group, user_group)
           end)
+          |> Ecto.Multi.run(:process_url_preview_image, fn _repo, %{insert_post: post} ->
+            process_url_preview_image_after_insert(post, p_attrs.temp_key)
+          end)
           |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
             UserPost.changeset(
               %UserPost{},
@@ -2119,6 +2122,9 @@ defmodule Mosslet.Timeline do
   defp create_new_post(post, user, p_attrs, attrs) do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:insert_post, post)
+    |> Ecto.Multi.run(:process_url_preview_image, fn _repo, %{insert_post: post} ->
+      process_url_preview_image_after_insert(post, p_attrs.temp_key)
+    end)
     |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
       UserPost.changeset(
         %UserPost{},
@@ -2134,7 +2140,6 @@ defmodule Mosslet.Timeline do
       |> Ecto.Changeset.put_assoc(:user, user)
     end)
     |> Ecto.Multi.insert(:inser_user_post_receipt, fn %{insert_user_post: user_post} ->
-      # since this is the user who created the post, we mark it as read
       {:ok, dt} = DateTime.now("Etc/UTC")
 
       UserPostReceipt.changeset(
@@ -2150,6 +2155,95 @@ defmodule Mosslet.Timeline do
       |> Ecto.Changeset.put_assoc(:user_post, user_post)
     end)
     |> Repo.transaction_on_primary()
+  end
+
+  defp process_url_preview_image_after_insert(post, post_key) do
+    if post.url_preview && is_map(post.url_preview) && map_size(post.url_preview) > 0 do
+      decrypted_preview =
+        post.url_preview
+        |> Enum.map(fn {key, value} ->
+          decrypted_value =
+            if is_binary(value) do
+              case Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: value}) do
+                {:ok, value} -> value
+                _rest -> nil
+              end
+            else
+              value
+            end
+
+          {key, decrypted_value}
+        end)
+        |> Enum.into(%{})
+
+      original_image_url = decrypted_preview["original_image_url"]
+
+      if original_image_url && original_image_url != "" do
+        url_hash =
+          :crypto.hash(:sha3_512, "#{original_image_url}-#{post.id}")
+          |> Base.encode16(case: :lower)
+
+        case Mosslet.Extensions.URLPreviewImageProxy.fetch_and_store_preview_image(
+               original_image_url,
+               url_hash,
+               post_key,
+               post.id
+             ) do
+          {:ok, tigris_presigned_url} ->
+            updated_preview =
+              decrypted_preview
+              |> Map.put("image", tigris_presigned_url)
+              |> Map.put("image_hash", url_hash)
+              |> Map.delete("original_image_url")
+
+            encrypted_preview =
+              updated_preview
+              |> Enum.map(fn {key, value} ->
+                encrypted_value =
+                  if is_binary(value) do
+                    Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: value})
+                  else
+                    value
+                  end
+
+                {key, encrypted_value}
+              end)
+              |> Enum.into(%{})
+
+            post
+            |> Ecto.Changeset.change(%{url_preview: encrypted_preview})
+            |> Repo.update()
+
+          {:error, _reason} ->
+            updated_preview =
+              decrypted_preview
+              |> Map.put("image", nil)
+              |> Map.delete("original_image_url")
+
+            encrypted_preview =
+              updated_preview
+              |> Enum.map(fn {key, value} ->
+                encrypted_value =
+                  if is_binary(value) do
+                    Mosslet.Encrypted.Utils.encrypt(%{key: post_key, payload: value})
+                  else
+                    value
+                  end
+
+                {key, encrypted_value}
+              end)
+              |> Enum.into(%{})
+
+            post
+            |> Ecto.Changeset.change(%{url_preview: encrypted_preview})
+            |> Repo.update()
+        end
+      else
+        {:ok, post}
+      end
+    else
+      {:ok, post}
+    end
   end
 
   defp create_shared_user_posts(post, attrs, p_attrs, current_user) do
@@ -2926,16 +3020,18 @@ defmodule Mosslet.Timeline do
           {:error, changeset}
 
         {:ok, {_count, _posts}} ->
-          # Broadcast deletion for each individual repost to their respective networks
           Enum.each(reposts, fn repost ->
             repost_user = Accounts.get_user!(repost.user_id)
             repost_conn = Accounts.get_connection_from_item(repost, repost_user)
+
+            cleanup_preview_image(repost.id)
 
             {:ok, repost_conn, repost}
             |> broadcast(:repost_deleted)
           end)
 
-          # Broadcast deletion for the original post
+          cleanup_preview_image(post.id)
+
           {:ok, conn, post}
           |> broadcast(:post_deleted)
 
@@ -2971,16 +3067,18 @@ defmodule Mosslet.Timeline do
             {:error, changeset}
 
           {:ok, {_count, _posts}} ->
-            # Broadcast deletion for each individual repost to their respective networks
             Enum.each(reposts, fn repost ->
               repost_user = Accounts.get_user!(repost.user_id)
               repost_conn = Accounts.get_connection_from_item(repost, repost_user)
+
+              cleanup_preview_image(repost.id)
 
               {:ok, repost_conn, repost}
               |> broadcast(:repost_deleted)
             end)
 
-            # Broadcast deletion for the original post
+            cleanup_preview_image(post.id)
+
             {:ok, conn, post}
             |> broadcast(:post_deleted)
 
@@ -4416,5 +4514,9 @@ defmodule Mosslet.Timeline do
   defp schedule_ephemeral_deletion_for_group_post({:ok, conn, post}) do
     {:ok, updated_post} = schedule_ephemeral_deletion_if_needed({:ok, post})
     {:ok, conn, updated_post}
+  end
+
+  defp cleanup_preview_image(post_id) do
+    Mosslet.Timeline.Jobs.PreviewImageCleanupJob.schedule_cleanup(post_id)
   end
 end

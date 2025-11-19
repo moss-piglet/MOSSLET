@@ -362,10 +362,6 @@ defmodule Mosslet.Accounts.Connection do
       Map.get(opts_map.user.connection, :avatar_url) && get_field(changeset, :show_avatar?) ->
         e_avatar_blob = AvatarProcessor.get_ets_avatar("profile-#{opts_map.user.connection.id}")
 
-        # We don't have to Base.encode64() because
-        # it is coming from the current user's ets
-        # which was previously pulled down from Storj
-        # and encoded.
         d_avatar_blob =
           Encrypted.Users.Utils.decrypt_user_item(
             e_avatar_blob,
@@ -376,15 +372,26 @@ defmodule Mosslet.Accounts.Connection do
 
         ets_profile_id = "profile-#{opts_map.user.connection.id}"
         avatar_url = get_field(changeset, :avatar_url)
-        e_avatar_url = prepare_encrypted_file_path(avatar_url, profile_key)
+
+        d_avatar_url =
+          if Map.has_key?(changeset.changes, :avatar_url) do
+            avatar_url
+          else
+            old_profile_key = maybe_generate_key(opts_map)
+
+            {:ok, decrypted_url} =
+              Encrypted.Utils.decrypt(%{key: old_profile_key, payload: avatar_url})
+
+            decrypted_url
+          end
+
+        e_avatar_url = prepare_encrypted_file_path(d_avatar_url, profile_key)
         e_avatar_blob = prepare_encrypted_avatar_blob(d_avatar_blob, profile_key)
         avatars_bucket = Encrypted.Session.avatars_bucket()
 
-        # ex_aws_put_request(avatars_bucket, avatar_url, e_avatar_blob)
-        # not currently async
         make_async_aws_and_ets_requests(
           avatars_bucket,
-          avatar_url,
+          d_avatar_url,
           e_avatar_blob,
           ets_profile_id,
           opts_map
