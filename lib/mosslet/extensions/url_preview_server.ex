@@ -426,7 +426,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
             intent: :perceptual
           )
 
-        Image.write(resized, :memory, suffix: ".jpg", quality: 100)
+        Image.write(resized, :memory, suffix: ".jpg", quality: 75)
 
       {:error, _reason} = error ->
         error
