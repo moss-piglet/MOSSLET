@@ -4,9 +4,7 @@ defmodule MossletWeb.UnlockSessionController do
   alias Mosslet.Accounts
 
   def new(conn, _params) do
-    if user = get_current_user_from_session(conn) do
-      IO.inspect(conn, label: "CONN")
-
+    if user = get_current_user_from_session(conn) && !conn.private.plug_session["key"] do
       render(conn, "unlock_session.html",
         page_title: "Unlock Session",
         user: user,
@@ -15,31 +13,39 @@ defmodule MossletWeb.UnlockSessionController do
         trigger_submit: false
       )
     else
-      conn
-      |> put_flash(:error, "Please log in.")
-      |> redirect(to: ~p"/auth/sign_in")
+      if get_current_user_from_session(conn) && conn.private.plug_session["key"] do
+        conn
+        |> redirect(to: ~p"/app")
+      else
+        conn
+        |> put_flash(:error, "Please log in.")
+        |> redirect(to: ~p"/auth/sign_in")
+      end
     end
   end
 
   def create(conn, %{"unlock" => %{"password" => password}}) do
-    user = get_current_user_from_session(conn)
+    if user = get_current_user_from_session(conn) && !conn.private.plug_session["key"] do
+      case Accounts.User.valid_key_hash?(user, password) do
+        {:ok, key} ->
+          conn
+          |> put_session(:key, key)
+          |> put_flash(:info, "Session unlocked successfully!")
+          |> redirect(to: ~p"/app")
 
-    case Accounts.User.valid_key_hash?(user, password) do
-      {:ok, key} ->
-        conn
-        |> put_session(:key, key)
-        |> put_flash(:info, "Session unlocked successfully!")
-        |> redirect(to: ~p"/app")
+        {:error, _} ->
+          conn
+          |> put_flash(:error, "Invalid password. Please try again.")
+          |> redirect(to: ~p"/auth/unlock")
 
-      {:error, _} ->
-        conn
-        |> put_flash(:error, "Invalid password. Please try again.")
-        |> redirect(to: ~p"/auth/unlock")
-
-      false ->
-        conn
-        |> put_flash(:error, "Invalid password. Please try again.")
-        |> redirect(to: ~p"/auth/unlock")
+        false ->
+          conn
+          |> put_flash(:error, "Invalid password. Please try again.")
+          |> redirect(to: ~p"/auth/unlock")
+      end
+    else
+      conn
+      |> redirect(to: ~p"/auth/unlock")
     end
   end
 
