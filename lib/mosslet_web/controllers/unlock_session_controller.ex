@@ -5,10 +5,12 @@ defmodule MossletWeb.UnlockSessionController do
 
   def new(conn, _params) do
     if user = get_current_user_from_session(conn) do
+      IO.inspect(conn, label: "CONN")
+
       render(conn, "unlock_session.html",
         page_title: "Unlock Session",
         user: user,
-        error_message: Phoenix.Flash.get(conn.flash, :error),
+        error_message: Phoenix.Flash.get(conn.assigns[:flash], :info),
         form: to_form(%{}, as: :unlock),
         trigger_submit: false
       )
