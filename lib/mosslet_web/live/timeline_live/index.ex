@@ -1528,14 +1528,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event("trix_key", _params, socket) do
     current_user = socket.assigns.current_user
-    # we check if there's a post assigned to the socket,
-    # if so, then we can infer that it's a Reply being
-    # created and the trix_key will be the already saved
-    # post_key (it'll also already be encrypted as well)
     post = socket.assigns[:post]
+    visibility = socket.assigns.selector
 
     trix_key =
-      Map.get(socket.assigns, :trix_key, generate_and_encrypt_trix_key(current_user, post))
+      Map.get(
+        socket.assigns,
+        :trix_key,
+        generate_and_encrypt_trix_key(current_user, post, visibility)
+      )
 
     socket =
       socket
@@ -2946,12 +2947,19 @@ defmodule MossletWeb.TimelineLive.Index do
     # to not interrupt the new_post_form
     post = Timeline.get_post!(id)
 
+    image_urls =
+      if post.image_urls do
+        Enum.filter(post.image_urls, &is_binary/1)
+      else
+        []
+      end
+
     socket =
       socket
       |> assign(:live_action, :edit_post)
       |> assign(:return_url, return_url)
       |> assign(:post, post)
-      |> assign(:image_urls, if(post.image_urls, do: post.image_urls, else: []))
+      |> assign(:image_urls, image_urls)
 
     {:noreply, socket}
   end
@@ -3034,13 +3042,20 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("edit_reply", %{"id" => id, "url" => return_url}, socket) do
     reply = Timeline.get_reply!(id)
 
+    image_urls =
+      if reply.image_urls do
+        Enum.filter(reply.image_urls, &is_binary/1)
+      else
+        []
+      end
+
     socket =
       socket
       |> assign(:live_action, :reply_edit)
       |> assign(:return_url, return_url)
       |> assign(:post, reply.post)
       |> assign(:reply, reply)
-      |> assign(:image_urls, if(reply.image_urls, do: reply.image_urls, else: []))
+      |> assign(:image_urls, image_urls)
 
     {:noreply, socket}
   end
@@ -4627,18 +4642,17 @@ defmodule MossletWeb.TimelineLive.Index do
     if upload_entries == [] do
       {[], nil}
     else
-      # Get or generate the trix_key for encryption (same as posts use)
-      trix_key =
-        socket.assigns[:trix_key] || generate_and_encrypt_trix_key(current_user, nil)
+      visibility = socket.assigns.selector
 
-      # Process uploads directly in LiveView process - NO TASKS!
+      trix_key =
+        socket.assigns[:trix_key] ||
+          generate_and_encrypt_trix_key(current_user, nil, visibility)
+
       upload_results =
         for entry <- upload_entries do
           consume_uploaded_entry(socket, entry, fn %{path: tmp_path} ->
-            # Generate a unique storage key for this photo
             storage_key = Ecto.UUID.generate()
 
-            # Use your existing Tigris.ex upload system
             upload_params = %{
               "Content-Type" => entry.client_type,
               "storage_key" => storage_key,
@@ -4647,10 +4661,10 @@ defmodule MossletWeb.TimelineLive.Index do
                 content_type: entry.client_type,
                 filename: entry.client_name
               },
-              "trix_key" => trix_key
+              "trix_key" => trix_key,
+              "visibility" => visibility
             }
 
-            # Get session for Tigris.ex (use stored user token from mount)
             session = %{
               "user_token" => socket.assigns.user_token,
               "key" => key
@@ -4658,11 +4672,9 @@ defmodule MossletWeb.TimelineLive.Index do
 
             case Mosslet.FileUploads.Tigris.upload(session, upload_params) do
               {:ok, _presigned_url} ->
-                # Build the file path the same way Tigris.ex does internally
                 [file_ext | _] = MIME.extensions(entry.client_type)
                 file_path = "#{@folder}/#{storage_key}.#{file_ext}"
 
-                # Return the path directly since consume_uploaded_entry expects the return value
                 file_path
 
               {:error, {:nsfw, message}} ->
@@ -4676,7 +4688,6 @@ defmodule MossletWeb.TimelineLive.Index do
           end)
         end
 
-      # Filter out nil values (failed uploads)
       successful_paths =
         upload_results
         |> Enum.filter(&(&1 != nil))

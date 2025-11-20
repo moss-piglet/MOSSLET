@@ -3909,7 +3909,9 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <%!-- Images with enhanced encrypted display system --%>
-            <div :if={@post && photos?(@post.image_urls)} class="mb-4"></div>
+            <div :if={@post && photos?(@post.image_urls)} class="mb-4">
+              <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
+            </div>
 
             <%!-- URL Preview Card (if available) --%>
             <div :if={@decrypted_url_preview} class="mb-4">

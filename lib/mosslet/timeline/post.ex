@@ -646,7 +646,9 @@ defmodule Mosslet.Timeline.Post do
   end
 
   defp encrypt_image_urls(image_urls, post_key) do
-    Enum.map(image_urls, fn image_url ->
+    image_urls
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(fn image_url ->
       Utils.encrypt(%{key: post_key, payload: image_url})
     end)
   end

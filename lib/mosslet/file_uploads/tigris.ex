@@ -9,7 +9,8 @@ defmodule Mosslet.FileUploads.Tigris do
         "Content-Type" => content_type,
         "storage_key" => storage_key,
         "file" => %Plug.Upload{path: tmp_path} = _upload,
-        "trix_key" => trix_key
+        "trix_key" => trix_key,
+        "visibility" => visibility
       }) do
     region = Encrypted.Session.s3_region()
     access_key_id = Encrypted.Session.s3_access_key_id()
@@ -25,7 +26,7 @@ defmodule Mosslet.FileUploads.Tigris do
     session_key = session["key"]
 
     # the trix_key is generated/set in the trix_uploads_controller
-    case process_file(tmp_path, file_ext, user, trix_key, session_key) do
+    case process_file(tmp_path, file_ext, user, trix_key, session_key, visibility) do
       {:ok, e_file} ->
         ExAws.S3.put_object(memories_bucket, file_path, e_file)
         |> ExAws.request()
@@ -79,7 +80,7 @@ defmodule Mosslet.FileUploads.Tigris do
     end
   end
 
-  defp process_file(tmp_path, file_ext, user, trix_key, session_key) do
+  defp process_file(tmp_path, file_ext, user, trix_key, session_key, visibility) do
     # Check the mime_type to avoid malicious file naming
     mime_type = ExMarcel.MimeType.for({:path, tmp_path})
 
@@ -90,7 +91,7 @@ defmodule Mosslet.FileUploads.Tigris do
                |> check_for_safety(),
              {:ok, file} <-
                Image.write(binary, :memory, suffix: ".#{file_ext}"),
-             {:ok, e_file} <- encrypt_file(file, user, trix_key, session_key) do
+             {:ok, e_file} <- encrypt_file(file, user, trix_key, session_key, visibility) do
           {:ok, e_file}
         else
           {:postpone, {:nsfw, message}} ->
@@ -138,13 +139,20 @@ defmodule Mosslet.FileUploads.Tigris do
   # and is passed back and forth encrypted,
   # so we we need to decrypt it before using
   # it to encrypt the file
-  defp encrypt_file(file, user, trix_key, session_key) do
-    {:ok, d_trix_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(
-        trix_key,
-        user,
-        session_key
-      )
+  defp encrypt_file(file, user, trix_key, session_key, visibility) do
+    d_trix_key =
+      if visibility in [:public, "public"] do
+        Encrypted.Users.Utils.decrypt_public_item_key(trix_key)
+      else
+        {:ok, key} =
+          Encrypted.Users.Utils.decrypt_user_attrs_key(
+            trix_key,
+            user,
+            session_key
+          )
+
+        key
+      end
 
     encrypted_file = Encrypted.Utils.encrypt(%{key: d_trix_key, payload: file})
 

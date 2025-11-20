@@ -122,16 +122,21 @@ defmodule MossletWeb.Helpers do
   Replies to a Post use the already created post_key, so
   this is only ever used for a %Post{}.
   """
-  def generate_and_encrypt_trix_key(current_user, post) do
-    # checking the post.id handles when a new %Post{} is
-    # in the socket.assigns (eg. new post form modal)
+  def generate_and_encrypt_trix_key(current_user, post, visibility \\ nil) do
     if is_nil(post) || is_nil(post.id) do
-      public_key = current_user.key_pair["public"]
       post_key = Encrypted.Utils.generate_key()
 
-      Encrypted.Utils.encrypt_message_for_user_with_pk(post_key, %{
-        public: public_key
-      })
+      if visibility in [:public, "public"] do
+        Encrypted.Utils.encrypt_message_for_user_with_pk(post_key, %{
+          public: Encrypted.Session.server_public_key()
+        })
+      else
+        public_key = current_user.key_pair["public"]
+
+        Encrypted.Utils.encrypt_message_for_user_with_pk(post_key, %{
+          public: public_key
+        })
+      end
     else
       get_post_key(post, current_user)
     end
