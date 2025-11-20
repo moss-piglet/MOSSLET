@@ -638,9 +638,20 @@ defmodule MossletWeb.UserAuth do
     if (conn.assigns[:current_user] && conn.assigns[:key]) || conn.private.plug_session["key"] do
       conn
     else
-      conn
-      |> put_flash(:info, "Your session key has expired, please log in again.")
-      |> log_out_user()
+      cond do
+        conn.assigns[:current_user] ->
+          conn
+          |> put_flash(
+            :info,
+            "Please enter your password to unlock your session."
+          )
+          |> redirect(to: ~p"/auth/unlock")
+
+        true ->
+          conn
+          |> put_flash(:info, "Your session key has expired, please log in again.")
+          |> log_out_user()
+      end
     end
   end
 
