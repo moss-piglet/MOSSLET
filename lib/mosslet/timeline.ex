@@ -1839,6 +1839,15 @@ defmodule Mosslet.Timeline do
     )
   end
 
+  def get_user_post_by_post_id_and_user_id(post_id, user_id) do
+    Repo.one(
+      from up in UserPost,
+        where: up.post_id == ^post_id,
+        where: up.user_id == ^user_id,
+        preload: [:post, :user, :user_post_receipt]
+    )
+  end
+
   def get_all_shared_posts(user_id) do
     Repo.all(
       from p in Post,

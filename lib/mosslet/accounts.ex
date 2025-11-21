@@ -1649,6 +1649,9 @@ defmodule Mosslet.Accounts do
 
     Ecto.Multi.new()
     |> Ecto.Multi.delete_all(:delete_all_user_memories, query)
+    |> Ecto.Multi.run(:cleanup_memory_shared_users, fn _repo, _changes ->
+      cleanup_shared_users_from_memories(uconn.user_id, uconn.reverse_user_id)
+    end)
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, _return} ->
@@ -1670,6 +1673,9 @@ defmodule Mosslet.Accounts do
 
     Ecto.Multi.new()
     |> Ecto.Multi.delete_all(:delete_all_user_post, query)
+    |> Ecto.Multi.run(:cleanup_post_shared_users, fn _repo, _changes ->
+      cleanup_shared_users_from_posts(uconn.user_id, uconn.reverse_user_id)
+    end)
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, _return} ->
@@ -1728,6 +1734,62 @@ defmodule Mosslet.Accounts do
         Logger.error(rest)
         {:error, "There was an error deleting reply data from the cloud."}
     end
+  end
+
+  defp cleanup_shared_users_from_posts(uconn_user_id, uconn_reverse_user_id) do
+    posts_to_clean =
+      from(p in Post,
+        where: p.user_id == ^uconn_reverse_user_id
+      )
+      |> Repo.all()
+
+    posts_to_clean
+    |> Enum.filter(fn post ->
+      Enum.any?(post.shared_users, fn shared_user ->
+        shared_user.user_id == uconn_user_id
+      end)
+    end)
+    |> Enum.each(fn post ->
+      updated_shared_users =
+        Enum.reject(post.shared_users, fn shared_user ->
+          shared_user.user_id == uconn_user_id
+        end)
+
+      post
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.put_embed(:shared_users, updated_shared_users)
+      |> Repo.update()
+    end)
+
+    {:ok, :cleaned}
+  end
+
+  defp cleanup_shared_users_from_memories(uconn_user_id, uconn_reverse_user_id) do
+    memories_to_clean =
+      from(m in Memory,
+        where: m.user_id == ^uconn_reverse_user_id
+      )
+      |> Repo.all()
+
+    memories_to_clean
+    |> Enum.filter(fn memory ->
+      Enum.any?(memory.shared_users, fn shared_user ->
+        shared_user.user_id == uconn_user_id
+      end)
+    end)
+    |> Enum.each(fn memory ->
+      updated_shared_users =
+        Enum.reject(memory.shared_users, fn shared_user ->
+          shared_user.user_id == uconn_user_id
+        end)
+
+      memory
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.put_embed(:shared_users, updated_shared_users)
+      |> Repo.update()
+    end)
+
+    {:ok, :cleaned}
   end
 
   defp get_urls_from_deleted_posts(user, key, posts) when is_list(posts) do

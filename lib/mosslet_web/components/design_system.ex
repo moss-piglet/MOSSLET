@@ -41,6 +41,7 @@ defmodule MossletWeb.DesignSystem do
     ]
 
   alias Mosslet.Accounts
+  alias Mosslet.Timeline
   # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
 
@@ -3628,7 +3629,7 @@ defmodule MossletWeb.DesignSystem do
       id={"timeline-card-#{@post.id}"}
       class={
         [
-          "group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+          "group relative rounded-2xl transition-all duration-300 ease-out",
           "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
           "border border-slate-200/60 dark:border-slate-700/60",
           "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
@@ -3754,19 +3755,6 @@ defmodule MossletWeb.DesignSystem do
                           Connection
                         </span>
                       </div>
-                      <%!-- start empty state --%>
-                      <div :if={!shared_post_user} class="px-4 py-3 text-center">
-                        <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-emerald-100 dark:bg-emerald-900">
-                          <.phx_icon
-                            name="hero-user-group"
-                            class="w-6 h-6 text-emerald-400 dark:text-emerald-500"
-                          />
-                        </div>
-                        <p class="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                          No longer shared with anyone
-                        </p>
-                      </div>
-                      <%!-- end empty state --%>
                     </div>
                   </:item>
 
@@ -6140,6 +6128,17 @@ defmodule MossletWeb.DesignSystem do
     Enum.find(post_shared_users_list, nil, fn post_shared_user ->
       post_shared_user.user_id === user_id
     end)
+  end
+
+  def connection_has_user_post?(post_id, user_id) do
+    case get_user_post_for_user_id(post_id, user_id) do
+      %Timeline.UserPost{} = _user_post -> true
+      _rest -> false
+    end
+  end
+
+  defp get_user_post_for_user_id(post_id, user_id) do
+    Timeline.get_user_post_by_post_id_and_user_id(post_id, user_id)
   end
 
   # Helper functions for reply data extraction
