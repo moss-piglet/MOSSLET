@@ -4,7 +4,8 @@ defmodule MossletWeb.UnlockSessionController do
   alias Mosslet.Accounts
 
   def new(conn, _params) do
-    if user = get_current_user_from_session(conn) && !conn.private.plug_session["key"] do
+    if (%Accounts.User{} = user = get_current_user_from_session(conn)) &&
+         is_nil(conn.private.plug_session["key"]) do
       render(conn, "unlock_session.html",
         page_title: "Unlock Session",
         user: user,
@@ -13,7 +14,8 @@ defmodule MossletWeb.UnlockSessionController do
         trigger_submit: false
       )
     else
-      if get_current_user_from_session(conn) && conn.private.plug_session["key"] do
+      if (%Accounts.User{} = _user = get_current_user_from_session(conn)) &&
+           not is_nil(conn.private.plug_session["key"]) do
         conn
         |> redirect(to: ~p"/app")
       else
@@ -25,7 +27,8 @@ defmodule MossletWeb.UnlockSessionController do
   end
 
   def create(conn, %{"unlock" => %{"password" => password}}) do
-    if user = get_current_user_from_session(conn) && !conn.private.plug_session["key"] do
+    if (%Accounts.User{} = user = get_current_user_from_session(conn)) &&
+         is_nil(conn.private.plug_session["key"]) do
       case Accounts.User.valid_key_hash?(user, password) do
         {:ok, key} ->
           conn
