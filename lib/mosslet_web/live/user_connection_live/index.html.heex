@@ -468,6 +468,8 @@
                 avatar_src={get_arrival_avatar_src(arrival, @current_user, @key)}
                 requested_at={arrival.inserted_at}
                 arrival_id={arrival.id}
+                status={get_connection_user_status(arrival, @current_user, @key)}
+                status_message={get_connection_status_message(arrival, @current_user, @key)}
                 class="transition-all duration-300 min-h-[140px]"
               />
             </div>

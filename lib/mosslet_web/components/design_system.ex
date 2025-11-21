@@ -7942,6 +7942,8 @@ defmodule MossletWeb.DesignSystem do
   attr :avatar_src, :string, required: true
   attr :requested_at, :any, required: true
   attr :arrival_id, :string, required: true
+  attr :status, :string, default: nil
+  attr :status_message, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_arrival_card(assigns) do
@@ -7977,6 +7979,8 @@ defmodule MossletWeb.DesignSystem do
                 name={@name}
                 size="lg"
                 clickable={false}
+                status={@status}
+                status_message={@status_message}
               />
             </div>
 
