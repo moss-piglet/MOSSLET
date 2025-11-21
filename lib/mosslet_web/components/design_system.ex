@@ -3598,6 +3598,11 @@ defmodule MossletWeb.DesignSystem do
   attr :can_reply?, :boolean, default: false
   attr :can_bookmark?, :boolean, default: false
   attr :post, :map, required: true
+
+  attr :post_shared_users, :list,
+    default: [],
+    doc: "the list of Post.SharedUser structs mapped from the current_user's user_connections"
+
   attr :post_id, :string, default: nil
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
@@ -3698,7 +3703,91 @@ defmodule MossletWeb.DesignSystem do
               />
               <%!-- Enhanced visibility badge with interaction indicators --%>
               <div class="flex items-center gap-2 ml-2">
+                <%!-- shared users dropdown --%>
+                <.liquid_dropdown
+                  :if={@current_user_id == @post.user_id && @post.visibility != :public}
+                  id={"post-shared-users-menu-#{@post.id}"}
+                  trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
+                  placement="bottom-end"
+                  phx_hook_id={"post-shared-users-menu-trigger-#{@post.id}"}
+                  phx_hook="TippyHook"
+                  phx_data_tippy_content="View who you shared with"
+                >
+                  <:trigger>
+                    <.liquid_badge
+                      variant="soft"
+                      color={visibility_badge_color(@post.visibility)}
+                      size="sm"
+                    >
+                      {visibility_badge_text(@post.visibility)}
+                    </.liquid_badge>
+                  </:trigger>
+
+                  <%!-- Shared with users list --%>
+                  <:item
+                    :for={shared_user <- @post.shared_users}
+                    :if={!Enum.empty?(@post.shared_users)}
+                  >
+                    <div class="flex items-center gap-3 px-1 py-0.5">
+                      <% shared_post_user =
+                        get_shared_connection(shared_user.user_id, @post_shared_users) %>
+                      <div
+                        :if={shared_post_user}
+                        class={[
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                          "bg-gradient-to-br transition-all duration-200",
+                          get_post_shared_user_classes(shared_post_user.color)
+                        ]}
+                      >
+                        <span class={[
+                          "text-sm font-semibold",
+                          get_post_shared_user_text_classes(shared_post_user.color)
+                        ]}>
+                          {String.first(shared_post_user.username || "?") |> String.upcase()}
+                        </span>
+                      </div>
+                      <div :if={shared_post_user} class="flex flex-col min-w-0">
+                        <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {shared_post_user.username}
+                        </span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                          Connection
+                        </span>
+                      </div>
+                      <%!-- start empty state --%>
+                      <div :if={!shared_post_user} class="px-4 py-3 text-center">
+                        <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-emerald-100 dark:bg-emerald-900">
+                          <.phx_icon
+                            name="hero-user-group"
+                            class="w-6 h-6 text-emerald-400 dark:text-emerald-500"
+                          />
+                        </div>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mb-1">
+                          No longer shared with anyone
+                        </p>
+                      </div>
+                      <%!-- end empty state --%>
+                    </div>
+                  </:item>
+
+                  <:item :if={Enum.empty?(@post.shared_users)}>
+                    <%!-- start empty state --%>
+                    <div class="px-4 py-3 text-center">
+                      <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-emerald-100 dark:bg-emerald-900">
+                        <.phx_icon
+                          name="hero-user-group"
+                          class="w-6 h-6 text-emerald-400 dark:text-emerald-500"
+                        />
+                      </div>
+                      <p class="text-sm text-slate-600 dark:text-slate-400 mb-1">
+                        Not shared with anyone yet
+                      </p>
+                    </div>
+                    <%!-- end empty state --%>
+                  </:item>
+                </.liquid_dropdown>
                 <.liquid_badge
+                  :if={@current_user_id != @post.user_id || @post.visibility == :public}
                   variant="soft"
                   color={visibility_badge_color(@post.visibility)}
                   size="sm"
@@ -5547,6 +5636,9 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :id, :string, required: true
   attr :trigger_class, :string, default: ""
+  attr :phx_hook_id, :string, default: nil
+  attr :phx_hook, :string, default: nil
+  attr :phx_data_tippy_content, :string, default: nil
 
   attr :placement, :string,
     default: "bottom-end",
@@ -5571,7 +5663,7 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_dropdown(assigns) do
     ~H"""
-    <div class={["relative", @class]} phx-click-away={JS.hide(to: "##{@id}-menu")}>
+    <div id={@id} class={["relative", @class]} phx-click-away={JS.hide(to: "##{@id}-menu")}>
       <%!-- Trigger button --%>
       <button
         type="button"
@@ -5583,6 +5675,9 @@ defmodule MossletWeb.DesignSystem do
         ]}
         aria-expanded="false"
         aria-haspopup="true"
+        id={if @phx_hook_id, do: @phx_hook_id}
+        phx-hook={if @phx_hook, do: @phx_hook}
+        data-tippy-content={if @phx_data_tippy_content, do: @phx_data_tippy_content}
       >
         {render_slot(@trigger)}
       </button>
@@ -6036,6 +6131,15 @@ defmodule MossletWeb.DesignSystem do
       </div>
     </div>
     """
+  end
+
+  # Helper function for mapping post.shared_users (user_ids) to list of post_shared_users
+  # returns the matching %Post.SharedUser{} mapped from current_user's user_connections
+  # in handle_params of our timline index
+  def get_shared_connection(user_id, post_shared_users_list) do
+    Enum.find(post_shared_users_list, nil, fn post_shared_user ->
+      post_shared_user.user_id === user_id
+    end)
   end
 
   # Helper functions for reply data extraction
@@ -8133,6 +8237,59 @@ defmodule MossletWeb.DesignSystem do
       connection.reverse_user_id
     else
       connection.user_id
+    end
+  end
+
+  defp get_post_shared_user_classes(color) do
+    case color do
+      :emerald ->
+        "from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30"
+
+      :teal ->
+        "from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30"
+
+      :orange ->
+        "from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30"
+
+      :purple ->
+        "from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30"
+
+      :rose ->
+        "from-rose-100 to-rose-200 dark:from-rose-900/30 dark:to-rose-800/30"
+
+      :amber ->
+        "from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30"
+
+      :yellow ->
+        "from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30"
+
+      :cyan ->
+        "from-cyan-100 to-cyan-200 dark:from-cyan-900/30 dark:to-cyan-800/30"
+
+      :indigo ->
+        "from-indigo-100 to-indigo-200 dark:from-indigo-900/30 dark:to-indigo-800/30"
+
+      :pink ->
+        "from-pink-100 to-pink-200 dark:from-pink-900/30 dark:to-pink-800/30"
+
+      _ ->
+        "from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600"
+    end
+  end
+
+  defp get_post_shared_user_text_classes(color) do
+    case color do
+      :emerald -> "text-emerald-600 dark:text-emerald-400"
+      :teal -> "text-teal-600 dark:text-teal-400"
+      :orange -> "text-orange-600 dark:text-orange-400"
+      :purple -> "text-purple-600 dark:text-purple-400"
+      :rose -> "text-rose-600 dark:text-rose-400"
+      :amber -> "text-amber-600 dark:text-amber-400"
+      :yellow -> "text-amber-600 dark:text-amber-400"
+      :cyan -> "text-cyan-600 dark:text-cyan-400"
+      :indigo -> "text-indigo-600 dark:text-indigo-400"
+      :pink -> "text-pink-600 dark:text-pink-400"
+      _ -> "text-slate-600 dark:text-slate-400"
     end
   end
 
