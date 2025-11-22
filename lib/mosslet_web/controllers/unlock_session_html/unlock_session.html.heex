@@ -156,7 +156,8 @@
       <p class="text-center text-sm text-slate-600 dark:text-slate-400">
         Not you?
         <.link
-          navigate={~p"/auth/sign_out"}
+          href={~p"/auth/sign_out"}
+          method="delete"
           class="font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
         >
           Sign out

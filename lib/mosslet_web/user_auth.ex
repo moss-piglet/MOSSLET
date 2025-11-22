@@ -635,7 +635,7 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_session_key(conn, _opts) do
-    if conn.assigns[:current_user] && (conn.assigns[:key] || conn.private.plug_session["key"]) do
+    if conn.assigns[:current_user] && conn.private.plug_session["key"] do
       conn
     else
       cond do
