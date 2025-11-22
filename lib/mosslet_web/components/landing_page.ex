@@ -122,7 +122,7 @@ defmodule MossletWeb.Components.LandingPage do
                 <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full">
                 </div>
 
-                <span class="relative">Reclaim your wellbeing and autonomy</span>
+                <span class="relative">Built for meaningful connections</span>
                 <a
                   href="https://www.cigionline.org/articles/shoshana-zuboff-undetectable-indecipherable-world-surveillance-capitalism/"
                   rel="noopener"
@@ -146,7 +146,7 @@ defmodule MossletWeb.Components.LandingPage do
               </h1>
               <%!-- Enhanced Description with Better Typography --%>
               <p class="mt-6 text-lg leading-8 text-slate-600 text-balance dark:text-slate-400 max-w-2xl mx-auto">
-                Ditch intrusive and stressful Big Tech social platforms for MOSSLET — an alternative to Facebook, Twitter, and Instagram that's simple and privacy-first. Experience peace of mind.
+                Connect with friends and family the way it should be — simple and meaningful. No ads, no algorithms, just your people. MOSSLET makes it easy to share moments and memories with the people who matter most.
               </p>
               <%!-- Liquid Metal CTA Buttons --%>
               <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
@@ -207,91 +207,88 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </div>
 
-        <%!-- Features preview section with liquid metal design --%>
-        <div class="relative mt-24 sm:mt-32">
-          <%!-- Section background --%>
-          <div class="absolute inset-0 bg-gradient-to-b from-transparent via-slate-50/50 to-transparent dark:via-slate-900/50 rounded-3xl">
-          </div>
-
-          <div class="relative max-w-5xl mx-auto px-6 lg:px-8">
-            <div class="text-center mb-16">
-              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
-                Built for
-                <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  privacy
-                </span>
-                and peace of mind
+        <MossletWeb.DesignSystem.liquid_container max_width="full" class="relative mt-24 sm:mt-32">
+          <div class="mx-auto max-w-7xl px-6 lg:px-8">
+            <div class="text-center mb-12">
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                Connect simply with friends and family
               </h2>
-              <p class="mt-6 text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-                Everything you need to connect and share without the anxiety of Big Tech surveillance.
+              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                Share moments and memories with the people who matter most. Private, calm, and beautifully simple.
               </p>
             </div>
 
-            <%!-- Feature grid --%>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <%!-- Feature 1: Privacy First --%>
-              <div class="group relative">
-                <div class="relative rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 p-8 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-105">
-                  <%!-- Liquid background effect --%>
-                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-2xl">
-                  </div>
-
-                  <div class="relative">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white mb-6">
-                      <.phx_icon name="hero-shield-check" class="h-6 w-6" />
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-users"
+                        class="h-5 w-5 text-white"
+                      />
                     </div>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                      Zero Spying
-                    </h3>
-                    <p class="text-slate-600 dark:text-slate-400">
-                      We don't spy on or monetize your personal data. Your privacy is not for sale.
-                    </p>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Made for Real Friends
+                    </span>
                   </div>
-                </div>
-              </div>
+                </:title>
 
-              <%!-- Feature 2: Real connections --%>
-              <div class="group relative">
-                <div class="relative rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 p-8 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-105">
-                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-2xl">
-                  </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Share photos, updates, and memories with your actual friends and family. Simple, genuine connections without the noise.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
 
-                  <div class="relative">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 text-white mb-6">
-                      <.phx_icon name="hero-users" class="h-6 w-6" />
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-shield-check"
+                        class="h-5 w-5 text-white"
+                      />
                     </div>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                      Real Connections
-                    </h3>
-                    <p class="text-slate-600 dark:text-slate-400">
-                      Connect with people who matter. Share memories and moments without algorithmic manipulation.
-                    </p>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Your Privacy Protected
+                    </span>
                   </div>
-                </div>
-              </div>
+                </:title>
 
-              <%!-- Feature 3: Simple by design --%>
-              <div class="group relative">
-                <div class="relative rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 p-8 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:scale-105">
-                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60 dark:from-teal-900/20 dark:via-emerald-900/15 dark:to-cyan-900/20 group-hover:opacity-100 rounded-2xl">
-                  </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Control who sees what with simple privacy settings. Your moments stay between you and the people you choose.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
 
-                  <div class="relative">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 text-white mb-6">
-                      <.phx_icon name="hero-heart" class="h-6 w-6" />
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-heart"
+                        class="h-5 w-5 text-white"
+                      />
                     </div>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                      Simple by Design
-                    </h3>
-                    <p class="text-slate-600 dark:text-slate-400">
-                      No dark patterns, no addiction tactics. Just a clean, peaceful way to stay connected.
-                    </p>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Calm and Peaceful
+                    </span>
                   </div>
-                </div>
-              </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  No endless scroll, no anxiety-inducing algorithms. Just a calm space to stay connected with loved ones.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
             </div>
 
-            <%!-- Bottom CTA --%>
             <div class="mt-16 mb-20 text-center">
               <MossletWeb.DesignSystem.liquid_button
                 navigate="/features"
@@ -299,12 +296,13 @@ defmodule MossletWeb.Components.LandingPage do
                 color="teal"
                 icon="hero-arrow-right"
                 size="lg"
+                shimmer="page"
               >
                 Explore all features
               </MossletWeb.DesignSystem.liquid_button>
             </div>
           </div>
-        </div>
+        </MossletWeb.DesignSystem.liquid_container>
       </.container>
     </section>
     """
