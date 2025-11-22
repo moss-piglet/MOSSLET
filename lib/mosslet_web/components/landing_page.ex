@@ -123,10 +123,8 @@ defmodule MossletWeb.Components.LandingPage do
                 </div>
 
                 <span class="relative">Built for meaningful connections</span>
-                <a
-                  href="https://www.cigionline.org/articles/shoshana-zuboff-undetectable-indecipherable-world-surveillance-capitalism/"
-                  rel="noopener"
-                  target="_blank"
+                <.link
+                  navigate={~p"/about"}
                   class="relative font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"
                 >
                   <span class="absolute inset-0" aria-hidden="true"></span>Read more
@@ -136,7 +134,7 @@ defmodule MossletWeb.Components.LandingPage do
                   >
                     &rarr;
                   </span>
-                </a>
+                </.link>
               </div>
             </div>
             <div class="text-center relative z-10">

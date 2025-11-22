@@ -374,6 +374,16 @@ defmodule MossletWeb.PublicLive.About do
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
+                id="blogPostMLIEWMRUP"
+                img_source={~p"/images/blog/nov_7_2025_mlemrp.jpg"}
+                date="November 7, 2025"
+                title="Meta Layoffs Included Employees Who Monitored Risks to User Privacy"
+                author_mark?={true}
+                author_isabella?={false}
+                link={~p"/blog/articles/08"}
+              />
+
+              <.article_preview
                 id="blogPostDBSIC"
                 img_source={~p"/images/blog/sept_04_2025_dbsic.jpg"}
                 date="September 4, 2025"
