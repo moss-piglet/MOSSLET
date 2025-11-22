@@ -17,7 +17,6 @@ defmodule MossletWeb.Menus do
   def public_menu_items(_user \\ nil),
     do: [
       %{label: gettext("About"), path: "/about"},
-      %{label: gettext("MYOB"), path: "/myob"},
       %{label: gettext("Blog"), path: "/blog"},
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Huh?"), path: "/in-the-know"},
@@ -27,7 +26,6 @@ defmodule MossletWeb.Menus do
   def public_menu_footer_items(_user \\ nil),
     do: [
       %{label: gettext("About"), path: "/about#"},
-      %{label: gettext("MYOB"), path: "/myob"},
       %{label: gettext("Blog"), path: "/blog"},
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Huh?"), path: "/in-the-know"},

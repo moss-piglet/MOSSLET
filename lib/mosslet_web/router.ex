@@ -81,7 +81,6 @@ defmodule MossletWeb.Router do
       live "/in-the-know", PublicLive.InTheKnow, :in_the_know
       live "/pricing", PublicLive.Pricing, :pricing
       live "/privacy", PublicLive.Privacy, :privacy
-      live "/myob", PublicLive.Myob, :myob
       live "/terms", PublicLive.Terms, :terms
     end
   end

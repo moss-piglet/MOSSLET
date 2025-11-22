@@ -451,7 +451,6 @@ defmodule MossletWeb.DesignSystem do
   defp footer_menu_items(current_user) do
     base_items = [
       %{path: "/about", label: "About"},
-      %{path: "/myob", label: "MYOB"},
       %{path: "/blog", label: "Blog"},
       %{path: "/features", label: "Features"},
       %{path: "/in-the-know", label: "Huh?"},
