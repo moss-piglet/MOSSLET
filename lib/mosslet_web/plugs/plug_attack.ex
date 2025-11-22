@@ -65,6 +65,17 @@ defmodule MossletWeb.Plugs.PlugAttack do
     end
   end
 
+  rule "fail2ban on unlock session by ip", conn do
+    if conn.method == "POST" and conn.path_info == ["auth", "unlock"] and conn.remote_ip do
+      fail2ban("2fa:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 20,
+        ban_for: @week,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
   def allow_action(conn, {:throttle, data}, opts) do
     conn
     |> add_throttling_headers(data)

@@ -245,7 +245,7 @@ defmodule MossletWeb.PublicLayout do
 
             <%!-- Mobile user section for signed-in users --%>
             <div
-              :if={@current_user_name && @current_user_name != "nil"}
+              :if={@current_user}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60"
             >
               <div class="flex items-center px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl mb-2">
@@ -377,7 +377,7 @@ defmodule MossletWeb.PublicLayout do
         </div>
 
         <%!-- User name with better typography (hidden on small screens) --%>
-        <div class="hidden xl:block relative flex-1 text-left">
+        <div class="hidden lg:block relative flex-1 text-left">
           <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200">
             {@current_user_name}
           </div>
