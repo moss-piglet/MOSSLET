@@ -14,7 +14,7 @@ defmodule MossletWeb.ErrorHTMLTest do
   test "renders 500.html" do
     assert String.contains?(
              render_to_string(MossletWeb.ErrorHTML, "500", "html", []),
-             "Sorry, something went wrong."
+             "Sorry, something went wrong on our end."
            )
   end
 end
