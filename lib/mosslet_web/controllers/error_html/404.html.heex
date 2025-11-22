@@ -12,25 +12,67 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
-  <body class="h-full">
-    <main class="relative isolate min-h-full">
+  <body class="h-full bg-slate-50 dark:bg-slate-900">
+    <main class="relative isolate min-h-full grid place-items-center px-6 py-24 sm:py-32 lg:px-8">
       <img
         src={~p"/images/four_hundred_error.jpg"}
-        alt="four hundred error image"
-        class="absolute inset-0 -z-10 h-full w-full object-cover object-top"
+        alt=""
+        class="absolute inset-0 -z-20 h-full w-full object-cover object-center"
       />
-      <div class="mx-auto max-w-7xl px-6 py-32 text-center sm:py-40 lg:px-8">
-        <p class="text-base font-semibold leading-8 text-white">404</p>
-        <h1 class="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">
-          Page not found
-        </h1>
-        <p class="mt-4 text-base text-white/70 sm:mt-6">
-          Sorry, we couldn’t find the page you’re looking for.
-        </p>
-        <div class="mt-10 flex justify-center">
-          <a href={~p"/"} class="text-sm font-semibold leading-7 text-white">
-            <span aria-hidden="true">&larr;</span> Back to home
-          </a>
+
+      <div class="absolute inset-0 -z-10 bg-gradient-to-br from-white/80 via-slate-50/70 to-white/80 
+                  dark:from-slate-900/85 dark:via-slate-800/75 dark:to-slate-900/85 backdrop-blur-sm">
+      </div>
+
+      <div class="relative rounded-3xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-md
+                  border border-slate-200/80 dark:border-slate-700/80
+                  shadow-2xl shadow-slate-900/20 dark:shadow-slate-900/50
+                  px-8 py-16 sm:px-16 sm:py-24 max-w-2xl w-full">
+        <div class="text-center space-y-8">
+          <div class="inline-flex items-center justify-center">
+            <div class="px-6 py-3 rounded-full 
+                        bg-gradient-to-r from-teal-50 to-emerald-50
+                        dark:from-teal-900/30 dark:to-emerald-900/30
+                        border border-teal-200 dark:border-teal-700/50">
+              <p class="text-xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 
+                        dark:from-teal-400 dark:to-emerald-400
+                        bg-clip-text text-transparent">
+                404
+              </p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <h1 class="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+              Page not found
+            </h1>
+
+            <p class="text-lg text-slate-600 dark:text-slate-300">
+              Sorry, we couldn't find the page you're looking for.
+            </p>
+          </div>
+
+          <div class="pt-4">
+            <a
+              href={~p"/"}
+              class="group relative overflow-hidden inline-flex items-center justify-center gap-2 
+                     px-6 py-3 rounded-full font-semibold text-sm
+                     bg-gradient-to-r from-teal-500 to-emerald-500
+                     text-white shadow-lg shadow-teal-500/25
+                     transition-all duration-200 ease-out transform-gpu will-change-transform
+                     hover:shadow-xl hover:shadow-teal-500/40 hover:scale-105
+                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+                     focus-visible:outline-emerald-500"
+            >
+              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out transform-gpu
+                          bg-gradient-to-r from-transparent via-white/30 to-transparent
+                          group-hover:opacity-100 group-hover:translate-x-full -translate-x-full
+                          rounded-full overflow-hidden pointer-events-none">
+              </div>
+              <span aria-hidden="true" class="relative">&larr;</span>
+              <span class="relative">Back to home</span>
+            </a>
+          </div>
         </div>
       </div>
     </main>
