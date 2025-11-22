@@ -646,6 +646,7 @@ defmodule MossletWeb.UserAuth do
             "Please enter your password to unlock your session."
           )
           |> redirect(to: ~p"/auth/unlock")
+          |> halt()
 
         true ->
           conn
