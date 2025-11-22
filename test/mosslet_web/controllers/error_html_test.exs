@@ -7,7 +7,7 @@ defmodule MossletWeb.ErrorHTMLTest do
   test "renders 404.html" do
     assert String.contains?(
              render_to_string(MossletWeb.ErrorHTML, "404", "html", []),
-             "Sorry, we couldn’t find the page you’re looking for."
+             "Sorry, we couldn't find the page you're looking for."
            )
   end
 
