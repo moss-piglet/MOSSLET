@@ -336,10 +336,10 @@ defmodule MossletWeb.UserAuth do
       {:cont, socket}
     else
       cond do
-        socket.assigns.current_user && socket.assigns.key ->
+        socket.assigns[:current_user] && socket.assigns[:key] ->
           {:cont, socket}
 
-        socket.assigns.current_user && !socket.assigns.key ->
+        socket.assigns[:current_user] && !socket.assigns[:key] ->
           socket =
             socket
             |> Phoenix.LiveView.put_flash(
@@ -635,7 +635,7 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_session_key(conn, _opts) do
-    if (conn.assigns[:current_user] && conn.assigns[:key]) || conn.private.plug_session["key"] do
+    if conn.assigns[:current_user] && (conn.assigns[:key] || conn.private.plug_session["key"]) do
       conn
     else
       cond do
