@@ -1108,10 +1108,33 @@ defmodule MossletWeb.UserConnectionLive.Index do
          |> push_event("restore-body-scroll", %{})}
 
       {:error, changeset} ->
-        # Handle validation errors
         error_message =
           if is_struct(changeset, Ecto.Changeset) do
-            Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+            case changeset.changes[:visibility_groups] do
+              [group_changeset | _] when is_struct(group_changeset, Ecto.Changeset) ->
+                errors =
+                  Ecto.Changeset.traverse_errors(group_changeset, fn {msg, opts} ->
+                    Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+                      opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+                    end)
+                  end)
+
+                Enum.map_join(errors, ", ", fn {field, messages} ->
+                  "#{field}: #{Enum.join(messages, ", ")}"
+                end)
+
+              _ ->
+                errors =
+                  Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                    Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+                      opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+                    end)
+                  end)
+
+                Enum.map_join(errors, ", ", fn {field, messages} ->
+                  "#{field}: #{Enum.join(messages, ", ")}"
+                end)
+            end
           else
             "Unknown error occurred"
           end
@@ -1119,7 +1142,7 @@ defmodule MossletWeb.UserConnectionLive.Index do
         action = if editing_group, do: "updating", else: "creating"
 
         {:noreply,
-         put_flash(socket, :error, "Error #{action} visibility group: #{error_message}")}
+         put_flash(socket, :error, "Error #{action} visibility group: #{error_message}.")}
     end
   end
 

@@ -110,7 +110,7 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
           <div class="mx-auto max-w-2xl pb-32 pt-24 sm:pb-48 sm:pt-32 lg:pb-56">
             <%!-- Liquid Metal Badge with Hover Effects --%>
-            <div class="hidden sm:mb-8 sm:flex sm:justify-center">
+            <div class="mb-6 sm:mb-8 flex justify-center">
               <div class="group relative overflow-hidden rounded-full px-4 py-2 text-sm leading-6 text-slate-600 dark:text-slate-400 transition-all duration-300 ease-out">
                 <%!-- Liquid Background --%>
                 <div class="absolute inset-0 bg-gradient-to-r from-slate-100/80 via-slate-50/90 to-slate-100/80 dark:from-slate-800/80 dark:via-slate-700/90 dark:to-slate-800/80 transition-all duration-300 group-hover:from-teal-100/60 group-hover:via-emerald-50/80 group-hover:to-cyan-100/60 dark:group-hover:from-teal-900/30 dark:group-hover:via-emerald-900/25 dark:group-hover:to-cyan-900/30">
@@ -122,19 +122,26 @@ defmodule MossletWeb.Components.LandingPage do
                 <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-full">
                 </div>
 
-                <span class="relative">Built for meaningful connections</span>
-                <.link
-                  navigate={~p"/about"}
-                  class="relative font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200"
-                >
-                  <span class="absolute inset-0" aria-hidden="true"></span>Read more
-                  <span
-                    aria-hidden="true"
-                    class="ml-1 transition-transform duration-200 group-hover:translate-x-1"
+                <div class="relative flex flex-col sm:flex-row items-center gap-1 sm:gap-0">
+                  <span class="text-center sm:text-left">Built for meaningful connections</span>
+                  <.link
+                    id="mosslet-demo-video-beta"
+                    href="https://www.loom.com/share/5fc4498f4ab44f7599bc97e5749aed49"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Watch our co-founder demo our beta (~15 min)"
+                    class="ml-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200 whitespace-nowrap"
                   >
-                    &rarr;
-                  </span>
-                </.link>
+                    View demo
+                    <span
+                      aria-hidden="true"
+                      class="ml-1 transition-transform duration-200 group-hover:translate-x-1"
+                    >
+                      &rarr;
+                    </span>
+                  </.link>
+                </div>
               </div>
             </div>
             <div class="text-center relative z-10">

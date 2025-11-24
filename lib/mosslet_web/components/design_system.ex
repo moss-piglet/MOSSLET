@@ -7820,8 +7820,6 @@ defmodule MossletWeb.DesignSystem do
             phx-click="toggle_mute"
             phx-value-id={@connection_id}
             id={"toggle-mute-button-#{@connection_id}"}
-            phx-hook="TippyHook"
-            data-tippy-content="Coming Soon 🚧"
           >
             <.phx_icon
               name={if @zen?, do: "hero-speaker-wave", else: "hero-speaker-x-mark"}

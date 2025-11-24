@@ -1664,7 +1664,7 @@ defmodule Mosslet.Accounts.User do
       |> cast(attrs, [:temp_name, :temp_description, :color, :temp_connection_ids])
       |> validate_required([:temp_name])
       |> validate_length(:temp_name, min: 2, max: 60)
-      |> validate_length(:temp_description, max: 200)
+      |> validate_length(:temp_description, max: 250)
 
     # Encrypt the fields if we have the necessary opts
     if opts[:user] && opts[:key] && changeset.valid? do
