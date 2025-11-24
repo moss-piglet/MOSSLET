@@ -291,8 +291,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Periodic cleanup of expired entries
   def handle_info(:cleanup, state) do
-    Logger.debug("Running timeline cache cleanup")
-
     now = System.system_time(:millisecond)
     expired_count = cleanup_expired_entries(now)
 

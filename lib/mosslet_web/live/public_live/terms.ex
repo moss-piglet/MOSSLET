@@ -114,39 +114,61 @@ defmodule MossletWeb.PublicLive.Terms do
               <%!-- Collapsible Sections --%>
               <div class="space-y-4" id="terms_and_conditions">
                 <%!-- Acceptance of Terms --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         1. Acceptance of Terms
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       By accessing or using MOSSLET, you agree to these Terms and Conditions. If you do not agree, please do not use our services.
                     </p>
                   </div>
-                </details>
+                </div>
 
                 <%!-- User Conduct --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         2. User Conduct
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       Users of MOSSLET are expected to engage in a respectful and safe manner. You agree not to upload, create, or share any content that is harmful, abusive, threatening, harassing, defamatory, obscene, or otherwise objectionable.
                     </p>
@@ -190,22 +212,33 @@ defmodule MossletWeb.PublicLive.Terms do
                       </ul>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Privacy and Data Protection --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         3. Privacy and Data Protection
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       Your privacy is important to us. We are committed to protecting your personal data. All user data is secured with strong encryption, ensuring that your information remains private and protected.
                     </p>
@@ -218,22 +251,33 @@ defmodule MossletWeb.PublicLive.Terms do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Attribution --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         4. Attribution
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <div class="pt-4">
                       <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Icons</h4>
                       <p>
@@ -259,102 +303,157 @@ defmodule MossletWeb.PublicLive.Terms do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Compliance with Applicable Laws --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         5. Compliance with Applicable Laws
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       Moss Piglet Corporation is committed to complying with all applicable laws and regulations in the jurisdictions where we operate, including California and Massachusetts. Users are also expected to comply with all relevant laws while using our services.
                     </p>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Changes to Terms --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         6. Changes to Terms
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       Moss Piglet Corporation may update these Terms and Conditions from time to time. We will notify users of any significant changes. Your continued use of MOSSLET after any changes indicates your acceptance of the new terms.
                     </p>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Limitation of Liability --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         7. Limitation of Liability
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       Moss Piglet Corporation is not liable for any direct, indirect, incidental, or consequential damages arising from your use of MOSSLET or any content shared on the platform.
                     </p>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Governing Law --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         8. Governing Law
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       These Terms and Conditions are governed by the laws of the State of Delaware. However, we acknowledge the applicability of laws in California and Massachusetts as relevant to our operations and user interactions.
                     </p>
                   </div>
-                </details>
+                </div>
 
                 <%!-- Contact Information --%>
-                <details class="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  <summary class="cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <div
+                  class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                  x-data="{ open: false }"
+                >
+                  <button
+                    class="w-full text-left cursor-pointer p-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                    @click="open = !open"
+                  >
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         9. Contact Information
                       </h3>
                       <.icon
                         name="hero-chevron-down"
-                        class="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
+                        class="h-5 w-5 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                        x-bind:class="{ 'rotate-180': open }"
                       />
                     </div>
-                  </summary>
-                  <div class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                  </button>
+                  <div
+                    x-show="open"
+                    x-transition
+                    class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                  >
                     <p class="pt-4">
                       If you have any questions or concerns about these Terms and Conditions, please contact us at <a
                         class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
@@ -367,7 +466,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       </p>
                     </div>
                   </div>
-                </details>
+                </div>
               </div>
             </div>
           </div>

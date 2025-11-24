@@ -189,7 +189,6 @@ defmodule Mosslet.Timeline.Jobs.TimelineFeedJob do
 
   defp cleanup_expired_cache(_args) do
     # 🔐 PRIVACY: No user data involved - just cache maintenance
-    Logger.info("Running timeline cache cleanup")
 
     case TimelineCache.get_cache_stats() do
       %{size: size} when size > 0 ->
@@ -197,7 +196,6 @@ defmodule Mosslet.Timeline.Jobs.TimelineFeedJob do
         :ok
 
       _ ->
-        Logger.debug("No cache entries to clean up")
         :ok
     end
   end
