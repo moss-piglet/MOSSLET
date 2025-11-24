@@ -19,7 +19,6 @@ defmodule MossletWeb.Menus do
       %{label: gettext("About"), path: "/about"},
       %{label: gettext("Blog"), path: "/blog"},
       %{label: gettext("Features"), path: "/features"},
-      %{label: gettext("Huh?"), path: "/in-the-know"},
       %{label: gettext("Pricing"), path: "/pricing"}
     ]
 
@@ -27,12 +26,11 @@ defmodule MossletWeb.Menus do
     do: [
       %{label: gettext("About"), path: "/about#"},
       %{label: gettext("Blog"), path: "/blog"},
+      %{label: gettext("FAQ"), path: "/faq"},
       %{label: gettext("Features"), path: "/features"},
-      %{label: gettext("Huh?"), path: "/in-the-know"},
       %{label: gettext("Pricing"), path: "/pricing"},
       %{label: gettext("Privacy"), path: "/privacy"},
-      %{label: gettext("Support"), path: "/support"},
-      %{label: gettext("FAQ"), path: "/faq"}
+      %{label: gettext("Support"), path: "/support"}
     ]
 
   # Signed out main menu

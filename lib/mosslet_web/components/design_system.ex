@@ -452,12 +452,11 @@ defmodule MossletWeb.DesignSystem do
     base_items = [
       %{path: "/about", label: "About"},
       %{path: "/blog", label: "Blog"},
+      %{path: "/faq", label: "FAQ"},
       %{path: "/features", label: "Features"},
-      %{path: "/in-the-know", label: "Huh?"},
       %{path: "/pricing", label: "Pricing"},
       %{path: "/privacy", label: "Privacy"},
-      %{path: "/support", label: "Support"},
-      %{path: "/faq", label: "FAQ"}
+      %{path: "/support", label: "Support"}
     ]
 
     # Add conditional items based on user state

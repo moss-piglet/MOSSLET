@@ -174,7 +174,7 @@ defmodule MossletWeb.PublicLayout do
           <div class="px-2 pt-2 pb-3 space-y-1 border-t border-slate-200/60 dark:border-slate-700/60">
             <%!-- Mobile navigation items with enhanced liquid effects --%>
             <.link
-              :for={item <- @public_menu_items}
+              :for={item <- @public_menu_footer_items}
               href={item.path}
               class="group relative flex items-center px-4 py-3 text-base font-medium text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all duration-300 ease-out overflow-hidden"
               method={if item[:method], do: item[:method], else: nil}
@@ -186,33 +186,6 @@ defmodule MossletWeb.PublicLayout do
               <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
               </div>
               <span class="relative">{item.label}</span>
-            </.link>
-
-            <%!-- Additional mobile-only navigation items --%>
-            <.link
-              href="/support"
-              class="group relative flex items-center px-4 py-3 text-base font-medium text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all duration-300 ease-out overflow-hidden"
-            >
-              <%!-- Enhanced liquid background effect matching footer exactly --%>
-              <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/50 to-cyan-50/40 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100">
-              </div>
-              <%!-- Shimmer effect matching footer exactly --%>
-              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
-              </div>
-              <span class="relative">Support</span>
-            </.link>
-
-            <.link
-              href="/faq"
-              class="group relative flex items-center px-4 py-3 text-base font-medium text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all duration-300 ease-out overflow-hidden"
-            >
-              <%!-- Enhanced liquid background effect matching footer exactly --%>
-              <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/50 to-cyan-50/40 dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10 group-hover:opacity-100">
-              </div>
-              <%!-- Shimmer effect matching footer exactly --%>
-              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
-              </div>
-              <span class="relative">FAQ</span>
             </.link>
 
             <%!-- Mobile authentication section for signed-out users --%>

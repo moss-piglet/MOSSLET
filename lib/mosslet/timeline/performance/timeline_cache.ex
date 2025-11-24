@@ -35,7 +35,7 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
     }
 
     :ets.insert(@table_name, {key, cache_entry})
-    Logger.debug("Cached timeline data for #{key}")
+
     :ok
   end
 
@@ -49,16 +49,13 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
     case :ets.lookup(@table_name, key) do
       [{^key, %{expires_at: expires_at} = entry}] when expires_at > now ->
-        Logger.debug("Timeline cache hit for #{key}")
         {:hit, entry.data}
 
       [{^key, _expired}] ->
-        Logger.debug("Timeline cache expired for #{key}")
         :ets.delete(@table_name, key)
         :miss
 
       [] ->
-        Logger.debug("Timeline cache miss for #{key}")
         :miss
     end
   end
@@ -113,7 +110,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
       # Invalidate specific tab
       key = "timeline:#{user_id}:#{tab}"
       :ets.delete(@table_name, key)
-      Logger.debug("Invalidated timeline cache for #{key}")
     end
   end
 
@@ -123,7 +119,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   def invalidate_post(post_id) do
     key = "post:#{post_id}"
     :ets.delete(@table_name, key)
-    Logger.debug("Invalidated post cache for #{key}")
   end
 
   @doc """
@@ -182,8 +177,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle post updates - invalidate specific post and related timelines
   def handle_info({:post_updated, post}, state) do
-    Logger.debug("Cache invalidation: post updated #{post.id}")
-
     # Invalidate specific post cache
     invalidate_post(post.id)
 
@@ -195,8 +188,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle post deletion - immediate cache removal
   def handle_info({:post_deleted, post}, state) do
-    Logger.debug("Cache invalidation: post deleted #{post.id}")
-
     # Remove from all caches immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -206,8 +197,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle likes/favs - invalidate post cache AND timeline cache for updated counts
   def handle_info({:post_updated_fav, post}, state) do
-    Logger.debug("Cache invalidation: post fav updated #{post.id}")
-
     # Invalidate post cache so new like count shows immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -217,8 +206,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle reposts - invalidate post cache AND timeline cache for updated counts
   def handle_info({:post_reposted, post}, state) do
-    Logger.debug("Cache invalidation: post reposted #{post.id}")
-
     # Invalidate post cache so new repost count shows immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -228,8 +215,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle bookmark changes
   def handle_info({:bookmark_created, bookmark}, state) do
-    Logger.debug("Cache invalidation: bookmark created for post #{bookmark.post_id}")
-
     # Invalidate bookmarks timeline for user
     invalidate_timeline(bookmark.user_id, "bookmarks")
 
@@ -237,8 +222,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   end
 
   def handle_info({:bookmark_deleted, bookmark}, state) do
-    Logger.debug("Cache invalidation: bookmark deleted for post #{bookmark.post_id}")
-
     # Invalidate bookmarks timeline for user
     invalidate_timeline(bookmark.user_id, "bookmarks")
 
@@ -247,8 +230,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle reply creation - invalidate timelines since reply counts changed
   def handle_info({:reply_created, post, _reply}, state) do
-    Logger.debug("Cache invalidation: reply created for post #{post.id}")
-
     # Invalidate post cache and timelines so new reply count shows immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -258,8 +239,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle reply updates
   def handle_info({:reply_updated, post, _reply}, state) do
-    Logger.debug("Cache invalidation: reply updated for post #{post.id}")
-
     # Invalidate post cache so changes show immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -269,8 +248,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle reply deletion
   def handle_info({:reply_deleted, post, _reply}, state) do
-    Logger.debug("Cache invalidation: reply deleted for post #{post.id}")
-
     # Invalidate post cache and timelines so updated reply count shows immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -280,8 +257,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle reply favorites
   def handle_info({:reply_updated_fav, post, _reply}, state) do
-    Logger.debug("Cache invalidation: reply fav updated for post #{post.id}")
-
     # Invalidate post cache so reply changes show immediately
     invalidate_post(post.id)
     invalidate_timelines_for_post(post)
@@ -314,10 +289,6 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
 
   # Handle user joining timeline (via Presence) - subscribe to their topics
   def handle_info({:user_joined_timeline, user_id}, state) do
-    Logger.debug(
-      "User joined timeline - subscribing to their private/connections topics for cache optimization"
-    )
-
     # Subscribe to their private posts
     private_topic = "priv_posts:#{user_id}"
     Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
@@ -363,12 +334,10 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
       # Subscribe to private posts
       private_topic = "priv_posts:#{user_id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, private_topic)
-      Logger.debug("Timeline cache subscribed to private posts for active user")
 
       # Subscribe to connections posts
       connections_topic = "conn_posts:#{user_id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_topic)
-      Logger.debug("Timeline cache subscribed to connections posts for active user")
     end)
 
     Logger.info(
@@ -385,12 +354,10 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
       # Subscribe to private replies
       private_reply_topic = "priv_replies:#{user.id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, private_reply_topic)
-      Logger.debug("Timeline cache subscribed to private replies for user #{user.id}")
 
       # Subscribe to connections replies
       connections_reply_topic = "conn_replies:#{user.id}"
       Phoenix.PubSub.subscribe(Mosslet.PubSub, connections_reply_topic)
-      Logger.debug("Timeline cache subscribed to connections replies for user #{user.id}")
     end)
 
     Logger.info(
