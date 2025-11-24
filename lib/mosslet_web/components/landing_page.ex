@@ -237,13 +237,13 @@ defmodule MossletWeb.Components.LandingPage do
                       />
                     </div>
                     <span class="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Made for Real Friends
+                      Made for People
                     </span>
                   </div>
                 </:title>
 
                 <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Share photos, updates, and memories with your actual friends and family. Simple, genuine connections without the noise.
+                  Share photos, updates, and memories with your friends and family. No ads, no algorithms. Simple, genuine connections without the noise.
                 </p>
               </MossletWeb.DesignSystem.liquid_card>
 
