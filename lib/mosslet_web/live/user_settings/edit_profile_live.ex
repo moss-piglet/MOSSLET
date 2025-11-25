@@ -196,21 +196,57 @@ defmodule MossletWeb.EditProfileLive do
                 </:title>
 
                 <div id="banner-image-select" class="space-y-4">
-                  <.input
-                    field={f_nested[:banner_image]}
-                    type="select"
-                    label="Select your banner image"
-                    options={Ecto.Enum.values(Connection.ConnectionProfile, :banner_image)}
-                    value={@banner_image}
-                  />
-
-                  <img
-                    :if={@banner_image}
-                    id="banner-preview"
-                    src={~p"/images/profile/#{get_banner_image(@banner_image)}"}
-                    class="h-24 w-48 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shadow-sm"
-                    alt="Selected banner preview"
-                  />
+                  <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                    Select your banner image
+                  </label>
+                  <div class="max-h-80 sm:max-h-96 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-800/50">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      <%= for banner <- Ecto.Enum.values(Connection.ConnectionProfile, :banner_image) do %>
+                        <label class="relative cursor-pointer group">
+                          <input
+                            type="radio"
+                            name={f_nested[:banner_image].name}
+                            value={banner}
+                            checked={@banner_image == banner}
+                            class="sr-only peer"
+                          />
+                          <div class={[
+                            "relative overflow-hidden rounded-xl border-2 transition-all duration-200",
+                            if(@banner_image == banner,
+                              do: "border-purple-400 ring-2 ring-purple-400/30",
+                              else:
+                                "border-slate-200 dark:border-slate-600 hover:border-purple-300 dark:hover:border-purple-500"
+                            )
+                          ]}>
+                            <img
+                              src={~p"/images/profile/#{get_banner_image(banner)}"}
+                              class="w-full h-16 sm:h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                              alt={"#{banner} banner"}
+                            />
+                            <div
+                              :if={@banner_image == banner}
+                              class="absolute inset-0 bg-purple-500/20 transition-opacity duration-200"
+                            >
+                            </div>
+                            <div
+                              :if={@banner_image == banner}
+                              class="absolute top-1 right-1"
+                            >
+                              <div class="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
+                                <.phx_icon name="hero-check" class="w-3 h-3 text-white" />
+                              </div>
+                            </div>
+                          </div>
+                          <span class="text-xs text-center mt-1.5 block capitalize text-slate-600 dark:text-slate-400 truncate">
+                            {banner |> Atom.to_string() |> String.replace("_", " ")}
+                          </span>
+                        </label>
+                      <% end %>
+                    </div>
+                  </div>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">
+                    Choose a banner image that represents your personality
+                  </p>
                 </div>
               </DesignSystem.liquid_card>
 
