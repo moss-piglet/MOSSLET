@@ -278,29 +278,30 @@ defmodule MossletWeb.PublicLive.Terms do
                     x-transition
                     class="px-6 pb-6 space-y-4 text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800"
                   >
-                    <div class="pt-4">
-                      <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Icons</h4>
-                      <p>
-                        Image icons used for anonymous group members in Groups are provided for free by Freepik at <.link
-                          href="https://www.flaticon.com/"
-                          target="_blank"
-                          rel="noopener"
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
-                        >Flat Icon</.link>.
-                      </p>
-                    </div>
-                    <div>
-                      <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                        Nature Images
-                      </h4>
-                      <p>
-                        Nature images used for profile banners are provided for free by various artists at <.link
-                          href="https://unsplash.com/"
-                          target="_blank"
-                          rel="noopener"
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
-                        >Unsplash</.link>.
-                      </p>
+                    <p class="pt-4">
+                      We gratefully acknowledge the following resources that help make MOSSLET possible:
+                    </p>
+                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500">
+                      <ul class="space-y-2 text-blue-800 dark:text-blue-200">
+                        <li>
+                          <span class="font-semibold">Icons:</span>
+                          Anonymous group member icons provided by Freepik at <.link
+                            href="https://www.flaticon.com/"
+                            target="_blank"
+                            rel="noopener"
+                            class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline"
+                          >Flaticon</.link>.
+                        </li>
+                        <li>
+                          <span class="font-semibold">Profile Banners:</span>
+                          Profile banners provided by various artists at <.link
+                            href="https://unsplash.com/"
+                            target="_blank"
+                            rel="noopener"
+                            class="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline"
+                          >Unsplash</.link>.
+                        </li>
+                      </ul>
                     </div>
                   </div>
                 </div>

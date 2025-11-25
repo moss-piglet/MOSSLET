@@ -245,7 +245,7 @@ defmodule MossletWeb.EditProfileLive do
                     </div>
                   </div>
                   <p class="text-sm text-slate-500 dark:text-slate-400">
-                    Choose a banner image that represents your personality
+                    Choose a banner image that represents your personality.
                   </p>
                 </div>
               </DesignSystem.liquid_card>
