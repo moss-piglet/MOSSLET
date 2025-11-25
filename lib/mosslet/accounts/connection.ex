@@ -84,10 +84,13 @@ defmodule Mosslet.Accounts.Connection do
         values: [
           :beach,
           :clouds,
+          :confetti,
           :fern,
           :forest,
+          :forest_illustrated,
           :geranium,
           :lupin,
+          :mountain_lake,
           :mountains,
           :shoreline,
           :succulents,
