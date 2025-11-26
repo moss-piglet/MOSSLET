@@ -85,17 +85,21 @@ defmodule Mosslet.Accounts.Connection do
           :beach,
           :clouds,
           :confetti,
+          :electric,
           :fern,
           :forest,
           :forest_illustrated,
+          :fox_trot,
           :geranium,
           :lupin,
           :mountain_lake,
           :mountains,
+          :ocean,
           :shoreline,
           :succulents,
           :stars,
-          :waves
+          :waves,
+          :years
         ],
         default: :waves
 
