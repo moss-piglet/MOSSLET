@@ -231,6 +231,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog02 do
      )
      |> assign_new(:meta_description, fn ->
        "We are fed up with that. That's why we made MOSSLET. On MOSSLET you are safe to share about your family. When you make a post on MOSSLET no one collects information about you. We don't spy on you. We don't profit off of knowing whether you are happy, sad, or at risk of harming your children (we certainly hope not). On MOSSLET we can't know that even if we wanted to, by design."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/may_20_2025_ainy.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "AI surveillance of families illustration")}
   end
 end

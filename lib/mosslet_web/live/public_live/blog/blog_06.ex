@@ -134,6 +134,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog06 do
      )
      |> assign_new(:meta_description, fn ->
        "Quick workarounds for the disappearing keyboard on Apple iOS Safari. In this 6th blog post, from privacy-first social alternative MOSSLET, we share quick and easy tips for getting your onscreen keyboard back when using Apple iOS Safari."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/aug_19_2025_dkais.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "iOS Safari keyboard disappearing issue illustration")}
   end
 end

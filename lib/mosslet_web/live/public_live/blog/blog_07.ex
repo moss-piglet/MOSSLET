@@ -188,6 +188,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog07 do
      )
      |> assign_new(:meta_description, fn ->
        "Smart doorbells are spying for insurance companies. In this 7th blog post from privacy-first social alternative MOSSLET, we explore how insurance companies are using smart doorbell footage and home surveillance devices to monitor homeowners, deny claims, and increase premiums without explicit consent."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/sept_04_2025_dbsic.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "Smart doorbells spying for insurance companies illustration")}
   end
 end

@@ -22,6 +22,7 @@ defmodule MossletWeb.PublicLayout do
   attr :avatar_src, :string, default: nil
   attr :current_user_name, :string, default: "nil"
   attr :current_user, :map, default: nil
+  attr :session_locked, :boolean, default: false
   attr :copyright_text, :string, default: "Moss Piglet Corporation, All Rights Reserved."
   attr :max_width, :string, default: "lg", values: ["sm", "md", "lg", "xl", "full"]
   attr :header_class, :string, default: ""
@@ -191,8 +192,31 @@ defmodule MossletWeb.PublicLayout do
             <%!-- Mobile authentication section for signed-out users --%>
             <div
               :if={!@current_user || @current_user_name == "nil"}
-              class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1"
+              class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-3"
             >
+              <%!-- Guest user card matching desktop dropdown style --%>
+              <div class={[
+                "flex items-center px-4 py-3 rounded-xl",
+                "bg-slate-50 dark:bg-slate-800/80",
+                "ring-1 ring-slate-200/60 dark:ring-slate-700/60"
+              ]}>
+                <div class="relative flex-shrink-0">
+                  <MossletWeb.CoreComponents.phx_avatar
+                    src={@avatar_src}
+                    class="h-10 w-10 rounded-xl object-cover ring-2 ring-white dark:ring-slate-600"
+                    alt="Guest avatar"
+                  />
+                </div>
+                <div class="ml-3 flex-1">
+                  <div class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Guest
+                  </div>
+                  <div class="text-sm text-slate-500 dark:text-slate-400">
+                    Sign in to continue
+                  </div>
+                </div>
+              </div>
+
               <%!-- Sign In button using design system --%>
               <MossletWeb.DesignSystem.liquid_button
                 navigate="/auth/sign_in"
@@ -230,11 +254,26 @@ defmodule MossletWeb.PublicLayout do
                   />
                 </div>
                 <div class="ml-3">
-                  <div class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  <div
+                    :if={@current_user && !@session_locked}
+                    class="text-base font-semibold text-slate-900 dark:text-slate-100"
+                  >
                     {@current_user_name}
                   </div>
-                  <div class="text-sm text-slate-500 dark:text-slate-400">
-                    {if @current_user, do: "Online", else: "Guest"}
+                  <div
+                    :if={@current_user && @session_locked}
+                    class="text-base font-semibold text-slate-900 dark:text-slate-100"
+                  >
+                    Online
+                  </div>
+                  <div class={[
+                    "text-sm",
+                    if(@session_locked,
+                      do: "text-amber-600 dark:text-amber-400",
+                      else: "text-emerald-500 dark:text-emerald-400"
+                    )
+                  ]}>
+                    {if @session_locked, do: "Session locked", else: "Online"}
                   </div>
                 </div>
               </div>

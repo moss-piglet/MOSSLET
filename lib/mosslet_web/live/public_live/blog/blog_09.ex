@@ -52,7 +52,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
             <img
               src={~p"/images/blog/nov_27_2025_usfys.jpg"}
               class="w-full"
-              alt="Autumn leaves unlock session"
+              alt="Autumn trees unlock session"
             />
           </div>
           <figcaption class="flex justify-end text-sm text-slate-500 dark:text-slate-400 mt-2">
@@ -75,7 +75,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
           </a>
         </h2>
         <p>
-          When you check "remember me" during login, we set an encrypted cookie that remembers who you are for up to 60 days. But here's where it gets interesting: your encryption key (derived from your password) lives in your browser session, which expires more quickly for security reasons.
+          When you check "remember me" during login, we set an encrypted cookie that remembers who you are for up to 60 days. But here's where it gets interesting: your encryption key (derived from your password) lives in your encrypted browser session, which expires more quickly for security reasons.
         </p>
         <p>
           So what happens when your session key expires but your remember me cookie is still valid? Instead of making you go through the full login process again, we simply ask for your password to unlock your session. Think of it like coming home after the holidays — you still have your house key, but you need to enter your code to turn off the alarm.
@@ -105,11 +105,29 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
             </p>
           </div>
           <div class="divide-y divide-amber-200 dark:divide-amber-900/50 bg-white dark:bg-slate-900">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5">
-              <div class="flex-shrink-0 sm:w-32">
-                <div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-sm">
-                  <div class="w-2 h-2 rounded-full bg-slate-400"></div>
-                  <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Guest</span>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 px-4 sm:px-6 py-5">
+              <div class="flex-shrink-0">
+                <div class={[
+                  "group relative flex items-center gap-x-3 rounded-xl p-2 overflow-hidden",
+                  "bg-white dark:bg-slate-800",
+                  "ring-1 ring-slate-200/60 dark:ring-slate-600/40",
+                  "shadow-sm"
+                ]}>
+                  <div class="relative flex-shrink-0">
+                    <MossletWeb.CoreComponents.phx_avatar
+                      src=""
+                      class="h-10 w-10 rounded-xl object-cover ring-2 ring-white dark:ring-slate-600"
+                      alt="MOSSLET logo icon"
+                    />
+                  </div>
+                  <div class="text-left pr-2">
+                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Guest
+                    </div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">
+                      Sign in to continue
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex-1">
@@ -121,11 +139,29 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
                 </div>
               </div>
             </div>
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5 bg-amber-50/50 dark:bg-amber-950/20">
-              <div class="flex-shrink-0 sm:w-32">
-                <div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-700 shadow-sm">
-                  <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                  <span class="text-sm font-medium text-amber-800 dark:text-amber-200">Online</span>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 px-4 sm:px-6 py-5 bg-amber-50/50 dark:bg-amber-950/20">
+              <div class="flex-shrink-0">
+                <div class={[
+                  "group relative flex items-center gap-x-3 rounded-xl p-2 overflow-hidden",
+                  "bg-white dark:bg-slate-800",
+                  "ring-1 ring-amber-300/60 dark:ring-amber-600/40",
+                  "shadow-sm"
+                ]}>
+                  <div class="relative flex-shrink-0">
+                    <MossletWeb.CoreComponents.phx_avatar
+                      src=""
+                      class="h-10 w-10 rounded-xl object-cover ring-2 ring-white dark:ring-slate-600"
+                      alt="MOSSLET logo icon"
+                    />
+                  </div>
+                  <div class="text-left pr-2">
+                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Online
+                    </div>
+                    <div class="text-xs text-amber-600 dark:text-amber-400">
+                      Session locked
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex-1">
@@ -137,13 +173,29 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
                 </div>
               </div>
             </div>
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5 bg-emerald-50/50 dark:bg-emerald-950/20">
-              <div class="flex-shrink-0 sm:w-32">
-                <div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-400 dark:border-emerald-700 shadow-sm">
-                  <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  <span class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
-                    Your Name
-                  </span>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 px-4 sm:px-6 py-5 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <div class="flex-shrink-0">
+                <div class={[
+                  "group relative flex items-center gap-x-3 rounded-xl p-2 overflow-hidden",
+                  "bg-white dark:bg-slate-800",
+                  "ring-1 ring-emerald-300/60 dark:ring-emerald-500/40",
+                  "shadow-sm"
+                ]}>
+                  <div class="relative flex-shrink-0">
+                    <MossletWeb.CoreComponents.phx_avatar
+                      src={~p"/images/features/meg-aghamyan-unsplash.jpg"}
+                      class="h-10 w-10 rounded-xl object-cover ring-2 ring-white dark:ring-slate-600"
+                      alt="User avatar"
+                    />
+                  </div>
+                  <div class="text-left pr-2">
+                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Meg Aghamyan
+                    </div>
+                    <div class="text-xs text-emerald-600 dark:text-emerald-400">
+                      Online
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex-1">
@@ -252,6 +304,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
      )
      |> assign_new(:meta_description, fn ->
        "Learn how MOSSLET's unlock session feature balances privacy with convenience. When your session key expires, the remember me cookie keeps you authenticated while your encrypted data stays protected until you re-enter your password. Privacy and convenience working together this holiday season."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/nov_27_2025_usfys.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "Autumn trees unlock session artwork")}
   end
 end

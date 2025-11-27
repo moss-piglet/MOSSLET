@@ -264,6 +264,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog04 do
      )
      |> assign_new(:meta_description, fn ->
        "We're going to fly around and take a peek at some of the ways we keep you safe online. Essentially this is what we do on MOSSLET to keep you (and your data) safe: attention freeing, comprehensive control, intimate privacy protection, triple layer encryption, and zero dark patterns. Perhaps most importantly, you don't have to simply take our word for it, you can check everything yourself with our open source code base. ✌️"
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/june_26_2025_mkys.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "Digital wellness and attention freedom illustration")}
   end
 end

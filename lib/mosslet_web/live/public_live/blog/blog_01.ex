@@ -250,6 +250,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog01 do
      )
      |> assign_new(:meta_description, fn ->
        "Today, I learned that the Consumer Financial Protection Bureau (CFPB) quietly withdrew its own proposal to protect Americans from the data broker industry. Its original rule was proposed last December under former director Rohit Chopra and would have gone a long way in shielding us from the indiscriminate sharing of our personal information — like social security numbers, addresses, phone numbers, you name it."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/may_14_2025_cfpb.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "Data broker surveillance illustration")}
   end
 end

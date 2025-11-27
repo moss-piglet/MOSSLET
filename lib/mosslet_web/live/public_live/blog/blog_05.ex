@@ -142,6 +142,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog05 do
      )
      |> assign_new(:meta_description, fn ->
        "Companies selling AI to geolocate your social media photos. In this 5th blog post, from privacy-first social alternative MOSSLET, we share an alarming trend among surveillance and spy companies to offer AI services that can locate you based on your photographs. Then, we discuss how MOSSLET protects your privacy and keeps you safe from these very same spy tools."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/aug_13_2025_augp.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "AI geolocation surveillance of social media photos illustration")}
   end
 end

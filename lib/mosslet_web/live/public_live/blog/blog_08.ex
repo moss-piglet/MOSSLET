@@ -188,6 +188,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog08 do
      )
      |> assign_new(:meta_description, fn ->
        "Meta laid off over 100 people from its risk review organization — the very team responsible for ensuring the company's products comply with Federal Trade Commission agreements and global privacy regulations. While Meta's AI division shed 600 employees to 'make decisions faster,' the cuts to privacy oversight represent something far more troubling. This isn't just corporate restructuring. It's a deliberate gutting of the safeguards meant to protect your personal information."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/nov_7_2025_mlemrp.jpg")
+     |> assign(:og_image_type, "image/jpeg")
+     |> assign(:og_image_alt, "Meta layoffs gut privacy protections illustration")}
   end
 end

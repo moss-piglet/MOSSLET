@@ -2241,6 +2241,7 @@ defmodule MossletWeb.CoreComponents do
       end)
       |> assign_new(:avatar_src, fn -> user_avatar_url(current_user) end)
       |> assign_new(:home_path, fn -> home_path(current_user) end)
+      |> assign_new(:session_locked, fn -> current_user && !assigns[:key] end)
 
     ~H"""
     <%= case @type do %>
