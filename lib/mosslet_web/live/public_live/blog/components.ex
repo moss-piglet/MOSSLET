@@ -24,7 +24,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
       <%!-- Subtitle with enhanced styling --%>
       <div class="mt-6 relative">
         <p class={[
-          "mx-2 text-lg lg:text-xl leading-relaxed max-w-3xl mx-auto",
+          "text-lg lg:text-xl leading-relaxed max-w-3xl mx-auto",
           "text-slate-600 dark:text-slate-400",
           "transition-colors duration-300 ease-out"
         ]}>
@@ -16547,7 +16547,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
     ~H"""
     <%!-- Enhanced liquid metal blog article layout --%>
     <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-      <div class="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-16 pb-24">
+      <div class="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 lg:pt-16 pb-24">
         <%!-- Article header with liquid styling --%>
         <header class="mb-16">
           <%!-- Date badge --%>

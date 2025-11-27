@@ -30,6 +30,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_09"
+                date="November 27, 2025"
+                title="Unlock Sessions: Privacy Meets Convenience This Holiday Season"
+                preview="The autumn leaves are falling and the coziness is here — a time for gathering with loved ones, sharing memories, and yes, spending a bit more time on our devices connecting with friends and family near and far. At MOSSLET, we've been thinking about how to make your experience both secure and convenient this holiday season."
+                link={~p"/blog/articles/09"}
+              />
+              <.blog_entry
                 id="blog_08"
                 date="November 7, 2025"
                 title="Meta Layoffs Included Employees Who Monitored Risks to User Privacy"
