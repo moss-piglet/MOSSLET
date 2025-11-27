@@ -95,6 +95,67 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
           </li>
         </ul>
 
+        <div class="my-8 overflow-hidden rounded-2xl border-2 border-amber-200 dark:border-amber-800/60 shadow-xl shadow-amber-900/10 dark:shadow-amber-900/20">
+          <div class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 dark:from-amber-700 dark:via-orange-700 dark:to-amber-800 px-4 sm:px-6 py-4">
+            <h3 class="text-white font-semibold text-lg">
+              Session Status Guide
+            </h3>
+            <p class="text-amber-100 text-sm mt-1">
+              Check the menu dropdown to see your current state
+            </p>
+          </div>
+          <div class="divide-y divide-amber-200 dark:divide-amber-900/50 bg-white dark:bg-slate-900">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5">
+              <div class="flex-shrink-0 sm:w-32">
+                <div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-sm">
+                  <div class="w-2 h-2 rounded-full bg-slate-400"></div>
+                  <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Guest</span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-slate-900 dark:text-white">
+                  Full login required
+                </div>
+                <div class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                  No cookie, no session — start fresh with email & password
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5 bg-amber-50/50 dark:bg-amber-950/20">
+              <div class="flex-shrink-0 sm:w-32">
+                <div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-700 shadow-sm">
+                  <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                  <span class="text-sm font-medium text-amber-800 dark:text-amber-200">Online</span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-slate-900 dark:text-white">
+                  Unlock session needed
+                </div>
+                <div class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                  Cookie valid, key expired — just enter your password
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 px-4 sm:px-6 py-4 sm:py-5 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <div class="flex-shrink-0 sm:w-32">
+                <div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-400 dark:border-emerald-700 shadow-sm">
+                  <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <span class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                    Your Name
+                  </span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-slate-900 dark:text-white">Fully active</div>
+                <div class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                  Everything unlocked — you're good to go!
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <hr />
         <h2 id="privacy-by-design">
           <a href="#privacy-by-design">
