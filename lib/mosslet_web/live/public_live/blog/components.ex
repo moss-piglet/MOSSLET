@@ -15,7 +15,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
       <%!-- Main heading with liquid metal gradient --%>
       <h1 class={[
         "mx-2 mb-6 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl",
-        "bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent",
+        "bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm",
         "transition-all duration-300 ease-out"
       ]}>
         MOSSLET updates
@@ -16567,8 +16567,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
           <div class="relative mb-8">
             <h1 class={[
               "text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight",
-              "bg-gradient-to-r from-slate-900 via-teal-800 to-emerald-800 bg-clip-text text-transparent",
-              "dark:from-slate-100 dark:via-teal-200 dark:to-emerald-200",
+              "bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm",
               "transition-all duration-300 ease-out"
             ]}>
               {@title}
