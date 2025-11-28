@@ -104,12 +104,15 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
   defp fetch_image(url) do
     with {:ok, validated_url} <- URLPreviewSecurity.validate_and_normalize_url(url) do
       case Req.get(validated_url,
-             max_redirects: 3,
+             max_redirects: 5,
              retry: :transient,
              max_retries: 2,
              receive_timeout: 10_000,
              headers: [
-               {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
+               {"user-agent",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+               {"accept", "image/webp,image/apng,image/*,*/*;q=0.8"},
+               {"accept-language", "en-US,en;q=0.5"}
              ]
            ) do
         {:ok, %{status: 200, body: body}} when is_binary(body) ->
