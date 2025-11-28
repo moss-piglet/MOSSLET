@@ -21,6 +21,9 @@ defmodule MossletWeb.EditProfileLive do
       })
       |> assign(:banner_image, banner_image)
       |> assign_profile_about(current_user, socket.assigns.key)
+      |> assign_profile_alternate_email(current_user, socket.assigns.key)
+      |> assign_profile_website_url(current_user, socket.assigns.key)
+      |> assign_profile_website_label(current_user, socket.assigns.key)
       |> assign_profile_form(current_user)
 
     {:ok, socket}
@@ -288,6 +291,62 @@ defmodule MossletWeb.EditProfileLive do
                 </div>
               </DesignSystem.liquid_card>
 
+              <%!-- Contact & Links Card --%>
+              <DesignSystem.liquid_card>
+                <:title>
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-violet-100 via-purple-50 to-violet-100 dark:from-violet-900/30 dark:via-purple-900/25 dark:to-violet-900/30">
+                      <.phx_icon
+                        name="hero-link"
+                        class="h-4 w-4 text-violet-600 dark:text-violet-400"
+                      />
+                    </div>
+                    Contact & Links
+                  </div>
+                </:title>
+
+                <div class="space-y-6">
+                  <div class="space-y-3">
+                    <DesignSystem.liquid_input
+                      field={f_nested[:alternate_email]}
+                      type="email"
+                      label="Contact Email"
+                      value={@profile_alternate_email}
+                      placeholder="contact@example.com"
+                    />
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                      Add an alternative email for others to reach you. This keeps your account email private.
+                    </p>
+                  </div>
+
+                  <div class="space-y-3">
+                    <DesignSystem.liquid_input
+                      field={f_nested[:website_url]}
+                      type="url"
+                      label="Website URL"
+                      value={@profile_website_url}
+                      placeholder="https://yourwebsite.com"
+                    />
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                      Share a link to your website, portfolio, or something else.
+                    </p>
+                  </div>
+
+                  <div class="space-y-3">
+                    <DesignSystem.liquid_input
+                      field={f_nested[:website_label]}
+                      type="text"
+                      label="Link Label"
+                      value={@profile_website_label}
+                      placeholder="My Portfolio"
+                    />
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                      Add a short label to describe your link (e.g., "My Blog", "GitHub", "Portfolio").
+                    </p>
+                  </div>
+                </div>
+              </DesignSystem.liquid_card>
+
               <%!-- About You Card --%>
               <DesignSystem.liquid_card>
                 <:title>
@@ -336,6 +395,7 @@ defmodule MossletWeb.EditProfileLive do
                   phx-disable-with="Updating..."
                   shimmer="page"
                   icon="hero-check"
+                  disabled={not @profile_form.source.valid?}
                 >
                   Update Profile
                 </DesignSystem.liquid_button>
@@ -346,6 +406,7 @@ defmodule MossletWeb.EditProfileLive do
                   phx-disable-with="Creating..."
                   shimmer="page"
                   icon="hero-plus"
+                  disabled={not @profile_form.source.valid?}
                 >
                   Create Profile
                 </DesignSystem.liquid_button>
@@ -439,6 +500,9 @@ defmodule MossletWeb.EditProfileLive do
          banner_image: corrected_profile_params["profile"]["banner_image"] |> banner_image_atoms()
        )
        |> assign(profile_about: corrected_profile_params["profile"]["about"])
+       |> assign(profile_alternate_email: corrected_profile_params["profile"]["alternate_email"])
+       |> assign(profile_website_url: corrected_profile_params["profile"]["website_url"])
+       |> assign(profile_website_label: corrected_profile_params["profile"]["website_label"])
        |> assign(profile_form: profile_form)}
     else
       profile_params =
@@ -475,6 +539,9 @@ defmodule MossletWeb.EditProfileLive do
          banner_image: corrected_profile_params["profile"]["banner_image"] |> banner_image_atoms()
        )
        |> assign(profile_about: corrected_profile_params["profile"]["about"])
+       |> assign(profile_alternate_email: corrected_profile_params["profile"]["alternate_email"])
+       |> assign(profile_website_url: corrected_profile_params["profile"]["website_url"])
+       |> assign(profile_website_label: corrected_profile_params["profile"]["website_label"])
        |> assign(profile_form: profile_form)}
     end
   end
@@ -661,6 +728,46 @@ defmodule MossletWeb.EditProfileLive do
 
   defp assign_profile_about(socket, user, key) do
     assign(socket, profile_about: maybe_decrypt_profile_about(user, key))
+  end
+
+  defp assign_profile_alternate_email(socket, user, key) do
+    assign(socket,
+      profile_alternate_email: maybe_decrypt_profile_field(user, key, :alternate_email)
+    )
+  end
+
+  defp assign_profile_website_url(socket, user, key) do
+    assign(socket, profile_website_url: maybe_decrypt_profile_field(user, key, :website_url))
+  end
+
+  defp assign_profile_website_label(socket, user, key) do
+    assign(socket, profile_website_label: maybe_decrypt_profile_field(user, key, :website_label))
+  end
+
+  defp maybe_decrypt_profile_field(user, key, field) do
+    profile = Map.get(user.connection, :profile)
+
+    cond do
+      profile && not is_nil(Map.get(profile, field)) ->
+        field_value = Map.get(profile, field)
+
+        cond do
+          profile.visibility == :public ->
+            decr_public_item(field_value, profile.profile_key)
+
+          profile.visibility == :private ->
+            decr_item(field_value, user, profile.profile_key, key, profile)
+
+          profile.visibility == :connections ->
+            decr_item(field_value, user, profile.profile_key, key, profile)
+
+          true ->
+            field_value
+        end
+
+      true ->
+        nil
+    end
   end
 
   defp assign_profile_form(socket, user) do

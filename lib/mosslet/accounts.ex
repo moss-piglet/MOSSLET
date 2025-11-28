@@ -1105,7 +1105,10 @@ defmodule Mosslet.Accounts do
               "name" => attrs["name"],
               "email" => MossletWeb.Helpers.decr(user.email, user, opts[:key]),
               "visibility" => user.visibility,
-              "about" => decrypt_profile_about(user, opts[:key])
+              "about" => decrypt_profile_about(user, opts[:key]),
+              "alternate_email" => decrypt_profile_field(user, opts[:key], :alternate_email),
+              "website_url" => decrypt_profile_field(user, opts[:key], :website_url),
+              "website_label" => decrypt_profile_field(user, opts[:key], :website_label)
             })
 
           profile_attrs =
@@ -1228,7 +1231,10 @@ defmodule Mosslet.Accounts do
               "name" => MossletWeb.Helpers.decr(user.name, user, opts[:key]),
               "email" => MossletWeb.Helpers.decr(user.email, user, opts[:key]),
               "visibility" => user.visibility,
-              "about" => decrypt_profile_about(user, opts[:key])
+              "about" => decrypt_profile_about(user, opts[:key]),
+              "alternate_email" => decrypt_profile_field(user, opts[:key], :alternate_email),
+              "website_url" => decrypt_profile_field(user, opts[:key], :website_url),
+              "website_label" => decrypt_profile_field(user, opts[:key], :website_label)
             })
 
           profile_attrs =
@@ -1314,7 +1320,10 @@ defmodule Mosslet.Accounts do
               "name" => MossletWeb.Helpers.decr(user.name, user, opts[:key]),
               "email" => MossletWeb.Helpers.decr(user.email, user, opts[:key]),
               "visibility" => attrs["visibility"],
-              "about" => decrypt_profile_about(user, opts[:key])
+              "about" => decrypt_profile_about(user, opts[:key]),
+              "alternate_email" => decrypt_profile_field(user, opts[:key], :alternate_email),
+              "website_url" => decrypt_profile_field(user, opts[:key], :website_url),
+              "website_label" => decrypt_profile_field(user, opts[:key], :website_label)
             })
 
           profile_attrs =
@@ -1976,7 +1985,10 @@ defmodule Mosslet.Accounts do
             "name" => MossletWeb.Helpers.decr(user.username, user, key),
             "email" => email,
             "visibility" => user.visibility,
-            "about" => decrypt_profile_about(user, key)
+            "about" => decrypt_profile_about(user, key),
+            "alternate_email" => decrypt_profile_field(user, key, :alternate_email),
+            "website_url" => decrypt_profile_field(user, key, :website_url),
+            "website_label" => decrypt_profile_field(user, key, :website_label)
           })
 
         profile_attrs =
@@ -2882,6 +2894,120 @@ defmodule Mosslet.Accounts do
 
       true ->
         nil
+    end
+  end
+
+  defp decrypt_profile_field(user, key, field) do
+    profile = Map.get(user.connection, :profile)
+
+    case field do
+      :alternate_email ->
+        cond do
+          profile && not is_nil(profile.alternate_email) ->
+            cond do
+              profile.visibility == :public ->
+                Encrypted.Users.Utils.decrypt_public_item(
+                  profile.alternate_email,
+                  profile.profile_key
+                )
+
+              profile.visibility == :private ->
+                MossletWeb.Helpers.decr_item(
+                  profile.alternate_email,
+                  user,
+                  profile.profile_key,
+                  key,
+                  profile
+                )
+
+              profile.visibility == :connections ->
+                MossletWeb.Helpers.decr_item(
+                  profile.alternate_email,
+                  user,
+                  profile.profile_key,
+                  key,
+                  profile
+                )
+
+              true ->
+                profile.alternate_email
+            end
+
+          true ->
+            nil
+        end
+
+      :website_url ->
+        cond do
+          profile && not is_nil(profile.website_url) ->
+            cond do
+              profile.visibility == :public ->
+                Encrypted.Users.Utils.decrypt_public_item(
+                  profile.website_url,
+                  profile.profile_key
+                )
+
+              profile.visibility == :private ->
+                MossletWeb.Helpers.decr_item(
+                  profile.website_url,
+                  user,
+                  profile.profile_key,
+                  key,
+                  profile
+                )
+
+              profile.visibility == :connections ->
+                MossletWeb.Helpers.decr_item(
+                  profile.website_url,
+                  user,
+                  profile.profile_key,
+                  key,
+                  profile
+                )
+
+              true ->
+                profile.website_url
+            end
+
+          true ->
+            nil
+        end
+
+      :website_label ->
+        cond do
+          profile && not is_nil(profile.website_label) ->
+            cond do
+              profile.visibility == :public ->
+                Encrypted.Users.Utils.decrypt_public_item(
+                  profile.website_label,
+                  profile.profile_key
+                )
+
+              profile.visibility == :private ->
+                MossletWeb.Helpers.decr_item(
+                  profile.website_label,
+                  user,
+                  profile.profile_key,
+                  key,
+                  profile
+                )
+
+              profile.visibility == :connections ->
+                MossletWeb.Helpers.decr_item(
+                  profile.website_label,
+                  user,
+                  profile.profile_key,
+                  key,
+                  profile
+                )
+
+              true ->
+                profile.website_label
+            end
+
+          true ->
+            nil
+        end
     end
   end
 

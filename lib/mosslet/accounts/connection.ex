@@ -68,6 +68,9 @@ defmodule Mosslet.Accounts.Connection do
       field :name, Encrypted.Binary
       field :about, Encrypted.Binary
       field :email, Encrypted.Binary
+      field :alternate_email, Encrypted.Binary
+      field :website_url, Encrypted.Binary
+      field :website_label, Encrypted.Binary
       field :username, Encrypted.Binary
       field :avatar_url, Encrypted.Binary
       field :slug, Encrypted.Binary
@@ -141,6 +144,9 @@ defmodule Mosslet.Accounts.Connection do
       :name,
       :about,
       :email,
+      :alternate_email,
+      :website_url,
+      :website_label,
       :username,
       :avatar_url,
       :show_avatar?,
@@ -156,6 +162,10 @@ defmodule Mosslet.Accounts.Connection do
       :temp_username
     ])
     |> validate_length(:about, max: 1_500)
+    |> validate_length(:alternate_email, max: 320)
+    |> validate_length(:website_url, max: 2_000)
+    |> validate_website_url()
+    |> validate_length(:website_label, max: 100)
     |> build_slug()
     |> maybe_encrypt_attrs(opts_map)
   end
@@ -297,6 +307,50 @@ defmodule Mosslet.Accounts.Connection do
     end
   end
 
+  defp validate_website_url(changeset) do
+    case get_change(changeset, :website_url) do
+      nil ->
+        changeset
+
+      "" ->
+        changeset
+
+      url ->
+        with {:ok, host} <- parse_uri(url),
+             :ok <- validate_dns_resolution(host),
+             :ok <- SafeURL.validate(url, schemes: ~w[https]) do
+          changeset
+        else
+          {:error, reason} ->
+            add_error(changeset, :website_url, format_url_error(reason))
+        end
+    end
+  end
+
+  defp parse_uri(url) do
+    case URI.parse(url) do
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> {:ok, host}
+      %URI{scheme: scheme} when scheme != "https" -> {:error, :unsafe_scheme}
+      _ -> {:error, :invalid_uri}
+    end
+  end
+
+  defp validate_dns_resolution(host) do
+    case DNS.resolve(host) do
+      {:ok, [_ | _]} -> :ok
+      {:error, :nxdomain} -> {:error, :nxdomain}
+      {:error, {:servfail, _}} -> {:error, :nxdomain}
+      {:error, _} -> {:error, :nxdomain}
+    end
+  end
+
+  defp format_url_error(:unsafe_scheme), do: "must use https"
+  defp format_url_error(:unsafe_reserved), do: "cannot point to a private or reserved address"
+  defp format_url_error(:unsafe_blocklist), do: "is not allowed"
+  defp format_url_error(:invalid_uri), do: "is not a valid URL"
+  defp format_url_error(:nxdomain), do: "domain does not exist"
+  defp format_url_error(_), do: "is not a valid URL"
+
   defp maybe_encrypt_attrs(changeset, opts_map) do
     if changeset.valid? && opts_map && Map.get(opts_map, :encrypt) do
       username = get_field(changeset, :username)
@@ -310,6 +364,9 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:name, maybe_encrypt_name(changeset, profile_key))
           |> put_change(:email, maybe_encrypt_email(changeset, profile_key))
           |> put_change(:about, maybe_encrypt_about(changeset, profile_key))
+          |> put_change(:alternate_email, maybe_encrypt_alternate_email(changeset, profile_key))
+          |> put_change(:website_url, maybe_encrypt_website_url(changeset, profile_key))
+          |> put_change(:website_label, maybe_encrypt_website_label(changeset, profile_key))
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
@@ -324,6 +381,9 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:name, maybe_encrypt_name(changeset, profile_key))
           |> put_change(:email, maybe_encrypt_email(changeset, profile_key))
           |> put_change(:about, maybe_encrypt_about(changeset, profile_key))
+          |> put_change(:alternate_email, maybe_encrypt_alternate_email(changeset, profile_key))
+          |> put_change(:website_url, maybe_encrypt_website_url(changeset, profile_key))
+          |> put_change(:website_label, maybe_encrypt_website_label(changeset, profile_key))
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
@@ -338,6 +398,9 @@ defmodule Mosslet.Accounts.Connection do
           |> put_change(:name, maybe_encrypt_name(changeset, profile_key))
           |> put_change(:email, maybe_encrypt_email(changeset, profile_key))
           |> put_change(:about, maybe_encrypt_about(changeset, profile_key))
+          |> put_change(:alternate_email, maybe_encrypt_alternate_email(changeset, profile_key))
+          |> put_change(:website_url, maybe_encrypt_website_url(changeset, profile_key))
+          |> put_change(:website_label, maybe_encrypt_website_label(changeset, profile_key))
           |> put_change(:username, Utils.encrypt(%{key: profile_key, payload: username}))
           |> put_change(
             :profile_key,
@@ -358,6 +421,36 @@ defmodule Mosslet.Accounts.Connection do
     cond do
       about = get_field(changeset, :about) ->
         Utils.encrypt(%{key: profile_key, payload: about})
+
+      true ->
+        nil
+    end
+  end
+
+  defp maybe_encrypt_alternate_email(changeset, profile_key) do
+    cond do
+      alternate_email = get_field(changeset, :alternate_email) ->
+        Utils.encrypt(%{key: profile_key, payload: alternate_email})
+
+      true ->
+        nil
+    end
+  end
+
+  defp maybe_encrypt_website_url(changeset, profile_key) do
+    cond do
+      website_url = get_field(changeset, :website_url) ->
+        Utils.encrypt(%{key: profile_key, payload: website_url})
+
+      true ->
+        nil
+    end
+  end
+
+  defp maybe_encrypt_website_label(changeset, profile_key) do
+    cond do
+      website_label = get_field(changeset, :website_label) ->
+        Utils.encrypt(%{key: profile_key, payload: website_label})
 
       true ->
         nil

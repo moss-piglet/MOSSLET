@@ -401,6 +401,92 @@ defmodule MossletWeb.UserHomeLive do
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Left Column: Profile Details & Federation --%>
           <div class="lg:col-span-2 space-y-8">
+            <%!-- Contact & Links Section --%>
+            <MossletWeb.DesignSystem.liquid_card :if={
+              has_contact_links?(@current_user.connection.profile)
+            }>
+              <:title>
+                <div class="flex items-center gap-2">
+                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                  Contact & Links
+                </div>
+              </:title>
+              <div class="space-y-4">
+                <div
+                  :if={@current_user.connection.profile.alternate_email}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                    <a
+                      href={"mailto:#{decr_item(@current_user.connection.profile.alternate_email, @current_user, @current_user.connection.profile.profile_key, @key, @current_user.connection.profile)}"}
+                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                    >
+                      {decr_item(
+                        @current_user.connection.profile.alternate_email,
+                        @current_user,
+                        @current_user.connection.profile.profile_key,
+                        @key,
+                        @current_user.connection.profile
+                      )}
+                    </a>
+                  </div>
+                </div>
+
+                <div
+                  :if={@current_user.connection.profile.website_url}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+                    <.phx_icon
+                      name="hero-globe-alt"
+                      class="size-5 text-violet-600 dark:text-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                      {if @current_user.connection.profile.website_label do
+                        decr_item(
+                          @current_user.connection.profile.website_label,
+                          @current_user,
+                          @current_user.connection.profile.profile_key,
+                          @key,
+                          @current_user.connection.profile
+                        )
+                      else
+                        "Website"
+                      end}
+                    </p>
+                    <a
+                      href={
+                        decr_item(
+                          @current_user.connection.profile.website_url,
+                          @current_user,
+                          @current_user.connection.profile.profile_key,
+                          @key,
+                          @current_user.connection.profile
+                        )
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      {decr_item(
+                        @current_user.connection.profile.website_url,
+                        @current_user,
+                        @current_user.connection.profile.profile_key,
+                        @key,
+                        @current_user.connection.profile
+                      )}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
+
             <%!-- About Section --%>
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
@@ -852,6 +938,79 @@ defmodule MossletWeb.UserHomeLive do
       <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-2 space-y-8">
+            <MossletWeb.DesignSystem.liquid_card :if={
+              has_contact_links?(@profile_user.connection.profile)
+            }>
+              <:title>
+                <div class="flex items-center gap-2">
+                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                  Contact & Links
+                </div>
+              </:title>
+              <div class="space-y-4">
+                <div
+                  :if={@profile_user.connection.profile.alternate_email}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                    <a
+                      href={"mailto:#{decrypt_public_field(@profile_user.connection.profile.alternate_email, @profile_user.connection.profile.profile_key)}"}
+                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                    >
+                      {decrypt_public_field(
+                        @profile_user.connection.profile.alternate_email,
+                        @profile_user.connection.profile.profile_key
+                      )}
+                    </a>
+                  </div>
+                </div>
+
+                <div
+                  :if={@profile_user.connection.profile.website_url}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+                    <.phx_icon
+                      name="hero-globe-alt"
+                      class="size-5 text-violet-600 dark:text-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                      {if @profile_user.connection.profile.website_label do
+                        decrypt_public_field(
+                          @profile_user.connection.profile.website_label,
+                          @profile_user.connection.profile.profile_key
+                        )
+                      else
+                        "Website"
+                      end}
+                    </p>
+                    <a
+                      href={
+                        decrypt_public_field(
+                          @profile_user.connection.profile.website_url,
+                          @profile_user.connection.profile.profile_key
+                        )
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      {decrypt_public_field(
+                        @profile_user.connection.profile.website_url,
+                        @profile_user.connection.profile.profile_key
+                      )}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
+
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
@@ -1108,6 +1267,88 @@ defmodule MossletWeb.UserHomeLive do
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Left Column: Connection Profile Details --%>
           <div class="lg:col-span-2 space-y-8">
+            <%!-- Contact & Links Section --%>
+            <MossletWeb.DesignSystem.liquid_card :if={
+              has_contact_links?(@profile_user.connection.profile)
+            }>
+              <:title>
+                <div class="flex items-center gap-2">
+                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                  Contact & Links
+                </div>
+              </:title>
+              <div class="space-y-4">
+                <div
+                  :if={@profile_user.connection.profile.alternate_email}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                    <a
+                      href={"mailto:#{decr_uconn(@profile_user.connection.profile.alternate_email, @current_user, @user_connection.key, @key)}"}
+                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                    >
+                      {decr_uconn(
+                        @profile_user.connection.profile.alternate_email,
+                        @current_user,
+                        @user_connection.key,
+                        @key
+                      )}
+                    </a>
+                  </div>
+                </div>
+
+                <div
+                  :if={@profile_user.connection.profile.website_url}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+                    <.phx_icon
+                      name="hero-globe-alt"
+                      class="size-5 text-violet-600 dark:text-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                      {if @profile_user.connection.profile.website_label do
+                        decr_uconn(
+                          @profile_user.connection.profile.website_label,
+                          @current_user,
+                          @user_connection.key,
+                          @key
+                        )
+                      else
+                        "Website"
+                      end}
+                    </p>
+                    <a
+                      href={
+                        decr_uconn(
+                          @profile_user.connection.profile.website_url,
+                          @current_user,
+                          @user_connection.key,
+                          @key
+                        )
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                    >
+                      {decr_uconn(
+                        @profile_user.connection.profile.website_url,
+                        @current_user,
+                        @user_connection.key,
+                        @key
+                      )}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
+
             <%!-- About Section --%>
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
@@ -1272,5 +1513,9 @@ defmodule MossletWeb.UserHomeLive do
     else
       nil
     end
+  end
+
+  defp has_contact_links?(profile) do
+    profile.alternate_email || profile.website_url
   end
 end
