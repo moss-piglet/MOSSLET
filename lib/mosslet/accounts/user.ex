@@ -179,19 +179,19 @@ defmodule Mosslet.Accounts.User do
       |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
         message: "must have the @ sign and no spaces"
       )
-      |> validate_mx_records()
       |> validate_length(:email, max: 160)
+      |> validate_mx_records()
       |> add_email_hash()
       |> maybe_validate_unique_email_hash(opts)
       |> encrypt_email_change(opts, email)
     else
       changeset
       |> validate_required([:email])
-      |> validate_mx_records()
       |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
         message: "must have the @ sign and no spaces"
       )
       |> validate_length(:email, max: 160)
+      |> validate_mx_records()
       |> add_email_hash()
       |> maybe_validate_unique_email_hash(opts)
     end

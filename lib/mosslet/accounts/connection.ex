@@ -162,8 +162,9 @@ defmodule Mosslet.Accounts.Connection do
       :temp_username
     ])
     |> validate_length(:about, max: 1_500)
-    |> validate_length(:alternate_email, max: 320)
+    |> validate_length(:alternate_email, max: 160)
     |> validate_length(:website_url, max: 2_000)
+    |> validate_alternate_email()
     |> validate_website_url()
     |> validate_length(:website_label, max: 100)
     |> build_slug()
@@ -302,6 +303,40 @@ defmodule Mosslet.Accounts.Connection do
     if temp_username = get_field(changeset, :temp_username) do
       slug = Slug.slugify(temp_username, ignore: ["_"])
       put_change(changeset, :slug, slug)
+    else
+      changeset
+    end
+  end
+
+  defp validate_alternate_email(changeset) do
+    case get_change(changeset, :alternate_email) do
+      nil ->
+        changeset
+
+      "" ->
+        changeset
+
+      _alternate_email ->
+        changeset
+        |> validate_format(:alternate_email, ~r/^[^\s]+@[^\s]+$/,
+          message: "must have the @ sign and no spaces"
+        )
+        |> validate_mx_records()
+    end
+  end
+
+  defp validate_mx_records(changeset) do
+    alternate_email = get_field(changeset, :alternate_email)
+
+    if alternate_email do
+      case EmailChecker.valid?(alternate_email) do
+        true ->
+          changeset
+
+        _rest ->
+          changeset
+          |> add_error(:alternate_email, "invalid or not a valid domain")
+      end
     else
       changeset
     end
