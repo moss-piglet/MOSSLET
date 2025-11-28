@@ -5,6 +5,7 @@ defmodule MossletWeb.UserHomeLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
+  alias Mosslet.Extensions.URLPreviewServer
   alias MossletWeb.Helpers.StatusHelpers
 
   def mount(%{"slug" => slug} = _params, _session, socket) do
@@ -47,22 +48,32 @@ defmodule MossletWeb.UserHomeLive do
         socket
       end
 
-    # display the user_home_live.html.heex layout (default)
-    {:ok,
-     socket
-     |> assign(:slug, slug)
-     |> assign(:page_title, if(profile_owner?, do: "Home", else: "Profile"))
-     |> assign(:image_urls, [])
-     |> assign(:delete_post_from_cloud_message, nil)
-     |> assign(:delete_reply_from_cloud_message, nil)
-     |> assign(:uploads_in_progress, false)
-     |> assign(:trix_key, nil)
-     |> assign(:profile_user, profile_user)
-     |> assign(:current_user_is_profile_owner?, profile_owner?)
-     |> assign(
-       :user_connection,
-       if(profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id))
-     )}
+    socket =
+      socket
+      |> assign(:slug, slug)
+      |> assign(:page_title, if(profile_owner?, do: "Home", else: "Profile"))
+      |> assign(:image_urls, [])
+      |> assign(:delete_post_from_cloud_message, nil)
+      |> assign(:delete_reply_from_cloud_message, nil)
+      |> assign(:uploads_in_progress, false)
+      |> assign(:trix_key, nil)
+      |> assign(:profile_user, profile_user)
+      |> assign(:current_user_is_profile_owner?, profile_owner?)
+      |> assign(
+        :user_connection,
+        if(profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id))
+      )
+      |> assign(:website_url_preview, nil)
+      |> assign(:website_url_preview_loading, false)
+
+    socket =
+      if connected?(socket) do
+        maybe_fetch_website_preview(socket, profile_user, current_user, profile_owner?)
+      else
+        socket
+      end
+
+    {:ok, socket}
   end
 
   def render(assigns) do
@@ -197,8 +208,61 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  def handle_info({ref, {:website_preview_result, result}}, socket) do
+    Process.demonitor(ref, [:flush])
+
+    socket =
+      case result do
+        {:ok, preview} ->
+          socket
+          |> assign(:website_url_preview, preview)
+          |> assign(:website_url_preview_loading, false)
+
+        {:error, _reason} ->
+          socket
+          |> assign(:website_url_preview, nil)
+          |> assign(:website_url_preview_loading, false)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
+    {:noreply, assign(socket, :website_url_preview_loading, false)}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
+  end
+
+  defp maybe_fetch_website_preview(socket, profile_user, current_user, profile_owner?) do
+    profile = profile_user.connection.profile
+    session_key = socket.assigns.key
+
+    website_url =
+      if profile.website_url do
+        key =
+          profile_user.connection.profile.profile_key
+
+        if key && profile_user.visibility != :public do
+          decr_item(profile.website_url, current_user, key, session_key, profile)
+        else
+          decrypt_public_field(
+            profile.website_url,
+            profile.profile_key
+          )
+        end
+      end
+
+    if is_binary(website_url) && website_url != "" do
+      Task.async(fn ->
+        {:website_preview_result, URLPreviewServer.fetch(website_url)}
+      end)
+
+      assign(socket, :website_url_preview_loading, true)
+    else
+      socket
+    end
   end
 
   defp apply_action(socket, :show, _params) do
@@ -438,16 +502,16 @@ defmodule MossletWeb.UserHomeLive do
 
                 <div
                   :if={@current_user.connection.profile.website_url}
-                  class="flex items-center gap-3"
+                  class="space-y-3"
                 >
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
-                    <.phx_icon
-                      name="hero-globe-alt"
-                      class="size-5 text-violet-600 dark:text-violet-400"
-                    />
-                  </div>
-                  <div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                  <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+                      <.phx_icon
+                        name="hero-globe-alt"
+                        class="size-4 text-violet-600 dark:text-violet-400"
+                      />
+                    </div>
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {if @current_user.connection.profile.website_label do
                         decr_item(
                           @current_user.connection.profile.website_label,
@@ -460,29 +524,85 @@ defmodule MossletWeb.UserHomeLive do
                         "Website"
                       end}
                     </p>
-                    <a
-                      href={
-                        decr_item(
-                          @current_user.connection.profile.website_url,
-                          @current_user,
-                          @current_user.connection.profile.profile_key,
-                          @key,
-                          @current_user.connection.profile
-                        )
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-                    >
-                      {decr_item(
+                  </div>
+
+                  <a
+                    :if={@website_url_preview && @website_url_preview["image"]}
+                    href={
+                      decr_item(
                         @current_user.connection.profile.website_url,
                         @current_user,
                         @current_user.connection.profile.profile_key,
                         @key,
                         @current_user.connection.profile
-                      )}
-                    </a>
+                      )
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="block group"
+                  >
+                    <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
+                      <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
+                        <img
+                          src={@website_url_preview["image"]}
+                          alt={@website_url_preview["title"] || "Website preview"}
+                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+                      <div class="flex-1 min-w-0 py-0.5">
+                        <p
+                          :if={@website_url_preview["title"]}
+                          class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
+                        >
+                          {@website_url_preview["title"]}
+                        </p>
+                        <p
+                          :if={@website_url_preview["description"]}
+                          class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
+                        >
+                          {@website_url_preview["description"]}
+                        </p>
+                      </div>
+                    </div>
+                  </a>
+
+                  <div
+                    :if={@website_url_preview_loading}
+                    class="flex items-center gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
+                  >
+                    <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                    </div>
+                    <div class="flex-1 space-y-2">
+                      <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                      </div>
+                      <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                      </div>
+                    </div>
                   </div>
+
+                  <a
+                    :if={!@website_url_preview || !@website_url_preview["image"]}
+                    href={
+                      decr_item(
+                        @current_user.connection.profile.website_url,
+                        @current_user,
+                        @current_user.connection.profile.profile_key,
+                        @key,
+                        @current_user.connection.profile
+                      )
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline transition-colors truncate block"
+                  >
+                    {decr_item(
+                      @current_user.connection.profile.website_url,
+                      @current_user,
+                      @current_user.connection.profile.profile_key,
+                      @key,
+                      @current_user.connection.profile
+                    )}
+                  </a>
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
@@ -971,16 +1091,16 @@ defmodule MossletWeb.UserHomeLive do
 
                 <div
                   :if={@profile_user.connection.profile.website_url}
-                  class="flex items-center gap-3"
+                  class="space-y-3"
                 >
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
-                    <.phx_icon
-                      name="hero-globe-alt"
-                      class="size-5 text-violet-600 dark:text-violet-400"
-                    />
-                  </div>
-                  <div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                  <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+                      <.phx_icon
+                        name="hero-globe-alt"
+                        class="size-4 text-violet-600 dark:text-violet-400"
+                      />
+                    </div>
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {if @profile_user.connection.profile.website_label do
                         decrypt_public_field(
                           @profile_user.connection.profile.website_label,
@@ -990,23 +1110,76 @@ defmodule MossletWeb.UserHomeLive do
                         "Website"
                       end}
                     </p>
-                    <a
-                      href={
-                        decrypt_public_field(
-                          @profile_user.connection.profile.website_url,
-                          @profile_user.connection.profile.profile_key
-                        )
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-                    >
-                      {decrypt_public_field(
+                  </div>
+
+                  <a
+                    :if={@website_url_preview && @website_url_preview["image"]}
+                    href={
+                      decrypt_public_field(
                         @profile_user.connection.profile.website_url,
                         @profile_user.connection.profile.profile_key
-                      )}
-                    </a>
+                      )
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="block group"
+                  >
+                    <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
+                      <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
+                        <img
+                          src={@website_url_preview["image"]}
+                          alt={@website_url_preview["title"] || "Website preview"}
+                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+                      <div class="flex-1 min-w-0 py-0.5">
+                        <p
+                          :if={@website_url_preview["title"]}
+                          class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
+                        >
+                          {@website_url_preview["title"]}
+                        </p>
+                        <p
+                          :if={@website_url_preview["description"]}
+                          class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
+                        >
+                          {@website_url_preview["description"]}
+                        </p>
+                      </div>
+                    </div>
+                  </a>
+
+                  <div
+                    :if={@website_url_preview_loading}
+                    class="flex items-center gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
+                  >
+                    <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                    </div>
+                    <div class="flex-1 space-y-2">
+                      <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                      </div>
+                      <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                      </div>
+                    </div>
                   </div>
+
+                  <a
+                    :if={!@website_url_preview || !@website_url_preview["image"]}
+                    href={
+                      decrypt_public_field(
+                        @profile_user.connection.profile.website_url,
+                        @profile_user.connection.profile.profile_key
+                      )
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline transition-colors truncate block"
+                  >
+                    {decrypt_public_field(
+                      @profile_user.connection.profile.website_url,
+                      @profile_user.connection.profile.profile_key
+                    )}
+                  </a>
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
@@ -1303,16 +1476,16 @@ defmodule MossletWeb.UserHomeLive do
 
                 <div
                   :if={@profile_user.connection.profile.website_url}
-                  class="flex items-center gap-3"
+                  class="space-y-3"
                 >
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
-                    <.phx_icon
-                      name="hero-globe-alt"
-                      class="size-5 text-violet-600 dark:text-violet-400"
-                    />
-                  </div>
-                  <div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                  <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+                      <.phx_icon
+                        name="hero-globe-alt"
+                        class="size-4 text-violet-600 dark:text-violet-400"
+                      />
+                    </div>
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {if @profile_user.connection.profile.website_label do
                         decr_uconn(
                           @profile_user.connection.profile.website_label,
@@ -1324,27 +1497,82 @@ defmodule MossletWeb.UserHomeLive do
                         "Website"
                       end}
                     </p>
-                    <a
-                      href={
-                        decr_uconn(
-                          @profile_user.connection.profile.website_url,
-                          @current_user,
-                          @user_connection.key,
-                          @key
-                        )
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
-                    >
-                      {decr_uconn(
+                  </div>
+
+                  <a
+                    :if={@website_url_preview && @website_url_preview["image"]}
+                    href={
+                      decr_uconn(
                         @profile_user.connection.profile.website_url,
                         @current_user,
                         @user_connection.key,
                         @key
-                      )}
-                    </a>
+                      )
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="block group"
+                  >
+                    <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
+                      <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
+                        <img
+                          src={@website_url_preview["image"]}
+                          alt={@website_url_preview["title"] || "Website preview"}
+                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+                      <div class="flex-1 min-w-0 py-0.5">
+                        <p
+                          :if={@website_url_preview["title"]}
+                          class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
+                        >
+                          {@website_url_preview["title"]}
+                        </p>
+                        <p
+                          :if={@website_url_preview["description"]}
+                          class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
+                        >
+                          {@website_url_preview["description"]}
+                        </p>
+                      </div>
+                    </div>
+                  </a>
+
+                  <div
+                    :if={@website_url_preview_loading}
+                    class="flex items-center gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
+                  >
+                    <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                    </div>
+                    <div class="flex-1 space-y-2">
+                      <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                      </div>
+                      <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+                      </div>
+                    </div>
                   </div>
+
+                  <a
+                    :if={!@website_url_preview || !@website_url_preview["image"]}
+                    href={
+                      decr_uconn(
+                        @profile_user.connection.profile.website_url,
+                        @current_user,
+                        @user_connection.key,
+                        @key
+                      )
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline transition-colors truncate block"
+                  >
+                    {decr_uconn(
+                      @profile_user.connection.profile.website_url,
+                      @current_user,
+                      @user_connection.key,
+                      @key
+                    )}
+                  </a>
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
