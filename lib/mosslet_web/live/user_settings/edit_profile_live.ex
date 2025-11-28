@@ -326,6 +326,7 @@ defmodule MossletWeb.EditProfileLive do
                       label="Website URL"
                       value={@profile_website_url}
                       placeholder="https://yourwebsite.com"
+                      phx_debounce="500"
                     />
                     <p class="text-sm text-slate-500 dark:text-slate-400">
                       Share a link to your website, portfolio, or something else.

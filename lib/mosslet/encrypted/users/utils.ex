@@ -92,7 +92,7 @@ defmodule Mosslet.Encrypted.Users.Utils do
            private: Encrypted.Session.server_private_key()
          }) do
       {:ok, d_item_key} -> d_item_key
-      {:error, message} -> message
+      {:error, _message} -> nil
     end
   end
 

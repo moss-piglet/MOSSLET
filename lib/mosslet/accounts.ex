@@ -236,6 +236,7 @@ defmodule Mosslet.Accounts do
   end
 
   def get_connection!(id), do: Repo.get!(Connection, id)
+  def get_connection(id), do: Repo.get(Connection, id)
 
   def get_user_connection(id),
     do: Repo.get(UserConnection, id) |> Repo.preload([:connection, :user])
@@ -1036,25 +1037,43 @@ defmodule Mosslet.Accounts do
   def update_user_profile(user, attrs \\ %{}, opts \\ []) do
     conn = get_connection!(user.connection.id)
     uconns = get_all_user_connections(user.id)
+    changeset = Connection.profile_changeset(conn, attrs, opts)
 
-    {:ok, %{update_connection: conn}} =
+    old_website_url =
+      if conn.profile, do: conn.profile.website_url, else: nil
+
+    {:ok, %{update_connection: updated_conn}} =
       Ecto.Multi.new()
-      |> Ecto.Multi.update(:update_connection, fn _ ->
-        Connection.profile_changeset(conn, attrs, opts)
-      end)
+      |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)
       |> Repo.transaction_on_primary()
 
+    new_website_url =
+      if updated_conn.profile, do: updated_conn.profile.website_url, else: nil
+
+    unless opts[:visibility_changed] do
+      if old_website_url != new_website_url do
+        if old_website_url != nil do
+          clear_profile_preview_cache(conn, opts[:key])
+          Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
+        end
+
+        if new_website_url != nil && new_website_url != "" do
+          Mosslet.Accounts.Jobs.ProfilePreviewFetchJob.schedule_fetch(conn.id)
+        end
+      end
+    end
+
     cond do
-      conn.profile.visibility == :public ->
-        broadcast_public_connection(conn, :conn_updated)
-        broadcast_connection(conn, :conn_updated)
+      updated_conn.profile.visibility == :public ->
+        broadcast_public_connection(updated_conn, :conn_updated)
+        broadcast_connection(updated_conn, :conn_updated)
         broadcast_public_user_connections(uconns, :uconn_updated)
-        {:ok, conn}
+        {:ok, updated_conn}
 
       true ->
-        broadcast_connection(conn, :conn_updated)
+        broadcast_connection(updated_conn, :conn_updated)
         broadcast_public_user_connections(uconns, :uconn_updated)
-        {:ok, conn}
+        {:ok, updated_conn}
     end
   end
 
@@ -1067,6 +1086,10 @@ defmodule Mosslet.Accounts do
         |> Connection.profile_changeset(attrs, opts)
         |> Repo.update()
       end)
+
+    if conn.profile && conn.profile.website_url != nil && conn.profile.website_url != "" do
+      Mosslet.Accounts.Jobs.ProfilePreviewFetchJob.schedule_fetch(conn.id)
+    end
 
     broadcast_connection(conn, :uconn_updated)
 
@@ -1344,7 +1367,8 @@ defmodule Mosslet.Accounts do
                    key: opts[:key],
                    user: user,
                    update_profile: true,
-                   encrypt: true
+                   encrypt: true,
+                   visibility_changed: true
                  ) do
             if user.visibility == :public do
               broadcast_connection(conn, :uconn_visibility_updated)
@@ -1485,12 +1509,21 @@ defmodule Mosslet.Accounts do
       |> User.validate_current_password(password)
 
     uconns = get_all_user_connections(user.id)
+    conn = user.connection
+
+    has_profile_website_url =
+      conn && conn.profile && conn.profile.website_url != nil
 
     Ecto.Multi.new()
     |> Ecto.Multi.delete(:user, changeset)
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, %{user: user}} ->
+        if has_profile_website_url do
+          Mosslet.Extensions.URLPreviewServer.delete_cached_previews_for_connection(conn.id)
+          Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
+        end
+
         {:ok, user}
         |> broadcast_admin(:account_deleted)
 
@@ -1891,6 +1924,8 @@ defmodule Mosslet.Accounts do
   end
 
   def delete_user_profile(user, conn) do
+    has_website_url = conn.profile && conn.profile.website_url != nil
+
     changeset =
       conn
       |> Connection.profile_changeset(%{profile: nil})
@@ -1901,8 +1936,13 @@ defmodule Mosslet.Accounts do
     |> Ecto.Multi.update(:conn, changeset)
     |> Repo.transaction_on_primary()
     |> case do
-      {:ok, %{conn: conn}} ->
-        conn
+      {:ok, %{conn: updated_conn}} ->
+        if has_website_url do
+          Mosslet.Extensions.URLPreviewServer.delete_cached_previews_for_connection(conn.id)
+          Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
+        end
+
+        updated_conn
         |> broadcast_public_connection(:user_profile_deleted)
 
         uconns
@@ -1911,7 +1951,7 @@ defmodule Mosslet.Accounts do
         uconns
         |> broadcast_public_user_connections(:public_uconn_updated)
 
-        {:ok, conn}
+        {:ok, updated_conn}
 
       {:error, :user, changeset, _} ->
         {:error, changeset}
@@ -3328,14 +3368,50 @@ defmodule Mosslet.Accounts do
   Returns the user's visibility groups with connection details for proper decryption.
   """
   def get_user_visibility_groups_with_connections(user) do
-    # Get user with visibility groups (no preload needed for embedded schemas)
     user_with_groups = Repo.get(User, user.id)
 
-    # Transform visibility groups to match the expected format for templates
     Enum.map(user_with_groups.visibility_groups || [], fn group ->
-      # For each group, return the group data with empty user_connections
-      # The actual count should come from group.connection_ids
       %{group: group, user: user_with_groups, user_connections: []}
     end)
+  end
+
+  defp clear_profile_preview_cache(conn, key) do
+    profile = conn.profile
+
+    cond do
+      is_nil(profile) || is_nil(profile.website_url) ->
+        :ok
+
+      profile.visibility == :public ->
+        decrypted_url =
+          Encrypted.Users.Utils.decrypt_public_item(profile.website_url, profile.profile_key)
+
+        if decrypted_url do
+          url_hash =
+            :crypto.hash(:sha3_256, "#{decrypted_url}-#{conn.id}")
+            |> Base.encode16(case: :lower)
+
+          Mosslet.Extensions.URLPreviewServer.delete_cached_preview(url_hash)
+        end
+
+      true ->
+        if key do
+          profile_key = Encrypted.Users.Utils.decrypt_public_item_key(profile.profile_key)
+
+          if profile_key do
+            case Encrypted.Utils.decrypt(%{key: profile_key, payload: profile.website_url}) do
+              {:ok, decrypted_url} ->
+                url_hash =
+                  :crypto.hash(:sha3_256, "#{decrypted_url}-#{conn.id}")
+                  |> Base.encode16(case: :lower)
+
+                Mosslet.Extensions.URLPreviewServer.delete_cached_preview(url_hash)
+
+              _ ->
+                :ok
+            end
+          end
+        end
+    end
   end
 end

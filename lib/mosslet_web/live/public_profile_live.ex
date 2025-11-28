@@ -4,8 +4,8 @@ defmodule MossletWeb.PublicProfileLive do
   require Logger
 
   alias Mosslet.Accounts
-  alias Mosslet.Encrypted
   alias MossletWeb.Helpers.StatusHelpers
+  alias MossletWeb.Helpers.URLPreviewHelpers
 
   def mount(%{"slug" => slug}, _session, socket) do
     if connected?(socket) do
@@ -19,13 +19,23 @@ defmodule MossletWeb.PublicProfileLive do
           is_signed_in? = !is_nil(current_user)
           is_own_profile? = current_user && current_user.id == profile_user.id
 
-          {:ok,
-           socket
-           |> assign(:profile_user, profile_user)
-           |> assign(:is_signed_in?, is_signed_in?)
-           |> assign(:is_own_profile?, is_own_profile?)
-           |> assign(:page_title, "Public Profile")
-           |> assign(:slug, slug)}
+          socket =
+            socket
+            |> assign(:profile_user, profile_user)
+            |> assign(:is_signed_in?, is_signed_in?)
+            |> assign(:is_own_profile?, is_own_profile?)
+            |> assign(:page_title, "Public Profile")
+            |> assign(:slug, slug)
+            |> URLPreviewHelpers.assign_url_preview_defaults()
+
+          socket =
+            if connected?(socket) do
+              maybe_fetch_website_preview(socket, profile_user)
+            else
+              socket
+            end
+
+          {:ok, socket}
         else
           {:ok,
            socket
@@ -72,7 +82,7 @@ defmodule MossletWeb.PublicProfileLive do
                   <MossletWeb.DesignSystem.liquid_avatar
                     src={get_public_avatar(@profile_user, @current_user)}
                     name={
-                      decrypt_public_field(
+                      URLPreviewHelpers.decrypt_public_field(
                         @profile_user.connection.profile.name,
                         @profile_user.connection.profile.profile_key
                       )
@@ -92,7 +102,7 @@ defmodule MossletWeb.PublicProfileLive do
                       :if={@profile_user.connection.profile.show_name?}
                       class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
-                      {decrypt_public_field(
+                      {URLPreviewHelpers.decrypt_public_field(
                         @profile_user.connection.profile.name,
                         @profile_user.connection.profile.profile_key
                       )}
@@ -111,7 +121,7 @@ defmodule MossletWeb.PublicProfileLive do
                         color="cyan"
                         size="sm"
                       >
-                        @{decrypt_public_field(
+                        @{URLPreviewHelpers.decrypt_public_field(
                           @profile_user.connection.profile.username,
                           @profile_user.connection.profile.profile_key
                         )}
@@ -127,7 +137,7 @@ defmodule MossletWeb.PublicProfileLive do
                         size="sm"
                       >
                         <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                        {decrypt_public_field(
+                        {URLPreviewHelpers.decrypt_public_field(
                           @profile_user.connection.profile.email,
                           @profile_user.connection.profile.profile_key
                         )}
@@ -182,6 +192,61 @@ defmodule MossletWeb.PublicProfileLive do
       <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-2 space-y-8">
+            <MossletWeb.DesignSystem.liquid_card :if={
+              has_contact_links?(@profile_user.connection.profile)
+            }>
+              <:title>
+                <div class="flex items-center gap-2">
+                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                  Contact & Links
+                </div>
+              </:title>
+              <div class="space-y-4">
+                <div
+                  :if={@profile_user.connection.profile.alternate_email}
+                  class="flex items-center gap-3"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                    <a
+                      href={"mailto:#{URLPreviewHelpers.decrypt_public_field(@profile_user.connection.profile.alternate_email, @profile_user.connection.profile.profile_key)}"}
+                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                    >
+                      {URLPreviewHelpers.decrypt_public_field(
+                        @profile_user.connection.profile.alternate_email,
+                        @profile_user.connection.profile.profile_key
+                      )}
+                    </a>
+                  </div>
+                </div>
+
+                <MossletWeb.DesignSystem.website_url_preview
+                  :if={@profile_user.connection.profile.website_url}
+                  preview={@website_url_preview}
+                  loading={@website_url_preview_loading}
+                  url={
+                    URLPreviewHelpers.decrypt_public_field(
+                      @profile_user.connection.profile.website_url,
+                      @profile_user.connection.profile.profile_key
+                    )
+                  }
+                  label={
+                    if @profile_user.connection.profile.website_label do
+                      URLPreviewHelpers.decrypt_public_field(
+                        @profile_user.connection.profile.website_label,
+                        @profile_user.connection.profile.profile_key
+                      )
+                    else
+                      "Website"
+                    end
+                  }
+                />
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
+
             <MossletWeb.DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center gap-2">
@@ -193,7 +258,7 @@ defmodule MossletWeb.PublicProfileLive do
                 class="prose prose-slate dark:prose-invert max-w-none"
               >
                 <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {decrypt_public_field(
+                  {URLPreviewHelpers.decrypt_public_field(
                     @profile_user.connection.profile.about,
                     @profile_user.connection.profile.profile_key
                   )}
@@ -256,7 +321,7 @@ defmodule MossletWeb.PublicProfileLive do
               </:title>
               <div class="space-y-3">
                 <p class="text-sm text-slate-600 dark:text-slate-400">
-                  Create an account to connect with @{decrypt_public_field(
+                  Create an account to connect with @{URLPreviewHelpers.decrypt_public_field(
                     @profile_user.connection.profile.username,
                     @profile_user.connection.profile.profile_key
                   ) || "this user"} and protect your privacy online.
@@ -335,15 +400,31 @@ defmodule MossletWeb.PublicProfileLive do
     end
   end
 
-  def handle_info(_message, socket) do
-    {:noreply, socket}
+  def handle_info(message, socket) do
+    profile_key = get_profile_key(socket.assigns.profile_user)
+
+    case URLPreviewHelpers.handle_preview_result(message, socket, profile_key) do
+      {:handled, socket} -> {:noreply, socket}
+      {:not_handled, socket} -> {:noreply, socket}
+    end
   end
 
-  defp decrypt_public_field(encrypted_value, encrypted_profile_key) do
-    case Encrypted.Users.Utils.decrypt_public_item(encrypted_value, encrypted_profile_key) do
-      value when is_binary(value) -> value
-      _ -> ""
-    end
+  defp maybe_fetch_website_preview(socket, profile_user) do
+    profile = profile_user.connection.profile
+
+    website_url =
+      if profile.website_url do
+        URLPreviewHelpers.decrypt_public_field(profile.website_url, profile.profile_key)
+      end
+
+    profile_key = URLPreviewHelpers.get_public_profile_key(profile.profile_key)
+    connection_id = profile_user.connection.id
+
+    URLPreviewHelpers.maybe_start_preview_fetch(socket, website_url, profile_key, connection_id)
+  end
+
+  defp get_profile_key(profile_user) do
+    URLPreviewHelpers.get_public_profile_key(profile_user.connection.profile.profile_key)
   end
 
   defp get_public_avatar(profile_user, current_user) do
@@ -368,12 +449,16 @@ defmodule MossletWeb.PublicProfileLive do
 
   defp get_public_status_message(profile_user) do
     if StatusHelpers.can_view_status?(profile_user, nil, nil) && profile_user.status_message do
-      decrypt_public_field(
+      URLPreviewHelpers.decrypt_public_field(
         profile_user.connection.status_message,
         profile_user.connection.profile.profile_key
       )
     else
       nil
     end
+  end
+
+  defp has_contact_links?(profile) do
+    profile.alternate_email || profile.website_url
   end
 end

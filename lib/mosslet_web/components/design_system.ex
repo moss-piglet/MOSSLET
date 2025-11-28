@@ -1753,6 +1753,7 @@ defmodule MossletWeb.DesignSystem do
   attr :placeholder, :string, default: nil
   attr :help, :string, default: nil
   attr :required, :boolean, default: false
+  attr :phx_debounce, :string, default: nil
   attr :class, :any, default: ""
   attr :rest, :global
 
@@ -1804,6 +1805,7 @@ defmodule MossletWeb.DesignSystem do
           value={@input_value}
           placeholder={@placeholder}
           required={@required}
+          phx-debounce={if @phx_debounce, do: @phx_debounce}
           class={[
             "relative block w-full rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100",
             "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
@@ -8614,6 +8616,93 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </div>
     </.portal>
+    """
+  end
+
+  @doc """
+  Website URL preview card component with loading state.
+
+  Displays a link preview with image, title, and description when available,
+  a loading skeleton while fetching, or a simple link fallback.
+
+  ## Examples
+
+      <.website_url_preview
+        preview={@website_url_preview}
+        loading={@website_url_preview_loading}
+        url={@decrypted_website_url}
+        label="My Website"
+      />
+  """
+  attr :preview, :map, default: nil, doc: "The preview map with image, title, description keys"
+  attr :loading, :boolean, default: false, doc: "Whether the preview is currently loading"
+  attr :url, :string, required: true, doc: "The decrypted website URL"
+  attr :label, :string, default: "Website", doc: "Label shown above the preview"
+
+  def website_url_preview(assigns) do
+    ~H"""
+    <div :if={@url && @url != ""} class="flex items-start gap-3">
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
+        <.phx_icon name="hero-globe-alt" class="size-5 text-violet-600 dark:text-violet-400" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm text-slate-500 dark:text-slate-400">{@label}</p>
+
+        <a
+          :if={@preview && @preview["image"]}
+          href={@url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block group mt-2"
+        >
+          <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
+            <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
+              <img
+                src={@preview["image"]}
+                alt={@preview["title"] || "Website preview"}
+                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            </div>
+            <div class="flex-1 min-w-0 py-0.5">
+              <p
+                :if={@preview["title"]}
+                class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
+              >
+                {@preview["title"]}
+              </p>
+              <p
+                :if={@preview["description"]}
+                class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
+              >
+                {@preview["description"]}
+              </p>
+            </div>
+          </div>
+        </a>
+
+        <div
+          :if={@loading}
+          class="flex items-center gap-3 p-2 mt-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
+        >
+          <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
+          </div>
+          <div class="flex-1 space-y-2">
+            <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse"></div>
+            <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse"></div>
+          </div>
+        </div>
+
+        <a
+          :if={(!@preview || !@preview["image"]) && !@loading}
+          href={@url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-slate-900 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 transition-colors truncate block"
+        >
+          {@url}
+        </a>
+      </div>
+    </div>
     """
   end
 

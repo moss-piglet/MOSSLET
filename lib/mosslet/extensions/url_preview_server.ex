@@ -56,12 +56,18 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   ## Options
     - timeout: Request timeout (default: 10_000ms)
     - user_id: Optional user ID for rate limiting. If not provided, rate limiting is skipped.
+    - profile_key: Optional storage key identifier (e.g., connection_id) for organizing cached images
   """
   def fetch_and_cache(url, url_hash, post_key, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, 10_000)
     user_id = Keyword.get(opts, :user_id)
+    profile_key = Keyword.get(opts, :profile_key)
 
-    GenServer.call(__MODULE__, {:fetch_and_cache, url, url_hash, post_key, user_id}, timeout)
+    GenServer.call(
+      __MODULE__,
+      {:fetch_and_cache, url, url_hash, post_key, user_id, profile_key},
+      timeout
+    )
   end
 
   @doc """
@@ -88,6 +94,21 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   """
   def cache_preview(url_hash, encrypted_preview) do
     GenServer.cast(__MODULE__, {:cache, url_hash, encrypted_preview})
+  end
+
+  @doc """
+  Delete cached preview by url_hash
+  """
+  def delete_cached_preview(url_hash) do
+    GenServer.cast(__MODULE__, {:delete_cache, url_hash})
+  end
+
+  @doc """
+  Delete all cached previews for a connection_id.
+  Used when a profile or account is deleted.
+  """
+  def delete_cached_previews_for_connection(connection_id) do
+    GenServer.cast(__MODULE__, {:delete_cache_for_connection, connection_id})
   end
 
   @doc """
@@ -158,6 +179,25 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:noreply, state}
   end
 
+  def handle_cast({:delete_cache, url_hash}, state) do
+    :ets.delete(@table_name, url_hash)
+    {:noreply, state}
+  end
+
+  def handle_cast({:delete_cache_for_connection, connection_id}, state) do
+    conn_id_suffix = "-#{connection_id}"
+
+    @table_name
+    |> :ets.tab2list()
+    |> Enum.each(fn {url_hash, _encrypted_preview, _expires_at} ->
+      if String.ends_with?(url_hash, conn_id_suffix) do
+        :ets.delete(@table_name, url_hash)
+      end
+    end)
+
+    {:noreply, state}
+  end
+
   def handle_call({:fetch, url, user_id}, _from, state) do
     result =
       with :ok <- maybe_check_rate_limit(user_id),
@@ -174,7 +214,9 @@ defmodule Mosslet.Extensions.URLPreviewServer do
     {:reply, result, state}
   end
 
-  def handle_call({:fetch_and_cache, url, url_hash, post_key, user_id}, _from, state) do
+  def handle_call({:fetch_and_cache, url, url_hash, post_key, user_id, profile_key}, _from, state) do
+    storage_key = profile_key || url_hash
+
     result =
       with :ok <- maybe_check_rate_limit(user_id) do
         case get_cached_preview(url_hash) do
@@ -182,7 +224,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
             case fetch_preview(url) do
               {:ok, preview} ->
                 preview_with_proxied_image =
-                  maybe_proxy_preview_image(preview, url_hash, post_key)
+                  maybe_proxy_preview_image(preview, storage_key, post_key)
 
                 encrypted_preview = encrypt_preview_with_key(preview_with_proxied_image, post_key)
                 do_cache_preview(url_hash, encrypted_preview)
@@ -209,12 +251,16 @@ defmodule Mosslet.Extensions.URLPreviewServer do
   defp fetch_preview(url) do
     with {:ok, normalized_url} <- URLPreviewSecurity.validate_and_normalize_url(url) do
       case Req.get(normalized_url,
-             max_redirects: 3,
+             max_redirects: 5,
              retry: :transient,
              max_retries: 2,
-             receive_timeout: 5_000,
+             receive_timeout: 10_000,
              headers: [
-               {"user-agent", "MossletBot/1.0 (+https://mosslet.com)"}
+               {"user-agent",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+               {"accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
+               {"accept-language", "en-US,en;q=0.5"}
              ]
            ) do
         {:ok, %{status: 200, body: html}} ->

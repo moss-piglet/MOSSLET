@@ -4,9 +4,8 @@ defmodule MossletWeb.UserHomeLive do
   require Logger
 
   alias Mosslet.Accounts
-  alias Mosslet.Encrypted
-  alias Mosslet.Extensions.URLPreviewServer
   alias MossletWeb.Helpers.StatusHelpers
+  alias MossletWeb.Helpers.URLPreviewHelpers
 
   def mount(%{"slug" => slug} = _params, _session, socket) do
     current_user = socket.assigns.current_user
@@ -63,8 +62,7 @@ defmodule MossletWeb.UserHomeLive do
         :user_connection,
         if(profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id))
       )
-      |> assign(:website_url_preview, nil)
-      |> assign(:website_url_preview_loading, false)
+      |> URLPreviewHelpers.assign_url_preview_defaults()
 
     socket =
       if connected?(socket) do
@@ -203,66 +201,94 @@ defmodule MossletWeb.UserHomeLive do
         end
 
       true ->
-        raise "HERE HERE HERE"
         {:noreply, socket}
     end
   end
 
   def handle_info({ref, {:website_preview_result, result}}, socket) do
     Process.demonitor(ref, [:flush])
+    profile_key = get_profile_key_for_preview(socket)
 
-    socket =
-      case result do
-        {:ok, preview} ->
-          socket
-          |> assign(:website_url_preview, preview)
-          |> assign(:website_url_preview_loading, false)
-
-        {:error, _reason} ->
-          socket
-          |> assign(:website_url_preview, nil)
-          |> assign(:website_url_preview_loading, false)
-      end
-
-    {:noreply, socket}
+    case URLPreviewHelpers.handle_preview_result(
+           {ref, {:website_preview_result, result}},
+           socket,
+           profile_key
+         ) do
+      {:handled, socket} -> {:noreply, socket}
+      {:not_handled, socket} -> {:noreply, socket}
+    end
   end
 
-  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
-    {:noreply, assign(socket, :website_url_preview_loading, false)}
+  def handle_info({:DOWN, _ref, :process, _pid, _reason} = msg, socket) do
+    case URLPreviewHelpers.handle_preview_result(msg, socket, nil) do
+      {:handled, socket} -> {:noreply, socket}
+      {:not_handled, socket} -> {:noreply, socket}
+    end
   end
 
   def handle_info(_message, socket) do
     {:noreply, socket}
   end
 
-  defp maybe_fetch_website_preview(socket, profile_user, current_user, profile_owner?) do
+  defp get_profile_key_for_preview(socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_user
+    session_key = socket.assigns.key
+    encrypted_profile_key = profile_user.connection.profile.profile_key
+
+    if encrypted_profile_key && profile_user.visibility != :public do
+      {:ok, key} =
+        URLPreviewHelpers.get_private_profile_key(
+          encrypted_profile_key,
+          current_user,
+          session_key
+        )
+
+      key
+    else
+      URLPreviewHelpers.get_public_profile_key(encrypted_profile_key)
+    end
+  end
+
+  defp maybe_fetch_website_preview(socket, profile_user, current_user, _profile_owner?) do
     profile = profile_user.connection.profile
     session_key = socket.assigns.key
 
-    website_url =
+    {website_url, profile_key} =
       if profile.website_url do
-        key =
-          profile_user.connection.profile.profile_key
+        encrypted_profile_key = profile.profile_key
 
-        if key && profile_user.visibility != :public do
-          decr_item(profile.website_url, current_user, key, session_key, profile)
+        if encrypted_profile_key && profile_user.visibility != :public do
+          decrypted_url =
+            decr_item(
+              profile.website_url,
+              current_user,
+              encrypted_profile_key,
+              session_key,
+              profile
+            )
+
+          {:ok, decrypted_key} =
+            URLPreviewHelpers.get_private_profile_key(
+              encrypted_profile_key,
+              current_user,
+              session_key
+            )
+
+          {decrypted_url, decrypted_key}
         else
-          decrypt_public_field(
-            profile.website_url,
-            profile.profile_key
-          )
+          decrypted_url =
+            URLPreviewHelpers.decrypt_public_field(profile.website_url, profile.profile_key)
+
+          decrypted_key = URLPreviewHelpers.get_public_profile_key(profile.profile_key)
+          {decrypted_url, decrypted_key}
         end
+      else
+        {nil, nil}
       end
 
-    if is_binary(website_url) && website_url != "" do
-      Task.async(fn ->
-        {:website_preview_result, URLPreviewServer.fetch(website_url)}
-      end)
-
-      assign(socket, :website_url_preview_loading, true)
-    else
-      socket
-    end
+    connection_id = profile_user.connection.id
+    URLPreviewHelpers.maybe_start_preview_fetch(socket, website_url, profile_key, connection_id)
   end
 
   defp apply_action(socket, :show, _params) do
@@ -500,110 +526,33 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
                 </div>
 
-                <div
+                <MossletWeb.DesignSystem.website_url_preview
                   :if={@current_user.connection.profile.website_url}
-                  class="space-y-3"
-                >
-                  <div class="flex items-center gap-2">
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
-                      <.phx_icon
-                        name="hero-globe-alt"
-                        class="size-4 text-violet-600 dark:text-violet-400"
-                      />
-                    </div>
-                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {if @current_user.connection.profile.website_label do
-                        decr_item(
-                          @current_user.connection.profile.website_label,
-                          @current_user,
-                          @current_user.connection.profile.profile_key,
-                          @key,
-                          @current_user.connection.profile
-                        )
-                      else
-                        "Website"
-                      end}
-                    </p>
-                  </div>
-
-                  <a
-                    :if={@website_url_preview && @website_url_preview["image"]}
-                    href={
-                      decr_item(
-                        @current_user.connection.profile.website_url,
-                        @current_user,
-                        @current_user.connection.profile.profile_key,
-                        @key,
-                        @current_user.connection.profile
-                      )
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="block group"
-                  >
-                    <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
-                      <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
-                        <img
-                          src={@website_url_preview["image"]}
-                          alt={@website_url_preview["title"] || "Website preview"}
-                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0 py-0.5">
-                        <p
-                          :if={@website_url_preview["title"]}
-                          class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
-                        >
-                          {@website_url_preview["title"]}
-                        </p>
-                        <p
-                          :if={@website_url_preview["description"]}
-                          class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
-                        >
-                          {@website_url_preview["description"]}
-                        </p>
-                      </div>
-                    </div>
-                  </a>
-
-                  <div
-                    :if={@website_url_preview_loading}
-                    class="flex items-center gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
-                  >
-                    <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                    </div>
-                    <div class="flex-1 space-y-2">
-                      <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                      </div>
-                      <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                      </div>
-                    </div>
-                  </div>
-
-                  <a
-                    :if={!@website_url_preview || !@website_url_preview["image"]}
-                    href={
-                      decr_item(
-                        @current_user.connection.profile.website_url,
-                        @current_user,
-                        @current_user.connection.profile.profile_key,
-                        @key,
-                        @current_user.connection.profile
-                      )
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline transition-colors truncate block"
-                  >
-                    {decr_item(
+                  preview={@website_url_preview}
+                  loading={@website_url_preview_loading}
+                  url={
+                    decr_item(
                       @current_user.connection.profile.website_url,
                       @current_user,
                       @current_user.connection.profile.profile_key,
                       @key,
                       @current_user.connection.profile
-                    )}
-                  </a>
-                </div>
+                    )
+                  }
+                  label={
+                    if @current_user.connection.profile.website_label do
+                      decr_item(
+                        @current_user.connection.profile.website_label,
+                        @current_user,
+                        @current_user.connection.profile.profile_key,
+                        @key,
+                        @current_user.connection.profile
+                      )
+                    else
+                      "Website"
+                    end
+                  }
+                />
               </div>
             </MossletWeb.DesignSystem.liquid_card>
 
@@ -1089,98 +1038,27 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
                 </div>
 
-                <div
+                <MossletWeb.DesignSystem.website_url_preview
                   :if={@profile_user.connection.profile.website_url}
-                  class="space-y-3"
-                >
-                  <div class="flex items-center gap-2">
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
-                      <.phx_icon
-                        name="hero-globe-alt"
-                        class="size-4 text-violet-600 dark:text-violet-400"
-                      />
-                    </div>
-                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {if @profile_user.connection.profile.website_label do
-                        decrypt_public_field(
-                          @profile_user.connection.profile.website_label,
-                          @profile_user.connection.profile.profile_key
-                        )
-                      else
-                        "Website"
-                      end}
-                    </p>
-                  </div>
-
-                  <a
-                    :if={@website_url_preview && @website_url_preview["image"]}
-                    href={
-                      decrypt_public_field(
-                        @profile_user.connection.profile.website_url,
-                        @profile_user.connection.profile.profile_key
-                      )
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="block group"
-                  >
-                    <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
-                      <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
-                        <img
-                          src={@website_url_preview["image"]}
-                          alt={@website_url_preview["title"] || "Website preview"}
-                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0 py-0.5">
-                        <p
-                          :if={@website_url_preview["title"]}
-                          class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
-                        >
-                          {@website_url_preview["title"]}
-                        </p>
-                        <p
-                          :if={@website_url_preview["description"]}
-                          class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
-                        >
-                          {@website_url_preview["description"]}
-                        </p>
-                      </div>
-                    </div>
-                  </a>
-
-                  <div
-                    :if={@website_url_preview_loading}
-                    class="flex items-center gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
-                  >
-                    <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                    </div>
-                    <div class="flex-1 space-y-2">
-                      <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                      </div>
-                      <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                      </div>
-                    </div>
-                  </div>
-
-                  <a
-                    :if={!@website_url_preview || !@website_url_preview["image"]}
-                    href={
-                      decrypt_public_field(
-                        @profile_user.connection.profile.website_url,
-                        @profile_user.connection.profile.profile_key
-                      )
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline transition-colors truncate block"
-                  >
-                    {decrypt_public_field(
+                  preview={@website_url_preview}
+                  loading={@website_url_preview_loading}
+                  url={
+                    decrypt_public_field(
                       @profile_user.connection.profile.website_url,
                       @profile_user.connection.profile.profile_key
-                    )}
-                  </a>
-                </div>
+                    )
+                  }
+                  label={
+                    if @profile_user.connection.profile.website_label do
+                      decrypt_public_field(
+                        @profile_user.connection.profile.website_label,
+                        @profile_user.connection.profile.profile_key
+                      )
+                    else
+                      "Website"
+                    end
+                  }
+                />
               </div>
             </MossletWeb.DesignSystem.liquid_card>
 
@@ -1474,106 +1352,31 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
                 </div>
 
-                <div
+                <MossletWeb.DesignSystem.website_url_preview
                   :if={@profile_user.connection.profile.website_url}
-                  class="space-y-3"
-                >
-                  <div class="flex items-center gap-2">
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30">
-                      <.phx_icon
-                        name="hero-globe-alt"
-                        class="size-4 text-violet-600 dark:text-violet-400"
-                      />
-                    </div>
-                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {if @profile_user.connection.profile.website_label do
-                        decr_uconn(
-                          @profile_user.connection.profile.website_label,
-                          @current_user,
-                          @user_connection.key,
-                          @key
-                        )
-                      else
-                        "Website"
-                      end}
-                    </p>
-                  </div>
-
-                  <a
-                    :if={@website_url_preview && @website_url_preview["image"]}
-                    href={
-                      decr_uconn(
-                        @profile_user.connection.profile.website_url,
-                        @current_user,
-                        @user_connection.key,
-                        @key
-                      )
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="block group"
-                  >
-                    <div class="flex gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 transition-all duration-300 hover:shadow-md hover:shadow-violet-500/10 hover:border-violet-300 dark:hover:border-violet-600">
-                      <div class="w-20 h-14 shrink-0 overflow-hidden rounded-lg">
-                        <img
-                          src={@website_url_preview["image"]}
-                          alt={@website_url_preview["title"] || "Website preview"}
-                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0 py-0.5">
-                        <p
-                          :if={@website_url_preview["title"]}
-                          class="font-medium text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors"
-                        >
-                          {@website_url_preview["title"]}
-                        </p>
-                        <p
-                          :if={@website_url_preview["description"]}
-                          class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"
-                        >
-                          {@website_url_preview["description"]}
-                        </p>
-                      </div>
-                    </div>
-                  </a>
-
-                  <div
-                    :if={@website_url_preview_loading}
-                    class="flex items-center gap-3 p-2 rounded-xl border border-violet-200/60 dark:border-violet-700/40 bg-gradient-to-br from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10"
-                  >
-                    <div class="w-20 h-14 shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                    </div>
-                    <div class="flex-1 space-y-2">
-                      <div class="h-4 w-3/4 rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                      </div>
-                      <div class="h-3 w-full rounded bg-violet-100 dark:bg-violet-900/30 animate-pulse">
-                      </div>
-                    </div>
-                  </div>
-
-                  <a
-                    :if={!@website_url_preview || !@website_url_preview["image"]}
-                    href={
-                      decr_uconn(
-                        @profile_user.connection.profile.website_url,
-                        @current_user,
-                        @user_connection.key,
-                        @key
-                      )
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline transition-colors truncate block"
-                  >
-                    {decr_uconn(
+                  preview={@website_url_preview}
+                  loading={@website_url_preview_loading}
+                  url={
+                    decr_uconn(
                       @profile_user.connection.profile.website_url,
                       @current_user,
                       @user_connection.key,
                       @key
-                    )}
-                  </a>
-                </div>
+                    )
+                  }
+                  label={
+                    if @profile_user.connection.profile.website_label do
+                      decr_uconn(
+                        @profile_user.connection.profile.website_label,
+                        @current_user,
+                        @user_connection.key,
+                        @key
+                      )
+                    else
+                      "Website"
+                    end
+                  }
+                />
               </div>
             </MossletWeb.DesignSystem.liquid_card>
 
@@ -1706,10 +1509,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp decrypt_public_field(encrypted_value, encrypted_profile_key) do
-    case Encrypted.Users.Utils.decrypt_public_item(encrypted_value, encrypted_profile_key) do
-      value when is_binary(value) -> value
-      _ -> ""
-    end
+    URLPreviewHelpers.decrypt_public_field(encrypted_value, encrypted_profile_key)
   end
 
   defp get_public_avatar(profile_user, current_user) do
