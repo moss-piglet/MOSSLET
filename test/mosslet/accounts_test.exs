@@ -78,7 +78,7 @@ defmodule Mosslet.AccountsTest do
 
       {:error, changeset} = Accounts.register_user(changeset)
 
-      assert ["must have the @ sign and no spaces", "invalid or not a valid domain"] =
+      assert ["invalid or not a valid domain", "must have the @ sign and no spaces"] =
                errors_on(changeset).email
 
       assert [
@@ -236,7 +236,7 @@ defmodule Mosslet.AccountsTest do
       {:error, changeset} =
         Accounts.apply_user_email(user, valid_user_password(), %{email: "not valid"})
 
-      assert %{email: ["must have the @ sign and no spaces", "invalid or not a valid domain"]} =
+      assert %{email: ["invalid or not a valid domain", "must have the @ sign and no spaces"]} =
                errors_on(changeset)
     end
 
