@@ -111,7 +111,7 @@ defmodule MossletWeb.PublicLive.Updates do
                   </:description>
                   <:items>
                     <.changelog_item icon="hero-lock-open" color="teal">
-                      Unlock Sessions — stay logged in without re-entering your password every time
+                      Unlock Sessions — like a password manager for your account, your data stays encrypted until you unlock it
                     </.changelog_item>
                     <.changelog_item icon="hero-user-circle" color="purple">
                       Public profile viewing for sharing your profile with anyone
@@ -227,7 +227,7 @@ defmodule MossletWeb.PublicLive.Updates do
                       Gentle notifications that respect your time
                     </.changelog_item>
                     <.changelog_item icon="hero-user" color="cyan">
-                      Simple profiles without the vanity metrics
+                      Simple profiles focused on genuine connection
                     </.changelog_item>
                   </:items>
                 </.changelog_entry>
