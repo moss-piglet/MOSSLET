@@ -456,7 +456,8 @@ defmodule MossletWeb.DesignSystem do
       %{path: "/features", label: "Features"},
       %{path: "/pricing", label: "Pricing"},
       %{path: "/privacy", label: "Privacy"},
-      %{path: "/support", label: "Support"}
+      %{path: "/support", label: "Support"},
+      %{path: "/updates", label: "Updates"}
     ]
 
     # Add conditional items based on user state

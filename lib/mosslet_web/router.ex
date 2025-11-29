@@ -82,6 +82,7 @@ defmodule MossletWeb.Router do
       live "/pricing", PublicLive.Pricing, :pricing
       live "/privacy", PublicLive.Privacy, :privacy
       live "/terms", PublicLive.Terms, :terms
+      live "/updates", PublicLive.Updates, :updates
     end
   end
 

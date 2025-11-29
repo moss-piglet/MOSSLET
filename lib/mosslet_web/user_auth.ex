@@ -41,8 +41,7 @@ defmodule MossletWeb.UserAuth do
     "Privacy",
     "Terms",
     "Features",
-    "Myob",
-    "InTheKnow"
+    "Updates"
   ]
 
   @doc """
