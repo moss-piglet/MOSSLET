@@ -487,6 +487,12 @@ defmodule MossletWeb.PublicLive.Terms do
      |> assign(:page_title, "Terms")
      |> assign_new(:meta_description, fn ->
        "Terms and conditions for MOSSLET. Welcome to MOSSLET, a privacy-first social networking web application operated by Moss Piglet Corporation, a family-owned and operated public benefit company. Our mission is to create a platform that prioritizes user privacy and human dignity. By using our services, you agree to comply with and be bound by the following terms and conditions. Please read them carefully."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/terms/terms_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Clear, fair terms that respect your rights and privacy"
+     )}
   end
 end

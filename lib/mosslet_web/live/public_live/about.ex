@@ -38,10 +38,10 @@ defmodule MossletWeb.PublicLive.About do
                 <div class="mx-auto max-w-2xl gap-x-14 lg:mx-0 lg:flex lg:max-w-none lg:items-center">
                   <div class="relative w-full lg:max-w-xl lg:shrink-0 xl:max-w-2xl">
                     <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                      We're going back to the future
+                      Remember when social was simple?
                     </h1>
                     <p class="mt-8 text-pretty text-lg font-medium text-slate-600 dark:text-slate-400 sm:max-w-md sm:text-xl/8 lg:max-w-none transition-colors duration-300 ease-out">
-                      Social networking has become overwhelming, transformed from a fun connection space into a marketplace filled with cheap ads and less authentic content from friends. We're not interested in selling or harvesting your data. We care about making a service that feels good, keeps you connected to your people, and then lets you get back to real life. No addiction required.
+                      Just connecting with friends and family. No ads, no algorithms, just people. MOSSLET brings back that feeling — a simple way to share moments with the people who matter most, then get back to real life.
                     </p>
 
                     <%!-- Decorative accent line matching other pages --%>
@@ -481,6 +481,12 @@ defmodule MossletWeb.PublicLive.About do
      |> assign(:page_title, "About")
      |> assign_new(:meta_description, fn ->
        "We are part of the growing community for simple and ethical software choices. We think social networks shouldn't operate at the expense of your privacy and dignity. Apparently, that's a hot take for a world accustomed to modern social media."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/about/about_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "We are part of the growing community for simple and ethical software"
+     )}
   end
 end

@@ -429,6 +429,12 @@ defmodule MossletWeb.PublicLive.Support do
      |> assign(:page_title, "Support")
      |> assign_new(:meta_description, fn ->
        "Get help with MOSSLET. Contact our support team at support@mosslet.com for personalized assistance with your privacy-first social network. We're here to help with account setup, privacy settings, technical issues, and more."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/support/support_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Our small team is committed to providing personal, helpful support to every MOSSLET member"
+     )}
   end
 end

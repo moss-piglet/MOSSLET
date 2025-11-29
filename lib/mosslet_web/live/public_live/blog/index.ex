@@ -116,6 +116,12 @@ defmodule MossletWeb.PublicLive.Blog.Index do
      )
      |> assign_new(:meta_description, fn ->
        "MOSSLET updates from our blog. Learn about privacy, our company, and our opinions on the latest privacy news."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/blog_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Learn about privacy, our company, and our opinions on the latest privacy news"
+     )}
   end
 end

@@ -37,14 +37,14 @@ defmodule MossletWeb.PublicLive.Features do
             <div class="overflow-hidden">
               <div class="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
                 <div class="mx-auto max-w-2xl text-center">
-                  <%!-- Enhanced hero title focused on wellbeing --%>
+                  <%!-- Enhanced hero title focused on connection --%>
                   <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
-                    Social media for you.
+                    Built for meaningful sharing
                   </h1>
 
-                  <%!-- Enhanced subtitle focused on mental health --%>
+                  <%!-- Enhanced subtitle focused on connection --%>
                   <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
-                    Tired of feeling anxious, compared, and manipulated? MOSSLET protects your mental health with encryption, privacy, and features designed for calm — not profit.
+                    Share moments with the people who matter most. MOSSLET keeps your connections private, your experience calm, and puts you in control.
                   </p>
 
                   <%!-- Decorative accent line matching other pages --%>
@@ -84,10 +84,10 @@ defmodule MossletWeb.PublicLive.Features do
             <div class="mx-auto max-w-7xl px-6 lg:px-8">
               <div class="text-center mb-12">
                 <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                  See how MOSSLET protects your wellbeing
+                  See MOSSLET in action
                 </h2>
                 <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-                  Real features designed to give you a calm, private, and healthy social media experience.
+                  Simple, thoughtful features designed for genuine connection and peace of mind.
                 </p>
               </div>
 
@@ -138,10 +138,10 @@ defmodule MossletWeb.PublicLive.Features do
                     <%!-- Post content matching component --%>
                     <div class="mb-4">
                       <p class="text-slate-900 dark:text-slate-100 leading-relaxed text-base">
-                        Just finished sharing peacefully without any anxiety! 🧘‍♀️
+                        Just finished sharing peacefully with my close ones! 🧘‍♀️
                       </p>
                       <p class="text-slate-900 dark:text-slate-100 leading-relaxed text-base mt-4">
-                        MOSSLET's design actually helps me focus instead of pulling me into endless scrolling. The content filters are keeping my timeline calm and positive. Finally, a social experience that respects my time and mental health! ✨
+                        MOSSLET's clean design helps me focus on what matters — connecting with the people I love. The simple timeline keeps things calm and positive. Finally, social sharing that feels like it should! ✨
                       </p>
                     </div>
 
@@ -261,7 +261,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Choose exactly who sees each post. We can't read your content even if we wanted to.
+                    Choose exactly who sees each post — just you, your connections, or everyone. Simple and secure.
                   </p>
                 </.liquid_card>
 
@@ -321,7 +321,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Filter out content that harms your mental health. Encrypted preferences only you can see.
+                    Customize your feed to see what brings you joy. Your preferences stay private.
                   </p>
                 </.liquid_card>
 
@@ -360,7 +360,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Clear boundaries and natural stopping points, no infinite scroll. Get back to living your actual life.
+                    Natural stopping points help you stay present. Catch up with loved ones, then get back to living.
                   </p>
                 </.liquid_card>
               </div>
@@ -371,10 +371,10 @@ defmodule MossletWeb.PublicLive.Features do
           <.liquid_container max_width="full" class="mt-24 sm:mt-32 lg:mt-40">
             <div class="text-center mb-16">
               <h2 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                Social media that protects your wellbeing
+                Features that put you in control
               </h2>
               <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-                Every feature is designed to protect your mental health, privacy, and time — not exploit them for profit.
+                Simple, thoughtful tools to share moments and stay connected with the people who matter most.
               </p>
             </div>
 
@@ -391,17 +391,17 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-bell" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent font-bold">
-                      Calm Notifications System
+                      Gentle Notifications
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  In-app notifications that only appear while you're using MOSSLET. Optional email digest with privacy-first design and daily rate limiting.
+                  Stay updated without the overwhelm. In-app notifications appear only while you're using MOSSLET, with optional daily email digests.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
                     <div class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
-                    No interruptions • Privacy-first • Respect your time
+                    Simple alerts • Private • Respect your time
                   </div>
                 </div>
               </.liquid_card>
@@ -417,17 +417,17 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-envelope" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent font-bold">
-                      Peaceful Email Digests
+                      Daily Email Digests
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Stay connected without inbox overwhelm. Privacy-first daily email digest with smart rate limiting and zero content leakage.
+                  Stay connected without inbox clutter. Get a simple daily summary of what's new from your connections.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-calendar-days" class="size-3" />
-                    Max 1 email/day • Privacy-first • No content revealed
+                    Max 1 email/day • Your choice • No spam
                   </div>
                 </div>
               </.liquid_card>
@@ -440,20 +440,20 @@ defmodule MossletWeb.PublicLive.Features do
                 <:title>
                   <div class="flex items-center gap-4">
                     <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg">
-                      <.phx_icon name="hero-shield-exclamation" class="size-7 text-white" />
+                      <.phx_icon name="hero-funnel" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-bold">
-                      Wellbeing-First Content Filters
+                      Content Preferences
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Encrypted content warnings and smart filters protect your mental health while respecting others' right to share.
+                  Customize your feed to see what matters to you. Simple filters help create a positive experience.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-heart" class="size-3" />
-                    Encrypted preferences • Your rules • Mental health protection
+                    Your preferences • Private settings • Positive feed
                   </div>
                 </div>
               </.liquid_card>
@@ -469,17 +469,17 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-bookmark" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent font-bold">
-                      Your Private Collections
+                      Personal Bookmarks
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Save meaningful posts to your private, encrypted collections. No one else knows what you bookmark.
+                  Save posts that matter to you. Your bookmarks are private — only you can see what you've saved.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-rose-600 dark:text-rose-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-lock-closed" class="size-3" />
-                    Totally private • Encrypted storage • Your personal library
+                    Private • Organized • Your personal library
                   </div>
                 </div>
               </.liquid_card>
@@ -495,17 +495,17 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-eye" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-indigo-500 to-blue-500 bg-clip-text text-transparent font-bold">
-                      Pressure-Free Read Tracking
+                      Simple Read Tracking
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Keep track of what you've read without the anxiety. Your read status is private and only for your benefit.
+                  Keep track of what you've seen. Read status is just for your convenience — totally private.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-2">
                     <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                    No pressure • Privacy-first • For your convenience only
+                    Your convenience • Private • Easy to manage
                   </div>
                 </div>
               </.liquid_card>
@@ -521,22 +521,22 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-photo" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent font-bold">
-                      Truly Private Photo Sharing
+                      Private Photo Sharing
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Share photos with complete privacy. Only you, and who you choose to share with, can see your images.
+                  Share photos with the people you choose. Your memories stay between you and your connections.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-shield-check" class="size-3" />
-                    Strong encryption • Your photos, your control • No data harvesting
+                    Private • Secure • Your photos, your choice
                   </div>
                 </div>
               </.liquid_card>
 
-              <%!-- Anti-Addiction Design --%>
+              <%!-- Healthy Design --%>
               <.liquid_card
                 padding="lg"
                 class="group hover:scale-105 transition-all duration-300 ease-out"
@@ -547,17 +547,17 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-clock" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-bold">
-                      Healthy Usage By Design
+                      Thoughtful Design
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  Built to respect your time and attention. No infinite scroll, no dark patterns, no addiction mechanics.
+                  Built to respect your time. Clear endings, no endless scroll — just catch up and get back to life.
                 </p>
                 <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
                   <div class="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-2">
                     <.phx_icon name="hero-heart" class="size-3" />
-                    Natural stopping points • Clear boundaries • Life comes first
+                    Natural stopping points • Simple • Life comes first
                   </div>
                 </div>
               </.liquid_card>
@@ -568,10 +568,10 @@ defmodule MossletWeb.PublicLive.Features do
           <.liquid_container max_width="full" class="mt-16">
             <div class="text-center mb-12">
               <h2 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent">
-                Privacy that actually works
+                Privacy built in from the start
               </h2>
               <p class="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                Not just promises — real encryption that makes your data unreadable to everyone, including us.
+                Strong encryption keeps your moments between you and the people you choose.
               </p>
             </div>
 
@@ -592,7 +592,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your posts and messages use asymmetric encryption with password-derived keys. Searchable data uses SHA-512 hashing (2x the NIST recommendation). Everything gets an additional layer of AES-GCM symmetric encryption at rest.
+                  Your posts and messages are encrypted with password-derived keys. SHA-512 hashing for searchable data and AES-GCM encryption at rest add extra layers of protection.
                 </p>
               </.liquid_card>
 
@@ -607,12 +607,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-eye-slash" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent font-bold">
-                      Zero Knowledge
+                      Your Data, Your Eyes Only
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  We can't read your posts, messages, or even your username. Our system is designed so that you are in control of who can access your data. Even if forced by courts to hand over your data, we can only provide encrypted bits and non-personal information.
+                  We designed MOSSLET so we can't read your posts, messages, or username. You control who sees what — that's how it should be.
                 </p>
               </.liquid_card>
 
@@ -627,12 +627,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-user-group" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-bold">
-                      You Control Sharing
+                      Share On Your Terms
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Choose exactly who can see each post: private, connections only, or public. Set expiration dates for automatic deletion. Delete posts in real-time, anytime, and they're gone from all recipients — no copies, no cached versions, no permanent records.
+                  Choose who sees each post: private, connections, or public. Set expiration dates for posts, and when you delete something, it's gone everywhere — instantly and completely.
                 </p>
               </.liquid_card>
             </div>
@@ -645,7 +645,7 @@ defmodule MossletWeb.PublicLive.Features do
                 What makes MOSSLET different?
               </h2>
               <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-                While other platforms profit from your data and attention, we protect your wellbeing.
+                Social sharing built around what matters — genuine connection with the people you care about.
               </p>
             </div>
 
@@ -661,12 +661,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-heart" class="size-7 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-bold">
-                      Calm by Design
+                      Calm and Simple
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  No stress, no anxiety, no manipulation. MOSSLET is designed to give you peace of mind, not keep you scrolling endlessly.
+                  A peaceful experience designed around you. Share moments with loved ones, then get back to living.
                 </p>
               </.liquid_card>
 
@@ -685,7 +685,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your data belongs to you. Strong encryption, no spying, no selling your information to advertisers.
+                  Your moments stay between you and the people you choose. Strong encryption and simple privacy controls.
                 </p>
               </.liquid_card>
 
@@ -704,7 +704,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Just the essentials for connecting and sharing. No complicated features, no overwhelming interfaces.
+                  Just the essentials for connecting and sharing. Simple, intuitive, no clutter.
                 </p>
               </.liquid_card>
             </div>
@@ -721,12 +721,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-chart-pie" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-semibold">
-                      No Identity Graphs
+                      No Tracking
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Unlike Meta and Google, we don't build profiles about you. What you share stays just that — no invisible consequences.
+                  We don't build profiles or track behavior. Your activity stays private and isn't used to target you.
                 </p>
               </.liquid_card>
 
@@ -740,12 +740,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-sparkles" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent font-semibold">
-                      Free to Be You
+                      Fresh Start Anytime
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  No algorithms dictating who you are. Delete and start fresh anytime without losing your account.
+                  Clear your history and start fresh whenever you want without losing your account.
                 </p>
               </.liquid_card>
 
@@ -759,12 +759,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-sun" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent font-semibold">
-                      No Dark Patterns
+                      Honest Design
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  No tricks, traps, or manipulation. Simple design that helps you share and get back to living.
+                  Clear, straightforward interface. No tricks or hidden complexity — just simple sharing.
                 </p>
               </.liquid_card>
 
@@ -778,12 +778,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-user" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-indigo-500 to-blue-500 bg-clip-text text-transparent font-semibold">
-                      Own Your Data
+                      You Own Your Data
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Your data stays yours. Delete everything instantly, anytime. No colonization of your digital life.
+                  Your data is yours. Delete everything instantly, anytime — no questions asked.
                 </p>
               </.liquid_card>
 
@@ -794,15 +794,15 @@ defmodule MossletWeb.PublicLive.Features do
                 <:title>
                   <div class="flex items-center gap-3">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500">
-                      <.phx_icon name="hero-no-symbol" class="size-6 text-white" />
+                      <.phx_icon name="hero-hand-raised" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent font-semibold">
-                      No Manipulation
+                      Your Experience, Your Way
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  You won't be turned into a product or weapon. Control your own experience and thoughts.
+                  Full control over what you see and share. Customize your experience to fit your life.
                 </p>
               </.liquid_card>
 
@@ -816,12 +816,12 @@ defmodule MossletWeb.PublicLive.Features do
                       <.phx_icon name="hero-bell" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-semibold">
-                      Calm Notifications
+                      Gentle Notifications
                     </span>
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  In-app notifications that don't pressure you. Optional email digest limited to 1 per day maximum - privacy-first and peaceful.
+                  In-app notifications that don't interrupt your day. Optional daily email digest — max 1 per day.
                 </p>
               </.liquid_card>
 
@@ -832,7 +832,7 @@ defmodule MossletWeb.PublicLive.Features do
                 <:title>
                   <div class="flex items-center gap-3">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-violet-500">
-                      <.phx_icon name="hero-eye-slash" class="size-6 text-white" />
+                      <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-purple-500 to-violet-500 bg-clip-text text-transparent font-semibold">
                       Private by Default
@@ -840,7 +840,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Your account starts private. Choose what to share and with whom. Even we can't see your content.
+                  Your account starts private. Choose what to share and with whom on your terms.
                 </p>
               </.liquid_card>
 
@@ -851,7 +851,7 @@ defmodule MossletWeb.PublicLive.Features do
                 <:title>
                   <div class="flex items-center gap-3">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-gradient-to-r from-amber-500 to-orange-500">
-                      <.phx_icon name="hero-lock-closed" class="size-6 text-white" />
+                      <.phx_icon name="hero-shield-check" class="size-6 text-white" />
                     </div>
                     <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-semibold">
                       Strong Encryption
@@ -859,7 +859,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Strong asymmetric encryption ensures only you can access your data. Second layer of symmetric encryption at-rest for extra security.
+                  Multiple layers of encryption protect your content. Your data stays secure and private.
                 </p>
               </.liquid_card>
             </div>
@@ -874,11 +874,11 @@ defmodule MossletWeb.PublicLive.Features do
               >
                 <:title>
                   <span class="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-                    Ready for a better social experience?
+                    Ready to connect with the people who matter?
                   </span>
                 </:title>
                 <p class="mt-6 text-lg leading-8 text-slate-700 dark:text-slate-300 max-w-2xl mx-auto">
-                  Join thousands who've already discovered what social media feels like without the stress, tracking, and manipulation.
+                  Join people who've found a simpler, more meaningful way to stay connected with friends and family.
                 </p>
 
                 <%!-- Action buttons with enhanced spacing and layout --%>
@@ -930,7 +930,13 @@ defmodule MossletWeb.PublicLive.Features do
      |> assign_new(:max_width, fn -> "full" end)
      |> assign(:page_title, "Features")
      |> assign_new(:meta_description, fn ->
-       "Social media, unexpected. Tired of feeling anxious and stressed every time you log in? Unlike Facebook and other Big Tech platforms, MOSSLET protects your privacy, is easier to use, and doesn't secretly control you."
-     end)}
+       "Simple social sharing with people who matter most. MOSSLET makes it easy to connect with friends and family — private, calm, and beautifully simple."
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/features/features_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Simple, thoughtful features designed for genuine connection and peace of mind"
+     )}
   end
 end

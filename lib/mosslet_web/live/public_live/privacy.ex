@@ -939,6 +939,12 @@ defmodule MossletWeb.PublicLive.Privacy do
      |> assign(:page_title, "Privacy")
      |> assign_new(:meta_description, fn ->
        "Privacy is the standard on MOSSLET. We do not log or share personal information. That is our privacy policy in a nutshell. The rest of this policy tries to explain what information we may have, why we have it, how we protect it, and why you should care."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/privacy/privacy_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Privacy is the standard"
+     )}
   end
 end

@@ -157,6 +157,12 @@ defmodule MossletWeb.PublicLive.Faq do
      |> assign(:faq_sections, faq_sections)
      |> assign_new(:meta_description, fn ->
        "Frequently asked questions about MOSSLET, the privacy-first social network. Learn about our security, pricing, features, and how we protect your data without selling it to advertisers."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/faq/faq_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Everything you need to know about MOSSLET"
+     )}
   end
 end

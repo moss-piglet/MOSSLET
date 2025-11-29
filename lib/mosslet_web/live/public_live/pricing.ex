@@ -195,6 +195,12 @@ defmodule MossletWeb.PublicLive.Pricing do
      |> assign(:page_title, "Pricing")
      |> assign_new(:meta_description, fn ->
        "Simple, pay-once pricing. Say goodbye to never-ending subscription fees. Pay once and forget about it. With one, simple payment you get access to our service forever. No hidden fees, no subscriptions, no surprises. We also support lowering your upfront payment with Affirm."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/pricing/pricing_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Pay once, own forever. No subscriptions. No recurring fees. No surprises."
+     )}
   end
 end

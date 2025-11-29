@@ -3021,10 +3021,12 @@ defmodule MossletWeb.DesignSystem do
         <.liquid_photo_upload_preview :if={@uploads} uploads={@uploads} class="" />
         <%!-- URL Preview Section --%>
         <div :if={assigns[:url_preview_loading]} class="mt-4 animate-pulse">
-          <div class="h-32 bg-slate-200 dark:bg-slate-700 rounded-xl flex items-center justify-center gap-2">
-            <div class="h-4 w-4 rounded-full border-2 border-slate-400 dark:border-slate-500 animate-spin border-t-emerald-500 dark:border-t-emerald-400">
+          <div class="flex gap-3 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/50">
+            <div class="w-20 h-14 shrink-0 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
+            <div class="flex-1 space-y-2 py-0.5">
+              <div class="h-4 w-3/4 rounded bg-slate-200 dark:bg-slate-700"></div>
+              <div class="h-3 w-full rounded bg-slate-200 dark:bg-slate-700"></div>
             </div>
-            <span class="text-sm text-slate-500 dark:text-slate-400">Loading preview...</span>
           </div>
         </div>
 
@@ -3038,10 +3040,10 @@ defmodule MossletWeb.DesignSystem do
               <.phx_icon name="hero-x-mark" class="w-4 h-4" />
             </button>
 
-            <div class="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200">
+            <div class="flex gap-3 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200">
               <div
                 :if={@url_preview["image"] && @url_preview["image"] != ""}
-                class="aspect-[2/1] overflow-hidden bg-slate-100 dark:bg-slate-800"
+                class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
               >
                 <img
                   src={@url_preview["image"]}
@@ -3051,24 +3053,24 @@ defmodule MossletWeb.DesignSystem do
                 />
               </div>
 
-              <div class="p-4 bg-white/95 dark:bg-slate-800/95">
-                <div class="flex items-center gap-2 mb-2">
-                  <.phx_icon name="hero-link" class="h-4 w-4 text-emerald-500" />
+              <div class="flex-1 min-w-0 py-0.5">
+                <div class="flex items-center gap-1.5 mb-0.5">
+                  <.phx_icon name="hero-link" class="h-3 w-3 text-emerald-500" />
                   <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
                     {@url_preview["site_name"]}
                   </span>
                 </div>
 
-                <h4
+                <p
                   :if={@url_preview["title"]}
-                  class="font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2"
+                  class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1"
                 >
                   {@url_preview["title"]}
-                </h4>
+                </p>
 
                 <p
                   :if={@url_preview["description"]}
-                  class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2"
+                  class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
                 >
                   {@url_preview["description"]}
                 </p>
@@ -3996,11 +3998,11 @@ defmodule MossletWeb.DesignSystem do
                 href={@decrypted_url_preview["url"]}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="block rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
+                class="flex gap-3 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
               >
                 <div
                   :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
-                  class="aspect-[2/1] overflow-hidden bg-slate-100 dark:bg-slate-800"
+                  class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
                   phx-hook="URLPreviewHook"
                   id={"url-preview-#{@post.id}"}
                   data-post-id={@post.id}
@@ -4015,24 +4017,24 @@ defmodule MossletWeb.DesignSystem do
                   />
                 </div>
 
-                <div class="p-4 bg-white/95 dark:bg-slate-800/95">
-                  <div class="flex items-center gap-2 mb-2">
-                    <.phx_icon name="hero-link" class="h-4 w-4 text-slate-400" />
+                <div class="flex-1 min-w-0 py-0.5">
+                  <div class="flex items-center gap-1.5 mb-0.5">
+                    <.phx_icon name="hero-link" class="h-3 w-3 text-slate-400" />
                     <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {@decrypted_url_preview["site_name"] || "External Link"}
                     </span>
                   </div>
 
-                  <h4
+                  <p
                     :if={@decrypted_url_preview["title"]}
-                    class="font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2"
+                    class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
                   >
                     {@decrypted_url_preview["title"]}
-                  </h4>
+                  </p>
 
                   <p
                     :if={@decrypted_url_preview["description"]}
-                    class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2"
+                    class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
                   >
                     {@decrypted_url_preview["description"]}
                   </p>
