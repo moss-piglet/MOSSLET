@@ -17,9 +17,9 @@ defmodule MossletWeb.UserForgotPasswordLive do
       <div class="text-center mb-8 sm:mb-10">
         <%!-- Reset password section --%>
         <div class="mb-6">
-          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200/50 dark:border-blue-700/30 mb-4">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/50 dark:border-teal-700/3 mb-4">
             <span class="text-2xl">🔐</span>
-            <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
+            <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
               Password recovery
             </span>
           </div>
@@ -142,7 +142,18 @@ defmodule MossletWeb.UserForgotPasswordLive do
   end
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, form: to_form(%{}, as: "user"), page_title: "Forgot Your Password?")}
+    {:ok,
+     socket
+     |> assign(form: to_form(%{}, as: "user"), page_title: "Forgot Your Password?")
+     |> assign_new(:meta_description, fn ->
+       "Forgot your password? Enter the email used with your account and we'll send a password reset link to your inbox."
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/auth/forgot_password_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Password recovery on MOSSLET"
+     )}
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do

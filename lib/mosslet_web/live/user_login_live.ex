@@ -28,12 +28,12 @@ defmodule MossletWeb.UserLoginLive do
           "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
           "bg-clip-text text-transparent"
         ]}>
-          Welcome back to privacy
+          Sign in
         </h1>
 
         <%!-- Subtitle --%>
         <p class="text-lg text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
-          Step back into your safe space, away from Big Tech's prying eyes.
+          Your friends and family are waiting. Reconnect with privacy and peace of mind.
         </p>
       </div>
 
@@ -197,6 +197,19 @@ defmodule MossletWeb.UserLoginLive do
   def mount(_params, _session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
-    {:ok, assign(socket, form: form, page_title: "Sign In"), temporary_assigns: [form: form]}
+
+    {:ok,
+     socket
+     |> assign(page_title: "Sign In")
+     |> assign_new(:meta_description, fn ->
+       "Sign in. Your friends and family are waiting. Reconnect with privacy and peace of mind."
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/auth/sign_in_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Sign in on MOSSLET to connect with privacy and peace of mind"
+     )
+     |> assign(form: form, temporary_assigns: [form: form])}
   end
 end

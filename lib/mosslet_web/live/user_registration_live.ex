@@ -20,8 +20,14 @@ defmodule MossletWeb.UserRegistrationLive do
      |> assign(:loading, false)
      |> assign(trigger_submit: false, check_errors: false)
      |> assign_new(:meta_description, fn ->
-       Application.get_env(:mosslet, :seo_description)
+       "Let's get started. Enter your email to create your private space for connecting with friends and family. No ads, no algorithms, just people."
      end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/auth/register_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Register a new account on MOSSLET for privacy-first sharing with your people"
+     )
      |> assign_form(changeset), temporary_assigns: [form: nil]}
   end
 
@@ -63,9 +69,9 @@ defmodule MossletWeb.UserRegistrationLive do
         <%!-- Welcome section --%>
         <div class="mb-6">
           <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/50 dark:border-emerald-700/30 mb-4">
-            <span class="text-2xl">🛡️</span>
+            <span class="text-2xl">✨</span>
             <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              Choose privacy-first social
+              Join your people
             </span>
           </div>
         </div>
@@ -77,10 +83,10 @@ defmodule MossletWeb.UserRegistrationLive do
               "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
               "bg-clip-text text-transparent"
             ]}>
-              Take back your privacy
+              Let's get started
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Start by setting up your email address. This will be your secure gateway to a surveillance-free social space.
+              Enter your email to create your private space for connecting with friends and family.
             </p>
             <.step_indicator current={1} total={4} label="Email setup" />
           <% 2 -> %>
@@ -90,10 +96,10 @@ defmodule MossletWeb.UserRegistrationLive do
               "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
               "bg-clip-text text-transparent"
             ]}>
-              Choose your identity
+              Choose your name
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Your username is how trusted connections will find you. Choose something that feels right.
+              Pick a username so your friends and family can find and connect with you.
             </p>
             <.step_indicator current={2} total={4} label="Username setup" />
           <% 3 -> %>
@@ -103,10 +109,10 @@ defmodule MossletWeb.UserRegistrationLive do
               "dark:from-teal-400 dark:via-emerald-400 dark:to-emerald-300",
               "bg-clip-text text-transparent"
             ]}>
-              Secure your sanctuary
+              Keep it secure
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Create a strong password that protects your private space with unbreakable encryption.
+              Create a strong password to keep your moments private and protected.
             </p>
             <.step_indicator current={3} total={4} label="Password setup" />
           <% 4 -> %>
@@ -119,7 +125,7 @@ defmodule MossletWeb.UserRegistrationLive do
               Almost there!
             </h1>
             <p class="text-lg text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-4">
-              Set up password recovery options to keep your account secure and accessible.
+              Set up recovery options so you never lose access to your connections.
             </p>
             <.step_indicator current={4} total={4} label="Final setup" />
         <% end %>
