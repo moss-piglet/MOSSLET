@@ -135,7 +135,7 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
     case Image.from_binary(image_binary) do
       {:ok, image} ->
         {:ok, resized} =
-          Image.thumbnail(image, "1200x1200",
+          Image.thumbnail(image, "400x400",
             resize: :down,
             crop: :none,
             intent: :perceptual
