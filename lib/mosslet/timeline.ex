@@ -1739,7 +1739,11 @@ defmodule Mosslet.Timeline do
           Repo.preload(post, [:user_posts, :user, :user_post_receipts, :group, :user_group])
 
         nested_replies = get_nested_replies_for_post(id, options)
-        Map.put(post, :replies, nested_replies)
+        total_reply_count = count_replies_for_post(id, options)
+
+        post
+        |> Map.put(:replies, nested_replies)
+        |> Map.put(:total_reply_count, total_reply_count)
     end
   end
 
@@ -1772,23 +1776,59 @@ defmodule Mosslet.Timeline do
     * `:offset` - Number of top-level replies to skip (default: 0)
   """
   def get_nested_replies_for_post(post_id, options \\ %{}) do
-    query =
+    limit = options[:limit]
+    offset = options[:offset] || 0
+
+    top_level_query =
       from(r in Reply,
-        where: r.post_id == ^post_id,
+        where: r.post_id == ^post_id and is_nil(r.parent_reply_id),
         order_by: [asc: r.inserted_at],
         preload: [:user, :parent_reply]
       )
 
-    filtered_query =
+    top_level_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(top_level_query, options[:current_user_id])
+      else
+        top_level_query
+      end
+
+    top_level_query =
+      if limit do
+        top_level_query
+        |> offset(^offset)
+        |> limit(^limit)
+      else
+        top_level_query
+      end
+
+    top_level_replies = Repo.all(top_level_query)
+
+    Enum.map(top_level_replies, fn reply ->
+      child_replies = get_child_replies_tree(reply.id, options)
+      Map.put(reply, :child_replies, child_replies)
+    end)
+  end
+
+  defp get_child_replies_tree(parent_reply_id, options) do
+    query =
+      from(r in Reply,
+        where: r.parent_reply_id == ^parent_reply_id,
+        order_by: [asc: r.inserted_at],
+        preload: [:user, :parent_reply]
+      )
+
+    query =
       if options[:current_user_id] do
         filter_by_blocked_users_replies(query, options[:current_user_id])
       else
         query
       end
 
-    replies = Repo.all(filtered_query)
-
-    build_reply_tree(replies, options)
+    Repo.all(query)
+    |> Enum.map(fn child ->
+      Map.put(child, :child_replies, get_child_replies_tree(child.id, options))
+    end)
   end
 
   @doc """
@@ -1923,40 +1963,18 @@ defmodule Mosslet.Timeline do
   end
 
   # Helper function to add nested replies to a list of posts with block filtering
+  # Defaults to loading 5 top-level replies per post for performance
+  # Also adds total_reply_count for "Load more" functionality
   defp add_nested_replies_to_posts(posts, options) when is_list(posts) do
+    reply_options = Map.put_new(options, :limit, 5)
+
     Enum.map(posts, fn post ->
-      nested_replies = get_nested_replies_for_post(post.id, options)
-      Map.put(post, :replies, nested_replies)
-    end)
-  end
+      nested_replies = get_nested_replies_for_post(post.id, reply_options)
+      total_reply_count = count_replies_for_post(post.id, options)
 
-  # Helper to build nested reply structure with optional pagination for top-level replies
-  defp build_reply_tree(replies, options) do
-    grouped = Enum.group_by(replies, & &1.parent_reply_id)
-
-    top_level = Map.get(grouped, nil, [])
-
-    paginated_top_level =
-      case {options[:limit], options[:offset]} do
-        {nil, nil} ->
-          top_level
-
-        {limit, offset} ->
-          top_level
-          |> Enum.drop(offset || 0)
-          |> Enum.take(limit || length(top_level))
-      end
-
-    Enum.map(paginated_top_level, fn reply ->
-      Map.put(reply, :child_replies, build_children(reply.id, grouped))
-    end)
-  end
-
-  defp build_children(parent_id, grouped) do
-    children = Map.get(grouped, parent_id, [])
-
-    Enum.map(children, fn child ->
-      Map.put(child, :child_replies, build_children(child.id, grouped))
+      post
+      |> Map.put(:replies, nested_replies)
+      |> Map.put(:total_reply_count, total_reply_count)
     end)
   end
 

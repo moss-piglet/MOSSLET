@@ -509,11 +509,8 @@ defmodule MossletWeb.TimelineLive.Index do
                visibility: visibility
              ) do
           {:ok, _reply} ->
-            # Track user activity for auto-status (reply creation is significant activity)
             Accounts.track_user_activity(current_user, :interaction)
-            # Update the post with new reply count in the stream
-            # Get fresh post with updated reply count
-            updated_post = Timeline.get_post!(post_id)
+            updated_post = get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
 
             socket =
               socket
@@ -545,7 +542,6 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
@@ -558,11 +554,12 @@ defmodule MossletWeb.TimelineLive.Index do
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
 
-      # Update the post in the stream to show the new reply
+      post_with_limited_replies =
+        get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
+
       socket =
         socket
-        # Update existing post
-        |> stream_insert(:posts, post, at: -1)
+        |> stream_insert(:posts, post_with_limited_replies, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_reply_notification(reply, current_user, "created")
 
@@ -573,7 +570,6 @@ defmodule MossletWeb.TimelineLive.Index do
          status_message: new_status_message
        })}
     else
-      # Post doesn't match current tab but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
@@ -589,7 +585,6 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
@@ -602,11 +597,12 @@ defmodule MossletWeb.TimelineLive.Index do
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
 
-      # Update the post in the stream to show the updated reply
+      post_with_limited_replies =
+        get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
+
       socket =
         socket
-        # Update existing post
-        |> stream_insert(:posts, post, at: -1)
+        |> stream_insert(:posts, post_with_limited_replies, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_reply_notification(reply, current_user, "updated")
 
@@ -617,7 +613,6 @@ defmodule MossletWeb.TimelineLive.Index do
          status_message: new_status_message
        })}
     else
-      # Post doesn't match current tab but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
@@ -632,23 +627,20 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
-      # Update the post in the stream to show the reply deletion
+      post_with_limited_replies =
+        get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
+
       socket =
         socket
-        # Update existing post
-        |> stream_insert(:posts, post, at: -1)
+        |> stream_insert(:posts, post_with_limited_replies, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
-
-      # No notification needed for deleted replies - just silent removal
 
       {:noreply, socket}
     else
-      # Post doesn't match current tab but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
@@ -798,7 +790,6 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
@@ -811,11 +802,12 @@ defmodule MossletWeb.TimelineLive.Index do
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
 
-      # Update the post in the stream to show the updated reply
+      post_with_limited_replies =
+        get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
+
       socket =
         socket
-        # Update existing post
-        |> stream_insert(:posts, post, at: -1)
+        |> stream_insert(:posts, post_with_limited_replies, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
         |> add_reply_notification(reply, current_user, "updated")
 
@@ -826,7 +818,6 @@ defmodule MossletWeb.TimelineLive.Index do
          status_message: new_status_message
        })}
     else
-      # Post doesn't match current tab but still update counts
       socket =
         socket
         |> recalculate_counts_after_post_update(current_user, options)
@@ -990,32 +981,26 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:nested_reply_created, post_id, parent_reply_id}, socket) do
-    # Update the post stream to reflect the new nested reply
-    updated_post = Timeline.get_post!(post_id)
-
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this post should appear in the current tab
+    updated_post = get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+
     should_show_post = post_matches_current_tab?(updated_post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(updated_post, content_filters)
 
     if should_show_post and passes_content_filters do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      # this event is sent from the user's nested reply composer so the reply_user is
-      # the current user
       status_info = get_user_status_info(current_user, current_user, key)
 
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
 
-      # Update the post in the stream to show the new reply
       socket =
         socket
-        # Update existing post
         |> stream_insert(:posts, updated_post, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
         |> put_flash(:success, "Reply created!")
@@ -1027,10 +1012,7 @@ defmodule MossletWeb.TimelineLive.Index do
          status: new_status,
          status_message: new_status_message
        })}
-
-      {:noreply, socket}
     else
-      # Post doesn't match current tab but still update counts
       socket =
         socket
         |> recalculate_counts_after_post_update(current_user, options)
@@ -1341,8 +1323,6 @@ defmodule MossletWeb.TimelineLive.Index do
       ) do
     current_user = socket.assigns.current_user
 
-    options = %{current_user_id: current_user.id}
-
     loaded_nested_replies = socket.assigns[:loaded_nested_replies] || %{}
     current_offset = Map.get(loaded_nested_replies, reply_id, 0)
 
@@ -1356,7 +1336,15 @@ defmodule MossletWeb.TimelineLive.Index do
     if Enum.empty?(new_child_replies) do
       {:noreply, put_flash(socket, :info, "No more replies to load.")}
     else
-      post = Timeline.get_post_with_nested_replies(post_id, options)
+      loaded_replies_counts = socket.assigns[:loaded_replies_counts] || %{}
+      post_id_str = to_string(post_id)
+      reply_limit = Map.get(loaded_replies_counts, post_id_str, 5)
+
+      post =
+        Timeline.get_post_with_nested_replies(post_id, %{
+          current_user_id: current_user.id,
+          limit: reply_limit
+        })
 
       if post do
         new_offset = current_offset + length(new_child_replies)
@@ -1834,14 +1822,10 @@ defmodule MossletWeb.TimelineLive.Index do
                    desired_read_status
                  ) do
               {:ok, _receipt} ->
-                # Invalidate timeline cache to ensure fresh data
                 Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
-                # Get the post with fresh user_post_receipts preloaded
-                updated_post = Timeline.get_post!(post_id)
+                updated_post = get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
 
-                # Recalculate unread counts after toggling read status
-                # Use cached content filters from socket assigns
                 content_filter_prefs = socket.assigns.content_filters
 
                 options_with_filters =
@@ -1872,16 +1856,12 @@ defmodule MossletWeb.TimelineLive.Index do
         # Receipt exists and is marked as read - mark as unread
         case Timeline.update_user_post_receipt_unread(receipt.id) do
           {:ok, _conn, _post} ->
-            # Invalidate timeline cache to ensure fresh data
             Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
-            # Get the post with fresh user_post_receipts preloaded
             updated_post =
-              Timeline.get_post!(post_id)
+              get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
               |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
-            # Recalculate unread counts after toggling read status
-            # Use cached content filters from socket assigns
             content_filter_prefs = socket.assigns.content_filters
             options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
             unread_counts = calculate_unread_counts(current_user, options_with_filters)
@@ -1900,19 +1880,14 @@ defmodule MossletWeb.TimelineLive.Index do
         end
 
       %{is_read?: false} ->
-        # Receipt exists and is marked as unread - mark as read
         case Timeline.update_user_post_receipt_read(receipt.id) do
           {:ok, _conn, _post} ->
-            # Invalidate timeline cache to ensure fresh data
             Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
 
-            # Get the post with fresh user_post_receipts preloaded
             updated_post =
-              Timeline.get_post!(post_id)
+              get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
               |> Mosslet.Repo.preload([:user_post_receipts], force: true)
 
-            # Recalculate unread counts after toggling read status
-            # Use cached content filters from socket assigns
             content_filter_prefs = socket.assigns.content_filters
             options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
             unread_counts = calculate_unread_counts(current_user, options_with_filters)
@@ -2687,14 +2662,13 @@ defmodule MossletWeb.TimelineLive.Index do
                 |> assign(:timeline_counts, timeline_counts)
                 |> put_flash(:info, "Bookmark removed sucessfully.")
 
-              # Handle stream updates based on current tab
               socket =
                 if current_tab == "bookmarks" do
-                  # On bookmarks tab: remove the post from stream since it's no longer bookmarked
                   stream_delete(socket, :posts, post)
                 else
-                  # On other tabs: update the post with new bookmark status
-                  updated_post = Timeline.get_post!(post_id)
+                  updated_post =
+                    get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+
                   stream_insert(socket, :posts, updated_post, at: -1)
                 end
 
@@ -2704,14 +2678,10 @@ defmodule MossletWeb.TimelineLive.Index do
               {:noreply, put_flash(socket, :error, "Failed to remove bookmark")}
           end
         else
-          # Create new bookmark
           case Timeline.create_bookmark(current_user, post, %{}) do
             {:ok, _bookmark} ->
-              # Track user activity for auto-status (bookmarking is user interaction)
               Accounts.track_user_activity(current_user, :interaction)
 
-              # Recalculate bookmark count
-              # Use cached content filters from socket assigns
               content_filter_prefs = socket.assigns.content_filters
               options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
               timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
@@ -2721,19 +2691,19 @@ defmodule MossletWeb.TimelineLive.Index do
                 |> assign(:timeline_counts, timeline_counts)
                 |> put_flash(:success, "Post bookmarked successfully.")
 
-              # Handle stream updates based on current tab
               socket =
                 if current_tab == "bookmarks" do
-                  # On bookmarks tab: add the newly bookmarked post to the top of the stream
-                  updated_post = Timeline.get_post!(post_id)
+                  updated_post =
+                    get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
 
                   stream_insert(socket, :posts, updated_post,
                     at: 0,
                     limit: @post_per_page_default
                   )
                 else
-                  # On other tabs: update the post with new bookmark status
-                  updated_post = Timeline.get_post!(post_id)
+                  updated_post =
+                    get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
+
                   stream_insert(socket, :posts, updated_post, at: -1)
                 end
 
@@ -5579,4 +5549,15 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp count_all_replies(_), do: 0
+
+  defp get_post_with_reply_limit(post_id, current_user_id, assigns) do
+    loaded_replies_counts = assigns[:loaded_replies_counts] || %{}
+    post_id_str = to_string(post_id)
+    limit = Map.get(loaded_replies_counts, post_id_str, 5)
+
+    Timeline.get_post_with_nested_replies(post_id, %{
+      current_user_id: current_user_id,
+      limit: limit
+    })
+  end
 end

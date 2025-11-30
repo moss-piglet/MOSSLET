@@ -184,7 +184,12 @@ defmodule MossletWeb.PostLive.Show do
       Accounts.get_user_connection_for_reply_shared_users(reply.user_id, current_user.id)
 
     if post.id == socket.assigns.post.id && (user_connection || reply.user_id == current_user.id) do
-      {:noreply, socket |> push_patch(to: socket.assigns.return_url)}
+      reply_count = socket.assigns.reply_count + 1
+
+      {:noreply,
+       socket
+       |> assign(:reply_count, reply_count)
+       |> stream_insert(:replies, reply)}
     else
       {:noreply, socket}
     end
@@ -197,7 +202,7 @@ defmodule MossletWeb.PostLive.Show do
       Accounts.get_user_connection_for_reply_shared_users(reply.user_id, current_user.id)
 
     if post.id == socket.assigns.post.id && (user_connection || reply.user_id == current_user.id) do
-      {:noreply, socket |> push_patch(to: socket.assigns.return_url)}
+      {:noreply, stream_insert(socket, :replies, reply)}
     else
       {:noreply, socket}
     end
@@ -210,7 +215,12 @@ defmodule MossletWeb.PostLive.Show do
       Accounts.get_user_connection_for_reply_shared_users(reply.user_id, current_user.id)
 
     if post.id == socket.assigns.post.id && (user_connection || reply.user_id == current_user.id) do
-      {:noreply, socket |> push_patch(to: socket.assigns.return_url)}
+      reply_count = max(socket.assigns.reply_count - 1, 0)
+
+      {:noreply,
+       socket
+       |> assign(:reply_count, reply_count)
+       |> stream_delete(:replies, reply)}
     else
       {:noreply, socket}
     end
