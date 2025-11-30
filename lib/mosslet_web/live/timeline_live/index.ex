@@ -604,7 +604,6 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         |> stream_insert(:posts, post_with_limited_replies, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
-        |> add_reply_notification(reply, current_user, "updated")
 
       {:noreply,
        push_event(socket, "update_user_status", %{
@@ -809,7 +808,6 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         |> stream_insert(:posts, post_with_limited_replies, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
-        |> add_reply_notification(reply, current_user, "updated")
 
       {:noreply,
        push_event(socket, "update_user_status", %{
