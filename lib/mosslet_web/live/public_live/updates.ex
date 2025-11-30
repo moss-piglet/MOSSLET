@@ -74,10 +74,35 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.4"
+                  version="0.9.41"
                   date="November 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>UX Improvements & Load More Replies</:title>
+                  <:description>
+                    Smoother navigation and deeper conversations — timeline tabs now auto-center on selection, and you can load more replies to explore full discussions.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-arrows-right-left" color="teal">
+                      Timeline tabs auto-center when selected on mobile for easier navigation
+                    </.changelog_item>
+                    <.changelog_item icon="hero-chat-bubble-left-right" color="purple">
+                      Load more replies to dive deeper into conversations
+                    </.changelog_item>
+                    <.changelog_item icon="hero-device-phone-mobile" color="blue">
+                      Improved mobile tab scrolling with smooth animations
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="amber">
+                      Refined unread count badges that never get clipped
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+                <.changelog_entry
+                  version="0.9.4"
+                  date="November 2025"
+                  tag="Feature"
+                  tag_color="amber"
                 >
                   <:title>Profile Privacy & Rich Link Previews</:title>
                   <:description>
