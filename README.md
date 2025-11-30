@@ -4,7 +4,7 @@ Under development by Moss Piglet Corporation, a Public Benefit company.
 
 ## A social alternative that's simple and privacy-first
 
-Ditch intrusive and stressful Big Tech social platforms for MOSSLET — an alternative to Facebook, Twitter, and Instagram that's simple and privacy-first. Experience peace of mind.
+Connect with friends and family the way it should be — simple and meaningful. No ads, no algorithms, just your people. MOSSLET makes it easy to share moments and memories with the people who matter most.
 
 ## Contributing
 
