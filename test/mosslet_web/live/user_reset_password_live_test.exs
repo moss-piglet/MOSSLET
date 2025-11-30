@@ -135,7 +135,7 @@ defmodule MossletWeb.UserResetPasswordLiveTest do
         |> render_click()
         |> follow_redirect(conn, ~p"/auth/register")
 
-      assert html =~ "Take back your privacy"
+      assert html =~ "get started"
     end
   end
 

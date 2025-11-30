@@ -34,9 +34,9 @@
         active_tab={@active_tab || "home"}
       />
 
-      <%!-- Timeline navigation tabs with improved mobile spacing --%>
-      <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 p-3 sm:p-2 relative z-0 overflow-visible">
-        <div class="flex items-center justify-between sm:justify-center gap-2 sm:gap-4 lg:gap-6">
+      <%!-- Timeline navigation tabs --%>
+      <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 p-2 relative">
+        <div class="flex items-center gap-2">
           <MossletWeb.DesignSystem.liquid_timeline_tabs
             tabs={[
               %{

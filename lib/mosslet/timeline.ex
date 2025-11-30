@@ -1715,9 +1715,32 @@ defmodule Mosslet.Timeline do
       Repo.get!(Post, id)
       |> Repo.preload([:user_posts, :user, :user_post_receipts])
 
-    # Load nested replies structure
     nested_replies = get_nested_replies_for_post(id)
     Map.put(post, :replies, nested_replies)
+  end
+
+  @doc """
+  Gets a post with nested replies with pagination support.
+  Used for "Load more replies" functionality.
+
+  ## Options
+
+    * `:current_user_id` - The current user's ID for block filtering
+    * `:limit` - Maximum number of top-level replies to return
+    * `:offset` - Number of top-level replies to skip
+  """
+  def get_post_with_nested_replies(id, options \\ %{}) do
+    case Repo.get(Post, id) do
+      nil ->
+        nil
+
+      post ->
+        post =
+          Repo.preload(post, [:user_posts, :user, :user_post_receipts, :group, :user_group])
+
+        nested_replies = get_nested_replies_for_post(id, options)
+        Map.put(post, :replies, nested_replies)
+    end
   end
 
   def get_reply!(id),
@@ -1741,9 +1764,14 @@ defmodule Mosslet.Timeline do
   @doc """
   Gets replies for a post with proper nesting structure and block filtering.
   Returns a tree structure with top-level replies and their children.
+
+  ## Options
+
+    * `:current_user_id` - The current user's ID for block filtering
+    * `:limit` - Maximum number of top-level replies to return (default: all)
+    * `:offset` - Number of top-level replies to skip (default: 0)
   """
   def get_nested_replies_for_post(post_id, options \\ %{}) do
-    # Get all replies for the post
     query =
       from(r in Reply,
         where: r.post_id == ^post_id,
@@ -1751,7 +1779,6 @@ defmodule Mosslet.Timeline do
         preload: [:user, :parent_reply]
       )
 
-    # Apply block filtering if current_user_id is available in options
     filtered_query =
       if options[:current_user_id] do
         filter_by_blocked_users_replies(query, options[:current_user_id])
@@ -1761,8 +1788,126 @@ defmodule Mosslet.Timeline do
 
     replies = Repo.all(filtered_query)
 
-    # Build nested structure
-    build_reply_tree(replies)
+    build_reply_tree(replies, options)
+  end
+
+  @doc """
+  Gets child replies for a specific parent reply with pagination.
+  Used for "Load more replies" on nested threads.
+
+  ## Options
+
+    * `:current_user_id` - The current user's ID for block filtering
+    * `:limit` - Maximum number of replies to return (default: 5)
+    * `:offset` - Number of replies to skip (default: 0)
+  """
+  def get_child_replies_for_reply(parent_reply_id, options \\ %{}) do
+    limit = options[:limit] || 5
+    offset = options[:offset] || 0
+
+    query =
+      from(r in Reply,
+        where: r.parent_reply_id == ^parent_reply_id,
+        order_by: [asc: r.inserted_at],
+        limit: ^limit,
+        offset: ^offset,
+        preload: [:user, :parent_reply]
+      )
+
+    filtered_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(query, options[:current_user_id])
+      else
+        query
+      end
+
+    replies = Repo.all(filtered_query)
+
+    Enum.map(replies, fn reply ->
+      child_replies = get_all_child_replies_recursive(reply.id, options)
+      Map.put(reply, :child_replies, child_replies)
+    end)
+  end
+
+  defp get_all_child_replies_recursive(parent_id, options) do
+    query =
+      from(r in Reply,
+        where: r.parent_reply_id == ^parent_id,
+        order_by: [asc: r.inserted_at],
+        preload: [:user, :parent_reply]
+      )
+
+    filtered_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(query, options[:current_user_id])
+      else
+        query
+      end
+
+    Repo.all(filtered_query)
+    |> Enum.map(fn child ->
+      Map.put(child, :child_replies, get_all_child_replies_recursive(child.id, options))
+    end)
+  end
+
+  @doc """
+  Counts total replies for a post (all levels).
+  """
+  def count_replies_for_post(post_id, options \\ %{}) do
+    query =
+      from(r in Reply,
+        where: r.post_id == ^post_id,
+        select: count(r.id)
+      )
+
+    filtered_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(query, options[:current_user_id])
+      else
+        query
+      end
+
+    Repo.one(filtered_query) || 0
+  end
+
+  @doc """
+  Counts top-level replies for a post (replies without a parent).
+  """
+  def count_top_level_replies(post_id, options \\ %{}) do
+    query =
+      from(r in Reply,
+        where: r.post_id == ^post_id and is_nil(r.parent_reply_id),
+        select: count(r.id)
+      )
+
+    filtered_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(query, options[:current_user_id])
+      else
+        query
+      end
+
+    Repo.one(filtered_query) || 0
+  end
+
+  @doc """
+  Counts child replies for a specific parent reply.
+  """
+  def count_child_replies(parent_reply_id, options \\ %{}) do
+    query =
+      from(r in Reply,
+        where: r.parent_reply_id == ^parent_reply_id,
+        select: count(r.id)
+      )
+
+    filtered_query =
+      if options[:current_user_id] do
+        filter_by_blocked_users_replies(query, options[:current_user_id])
+      else
+        query
+      end
+
+    Repo.one(filtered_query) || 0
   end
 
   @doc """
@@ -1785,16 +1930,24 @@ defmodule Mosslet.Timeline do
     end)
   end
 
-  # Helper to build nested reply structure
-  defp build_reply_tree(replies) do
-    # Group replies by parent_reply_id
+  # Helper to build nested reply structure with optional pagination for top-level replies
+  defp build_reply_tree(replies, options) do
     grouped = Enum.group_by(replies, & &1.parent_reply_id)
 
-    # Get top-level replies (no parent)
     top_level = Map.get(grouped, nil, [])
 
-    # Recursively build tree
-    Enum.map(top_level, fn reply ->
+    paginated_top_level =
+      case {options[:limit], options[:offset]} do
+        {nil, nil} ->
+          top_level
+
+        {limit, offset} ->
+          top_level
+          |> Enum.drop(offset || 0)
+          |> Enum.take(limit || length(top_level))
+      end
+
+    Enum.map(paginated_top_level, fn reply ->
       Map.put(reply, :child_replies, build_children(reply.id, grouped))
     end)
   end

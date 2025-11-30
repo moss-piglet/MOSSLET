@@ -28,6 +28,7 @@ import ImageDownloadHook from "./image-download-hook";
 import DisableContextMenu from "./disable-context-menu";
 import StatusIndicatorHook from "./status-indicator-hook";
 import URLPreviewHook from "./url-preview-hook";
+import ScrollableTabs from "./scrollable-tabs";
 
 export default {
   CharacterCounter,
@@ -50,6 +51,7 @@ export default {
   ReplyComposer,
   RestoreBodyScroll,
   HideNestedReplyComposer,
+  ScrollableTabs,
   ScrollDown,
   TippyHook,
   TrixEditor,

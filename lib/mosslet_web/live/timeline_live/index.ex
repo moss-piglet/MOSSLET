@@ -163,6 +163,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:show_block_modal, false)
       |> assign(:block_user_id, nil)
       |> assign(:block_user_name, nil)
+      |> assign(:loaded_replies_counts, %{})
+      |> assign(:loaded_nested_replies, %{})
       |> stream(:posts, [])
       # Initialize timeline_data as an AsyncResult for loading states
       |> assign(:timeline_data, AsyncResult.loading())
@@ -725,7 +727,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         # Update existing post
         |> stream_insert(:posts, post, at: -1)
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply,
        push_event(socket, "update_user_status", %{
@@ -739,7 +741,7 @@ defmodule MossletWeb.TimelineLive.Index do
       socket =
         socket
         |> stream_delete(:posts, post)
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply, socket}
     end
@@ -770,7 +772,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         # Update existing post
         |> stream_insert(:posts, post, at: -1)
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply,
        push_event(socket, "update_user_status", %{
@@ -784,7 +786,7 @@ defmodule MossletWeb.TimelineLive.Index do
       socket =
         socket
         |> stream_delete(:posts, post)
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply, socket}
     end
@@ -814,7 +816,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         # Update existing post
         |> stream_insert(:posts, post, at: -1)
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
         |> add_reply_notification(reply, current_user, "updated")
 
       {:noreply,
@@ -827,7 +829,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Post doesn't match current tab but still update counts
       socket =
         socket
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply, socket}
     end
@@ -842,7 +844,7 @@ defmodule MossletWeb.TimelineLive.Index do
     socket =
       socket
       |> stream_delete(:posts, post)
-      |> recalculate_counts_after_new_post(current_user, options)
+      |> recalculate_counts_after_post_update(current_user, options)
 
     # No notification needed for deleted posts - just remove silently
 
@@ -898,7 +900,7 @@ defmodule MossletWeb.TimelineLive.Index do
     socket =
       socket
       |> stream_delete(:posts, post)
-      |> recalculate_counts_after_new_post(current_user, options)
+      |> recalculate_counts_after_post_update(current_user, options)
 
     # No notification needed for deleted reposts - just remove silently
 
@@ -1015,7 +1017,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         # Update existing post
         |> stream_insert(:posts, updated_post, at: -1)
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
         |> put_flash(:success, "Reply created!")
         |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply_id})
 
@@ -1031,7 +1033,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Post doesn't match current tab but still update counts
       socket =
         socket
-        |> recalculate_counts_after_new_post(current_user, options)
+        |> recalculate_counts_after_post_update(current_user, options)
         |> add_subtle_tab_indicator(current_user, options)
 
       {:noreply, socket}
@@ -1334,36 +1336,74 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_event(
         "expand_nested_replies",
-        %{"reply-id" => _reply_id, "post-id" => _post_id},
+        %{"reply-id" => reply_id, "post-id" => post_id},
         socket
       ) do
-    # TODO: This event handler would typically increase the max_depth for a specific reply thread
-    # or load more nested replies. For now, we'll add a simple response.
-    # In a full implementation, you might want to:
-    # 1. Store expanded state in socket assigns
-    # 2. Use JS to show/hide nested replies
-    # 3. Or load additional nested replies from the database
+    current_user = socket.assigns.current_user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Actively under construction 🚧, thank you for your patience. 💜")}
+    options = %{current_user_id: current_user.id}
+
+    loaded_nested_replies = socket.assigns[:loaded_nested_replies] || %{}
+    current_offset = Map.get(loaded_nested_replies, reply_id, 0)
+
+    new_child_replies =
+      Timeline.get_child_replies_for_reply(reply_id, %{
+        current_user_id: current_user.id,
+        limit: 5,
+        offset: current_offset
+      })
+
+    if Enum.empty?(new_child_replies) do
+      {:noreply, put_flash(socket, :info, "No more replies to load.")}
+    else
+      post = Timeline.get_post_with_nested_replies(post_id, options)
+
+      if post do
+        new_offset = current_offset + length(new_child_replies)
+        updated_loaded = Map.put(loaded_nested_replies, reply_id, new_offset)
+
+        socket =
+          socket
+          |> assign(:loaded_nested_replies, updated_loaded)
+          |> stream_insert(:posts, post, at: -1)
+
+        {:noreply, socket}
+      else
+        {:noreply, put_flash(socket, :error, "Post not found.")}
+      end
+    end
   end
 
   def handle_event(
         "load_more_replies",
-        %{"post-id" => _post_id},
+        %{"post-id" => post_id},
         socket
       ) do
-    # TODO: This event handler would typically increase the max_depth for a specific reply thread
-    # or load more nested replies. For now, we'll add a simple response.
-    # In a full implementation, you might want to:
-    # 1. Store expanded state in socket assigns
-    # 2. Use JS to show/hide nested replies
-    # 3. Or load additional nested replies from the database
+    current_user = socket.assigns.current_user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Actively under construction 🚧, thank you for your patience. 💜")}
+    loaded_replies_counts = socket.assigns[:loaded_replies_counts] || %{}
+    current_count = Map.get(loaded_replies_counts, post_id, 5)
+
+    new_limit = current_count + 5
+
+    post =
+      Timeline.get_post_with_nested_replies(post_id, %{
+        current_user_id: current_user.id,
+        limit: new_limit
+      })
+
+    if post do
+      updated_counts = Map.put(loaded_replies_counts, post_id, new_limit)
+
+      socket =
+        socket
+        |> assign(:loaded_replies_counts, updated_counts)
+        |> stream_insert(:posts, post, at: -1)
+
+      {:noreply, socket}
+    else
+      {:noreply, put_flash(socket, :error, "Post not found.")}
+    end
   end
 
   def handle_event("restore-body-scroll", _params, socket) do
@@ -4270,22 +4310,35 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   # Helper function to recalculate counts after any post change (create/update/delete)
-  defp recalculate_counts_after_post_change(socket, current_user, options) do
-    # Include filter preferences for accurate counts
-    # Use cached content filters from socket assigns
+  defp recalculate_counts_after_post_change(
+         socket,
+         current_user,
+         options,
+         increment_loaded
+       ) do
     content_filter_prefs = socket.assigns.content_filters
     options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
-    socket
-    |> assign(:timeline_counts, timeline_counts)
-    |> assign(:unread_counts, unread_counts)
+    socket =
+      socket
+      |> assign(:timeline_counts, timeline_counts)
+      |> assign(:unread_counts, unread_counts)
+
+    if increment_loaded do
+      assign(socket, :loaded_posts_count, socket.assigns.loaded_posts_count + 1)
+    else
+      socket
+    end
   end
 
-  # Backward compatibility alias
   defp recalculate_counts_after_new_post(socket, current_user, options) do
-    recalculate_counts_after_post_change(socket, current_user, options)
+    recalculate_counts_after_post_change(socket, current_user, options, true)
+  end
+
+  defp recalculate_counts_after_post_update(socket, current_user, options) do
+    recalculate_counts_after_post_change(socket, current_user, options, false)
   end
 
   # Generic function to add post notifications (create/update/delete)

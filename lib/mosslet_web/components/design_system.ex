@@ -4086,16 +4086,14 @@ defmodule MossletWeb.DesignSystem do
                 JS.toggle(to: "#reply-composer-#{@post_id}")
                 |> JS.toggle(to: "#reply-thread-#{@post_id}")
                 |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")
-                |> JS.toggle_class("hero-chat-bubble-oval-left-solid",
-                  to: "#reply-button-#{@post_id} [class*='hero-chat-bubble-oval-left']"
-                )
-                |> JS.toggle_class("hero-chat-bubble-oval-left",
-                  to: "#reply-button-#{@post_id} [class*='hero-chat-bubble-oval-left']"
+                |> JS.toggle_class("hero-chat-bubble-oval-left hero-chat-bubble-oval-left-solid",
+                  to: "#reply-icon-#{@post_id}"
                 )
                 |> JS.toggle_attribute({"data-composer-open", "true", "false"},
                   to: "#reply-button-#{@post_id}"
                 )
               }
+              icon_id={"reply-icon-#{@post_id}"}
               id={"reply-button-#{@post_id}"}
               data-composer-open="false"
               phx-hook="TippyHook"
@@ -4318,6 +4316,7 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :post_id, :string, default: nil
   attr :current_user_id, :string, default: nil
+  attr :icon_id, :string, default: nil
 
   attr :rest, :global,
     include:
@@ -4346,6 +4345,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Single icon with conditional state --%>
       <.phx_icon
         name={@icon}
+        id={@icon_id}
         class="relative h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-outline"
       />
 
@@ -4518,96 +4518,65 @@ defmodule MossletWeb.DesignSystem do
   def liquid_timeline_tabs(assigns) do
     ~H"""
     <div class={[
-      "relative rounded-xl overflow-hidden",
-      "bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm",
-      "border border-slate-200/60 dark:border-slate-700/60",
-      "p-1",
+      "relative flex-1 min-w-0",
       @class
     ]}>
-      <%!-- Enhanced mobile and desktop layout --%>
-      <div class="flex items-center gap-1 overflow-x-auto scrollbar-hide md:overflow-x-visible md:grid md:grid-cols-5">
-        <button
-          :for={tab <- @tabs}
-          class={
-            [
-              "relative flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 transition-all duration-200 ease-out",
-              "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+      <%!-- Mobile: horizontal scroll, Desktop: grid --%>
+      <div
+        id="timeline-tabs-scroll"
+        phx-hook="ScrollableTabs"
+        class="overflow-x-auto scrollbar-hide md:overflow-visible"
+      >
+        <div class="flex items-center gap-1 md:grid md:grid-cols-5 min-w-max md:min-w-0">
+          <button
+            :for={tab <- @tabs}
+            data-active={to_string(tab.key == @active_tab)}
+            class={[
+              "relative flex items-center justify-center gap-1.5 transition-all duration-200 ease-out",
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
               "whitespace-nowrap",
-              # Mobile: more compact, desktop: proper padding
-              "px-2 py-2 sm:px-3 md:px-4 md:py-2.5 text-xs sm:text-sm font-medium rounded-lg",
-              # Semantic colors for different tab types
+              "px-3 py-2 text-xs sm:text-sm font-medium rounded-lg",
               timeline_tab_classes(tab.key, tab.key == @active_tab)
-            ]
-          }
-          phx-click="switch_tab"
-          phx-value-tab={tab.key}
-        >
-          <%!-- Active tab enhanced liquid background --%>
-          <div
-            :if={tab.key == @active_tab}
-            class={[
-              "absolute inset-0 rounded-lg transition-all duration-300 ease-out",
-              timeline_tab_active_bg(tab.key)
             ]}
+            phx-click="switch_tab"
+            phx-value-tab={tab.key}
           >
-          </div>
+            <%!-- Active tab background --%>
+            <div
+              :if={tab.key == @active_tab}
+              class={[
+                "absolute inset-0 rounded-lg transition-all duration-300 ease-out",
+                timeline_tab_active_bg(tab.key)
+              ]}
+            >
+            </div>
 
-          <%!-- Tab icon for mobile and semantic clarity --%>
-          <.phx_icon
-            :if={tab_icon(tab.key)}
-            name={tab_icon(tab.key)}
-            class="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 relative z-10"
-          />
+            <%!-- Tab icon --%>
+            <.phx_icon
+              :if={tab_icon(tab.key)}
+              name={tab_icon(tab.key)}
+              class="h-4 w-4 flex-shrink-0 relative z-10"
+            />
 
-          <%!-- Tab label (responsive sizing) --%>
-          <span class="relative z-10 text-xs sm:text-sm truncate">
-            {tab.label}
-          </span>
+            <%!-- Tab label --%>
+            <span class="relative z-10">
+              {tab.label}
+            </span>
 
-          <%!-- Main count badge (simplified) we hide this for now as it's much more relaxing (and the total remaining is in the load more button) --%>
-          <%!--
-          <span
-            :if={tab[:count]}
-            class={[
-              "relative z-10 flex-shrink-0 px-1 sm:px-1.5 py-0.5 text-xs rounded-full font-medium",
-              timeline_tab_count_classes(tab.key, tab.key == @active_tab)
-            ]}
-          >
-            {tab.count}
-          </span>
-          --%>
-
-          <%!-- Floating unread indicator badge (positioned absolutely in top-right) --%>
-          <span
-            :if={tab[:unread] && tab.unread > 0}
-            class={[
-              "absolute -top-1 -right-1 z-20",
-              "flex items-center justify-center",
-              "min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full",
-              "bg-gradient-to-r from-teal-400 to-cyan-400 text-white",
-              "shadow-lg shadow-teal-500/50 dark:shadow-cyan-400/40",
-              "ring-2 ring-white dark:ring-slate-800",
-              "animate-pulse",
-              "transform scale-90 hover:scale-100 transition-transform duration-200"
-            ]}
-            data-tooltip="Unread posts"
-          >
-            {tab.unread}
-          </span>
-        </button>
-      </div>
-
-      <%!-- Enhanced scroll indicators for mobile (subtle but clear) --%>
-      <div class="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-100/90 to-transparent dark:from-slate-800/90 pointer-events-none md:hidden">
-      </div>
-      <div class="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-100/90 to-transparent dark:from-slate-800/90 pointer-events-none md:hidden">
-      </div>
-
-      <%!-- Subtle scroll hint for mobile --%>
-      <div class="absolute -bottom-5 right-2 md:hidden">
-        <div class="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-          <.phx_icon name="hero-arrows-pointing-out" class="h-3 w-3" />
-          <span>scroll</span>
+            <%!-- Unread badge (inline flow, never clipped) --%>
+            <span
+              :if={tab[:unread] && tab.unread > 0}
+              class={[
+                "flex-shrink-0 relative z-10",
+                "flex items-center justify-center",
+                "min-w-[1.25rem] h-5 px-1.5 text-[10px] font-bold rounded-full",
+                "bg-gradient-to-r from-teal-400 to-cyan-400 text-white",
+                "shadow-sm animate-pulse"
+              ]}
+            >
+              {tab.unread}
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -5823,7 +5792,7 @@ defmodule MossletWeb.DesignSystem do
           </div>
 
           <%!-- Load more replies if needed --%>
-          <div :if={@reply_count > length(@replies)} class="pt-2">
+          <div :if={@reply_count > count_loaded_replies(@replies)} class="pt-2">
             <.liquid_button
               variant="ghost"
               size="sm"
@@ -5832,7 +5801,7 @@ defmodule MossletWeb.DesignSystem do
               phx-value-post-id={@post_id}
               class="text-emerald-600 dark:text-emerald-400"
             >
-              Load {min(@reply_count - length(@replies), 5)} more replies
+              Load {min(@reply_count - count_loaded_replies(@replies), 5)} more replies
             </.liquid_button>
           </div>
         </div>
@@ -5867,18 +5836,45 @@ defmodule MossletWeb.DesignSystem do
         post_id={@post_id}
       />
 
+      <%!-- Collapse/Expand toggle for nested replies --%>
+      <div :if={@depth < @max_depth and has_child_replies?(@reply)} class="mt-2">
+        <button
+          type="button"
+          id={"nested-toggle-#{@reply.id}"}
+          phx-click={toggle_nested_replies(@reply.id)}
+          class="group flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200"
+          aria-expanded="false"
+          aria-controls={"nested-children-#{@reply.id}"}
+        >
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700/50 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors duration-200">
+            <.phx_icon
+              name="hero-chevron-down"
+              class="w-3 h-3 transition-transform duration-200 -rotate-90"
+              id={"collapse-icon-#{@reply.id}"}
+            />
+          </span>
+          <span id={"collapse-text-#{@reply.id}"} class="hidden">
+            Hide {length(get_child_replies(@reply))} {if length(get_child_replies(@reply)) == 1,
+              do: "reply",
+              else: "replies"}
+          </span>
+          <span id={"expand-text-#{@reply.id}"}>
+            Show {length(get_child_replies(@reply))} {if length(get_child_replies(@reply)) == 1,
+              do: "reply",
+              else: "replies"}
+          </span>
+        </button>
+      </div>
+
       <%!-- Render nested child replies with improved visual hierarchy --%>
       <div
         :if={@depth < @max_depth and has_child_replies?(@reply)}
-        class={
-          [
-            "nested-children mt-3 relative",
-            # Increase indentation for deeper nesting
-            if(@depth == 0, do: "ml-6 sm:ml-8", else: "ml-4 sm:ml-6"),
-            # Add visual separator for nested levels
-            "border-l-2 border-emerald-200/40 dark:border-emerald-700/40 pl-4 sm:pl-6"
-          ]
-        }
+        id={"nested-children-#{@reply.id}"}
+        class={[
+          "nested-children mt-3 relative overflow-hidden transition-all duration-300 ease-out hidden",
+          if(@depth == 0, do: "ml-6 sm:ml-8", else: "ml-4 sm:ml-6"),
+          "border-l-2 border-emerald-200/40 dark:border-emerald-700/40 pl-4 sm:pl-6"
+        ]}
       >
         <%!-- Enhanced nested thread connection --%>
         <div class="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-300/60 via-teal-400/40 to-transparent dark:from-emerald-400/60 dark:via-teal-500/40">
@@ -6398,6 +6394,23 @@ defmodule MossletWeb.DesignSystem do
       _ -> []
     end
   end
+
+  defp toggle_nested_replies(reply_id) do
+    JS.toggle(to: "#nested-children-#{reply_id}")
+    |> JS.toggle_class("hidden", to: "#collapse-text-#{reply_id}")
+    |> JS.toggle_class("hidden", to: "#expand-text-#{reply_id}")
+    |> JS.toggle_class("-rotate-90", to: "#collapse-icon-#{reply_id}")
+    |> JS.toggle_attribute({"aria-expanded", "true", "false"}, to: "#nested-toggle-#{reply_id}")
+  end
+
+  defp count_loaded_replies(replies) when is_list(replies) do
+    Enum.reduce(replies, 0, fn reply, acc ->
+      child_count = count_loaded_replies(get_child_replies(reply))
+      acc + 1 + child_count
+    end)
+  end
+
+  defp count_loaded_replies(_), do: 0
 
   @doc """
   Nested reply composer for replying to specific replies
