@@ -152,6 +152,7 @@ defmodule MossletWeb.EditPasswordLive do
                     <button
                       type="button"
                       id="eye-current-password"
+                      aria-label="Show current password"
                       data-tippy-content="Show current password"
                       phx-hook="TippyHook"
                       class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -169,6 +170,7 @@ defmodule MossletWeb.EditPasswordLive do
                     <button
                       type="button"
                       id="eye-slash-current-password"
+                      aria-label="Hide current password"
                       data-tippy-content="Hide current password"
                       phx-hook="TippyHook"
                       class="hidden group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -253,6 +255,7 @@ defmodule MossletWeb.EditPasswordLive do
                       <button
                         type="button"
                         id="eye-new-password"
+                        aria-label="Show new password"
                         data-tippy-content="Show new password"
                         phx-hook="TippyHook"
                         class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -270,6 +273,7 @@ defmodule MossletWeb.EditPasswordLive do
                       <button
                         type="button"
                         id="eye-slash-new-password"
+                        aria-label="Hide new password"
                         data-tippy-content="Hide new password"
                         phx-hook="TippyHook"
                         class="hidden group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"

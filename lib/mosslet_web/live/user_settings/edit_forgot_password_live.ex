@@ -100,7 +100,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
                     ]}
                   />
                   <div class="space-y-2">
-                    <h4 class={[
+                    <h3 class={[
                       "font-medium text-sm",
                       if(@current_user.is_forgot_pwd?,
                         do: "text-blue-800 dark:text-blue-200",
@@ -110,7 +110,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
                       {if @current_user.is_forgot_pwd?,
                         do: "Maximum Convenience Mode",
                         else: "Maximum Privacy Mode"}
-                    </h4>
+                    </h3>
                     <p class={[
                       "text-sm leading-relaxed",
                       if(@current_user.is_forgot_pwd?,
@@ -164,9 +164,9 @@ defmodule MossletWeb.EditForgotPasswordLive do
             <div class="space-y-6">
               <%!-- What happens section --%>
               <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                <h4 class="font-medium text-sm text-slate-900 dark:text-slate-100 mb-3">
+                <h3 class="font-medium text-sm text-slate-900 dark:text-slate-100 mb-3">
                   What happens when you change this setting:
-                </h4>
+                </h3>
                 <div class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                   <div :if={!@current_user.is_forgot_pwd?} class="space-y-2">
                     <p class="flex items-start gap-2">

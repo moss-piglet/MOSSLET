@@ -102,7 +102,7 @@ defmodule MossletWeb.EditNotificationsLive do
                     ]}
                   />
                   <div class="space-y-2">
-                    <h4 class={[
+                    <h3 class={[
                       "font-medium text-sm",
                       if(@current_user.is_subscribed_to_marketing_notifications,
                         do: "text-emerald-800 dark:text-emerald-200",
@@ -112,7 +112,7 @@ defmodule MossletWeb.EditNotificationsLive do
                       {if @current_user.is_subscribed_to_marketing_notifications,
                         do: "Calm Notifications Enabled",
                         else: "Notifications Disabled"}
-                    </h4>
+                    </h3>
                     <p class={[
                       "text-sm leading-relaxed",
                       if(@current_user.is_subscribed_to_marketing_notifications,
@@ -147,9 +147,9 @@ defmodule MossletWeb.EditNotificationsLive do
             <div class="space-y-6">
               <%!-- What notifications include --%>
               <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-                <h4 class="font-medium text-sm text-slate-900 dark:text-slate-100 mb-3">
+                <h3 class="font-medium text-sm text-slate-900 dark:text-slate-100 mb-3">
                   What calm notifications include:
-                </h4>
+                </h3>
                 <div class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                   <div class="flex items-start gap-2">
                     <.phx_icon
@@ -262,7 +262,7 @@ defmodule MossletWeb.EditNotificationsLive do
                     ]}
                   />
                   <div class="space-y-2">
-                    <h4 class={[
+                    <h3 class={[
                       "font-medium text-sm",
                       if(@current_user.is_subscribed_to_email_notifications,
                         do: "text-emerald-800 dark:text-emerald-200",
@@ -272,7 +272,7 @@ defmodule MossletWeb.EditNotificationsLive do
                       {if @current_user.is_subscribed_to_email_notifications,
                         do: "Email Notifications Enabled",
                         else: "Email Notifications Disabled"}
-                    </h4>
+                    </h3>
                     <p class={[
                       "text-sm leading-relaxed",
                       if(@current_user.is_subscribed_to_email_notifications,
@@ -292,9 +292,9 @@ defmodule MossletWeb.EditNotificationsLive do
               </div>
 
               <div class="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                <h5 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
                   What email notifications include:
-                </h5>
+                </h3>
                 <div class="space-y-2 text-sm text-blue-700 dark:text-blue-300">
                   <div class="flex items-start gap-2">
                     <.phx_icon
@@ -441,9 +441,9 @@ defmodule MossletWeb.EditNotificationsLive do
               </p>
 
               <div class="space-y-3">
-                <h5 class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">
                   You'll receive emails for:
-                </h5>
+                </h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-blue-700 dark:text-blue-300">
                   <div class="flex items-start gap-2">
                     <.phx_icon name="hero-key" class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0" />

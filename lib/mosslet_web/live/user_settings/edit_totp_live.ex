@@ -429,6 +429,7 @@ defmodule MossletWeb.EditTotpLive do
               <button
                 type="button"
                 id="eye-2fa-password"
+                aria-label="Show password"
                 data-tippy-content="Show password"
                 phx-hook="TippyHook"
                 class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -446,6 +447,7 @@ defmodule MossletWeb.EditTotpLive do
               <button
                 type="button"
                 id="eye-slash-2fa-password"
+                aria-label="Hide password"
                 data-tippy-content="Hide password"
                 phx-hook="TippyHook"
                 class="hidden group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -515,9 +517,9 @@ defmodule MossletWeb.EditTotpLive do
 
         <%!-- Backup Codes Grid --%>
         <div class="space-y-4">
-          <h4 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
             Your Backup Codes
-          </h4>
+          </h2>
           <div id="backup-codes-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <%= for backup_code <- @backup_codes do %>
               <div class={[
