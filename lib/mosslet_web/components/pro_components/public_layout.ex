@@ -300,9 +300,9 @@ defmodule MossletWeb.PublicLayout do
     </header>
 
     <%!-- Main content without header spacing since hero handles its own positioning --%>
-    <div class="bg-white dark:bg-slate-950">
+    <main class="bg-white dark:bg-slate-950">
       {render_slot(@inner_block)}
-    </div>
+    </main>
 
     <%!-- Footer with seamless liquid metal integration --%>
     <footer class="relative overflow-hidden">

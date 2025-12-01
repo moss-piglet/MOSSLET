@@ -158,7 +158,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
                     <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Online
                     </div>
-                    <div class="text-xs text-amber-600 dark:text-amber-400">
+                    <div class="text-xs text-amber-700 dark:text-amber-400">
                       Session locked
                     </div>
                   </div>
@@ -192,7 +192,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
                     <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Meg Aghamyan
                     </div>
-                    <div class="text-xs text-emerald-600 dark:text-emerald-400">
+                    <div class="text-xs text-emerald-700 dark:text-emerald-400">
                       Online
                     </div>
                   </div>

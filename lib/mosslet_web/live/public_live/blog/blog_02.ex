@@ -129,7 +129,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog02 do
         <div class="my-8 p-6 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
           <h3 class="text-pink-600 dark:text-pink-400 font-bold mb-3">A System of Permanence</h3>
           <div class="text-sm text-slate-700 dark:text-slate-300 font-mono bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border-l-4 border-emerald-400">
-            <div class="text-emerald-600 dark:text-emerald-400 font-bold mb-2">
+            <div class="text-emerald-700 dark:text-emerald-400 font-bold mb-2">
               🚨 Severe Harm Present
             </div>
             <p>
