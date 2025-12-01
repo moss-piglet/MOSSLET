@@ -52,57 +52,150 @@ defmodule MossletWeb.SubscribeLive do
       socket={@socket}
       key={@key}
     >
-      <.container class="my-12 max-w-7xl">
-        <%!-- Header Section --%>
-        <div class="mx-auto max-w-4xl text-center pb-16">
-          <h1 class="text-6xl font-bold tracking-tight sm:text-7xl lg:text-8xl">
-            <span class="bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
-              Simple,
-            </span>
-            <span class="block mt-2 bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent italic underline underline-offset-4 decoration-emerald-600 dark:decoration-emerald-400 decoration-2">
-              pay once
-            </span>
-            <span class="block mt-2 bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
-              pricing
-            </span>
-          </h1>
-
-          <h2 class="mt-8 text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-slate-900 dark:text-slate-100">
-            Say goodbye to never-ending subscription fees.
-          </h2>
-
-          <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-400">
-            Pay once and forget about it. With one, simple payment you get access to our service forever. No hidden fees, no subscriptions, no surprises. We also support lowering your upfront payment with Affirm.
-          </p>
-        </div>
-
-        <BillingComponents.pricing_panels_container panels={length(@products)} interval_selector>
-          <%= for product <- @products do %>
-            <BillingComponents.pricing_panel
-              id={"pricing-product-#{product.id}"}
-              label={product.name}
-              description={product.description}
-              features={product.features}
-              most_popular={Map.get(product, :most_popular)}
-              disabled={product.id == "business"}
+      <div class="min-h-screen">
+        <div class="relative overflow-hidden">
+          <div class="absolute inset-0 pointer-events-none">
+            <div class="absolute -top-40 -right-32 h-96 w-96 rounded-full bg-gradient-to-br from-teal-400/20 via-emerald-500/15 to-cyan-400/20 blur-3xl animate-pulse">
+            </div>
+            <div
+              class="absolute top-1/2 -left-32 h-96 w-96 rounded-full bg-gradient-to-tr from-emerald-400/15 via-teal-500/10 to-cyan-400/15 blur-3xl animate-pulse"
+              style="animation-delay: -2s;"
             >
-              <%= for item <- product.line_items do %>
-                <BillingComponents.item_price
-                  id={"pricing-plan-#{item.id}"}
-                  interval={item.interval}
-                  amount={item.amount}
-                  button_props={button_props(item, @current_payment_intent, @key)}
-                  button_label={subscribe_text(item, @current_payment_intent)}
-                  is_already_paid={already_paid?(@current_payment_intent)}
-                  most_popular={Map.get(product, :most_popular)}
-                  disabled={already_paid?(@current_payment_intent)}
-                  billing_path={BillingLive.billing_path(@source, assigns)}
+            </div>
+          </div>
+
+          <div class="relative z-10 px-4 py-12 sm:px-6 lg:px-8 sm:py-16 lg:py-20">
+            <div class="mx-auto max-w-3xl text-center mb-12 sm:mb-16">
+              <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border border-emerald-200/50 dark:border-emerald-700/30 mb-6">
+                <.phx_icon
+                  name="hero-sparkles"
+                  class="w-4 h-4 text-emerald-600 dark:text-emerald-400"
                 />
+                <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                  {gettext("No subscriptions, ever")}
+                </span>
+              </div>
+
+              <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
+                <span class="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
+                  {gettext("Pay once,")}
+                </span>
+                <br />
+                <span class="bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
+                  {gettext("own forever")}
+                </span>
+              </h1>
+
+              <p class="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                {gettext(
+                  "Say goodbye to never-ending subscription fees. One simple payment gives you lifetime access—no hidden costs, no surprises."
+                )}
+              </p>
+            </div>
+
+            <div class="mx-auto max-w-lg">
+              <%= for product <- @products do %>
+                <.liquid_card padding="lg" class="overflow-hidden">
+                  <div class="flex items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                        {product.name}
+                      </h2>
+                      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        {gettext("Lifetime access")}
+                      </p>
+                    </div>
+                    <div
+                      id="app-beta-badge"
+                      phx-hook="TippyHook"
+                      data-tippy-content={gettext("Special launch pricing")}
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-700/30"
+                    >
+                      <.phx_icon name="hero-fire" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                        {gettext("Save 40%")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
+                    {product.description}
+                  </p>
+
+                  <%= for item <- product.line_items do %>
+                    <BillingComponents.item_price
+                      id={"pricing-plan-#{item.id}"}
+                      interval={item.interval}
+                      amount={item.amount}
+                      button_props={button_props(item, @current_payment_intent, @key)}
+                      button_label={subscribe_text(item, @current_payment_intent)}
+                      is_already_paid={already_paid?(@current_payment_intent)}
+                      most_popular={Map.get(product, :most_popular)}
+                      disabled={already_paid?(@current_payment_intent)}
+                      billing_path={BillingLive.billing_path(@source, assigns)}
+                    />
+                  <% end %>
+
+                  <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
+                    <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+                      <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" />
+                      {gettext("Everything included")}
+                    </h3>
+                    <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <%= for feature <- product.features do %>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span class="text-sm text-slate-600 dark:text-slate-400">
+                            {feature}
+                          </span>
+                        </li>
+                      <% end %>
+                    </ul>
+                  </div>
+
+                  <div class="mt-6 p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/10 dark:to-cyan-900/10 border border-blue-200/30 dark:border-blue-700/20">
+                    <div class="flex items-center gap-3">
+                      <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40">
+                        <.phx_icon
+                          name="hero-credit-card"
+                          class="w-5 h-5 text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+                      <div
+                        id="affirm-disclosure"
+                        phx-hook="TippyHook"
+                        data-tippy-content="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders. CA residents: Loans by Affirm Loan Services, LLC are made or arranged pursuant to a California Finance Lenders Law license."
+                        class="cursor-help flex-1"
+                      >
+                        <div class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          {gettext("Flexible payments available")}
+                        </div>
+                        <div class="text-sm text-blue-700 dark:text-blue-300">
+                          {gettext("Split into monthly payments with Affirm")}
+                        </div>
+                      </div>
+                      <.phx_icon
+                        name="hero-information-circle"
+                        class="w-5 h-5 text-blue-400 dark:text-blue-500 flex-shrink-0"
+                      />
+                    </div>
+                  </div>
+                </.liquid_card>
               <% end %>
-            </BillingComponents.pricing_panel>
-          <% end %>
-        </BillingComponents.pricing_panels_container>
-      </.container>
+            </div>
+
+            <div class="mt-12 text-center">
+              <p class="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+                <.phx_icon name="hero-shield-check" class="w-4 h-4 text-emerald-500" />
+                {gettext("Secure payment powered by Stripe")}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </.source_layout>
     """
   end

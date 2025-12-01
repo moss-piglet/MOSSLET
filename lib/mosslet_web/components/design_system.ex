@@ -227,7 +227,7 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :class, :any, default: ""
   attr :padding, :string, default: "md", values: ~w(sm md lg)
-  attr :heading_level, :integer, default: 3, values: 1..6
+  attr :heading_level, :integer, default: 2, values: 1..6
   slot :title
   slot :inner_block, required: true
 
@@ -381,7 +381,7 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Social links with enhanced styling --%>
           <div class="flex items-center justify-center lg:justify-start gap-4">
             <.footer_social_link
-              href={~p"/terms#terms_and_conditions"}
+              href={~p"/terms"}
               navigate={true}
               aria_label="MOSSLET Terms and Conditions"
               tooltip="MOSSLET Terms and Conditions"
@@ -992,9 +992,9 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Header with title and badge --%>
       <div class="relative flex justify-between items-start mb-4">
-        <h3 class="text-base font-semibold leading-7 text-emerald-600 dark:text-emerald-400">
+        <h2 class="text-base font-semibold leading-7 text-emerald-700 dark:text-emerald-400">
           {@title}
-        </h3>
+        </h2>
         <.liquid_badge
           :if={@badge}
           variant={if(@disabled, do: "soft", else: "outline")}

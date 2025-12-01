@@ -50,7 +50,7 @@ defmodule MossletWeb.Components.MossletAuthLayout do
       </nav>
 
       <%!-- Main content --%>
-      <div class="relative z-10 flex min-h-[calc(100vh-80px)] sm:min-h-[calc(100vh-120px)] items-center justify-center px-0 py-4 sm:px-6 sm:py-8 lg:px-8">
+      <main class="relative z-10 flex min-h-[calc(100vh-80px)] sm:min-h-[calc(100vh-120px)] items-center justify-center px-0 py-4 sm:px-6 sm:py-8 lg:px-8">
         <div class="w-full max-w-md sm:max-w-lg">
           <%!-- Auth card with liquid metal styling --%>
           <div class={[
@@ -80,7 +80,7 @@ defmodule MossletWeb.Components.MossletAuthLayout do
             </div>
           </div>
         </div>
-      </div>
+      </main>
 
       <%!-- Custom shimmer animation --%>
       <style>

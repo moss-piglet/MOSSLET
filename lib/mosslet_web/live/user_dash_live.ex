@@ -13,6 +13,7 @@ defmodule MossletWeb.UserDashLive do
     <.layout current_page={:dashboard} current_user={@current_user} key={@key} type="sidebar">
       <%!-- Calm dashboard with liquid metal styling like the sidebar --%>
       <.liquid_container class="py-8">
+        <h1 class="sr-only">Dashboard</h1>
         <%!-- Profile creation section for new users --%>
         <div :if={is_nil(@current_user.connection.profile) && @current_user.confirmed_at} class="mb-8">
           <.liquid_card padding="lg" class="max-w-2xl mx-auto">

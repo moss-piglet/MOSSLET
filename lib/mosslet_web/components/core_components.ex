@@ -2108,7 +2108,7 @@ defmodule MossletWeb.CoreComponents do
             <button>
               <.link
                 id="mosslet-terms-link"
-                navigate={~p"/terms#terms_and_conditions"}
+                navigate={~p"/terms"}
                 aria-label="MOSSLET Terms and Conditions"
                 data-tippy-content="MOSSLET Terms and Conditions"
                 phx-hook="TippyHook"

@@ -53,7 +53,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
 
   @impl true
   def handle_info(:redirect, socket) do
-    {:noreply, push_navigate(socket, to: "/")}
+    {:noreply, push_navigate(socket, to: "/app")}
   end
 
   @impl true

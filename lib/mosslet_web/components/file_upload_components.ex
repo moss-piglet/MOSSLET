@@ -57,7 +57,7 @@ defmodule MossletWeb.FileUploadComponents do
       <div class="flex flex-col gap-5 md:items-center md:flex-row">
         <div class="flex items-center gap-3">
           <div :if={@current_image_src} class="relative shrink-0">
-            <img class={@current_image_class} src={@current_image_src} />
+            <img class={@current_image_class} src={@current_image_src} alt={"Current #{@label}"} />
 
             <button
               :if={@current_image_src && @on_delete}
@@ -71,6 +71,7 @@ defmodule MossletWeb.FileUploadComponents do
               phx-hook="TippyHook"
             >
               <.icon name="hero-x-mark" solid />
+              <span class="sr-only">Delete current image</span>
             </button>
           </div>
 
@@ -88,7 +89,11 @@ defmodule MossletWeb.FileUploadComponents do
             <.icon name="hero-arrow-right" solid class="h-5" />
             <%= for entry <- @upload.entries do %>
               <div class="relative shrink-0">
-                <.live_img_preview entry={entry} class={@new_image_class} />
+                <.live_img_preview
+                  entry={entry}
+                  class={@new_image_class}
+                  alt="Preview of selected image"
+                />
                 <button
                   :if={@myself}
                   type="button"

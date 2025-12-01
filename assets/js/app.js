@@ -45,6 +45,20 @@ window.Alpine = Alpine;
 // Make tippy globally available
 window.tippy = tippy;
 
+// Set default tippy props to fix accessibility landmark issues
+tippy.setDefaultProps({
+  appendTo: () => {
+    let container = document.getElementById('tippy-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'tippy-container';
+      container.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+});
+
 Alpine.start();
 
 // Trix-Editor

@@ -13,7 +13,7 @@ defmodule MossletWeb.PublicLive.Terms do
     >
       <%!-- Enhanced liquid metal background --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-        <main class="isolate">
+        <div class="isolate">
           <%!-- Hero section with liquid effects matching other pages --%>
           <div class="relative isolate">
             <%!-- Floating gradient orbs for liquid metal effect - responsive and contained --%>
@@ -67,9 +67,9 @@ defmodule MossletWeb.PublicLive.Terms do
 
               <%!-- Overview Section --%>
               <div class="mb-12 p-6 bg-teal-50 dark:bg-teal-900/60 dark:bg-gray-800/60 rounded-2xl border border-teal-200 dark:border-emerald-700/30 dark:shadow-xl dark:shadow-emerald-500/20">
-                <h3 class="text-xl font-bold text-teal-800 dark:text-teal-200 mb-6">
+                <h2 class="text-xl font-bold text-teal-800 dark:text-teal-200 mb-6">
                   Our Commitment to You
-                </h3>
+                </h2>
                 <div class="space-y-6 text-gray-700 dark:text-gray-300">
                   <p class="text-lg leading-relaxed">
                     Our mission is to create a platform that prioritizes <strong>user privacy and human dignity</strong>. By using our services, you agree to comply with and be bound by the following terms and conditions.
@@ -77,9 +77,9 @@ defmodule MossletWeb.PublicLive.Terms do
 
                   <%!-- Key Principles Grid --%>
                   <div class="bg-white dark:bg-gray-800/80 rounded-xl p-6 border border-teal-100 dark:border-teal-800">
-                    <h4 class="font-semibold text-teal-800 dark:text-teal-200 mb-4 text-center">
+                    <h3 class="font-semibold text-teal-800 dark:text-teal-200 mb-4 text-center">
                       Our Core Principles
-                    </h4>
+                    </h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div class="flex items-center lg:flex-col lg:text-center lg:items-center">
                         <.icon
@@ -471,7 +471,7 @@ defmodule MossletWeb.PublicLive.Terms do
               </div>
             </div>
           </div>
-        </main>
+        </div>
 
         <%!-- Spacer for proper footer separation --%>
         <div class="pb-24"></div>

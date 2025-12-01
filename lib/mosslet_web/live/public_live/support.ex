@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Support do
     >
       <%!-- Enhanced liquid metal background --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-        <main class="isolate">
+        <div class="isolate">
           <%!-- Hero section with liquid effects --%>
           <div class="relative isolate">
             <%!-- Floating gradient orbs for liquid metal effect - responsive and contained --%>
@@ -94,7 +94,7 @@ defmodule MossletWeb.PublicLive.Support do
                       </span>
                     </div>
 
-                    <h3 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
+                    <h2 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
                       <.link
                         href="mailto:support@mosslet.com"
                         class="relative"
@@ -103,7 +103,7 @@ defmodule MossletWeb.PublicLive.Support do
                         <div class="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full">
                         </div>
                       </.link>
-                    </h3>
+                    </h2>
 
                     <p class="text-slate-600 dark:text-slate-400 leading-relaxed transition-colors duration-200 ease-out group-hover:text-slate-700 dark:group-hover:text-slate-300">
                       Email us directly for personalized help. We typically respond within 24 hours, often much sooner. Our team reads every message personally.
@@ -144,13 +144,13 @@ defmodule MossletWeb.PublicLive.Support do
                       </span>
                     </div>
 
-                    <h3 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
+                    <h2 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
                       <.link href={~p"/faq"} class="relative">
                         Frequently Asked Questions <%!-- Subtle underline effect --%>
                         <div class="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full">
                         </div>
                       </.link>
-                    </h3>
+                    </h2>
 
                     <p class="text-slate-600 dark:text-slate-400 leading-relaxed transition-colors duration-200 ease-out group-hover:text-slate-700 dark:group-hover:text-slate-300">
                       Find quick answers to common questions about MOSSLET, privacy, accounts, and features. Updated regularly based on user questions.
@@ -386,7 +386,7 @@ defmodule MossletWeb.PublicLive.Support do
                       </span>
                     </div>
 
-                    <h3 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
+                    <h2 class="mb-4 text-xl lg:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100 transition-all duration-200 ease-out group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
                       <.link
                         href="mailto:support@mosslet.com"
                         class="relative"
@@ -395,7 +395,7 @@ defmodule MossletWeb.PublicLive.Support do
                         <div class="absolute bottom-0 left-1/2 h-0.5 w-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 group-hover:w-full group-hover:left-0">
                         </div>
                       </.link>
-                    </h3>
+                    </h2>
 
                     <p class="text-base leading-7 text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                       Don't hesitate to reach out. Whether you have a simple question or need detailed assistance, we're here to help make your MOSSLET experience great. Email us at
@@ -412,7 +412,7 @@ defmodule MossletWeb.PublicLive.Support do
               </div>
             </div>
           </div>
-        </main>
+        </div>
       </div>
 
       <%!-- Spacer for proper footer separation --%>

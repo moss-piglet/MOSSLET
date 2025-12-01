@@ -32,7 +32,7 @@ defmodule MossletWeb.PublicLive.Updates do
       key={@key}
     >
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-        <main class="isolate">
+        <div class="isolate">
           <div class="relative isolate">
             <div
               class="absolute inset-0 -z-10 overflow-hidden"
@@ -323,7 +323,7 @@ defmodule MossletWeb.PublicLive.Updates do
               </div>
             </.liquid_container>
           </div>
-        </main>
+        </div>
       </div>
     </.layout>
     """
@@ -367,9 +367,9 @@ defmodule MossletWeb.PublicLive.Updates do
         </div>
 
         <:title>
-          <h3 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+          <span class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
             {render_slot(@title)}
-          </h3>
+          </span>
         </:title>
 
         <p :if={@description != []} class="mt-3 text-slate-600 dark:text-slate-400 leading-relaxed">

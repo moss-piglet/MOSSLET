@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Privacy do
     >
       <%!-- Enhanced liquid metal background --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-        <main class="isolate">
+        <div class="isolate">
           <%!-- Hero section with gradient orbs but cleaner background --%>
           <div class="relative isolate">
             <%!-- Floating gradient orbs for liquid metal effect - responsive and contained --%>
@@ -390,7 +390,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         You own 100% of your data
-                        <span class="text-sm opacity-50 line-through ml-2">data harvesting</span>
+                        <span class="text-sm opacity-70 line-through ml-2">data harvesting</span>
                       </h3>
                       <.icon
                         name="hero-chevron-down"
@@ -415,7 +415,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         <li>
                           (a) if you are in violation of our
                           <.link
-                            navigate={~p"/terms#terms_and_conditions"}
+                            navigate={~p"/terms"}
                             class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
                           >
                             terms of use
@@ -457,7 +457,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Your data is encrypted
-                        <span class="text-sm opacity-50 line-through ml-2">backdoors</span>
+                        <span class="text-sm opacity-70 line-through ml-2">backdoors</span>
                       </h3>
                       <.icon
                         name="hero-chevron-down"
@@ -512,7 +512,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         You are not manipulated
-                        <span class="text-sm opacity-50 line-through ml-2">
+                        <span class="text-sm opacity-70 line-through ml-2">
                           algorithmic manipulation
                         </span>
                       </h3>
@@ -551,7 +551,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         Your data is not shared
-                        <span class="text-sm opacity-50 line-through ml-2">
+                        <span class="text-sm opacity-70 line-through ml-2">
                           behavior modification
                         </span>
                       </h3>
@@ -570,7 +570,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <p class="pt-4">
                       We do not share, sell, or otherwise transfer your data to anyone outside of our company ever. Your data is used only in the service of your account (support & troubleshooting), to address a
                       <.link
-                        navigate={~p"/terms#terms_and_conditions"}
+                        navigate={~p"/terms"}
                         class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
                       >
                         terms of use
@@ -592,7 +592,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <div class="flex items-center justify-between">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                         You are not spied on
-                        <span class="text-sm opacity-50 line-through ml-2">
+                        <span class="text-sm opacity-70 line-through ml-2">
                           surveillance capitalism
                         </span>
                         <span class="text-sm text-rose-600 dark:text-rose-400 ml-2">(updated)</span>
@@ -922,7 +922,7 @@ defmodule MossletWeb.PublicLive.Privacy do
               </div>
             </div>
           </div>
-        </main>
+        </div>
 
         <%!-- Spacer for proper footer separation --%>
         <div class="pb-24"></div>

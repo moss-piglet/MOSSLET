@@ -178,6 +178,7 @@ defmodule MossletWeb.EditProfileLive do
                         phx-click={JS.dispatch("phx:clipcopy", to: "#mosslet-profile-url")}
                       >
                         <.phx_icon name="hero-clipboard" class="h-5 w-5" />
+                        <span class="sr-only">Copy to clipboard</span>
                       </button>
                     </div>
                   </div>
@@ -266,9 +267,9 @@ defmodule MossletWeb.EditProfileLive do
 
                 <div class="space-y-6">
                   <div>
-                    <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
+                    <h2 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
                       Select all that you would like to share
-                    </h4>
+                    </h2>
                     <div class="space-y-4">
                       <DesignSystem.liquid_checkbox
                         :if={@current_user.connection.avatar_url}

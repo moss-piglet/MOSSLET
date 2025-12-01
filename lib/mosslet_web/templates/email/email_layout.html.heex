@@ -30,12 +30,12 @@
       }
 
       a {
-        color: #14B8A6;
-        text-decoration: none;
+        color: #0D7377;
+        text-decoration: underline;
       }
 
       a:hover {
-        color: #10B981;
+        color: #065F46;
       }
 
       a img {
@@ -477,7 +477,7 @@
                   width="570"
                   cellpadding="0"
                   cellspacing="0"
-                  role="presentation"
+                  role="banner"
                 >
                   <!-- Header content -->
                   <tr>
@@ -502,7 +502,7 @@
           >
             <!-- Email Body -->
             <tr>
-              <td class="email-body" width="100%" cellpadding="0" cellspacing="0">
+              <td class="email-body" width="100%" cellpadding="0" cellspacing="0" role="main">
                 <table
                   class="email-body_inner"
                   align="center"
@@ -530,7 +530,7 @@
                   width="570"
                   cellpadding="0"
                   cellspacing="0"
-                  role="presentation"
+                  role="contentinfo"
                 >
                   <tr>
                     <td class="content-cell-footer top-border" align="center">
@@ -541,7 +541,7 @@
                         <br /> 👋
                         <a
                           href={"mailto:#{Mosslet.config(:support_email)}?subject=Hey 👋"}
-                          style="color: #14B8A6; text-decoration: none;"
+                          style="color: #0D7377; text-decoration: underline;"
                         >
                           Contact us
                         </a>
@@ -551,7 +551,7 @@
                         <a
                           class="font-fallback sub align-center"
                           href={@unsubscribe_url}
-                          style="color: #64748B; text-decoration: none; font-size: 13px;"
+                          style="color: #475569; text-decoration: underline; font-size: 13px;"
                         >
                           Unsubscribe
                         </a>

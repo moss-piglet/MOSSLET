@@ -16,7 +16,7 @@ defmodule MossletWeb.PublicLive.Pricing do
       key={@key}
     >
       <div class="bg-white dark:bg-slate-950">
-        <main class="isolate">
+        <div class="isolate">
           <%!-- Hero section with liquid metal background --%>
           <div class="relative isolate -z-10">
             <%!-- Liquid metal background gradient --%>
@@ -178,7 +178,7 @@ defmodule MossletWeb.PublicLive.Pricing do
               </.liquid_card>
             </div>
           </.liquid_container>
-        </main>
+        </div>
 
         <%!-- Spacer for proper footer separation --%>
         <div class="pb-24"></div>

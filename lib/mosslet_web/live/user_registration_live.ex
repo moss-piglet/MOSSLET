@@ -207,9 +207,9 @@ defmodule MossletWeb.UserRegistrationLive do
                       </div>
                     </div>
                     <div class="flex-1">
-                      <h3 class="text-emerald-800 dark:text-emerald-200 font-semibold text-sm mb-2">
+                      <h2 class="text-emerald-800 dark:text-emerald-200 font-semibold text-sm mb-2">
                         🛡️ Generate a bulletproof password
-                      </h3>
+                      </h2>
                       <p class="text-emerald-700 dark:text-emerald-300 text-sm leading-relaxed mb-3">
                         Use the sparkles (✨) button to create a secure passphrase that even Big Tech can't crack.
                       </p>
@@ -258,6 +258,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       id="pw-generator-button"
                       phx-hook="TippyHook"
                       data-tippy-content="Generate password"
+                      aria-label="Generate password"
                       phx-click={JS.push("generate-password")}
                       class="group p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors duration-200"
                     >
@@ -270,6 +271,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       type="button"
                       id="eye"
                       data-tippy-content="Show password"
+                      aria-label="Show password"
                       phx-hook="TippyHook"
                       phx-click={
                         JS.set_attribute({"type", "text"}, to: "#password-text")
@@ -287,6 +289,7 @@ defmodule MossletWeb.UserRegistrationLive do
                       type="button"
                       id="eye-slash"
                       data-tippy-content="Hide password"
+                      aria-label="Hide password"
                       phx-hook="TippyHook"
                       class="hidden group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
                       phx-click={
@@ -452,7 +455,6 @@ defmodule MossletWeb.UserRegistrationLive do
                   <% else %>
                     <button
                       type="submit"
-                      tabindex="1"
                       phx-disable-with="Creating your sanctuary..."
                       class={[
                         "group relative flex justify-center items-center gap-3 flex-1",
