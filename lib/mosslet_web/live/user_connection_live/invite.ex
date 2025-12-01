@@ -18,7 +18,7 @@ defmodule MossletWeb.UserConnectionLive.Invite do
             <p class="mt-3 sm:mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
               Fill out the form below to send a new invitation. The person you invite will receive an email to their inbox inviting them to join you on MOSSLET.
             </p>
-            <p class="mt-2 text-sm sm:text-base text-slate-500 dark:text-slate-500 leading-relaxed">
+            <p class="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
               Curious to see how it works? Try sending one to yourself.
             </p>
           </div>
@@ -29,7 +29,7 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
         <div class="space-y-8 max-w-3xl">
           <%!-- Invitation Form Card --%>
-          <DesignSystem.liquid_card>
+          <DesignSystem.liquid_card heading_level={2}>
             <:title>
               <div class="flex items-center gap-3">
                 <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-cyan-900/30">

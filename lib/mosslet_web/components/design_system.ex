@@ -1755,7 +1755,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Help text --%>
       <p
         :if={@help}
-        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+        class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed"
       >
         {@help}
       </p>
@@ -1871,7 +1871,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Help text --%>
       <p
         :if={@help}
-        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+        class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed"
       >
         {@help}
       </p>
@@ -1987,7 +1987,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Help text --%>
       <p
         :if={@help}
-        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+        class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed"
       >
         {@help}
       </p>
@@ -2102,7 +2102,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Help text --%>
       <p
         :if={@help}
-        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+        class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed"
       >
         {@help}
       </p>
@@ -2236,7 +2236,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Help text --%>
       <p
         :if={@help}
-        class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed"
+        class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed"
       >
         {@help}
       </p>
