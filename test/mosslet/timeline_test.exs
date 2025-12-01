@@ -97,7 +97,9 @@ defmodule Mosslet.TimelineTest do
         filter: %{user_id: ""}
       }
 
-      assert Timeline.filter_timeline_posts(user, options) == [post]
+      [result] = Timeline.filter_timeline_posts(user, options)
+      assert result.id == post.id
+      assert result.total_reply_count == 0
     end
 
     test "get_post!/1 returns the post with given id", %{user: user, key: key} do

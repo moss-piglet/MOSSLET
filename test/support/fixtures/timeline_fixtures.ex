@@ -15,6 +15,7 @@ defmodule Mosslet.TimelineFixtures do
       username_hash: attrs[:username] || "some_username",
       favs_count: attrs[:favs_count] || 0,
       reposts_count: attrs[:reposts_count] || 0,
+      total_reply_count: attrs[:total_reply_count] || 0,
       favs_list: attrs[:favs_list] || [],
       user_id: attrs[:user_id] || options[:user].id,
       visibility: attrs[:visibility] || "connections",
