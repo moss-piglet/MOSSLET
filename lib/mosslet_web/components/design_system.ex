@@ -3788,29 +3788,43 @@ defmodule MossletWeb.DesignSystem do
                     <div class="flex items-center gap-3 px-1 py-0.5">
                       <% shared_post_user =
                         get_shared_connection(shared_user.user_id, @post_shared_users) %>
-                      <div
-                        :if={shared_post_user}
-                        class={[
+                      <%= if shared_post_user do %>
+                        <div class={[
                           "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
                           "bg-gradient-to-br transition-all duration-200",
                           get_post_shared_user_classes(shared_post_user.color)
-                        ]}
-                      >
-                        <span class={[
-                          "text-sm font-semibold",
-                          get_post_shared_user_text_classes(shared_post_user.color)
                         ]}>
-                          {String.first(shared_post_user.username || "?") |> String.upcase()}
-                        </span>
-                      </div>
-                      <div :if={shared_post_user} class="flex flex-col min-w-0">
-                        <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                          {shared_post_user.username}
-                        </span>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">
-                          Connection
-                        </span>
-                      </div>
+                          <span class={[
+                            "text-sm font-semibold",
+                            get_post_shared_user_text_classes(shared_post_user.color)
+                          ]}>
+                            {String.first(shared_post_user.username || "?") |> String.upcase()}
+                          </span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                          <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                            {shared_post_user.username}
+                          </span>
+                          <span class="text-xs text-slate-500 dark:text-slate-400">
+                            Connection
+                          </span>
+                        </div>
+                      <% else %>
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
+                          <.phx_icon
+                            name="hero-user-minus"
+                            class="w-4 h-4 text-slate-400 dark:text-slate-500"
+                          />
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                            Former connection
+                          </span>
+                          <span class="text-xs text-slate-400 dark:text-slate-500">
+                            No longer connected
+                          </span>
+                        </div>
+                      <% end %>
                     </div>
                   </:item>
 
@@ -5716,7 +5730,7 @@ defmodule MossletWeb.DesignSystem do
         <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 opacity-50">
         </div>
 
-        <div class="relative py-2">
+        <div class="relative py-2 max-h-[12.5rem] overflow-y-auto">
           <div
             :for={item <- @item}
             class={[
