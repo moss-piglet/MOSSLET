@@ -1011,7 +1011,9 @@ defmodule MossletWeb.DesignSystem do
           <span class="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             {@price}
           </span>
-          <span :if={@period != ""} class="text-lg text-slate-500 font-medium">{@period}</span>
+          <span :if={@period != ""} class="text-lg text-slate-600 dark:text-slate-400 font-medium">
+            {@period}
+          </span>
           <.liquid_badge
             :if={@save_badge && !@disabled}
             id={"save-badge-#{String.downcase(@title)}"}

@@ -246,7 +246,7 @@ defmodule MossletWeb.PublicLive.Terms do
                       <p class="font-semibold text-teal-800 dark:text-teal-200">
                         For more details on how we handle your data, please refer to our <.link
                           navigate={~p"/privacy#privacy_policy"}
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30"
                         >Privacy Policy</.link>.
                       </p>
                     </div>
@@ -457,7 +457,7 @@ defmodule MossletWeb.PublicLive.Terms do
                   >
                     <p class="pt-4">
                       If you have any questions or concerns about these Terms and Conditions, please contact us at <a
-                        class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                        class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30"
                         href="mailto:support@mosslet.com"
                       >support@mosslet.com</a>.
                     </p>

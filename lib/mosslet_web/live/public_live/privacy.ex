@@ -287,7 +287,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                     <p>
                       This information includes sign up or registration information: name, pseudonym, email, and password (<.link
                         navigate={~p"/#password"}
-                        class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                        class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                       >irreversibly hashed</.link>).
                     </p>
                     <p>
@@ -339,7 +339,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           navigate="https://tigrisdata.com"
                           target="_blank"
                           rel="_noopener"
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         >Tigris</.link>. It is asymmetrically encrypted to your password-derived key and then encrypted again at rest with Tigris' AES 256-bit symmetric encryption. Each file is then split into 80 pieces and stored on different nodes — all with different operators, power supplies, networks, and geographies.
                       </p>
                     </div>
@@ -353,7 +353,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           navigate="https://en.wikipedia.org/wiki/WireGuard"
                           target="_blank"
                           rel="_noopener"
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         >WireGuard</.link>. This data is first asymmetrically encrypted (your email is also hashed as well for look-up functionality), then wrapped in another layer of symmetric encryption by our server, before being stored in the database.
                       </p>
                     </div>
@@ -416,7 +416,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                           (a) if you are in violation of our
                           <.link
                             navigate={~p"/terms"}
-                            class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                            class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           >
                             terms of use
                           </.link>
@@ -435,7 +435,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                         In all cases: we will never share, sell, or otherwise transfer your data, and/or personal information, to third parties (except for the
                         <.link
                           navigate="#privacy_policy_metadata"
-                          class="text-emerald-600 dark:text-emerald-400"
+                          class="text-emerald-700 dark:text-emerald-300 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         >
                           metadata
                         </.link>
@@ -571,7 +571,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       We do not share, sell, or otherwise transfer your data to anyone outside of our company ever. Your data is used only in the service of your account (support & troubleshooting), to address a
                       <.link
                         navigate={~p"/terms"}
-                        class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                        class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                       >
                         terms of use
                       </.link>
@@ -613,7 +613,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       We do not use behavioral tracking technologies like advertising cookies or
                       <.link
                         navigate="https://spreadprivacy.com/browser-fingerprinting/"
-                        class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                        class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                         target="_blank"
                         rel="_noopener"
                       >
@@ -701,19 +701,19 @@ defmodule MossletWeb.PublicLive.Privacy do
                         We have chosen
                         <a
                           href="https://stripe.com"
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           target="_blank"
                           rel="_noopener"
                         >
                           Stripe
                         </a>
                         as our current payment processor due to their world-class security, great <a
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://stripe.com/climate"
                           target="_blank"
                           rel="_noopener"
                         >climate initiative</a>, and strong <a
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://stripe.com/privacy"
                           target="_blank"
                           rel="_noopener"
@@ -763,7 +763,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                             <p class="text-sm font-medium text-blue-800 dark:text-blue-200">
                               IP Address Mitigation: To further mitigate identification from your device IP address that is sent to Stripe, you can use the
                               <a
-                                class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                                class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                                 href="https://www.torproject.org/"
                                 target="_blank"
                                 rel="_noopener"
@@ -828,7 +828,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <p class="mb-2">
                         Check out
                         <a
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://clickclickclick.click/"
                           target="_blank"
                           rel="_noopener"
@@ -840,7 +840,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <p>
                         Are you a business or startup that needs analytics?
                         <a
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://usefathom.com/ref/6PUHXH"
                           target="_blank"
                           rel="_noopener"
@@ -896,7 +896,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       <p>
                         We will also mention the update to our terms, and potentially discuss in more detail, on the latest episode of our
                         <a
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 underline decoration-emerald-700/30 dark:decoration-emerald-300/30 hover:decoration-emerald-600 dark:hover:decoration-emerald-200"
                           href="https://podcast.mosslet.com"
                           target="_blank"
                           rel="noopener"
@@ -912,7 +912,7 @@ defmodule MossletWeb.PublicLive.Privacy do
                       </h4>
                       <p class="text-teal-700 dark:text-teal-300">
                         I (Mark) am the creator of MOSSLET, and personally wrote this privacy policy. If you have any questions or concerns, please <a
-                          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 font-medium"
+                          class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-200 font-medium underline decoration-emerald-700/30 dark:decoration-emerald-300/30"
                           href="mailto:support@mosslet.com"
                         >send feedback</a>.
                       </p>
