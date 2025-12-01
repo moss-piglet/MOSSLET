@@ -189,7 +189,7 @@ defmodule MossletWeb.PublicProfileLive do
         </div>
       </div>
 
-      <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-2 space-y-8">
             <MossletWeb.DesignSystem.liquid_card :if={
@@ -348,7 +348,7 @@ defmodule MossletWeb.PublicProfileLive do
             </MossletWeb.DesignSystem.liquid_card>
           </div>
         </div>
-      </main>
+      </div>
     </.layout>
     """
   end
