@@ -132,7 +132,7 @@
                   </span>
                 </td>
                 <td class="px-6 py-4">
-                  <div class="isolate flex -space-x-2 py-1 overflow-hidden">
+                  <div class="isolate flex -space-x-2 py-1">
                     <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
                       <% uconn =
                         get_uconn_for_users(
@@ -218,7 +218,7 @@
       :if={@live_action in [:new, :edit]}
       id="group-modal"
       show
-      size="md"
+      size="lg"
       on_cancel={JS.patch(@return_url)}
     >
       <:title>

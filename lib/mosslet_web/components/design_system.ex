@@ -2473,10 +2473,17 @@ defmodule MossletWeb.DesignSystem do
   defp icon_animation_classes(_), do: "group-hover:scale-105"
 
   # Modal size classes with mobile-first responsive approach
-  defp modal_size_classes("sm"), do: "w-full max-w-sm sm:max-w-md"
-  defp modal_size_classes("md"), do: "w-full max-w-lg sm:max-w-xl"
-  defp modal_size_classes("lg"), do: "w-full max-w-xl sm:max-w-2xl lg:max-w-3xl"
-  defp modal_size_classes("xl"), do: "w-full max-w-2xl sm:max-w-3xl lg:max-w-5xl"
+  defp modal_size_classes("sm"), do: "w-full min-w-[280px] sm:min-w-[384px] max-w-sm sm:max-w-md"
+  defp modal_size_classes("md"), do: "w-full min-w-[320px] sm:min-w-[512px] max-w-lg sm:max-w-xl"
+
+  defp modal_size_classes("lg"),
+    do:
+      "w-full min-w-[320px] sm:min-w-[640px] lg:min-w-[768px] max-w-xl sm:max-w-2xl lg:max-w-3xl"
+
+  defp modal_size_classes("xl"),
+    do:
+      "w-full min-w-[320px] sm:min-w-[768px] lg:min-w-[1024px] max-w-2xl sm:max-w-3xl lg:max-w-5xl"
+
   # fallback
   defp modal_size_classes(_), do: "w-full max-w-lg sm:max-w-xl"
 

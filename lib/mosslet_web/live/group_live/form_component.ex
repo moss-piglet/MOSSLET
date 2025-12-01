@@ -8,23 +8,21 @@ defmodule MossletWeb.GroupLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="space-y-6">
-      <div class="space-y-2">
-        <div class="flex items-center gap-3">
-          <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-            <.phx_icon name="hero-user-group" class="h-5 w-5 text-teal-600 dark:text-teal-400" />
-          </div>
-          <div>
-            <h2 class="text-lg font-semibold text-teal-900 dark:text-teal-100">
-              {@title}
-            </h2>
-            <p :if={@action in [:new]} class="text-sm text-teal-700 dark:text-teal-300">
-              Create a new group to share and collaborate with your connections
-            </p>
-            <p :if={@action in [:edit]} class="text-sm text-teal-700 dark:text-teal-300">
-              Update group details and manage members
-            </p>
-          </div>
+    <div class="space-y-5">
+      <div class="flex items-center gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-700/60">
+        <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+          <.phx_icon name="hero-user-group" class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {@title}
+          </h2>
+          <p :if={@action in [:new]} class="text-sm text-slate-600 dark:text-slate-400">
+            Create a new group to share and collaborate with your connections
+          </p>
+          <p :if={@action in [:edit]} class="text-sm text-slate-600 dark:text-slate-400">
+            Update group details and manage members
+          </p>
         </div>
       </div>
 
@@ -118,10 +116,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
           value={decr(@current_user.name, @current_user, @key)}
         />
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
-            {if @action in [:new], do: "Add people to group", else: "Update group members"}
-          </label>
+        <div class="p-4 -mx-1 sm:mx-0 rounded-xl bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 border border-slate-200/60 dark:border-slate-700/40">
+          <div class="flex items-center gap-2 mb-3">
+            <.phx_icon name="hero-users" class="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            <label class="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {if @action in [:new], do: "Add people to group", else: "Update group members"}
+            </label>
+          </div>
           <.live_select
             :if={@action in [:new]}
             id="groups-user-select"
@@ -215,18 +216,18 @@ defmodule MossletWeb.GroupLive.FormComponent do
               <span>{option.label}</span>
             </:tag>
           </.live_select>
-          <p class="text-sm text-slate-500 dark:text-slate-400">
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             Select connections to invite to this group
           </p>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+        <div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-5 mt-2 border-t border-slate-200/60 dark:border-slate-700/60">
           <MossletWeb.DesignSystem.liquid_button
             type="button"
             variant="secondary"
             color="slate"
             phx-click={JS.exec("data-cancel", to: "#group-modal")}
-            class="w-full sm:w-auto order-2 sm:order-1"
+            class="w-full sm:w-auto"
           >
             Cancel
           </MossletWeb.DesignSystem.liquid_button>
@@ -236,7 +237,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             type="submit"
             color="teal"
             icon="hero-check"
-            class="w-full sm:w-auto order-1 sm:order-2"
+            class="w-full sm:w-auto"
             phx-disable-with="Saving..."
           >
             Save Group
@@ -248,7 +249,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             color="slate"
             icon="hero-check"
             disabled
-            class="w-full sm:w-auto order-1 sm:order-2"
+            class="w-full sm:w-auto"
           >
             Save Group
           </MossletWeb.DesignSystem.liquid_button>
@@ -258,7 +259,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             type="submit"
             color="teal"
             icon="hero-check"
-            class="w-full sm:w-auto order-1 sm:order-2"
+            class="w-full sm:w-auto"
             phx-disable-with="Updating..."
           >
             Update Group
