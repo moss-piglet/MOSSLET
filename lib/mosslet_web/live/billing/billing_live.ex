@@ -289,10 +289,10 @@ defmodule MossletWeb.BillingLive do
               </div>
 
               <div class="space-y-1">
-                <p class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                   Lifetime access to MOSSLET
                 </p>
-                <p class="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+                <p class="text-xs text-emerald-700 dark:text-emerald-300">
                   No recurring charges • Pay once, use forever
                 </p>
               </div>
@@ -330,10 +330,10 @@ defmodule MossletWeb.BillingLive do
         <div class="space-y-6">
           <%!-- Charge Information Section --%>
           <div class="space-y-4">
-            <h4 class="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
+            <h3 class="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
               <.phx_icon name="hero-credit-card" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
               Charge Information
-            </h4>
+            </h3>
 
             <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
               <div class="space-y-4">
@@ -401,7 +401,7 @@ defmodule MossletWeb.BillingLive do
                       at={@provider_payment_intent_async.result.provider_created_at}
                     />
                   </time>
-                  <p class="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                  <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                     Payment processed successfully
                   </p>
                 </div>

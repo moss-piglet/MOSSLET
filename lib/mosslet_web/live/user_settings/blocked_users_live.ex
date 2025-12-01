@@ -110,9 +110,9 @@ defmodule MossletWeb.BlockedUsersLive do
                       class="h-5 w-5 mt-0.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
                     />
                     <div class="space-y-2">
-                      <h4 class="font-medium text-sm text-emerald-800 dark:text-emerald-200">
+                      <h3 class="font-medium text-sm text-emerald-800 dark:text-emerald-200">
                         Clean Slate
-                      </h4>
+                      </h3>
                       <p class="text-sm text-emerald-700 dark:text-emerald-300">
                         You haven't blocked anyone yet. Blocking is a tool to help maintain a peaceful experience
                         when you need space from certain authors and don't want to remove the connection.

@@ -268,7 +268,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   attr :level, :integer, required: true
-  attr :class, :string, default: ""
+  attr :class, :any, default: ""
   slot :inner_block, required: true
 
   defp dynamic_heading(%{level: 1} = assigns) do
@@ -7540,6 +7540,7 @@ defmodule MossletWeb.DesignSystem do
   attr :action_patch, :string, default: nil
   attr :action_click, :string, default: nil
   attr :color, :string, default: "teal", values: ~w(teal emerald cyan purple indigo blue)
+  attr :heading_level, :integer, default: 2, values: 1..6
   attr :class, :any, default: ""
 
   def liquid_empty_state(assigns) do
@@ -7568,12 +7569,15 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Content with semantic color theming --%>
       <div class="space-y-3 mb-6">
-        <h3 class={[
-          "text-lg sm:text-xl font-semibold",
-          get_empty_state_title_color(@color)
-        ]}>
+        <.dynamic_heading
+          level={@heading_level}
+          class={[
+            "text-lg sm:text-xl font-semibold",
+            get_empty_state_title_color(@color)
+          ]}
+        >
           {@title}
-        </h3>
+        </.dynamic_heading>
         <p class={[
           "max-w-md mx-auto leading-relaxed",
           get_empty_state_description_color(@color)
@@ -7703,6 +7707,7 @@ defmodule MossletWeb.DesignSystem do
   attr :show_profile?, :boolean, default: false
   attr :status, :string, default: nil
   attr :status_message, :string, default: nil
+  attr :heading_level, :integer, default: 2, values: 1..6
   attr :class, :any, default: ""
 
   def liquid_connection_card(assigns) do
@@ -7749,9 +7754,12 @@ defmodule MossletWeb.DesignSystem do
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
-                  <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200">
+                  <.dynamic_heading
+                    level={@heading_level}
+                    class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-200"
+                  >
                     {@name}
-                  </h3>
+                  </.dynamic_heading>
                   <p class="text-sm text-slate-600 dark:text-slate-400 truncate">
                     @{@username}
                   </p>
@@ -8002,6 +8010,7 @@ defmodule MossletWeb.DesignSystem do
   attr :arrival_id, :string, required: true
   attr :status, :string, default: nil
   attr :status_message, :string, default: nil
+  attr :heading_level, :integer, default: 2, values: 1..6
   attr :class, :any, default: ""
 
   def liquid_arrival_card(assigns) do
@@ -8047,9 +8056,12 @@ defmodule MossletWeb.DesignSystem do
               <%!-- Name and badge row with improved spacing --%>
               <div class="flex items-start justify-between gap-3 mb-3">
                 <div class="min-w-0 flex-1">
-                  <h3 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors duration-200 leading-tight">
+                  <.dynamic_heading
+                    level={@heading_level}
+                    class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors duration-200 leading-tight"
+                  >
                     {@name}
-                  </h3>
+                  </.dynamic_heading>
                 </div>
 
                 <%!-- Badge with enhanced visual weight --%>

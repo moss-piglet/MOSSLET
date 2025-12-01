@@ -72,7 +72,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           </div>
 
           <%!-- Navigation --%>
-          <nav class="flex flex-1 flex-col space-y-2">
+          <nav aria-label="Main navigation" class="flex flex-1 flex-col space-y-2">
             <.modern_sidebar_menu
               menu_items={@main_menu_items}
               current_page={@current_page}
@@ -121,7 +121,10 @@ defmodule MossletWeb.ModernSidebarLayout do
             </button>
           </div>
 
-          <nav class="flex-1 overflow-y-auto px-2 py-4 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
+          <nav
+            aria-label="Mobile navigation"
+            class="flex-1 overflow-y-auto px-2 py-4 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent"
+          >
             <.modern_sidebar_menu
               menu_items={@main_menu_items}
               current_page={@current_page}

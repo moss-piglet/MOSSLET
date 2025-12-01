@@ -77,32 +77,40 @@ defmodule MossletWeb.DeleteAccountLive do
                 </ul>
               </div>
 
-              <div class="bg-gradient-to-r from-emerald-100/80 to-teal-100/80 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl p-4 border border-emerald-200/60 dark:border-emerald-700/60">
-                <p class="text-emerald-700 dark:text-emerald-300 font-medium mb-2">
-                  💚 Instead, you might want to:
-                </p>
-                <div class="space-y-2">
-                  <DesignSystem.liquid_button
-                    href="/app/users/manage-data"
-                    variant="secondary"
-                    color="emerald"
-                    size="sm"
-                    icon="hero-trash"
-                    class="w-full justify-center"
-                  >
-                    Delete selected data first
-                  </DesignSystem.liquid_button>
-                  <DesignSystem.liquid_button
-                    :if={@current_user.visibility !== :private}
-                    href="/app/users/edit-visibility"
-                    variant="secondary"
-                    color="blue"
-                    size="sm"
-                    icon="hero-eye-slash"
-                    class="w-full justify-center"
-                  >
-                    Make your profile private instead
-                  </DesignSystem.liquid_button>
+              <div class="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 rounded-xl p-4 border border-emerald-200/60 dark:border-emerald-700/60">
+                <div class="flex items-start gap-3">
+                  <.phx_icon
+                    name="hero-light-bulb"
+                    class="h-5 w-5 mt-0.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+                  />
+                  <div class="space-y-3">
+                    <h3 class="font-medium text-sm text-emerald-800 dark:text-emerald-200">
+                      Consider These Alternatives First
+                    </h3>
+                    <div class="space-y-2">
+                      <DesignSystem.liquid_button
+                        href="/app/users/manage-data"
+                        variant="secondary"
+                        color="emerald"
+                        size="sm"
+                        icon="hero-trash"
+                        class="w-full justify-center"
+                      >
+                        Delete selected data only
+                      </DesignSystem.liquid_button>
+                      <DesignSystem.liquid_button
+                        :if={@current_user.visibility !== :private}
+                        href="/app/users/edit-visibility"
+                        variant="secondary"
+                        color="blue"
+                        size="sm"
+                        icon="hero-eye-slash"
+                        class="w-full justify-center"
+                      >
+                        Make your profile private
+                      </DesignSystem.liquid_button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -139,9 +147,9 @@ defmodule MossletWeb.DeleteAccountLive do
                     />
                   </div>
                   <div class="space-y-1">
-                    <h4 class="text-sm font-medium text-slate-800 dark:text-slate-200">
+                    <h3 class="text-sm font-medium text-slate-800 dark:text-slate-200">
                       Security Verification Required
-                    </h4>
+                    </h3>
                     <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                       Enter your current password to verify your identity and confirm this action.
                     </p>
@@ -152,7 +160,10 @@ defmodule MossletWeb.DeleteAccountLive do
               <%!-- Password input section with enhanced UX --%>
               <div class="space-y-4">
                 <div class="flex items-center justify-between">
-                  <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                  <label
+                    for="current-password-for-delete-account"
+                    class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                  >
                     Current Password <span class="text-rose-500 ml-1">*</span>
                   </label>
                 </div>
@@ -203,6 +214,7 @@ defmodule MossletWeb.DeleteAccountLive do
                     <button
                       type="button"
                       id="eye"
+                      aria-label="Show password"
                       data-tippy-content="Show password"
                       phx-hook="TippyHook"
                       class="group/toggle p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200"
@@ -220,6 +232,7 @@ defmodule MossletWeb.DeleteAccountLive do
                     <button
                       type="button"
                       id="eye-slash"
+                      aria-label="Hide password"
                       data-tippy-content="Hide password"
                       phx-hook="TippyHook"
                       class="hidden group/toggle p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200"
@@ -313,7 +326,7 @@ defmodule MossletWeb.DeleteAccountLive do
                     <div class="w-full border-t border-blue-200/40 dark:border-blue-700/40"></div>
                   </div>
                   <div class="relative flex justify-center text-xs">
-                    <span class="bg-white dark:bg-slate-800 px-2 text-blue-500 dark:text-blue-400 font-medium">
+                    <span class="bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10 px-2 text-blue-700 dark:text-blue-300 font-medium">
                       or
                     </span>
                   </div>

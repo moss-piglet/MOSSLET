@@ -70,9 +70,9 @@ defmodule MossletWeb.ManageDataLive do
                     class="h-5 w-5 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0"
                   />
                   <div class="space-y-2">
-                    <h4 class="font-medium text-sm text-amber-800 dark:text-amber-200">
+                    <h3 class="font-medium text-sm text-amber-800 dark:text-amber-200">
                       Important: This Action Cannot Be Undone
-                    </h4>
+                    </h3>
                     <p class="text-sm text-amber-700 dark:text-amber-300">
                       Once you delete your data, it's permanently removed from our servers.
                       Please be certain before proceeding.
@@ -136,7 +136,7 @@ defmodule MossletWeb.ManageDataLive do
                         >
                           Connections
                         </label>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           Remove all your connection relationships with other users
                         </p>
                       </div>
@@ -162,7 +162,7 @@ defmodule MossletWeb.ManageDataLive do
                         >
                           Groups
                         </label>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           Delete all groups you've created and remove you from groups you've joined
                         </p>
                       </div>
@@ -188,7 +188,7 @@ defmodule MossletWeb.ManageDataLive do
                         >
                           Memories
                         </label>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           Permanently delete all your saved memories and media
                         </p>
                       </div>
@@ -214,7 +214,7 @@ defmodule MossletWeb.ManageDataLive do
                         >
                           Posts
                         </label>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           Remove all posts you've shared on your timeline
                         </p>
                       </div>
@@ -240,7 +240,7 @@ defmodule MossletWeb.ManageDataLive do
                         >
                           Remarks
                         </label>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           Delete all remarks and comments you've made
                         </p>
                       </div>
@@ -266,7 +266,7 @@ defmodule MossletWeb.ManageDataLive do
                         >
                           Replies
                         </label>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           Remove all your replies to posts and conversations
                         </p>
                       </div>
@@ -328,6 +328,7 @@ defmodule MossletWeb.ManageDataLive do
                     <button
                       type="button"
                       id="eye-current-password"
+                      aria-label="Show current password"
                       data-tippy-content="Show current password"
                       phx-hook="TippyHook"
                       class="group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -345,6 +346,7 @@ defmodule MossletWeb.ManageDataLive do
                     <button
                       type="button"
                       id="eye-slash-current-password"
+                      aria-label="Hide current password"
                       data-tippy-content="Hide current password"
                       phx-hook="TippyHook"
                       class="hidden group/eye p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
