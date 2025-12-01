@@ -290,7 +290,7 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
       target_user.id == post.user_id ->
         {:skip, "post creator"}
 
-      not target_user.is_subscribed_to_email_notifications ->
+      not target_user.email_notifications ->
         {:skip, "email notifications disabled"}
 
       already_sent_email_today?(target_user) ->

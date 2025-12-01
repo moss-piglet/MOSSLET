@@ -36,7 +36,7 @@ defmodule MossletWeb.EditNotificationsLive do
               <div class="flex items-center gap-3">
                 <div class={[
                   "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden",
-                  if(@current_user.is_subscribed_to_marketing_notifications,
+                  if(@current_user.calm_notifications,
                     do:
                       "bg-gradient-to-br from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-teal-900/30",
                     else:
@@ -45,13 +45,13 @@ defmodule MossletWeb.EditNotificationsLive do
                 ]}>
                   <.phx_icon
                     name={
-                      if @current_user.is_subscribed_to_marketing_notifications,
+                      if @current_user.calm_notifications,
                         do: "hero-bell",
                         else: "hero-bell-slash"
                     }
                     class={[
                       "h-4 w-4",
-                      if(@current_user.is_subscribed_to_marketing_notifications,
+                      if(@current_user.calm_notifications,
                         do: "text-emerald-600 dark:text-emerald-400",
                         else: "text-slate-500 dark:text-slate-400"
                       )
@@ -61,14 +61,14 @@ defmodule MossletWeb.EditNotificationsLive do
                 <span>Calm Notifications</span>
                 <span class={[
                   "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
-                  if(@current_user.is_subscribed_to_marketing_notifications,
+                  if(@current_user.calm_notifications,
                     do:
                       "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
                     else:
                       "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
                   )
                 ]}>
-                  {if @current_user.is_subscribed_to_marketing_notifications,
+                  {if @current_user.calm_notifications,
                     do: "Enabled",
                     else: "Disabled"}
                 </span>
@@ -79,7 +79,7 @@ defmodule MossletWeb.EditNotificationsLive do
               <%!-- Current status explanation --%>
               <div class={[
                 "p-4 rounded-lg border",
-                if(@current_user.is_subscribed_to_marketing_notifications,
+                if(@current_user.calm_notifications,
                   do:
                     "bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 border-emerald-200 dark:border-emerald-700",
                   else:
@@ -89,13 +89,13 @@ defmodule MossletWeb.EditNotificationsLive do
                 <div class="flex items-start gap-3">
                   <.phx_icon
                     name={
-                      if @current_user.is_subscribed_to_marketing_notifications,
+                      if @current_user.calm_notifications,
                         do: "hero-check-circle",
                         else: "hero-minus-circle"
                     }
                     class={[
                       "h-5 w-5 mt-0.5 flex-shrink-0",
-                      if(@current_user.is_subscribed_to_marketing_notifications,
+                      if(@current_user.calm_notifications,
                         do: "text-emerald-600 dark:text-emerald-400",
                         else: "text-slate-500 dark:text-slate-400"
                       )
@@ -104,26 +104,26 @@ defmodule MossletWeb.EditNotificationsLive do
                   <div class="space-y-2">
                     <h3 class={[
                       "font-medium text-sm",
-                      if(@current_user.is_subscribed_to_marketing_notifications,
+                      if(@current_user.calm_notifications,
                         do: "text-emerald-800 dark:text-emerald-200",
                         else: "text-slate-700 dark:text-slate-300"
                       )
                     ]}>
-                      {if @current_user.is_subscribed_to_marketing_notifications,
+                      {if @current_user.calm_notifications,
                         do: "Calm Notifications Enabled",
                         else: "Notifications Disabled"}
                     </h3>
                     <p class={[
                       "text-sm leading-relaxed",
-                      if(@current_user.is_subscribed_to_marketing_notifications,
+                      if(@current_user.calm_notifications,
                         do: "text-emerald-700 dark:text-emerald-300",
                         else: "text-slate-600 dark:text-slate-400"
                       )
                     ]}>
-                      <span :if={@current_user.is_subscribed_to_marketing_notifications}>
+                      <span :if={@current_user.calm_notifications}>
                         You'll receive gentle, calm notifications that appear only when you're actively using MOSSLET. These won't interrupt you or pull your attention away from other activities.
                       </span>
-                      <span :if={!@current_user.is_subscribed_to_marketing_notifications}>
+                      <span :if={!@current_user.calm_notifications}>
                         You won't receive any calm notifications. You can always check your timeline and connections manually when you visit MOSSLET.
                       </span>
                     </p>
@@ -184,10 +184,10 @@ defmodule MossletWeb.EditNotificationsLive do
                 class="space-y-6"
               >
                 <DesignSystem.liquid_checkbox
-                  field={@form[:is_subscribed_to_marketing_notifications]}
+                  field={@form[:calm_notifications]}
                   label="Enable calm notifications"
                   help={
-                    if @current_user.is_subscribed_to_marketing_notifications,
+                    if @current_user.calm_notifications,
                       do:
                         "Disable to stop receiving gentle notifications when you're actively using MOSSLET.",
                       else:
@@ -196,10 +196,10 @@ defmodule MossletWeb.EditNotificationsLive do
                 />
 
                 <DesignSystem.liquid_checkbox
-                  field={@form[:is_subscribed_to_email_notifications]}
+                  field={@form[:email_notifications]}
                   label="Enable email notifications"
                   help={
-                    if @current_user.is_subscribed_to_email_notifications,
+                    if @current_user.email_notifications,
                       do:
                         "You will receive up to 1 email per day when friends share posts with you and you're offline.",
                       else:
@@ -221,14 +221,14 @@ defmodule MossletWeb.EditNotificationsLive do
                   <span>Email Notifications</span>
                   <span class={[
                     "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
-                    if(@current_user.is_subscribed_to_email_notifications,
+                    if(@current_user.email_notifications,
                       do:
                         "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
                       else:
                         "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
                     )
                   ]}>
-                    {if @current_user.is_subscribed_to_email_notifications,
+                    {if @current_user.email_notifications,
                       do: "Enabled",
                       else: "Disabled"}
                   </span>
@@ -239,7 +239,7 @@ defmodule MossletWeb.EditNotificationsLive do
             <div class="space-y-4">
               <div class={[
                 "p-4 rounded-lg border",
-                if(@current_user.is_subscribed_to_email_notifications,
+                if(@current_user.email_notifications,
                   do:
                     "bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 border-emerald-200 dark:border-emerald-700",
                   else:
@@ -249,13 +249,13 @@ defmodule MossletWeb.EditNotificationsLive do
                 <div class="flex items-start gap-3">
                   <.phx_icon
                     name={
-                      if @current_user.is_subscribed_to_email_notifications,
+                      if @current_user.email_notifications,
                         do: "hero-check-circle",
                         else: "hero-minus-circle"
                     }
                     class={[
                       "h-5 w-5 mt-0.5 flex-shrink-0",
-                      if(@current_user.is_subscribed_to_email_notifications,
+                      if(@current_user.email_notifications,
                         do: "text-emerald-600 dark:text-emerald-400",
                         else: "text-slate-500 dark:text-slate-400"
                       )
@@ -264,26 +264,26 @@ defmodule MossletWeb.EditNotificationsLive do
                   <div class="space-y-2">
                     <h3 class={[
                       "font-medium text-sm",
-                      if(@current_user.is_subscribed_to_email_notifications,
+                      if(@current_user.email_notifications,
                         do: "text-emerald-800 dark:text-emerald-200",
                         else: "text-slate-700 dark:text-slate-300"
                       )
                     ]}>
-                      {if @current_user.is_subscribed_to_email_notifications,
+                      {if @current_user.email_notifications,
                         do: "Email Notifications Enabled",
                         else: "Email Notifications Disabled"}
                     </h3>
                     <p class={[
                       "text-sm leading-relaxed",
-                      if(@current_user.is_subscribed_to_email_notifications,
+                      if(@current_user.email_notifications,
                         do: "text-emerald-700 dark:text-emerald-300",
                         else: "text-slate-600 dark:text-slate-400"
                       )
                     ]}>
-                      <span :if={@current_user.is_subscribed_to_email_notifications}>
+                      <span :if={@current_user.email_notifications}>
                         You will receive up to 1 email per day when friends share posts with you and you're not currently online. This gentle daily digest keeps you connected without overwhelming your inbox.
                       </span>
-                      <span :if={!@current_user.is_subscribed_to_email_notifications}>
+                      <span :if={!@current_user.email_notifications}>
                         You won't receive any email notifications. You can always check your timeline and connections manually when you visit MOSSLET.
                       </span>
                     </p>

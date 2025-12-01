@@ -57,8 +57,8 @@ defmodule Mosslet.Accounts.User do
     field :last_signed_in_ip, Encrypted.Binary
     field :last_signed_in_ip_hash, Encrypted.HMAC
     field :last_signed_in_datetime, :utc_datetime
-    field :is_subscribed_to_marketing_notifications, :boolean, default: false
-    field :is_subscribed_to_email_notifications, :boolean, default: false
+    field :calm_notifications, :boolean, default: false
+    field :email_notifications, :boolean, default: false
     field :last_email_notification_received_at, :utc_datetime
 
     # User Status System - Personal status (encrypted with user_key)
@@ -1282,8 +1282,8 @@ defmodule Mosslet.Accounts.User do
     user
     |> cast(attrs, [
       :name,
-      :is_subscribed_to_marketing_notifications,
-      :is_subscribed_to_email_notifications,
+      :calm_notifications,
+      :email_notifications,
       :is_onboarded?
     ])
     |> validate_name(opts)
@@ -1425,18 +1425,18 @@ defmodule Mosslet.Accounts.User do
   def notifications_changeset(user, attrs \\ %{}, _opts \\ []) do
     user
     |> cast(attrs, [
-      :is_subscribed_to_marketing_notifications,
-      :is_subscribed_to_email_notifications
+      :calm_notifications,
+      :email_notifications
     ])
     |> case do
-      %{changes: %{is_subscribed_to_marketing_notifications: _}} = changeset ->
+      %{changes: %{calm_notifications: _}} = changeset ->
         changeset
 
-      %{changes: %{is_subscribed_to_email_notifications: _}} = changeset ->
+      %{changes: %{email_notifications: _}} = changeset ->
         changeset
 
       %{} = changeset ->
-        add_error(changeset, :is_subscribed_to_marketing_notifications, "did not change")
+        add_error(changeset, :calm_notifications, "did not change")
     end
   end
 

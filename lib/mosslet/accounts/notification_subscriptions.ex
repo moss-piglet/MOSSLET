@@ -12,7 +12,7 @@ defmodule Mosslet.Accounts.NotificationSubscriptions do
     [
       %{
         name: "marketing_notifications",
-        user_field: :is_subscribed_to_marketing_notifications,
+        user_field: :calm_notifications,
         label: "Marketing Notifications",
         description: "Receive the occasional marketing notification",
         unsub_description: "You will no longer get marketing notifications",

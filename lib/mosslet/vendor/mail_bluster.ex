@@ -1,12 +1,12 @@
 defmodule Mosslet.MailBluster do
   @moduledoc """
   This module allows you to sync your users with MailBluster.
-  eg. if user.is_subscribed_to_marketing_notifications then they should be synced with MailBluster
+  eg. if user.calm_notifications then they should be synced with MailBluster
   This allows you to send mass emails to your subscribed users.
 
-  When a user unsubs we obviously want user.is_subscribed_to_marketing_notifications to be set to false.
+  When a user unsubs we obviously want user.calm_notifications to be set to false.
   For this to work ensure that in your MailBluster settings the unsubscribe URL is set to https://YOUR_DOMAIN/unsubscribe/mailbluster?email=%e
-  That way, when they click "Unsubscribe" in their emails, they get redirected to your route and that will set user.is_subscribed_to_marketing_notifications to false for you (see UserSettingsController.unsubscribe_from_mailbluster/2).
+  That way, when they click "Unsubscribe" in their emails, they get redirected to your route and that will set user.calm_notifications to false for you (see UserSettingsController.unsubscribe_from_mailbluster/2).
   """
   use Tesla
 
@@ -178,7 +178,7 @@ defmodule Mosslet.MailBluster do
       email: user.email,
       timezone: nil,
       ipAddress: anonymise_ip(user.last_signed_in_ip),
-      subscribed: user.is_subscribed_to_marketing_notifications,
+      subscribed: user.calm_notifications,
       meta: %{id: user.id},
       userTags: add_user_tags(user),
       addTags: add_user_tags(user),

@@ -5,7 +5,7 @@ defmodule Mosslet.Repo.Local.Migrations.AddFieldsToUsers do
     alter table(:users) do
       add :last_signed_in_ip, :string
       add :last_signed_in_datetime, :utc_datetime
-      add :is_subscribed_to_marketing_notifications, :boolean, null: false, default: true
+      add :calm_notifications, :boolean, null: false, default: true
     end
 
     create index(:users, [:is_deleted?, :is_suspended?])

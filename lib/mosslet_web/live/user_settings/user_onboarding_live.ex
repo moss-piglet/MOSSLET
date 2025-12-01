@@ -99,7 +99,7 @@ defmodule MossletWeb.UserOnboardingLive do
 
                 <label class="flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-700/30 group">
                   <.phx_input
-                    field={@form[:is_subscribed_to_marketing_notifications]}
+                    field={@form[:calm_notifications]}
                     type="checkbox"
                     label=""
                     apply_classes?={true}
@@ -122,7 +122,7 @@ defmodule MossletWeb.UserOnboardingLive do
 
                 <label class="flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-700/30 group">
                   <.phx_input
-                    field={@form[:is_subscribed_to_email_notifications]}
+                    field={@form[:email_notifications]}
                     type="checkbox"
                     label=""
                     apply_classes?={true}

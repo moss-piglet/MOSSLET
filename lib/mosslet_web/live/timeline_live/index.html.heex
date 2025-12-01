@@ -29,7 +29,9 @@
       <%!-- Realtime update indicator (sticky at top when new posts arrive) --%>
       <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator
         new_posts_count={
-          Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0)
+          if @current_user.calm_notifications,
+            do: Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0),
+            else: 0
         }
         active_tab={@active_tab || "home"}
       />
@@ -43,31 +45,45 @@
                 key: "home",
                 label: "Home",
                 count: @timeline_counts[:home] || 12,
-                unread: @unread_counts[:home] || 0
+                unread:
+                  if(@current_user.calm_notifications, do: @unread_counts[:home] || 0, else: 0)
               },
               %{
                 key: "connections",
                 label: "Connections",
                 count: @timeline_counts[:connections] || 4,
-                unread: @unread_counts[:connections] || 0
+                unread:
+                  if(@current_user.calm_notifications,
+                    do: @unread_counts[:connections] || 0,
+                    else: 0
+                  )
               },
               %{
                 key: "groups",
                 label: "Groups",
                 count: @timeline_counts[:groups] || 2,
-                unread: @unread_counts[:groups] || 0
+                unread:
+                  if(@current_user.calm_notifications, do: @unread_counts[:groups] || 0, else: 0)
               },
               %{
                 key: "bookmarks",
                 label: "Bookmarks",
                 count: @timeline_counts[:bookmarks] || 8,
-                unread: @unread_counts[:bookmarks] || 0
+                unread:
+                  if(@current_user.calm_notifications,
+                    do: @unread_counts[:bookmarks] || 0,
+                    else: 0
+                  )
               },
               %{
                 key: "discover",
                 label: "Discover",
                 count: @timeline_counts[:discover] || 0,
-                unread: @unread_counts[:discover] || 0
+                unread:
+                  if(@current_user.calm_notifications,
+                    do: @unread_counts[:discover] || 0,
+                    else: 0
+                  )
               }
             ]}
             active_tab={@active_tab || "home"}
