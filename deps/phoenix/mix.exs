@@ -8,7 +8,7 @@ defmodule Phoenix.MixProject do
     end
   end
 
-  @version "1.8.1"
+  @version "1.8.2"
   @scm_url "https://github.com/phoenixframework/phoenix"
 
   # If the elixir requirement is updated, we need to make the installer
@@ -38,7 +38,7 @@ defmodule Phoenix.MixProject do
       ],
       elixirc_paths: elixirc_paths(Mix.env()),
       name: "Phoenix",
-      docs: docs(),
+      docs: &docs/0,
       aliases: aliases(),
       source_url: @scm_url,
       homepage_url: "https://www.phoenixframework.org",
@@ -98,7 +98,7 @@ defmodule Phoenix.MixProject do
       {:ex_doc, "~> 0.38", only: :docs},
       {:ecto, "~> 3.0", only: :docs},
       {:ecto_sql, "~> 3.10", only: :docs},
-      {:gettext, "~> 0.26", only: :docs},
+      {:gettext, "~> 1.0", only: :docs},
       {:telemetry_poller, "~> 1.0", only: :docs},
       {:telemetry_metrics, "~> 1.0", only: :docs},
       {:makeup_elixir, "~> 1.0.1 or ~> 1.1", only: :docs},
@@ -132,6 +132,25 @@ defmodule Phoenix.MixProject do
 
   defp docs do
     [
+      search: [
+        %{
+          name: "Latest",
+          help:
+            "Search latest versions of Plug, Phoenix, Phoenix.{HTML, LiveView, PubSub, Template}",
+          packages: [
+            :plug,
+            :phoenix,
+            :phoenix_html,
+            :phoenix_live_view,
+            :phoenix_pubsub,
+            :phoenix_template
+          ]
+        },
+        %{
+          name: "Current version",
+          help: "Search only this project"
+        }
+      ],
       source_ref: "v#{@version}",
       main: "overview",
       logo: "logo.png",
@@ -267,7 +286,8 @@ defmodule Phoenix.MixProject do
 
   defp generate_js_docs(_) do
     Mix.Task.run("app.start")
-    System.cmd("npm", ["run", "docs"])
+    {_, 0} = System.cmd("npm", ["install"], into: IO.stream())
+    {_, 0} = System.cmd("npm", ["run", "docs"], into: IO.stream())
   end
 
   defp raise_on_archive_build(_) do

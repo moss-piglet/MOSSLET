@@ -665,6 +665,11 @@ var LongPoll = class {
     this.ajax("GET", headers, null, () => this.ontimeout(), (resp) => {
       if (resp) {
         var { status, token, messages } = resp;
+        if (status === 410 && this.token !== null) {
+          this.onerror(410);
+          this.closeAndRetry(3410, "session_gone", false);
+          return;
+        }
         this.token = token;
       } else {
         status = 0;
@@ -1030,6 +1035,7 @@ var Socket = class {
     this.channels = [];
     this.sendBuffer = [];
     this.ref = 0;
+    this.fallbackRef = null;
     this.timeout = opts.timeout || DEFAULT_TIMEOUT;
     this.transport = opts.transport || global.WebSocket || LongPoll;
     this.primaryPassedHealthCheck = false;
@@ -1043,6 +1049,7 @@ var Socket = class {
     this.disconnecting = false;
     this.binaryType = opts.binaryType || "arraybuffer";
     this.connectClock = 1;
+    this.pageHidden = false;
     if (this.transport !== LongPoll) {
       this.encode = opts.encode || this.defaultEncoder;
       this.decode = opts.decode || this.defaultDecoder;
@@ -1062,6 +1069,16 @@ var Socket = class {
         if (awaitingConnectionOnPageShow === this.connectClock) {
           awaitingConnectionOnPageShow = null;
           this.connect();
+        }
+      });
+      phxWindow.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          this.pageHidden = true;
+        } else {
+          this.pageHidden = false;
+          if (!this.isConnected()) {
+            this.teardown(() => this.connect());
+          }
         }
       });
     }
@@ -1094,6 +1111,11 @@ var Socket = class {
     this.heartbeatTimer = null;
     this.pendingHeartbeatRef = null;
     this.reconnectTimer = new Timer(() => {
+      if (this.pageHidden) {
+        this.log("Not reconnecting as page is hidden!");
+        this.teardown();
+        return;
+      }
       this.teardown(() => this.connect());
     }, this.reconnectAfterMs);
     this.authToken = opts.authToken;
@@ -1313,7 +1335,10 @@ var Socket = class {
         fallback(reason);
       }
     });
-    this.onOpen(() => {
+    if (this.fallbackRef) {
+      this.off([this.fallbackRef]);
+    }
+    this.fallbackRef = this.onOpen(() => {
       established = true;
       if (!primaryTransport) {
         if (!this.primaryPassedHealthCheck) {
@@ -1422,6 +1447,9 @@ var Socket = class {
     }, 150 * tries);
   }
   onConnClose(event) {
+    if (this.conn)
+      this.conn.onclose = () => {
+      };
     let closeCode = event && event.code;
     if (this.hasLogger())
       this.log("transport", "close", event);
