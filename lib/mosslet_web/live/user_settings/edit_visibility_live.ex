@@ -133,14 +133,14 @@ defmodule MossletWeb.EditVisibilityLive do
               <%!-- Public explanation --%>
               <div class="space-y-3">
                 <div class="flex items-center gap-3">
-                  <DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
+                  <DesignSystem.liquid_badge variant="soft" color="blue" size="sm">
                     Public
                   </DesignSystem.liquid_badge>
                   <span class="text-sm font-medium text-slate-900 dark:text-slate-100">
                     Maximum Visibility
                   </span>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400 pl-4 border-l-2 border-emerald-200 dark:border-emerald-700">
+                <p class="text-sm text-slate-600 dark:text-slate-400 pl-4 border-l-2 border-blue-200 dark:border-blue-700">
                   Anyone can view your profile and send connection requests. Best for networking and meeting new people.
                 </p>
               </div>
@@ -148,14 +148,14 @@ defmodule MossletWeb.EditVisibilityLive do
               <%!-- Connections explanation --%>
               <div class="space-y-3">
                 <div class="flex items-center gap-3">
-                  <DesignSystem.liquid_badge variant="soft" color="amber" size="sm">
+                  <DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
                     Connections
                   </DesignSystem.liquid_badge>
                   <span class="text-sm font-medium text-slate-900 dark:text-slate-100">
                     Balanced Privacy
                   </span>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400 pl-4 border-l-2 border-amber-200 dark:border-amber-700">
+                <p class="text-sm text-slate-600 dark:text-slate-400 pl-4 border-l-2 border-emerald-200 dark:border-emerald-700">
                   Only you and your connections can view your profile. Anyone can still send connection requests.
                 </p>
               </div>
@@ -227,8 +227,8 @@ defmodule MossletWeb.EditVisibilityLive do
 
   defp visibility_badge_color(visibility) do
     case visibility do
-      :public -> "emerald"
-      :connections -> "amber"
+      :public -> "blue"
+      :connections -> "emerald"
       :private -> "rose"
       _ -> "slate"
     end

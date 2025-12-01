@@ -1244,7 +1244,7 @@ defmodule MossletWeb.CoreComponents do
 
   def help(assigns) do
     ~H"""
-    <p class={["text-gray-500", @class]}>{@text}</p>
+    <p class={["text-gray-600 dark:text-gray-400", @class]}>{@text}</p>
     """
   end
 

@@ -158,6 +158,7 @@ defmodule MossletWeb.EditEmailLive do
                         name="hero-eye"
                         class="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover/eye:text-emerald-600 dark:group-hover/eye:text-emerald-400 transition-colors duration-200"
                       />
+                      <span class="sr-only">Show current password</span>
                     </button>
                     <button
                       type="button"
@@ -175,11 +176,12 @@ defmodule MossletWeb.EditEmailLive do
                         name="hero-eye-slash"
                         class="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover/eye:text-emerald-600 dark:group-hover/eye:text-emerald-400 transition-colors duration-200"
                       />
+                      <span class="sr-only">Hide current password</span>
                     </button>
                   </div>
                 </div>
 
-                <p class="text-sm text-slate-500 dark:text-slate-500 leading-relaxed">
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                   Confirm your current password to proceed with the email change.
                 </p>
               </div>

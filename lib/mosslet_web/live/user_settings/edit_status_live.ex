@@ -432,7 +432,7 @@ defmodule MossletWeb.EditStatusLive do
                     <p class="text-xs mt-1">
                       <.link
                         navigate={~p"/app/users/connections"}
-                        class="text-teal-600 hover:text-teal-700"
+                        class="text-teal-700 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200 underline"
                       >
                         Create visibility groups
                       </.link>
@@ -492,7 +492,7 @@ defmodule MossletWeb.EditStatusLive do
                     <p class="text-xs mt-1">
                       <.link
                         navigate={~p"/app/users/connections"}
-                        class="text-teal-600 hover:text-teal-700"
+                        class="text-teal-700 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200 underline"
                       >
                         Connect with people
                       </.link>
@@ -1349,10 +1349,10 @@ defmodule MossletWeb.EditStatusLive do
   defp visibility_badge_color(status_visibility) do
     case normalize_status_visibility(status_visibility) do
       "nobody" -> "slate"
-      "connections" -> "teal"
+      "connections" -> "emerald"
       "specific_groups" -> "purple"
       "specific_users" -> "amber"
-      "public" -> "emerald"
+      "public" -> "blue"
       _ -> "slate"
     end
   end

@@ -79,24 +79,30 @@ defmodule MossletWeb.EditProfileLive do
                       />
                     </div>
                     <span>Profile Settings</span>
-                    <span
+                    <DesignSystem.liquid_badge
                       :if={Map.get(@current_user.connection, :profile)}
                       id="profile-visibility"
-                      data-tippy-content="Your current profile visibility"
+                      variant="soft"
+                      color={visibility_badge_color(@current_user.connection.profile.visibility)}
+                      size="sm"
+                      class="cursor-help"
                       phx-hook="TippyHook"
-                      class="inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600 cursor-help"
+                      data-tippy-content="Your current profile visibility"
                     >
                       {String.capitalize(Atom.to_string(@current_user.connection.profile.visibility))}
-                    </span>
-                    <span
+                    </DesignSystem.liquid_badge>
+                    <DesignSystem.liquid_badge
                       :if={!Map.get(@current_user.connection, :profile)}
                       id="profile-visibility"
-                      data-tippy-content="You do not have a profile yet. This is your current account visibility."
+                      variant="soft"
+                      color={visibility_badge_color(@current_user.visibility)}
+                      size="sm"
+                      class="cursor-help"
                       phx-hook="TippyHook"
-                      class="inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium bg-gradient-to-r from-rose-100 to-pink-200 text-rose-800 dark:from-rose-800 dark:to-pink-700 dark:text-rose-200 border border-rose-300 dark:border-rose-600 cursor-help"
+                      data-tippy-content="You do not have a profile yet. This is your current account visibility."
                     >
                       {String.capitalize(Atom.to_string(@current_user.visibility))}
-                    </span>
+                    </DesignSystem.liquid_badge>
                   </div>
                 </:title>
 
@@ -105,7 +111,7 @@ defmodule MossletWeb.EditProfileLive do
                     <p class="text-base text-slate-600 dark:text-slate-400">
                       Your profile is your place to share your story.
                     </p>
-                    <p class="text-sm text-slate-500 dark:text-slate-500">
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
                       Check the badge above to know who you are currently allowing to view your profile, and hit "Update Profile" if you wish to realign it with your account's visibility setting.
                     </p>
                   </div>
@@ -774,5 +780,14 @@ defmodule MossletWeb.EditProfileLive do
 
   defp assign_profile_form(socket, user) do
     assign(socket, profile_form: to_form(Accounts.change_user_profile(user.connection)))
+  end
+
+  defp visibility_badge_color(visibility) do
+    case visibility do
+      :public -> "blue"
+      :connections -> "emerald"
+      :private -> "rose"
+      _ -> "slate"
+    end
   end
 end
