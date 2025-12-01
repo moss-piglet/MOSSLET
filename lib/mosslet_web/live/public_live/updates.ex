@@ -74,10 +74,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.41"
-                  date="November 2025"
+                  version="0.9.5"
+                  date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Accessibility First 🦖</:title>
+                  <:description>
+                    We've made accessibility a first-class feature across MOSSLET. The accessibility dino has been busy making sure everyone can enjoy a calm, private social experience.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-eye" color="purple">
+                      Proper heading hierarchy and semantic HTML across all pages
+                    </.changelog_item>
+                    <.changelog_item icon="hero-cursor-arrow-rays" color="teal">
+                      Enhanced keyboard navigation and focus management
+                    </.changelog_item>
+                    <.changelog_item icon="hero-megaphone" color="blue">
+                      Improved screen reader support with ARIA labels and live regions
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sun" color="amber">
+                      Better color contrast and visual accessibility in both light and dark modes
+                    </.changelog_item>
+                    <.changelog_item icon="hero-device-phone-mobile" color="cyan">
+                      Accessible forms, buttons, and interactive elements throughout
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.41"
+                  date="November 2025"
+                  tag="Feature"
+                  tag_color="amber"
                 >
                   <:title>UX Improvements & Load More Replies</:title>
                   <:description>
