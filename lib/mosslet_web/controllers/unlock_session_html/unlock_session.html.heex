@@ -68,6 +68,7 @@
             <button
               type="button"
               id="eye"
+              aria-label="Show password"
               data-tippy-content="Show password"
               phx-hook="TippyHook"
               phx-click={
@@ -85,6 +86,7 @@
             <button
               type="button"
               id="eye-slash"
+              aria-label="Hide password"
               data-tippy-content="Hide password"
               phx-hook="TippyHook"
               class="hidden group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
@@ -174,9 +176,9 @@
             />
           </div>
           <div class="flex-1">
-            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
               Auto-lock enabled
-            </h3>
+            </h2>
             <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               For your security, your encrypted data is automatically locked when you close your browser. This prevents unauthorized access to your personal information.
             </p>
