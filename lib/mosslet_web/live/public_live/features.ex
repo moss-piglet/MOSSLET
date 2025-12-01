@@ -17,7 +17,7 @@ defmodule MossletWeb.PublicLive.Features do
     >
       <%!-- Enhanced liquid metal background matching other pages --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-        <main class="isolate">
+        <div class="isolate">
           <%!-- Hero section with gradient orbs but cleaner background --%>
           <div class="relative isolate">
             <%!-- Floating gradient orbs for liquid metal effect - responsive and contained --%>
@@ -914,7 +914,7 @@ defmodule MossletWeb.PublicLive.Features do
               </.liquid_card>
             </div>
           </.liquid_container>
-        </main>
+        </div>
 
         <%!-- Spacer for proper footer separation --%>
         <div class="pb-24"></div>
