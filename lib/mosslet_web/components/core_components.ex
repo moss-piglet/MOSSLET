@@ -1119,7 +1119,79 @@ defmodule MossletWeb.CoreComponents do
     """
   end
 
-  # All other inputs text, datetime-local, url, password, etc. are handled here...
+  def phx_input(%{type: "password"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name}>
+      <.label for={@id} required={@required}>{@label}</.label>
+      <div :if={@description?} id={@id <> "_description"} class="mt-2 text-sm leading-6 text-zinc-600">
+        {render_slot(@description_block)}
+      </div>
+      <div class="relative">
+        <input
+          type="password"
+          name={@name}
+          id={@id}
+          value={Phoenix.HTML.Form.normalize_value("password", @value)}
+          class={
+            if @apply_classes?,
+              do: [
+                @classes,
+                @errors == [] && "border-zinc-300 focus:border-zinc-400",
+                @errors != [] && "border-rose-400 focus:border-rose-400"
+              ],
+              else: [
+                "w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",
+                "phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-teal-400",
+                @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
+                @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
+              ]
+          }
+          required={@required}
+          {@rest}
+        />
+        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+          <span
+            id={"#{@id}-eye"}
+            role="button"
+            tabindex="0"
+            aria-label="Show password"
+            phx-click={
+              JS.set_attribute({"type", "text"}, to: "##{@id}")
+              |> JS.remove_class("hidden", to: "##{@id}-eye-slash")
+              |> JS.add_class("hidden", to: "##{@id}-eye")
+            }
+          >
+            <.phx_icon
+              name="hero-eye"
+              class="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+            />
+          </span>
+          <span
+            id={"#{@id}-eye-slash"}
+            role="button"
+            tabindex="0"
+            class="hidden"
+            aria-label="Hide password"
+            phx-click={
+              JS.set_attribute({"type", "password"}, to: "##{@id}")
+              |> JS.add_class("hidden", to: "##{@id}-eye-slash")
+              |> JS.remove_class("hidden", to: "##{@id}-eye")
+            }
+          >
+            <.phx_icon
+              name="hero-eye-slash"
+              class="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+            />
+          </span>
+        </div>
+      </div>
+      <.error :for={msg <- @errors}>{msg}</.error>
+      <.help :if={@help} text={@help} class="mt-2" />
+    </div>
+    """
+  end
+
+  # All other inputs text, datetime-local, url, etc. are handled here...
   def phx_input(assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
@@ -1156,28 +1228,49 @@ defmodule MossletWeb.CoreComponents do
   end
 
   @doc """
-  LiveSelect live_select component.
+  LiveSelect live_select component with liquid metal styling.
   """
   def live_select(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns =
       assigns
+      |> assign_new(:label, fn -> nil end)
       |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
       |> assign(:live_select_opts, assigns_to_attributes(assigns, [:errors, :label]))
 
     ~H"""
-    <div phx-feedback-for={@field.name}>
-      <.label for={@field.id}>{@label}</.label>
+    <div phx-feedback-for={@field.name} class="relative">
+      <.label :if={@label} for={@field.id}>{@label}</.label>
       <LiveSelect.live_select
         field={@field}
+        container_class="relative"
         text_input_class={[
-          "dark:bg-gray-800 mt-2 block w-full rounded-lg border-zinc-300 border-2 py-[7px] px-[11px]",
-          "text-zinc-900 focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-emerald-500 phx-no-feedback:focus:ring-emerald-800/5 phx-no-feedback:focus:ring-2",
-          "border-zinc-300 dark:border-gray-600 dark:text-gray-300 dark:placeholder:text-gray-300 focus:border-emerald-500 focus:ring-emerald-800/5 focus:ring-2",
-          @errors != [] && "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10"
+          "w-full px-4 py-3 rounded-xl border-2 transition-all duration-200",
+          "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100",
+          "placeholder-slate-400 dark:placeholder-slate-500",
+          "focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0",
+          "phx-no-feedback:border-slate-200 phx-no-feedback:dark:border-slate-700",
+          "phx-no-feedback:focus:border-teal-400 phx-no-feedback:dark:focus:border-teal-500",
+          @errors == [] &&
+            "border-slate-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-600 focus:border-teal-400 dark:focus:border-teal-500",
+          @errors != [] &&
+            "border-rose-400 dark:border-rose-500 focus:border-rose-400 focus:ring-rose-500/20"
         ]}
+        dropdown_class="absolute inset-x-0 top-full mt-2 z-50 max-h-60 overflow-y-auto rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 backdrop-blur-sm"
+        option_class="px-4 py-2.5 cursor-pointer transition-colors duration-150"
+        active_option_class="bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30 text-teal-900 dark:text-teal-100"
+        available_option_class="hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300"
+        selected_option_class="font-medium text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20"
+        tags_container_class="flex flex-wrap gap-2 p-2"
+        tag_class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/40 dark:to-emerald-900/40 text-teal-800 dark:text-teal-200 text-sm font-medium shadow-sm"
+        clear_tag_button_class="ml-1 text-teal-600 dark:text-teal-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors duration-150 cursor-pointer"
+        clear_button_class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors duration-150 cursor-pointer hidden"
         {@live_select_opts}
-      />
+      >
+        <:clear_button>
+          <span aria-label="Remove selection" class="sr-only">Remove</span>
+          <.phx_icon name="hero-x-mark" class="w-4 h-4" />
+        </:clear_button>
+      </LiveSelect.live_select>
 
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>

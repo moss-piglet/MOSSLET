@@ -8,100 +8,120 @@ defmodule MossletWeb.GroupLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex overflow-y-auto mx-auto w-xs sm:w-sm md:w-md">
-      <div class="grow">
-        <div class="pb-4">
-          <.h2>
-            {@title}
-          </.h2>
-          <.p :if={@action in [:new]}>
-            Use this form to create a new group.
-          </.p>
-          <.p :if={@action in [:edit]}>
-            Use this form to edit the group. You can add or remove members and update the name or description.
-          </.p>
+    <div class="space-y-6">
+      <div class="space-y-2">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+            <.phx_icon name="hero-user-group" class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-teal-900 dark:text-teal-100">
+              {@title}
+            </h2>
+            <p :if={@action in [:new]} class="text-sm text-teal-700 dark:text-teal-300">
+              Create a new group to share and collaborate with your connections
+            </p>
+            <p :if={@action in [:edit]} class="text-sm text-teal-700 dark:text-teal-300">
+              Update group details and manage members
+            </p>
+          </div>
         </div>
-        <.form
-          for={@form}
-          id="group-form"
-          phx-target={@myself}
-          phx-change="validate"
-          phx-submit="save"
-        >
-          <.field
-            :if={@action in [:new]}
-            phx-debounce="500"
-            field={@form[:name]}
-            type="text"
-            label="Name"
-          />
-          <.field
-            :if={@action in [:new]}
-            phx-debounce="500"
-            field={@form[:description]}
-            type="text"
-            label="Description"
-          />
-          <.field
-            :if={@action in [:new]}
-            field={@form[:public?]}
-            type="checkbox"
-            phx-debounce="500"
-            label="Make group public?"
-          />
-          <.field
-            :if={@action in [:new]}
-            field={@form[:require_password?]}
-            type="checkbox"
-            phx-debounce="500"
-            label="Require password?"
-          />
-          <.field
-            :if={@action in [:new] && @require_password? == "true"}
-            field={@form[:password]}
-            type="text"
-            label="Password"
-            phx-debounce="500"
-          />
-          <.field
-            :if={@action in [:edit]}
-            field={@form[:name]}
-            value={
-              decr_item(
-                @group_name,
-                @current_user,
-                get_user_group(@group, @current_user).key,
-                @key,
-                @group
-              )
-            }
-            type="text"
-            phx-debounce="500"
-            label="Name"
-          />
-          <.field
-            :if={@action in [:edit]}
-            field={@form[:description]}
-            value={
-              decr_item(
-                @group_description,
-                @current_user,
-                get_user_group(@group, @current_user).key,
-                @key,
-                @group
-              )
-            }
-            type="text"
-            phx-debounce="500"
-            label="Description"
-          />
-          <.field field={@form[:user_id]} type="hidden" value={@current_user.id} />
-          <.field
-            field={@form[:user_name]}
-            type="hidden"
-            value={decr(@current_user.name, @current_user, @key)}
-          />
+      </div>
 
+      <.form
+        for={@form}
+        id="group-form"
+        phx-target={@myself}
+        phx-change="validate"
+        phx-submit="save"
+        class="space-y-6"
+      >
+        <.phx_input
+          :if={@action in [:new]}
+          phx-debounce="500"
+          field={@form[:name]}
+          type="text"
+          label="Name"
+          placeholder="Enter group name..."
+        />
+        <.phx_input
+          :if={@action in [:new]}
+          phx-debounce="500"
+          field={@form[:description]}
+          type="text"
+          label="Description"
+          placeholder="What is this group about?"
+        />
+
+        <div :if={@action in [:new]} class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <MossletWeb.DesignSystem.liquid_checkbox
+            field={@form[:public?]}
+            label="Make group public?"
+            help="Public groups can be discovered by others"
+            phx-debounce="500"
+          />
+          <MossletWeb.DesignSystem.liquid_checkbox
+            field={@form[:require_password?]}
+            label="Require password?"
+            help="Members need a password to join"
+            phx-debounce="500"
+          />
+        </div>
+
+        <.phx_input
+          :if={@action in [:new] && @require_password? == "true"}
+          field={@form[:password]}
+          type="password"
+          label="Password"
+          placeholder="Enter group password..."
+          phx-debounce="500"
+        />
+
+        <.phx_input
+          :if={@action in [:edit]}
+          field={@form[:name]}
+          value={
+            decr_item(
+              @group_name,
+              @current_user,
+              get_user_group(@group, @current_user).key,
+              @key,
+              @group
+            )
+          }
+          type="text"
+          phx-debounce="500"
+          label="Name"
+          placeholder="Enter group name..."
+        />
+        <.phx_input
+          :if={@action in [:edit]}
+          field={@form[:description]}
+          value={
+            decr_item(
+              @group_description,
+              @current_user,
+              get_user_group(@group, @current_user).key,
+              @key,
+              @group
+            )
+          }
+          type="text"
+          phx-debounce="500"
+          label="Description"
+          placeholder="What is this group about?"
+        />
+        <.phx_input field={@form[:user_id]} type="hidden" value={@current_user.id} />
+        <.phx_input
+          field={@form[:user_name]}
+          type="hidden"
+          value={decr(@current_user.name, @current_user, @key)}
+        />
+
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+            {if @action in [:new], do: "Add people to group", else: "Update group members"}
+          </label>
           <.live_select
             :if={@action in [:new]}
             id="groups-user-select"
@@ -109,16 +129,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
             mode={:tags}
             phx-target={@myself}
             phx-focus="set-default"
-            label="Add people to group"
             options={@user_connections}
             placeholder="Click or start typing to select people..."
-            clear_button_class="pl-1 text-red-600 hover:text-red-500"
-            dropdown_class="relative max-h-32 overflow-y-scroll bg-gray-100 inset-x-0 rounded-md shadow top-full z-50"
           >
             <:option :let={option}>
-              <div class="flex">
+              <div class="flex items-center gap-2">
                 <.phx_avatar
-                  class="mr-2 h-6 w-6 rounded-full"
+                  class="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-700"
                   src={
                     maybe_get_avatar_src(
                       get_uconn_for_users!(option.value, @current_user.id),
@@ -127,12 +144,14 @@ defmodule MossletWeb.GroupLive.FormComponent do
                       []
                     )
                   }
-                />{option.label}
+                />
+                <span class="font-medium">{option.label}</span>
               </div>
             </:option>
             <:tag :let={option}>
               <.phx_avatar
-                class="mr-2 h-6 w-6 rounded-full"
+                class="h-5 w-5 rounded-full"
+                alt={option.label}
                 src={
                   maybe_get_avatar_src(
                     get_uconn_for_users!(option.value, @current_user.id),
@@ -141,7 +160,8 @@ defmodule MossletWeb.GroupLive.FormComponent do
                     []
                   )
                 }
-              />{option.label}
+              />
+              <span>{option.label}</span>
             </:tag>
           </.live_select>
 
@@ -152,82 +172,99 @@ defmodule MossletWeb.GroupLive.FormComponent do
             mode={:tags}
             phx-target={@myself}
             phx-focus="set-default"
-            label="Update group members"
             options={@user_connections}
             placeholder="Click or start typing to select people..."
-            clear_button_class="pl-1 text-red-600 hover:text-red-500"
-            dropdown_class="relative max-h-32 overflow-y-scroll bg-gray-100 inset-x-0 rounded-md shadow top-full z-50"
           >
             <:option :let={option}>
-              <div :if={option.value != @current_user.id} class="flex">
+              <div class="flex items-center gap-2">
                 <.phx_avatar
-                  class="mr-2 h-6 w-6 rounded-full"
+                  class="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-700"
                   src={
-                    maybe_get_avatar_src(
-                      get_uconn_for_users!(option.value, @current_user.id),
-                      @current_user,
-                      @key,
-                      @user_connections
-                    )
+                    if option.value == @current_user.id do
+                      maybe_get_user_avatar(@current_user, @key)
+                    else
+                      maybe_get_avatar_src(
+                        get_uconn_for_users!(option.value, @current_user.id),
+                        @current_user,
+                        @key,
+                        @user_connections
+                      )
+                    end
                   }
-                />{option.label}
-              </div>
-              <div :if={option.value == @current_user.id} class="flex">
-                <.phx_avatar
-                  class="mr-2 h-6 w-6 rounded-full"
-                  src={maybe_get_user_avatar(@current_user, @key)}
-                />{option.label}
+                />
+                <span class="font-medium">{option.label}</span>
               </div>
             </:option>
             <:tag :let={option}>
-              <span :if={option.value != @current_user.id} class="inline-flex">
-                <.phx_avatar
-                  :if={option.value != @current_user.id}
-                  class="mr-2 h-6 w-6 rounded-full"
-                  src={
+              <.phx_avatar
+                class="h-5 w-5 rounded-full"
+                alt={option.label}
+                src={
+                  if option.value == @current_user.id do
+                    maybe_get_user_avatar(@current_user, @key)
+                  else
                     maybe_get_avatar_src(
                       get_uconn_for_users!(option.value, @current_user.id),
                       @current_user,
                       @key,
                       @user_connections
                     )
-                  }
-                />{option.label}
-              </span>
-              <span :if={option.value == @current_user.id} class="inline-flex">
-                <.phx_avatar
-                  class="mr-2 h-6 w-6 rounded-full"
-                  src={maybe_get_user_avatar(@current_user, @key)}
-                />{option.label}
-              </span>
+                  end
+                }
+              />
+              <span>{option.label}</span>
             </:tag>
           </.live_select>
-          <div class="pt-4">
-            <.button
-              :if={@action in [:new] && @form.source.valid?}
-              class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-              phx-disable-with="Saving..."
-            >
-              Save Group
-            </.button>
-            <.button
-              :if={@action in [:new] && !@form.source.valid?}
-              phx-disable-with="Saving..."
-              disabled
-              class="opacity-50 cursor-not-allowed rounded-full py-3 px-6 text-center text-sm font-bold bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 shadow-sm"
-            >
-              Save Group
-            </.button>
-            <.button
-              :if={@action in [:edit]}
-              class="rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
-              phx-disable-with="Updating..."
-            >
-              Update Group
-            </.button>
-          </div>
-        </.form>
-      </div>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            Select connections to invite to this group
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+          <MossletWeb.DesignSystem.liquid_button
+            type="button"
+            variant="secondary"
+            color="slate"
+            phx-click={JS.exec("data-cancel", to: "#group-modal")}
+            class="w-full sm:w-auto order-2 sm:order-1"
+          >
+            Cancel
+          </MossletWeb.DesignSystem.liquid_button>
+
+          <MossletWeb.DesignSystem.liquid_button
+            :if={@action in [:new] && @form.source.valid?}
+            type="submit"
+            color="teal"
+            icon="hero-check"
+            class="w-full sm:w-auto order-1 sm:order-2"
+            phx-disable-with="Saving..."
+          >
+            Save Group
+          </MossletWeb.DesignSystem.liquid_button>
+
+          <MossletWeb.DesignSystem.liquid_button
+            :if={@action in [:new] && !@form.source.valid?}
+            type="submit"
+            color="slate"
+            icon="hero-check"
+            disabled
+            class="w-full sm:w-auto order-1 sm:order-2"
+          >
+            Save Group
+          </MossletWeb.DesignSystem.liquid_button>
+
+          <MossletWeb.DesignSystem.liquid_button
+            :if={@action in [:edit]}
+            type="submit"
+            color="teal"
+            icon="hero-check"
+            class="w-full sm:w-auto order-1 sm:order-2"
+            phx-disable-with="Updating..."
+          >
+            Update Group
+          </MossletWeb.DesignSystem.liquid_button>
+        </div>
+      </.form>
     </div>
     """
   end
@@ -235,6 +272,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
   @impl true
   def update(%{group: group} = assigns, socket) do
     current_user = assigns.current_user
+    user_connections = convert_options_for_live_select(assigns.user_connections)
 
     if assigns.action in [:new] do
       changeset = Groups.change_group(group)
@@ -242,11 +280,12 @@ defmodule MossletWeb.GroupLive.FormComponent do
       {:ok,
        socket
        |> assign(assigns)
+       |> assign(:user_connections, user_connections)
        |> assign(:require_password?, false)
        |> assign_form(changeset)}
     else
       key = assigns.key
-      options = assigns.user_connections
+      user_connections = convert_options_for_live_select(assigns.user_connections)
 
       member_list =
         build_member_list_for_group(group, current_user, key)
@@ -254,7 +293,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
       changeset = Groups.change_group(group)
 
       send_update(LiveSelect.Component,
-        options: options,
+        options: user_connections,
         id: "groups-user-select",
         value: member_list
       )
@@ -264,6 +303,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
        |> assign(:group_name, group.name)
        |> assign(:group_description, group.description)
        |> assign(assigns)
+       |> assign(:user_connections, user_connections)
        |> assign(:require_password?, group.require_password?)
        |> assign_form(changeset)}
     end
@@ -276,7 +316,10 @@ defmodule MossletWeb.GroupLive.FormComponent do
         socket.assigns.user_connections
       else
         socket.assigns.user_connections
-        |> Enum.filter(&(String.downcase(&1[:key]) |> String.contains?(String.downcase(text))))
+        |> Enum.filter(fn opt ->
+          label = opt[:label] || opt[:key]
+          label && String.downcase(label) |> String.contains?(String.downcase(text))
+        end)
       end
 
     send_update(LiveSelect.Component, options: options, id: id)
@@ -300,7 +343,10 @@ defmodule MossletWeb.GroupLive.FormComponent do
         socket.assigns.user_connections
       else
         socket.assigns.user_connections
-        |> Enum.filter(&(String.downcase(&1[:key]) |> String.contains?(String.downcase(text))))
+        |> Enum.filter(fn opt ->
+          label = opt[:label] || opt[:key]
+          label && String.downcase(label) |> String.contains?(String.downcase(text))
+        end)
       end
 
     send_update(LiveSelect.Component, options: options, id: id)
@@ -436,13 +482,19 @@ defmodule MossletWeb.GroupLive.FormComponent do
 
   defp build_users_from_uconn_ids(_ids), do: []
 
+  defp convert_options_for_live_select(options) do
+    Enum.map(options, fn opt ->
+      [label: opt[:key], value: opt[:value], current_user_id: opt[:current_user_id]]
+    end)
+  end
+
   defp build_member_list_for_group(group, current_user, key) do
     Enum.into(group.user_groups, [], fn user_group ->
       connection = Accounts.get_connection_from_item(user_group, current_user)
       uconn = Accounts.get_user_connection_for_user_group(user_group.user_id, current_user.id)
 
       [
-        key:
+        label:
           cond do
             is_nil(uconn) && user_group.user_id != current_user.id ->
               "private"

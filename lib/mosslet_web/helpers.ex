@@ -2483,6 +2483,16 @@ defmodule MossletWeb.Helpers do
 
   def role_badge_color(role) do
     case role do
+      :owner -> "emerald"
+      :member -> "cyan"
+      :admin -> "orange"
+      :moderator -> "purple"
+      _rest -> "slate"
+    end
+  end
+
+  def role_badge_color_classes(role) do
+    case role do
       :owner ->
         "inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300"
 

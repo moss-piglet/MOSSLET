@@ -17,9 +17,9 @@ defmodule MossletWeb.PageComponents do
     ~H"""
     <div class={["mb-8 sm:flex sm:justify-between sm:items-center", @class]}>
       <div class="mb-4 sm:mb-0">
-        <.h2 class="!mb-0">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
           {@title}
-        </.h2>
+        </h1>
       </div>
 
       <div class="">

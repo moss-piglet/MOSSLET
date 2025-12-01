@@ -190,6 +190,11 @@ defmodule MossletWeb.GroupLive.Index do
   end
 
   @impl true
+  def handle_event(_event, _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({MossletWeb.GroupLive.FormComponent, {:saved, group}}, socket) do
     {:noreply, stream_insert(socket, :groups, group, at: -1)}
   end
