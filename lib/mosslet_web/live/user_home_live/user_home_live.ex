@@ -487,14 +487,15 @@ defmodule MossletWeb.UserHomeLive do
       </div>
 
       <%!-- Main Content --%>
-      <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Left Column: Profile Details & Federation --%>
           <div class="lg:col-span-2 space-y-8">
             <%!-- Contact & Links Section --%>
-            <MossletWeb.DesignSystem.liquid_card :if={
-              has_contact_links?(@current_user.connection.profile)
-            }>
+            <MossletWeb.DesignSystem.liquid_card
+              :if={has_contact_links?(@current_user.connection.profile)}
+              heading_level={2}
+            >
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
@@ -557,7 +558,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
 
             <%!-- About Section --%>
-            <MossletWeb.DesignSystem.liquid_card>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
@@ -601,7 +602,10 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
 
             <%!-- AT Protocol Federation Card --%>
-            <MossletWeb.DesignSystem.liquid_card class="border-blue-200/40 dark:border-blue-700/40">
+            <MossletWeb.DesignSystem.liquid_card
+              heading_level={2}
+              class="border-blue-200/40 dark:border-blue-700/40"
+            >
               <:title>
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
                   <div class="flex items-center gap-2 min-w-0">
@@ -638,9 +642,9 @@ defmodule MossletWeb.UserHomeLive do
                   <div class="size-16 mx-auto bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl flex items-center justify-center mb-3">
                     <.phx_icon name="hero-cloud" class="size-8 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                  <p class="text-lg font-semibold text-slate-900 dark:text-white mb-2">
                     Connect to the AT Protocol Network
-                  </h3>
+                  </p>
                   <p class="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                     Share your Mosslet posts with Bluesky and other AT Protocol networks while keeping your privacy controls.
                   </p>
@@ -753,7 +757,10 @@ defmodule MossletWeb.UserHomeLive do
             class="lg:col-span-1 space-y-6"
           >
             <%!-- Quick Actions --%>
-            <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
+            <MossletWeb.DesignSystem.liquid_card
+              heading_level={2}
+              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
+            >
               <:title>
                 <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
                   <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
@@ -792,7 +799,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
 
             <%!-- Profile Stats --%>
-            <MossletWeb.DesignSystem.liquid_card>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon
@@ -830,6 +837,7 @@ defmodule MossletWeb.UserHomeLive do
             <%!-- Privacy & Security --%>
             <MossletWeb.DesignSystem.liquid_card
               :if={@current_user && @current_user.id == @profile_user.id}
+              heading_level={2}
               class="border-emerald-200/40 dark:border-emerald-700/40"
             >
               <:title>
@@ -877,7 +885,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
           </div>
         </div>
-      </main>
+      </div>
     </.layout>
     """
   end
@@ -1004,12 +1012,13 @@ defmodule MossletWeb.UserHomeLive do
         </div>
       </div>
 
-      <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-2 space-y-8">
-            <MossletWeb.DesignSystem.liquid_card :if={
-              has_contact_links?(@profile_user.connection.profile)
-            }>
+            <MossletWeb.DesignSystem.liquid_card
+              :if={has_contact_links?(@profile_user.connection.profile)}
+              heading_level={2}
+            >
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
@@ -1062,7 +1071,7 @@ defmodule MossletWeb.UserHomeLive do
               </div>
             </MossletWeb.DesignSystem.liquid_card>
 
-            <MossletWeb.DesignSystem.liquid_card>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
@@ -1098,6 +1107,7 @@ defmodule MossletWeb.UserHomeLive do
             <%!-- Quick Actions --%>
             <MossletWeb.DesignSystem.liquid_card
               :if={!@current_user_is_profile_owner?}
+              heading_level={2}
               class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
             >
               <:title>
@@ -1137,7 +1147,7 @@ defmodule MossletWeb.UserHomeLive do
               </div>
             </MossletWeb.DesignSystem.liquid_card>
 
-            <MossletWeb.DesignSystem.liquid_card>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon
@@ -1167,7 +1177,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
           </div>
         </div>
-      </main>
+      </div>
     </.layout>
     """
   end
@@ -1314,14 +1324,15 @@ defmodule MossletWeb.UserHomeLive do
       </div>
 
       <%!-- Main Content --%>
-      <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Left Column: Connection Profile Details --%>
           <div class="lg:col-span-2 space-y-8">
             <%!-- Contact & Links Section --%>
-            <MossletWeb.DesignSystem.liquid_card :if={
-              has_contact_links?(@profile_user.connection.profile)
-            }>
+            <MossletWeb.DesignSystem.liquid_card
+              :if={has_contact_links?(@profile_user.connection.profile)}
+              heading_level={2}
+            >
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
@@ -1381,7 +1392,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
 
             <%!-- About Section --%>
-            <MossletWeb.DesignSystem.liquid_card>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
@@ -1418,7 +1429,10 @@ defmodule MossletWeb.UserHomeLive do
           <%!-- Right Column: Connection Info & Stats --%>
           <div class="lg:col-span-1 space-y-6">
             <%!-- Quick Actions --%>
-            <MossletWeb.DesignSystem.liquid_card class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30">
+            <MossletWeb.DesignSystem.liquid_card
+              heading_level={2}
+              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
+            >
               <:title>
                 <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
                   <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
@@ -1457,7 +1471,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
 
             <%!-- Connection Stats --%>
-            <MossletWeb.DesignSystem.liquid_card>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
               <:title>
                 <div class="flex items-center gap-2">
                   <.phx_icon
@@ -1493,7 +1507,7 @@ defmodule MossletWeb.UserHomeLive do
             </MossletWeb.DesignSystem.liquid_card>
           </div>
         </div>
-      </main>
+      </div>
     </.layout>
     """
   end

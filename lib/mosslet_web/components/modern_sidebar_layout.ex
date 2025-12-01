@@ -134,7 +134,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       <%!-- Main content --%>
       <div class="lg:pl-72">
         <%!-- Top bar --%>
-        <div class={[
+        <header class={[
           "sticky top-0 z-15 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
           "border-b border-slate-200/60 dark:border-slate-700/60",
           "bg-gradient-to-r from-white/90 via-slate-50/80 to-white/90",
@@ -175,9 +175,8 @@ defmodule MossletWeb.ModernSidebarLayout do
               />
             </div>
           </div>
-        </div>
+        </header>
 
-        <%!-- Beta banner --%>
         <%!-- Page content --%>
         <main>
           {render_slot(@inner_block)}

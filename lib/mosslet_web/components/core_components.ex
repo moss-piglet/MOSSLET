@@ -2251,20 +2251,17 @@ defmodule MossletWeb.CoreComponents do
             <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
           </:logo>
           <:top_right>
-            <button
+            <.link
               :if={@current_user && @current_user.confirmed_at}
               id="invite-connection-link"
+              navigate={~p"/app/users/connections/invite/new-invite"}
               phx-hook="TippyHook"
-              type="button"
               data-tippy-content="Invite people to join you on Mosslet!"
+              class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
             >
-              <.link
-                navigate={~p"/app/users/connections/invite/new-invite"}
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
-              >
-                <.phx_icon name="hero-paper-airplane" class="size-4" />
-              </.link>
-            </button>
+              <.phx_icon name="hero-paper-airplane" class="size-4" />
+              <span class="sr-only">Invite people to join you on Mosslet</span>
+            </.link>
 
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>

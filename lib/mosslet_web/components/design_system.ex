@@ -227,6 +227,7 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :class, :any, default: ""
   attr :padding, :string, default: "md", values: ~w(sm md lg)
+  attr :heading_level, :integer, default: 3, values: 1..6
   slot :title
   slot :inner_block, required: true
 
@@ -251,15 +252,58 @@ defmodule MossletWeb.DesignSystem do
         :if={render_slot(@title)}
         class="mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-700/60"
       >
-        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <.dynamic_heading
+          level={@heading_level}
+          class="text-lg font-semibold text-slate-900 dark:text-slate-100"
+        >
           {render_slot(@title)}
-        </h3>
+        </.dynamic_heading>
       </div>
 
       <div class="relative">
         {render_slot(@inner_block)}
       </div>
     </div>
+    """
+  end
+
+  attr :level, :integer, required: true
+  attr :class, :string, default: ""
+  slot :inner_block, required: true
+
+  defp dynamic_heading(%{level: 1} = assigns) do
+    ~H"""
+    <h1 class={@class}>{render_slot(@inner_block)}</h1>
+    """
+  end
+
+  defp dynamic_heading(%{level: 2} = assigns) do
+    ~H"""
+    <h2 class={@class}>{render_slot(@inner_block)}</h2>
+    """
+  end
+
+  defp dynamic_heading(%{level: 3} = assigns) do
+    ~H"""
+    <h3 class={@class}>{render_slot(@inner_block)}</h3>
+    """
+  end
+
+  defp dynamic_heading(%{level: 4} = assigns) do
+    ~H"""
+    <h4 class={@class}>{render_slot(@inner_block)}</h4>
+    """
+  end
+
+  defp dynamic_heading(%{level: 5} = assigns) do
+    ~H"""
+    <h5 class={@class}>{render_slot(@inner_block)}</h5>
+    """
+  end
+
+  defp dynamic_heading(%{level: 6} = assigns) do
+    ~H"""
+    <h6 class={@class}>{render_slot(@inner_block)}</h6>
     """
   end
 
