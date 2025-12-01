@@ -89,9 +89,9 @@ defmodule MossletWeb.BlockedUsersLive do
                       class="h-5 w-5 mt-0.5 text-rose-600 dark:text-rose-400 flex-shrink-0"
                     />
                     <div class="space-y-2">
-                      <h4 class="font-medium text-sm text-rose-800 dark:text-rose-200">
+                      <span class="font-medium text-sm text-rose-800 dark:text-rose-200">
                         About Blocking
-                      </h4>
+                      </span>
                       <p class="text-sm text-rose-700 dark:text-rose-300">
                         MOSSLET offers three levels of blocking: <strong>Everything</strong>
                         (full block), <strong>Posts only</strong>
@@ -332,7 +332,7 @@ defmodule MossletWeb.BlockedUsersLive do
               )}
             </p>
             <%= if @blocked_user.reason && String.trim(@blocked_user.reason) != "" do %>
-              <p class="text-xs text-slate-400 dark:text-slate-500 truncate mt-1">
+              <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
                 {String.slice(@blocked_user.reason, 0, 50)}{if String.length(@blocked_user.reason) >
                                                                  50,
                                                                do: "..."}

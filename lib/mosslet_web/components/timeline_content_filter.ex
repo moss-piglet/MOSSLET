@@ -48,9 +48,9 @@ defmodule MossletWeb.TimelineContentFilter do
               <.phx_icon name="hero-funnel" class="h-5 w-5 text-teal-700 dark:text-teal-300" />
             </div>
             <div class="space-y-1">
-              <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+              <span class="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Content Filters
-              </h3>
+              </span>
               <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 Customize your timeline experience with smart filtering
               </p>
@@ -143,9 +143,9 @@ defmodule MossletWeb.TimelineContentFilter do
                 class="h-4 w-4 text-slate-600 dark:text-slate-400 group-hover/section:text-teal-700 dark:group-hover/section:text-teal-300 transition-colors duration-200"
               />
             </div>
-            <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 group-hover/section:text-slate-900 dark:group-hover/section:text-slate-50 transition-colors duration-200">
+            <span class="text-base font-bold text-slate-900 dark:text-slate-100 group-hover/section:text-slate-900 dark:group-hover/section:text-slate-50 transition-colors duration-200">
               {@title}
-            </h4>
+            </span>
           </div>
           <p
             :if={@description}
@@ -217,7 +217,9 @@ defmodule MossletWeb.TimelineContentFilter do
       <%!-- Active filters display with improved organization --%>
       <div :if={@current_keywords != []} class="space-y-3">
         <div class="flex items-center gap-2">
-          <h5 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Active Filters:</h5>
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Active Filters:
+          </span>
           <span class="px-2 py-1 text-xs font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 rounded-full">
             {length(@current_keywords)}
           </span>
@@ -242,6 +244,7 @@ defmodule MossletWeb.TimelineContentFilter do
             <span class="font-medium">{format_keyword_label(keyword)}</span>
             <button
               type="button"
+              aria-label={"Remove keyword filter: #{format_keyword_label(keyword)}"}
               class={[
                 "ml-1 p-1 rounded-full transition-all duration-200",
                 "text-teal-600 dark:text-teal-400",
@@ -443,7 +446,7 @@ defmodule MossletWeb.TimelineContentFilter do
         phx-click={@phx_click}
         phx-value-type={@phx_value_type}
         role="switch"
-        aria-checked={@checked}
+        aria-checked={to_string(@checked)}
       >
         <span class={[
           "pointer-events-none inline-block h-4 w-4 transform rounded-full shadow-lg transition-all duration-300 ease-out",

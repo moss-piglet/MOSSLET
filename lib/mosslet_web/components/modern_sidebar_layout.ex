@@ -83,7 +83,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       </aside>
 
       <%!-- Mobile sidebar --%>
-      <div class="relative z-50 lg:hidden">
+      <aside class="relative z-50 lg:hidden" aria-label="Mobile sidebar">
         <div
           class={[
             "fixed z-50 w-72 flex flex-col px-0 pb-4",
@@ -132,7 +132,7 @@ defmodule MossletWeb.ModernSidebarLayout do
             />
           </nav>
         </div>
-      </div>
+      </aside>
 
       <%!-- Main content --%>
       <div class="lg:pl-72">

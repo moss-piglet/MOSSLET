@@ -3169,6 +3169,11 @@ defmodule MossletWeb.DesignSystem do
                   else: "add-content-warning-composer-button"
               }
               type="button"
+              aria-label={
+                if @content_warning_enabled?,
+                  do: "Remove content warning",
+                  else: "Add content warning"
+              }
               class={[
                 "p-2 rounded-lg transition-all duration-200 ease-out group",
                 if(@content_warning_enabled?,
@@ -3508,6 +3513,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Photo preview --%>
             <.live_img_preview
               entry={entry}
+              alt={"Photo upload preview #{entry.ref}"}
               class="w-full h-24 object-cover transition-all duration-200 group-hover:scale-105"
             />
 
@@ -3537,6 +3543,7 @@ defmodule MossletWeb.DesignSystem do
               id={"remove-photo-#{entry.ref}"}
               phx-click="cancel_upload"
               phx-value-ref={entry.ref}
+              aria-label="Remove photo"
               class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
               phx-hook="TippyHook"
               data-tippy-content="Remove photo"
@@ -3741,9 +3748,9 @@ defmodule MossletWeb.DesignSystem do
           <%!-- User info --%>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
+              <span class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
                 {@user_name}
-              </h3>
+              </span>
               <.phx_icon
                 :if={@verified}
                 name="hero-check-badge"
@@ -5640,6 +5647,7 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :id, :string, required: true
   attr :trigger_class, :string, default: ""
+  attr :trigger_aria_label, :string, default: "Toggle menu"
   attr :phx_hook_id, :string, default: nil
   attr :phx_hook, :string, default: nil
   attr :phx_data_tippy_content, :string, default: nil
@@ -5677,6 +5685,7 @@ defmodule MossletWeb.DesignSystem do
           "hover:bg-slate-100/50 dark:hover:bg-slate-700/50",
           @trigger_class
         ]}
+        aria-label={@trigger_aria_label}
         aria-expanded="false"
         aria-haspopup="true"
         id={if @phx_hook_id, do: @phx_hook_id}
@@ -6920,9 +6929,9 @@ defmodule MossletWeb.DesignSystem do
       <div class="space-y-4">
         <%!-- Quick Visibility Options (Level 2) --%>
         <div class="space-y-3">
-          <h5 class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+          <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
             Who can see this?
-          </h5>
+          </p>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <%!-- Private Option --%>
@@ -6993,9 +7002,9 @@ defmodule MossletWeb.DesignSystem do
                       />
                     </div>
                     <div>
-                      <h4 class="text-sm font-semibold text-purple-800 dark:text-purple-200">
+                      <p class="text-sm font-semibold text-purple-800 dark:text-purple-200">
                         Select Connection Groups
-                      </h4>
+                      </p>
                       <p class="text-xs text-purple-600 dark:text-purple-400">
                         Share with organized groups of your connections
                       </p>
@@ -7103,9 +7112,9 @@ defmodule MossletWeb.DesignSystem do
                       />
                     </div>
                     <div>
-                      <h4 class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                      <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
                         Select Specific People
-                      </h4>
+                      </p>
                       <p class="text-xs text-amber-600 dark:text-amber-400">
                         Share with carefully chosen individuals
                       </p>
@@ -7147,9 +7156,9 @@ defmodule MossletWeb.DesignSystem do
                               </div>
                               <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                  <h5 class="text-sm font-medium text-amber-800 dark:text-amber-200 truncate">
+                                  <span class="text-sm font-medium text-amber-800 dark:text-amber-200 truncate">
                                     {decrypted_name}
-                                  </h5>
+                                  </span>
                                   <%= if decrypted_label != "" do %>
                                     <span class={[
                                       "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
@@ -7195,9 +7204,9 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Interaction Controls (Level 2) --%>
         <div class="space-y-3">
-          <h5 class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+          <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
             Interaction Controls
-          </h5>
+          </p>
 
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <%!-- Allow Replies --%>
@@ -7268,9 +7277,9 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Additional Controls (Level 2) --%>
         <div class="space-y-3">
-          <h5 class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+          <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
             Additional Options
-          </h5>
+          </p>
 
           <div class="grid grid-cols-1 gap-3">
             <%!-- Temporary Post --%>
@@ -8547,6 +8556,7 @@ defmodule MossletWeb.DesignSystem do
           class="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
+          aria-label="Image viewer"
           style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;"
         >
           <.focus_wrap
@@ -8569,9 +8579,9 @@ defmodule MossletWeb.DesignSystem do
             <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50">
               <div class="flex items-center space-x-3">
                 <.phx_icon name="hero-photo" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <span class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   Photo {@current_index + 1} of {length(@images)}
-                </h3>
+                </span>
               </div>
 
               <div class="flex items-center space-x-2">
