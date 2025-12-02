@@ -28,14 +28,19 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       </:logo>
 
       <:top_right>
-        <MossletWeb.LanguageSelect.language_select
-          current_locale={Gettext.get_locale(MossletWeb.Gettext)}
-          language_options={Mosslet.config(:language_options)}
-        />
-        <%!-- Dark mode toggle removed - will be replaced with updated version --%>
+        <.link
+          id="invite-connection-link-settings"
+          navigate={~p"/app/users/connections/invite/new-invite"}
+          phx-hook="TippyHook"
+          data-tippy-content="Invite people to join you on Mosslet!"
+          class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
+        >
+          <MossletWeb.CoreComponents.phx_icon name="hero-paper-airplane" class="size-4" />
+          <span class="sr-only">Invite people to join you on Mosslet</span>
+        </.link>
+        <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 
-      <%!-- Main settings content with liquid styling --%>
       <.liquid_container max_width="xl" class="py-8 lg:py-12">
         <div class="space-y-8">
           <%!-- Settings header with modern styling --%>
@@ -70,11 +75,17 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       </:logo>
 
       <:top_right>
-        <MossletWeb.LanguageSelect.language_select
-          current_locale={Gettext.get_locale(MossletWeb.Gettext)}
-          language_options={Mosslet.config(:language_options)}
-        />
-        <%!-- Dark mode toggle removed - will be replaced with updated version --%>
+        <.link
+          id="invite-connection-link-group-settings"
+          navigate={~p"/app/users/connections/invite/new-invite"}
+          phx-hook="TippyHook"
+          data-tippy-content="Invite people to join you on Mosslet!"
+          class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 dark:hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all duration-200"
+        >
+          <MossletWeb.CoreComponents.phx_icon name="hero-paper-airplane" class="size-4" />
+          <span class="sr-only">Invite people to join you on Mosslet</span>
+        </.link>
+        <MossletWeb.Layouts.theme_toggle />
       </:top_right>
 
       <.liquid_container max_width="xl" class="py-8 lg:py-12">
@@ -141,9 +152,9 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
           <%!-- Settings navigation submenu --%>
           <div class="lg:w-72 lg:flex-shrink-0">
             <div class="p-6">
-              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
                 Settings Menu
-              </h3>
+              </h2>
               <nav class="space-y-1">
                 <.settings_menu_item
                   :for={menu_item <- @menu_items}

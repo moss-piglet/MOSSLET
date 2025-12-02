@@ -6,30 +6,143 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="mr-12 mt-12">
-      <div class="pb-4">
-        <.h2>
-          {@title}
-        </.h2>
-        <.p :if={@action in [:edit_member]}>
-          Use this form to edit {decr_item(
-            @user_group.name,
-            @current_user,
-            @current_user_group.key,
-            @key,
-            @group
-          )}'s role.
-        </.p>
-      </div>
-      <.form for={@form} id="user-group-form" phx-target={@myself} phx-change="save">
-        <.field type="hidden" field={@form[:id]} value={@user_group.id} />
-        <.field
-          type="select"
-          field={@form[:role]}
-          options={Ecto.Enum.values(Groups.UserGroup, :role)}
-          label="Role"
+    <div class="space-y-6">
+      <div class="flex items-center gap-4 pb-4 border-b border-slate-200/60 dark:border-slate-700/60">
+        <.phx_avatar
+          src={
+            get_user_avatar(
+              get_uconn_for_users(
+                get_user_from_user_group_id(@user_group.id),
+                @current_user
+              ),
+              @key
+            )
+          }
+          alt=""
+          class={"w-14 h-14 #{group_avatar_role_style(@user_group.role)}"}
         />
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {decr_item(
+              @user_group.name,
+              @current_user,
+              @current_user_group.key,
+              @key,
+              @group
+            )}
+          </h3>
+          <div class="flex items-center gap-2 mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <.phx_icon name="hero-finger-print" class="w-4 h-4 text-teal-500 dark:text-teal-400" />
+            <span>
+              {decr_item(
+                @user_group.moniker,
+                @current_user,
+                @current_user_group.key,
+                @key,
+                @group
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40">
+        <div class="flex items-start gap-3">
+          <.phx_icon
+            name="hero-information-circle"
+            class="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5"
+          />
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            Select a new role for this member. Role changes take effect immediately.
+          </p>
+        </div>
+      </div>
+
+      <.form for={@form} id="user-group-form" phx-target={@myself} phx-change="save" class="space-y-4">
+        <input type="hidden" name={@form[:id].name} value={@user_group.id} />
+
+        <div>
+          <label
+            for="user_group_role"
+            class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+          >
+            Member Role
+          </label>
+          <select
+            id="user_group_role"
+            name={@form[:role].name}
+            class={[
+              "w-full px-4 py-3 rounded-xl",
+              "bg-white dark:bg-slate-800",
+              "border border-slate-300 dark:border-slate-600",
+              "text-slate-900 dark:text-slate-100",
+              "focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500",
+              "transition-all duration-200"
+            ]}
+          >
+            <%= for role <- Ecto.Enum.values(Groups.UserGroup, :role) do %>
+              <option value={role} selected={@form[:role].value == role}>
+                {String.capitalize(Atom.to_string(role))}
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 pt-2">
+          <.role_info_card
+            role={:owner}
+            icon="hero-crown"
+            description="Full control over the group including deletion"
+            color="amber"
+          />
+          <.role_info_card
+            role={:admin}
+            icon="hero-shield-check"
+            description="Can manage members and edit group settings"
+            color="purple"
+          />
+          <.role_info_card
+            role={:moderator}
+            icon="hero-eye"
+            description="Can moderate messages and content"
+            color="blue"
+          />
+          <.role_info_card
+            role={:member}
+            icon="hero-user"
+            description="Can send messages and participate"
+            color="teal"
+          />
+        </div>
       </.form>
+    </div>
+    """
+  end
+
+  attr :role, :atom, required: true
+  attr :icon, :string, required: true
+  attr :description, :string, required: true
+  attr :color, :string, required: true
+
+  defp role_info_card(assigns) do
+    ~H"""
+    <div class={[
+      "flex items-start gap-3 p-3 rounded-lg",
+      "bg-#{@color}-50/50 dark:bg-#{@color}-900/20",
+      "border border-#{@color}-200/40 dark:border-#{@color}-700/40"
+    ]}>
+      <.phx_icon
+        name={@icon}
+        class={"w-4 h-4 text-#{@color}-600 dark:text-#{@color}-400 flex-shrink-0 mt-0.5"}
+      />
+      <div>
+        <span class={"text-sm font-medium text-#{@color}-800 dark:text-#{@color}-200"}>
+          {String.capitalize(Atom.to_string(@role))}
+        </span>
+        <p class={"text-xs text-#{@color}-600 dark:text-#{@color}-400 mt-0.5"}>
+          {@description}
+        </p>
+      </div>
     </div>
     """
   end

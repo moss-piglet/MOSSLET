@@ -47,21 +47,25 @@
       </div>
     </div>
 
-    <MossletWeb.DesignSystem.liquid_container max_width="xl" class="space-y-4 sm:space-y-6 pb-6">
-      <MossletWeb.DesignSystem.liquid_card class="overflow-hidden" padding="sm">
-        <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-slate-700/60 -mx-4 px-4 sm:-mx-6 sm:px-6">
-          <h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 sm:gap-3">
-            <div class="relative flex-shrink-0">
-              <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 rounded-full animate-pulse">
-              </div>
-              <div class="absolute inset-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 rounded-full animate-ping opacity-75">
-              </div>
-            </div>
+    <MossletWeb.DesignSystem.liquid_container max_width="xl" class="pb-8">
+      <MossletWeb.DesignSystem.liquid_card class="overflow-hidden p-0">
+        <div class="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-slate-50/50 via-white/30 to-slate-50/50 dark:from-slate-800/50 dark:via-slate-700/30 dark:to-slate-800/50">
+          <h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+            <span class="relative flex-shrink-0">
+              <span class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75">
+                </span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-500">
+                </span>
+              </span>
+            </span>
             <span>Live Chat</span>
           </h2>
 
           <button
             id="group-info-toggle"
+            type="button"
+            aria-label="Group info"
             phx-click={
               JS.toggle(
                 to: "#group-info-backdrop",
@@ -74,14 +78,17 @@
                 out: "slide-out-right"
               )
             }
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-400 dark:hover:bg-teal-900/50 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
+            class="group inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-700 hover:from-teal-200 hover:to-emerald-200 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300 dark:hover:from-teal-900/60 dark:hover:to-emerald-900/60 rounded-lg transition-all duration-200 hover:shadow-md hover:shadow-teal-500/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
           >
-            <.phx_icon name="hero-information-circle" class="w-4 h-4" />
-            <span class="hidden xs:inline">Group Info</span>
+            <.phx_icon
+              name="hero-information-circle"
+              class="w-4 h-4 transition-transform duration-200 group-hover:scale-110"
+            />
+            <span class="hidden xs:inline">Info</span>
           </button>
         </div>
 
-        <div class="min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] -mx-4 sm:-mx-6 mt-3">
+        <div class="h-[calc(100vh-320px)] sm:h-[calc(100vh-300px)] min-h-[350px]">
           <Group.show
             :if={@live_action == :show}
             messages={@streams.messages}
@@ -98,7 +105,7 @@
 
     <div
       id="group-info-panel"
-      class="hidden fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-2xl border-l border-slate-200/60 dark:border-slate-700/60 overflow-y-auto"
+      class="hidden fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-2xl shadow-slate-900/20 dark:shadow-slate-900/50 border-l border-slate-200/60 dark:border-slate-700/60 overflow-y-auto"
     >
       <div class="sticky top-0 z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-200/60 dark:border-slate-700/60 px-4 sm:px-6 py-4">
         <div class="flex items-center justify-between">
@@ -114,6 +121,7 @@
             </h2>
           </div>
           <button
+            type="button"
             phx-click={
               JS.toggle(
                 to: "#group-info-backdrop",
@@ -126,7 +134,7 @@
                 out: "slide-out-right"
               )
             }
-            class="group p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200"
+            class="group p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
           >
             <.phx_icon name="hero-x-mark" class="w-5 h-5" />
             <span class="sr-only">Close panel</span>
@@ -151,7 +159,7 @@
         </div>
 
         <div class="space-y-3">
-          <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/50">
+          <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/50 hover:border-teal-200/50 dark:hover:border-teal-700/50">
             <div class="flex items-center gap-3 mb-2">
               <.phx_icon name="hero-user-circle" class="w-5 h-5 text-teal-500 dark:text-teal-400" />
               <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
@@ -165,7 +173,7 @@
             </p>
           </div>
 
-          <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/50">
+          <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/50 hover:border-teal-200/50 dark:hover:border-teal-700/50">
             <div class="flex items-center gap-3 mb-2">
               <.phx_icon
                 name="hero-calendar-days"
@@ -185,7 +193,7 @@
             </p>
           </div>
 
-          <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/50">
+          <div class="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-200/40 dark:border-slate-600/40 transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-700/50 hover:border-teal-200/50 dark:hover:border-teal-700/50">
             <div class="flex items-center gap-3 mb-2">
               <.phx_icon
                 name="hero-finger-print"
@@ -208,7 +216,7 @@
         </div>
       </div>
 
-      <div class="sticky bottom-0 border-t border-slate-200/60 dark:border-slate-700/60 p-4 sm:p-6 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm space-y-3">
+      <div class="sticky bottom-0 border-t border-slate-200/60 dark:border-slate-700/60 p-4 sm:p-6 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm space-y-3">
         <MossletWeb.DesignSystem.liquid_button
           :if={@current_user_group.role == :owner}
           phx-click="delete_group"

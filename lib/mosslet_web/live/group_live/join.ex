@@ -9,134 +9,131 @@ defmodule MossletWeb.GroupLive.Join do
   def render(assigns) do
     ~H"""
     <.layout current_user={@current_user} current_page={@current_page} key={@key} type="sidebar">
-      <.container>
-        <div>
-          <div class="relative z-10" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <div class="fixed inset-0 blur-2xl"></div>
+      <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-amber-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-amber-900/10">
+        <div class="flex min-h-[80vh] items-center justify-center p-4">
+          <div class="w-full max-w-md">
+            <div class="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/5 dark:shadow-slate-900/30 overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5 dark:from-amber-500/10 dark:to-orange-500/10 pointer-events-none" />
 
-            <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
-              <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl dark:shadow-emerald-500/50  transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                  <div>
-                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-800">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6 text-red-600 dark:text-red-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="1.5"
-                        stroke="currentColor"
-                        class="w-6 h-6"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-                        />
-                      </svg>
-                    </div>
-                    <div class="mt-3 text-center sm:mt-5">
-                      <.h3
-                        class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-50"
-                        id="modal-title"
-                      >
-                        {decr_item(
-                          @group.name,
-                          @current_user,
-                          get_user_group(@group, @current_user).key,
-                          @key,
-                          @group
-                        )}
-                      </.h3>
-                      <div class="mt-2">
-                        <.p class="text-sm text-gray-500 dark:text-gray-400">
-                          Please enter the group's password to join.
-                        </.p>
-                      </div>
-                    </div>
-                  </div>
-                  <.form
-                    for={@form}
-                    id="group-join-password-form"
-                    phx-change="validate"
-                    phx-submit="save"
-                  >
-                    <div id="passwordField" class="relative">
-                      <div id="pw-label-container" class="flex justify-between">
-                        <div id="pw-actions" class="absolute top-0 right-0">
-                          <button
-                            type="button"
-                            id="eye"
-                            data-tippy-content="Show password"
-                            phx-hook="TippyHook"
-                            phx-click={
-                              JS.set_attribute({"type", "text"}, to: "#password")
-                              |> JS.remove_class("hidden", to: "#eye-slash")
-                              |> JS.add_class("hidden", to: "#eye")
-                            }
-                          >
-                            <.icon name="hero-eye" class="h-5 w-5 dark:text-white cursor-pointer" />
-                          </button>
-                          <button
-                            type="button"
-                            id="eye-slash"
-                            x-data
-                            x-tooltip="Hide password"
-                            data-tippy-content="Hide password"
-                            phx-hook="TippyHook"
-                            class="hidden"
-                            phx-click={
-                              JS.set_attribute({"type", "password"}, to: "#password")
-                              |> JS.add_class("hidden", to: "#eye-slash")
-                              |> JS.remove_class("hidden", to: "#eye")
-                            }
-                          >
-                            <.icon
-                              name="hero-eye-slash"
-                              class="h-5 w-5  dark:text-white cursor-pointer"
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <.field
-                      :if={@live_action == :join_password}
-                      id="password"
-                      field={@form[:password]}
-                      phx-debounce="blur"
-                      type="password"
-                      label="Password"
-                      autocomplete="off"
-                      required
-                      {alpine_autofocus()}
+              <div class="relative p-6 sm:p-8">
+                <div class="flex flex-col items-center text-center mb-6">
+                  <div class="p-3 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 mb-4">
+                    <.phx_icon
+                      name="hero-lock-closed"
+                      class="h-8 w-8 text-amber-600 dark:text-amber-400"
                     />
-                    <.field field={@form[:user_id]} type="hidden" value={@current_user.id} />
+                  </div>
 
-                    <div class="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-                      <.button
-                        :if={@live_action in [:join_password]}
-                        phx-disable-with="Checking..."
-                        class="rounded-full"
-                      >
-                        Submit
-                      </.button>
+                  <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                    Join Protected Group
+                  </h1>
 
-                      <.button
-                        type="button"
-                        color="secondary"
-                        class="rounded-full"
-                        phx-click={JS.navigate(~p"/app/groups/greet")}
-                      >
-                        Cancel
-                      </.button>
-                    </div>
-                  </.form>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    Enter the password to join this group
+                  </p>
+
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-700/50 border border-slate-200/60 dark:border-slate-600/40">
+                    <.phx_icon
+                      name="hero-user-group"
+                      class="w-4 h-4 text-slate-500 dark:text-slate-400"
+                    />
+                    <span
+                      :if={@group.public?}
+                      class="text-sm font-medium text-slate-700 dark:text-slate-300"
+                    >
+                      {decr_public_item(
+                        @group.name,
+                        get_user_group(@group, @current_user).key
+                      )}
+                    </span>
+                    <span
+                      :if={!@group.public?}
+                      class="text-sm font-medium text-slate-700 dark:text-slate-300"
+                    >
+                      {decr_item(
+                        @group.name,
+                        @current_user,
+                        get_user_group(@group, @current_user).key,
+                        @key,
+                        @group
+                      )}
+                    </span>
+                  </div>
                 </div>
+
+                <.form
+                  for={@form}
+                  id="group-join-password-form"
+                  phx-change="validate"
+                  phx-submit="save"
+                  class="space-y-5"
+                >
+                  <.phx_input
+                    :if={@live_action == :join_password}
+                    id="password"
+                    field={@form[:password]}
+                    phx-debounce="blur"
+                    type="password"
+                    label="Group Password"
+                    autocomplete="off"
+                    placeholder="Enter group password..."
+                    required
+                    {alpine_autofocus()}
+                  />
+
+                  <.phx_input field={@form[:user_id]} type="hidden" value={@current_user.id} />
+
+                  <div
+                    :if={@join_attempts > 0 && @join_attempts < 5}
+                    class="flex items-center gap-2 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/40"
+                  >
+                    <.phx_icon
+                      name="hero-exclamation-triangle"
+                      class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0"
+                    />
+                    <p class="text-sm text-amber-700 dark:text-amber-300">
+                      {5 - @join_attempts} attempt{if @join_attempts == 4, do: "", else: "s"} remaining
+                    </p>
+                  </div>
+
+                  <div class="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                    <MossletWeb.DesignSystem.liquid_button
+                      type="button"
+                      variant="secondary"
+                      color="slate"
+                      phx-click={JS.navigate(~p"/app/groups/greet")}
+                      class="w-full sm:w-auto sm:flex-1"
+                    >
+                      Cancel
+                    </MossletWeb.DesignSystem.liquid_button>
+
+                    <MossletWeb.DesignSystem.liquid_button
+                      :if={@live_action in [:join_password]}
+                      type="submit"
+                      color="amber"
+                      icon="hero-lock-open"
+                      class="w-full sm:w-auto sm:flex-1"
+                      phx-disable-with="Verifying..."
+                    >
+                      Join Group
+                    </MossletWeb.DesignSystem.liquid_button>
+                  </div>
+                </.form>
               </div>
             </div>
+
+            <p class="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
+              Don't know the password?
+              <.link
+                navigate={~p"/app/groups/greet"}
+                class="font-medium text-amber-600 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300"
+              >
+                Go back to invitations
+              </.link>
+            </p>
           </div>
         </div>
-      </.container>
+      </div>
     </.layout>
     """
   end
@@ -147,7 +144,7 @@ defmodule MossletWeb.GroupLive.Join do
       Groups.private_subscribe(socket.assigns.current_user)
     end
 
-    {:ok, assign(socket, :current_page, "Joining Group"), layout: {MossletWeb.Layouts, :app}}
+    {:ok, assign(socket, :current_page, :groups), layout: {MossletWeb.Layouts, :app}}
   end
 
   @impl true
@@ -194,12 +191,8 @@ defmodule MossletWeb.GroupLive.Join do
   end
 
   @impl true
-  def handle_event("validate", %{"group" => group_params}, socket) do
-    changeset =
-      Group.join_changeset(socket.assigns.group, %{password: group_params["password"]}, [])
-      |> Map.put(:action, :validate)
-
-    {:noreply, assign_form(socket, changeset)}
+  def handle_event("validate", %{"group" => _group_params}, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("save", %{"group" => group_params}, socket) do
@@ -219,18 +212,19 @@ defmodule MossletWeb.GroupLive.Join do
            |> put_flash(:success, "Group joined successfully")
            |> push_navigate(to: ~p"/app/groups/#{group}")}
 
-        {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, %Ecto.Changeset{} = _changeset} ->
           join_attempts = socket.assigns.join_attempts + 1
           socket = assign(socket, join_attempts: join_attempts)
+          clean_changeset = Group.join_changeset(group, %{password: ""}) |> Map.put(:action, nil)
 
           case join_attempts do
             0 ->
-              {:noreply, assign_form(socket, changeset)}
+              {:noreply, assign_form(socket, clean_changeset)}
 
             1 ->
               {:noreply,
                socket
-               |> assign_form(changeset)
+               |> assign_form(clean_changeset)
                |> put_flash(
                  :info,
                  "Incorrect password, #{5 - join_attempts} attempts left, please try again."
@@ -239,7 +233,7 @@ defmodule MossletWeb.GroupLive.Join do
             2 ->
               {:noreply,
                socket
-               |> assign_form(changeset)
+               |> assign_form(clean_changeset)
                |> put_flash(
                  :info,
                  "Incorrect password, #{5 - join_attempts} attempts left, please try again."
@@ -248,7 +242,7 @@ defmodule MossletWeb.GroupLive.Join do
             3 ->
               {:noreply,
                socket
-               |> assign_form(changeset)
+               |> assign_form(clean_changeset)
                |> put_flash(
                  :info,
                  "Incorrect password, #{5 - join_attempts} attempts left, please try again."
@@ -257,7 +251,7 @@ defmodule MossletWeb.GroupLive.Join do
             4 ->
               {:noreply,
                socket
-               |> assign_form(changeset)
+               |> assign_form(clean_changeset)
                |> put_flash(
                  :warning,
                  "Incorrect password, #{5 - join_attempts} attempt left, please try again."

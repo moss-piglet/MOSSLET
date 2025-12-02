@@ -25,9 +25,10 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         phx-submit="save"
         phx-change="update"
         phx-target={@myself}
-        class="flex items-end gap-3"
+        id="group-message-form"
+        class="flex items-end gap-2 sm:gap-3"
       >
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <label for="message_form[content]" class="sr-only">Add new message to group</label>
           <.phx_input
             autocomplete="off"
@@ -40,7 +41,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             apply_classes?={true}
             phx-debounce="500"
             classes={[
-              "block w-full resize-none border-0 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 rounded-xl py-3 px-4 shadow-sm border border-gray-200 dark:border-gray-700 text-sm max-h-20"
+              "block w-full resize-none border-0 bg-white/95 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-teal-500/50 dark:focus:ring-teal-400/50 focus:ring-offset-0 rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 shadow-sm border border-slate-200/60 dark:border-slate-700/60 text-sm leading-relaxed max-h-24 sm:max-h-32 backdrop-blur-sm transition-all duration-200 focus:border-teal-300 dark:focus:border-teal-600 focus:shadow-md focus:shadow-teal-500/10"
             ]}
           />
         </div>
@@ -48,13 +49,17 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         <.phx_input type="hidden" field={@message_form[:group_id]} value={@group_id} />
         <.phx_input type="hidden" field={@message_form[:sender_id]} value={@sender_id} />
 
-        <.phx_button
+        <button
           type="submit"
-          class="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-full transition-colors shadow-sm"
+          class="group/btn relative flex-shrink-0 inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
         >
-          <.phx_icon name="hero-paper-airplane" class="w-5 h-5" />
+          <div class="absolute inset-0 bg-gradient-to-br from-teal-500 to-emerald-500 group-hover/btn:from-teal-400 group-hover/btn:to-emerald-400 transition-all duration-200">
+          </div>
+          <div class="absolute inset-0 opacity-0 group-hover/btn:opacity-100 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-all duration-500 ease-out">
+          </div>
+          <.phx_icon name="hero-paper-airplane" class="relative w-5 h-5 text-white" />
           <span class="sr-only">Send message</span>
-        </.phx_button>
+        </button>
       </.form>
     </div>
     """
@@ -81,12 +86,10 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
            key: socket.assigns.key
          ) do
       {:ok, message} ->
-        # Clear the form and notify parent to increment count
         send(self(), {:message_sent, message})
         {:noreply, assign_form(socket)}
 
       {:error, _changeset} ->
-        # Keep the form as is if there was an error
         {:noreply, socket}
     end
   end

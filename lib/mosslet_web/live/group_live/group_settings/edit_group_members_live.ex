@@ -2,6 +2,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   use MossletWeb, :live_view
 
   import MossletWeb.UserSettingsLayoutComponent
+  import MossletWeb.DesignSystem
 
   alias Mosslet.Groups
   alias MossletWeb.Endpoint
@@ -17,83 +18,56 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       user_group={@current_user_group}
       edit_group_name={"Edit #{decr_item(@group.name, @current_user, @current_user_group.key, @key, @group)} Members"}
     >
-      <div class="space-y-2">
-        <div :for={ug <- @group.user_groups} id={ug.id}>
-          <div
-            id={ug.id <> "-edit-member-button"}
-            phx-click={
-              if ug.id == @current_user_group.id && @current_user_group.role == :owner,
-                do: nil,
-                else: JS.patch(~p"/app/groups/user_group/#{ug.id}/edit-member")
-            }
-            class="relative flex items-center space-x-3 rounded-lg border border-gray-300 dark:border-emerald-400 bg-white dark:bg-gray-950 px-6 py-5 shadow-sm focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2 hover:border-gray-400 dark:hober:border-emerald-500"
-            data-tippy-content={
-              if ug.id == @current_user_group.id && @current_user_group.role == :owner,
-                do: "This is you and you cannot currently change your role from owner.",
-                else: "Click to edit member."
-            }
-            phx-hook="TippyHook"
-          >
-            <div class="flex-shrink-0">
-              <.avatar
-                :if={@current_user_group.id != ug.id}
-                src={
-                  get_user_avatar(
-                    get_uconn_for_users(
-                      get_user_from_user_group_id(ug.id),
-                      @current_user
-                    ),
-                    @key
-                  )
-                }
-                alt=""
-                class="h-10 w-10 rounded-full ring-2 ring-white dark:ring-emerald-400"
-              />
-              <.avatar
-                :if={@current_user_group.user_id == ug.user_id}
-                src={maybe_get_user_avatar(@current_user, @key)}
-                alt=""
-                class="h-10 w-10 rounded-full ring-2 ring-white dark:ring-emerald-400"
-              />
-            </div>
-            <div class="min-w-0 flex-1">
-              <a href="#" class="focus:outline-none">
-                <span class="absolute inset-0" aria-hidden="true"></span>
-                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {decr_item(
-                    ug.name,
-                    @current_user,
-                    @current_user_group.key,
-                    @key,
-                    @group
-                  )}
-                </p>
-                <p class=" text-sm text-gray-500 dark:text-gray-400">
-                  <span class="text-emerald-600 dark:text-emerald-400 text-xs">
-                    <.icon name="hero-finger-print" class="h-4 w-4" />{decr_item(
-                      ug.moniker,
-                      @current_user,
-                      @current_user_group.key,
-                      @key,
-                      @group
-                    )}
-                  </span>
-                  /
-                  <span class={"#{role_badge_color_ring(ug.role)}"}>
-                    {String.capitalize(Atom.to_string(ug.role))}
-                  </span>
-                </p>
-              </a>
+      <div class="space-y-6">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Group Members
+            </h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Manage roles and permissions for members in this group
+            </p>
+          </div>
+          <.liquid_badge color="teal">
+            {length(@group.user_groups)} members
+          </.liquid_badge>
+        </div>
+
+        <div class="space-y-3">
+          <div :for={ug <- @group.user_groups} id={ug.id}>
+            <.member_card
+              user_group={ug}
+              current_user_group={@current_user_group}
+              current_user={@current_user}
+              group={@group}
+              key={@key}
+            />
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+          <div class="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-teal-50/50 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/40 dark:border-teal-700/40">
+            <.phx_icon
+              name="hero-shield-check"
+              class="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5"
+            />
+            <div class="text-sm">
+              <p class="font-medium text-teal-800 dark:text-teal-200">Privacy-First Permissions</p>
+              <p class="text-teal-700 dark:text-teal-300 mt-1">
+                Member roles determine what actions they can take within the group. All group data remains encrypted and private.
+              </p>
             </div>
           </div>
         </div>
       </div>
-      <.phx_modal
+
+      <.liquid_modal
         :if={@live_action in [:edit_member]}
         id="user-group-edit-modal"
         show
         on_cancel={JS.patch(~p"/app/groups/#{@group}/edit-group-members")}
       >
+        <:title>Edit Member Role</:title>
         <.live_component
           module={MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent}
           id="user-group-edit"
@@ -106,8 +80,110 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
           current_user={@current_user}
           key={@key}
         />
-      </.phx_modal>
+      </.liquid_modal>
     </.settings_group_layout>
+    """
+  end
+
+  attr :user_group, :map, required: true
+  attr :current_user_group, :map, required: true
+  attr :current_user, :map, required: true
+  attr :group, :map, required: true
+  attr :key, :string, required: true
+
+  defp member_card(assigns) do
+    is_self = assigns.user_group.id == assigns.current_user_group.id
+    is_owner = assigns.current_user_group.role == :owner
+    can_edit = !is_self || !is_owner
+
+    assigns =
+      assigns
+      |> assign(:is_self, is_self)
+      |> assign(:can_edit, can_edit)
+
+    ~H"""
+    <div
+      id={@user_group.id <> "-edit-member-button"}
+      phx-click={if @can_edit, do: JS.patch(~p"/app/groups/user_group/#{@user_group.id}/edit-member")}
+      class={[
+        "group relative flex items-center gap-4 p-4 rounded-xl",
+        "bg-white/80 dark:bg-slate-800/60 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "transition-all duration-200 ease-out transform-gpu",
+        @can_edit &&
+          "cursor-pointer hover:bg-gradient-to-r hover:from-teal-50/60 hover:via-emerald-50/40 hover:to-teal-50/60 dark:hover:from-teal-900/20 dark:hover:via-emerald-900/15 dark:hover:to-teal-900/20 hover:border-teal-300/60 dark:hover:border-teal-700/60 hover:shadow-lg hover:shadow-teal-500/10",
+        !@can_edit && "opacity-80"
+      ]}
+      data-tippy-content={
+        if !@can_edit,
+          do: "This is you and you cannot currently change your role from owner.",
+          else: "Click to edit member role"
+      }
+      phx-hook="TippyHook"
+    >
+      <div class="relative flex-shrink-0">
+        <.phx_avatar
+          :if={@current_user_group.id != @user_group.id}
+          src={
+            get_user_avatar(
+              get_uconn_for_users(
+                get_user_from_user_group_id(@user_group.id),
+                @current_user
+              ),
+              @key
+            )
+          }
+          alt=""
+          class={"w-12 h-12 #{group_avatar_role_style(@user_group.role)}"}
+        />
+        <.phx_avatar
+          :if={@current_user_group.user_id == @user_group.user_id}
+          src={maybe_get_user_avatar(@current_user, @key)}
+          alt=""
+          class={"w-12 h-12 #{group_avatar_role_style(@user_group.role)}"}
+        />
+      </div>
+
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-semibold text-slate-900 dark:text-slate-100 truncate">
+            {decr_item(
+              @user_group.name,
+              @current_user,
+              @current_user_group.key,
+              @key,
+              @group
+            )}
+          </span>
+          <.liquid_badge :if={@is_self} color="cyan" size="sm">You</.liquid_badge>
+        </div>
+
+        <div class="flex items-center gap-3 text-sm">
+          <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+            <.phx_icon name="hero-finger-print" class="w-4 h-4 text-teal-500 dark:text-teal-400" />
+            <span class="truncate max-w-[140px]">
+              {decr_item(
+                @user_group.moniker,
+                @current_user,
+                @current_user_group.key,
+                @key,
+                @group
+              )}
+            </span>
+          </span>
+          <.liquid_badge color={role_badge_color(@user_group.role)} size="sm">
+            {String.capitalize(Atom.to_string(@user_group.role))}
+          </.liquid_badge>
+        </div>
+      </div>
+
+      <div
+        :if={@can_edit}
+        class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+      >
+        <.phx_icon name="hero-pencil-square" class="w-5 h-5 text-teal-500 dark:text-teal-400" />
+      </div>
+    </div>
     """
   end
 

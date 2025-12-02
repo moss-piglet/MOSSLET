@@ -82,6 +82,43 @@ defmodule Mosslet.Groups do
   end
 
   @doc """
+  Returns the list of public groups that the user is not already a member of.
+  Used for discovering and joining public groups.
+
+  ## Examples
+
+      iex> list_public_groups(user, "search term")
+      [%Group{}, ...]
+
+  """
+  def list_public_groups(user, search_term \\ nil) do
+    user_group_ids =
+      from(ug in UserGroup,
+        where: ug.user_id == ^user.id,
+        select: ug.group_id
+      )
+
+    query =
+      from(g in Group,
+        where: g.public? == true,
+        where: g.id not in subquery(user_group_ids),
+        order_by: [desc: g.inserted_at],
+        limit: 50,
+        preload: [:user_groups]
+      )
+
+    query =
+      if search_term && String.trim(search_term) != "" do
+        search_pattern = "%#{String.downcase(search_term)}%"
+        from(g in query, where: ilike(g.name_hash, ^search_pattern))
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
   Returns a list of Groups that both users are members of.
   Currently doesn't use pagination as it is limited for the
   UserConnection live show page.
@@ -228,7 +265,8 @@ defmodule Mosslet.Groups do
                  confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
                },
                user: user,
-               key: opts[:key]
+               key: opts[:key],
+               public?: group.public?
              )
              |> Ecto.Changeset.put_assoc(:group, group)
              |> Ecto.Changeset.put_assoc(:user, user)
@@ -252,7 +290,7 @@ defmodule Mosslet.Groups do
               user_id: u.id
             }
 
-            create_user_group(ug_attrs, user: u, key: opts[:key])
+            create_user_group(ug_attrs, user: u, key: opts[:key], public?: group.public?)
           end
 
           {:ok, group |> Repo.preload([:user_groups])}
@@ -292,6 +330,55 @@ defmodule Mosslet.Groups do
     else
       {:error, changeset}
     end
+  end
+
+  @doc """
+  Joins a public group that the user is not currently a member of.
+  Creates a new user_group entry for the user.
+  """
+  def join_public_group(group, user, key, opts \\ [])
+
+  def join_public_group(%Group{public?: true} = group, user, key, _opts) do
+    owner_user_group = Enum.find(group.user_groups, &(&1.role == :owner))
+
+    if owner_user_group do
+      case Encrypted.Users.Utils.decrypt_public_item_key(owner_user_group.key) do
+        nil ->
+          {:error, :decryption_failed}
+
+        decrypted_group_key ->
+          attrs = %{
+            name: user.name || user.username,
+            key: decrypted_group_key,
+            role: "member",
+            group_id: group.id,
+            user_id: user.id,
+            confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+          }
+
+          case create_user_group(attrs, user: user, key: key, public?: true) do
+            {:ok, {:ok, user_group}} ->
+              broadcast({:ok, group}, :group_joined)
+              {:ok, user_group}
+
+            {:ok, {:error, changeset}} ->
+              {:error, changeset}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+      end
+    else
+      {:error, :no_owner}
+    end
+  end
+
+  def join_public_group(%Group{public?: false}, _user, _key, _opts) do
+    {:error, :not_public}
+  end
+
+  def join_public_group(%Group{require_password?: true}, _user, _key, _opts) do
+    {:error, :password_required}
   end
 
   @doc """
@@ -336,7 +423,8 @@ defmodule Mosslet.Groups do
                  role: user_group.role
                },
                user: user,
-               key: opts[:key]
+               key: opts[:key],
+               public?: group.public?
              )
              |> Ecto.Changeset.put_assoc(:group, group)
              |> Ecto.Changeset.put_assoc(:user, user)
@@ -374,7 +462,7 @@ defmodule Mosslet.Groups do
                 user_id: member.id
               }
 
-              create_user_group(ug_attrs, user: member, key: opts[:key])
+              create_user_group(ug_attrs, user: member, key: opts[:key], public?: group.public?)
             end
           end)
 
@@ -459,7 +547,8 @@ defmodule Mosslet.Groups do
             key: key
           },
           user: user,
-          key: opts[:key]
+          key: opts[:key],
+          public?: user_group.group.public?
         )
       end
     end
@@ -514,11 +603,16 @@ defmodule Mosslet.Groups do
   TODO
   """
   def get_user_group_for_group_and_user(group, user) do
-    UserGroup
-    |> where([ug], ug.group_id == ^group.id)
-    |> where([ug], ug.user_id == ^user.id)
-    |> preload([:group, :user])
-    |> Repo.one()
+    if group.public? do
+      Enum.at(group.user_groups, 0)
+      |> Repo.preload([:group, :user])
+    else
+      UserGroup
+      |> where([ug], ug.group_id == ^group.id)
+      |> where([ug], ug.user_id == ^user.id)
+      |> preload([:group, :user])
+      |> Repo.one()
+    end
   end
 
   @doc """

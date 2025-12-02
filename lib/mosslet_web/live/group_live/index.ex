@@ -40,6 +40,8 @@ defmodule MossletWeb.GroupLive.Index do
 
     page = param_to_integer(params["page"], @page_default)
     per_page = param_to_integer(params["per_page"], @per_page_default) |> limit_per_page()
+    active_tab = params["tab"] || "my_groups"
+    search_term = params["search"] || ""
 
     options = %{
       sort_by: sort_by,
@@ -52,6 +54,13 @@ defmodule MossletWeb.GroupLive.Index do
       if options.page == @page_default && options.per_page == @per_page_default,
         do: ~p"/app/groups",
         else: ~p"/app/groups?#{options}"
+
+    public_groups =
+      if active_tab == "discover" do
+        Groups.list_public_groups(current_user, search_term)
+      else
+        []
+      end
 
     socket =
       socket
@@ -67,6 +76,9 @@ defmodule MossletWeb.GroupLive.Index do
       |> assign(:group_count, Groups.group_count_confirmed(current_user))
       |> assign(:any_pending_groups?, any_pending_groups?)
       |> assign(:return_url, url)
+      |> assign(:active_tab, active_tab)
+      |> assign(:search_term, search_term)
+      |> assign(:public_groups, public_groups)
       |> stream(:groups, groups)
       |> stream(:pending_groups, pending_groups)
 
@@ -187,6 +199,62 @@ defmodule MossletWeb.GroupLive.Index do
   @impl true
   def handle_event("change", _message, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("search_public_groups", %{"search" => search_term}, socket) do
+    public_groups = Groups.list_public_groups(socket.assigns.current_user, search_term)
+    {:noreply, assign(socket, :public_groups, public_groups) |> assign(:search_term, search_term)}
+  end
+
+  @impl true
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    public_groups =
+      if tab == "discover" do
+        Groups.list_public_groups(socket.assigns.current_user, "")
+      else
+        []
+      end
+
+    socket =
+      socket
+      |> assign(:active_tab, tab)
+      |> assign(:search_term, "")
+      |> assign(:public_groups, public_groups)
+
+    socket =
+      if tab == "my_groups" do
+        stream(socket, :groups, Groups.list_groups(socket.assigns.current_user), reset: true)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("join_public_group", %{"id" => id}, socket) do
+    group = Groups.get_group!(id)
+
+    if group.require_password? do
+      {:noreply, push_navigate(socket, to: ~p"/app/groups/#{group}/join-password")}
+    else
+      case Groups.join_public_group(group, socket.assigns.current_user, socket.assigns.key) do
+        {:ok, _user_group} ->
+          public_groups =
+            Groups.list_public_groups(socket.assigns.current_user, socket.assigns.search_term)
+
+          {:noreply,
+           socket
+           |> assign(:public_groups, public_groups)
+           |> assign(:group_count, Groups.group_count_confirmed(socket.assigns.current_user))
+           |> stream(:groups, Groups.list_groups(socket.assigns.current_user), reset: true)
+           |> put_flash(:success, "You have joined this group!")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Could not join this group.")}
+      end
+    end
   end
 
   @impl true

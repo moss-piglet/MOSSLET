@@ -4,106 +4,105 @@ defmodule MossletWeb.GroupLive.PendingComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div>
-      <.page_header :if={@action == :greet} title={@title} />
-      <.p>
-        View your Group invitations below and accept or decline.
-      </.p>
+    <div class="space-y-5">
+      <div class="flex items-center gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-700/60">
+        <div class="p-2.5 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+          <.phx_icon name="hero-gift" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            Group Invitations
+          </h2>
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            Review invitations and decide which groups to join
+          </p>
+        </div>
+      </div>
 
-      <ul role="list" class="divide-y divide-gray-100" id="groups-greeter" phx-update="stream">
-        <li
+      <div
+        id="groups-greeter"
+        phx-update="stream"
+        class="space-y-3"
+      >
+        <div
           :for={{id, group} <- @stream}
           id={id}
-          class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 py-5 sm:flex-nowrap"
+          class="group/card relative p-4 rounded-xl bg-gradient-to-br from-white via-slate-50/50 to-white dark:from-slate-800/80 dark:via-slate-700/40 dark:to-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 hover:border-emerald-300/60 dark:hover:border-emerald-600/40 shadow-sm hover:shadow-md hover:shadow-emerald-500/5 dark:hover:shadow-emerald-400/5 transition-all duration-200"
         >
-          <div>
-            <p class="text-sm leading-6 text-gray-900 dark:text-gray-400">
-              {decr_item(
-                group.description,
-                @current_user,
-                get_user_group(group, @current_user).key,
-                @key,
-                group
-              )}
-            </p>
-            <div class="mt-1 inline-flex gap-x-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
-              <div :if={group.require_password?}>
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-2">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {decr_item(
+                    group.name,
+                    @current_user,
+                    get_user_group(group, @current_user).key,
+                    @key,
+                    group
+                  )}
+                </h3>
                 <span
                   :if={group.require_password?}
-                  id={group.id <> "-password-symbol"}
-                  class="text-red-500 dark:text-red-400 cursor-help"
-                  data-tippy-content="This Group requires a password to join."
+                  id={group.id <> "-password-badge"}
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                  data-tippy-content="This group requires a password to join"
                   phx-hook="TippyHook"
                 >
-                  <.icon :if={group.require_password?} name="hero-lock-closed" class="h-4 w-4" />
+                  <.phx_icon name="hero-lock-closed" class="w-3 h-3" /> Password
                 </span>
               </div>
-              <div class="inline-flex items-center align-middle text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100">
+
+              <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
                 {decr_item(
-                  group.name,
+                  group.description,
                   @current_user,
                   get_user_group(group, @current_user).key,
                   @key,
                   group
                 )}
-              </div>
-              <div class="inline-flex items-center align-middle">
-                <svg viewBox="0 0 2 2" class="h-0.5 w-0.5 fill-current">
-                  <circle cx="1" cy="1" r="1" />
-                </svg>
-              </div>
-              <div
-                id={"group-owner-username-#{group.id}"}
-                phx-hook="TippyHook"
-                data-tippy-content="This is the creator of the Group."
-                class={"inline-flex items-center align-middle cursor-help #{role_badge_color_ring(:owner)}"}
-              >
-                <% uconn = get_current_user_connection_between_users!(group.user_id, @current_user.id) %>
-                {decr_uconn(
-                  uconn.connection.username,
-                  @current_user,
-                  uconn.key,
-                  @key
-                )}
-              </div>
-              <div class="inline-flex items-center align-middle">
-                <svg viewBox="0 0 2 2" class="h-0.5 w-0.5 fill-current">
-                  <circle cx="1" cy="1" r="1" />
-                </svg>
-              </div>
-              <div class="inline-flex items-center align-middle">
-                <time datetime="2023-01-23T22:34Z">
+              </p>
+
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-1.5">
+                  <.phx_icon name="hero-user" class="w-3.5 h-3.5" />
+                  <% uconn =
+                    get_current_user_connection_between_users!(group.user_id, @current_user.id) %>
+                  <span class="font-medium text-emerald-700 dark:text-emerald-300">
+                    {decr_uconn(
+                      uconn.connection.username,
+                      @current_user,
+                      uconn.key,
+                      @key
+                    )}
+                  </span>
+                  <span class="text-slate-500 dark:text-slate-400">invited you</span>
+                </div>
+                <span class="text-slate-300 dark:text-slate-600">•</span>
+                <time datetime={group.inserted_at}>
                   <.local_time_ago id={"time-created-#{group.id}"} at={group.inserted_at} />
                 </time>
               </div>
             </div>
-          </div>
-          <dl class="flex w-full flex-none justify-between gap-x-8 sm:w-auto">
-            <div
-              id={group.id <> "-member-avatar-group"}
-              class="flex -space-x-0.5 items-center align-middle cursor-help"
-              data-tippy-content="Group members"
-              phx-hook="TippyHook"
-            >
-              <dt class="sr-only">Members</dt>
-              <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
-                <% uconn =
-                  get_uconn_for_users(
-                    get_user_from_user_group_id(user_group.id),
-                    @current_user
-                  ) %>
 
-                <dd>
+            <div class="flex flex-col sm:items-end gap-3">
+              <div
+                id={group.id <> "-member-avatars"}
+                class="flex -space-x-2"
+                data-tippy-content="Group members"
+                phx-hook="TippyHook"
+              >
+                <%= for user_group <- Enum.take(Enum.filter(group.user_groups, & &1.confirmed_at), 5) do %>
+                  <% uconn =
+                    get_uconn_for_users(
+                      get_user_from_user_group_id(user_group.id),
+                      @current_user
+                    ) %>
+
                   <.phx_avatar
                     :if={user_group.user_id != @current_user.id && uconn}
-                    src={
-                      get_user_avatar(
-                        uconn,
-                        @key
-                      )
-                    }
-                    alt="group member connection avatar"
-                    class="h-6 w-6 rounded-full bg-gray-50 ring-2 ring-white"
+                    src={get_user_avatar(uconn, @key)}
+                    alt="group member"
+                    class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                   />
 
                   <.phx_avatar
@@ -111,51 +110,86 @@ defmodule MossletWeb.GroupLive.PendingComponent do
                     src={
                       ~p"/images/groups/#{decr_item(user_group.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}"
                     }
-                    alt="unknown group member avatar"
-                    class="h-6 w-6 rounded-full bg-gray-50 ring-2 ring-white"
+                    alt="group member"
+                    class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                   />
 
                   <.phx_avatar
                     :if={user_group.user_id == @current_user.id}
                     src={maybe_get_user_avatar(@current_user, @key)}
-                    alt="your group avatar"
-                    class="h-6 w-6 rounded-full bg-gray-50 ring-2 ring-white"
+                    alt="you"
+                    class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
                   />
-                </dd>
-              <% end %>
-            </div>
-            <div class="flex flex-wrap w-16 gap-x-2.5">
-              <.link
-                :if={group.require_password?}
-                class="text-emerald-600 hover:text-emerald-500 active:text-emerald-700"
-                phx-click={JS.patch(~p"/app/groups/#{group}/join")}
-              >
-                Join
-              </.link>
-              <.link
-                :if={!group.require_password?}
-                class="text-emerald-600 hover:text-emerald-500 active:text-emerald-700"
-                phx-target={@myself}
-                phx-click={JS.patch(~p"/app/groups/#{group}/join")}
-              >
-                Join
-              </.link>
+                <% end %>
+                <div
+                  :if={Enum.count(group.user_groups, & &1.confirmed_at) > 5}
+                  class="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400"
+                >
+                  +{Enum.count(group.user_groups, & &1.confirmed_at) - 5}
+                </div>
+              </div>
 
-              <.link
-                :if={can_delete_user_group?(get_user_group(group, @current_user), @current_user)}
-                phx-click={
-                  JS.push("delete-user-group", value: %{id: get_user_group(group, @current_user).id})
-                  |> hide("##{id}")
-                }
-                data-confirm="Are you sure you want to delete this group invitation?"
-                class="hover:text-rose-500 active:text-rose-700"
-              >
-                Decline
-              </.link>
+              <div class="flex items-center gap-2">
+                <MossletWeb.DesignSystem.liquid_button
+                  :if={can_delete_user_group?(get_user_group(group, @current_user), @current_user)}
+                  phx-click={
+                    JS.push("delete-user-group",
+                      value: %{id: get_user_group(group, @current_user).id}
+                    )
+                    |> hide("##{id}")
+                  }
+                  data-confirm="Are you sure you want to decline this invitation?"
+                  size="sm"
+                  variant="secondary"
+                  color="rose"
+                >
+                  Decline
+                </MossletWeb.DesignSystem.liquid_button>
+
+                <MossletWeb.DesignSystem.liquid_button
+                  :if={group.require_password?}
+                  phx-click={JS.navigate(~p"/app/groups/#{group}/join-password")}
+                  size="sm"
+                  color="emerald"
+                  icon="hero-lock-closed"
+                >
+                  Join Group
+                </MossletWeb.DesignSystem.liquid_button>
+
+                <MossletWeb.DesignSystem.liquid_button
+                  :if={!group.require_password?}
+                  phx-click={JS.patch(~p"/app/groups/#{group}/join")}
+                  size="sm"
+                  color="emerald"
+                  icon="hero-check"
+                >
+                  Join Group
+                </MossletWeb.DesignSystem.liquid_button>
+              </div>
             </div>
-          </dl>
-        </li>
-      </ul>
+          </div>
+        </div>
+
+        <div :if={!@any_pending_groups?} class="py-8 text-center">
+          <MossletWeb.DesignSystem.liquid_empty_state
+            icon="hero-gift"
+            title="No pending invitations"
+            description="You're all caught up! When someone invites you to a group, it will appear here."
+            color="emerald"
+          />
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+        <MossletWeb.DesignSystem.liquid_button
+          type="button"
+          variant="secondary"
+          color="slate"
+          phx-click={JS.exec("data-cancel", to: "#pending-group-modal")}
+        >
+          Close
+        </MossletWeb.DesignSystem.liquid_button>
+      </div>
     </div>
     """
   end

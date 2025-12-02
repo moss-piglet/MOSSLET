@@ -89,8 +89,10 @@ defmodule Mosslet.FileUploads.Tigris do
         with {:ok, binary} <-
                Image.open!(tmp_path)
                |> check_for_safety(),
+             {:ok, clean_binary} <- remove_metadata(binary),
+             {:ok, resize} <- resize_and_recolor_image(clean_binary),
              {:ok, file} <-
-               Image.write(binary, :memory, suffix: ".#{file_ext}"),
+               write_file(resize, file_ext, 80),
              {:ok, e_file} <- encrypt_file(file, user, trix_key, session_key, visibility) do
           {:ok, e_file}
         else
@@ -104,6 +106,33 @@ defmodule Mosslet.FileUploads.Tigris do
       true ->
         {:error, "Unknown error, please try again or contact support."}
     end
+  end
+
+  defp remove_metadata(binary) do
+    Image.remove_metadata(binary)
+  end
+
+  defp resize_and_recolor_image(binary) do
+    width = Image.width(binary)
+    height = Image.height(binary)
+    # or 1920, 3840, etc.
+    max_dimension = 2560
+
+    {:ok, resize} =
+      if width > max_dimension or height > max_dimension do
+        # Resize preserving aspect ratio
+        Image.thumbnail(binary, "#{max_dimension}x#{max_dimension}")
+      else
+        # Return original if already small enough
+        {:ok, binary}
+      end
+
+    # {:ok, flattened} = Image.flatten(resize)
+    Image.to_colorspace(resize, :srgb)
+  end
+
+  defp write_file(resize, file_ext, quality) do
+    Image.write(resize, :memory, suffix: ".#{file_ext}", quality: quality)
   end
 
   defp generate_tigris_presigned_url(config, request_type, host_name, object_key, options) do
@@ -127,8 +156,8 @@ defmodule Mosslet.FileUploads.Tigris do
 
   defp check_for_safety(binary) do
     case Mosslet.AI.Images.check_for_safety(binary) do
-      {:ok, binary} ->
-        {:ok, binary}
+      {:ok, tensor} ->
+        {:ok, tensor}
 
       {:nsfw, message} ->
         {:postpone, {:nsfw, message}}

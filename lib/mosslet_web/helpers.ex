@@ -386,6 +386,10 @@ defmodule MossletWeb.Helpers do
 
   def decr_item(payload, user, item_key, key, item \\ nil, string_name \\ nil) do
     cond do
+      group?(item) && item.public? ->
+        owner_key = Enum.find(item.user_groups, &(&1.role == :owner)).key
+        decr_public_item(payload, owner_key)
+
       group?(item) ->
         Encrypted.Users.Utils.decrypt_user_item(payload, user, item_key, key)
 
@@ -830,7 +834,10 @@ defmodule MossletWeb.Helpers do
 
   def can_join_group?(group, user_group, user) do
     cond do
-      user_group.user_id == user.id &&
+      group.public? ->
+        true
+
+      user_group && user_group.user_id == user.id &&
           user_group.id in Enum.into(group.user_groups, [], fn user_group -> user_group.id end) ->
         true
 

@@ -194,6 +194,14 @@ config :image, :classifier,
   name: Image.Classification.Server,
   autostart: true
 
+# image social platform config
+config :image, :social,
+  default: :twitter,
+  # Twitter/X cards
+  twitter: [width: 1200, height: 675],
+  facebook: [width: 1200, height: 630],
+  linkedin: [width: 1200, height: 627]
+
 # Configure Sentry error monitoring
 config :sentry,
   dsn: System.get_env("SENTRY_DSN"),

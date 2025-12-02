@@ -91,6 +91,13 @@ defmodule Mosslet.Groups.UserGroup do
     name = get_field(changeset, :name)
 
     if changeset.valid? && opts[:user] && opts[:key] do
+      public_key =
+        if opts[:public?] do
+          Encrypted.Session.server_public_key()
+        else
+          opts[:user].key_pair["public"]
+        end
+
       changeset
       |> put_change(
         :name,
@@ -102,7 +109,7 @@ defmodule Mosslet.Groups.UserGroup do
       |> put_change(
         :key,
         Encrypted.Utils.encrypt_message_for_user_with_pk(get_field(changeset, :key), %{
-          public: opts[:user].key_pair["public"]
+          public: public_key
         })
       )
     else
