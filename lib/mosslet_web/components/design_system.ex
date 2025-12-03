@@ -7154,6 +7154,8 @@ defmodule MossletWeb.DesignSystem do
                           <%= for connection <- @user_connections do %>
                             <% decrypted_name =
                               get_decrypted_connection_name(connection, @current_user, @key) %>
+                            <% decrypted_username =
+                              get_decrypted_connection_username(connection, @current_user, @key) %>
                             <% decrypted_label =
                               get_decrypted_connection_label(connection, @current_user, @key) %>
 
@@ -7178,16 +7180,26 @@ defmodule MossletWeb.DesignSystem do
                                 />
                               </div>
                               <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                  <span class="text-sm font-medium text-amber-800 dark:text-amber-200 truncate">
-                                    {decrypted_name}
-                                  </span>
-                                  <%= if decrypted_label != "" do %>
+                                <div class="flex flex-col">
+                                  <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-amber-800 dark:text-amber-200 truncate">
+                                      {decrypted_name}
+                                    </span>
+                                    <%= if decrypted_label != "" do %>
+                                      <span class={[
+                                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+                                        get_connection_color_badge_classes(connection.color)
+                                      ]}>
+                                        {decrypted_label}
+                                      </span>
+                                    <% end %>
+                                  </div>
+                                  <%= if decrypted_username && decrypted_username != "" do %>
                                     <span class={[
-                                      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
-                                      get_connection_color_badge_classes(connection.color)
+                                      "text-xs truncate",
+                                      connection_username_color_classes(connection.color)
                                     ]}>
-                                      {decrypted_label}
+                                      @{decrypted_username}
                                     </span>
                                   <% end %>
                                 </div>
@@ -8273,6 +8285,23 @@ defmodule MossletWeb.DesignSystem do
   defp connection_badge_color(:indigo), do: "indigo"
   defp connection_badge_color(:teal), do: "teal"
   defp connection_badge_color(_), do: "purple"
+
+  def connection_username_color_classes(:emerald),
+    do: "text-emerald-600/80 dark:text-emerald-400/70"
+
+  def connection_username_color_classes(:orange),
+    do: "text-orange-600/80 dark:text-orange-400/70"
+
+  def connection_username_color_classes(:amber), do: "text-amber-600/80 dark:text-amber-400/70"
+  def connection_username_color_classes(:pink), do: "text-rose-600/80 dark:text-rose-400/70"
+  def connection_username_color_classes(:purple), do: "text-purple-600/80 dark:text-purple-400/70"
+  def connection_username_color_classes(:rose), do: "text-rose-600/80 dark:text-rose-400/70"
+  def connection_username_color_classes(:yellow), do: "text-amber-600/80 dark:text-amber-400/70"
+  def connection_username_color_classes(:zinc), do: "text-slate-600/80 dark:text-slate-400/70"
+  def connection_username_color_classes(:cyan), do: "text-cyan-600/80 dark:text-cyan-400/70"
+  def connection_username_color_classes(:indigo), do: "text-indigo-600/80 dark:text-indigo-400/70"
+  def connection_username_color_classes(:teal), do: "text-teal-600/80 dark:text-teal-400/70"
+  def connection_username_color_classes(_), do: "text-purple-600/80 dark:text-purple-400/70"
 
   # Helper functions for decrypting connection data (using pattern matching)
 

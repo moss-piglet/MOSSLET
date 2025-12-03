@@ -576,41 +576,74 @@
             <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
               Select Connections
             </label>
-            <div class="max-h-48 overflow-y-auto border-2 border-purple-200 dark:border-purple-700 rounded-xl p-4 bg-white dark:bg-slate-800">
+            <div class="max-h-64 overflow-y-auto border-2 border-purple-200/60 dark:border-purple-700/50 rounded-xl bg-gradient-to-br from-purple-50/50 via-white to-purple-50/30 dark:from-purple-900/20 dark:via-slate-800 dark:to-purple-900/15">
               <div
                 :if={@connections_count == 0}
-                class="text-center py-4 text-slate-500 dark:text-slate-400"
+                class="text-center py-8 px-4"
               >
-                <p class="text-sm">No connections available yet.</p>
-                <p class="text-xs mt-1">Add connections first to create meaningful groups.</p>
+                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+                  <.phx_icon
+                    name="hero-users"
+                    class="w-6 h-6 text-purple-400 dark:text-purple-500"
+                  />
+                </div>
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  No connections available yet
+                </p>
+                <p class="text-xs mt-1 text-slate-500 dark:text-slate-400">
+                  Add connections first to create meaningful groups
+                </p>
               </div>
 
-              <div :if={@connections_count > 0} class="space-y-2">
-                <div :for={connection <- @modal_connections}>
-                  <label class="flex items-center space-x-3 p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="visibility_group[connection_ids][]"
-                      value={connection.id}
-                      checked={
-                        connection_in_group?(connection, @editing_group, @current_user, @key)
-                      }
-                      class="rounded border-purple-300 text-purple-600 focus:ring-purple-500 dark:border-purple-600 dark:bg-slate-700 h-4 w-4"
-                    />
-                    <div class="flex items-center space-x-3 flex-1">
-                      <div class={"w-3 h-3 rounded-full bg-#{connection.color || :purple}-500"}>
-                      </div>
-                      <div class="flex-1">
-                        <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {get_decrypted_connection_name(connection, @current_user, @key)}
-                        </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                          {get_decrypted_connection_label(connection, @current_user, @key)}
-                        </p>
+              <div
+                :if={@connections_count > 0}
+                class="divide-y divide-purple-100/80 dark:divide-purple-800/40"
+              >
+                <label
+                  :for={connection <- @modal_connections}
+                  class="flex items-center gap-3 p-3 transition-all duration-200 cursor-pointer hover:bg-purple-100/50 dark:hover:bg-purple-900/30 first:rounded-t-xl last:rounded-b-xl"
+                >
+                  <input
+                    type="checkbox"
+                    name="visibility_group[connection_ids][]"
+                    value={connection.id}
+                    checked={
+                      connection_in_group?(connection, @editing_group, @current_user, @key)
+                    }
+                    class="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500/30 focus:ring-offset-0 dark:border-purple-600 dark:bg-slate-700"
+                  />
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="relative flex-shrink-0">
+                      <img
+                        src={get_connection_avatar_src(connection, @current_user, @key)}
+                        alt=""
+                        class="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-slate-700 shadow-sm"
+                      />
+                      <div class={"absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-700 bg-#{connection.color || :purple}-500"}>
                       </div>
                     </div>
-                  </label>
-                </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {get_decrypted_connection_name(connection, @current_user, @key)}
+                      </p>
+                      <div class="flex items-center gap-2 mt-0.5">
+                        <span class={[
+                          "text-xs truncate",
+                          connection_username_color_classes(connection.color)
+                        ]}>
+                          @{get_decrypted_connection_username(connection, @current_user, @key)}
+                        </span>
+                        <% label = get_decrypted_connection_label(connection, @current_user, @key) %>
+                        <%= if label && label != "" do %>
+                          <span class="text-slate-300 dark:text-slate-600">·</span>
+                          <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            {label}
+                          </span>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                </label>
               </div>
             </div>
             <p class="text-sm text-slate-600 dark:text-slate-400">

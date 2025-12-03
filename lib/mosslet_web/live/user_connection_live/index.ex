@@ -16,7 +16,8 @@ defmodule MossletWeb.UserConnectionLive.Index do
       get_decrypted_connection_name: 3,
       get_decrypted_connection_username: 3,
       get_decrypted_connection_label: 3,
-      get_connection_avatar_src: 3
+      get_connection_avatar_src: 3,
+      connection_username_color_classes: 1
     ]
 
   import MossletWeb.Helpers.StatusHelpers,
