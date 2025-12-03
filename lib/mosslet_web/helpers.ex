@@ -2432,12 +2432,17 @@ defmodule MossletWeb.Helpers do
     case color do
       :brand -> "border-emerald-700 dark:border-emerald-300 hover:border-emerald-500"
       :emerald -> "border-emerald-700 dark:border-emerald-300 hover:border-emerald-500"
+      :teal -> "border-teal-700 dark:border-teal-300 hover:border-teal-500"
+      :cyan -> "border-cyan-700 dark:border-cyan-300 hover:border-cyan-500"
+      :indigo -> "border-indigo-700 dark:border-indigo-300 hover:border-indigo-500"
       :orange -> "border-orange-700 dark:border-orange-300 hover:border-orange-500"
       :pink -> "border-pink-700 dark:border-pink-300 hover:border-pink-500"
       :purple -> "border-purple-700 dark:border-purple-300 hover:border-purple-500"
       :rose -> "border-rose-700 dark:border-rose-700 hover:border-rose-500"
       :yellow -> "border-yellow-700 dark:border-yellow-300 hover:border-yellow-500"
-      :zinc -> "border-zinc-700 dark:border-gray-300 hover:border-zinc-500"
+      :amber -> "border-amber-700 dark:border-amber-300 hover:border-amber-500"
+      :slate -> "border-slate-700 dark:border-slate-300 hover:border-slate-500"
+      :zinc -> "border-zinc-700 dark:border-zinc-300 hover:border-zinc-500"
       _rest -> "border-emerald-700 dark:border-emerald-300 hover:border-emerald-500"
     end
   end
@@ -2446,12 +2451,17 @@ defmodule MossletWeb.Helpers do
     case color do
       :brand -> "text-emerald-700 dark:text-emerald-300 hover:text-emerald-500"
       :emerald -> "text-emerald-700 dark:text-emerald-300 hover:text-emerald-500"
+      :teal -> "text-teal-700 dark:text-teal-300 hover:text-teal-500"
+      :cyan -> "text-cyan-700 dark:text-cyan-300 hover:text-cyan-500"
+      :indigo -> "text-indigo-700 dark:text-indigo-300 hover:text-indigo-500"
       :orange -> "text-orange-700 dark:text-orange-300 hover:text-orange-500"
       :pink -> "text-pink-700 dark:text-pink-300 hover:text-pink-500"
       :purple -> "text-purple-700 dark:text-purple-300 hover:text-purple-500"
       :rose -> "text-rose-700 dark:text-rose-700 hover:text-rose-500"
+      :amber -> "text-amber-700 dark:text-amber-300 hover:text-amber-500"
       :yellow -> "text-yellow-700 dark:text-yellow-300 hover:text-yellow-500"
-      :zinc -> "text-zinc-700 dark:text-gray-300 hover:text-zinc-500"
+      :slate -> "text-slate-700 dark:text-slate-300 hover:text-slate-500"
+      :zinc -> "text-zinc-700 dark:text-zinc-300 hover:text-zinc-500"
       _rest -> "text-emerald-700 dark:text-emerald-300 hover:text-emerald-500"
     end
   end
@@ -2460,12 +2470,17 @@ defmodule MossletWeb.Helpers do
     case color do
       :brand -> "text-emerald-700 dark:text-emerald-300 group-hover:text-emerald-500"
       :emerald -> "text-emerald-700 dark:text-emerald-300 group-hover:text-emerald-500"
+      :teal -> "text-teal-700 dark:text-teal-300 group-hover:text-teal-500"
+      :cyan -> "text-cyan-700 dark:text-cyan-300 group-hover:text-cyan-500"
+      :indigo -> "text-indigo-700 dark:text-indigo-300 group-hover:text-indigo-500"
       :orange -> "text-orange-700 dark:text-orange-300 group-hover:text-orange-500"
       :pink -> "text-pink-700 dark:text-pink-300 group-hover:text-pink-500"
       :purple -> "text-purple-700 dark:text-purple-300 group-hover:text-purple-500"
       :rose -> "text-rose-700 dark:text-rose-700 group-hover:text-rose-500"
+      :amber -> "text-amber-700 dark:text-amber-300 group-hover:text-amber-500"
       :yellow -> "text-yellow-700 dark:text-yellow-300 group-hover:text-yellow-500"
-      :zinc -> "text-zinc-700 dark:text-gray-300 group-hover:text-zinc-500"
+      :zinc -> "text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-500"
+      :slate -> "text-slate-700 dark:text-slate-300 group-hover:text-slate-500"
       _rest -> "text-emerald-700 dark:text-emerald-300 group-hover:text-emerald-500"
     end
   end
@@ -2474,12 +2489,17 @@ defmodule MossletWeb.Helpers do
     case color do
       :brand -> "text-emerald-700 dark:text-emerald-300"
       :emerald -> "text-emerald-700 dark:text-emerald-300"
+      :teal -> "text-teal-700 dark:text-teal-300"
+      :cyan -> "text-cyan-700 dark:text-cyan-300"
+      :indigo -> "text-indigo-700 dark:text-indigo-300"
       :orange -> "text-orange-700 dark:text-orange-300"
       :pink -> "text-pink-700 dark:text-pink-300"
       :purple -> "text-purple-700 dark:text-purple-300"
       :rose -> "text-rose-700 dark:text-rose-700"
       :yellow -> "text-yellow-700 dark:text-yellow-300"
-      :zinc -> "text-zinc-700 dark:text-gray-300"
+      :amber -> "text-amber-700 dark:text-amber-300"
+      :slate -> "text-slate-700 dark:text-slate-300"
+      :zinc -> "text-zinc-700 dark:text-zinc-300"
       _rest -> "text-emerald-700 dark:text-emerald-300"
     end
   end
@@ -2491,6 +2511,15 @@ defmodule MossletWeb.Helpers do
 
       :emerald ->
         "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 ring-emerald-600/20"
+
+      :teal ->
+        "bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 ring-teal-600/20"
+
+      :cyan ->
+        "bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 ring-cyan-600/20"
+
+      :yellow ->
+        "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 ring-indigo-600/20"
 
       :orange ->
         "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 ring-orange-600/20"
@@ -2507,8 +2536,14 @@ defmodule MossletWeb.Helpers do
       :yellow ->
         "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 ring-yellow-600/20"
 
+      :amber ->
+        "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 ring-amber-600/20"
+
+      :slate ->
+        "bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 ring-slate-600/20"
+
       :zinc ->
-        "bg-zinc-50 dark:bg-gray-950 text-zinc-700 dark:text-gray-300 ring-zinc-600/20"
+        "bg-zinc-50 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 ring-zinc-600/20"
 
       _rest ->
         "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 ring-emerald-600/20"
@@ -2517,8 +2552,8 @@ defmodule MossletWeb.Helpers do
 
   def role_badge_color(role) do
     case role do
-      :owner -> "emerald"
-      :member -> "cyan"
+      :owner -> "pink"
+      :member -> "emerald"
       :admin -> "orange"
       :moderator -> "purple"
       _rest -> "slate"
@@ -2528,10 +2563,10 @@ defmodule MossletWeb.Helpers do
   def role_badge_color_classes(role) do
     case role do
       :owner ->
-        "inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+        "inline-flex items-center rounded-md bg-pink-100 px-2 py-1 text-xs font-medium text-pink-700 dark:text-pink-300"
 
       :member ->
-        "inline-flex items-center rounded-md bg-cyan-100 px-2 py-1 text-xs font-medium text-cyan-700 dark:bg-cyan-800 dark:text-cyan-300"
+        "inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-800 dark:text-emerald-300"
 
       :admin ->
         "inline-flex items-center rounded-md bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700 dark:text-orange-300"
@@ -2540,17 +2575,17 @@ defmodule MossletWeb.Helpers do
         "inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:text-purple-300"
 
       _rest ->
-        "inline-flex items-center rounded-md bg-cyan-100 px-2 py-1 text-xs font-medium text-cyan-700"
+        "inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
     end
   end
 
   def role_badge_color_ring(role) do
     case role do
       :owner ->
-        "rounded-md bg-emerald-50 dark:bg-emerald-900 px-2 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/20"
+        "rounded-md bg-pink-50 dark:bg-pink-900 px-2 py-1 text-xs font-medium text-pink-600 dark:text-pink-400 ring-1 ring-inset ring-pink-600/20"
 
       :member ->
-        "rounded-md bg-cyan-50 dark:bg-cyan-900 px-2 py-1 text-xs font-medium text-cyan-600 dark:text-cyan-400 ring-1 ring-inset ring-cyan-600/20"
+        "rounded-md bg-emerald-50 dark:bg-emerald-900 px-2 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/20"
 
       :admin ->
         "rounded-md bg-orange-50 px-2 py-1 text-xs font-medium text-orange-600 ring-1 ring-inset ring-orange-600/20"
@@ -2559,7 +2594,7 @@ defmodule MossletWeb.Helpers do
         "rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-600 ring-1 ring-inset ring-purple-600/20"
 
       _rest ->
-        "rounded-md bg-cyan-50 px-2 py-1 text-xs font-medium text-cyan-600 ring-1 ring-inset ring-cyan-600/20"
+        "rounded-md bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-600/20"
     end
   end
 
@@ -2570,10 +2605,10 @@ defmodule MossletWeb.Helpers do
   def group_avatar_role_style(role) do
     case role do
       :owner ->
-        "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-emerald-600 dark:ring-emerald-400 bg-white dark:bg-gray-950"
+        "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-pink-600 dark:ring-pink-400 bg-white dark:bg-gray-950"
 
       :member ->
-        "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-cyan-600 dark:ring-cyan-400 bg-white dark:bg-gray-950"
+        "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-emerald-600 dark:ring-emerald-400 bg-white dark:bg-gray-950"
 
       :admin ->
         "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-orange-600 dark:ring-orange-400 bg-white dark:bg-gray-950"
@@ -2582,7 +2617,7 @@ defmodule MossletWeb.Helpers do
         "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-purple-600 dark:ring-purple-400 bg-white dark:bg-gray-950"
 
       _rest ->
-        "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-cyan-600 dark:ring-cyan-400 bg-white dark:bg-gray-950"
+        "relative z-30 inline-block h-8 w-8 rounded-full ring-2 ring-slate-600 dark:ring-slate-400 bg-white dark:bg-gray-950"
     end
   end
 
@@ -2593,10 +2628,10 @@ defmodule MossletWeb.Helpers do
   def group_fingerprint_role_style(role) do
     case role do
       :owner ->
-        "text-emerald-600 dark:text-emerald-400 text-xs"
+        "text-pink-600 dark:text-pink-400 text-xs"
 
       :member ->
-        "text-cyan-600 dark:text-cyan-400 text-xs"
+        "text-emerald-600 dark:text-emerald-400 text-xs"
 
       :admin ->
         "text-orange-600 dark:text-orange-400 text-xs"
@@ -2605,7 +2640,7 @@ defmodule MossletWeb.Helpers do
         "text-purple-600 dark:text-purple-400 text-xs"
 
       _rest ->
-        "text-cyan-600 dark:text-cyan-400 text-xs"
+        "text-slate-600 dark:text-slate-400 text-xs"
     end
   end
 
@@ -2613,12 +2648,17 @@ defmodule MossletWeb.Helpers do
     case color do
       :brand -> "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
       :emerald -> "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
+      :teal -> "group-hover:text-teal-700 dark:group-hover:text-teal-300"
+      :cyan -> "group-hover:text-cyan-700 dark:group-hover:text-cyan-300"
+      :indigo -> "group-hover:text-indigo-700 dark:group-hover:text-indigo-300"
       :orange -> "group-hover:text-orange-700 dark:group-hover:text-orange-300"
       :pink -> "group-hover:text-pink-700 dark:group-hover:text-pink-300"
       :purple -> "group-hover:text-purple-700 dark:group-hover:text-purple-300"
       :rose -> "group-hover:text-rose-700 dark:group-hover:text-rose-700"
       :yellow -> "group-hover:text-yellow-700 dark:group-hover:text-yellow-300"
-      :zinc -> "group-hover:text-zinc-700 dark:group-hover:text-gray-300"
+      :amber -> "group-hover:text-amber-700 dark:group-hover:text-amber-300"
+      :zinc -> "group-hover:text-zinc-700 dark:group-hover:text-zinc-300"
+      :slate -> "group-hover:text-slate-700 dark:group-hover:text-slate-300"
       _rest -> "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
     end
   end
@@ -2627,12 +2667,17 @@ defmodule MossletWeb.Helpers do
     case color do
       :brand -> "fill-brand-500"
       :emerald -> "fill-emerald-500"
+      :teal -> "fill-teal-500"
+      :cyan -> "fill-cyan-500"
+      :indigo -> "fill-indigo-500"
       :orange -> "fill-orange-500"
       :pink -> "fill-pink-500"
       :purple -> "fill-purple-500"
       :rose -> "fill-rose-500"
       :yellow -> "fill-yellow-500"
+      :amber -> "fill-amber-500"
       :zinc -> "fill-zinc-500"
+      :slate -> "fill-slate-500"
       _rest -> "fill-brand-500"
     end
   end

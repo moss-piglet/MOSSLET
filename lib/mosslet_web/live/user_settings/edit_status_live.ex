@@ -545,7 +545,7 @@ defmodule MossletWeb.EditStatusLive do
                           "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
 
                         :yellow ->
-                          "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40"
+                          "from-yellow-100 via-orange-50 to-yellow-100 dark:from-yellow-900/40 dark:via-orange-900/30 dark:to-yellow-900/40"
 
                         :orange ->
                           "from-orange-100 via-amber-50 to-orange-100 dark:from-orange-900/40 dark:via-amber-900/30 dark:to-orange-900/40"

@@ -8395,7 +8395,7 @@ defmodule MossletWeb.DesignSystem do
         "from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30"
 
       :yellow ->
-        "from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30"
+        "from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30"
 
       :cyan ->
         "from-cyan-100 to-cyan-200 dark:from-cyan-900/30 dark:to-cyan-800/30"
@@ -8419,7 +8419,7 @@ defmodule MossletWeb.DesignSystem do
       :purple -> "text-purple-600 dark:text-purple-400"
       :rose -> "text-rose-600 dark:text-rose-400"
       :amber -> "text-amber-600 dark:text-amber-400"
-      :yellow -> "text-amber-600 dark:text-amber-400"
+      :yellow -> "text-yellow-600 dark:text-yellow-400"
       :cyan -> "text-cyan-600 dark:text-cyan-400"
       :indigo -> "text-indigo-600 dark:text-indigo-400"
       :pink -> "text-pink-600 dark:text-pink-400"
@@ -8441,11 +8441,17 @@ defmodule MossletWeb.DesignSystem do
       :purple ->
         "bg-purple-100/80 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
 
+      :pink ->
+        "bg-pink-100/80 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+
       :rose ->
         "bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
 
       :amber ->
         "bg-amber-100/80 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+
+      :yellow ->
+        "bg-yellow-100/80 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
 
       :orange ->
         "bg-orange-100/80 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"

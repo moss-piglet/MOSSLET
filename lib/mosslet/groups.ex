@@ -110,7 +110,7 @@ defmodule Mosslet.Groups do
     query =
       if search_term && String.trim(search_term) != "" do
         search_pattern = "%#{String.downcase(search_term)}%"
-        from(g in query, where: ilike(g.name_hash, ^search_pattern))
+        from(g in query, where: g.name_hash == ^search_pattern)
       else
         query
       end
