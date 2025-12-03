@@ -689,7 +689,7 @@ defmodule MossletWeb.PostLive.Show do
     images =
       Enum.map(sources, fn source ->
         file_key = get_file_key_from_remove_event(source)
-        ext = get_ext_from_file_key(source)
+        ext = ext(get_ext_from_file_key(source))
         file_path = "#{@folder}/#{file_key}.#{ext}"
 
         case get_s3_object(memories_bucket, file_path) do
@@ -728,7 +728,7 @@ defmodule MossletWeb.PostLive.Show do
     images =
       Enum.map(sources, fn source ->
         file_key = get_file_key_from_remove_event(source)
-        ext = get_ext_from_file_key(source)
+        ext = ext(get_ext_from_file_key(source))
         file_path = "#{@folder}/#{file_key}.#{ext}"
 
         case get_s3_object(memories_bucket, file_path) do
@@ -1147,11 +1147,6 @@ defmodule MossletWeb.PostLive.Show do
     |> List.last()
     |> String.split(".")
     |> List.first()
-  end
-
-  defp ext(content_type) do
-    [ext | _] = MIME.extensions(content_type)
-    ext
   end
 
   defp delete_post_from_cloud(post, user_post, current_user, key) when is_struct(post) do

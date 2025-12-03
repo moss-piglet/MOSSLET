@@ -170,7 +170,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:timeline_data, AsyncResult.loading())
       # Configure photo uploads with proper constraints and encryption-ready settings
       |> allow_upload(:photos,
-        accept: ~w(.jpg .jpeg .png),
+        accept: ~w(.jpg .jpeg .png .webp),
         max_entries: 4,
         # 10MB to accommodate modern phone photos
         max_file_size: 10_000_000,
@@ -1618,19 +1618,24 @@ defmodule MossletWeb.TimelineLive.Index do
 
     images =
       Enum.map(sources, fn file_path ->
-        # Since we now receive the full file path directly, use it as-is
+        webp_path = normalize_to_webp(file_path)
 
-        case get_s3_object(memories_bucket, file_path) do
+        case get_s3_object(memories_bucket, webp_path) do
           {:ok, %{body: e_obj}} ->
-            # Extract extension from the file path
-            ext = Path.extname(file_path) |> String.trim_leading(".")
-            decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
+            decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", "webp")
 
-          {:error, error} ->
-            Logger.info("Error getting Post images from cloud in TimelineLive.Index")
-            Logger.debug(inspect(error))
-            Logger.error(error)
-            nil
+          {:error, _} ->
+            case get_s3_object(memories_bucket, file_path) do
+              {:ok, %{body: e_obj}} ->
+                ext = Path.extname(file_path) |> String.trim_leading(".")
+                ext = if ext == "", do: "webp", else: ext
+                decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
+
+              {:error, error} ->
+                Logger.info("Error getting Post images from cloud in TimelineLive.Index")
+                Logger.debug(inspect(error))
+                nil
+            end
         end
       end)
       |> List.flatten()
@@ -1658,7 +1663,7 @@ defmodule MossletWeb.TimelineLive.Index do
     images =
       Enum.map(sources, fn source ->
         file_key = get_file_key_from_remove_event(source)
-        ext = get_ext_from_file_key(source)
+        ext = ext(get_ext_from_file_key(source))
         file_path = "#{@folder}/#{file_key}.#{ext}"
 
         case get_s3_object(memories_bucket, file_path) do
@@ -4493,11 +4498,6 @@ defmodule MossletWeb.TimelineLive.Index do
     |> List.first()
   end
 
-  defp ext(content_type) do
-    [ext | _] = MIME.extensions(content_type)
-    ext
-  end
-
   # Helper function to get the post author's avatar
   defp get_post_author_avatar(post, current_user, key) do
     cond do
@@ -5405,6 +5405,11 @@ defmodule MossletWeb.TimelineLive.Index do
       current_user,
       session_key
     )
+  end
+
+  defp normalize_to_webp(file_path) do
+    base = Path.rootname(file_path)
+    "#{base}.webp"
   end
 
   # For previewing post urls (URL Preview Server)

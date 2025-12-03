@@ -228,7 +228,7 @@ defmodule MossletWeb.EditDetailsLive do
       |> allow_upload(:avatar,
         # SETUP_TODO: Uncomment the line below if using an external provider (Cloudinary or S3)
         # external: &@upload_provider.presign_upload/2,
-        accept: ~w(.jpg .jpeg .png),
+        accept: ~w(.jpg .jpeg .png .webp),
         max_entries: 1
       )
 
@@ -526,7 +526,7 @@ defmodule MossletWeb.EditDetailsLive do
           mime_type = ExMarcel.MimeType.for({:path, path})
 
           cond do
-            mime_type in ["image/jpeg", "image/jpg", "image/png"] ->
+            mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] ->
               with {:ok, image_binary} <-
                      Image.open!(path)
                      |> check_for_safety(),
@@ -538,7 +538,7 @@ defmodule MossletWeb.EditDetailsLive do
                      ),
                    {:ok, blob} <-
                      Image.write(vix_image, :memory,
-                       suffix: ".#{@upload_provider.file_ext(entry)}",
+                       suffix: ".webp",
                        minimize_file_size: true
                      ),
                    {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),

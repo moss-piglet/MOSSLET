@@ -20,6 +20,7 @@ defmodule Mosslet.FileUploads.Tigris do
 
     user = Accounts.get_user_by_session_token(session["user_token"])
 
+    # convert everything to webp for compression/quality
     file_ext = ext(content_type)
     file_key = get_file_key(storage_key)
     file_path = "#{@folder}/#{file_key}.#{file_ext}"
@@ -85,14 +86,14 @@ defmodule Mosslet.FileUploads.Tigris do
     mime_type = ExMarcel.MimeType.for({:path, tmp_path})
 
     cond do
-      mime_type in ["image/jpeg", "image/jpg", "image/png"] ->
+      mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] ->
         with {:ok, binary} <-
                Image.open!(tmp_path)
                |> check_for_safety(),
              {:ok, clean_binary} <- remove_metadata(binary),
-             {:ok, resize} <- resize_and_recolor_image(clean_binary),
+             {:ok, {resize, quality}} <- resize_and_recolor_image(clean_binary),
              {:ok, file} <-
-               write_file(resize, file_ext, 80),
+               write_file(resize, file_ext, quality),
              {:ok, e_file} <- encrypt_file(file, user, trix_key, session_key, visibility) do
           {:ok, e_file}
         else
@@ -115,24 +116,49 @@ defmodule Mosslet.FileUploads.Tigris do
   defp resize_and_recolor_image(binary) do
     width = Image.width(binary)
     height = Image.height(binary)
-    # or 1920, 3840, etc.
     max_dimension = 2560
 
     {:ok, resize} =
       if width > max_dimension or height > max_dimension do
-        # Resize preserving aspect ratio
         Image.thumbnail(binary, "#{max_dimension}x#{max_dimension}")
       else
-        # Return original if already small enough
         {:ok, binary}
       end
 
-    # {:ok, flattened} = Image.flatten(resize)
-    Image.to_colorspace(resize, :srgb)
+    resized_srgb = Image.to_colorspace!(resize, :srgb)
+
+    # Calculate adaptive quality
+    quality = calculate_adaptive_quality(resized_srgb)
+
+    {:ok, {resized_srgb, quality}}
+  end
+
+  defp calculate_adaptive_quality(image) do
+    # Get basic image info
+    width = Image.width(image)
+    height = Image.height(image)
+    total_pixels = width * height
+
+    # Smaller images can use higher quality (less compression artifacts visible)
+    # Larger images can use lower quality (artifacts less noticeable)
+    base_quality =
+      cond do
+        # Small images (< 500k pixels)
+        total_pixels < 500_000 -> 85
+        # Medium images (< 2M pixels)
+        total_pixels < 2_000_000 -> 80
+        # Large images
+        true -> 75
+      end
+
+    base_quality
   end
 
   defp write_file(resize, file_ext, quality) do
-    Image.write(resize, :memory, suffix: ".#{file_ext}", quality: quality)
+    Image.write(resize, :memory,
+      suffix: ".#{file_ext}",
+      webp: [quality: quality]
+    )
   end
 
   defp generate_tigris_presigned_url(config, request_type, host_name, object_key, options) do
@@ -151,7 +177,13 @@ defmodule Mosslet.FileUploads.Tigris do
 
   defp ext(content_type) do
     [ext | _] = MIME.extensions(content_type)
-    ext
+
+    case ext do
+      "jpg" -> "webp"
+      "jpeg" -> "webp"
+      "png" -> "webp"
+      _rest -> "webp"
+    end
   end
 
   defp check_for_safety(binary) do

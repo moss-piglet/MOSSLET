@@ -31,7 +31,7 @@ config :mosslet, MossletWeb.Endpoint,
       ]
     ],
     patterns: [
-      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/static/(?!uploads/).*(js|css|webp|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/mosslet_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]

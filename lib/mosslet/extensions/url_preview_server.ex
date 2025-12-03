@@ -329,7 +329,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
 
   defp valid_image_url?(url) when is_binary(url) do
     String.starts_with?(url, "http") and
-      String.match?(url, ~r/\.(jpg|jpeg|png|gif|webp)$/i)
+      String.match?(url, ~r/\.(webp|jpg|jpeg|png|gif|webp)$/i)
   end
 
   defp valid_image_url?(_), do: false
@@ -475,7 +475,7 @@ defmodule Mosslet.Extensions.URLPreviewServer do
             intent: :perceptual
           )
 
-        Image.write(resized, :memory, suffix: ".jpg", quality: 75)
+        Image.write(resized, :memory, suffix: ".webp", webp: [quality: 75])
 
       {:error, _reason} = error ->
         error

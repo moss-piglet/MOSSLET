@@ -73,8 +73,8 @@ defmodule MossletWeb.TimelineImageDownloadController do
               Helpers.decr_item(encrypted_url, current_user, post_key, key, post, "body")
 
             case fetch_and_decrypt_image(file_path, post, current_user, post_key, key) do
-              {:ok, binary_data, content_type} ->
-                filename = "timeline-image-#{image_index + 1}.#{get_file_extension(file_path)}"
+              {:ok, binary_data, content_type, ext} ->
+                filename = "timeline-image-#{image_index + 1}.#{ext}"
 
                 # Use Phoenix's send_download for proper file download handling
                 send_download(conn, {:binary, binary_data},
@@ -101,29 +101,37 @@ defmodule MossletWeb.TimelineImageDownloadController do
 
   defp fetch_and_decrypt_image(file_path, post, current_user, post_key, key) do
     memories_bucket = Mosslet.Encrypted.Session.memories_bucket()
+    webp_path = normalize_to_webp(file_path)
+    original_ext = get_file_extension(file_path)
 
-    case get_s3_object(memories_bucket, file_path) do
+    case get_s3_object(memories_bucket, webp_path) do
       {:ok, %{body: encrypted_obj}} ->
-        # Extract extension from the file path
-        ext = get_file_extension(file_path)
+        decrypt_image_data(encrypted_obj, current_user, post_key, key, post, "webp")
 
-        case Helpers.decr_item(encrypted_obj, current_user, post_key, key, post, "body") do
-          decrypted_data when is_binary(decrypted_data) ->
-            content_type = get_content_type(ext)
-            {:ok, decrypted_data, content_type}
+      {:error, _} ->
+        case get_s3_object(memories_bucket, file_path) do
+          {:ok, %{body: encrypted_obj}} ->
+            decrypt_image_data(encrypted_obj, current_user, post_key, key, post, original_ext)
 
-          nil ->
-            Logger.error("Decryption returned nil")
-            {:error, :decryption_returned_nil}
-
-          other ->
-            Logger.error("Decryption returned unexpected value: #{inspect(other)}")
-            {:error, :decryption_failed}
+          {:error, error} ->
+            Logger.error("Failed to fetch image from S3: #{inspect(error)}")
+            {:error, error}
         end
+    end
+  end
 
-      {:error, error} ->
-        Logger.error("Failed to fetch image from S3: #{inspect(error)}")
-        {:error, error}
+  defp decrypt_image_data(encrypted_obj, current_user, post_key, key, post, ext) do
+    case Helpers.decr_item(encrypted_obj, current_user, post_key, key, post, "body") do
+      decrypted_data when is_binary(decrypted_data) ->
+        {:ok, decrypted_data, get_content_type(ext), ext}
+
+      nil ->
+        Logger.error("Decryption returned nil")
+        {:error, :decryption_returned_nil}
+
+      other ->
+        Logger.error("Decryption returned unexpected value: #{inspect(other)}")
+        {:error, :decryption_failed}
     end
   end
 
@@ -135,11 +143,15 @@ defmodule MossletWeb.TimelineImageDownloadController do
     end
   end
 
+  defp normalize_to_webp(file_path) do
+    base = Path.rootname(file_path)
+    "#{base}.webp"
+  end
+
   defp get_file_extension(file_path) do
     case Path.extname(file_path) do
       "." <> ext -> ext
-      # default fallback
-      _ -> "jpg"
+      _ -> "webp"
     end
   end
 
@@ -150,8 +162,7 @@ defmodule MossletWeb.TimelineImageDownloadController do
       "png" -> "image/png"
       "gif" -> "image/gif"
       "webp" -> "image/webp"
-      # default fallback
-      _ -> "image/jpeg"
+      _ -> "image/webp"
     end
   end
 

@@ -141,7 +141,7 @@ defmodule Mosslet.Extensions.URLPreviewImageProxy do
             intent: :perceptual
           )
 
-        Image.write(resized, :memory, suffix: ".jpg", quality: 75)
+        Image.write(resized, :memory, suffix: ".webp", webp: [quality: 75])
 
       {:error, _reason} = error ->
         error

@@ -35,10 +35,15 @@ defmodule MossletWeb.Helpers do
 
   @doc """
   The `src` is coming from our trix-content-hook and is the old
-  presigned_url on the `a` and `img` html tags.
+  presigned_url on the `a` and `img` html tags. We force the .webp
+  extension since all uploads are now stored as webp files.
   """
   def get_file_key_with_ext(src) do
-    src |> String.split("/") |> List.last() |> String.split("?") |> List.first()
+    file_key_with_ext =
+      src |> String.split("/") |> List.last() |> String.split("?") |> List.first()
+
+    file_key = file_key_with_ext |> String.split(".") |> List.first()
+    "#{file_key}.webp"
   end
 
   @doc """
@@ -46,11 +51,19 @@ defmodule MossletWeb.Helpers do
   presigned_url on the `a` and `img` html tags.
   """
   def get_ext_from_file_key(src) do
-    src
-    |> String.split(".")
-    |> List.last()
-    |> String.split("?")
-    |> List.first()
+    ext =
+      src
+      |> String.split(".")
+      |> List.last()
+      |> String.split("?")
+      |> List.first()
+
+    case ext do
+      "jpg" -> "webp"
+      "jpeg" -> "webp"
+      "png" -> "webp"
+      _rest -> "webp"
+    end
   end
 
   @doc """
@@ -160,6 +173,20 @@ defmodule MossletWeb.Helpers do
 
       _ ->
         nil
+    end
+  end
+
+  @doc """
+  Get the extension for a content type.
+  """
+  def ext(content_type) do
+    [ext | _] = MIME.extensions(content_type)
+
+    case ext do
+      "jpg" -> "webp"
+      "jpeg" -> "webp"
+      "png" -> "webp"
+      _rest -> "webp"
     end
   end
 
@@ -1548,7 +1575,7 @@ defmodule MossletWeb.Helpers do
           )
           |> Base.encode64()
 
-        "data:image/jpg;base64," <> image
+        "data:image/webp;base64," <> image
 
       is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
         avatars_bucket = Encrypted.Session.avatars_bucket()
@@ -1610,7 +1637,7 @@ defmodule MossletWeb.Helpers do
               )
               |> Base.encode64()
 
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
             avatars_bucket = Encrypted.Session.avatars_bucket()
@@ -1666,7 +1693,7 @@ defmodule MossletWeb.Helpers do
               )
               |> Base.encode64()
 
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
             avatars_bucket = Encrypted.Session.avatars_bucket()
@@ -1722,7 +1749,7 @@ defmodule MossletWeb.Helpers do
               )
               |> Base.encode64()
 
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
             avatars_bucket = Encrypted.Session.avatars_bucket()
@@ -1778,7 +1805,7 @@ defmodule MossletWeb.Helpers do
               )
               |> Base.encode64()
 
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
             avatars_bucket = Encrypted.Session.avatars_bucket()
@@ -1831,7 +1858,7 @@ defmodule MossletWeb.Helpers do
             avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
           ) ->
             image = decrypt_user_or_uconn_binary(avatar_binary, uconn, nil, key, nil)
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(
             _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
@@ -1886,7 +1913,7 @@ defmodule MossletWeb.Helpers do
             avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
           ) ->
             image = decrypt_user_or_uconn_binary(avatar_binary, uconn, memory, key, current_user)
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(
             _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
@@ -1939,7 +1966,7 @@ defmodule MossletWeb.Helpers do
             avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
           ) ->
             image = decrypt_user_or_uconn_binary(avatar_binary, uconn, post, key, current_user)
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(
             _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
@@ -2031,7 +2058,7 @@ defmodule MossletWeb.Helpers do
             avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
           ) ->
             image = decrypt_user_or_uconn_binary(avatar_binary, uconn, reply, key, current_user)
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(
             _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
@@ -2122,7 +2149,7 @@ defmodule MossletWeb.Helpers do
             avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
           ) ->
             image = decrypt_user_or_uconn_binary(avatar_binary, uconn, nil, key, nil)
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(
             _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
@@ -2173,7 +2200,7 @@ defmodule MossletWeb.Helpers do
             avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
           ) ->
             image = decrypt_user_or_uconn_binary(avatar_binary, uconn, nil, key, nil)
-            "data:image/jpg;base64," <> image
+            "data:image/webp;base64," <> image
 
           is_nil(
             _avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{uconn.connection.id}")
@@ -2224,7 +2251,7 @@ defmodule MossletWeb.Helpers do
       not is_nil(avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
         image = decr_public_item(avatar_binary, profile.profile_key)
         image = Base.encode64(image)
-        "data:image/jpg;base64," <> image
+        "data:image/webp;base64," <> image
 
       is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
         avatars_bucket = Encrypted.Session.avatars_bucket()
