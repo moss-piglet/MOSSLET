@@ -83,7 +83,8 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
            },
            user_group_key: socket.assigns.user_group_key,
            user: socket.assigns.current_user,
-           key: socket.assigns.key
+           key: socket.assigns.key,
+           public?: socket.assigns[:public?]
          ) do
       {:ok, message} ->
         send(self(), {:message_sent, message})

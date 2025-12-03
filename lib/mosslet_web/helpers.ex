@@ -830,6 +830,13 @@ defmodule MossletWeb.Helpers do
     Groups.get_user_group_for_group_and_user(group, user)
   end
 
+  def get_public_user_group(group, user) do
+    case Groups.get_user_group_for_group_and_user(group, user) do
+      nil -> Enum.at(group.user_groups, 0)
+      user_group -> user_group
+    end
+  end
+
   # fetches the user from the user_group
   def get_user_from_user_group_id(user_group_id) when is_binary(user_group_id) do
     Groups.get_user_group_with_user!(user_group_id).user
@@ -850,8 +857,13 @@ defmodule MossletWeb.Helpers do
   delete it.
   """
   def can_delete_group?(group, user) do
+    user_group = Enum.find(group.user_groups, fn ug -> ug.user_id == user.id end)
+
     cond do
       group.user_id == user.id ->
+        true
+
+      user_group && user_group.role == :owner ->
         true
 
       true ->

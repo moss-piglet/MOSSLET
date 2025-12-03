@@ -17,11 +17,11 @@ defmodule MossletWeb.ModernSidebarMenu do
         </h3>
       </div>
 
-      <nav class="space-y-0.5">
+      <div class="space-y-0.5">
         <div :for={item <- @menu_items} class="lg:px-4">
           <.modern_menu_item item={item} current_page={@current_page} />
         </div>
-      </nav>
+      </div>
     </div>
     """
   end

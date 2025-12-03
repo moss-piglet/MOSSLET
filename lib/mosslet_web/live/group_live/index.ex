@@ -5,8 +5,6 @@ defmodule MossletWeb.GroupLive.Index do
   alias Mosslet.Groups
   alias Mosslet.Groups.Group
 
-  import MossletWeb.GroupLive.Components
-
   @page_default 1
   @per_page_default 10
 
@@ -18,7 +16,11 @@ defmodule MossletWeb.GroupLive.Index do
      |> assign(:user_group_loading_count, 0)
      |> assign(:user_group_loading, false)
      |> assign(:user_group_loading_done, false)
-     |> assign(:finished_loading_list, [])}
+     |> assign(:finished_loading_list, [])
+     |> assign(:load_more_loading, false)
+     |> assign(:load_more_public_loading, false)
+     |> assign(:loaded_groups_count, 0)
+     |> assign(:loaded_public_groups_count, 0)}
   end
 
   @impl true
@@ -57,10 +59,14 @@ defmodule MossletWeb.GroupLive.Index do
 
     public_groups =
       if active_tab == "discover" do
-        Groups.list_public_groups(current_user, search_term)
+        Groups.list_public_groups(current_user, search_term, limit: per_page)
       else
         []
       end
+
+    total_groups = Groups.group_count_confirmed(current_user)
+    total_public_groups = Groups.public_group_count(current_user, search_term)
+    initial_groups = Enum.take(groups, per_page)
 
     socket =
       socket
@@ -73,13 +79,24 @@ defmodule MossletWeb.GroupLive.Index do
         )
       )
       |> assign(:options, options)
-      |> assign(:group_count, Groups.group_count_confirmed(current_user))
+      |> assign(:group_count, total_groups)
       |> assign(:any_pending_groups?, any_pending_groups?)
       |> assign(:return_url, url)
       |> assign(:active_tab, active_tab)
       |> assign(:search_term, search_term)
       |> assign(:public_groups, public_groups)
-      |> stream(:groups, groups)
+      |> assign(:loaded_groups_count, length(initial_groups))
+      |> assign(:loaded_public_groups_count, length(public_groups))
+      |> assign(:has_more_groups, length(initial_groups) < total_groups)
+      |> assign(:remaining_groups_count, max(0, total_groups - length(initial_groups)))
+      |> assign(:has_more_public_groups, length(public_groups) < total_public_groups)
+      |> assign(
+        :remaining_public_groups_count,
+        max(0, total_public_groups - length(public_groups))
+      )
+      |> assign(:load_more_loading, false)
+      |> assign(:load_more_public_loading, false)
+      |> stream(:groups, initial_groups, reset: true)
       |> stream(:pending_groups, pending_groups)
 
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
@@ -132,8 +149,15 @@ defmodule MossletWeb.GroupLive.Index do
       user_group = get_user_group(group, socket.assigns.current_user)
 
       if can_join_group?(group, user_group, socket.assigns.current_user) do
-        case Groups.join_group(group, user_group) do
-          {:ok, group} ->
+        join_result =
+          if group.public? && is_nil(user_group) do
+            Groups.join_public_group(group, socket.assigns.current_user, socket.assigns.key)
+          else
+            Groups.join_group(group, user_group)
+          end
+
+        case join_result do
+          {:ok, _result} ->
             notify_self({:joined, group, user_group})
 
             socket
@@ -151,6 +175,14 @@ defmodule MossletWeb.GroupLive.Index do
             |> assign(:live_action, :greet)
             |> assign(:groups_greeter_open?, true)
             |> put_flash(:success, "You could not join this group.")
+            |> push_patch(to: ~p"/app/groups/greet")
+
+          {:error, _reason} ->
+            socket
+            |> assign(:page_title, "New Group Invitations")
+            |> assign(:live_action, :greet)
+            |> assign(:groups_greeter_open?, true)
+            |> put_flash(:error, "Could not join this group.")
             |> push_patch(to: ~p"/app/groups/greet")
         end
       else
@@ -203,17 +235,35 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_event("search_public_groups", %{"search" => search_term}, socket) do
-    public_groups = Groups.list_public_groups(socket.assigns.current_user, search_term)
-    {:noreply, assign(socket, :public_groups, public_groups) |> assign(:search_term, search_term)}
+    current_user = socket.assigns.current_user
+    per_page = socket.assigns.options.per_page
+    public_groups = Groups.list_public_groups(current_user, search_term, limit: per_page)
+    total_public_groups = Groups.public_group_count(current_user, search_term)
+
+    {:noreply,
+     socket
+     |> assign(:public_groups, public_groups)
+     |> assign(:search_term, search_term)
+     |> assign(:loaded_public_groups_count, length(public_groups))
+     |> assign(:has_more_public_groups, length(public_groups) < total_public_groups)
+     |> assign(
+       :remaining_public_groups_count,
+       max(0, total_public_groups - length(public_groups))
+     )}
   end
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    public_groups =
+    current_user = socket.assigns.current_user
+    per_page = socket.assigns.options.per_page
+
+    {public_groups, total_public_groups} =
       if tab == "discover" do
-        Groups.list_public_groups(socket.assigns.current_user, "")
+        groups = Groups.list_public_groups(current_user, "", limit: per_page)
+        total = Groups.public_group_count(current_user, "")
+        {groups, total}
       else
-        []
+        {[], 0}
       end
 
     socket =
@@ -221,10 +271,24 @@ defmodule MossletWeb.GroupLive.Index do
       |> assign(:active_tab, tab)
       |> assign(:search_term, "")
       |> assign(:public_groups, public_groups)
+      |> assign(:loaded_public_groups_count, length(public_groups))
+      |> assign(:has_more_public_groups, length(public_groups) < total_public_groups)
+      |> assign(
+        :remaining_public_groups_count,
+        max(0, total_public_groups - length(public_groups))
+      )
 
     socket =
       if tab == "my_groups" do
-        stream(socket, :groups, Groups.list_groups(socket.assigns.current_user), reset: true)
+        all_groups = Groups.list_groups(current_user)
+        initial_groups = Enum.take(all_groups, per_page)
+        total_groups = socket.assigns.group_count
+
+        socket
+        |> assign(:loaded_groups_count, length(initial_groups))
+        |> assign(:has_more_groups, length(initial_groups) < total_groups)
+        |> assign(:remaining_groups_count, max(0, total_groups - length(initial_groups)))
+        |> stream(:groups, initial_groups, reset: true)
       else
         socket
       end
@@ -259,6 +323,59 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_event(_event, _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("load_more_groups", _params, socket) do
+    socket = assign(socket, :load_more_loading, true)
+    current_user = socket.assigns.current_user
+    per_page = socket.assigns.options.per_page
+    loaded_count = socket.assigns.loaded_groups_count
+
+    all_groups = Groups.list_groups(current_user)
+    new_groups = all_groups |> Enum.drop(loaded_count) |> Enum.take(per_page)
+    new_loaded_count = loaded_count + length(new_groups)
+    total_groups = socket.assigns.group_count
+
+    socket =
+      socket
+      |> assign(:loaded_groups_count, new_loaded_count)
+      |> assign(:has_more_groups, new_loaded_count < total_groups)
+      |> assign(:remaining_groups_count, max(0, total_groups - new_loaded_count))
+      |> assign(:load_more_loading, false)
+
+    socket =
+      Enum.reduce(new_groups, socket, fn group, acc -> stream_insert(acc, :groups, group) end)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("load_more_public_groups", _params, socket) do
+    socket = assign(socket, :load_more_public_loading, true)
+    current_user = socket.assigns.current_user
+    search_term = socket.assigns.search_term
+    loaded_count = socket.assigns.loaded_public_groups_count
+
+    total_public_groups = Groups.public_group_count(current_user, search_term)
+
+    new_public_groups =
+      Groups.list_public_groups(current_user, search_term,
+        offset: loaded_count,
+        limit: 10
+      )
+
+    new_loaded_count = loaded_count + length(new_public_groups)
+
+    socket =
+      socket
+      |> assign(:public_groups, socket.assigns.public_groups ++ new_public_groups)
+      |> assign(:loaded_public_groups_count, new_loaded_count)
+      |> assign(:has_more_public_groups, new_loaded_count < total_public_groups)
+      |> assign(:remaining_public_groups_count, max(0, total_public_groups - new_loaded_count))
+      |> assign(:load_more_public_loading, false)
+
     {:noreply, socket}
   end
 

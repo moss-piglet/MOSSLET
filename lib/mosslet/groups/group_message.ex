@@ -28,21 +28,32 @@ defmodule Mosslet.Groups.GroupMessage do
 
   defp encrypt_attrs(changeset, opts) do
     if changeset.valid? && opts[:user_group_key] && opts[:user] && opts[:key] do
-      {:ok, d_user_group_key} =
-        Encrypted.Users.Utils.decrypt_user_attrs_key(
-          opts[:user_group_key],
-          opts[:user],
-          opts[:key]
-        )
+      d_user_group_key =
+        if opts[:public?] do
+          Encrypted.Users.Utils.decrypt_public_item_key(opts[:user_group_key])
+        else
+          case Encrypted.Users.Utils.decrypt_user_attrs_key(
+                 opts[:user_group_key],
+                 opts[:user],
+                 opts[:key]
+               ) do
+            {:ok, key} -> key
+            _ -> nil
+          end
+        end
 
-      changeset
-      |> put_change(
-        :content,
-        Utils.encrypt(%{
-          key: d_user_group_key,
-          payload: get_field(changeset, :content)
-        })
-      )
+      if d_user_group_key do
+        changeset
+        |> put_change(
+          :content,
+          Utils.encrypt(%{
+            key: d_user_group_key,
+            payload: get_field(changeset, :content)
+          })
+        )
+      else
+        changeset
+      end
     else
       changeset
     end

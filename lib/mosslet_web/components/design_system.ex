@@ -12,6 +12,7 @@ defmodule MossletWeb.DesignSystem do
 
   # Import components for time display
   import MossletWeb.CoreComponents, only: [phx_input: 1, local_time_ago: 1]
+  import MossletWeb.LocalTime, only: [local_time: 1]
 
   # Import helper functions
   import MossletWeb.Helpers,
@@ -8876,5 +8877,727 @@ defmodule MossletWeb.DesignSystem do
       _ ->
         "bg-slate-100/80 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300"
     end
+  end
+
+  @doc """
+  Public group card with liquid metal styling for discovery/join UI.
+
+  ## Examples
+
+      <.liquid_group_card
+        name="My Group"
+        member_count={5}
+        require_password={false}
+        group_id="123"
+      />
+  """
+  attr :name, :string, required: true
+  attr :member_count, :integer, required: true
+  attr :require_password, :boolean, default: false
+  attr :group_id, :string, required: true
+  attr :visible_members, :integer, default: 3
+  attr :class, :any, default: ""
+  attr :rest, :global
+
+  def liquid_group_card(assigns) do
+    assigns = assign(assigns, :avatar_count, min(assigns.member_count, assigns.visible_members))
+
+    assigns =
+      assign(assigns, :overflow_count, max(0, assigns.member_count - assigns.visible_members))
+
+    ~H"""
+    <div
+      class={[
+        "group/card relative rounded-2xl overflow-hidden",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "hover:border-cyan-300/50 dark:hover:border-cyan-600/50",
+        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+        "hover:shadow-xl hover:shadow-cyan-500/10 dark:hover:shadow-cyan-400/10",
+        "transition-all duration-300 ease-out transform-gpu will-change-transform",
+        "hover:-translate-y-0.5",
+        @class
+      ]}
+      {@rest}
+    >
+      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-300 ease-out bg-gradient-to-r from-cyan-50/60 via-teal-50/80 to-emerald-50/60 dark:from-cyan-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 transform-gpu">
+      </div>
+      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent dark:via-cyan-400/15 transform-gpu group-hover/card:translate-x-full -translate-x-full">
+      </div>
+
+      <div class="relative p-4 sm:p-5">
+        <div class="flex gap-4">
+          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-cyan-100 group-hover/card:via-teal-50 group-hover/card:to-emerald-100 dark:group-hover/card:from-cyan-900/30 dark:group-hover/card:via-teal-900/25 dark:group-hover/card:to-emerald-900/30 shadow-sm">
+            <.phx_icon
+              name="hero-globe-alt"
+              class={[
+                "h-6 w-6 transition-colors duration-200",
+                "text-slate-500 dark:text-slate-400",
+                "group-hover/card:text-cyan-600 dark:group-hover/card:text-cyan-400"
+              ]}
+            />
+          </div>
+
+          <div class="flex-1 min-w-0 pt-0.5">
+            <div class="flex items-start justify-between gap-3 mb-1.5">
+              <div class="flex items-center gap-2 flex-wrap min-w-0">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-cyan-700 dark:group-hover/card:text-cyan-300 transition-colors duration-200">
+                  {@name}
+                </h3>
+                <span
+                  :if={@require_password}
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 dark:from-amber-900/40 dark:to-orange-900/40 dark:text-amber-300 shrink-0"
+                >
+                  <.phx_icon name="hero-lock-closed" class="h-3 w-3" /> Protected
+                </span>
+              </div>
+
+              <div :if={@avatar_count > 0} class="isolate flex -space-x-2 shrink-0">
+                <div
+                  :for={_ <- 1..@avatar_count}
+                  class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-100 to-teal-100 dark:from-cyan-900/40 dark:to-teal-900/40 border-2 border-white dark:border-slate-800 flex items-center justify-center"
+                >
+                  <.phx_icon name="hero-user" class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <div
+                  :if={@overflow_count > 0}
+                  class="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs font-medium text-slate-600 dark:text-slate-400"
+                >
+                  +{@overflow_count}
+                </div>
+              </div>
+            </div>
+
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              {@member_count} {if @member_count == 1, do: "member", else: "members"}
+            </p>
+          </div>
+        </div>
+
+        <div class="relative mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-end">
+          <.liquid_button
+            phx-click="join_public_group"
+            phx-value-id={@group_id}
+            size="sm"
+            color="cyan"
+            icon={if @require_password, do: "hero-lock-closed", else: "hero-arrow-right"}
+          >
+            Join Group
+          </.liquid_button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Liquid tab bar component with consistent styling across the app.
+
+  ## Examples
+
+      <.liquid_tab_bar>
+        <:tab id="my_groups" icon="hero-user-group" active={@active_tab == "my_groups"} count={5}>
+          My Groups
+        </:tab>
+        <:tab id="discover" icon="hero-globe-alt" active={@active_tab == "discover"} color="cyan">
+          Discover
+        </:tab>
+      </.liquid_tab_bar>
+  """
+  attr :class, :any, default: ""
+
+  slot :tab, required: true do
+    attr :id, :string, required: true
+    attr :icon, :string
+    attr :active, :boolean
+    attr :count, :integer
+    attr :color, :string
+  end
+
+  attr :rest, :global, include: ~w(phx-click)
+
+  def liquid_tab_bar(assigns) do
+    ~H"""
+    <div class={["border-b border-slate-200/60 dark:border-slate-700/60", @class]}>
+      <nav class="flex" aria-label="Tabs">
+        <button
+          :for={tab <- @tab}
+          type="button"
+          phx-click="switch_tab"
+          phx-value-tab={tab.id}
+          class={[
+            "flex-1 sm:flex-none px-4 sm:px-6 py-3 sm:py-4 text-sm font-medium border-b-2 transition-all duration-200 focus:outline-none touch-manipulation",
+            tab_active_classes(tab[:active], tab[:color] || "teal")
+          ]}
+        >
+          <span class="flex items-center justify-center sm:justify-start gap-2">
+            <.phx_icon :if={tab[:icon]} name={tab.icon} class="w-4 h-4" />
+            <span class="truncate">{render_slot(tab)}</span>
+            <span
+              :if={tab[:count] && tab[:count] > 0}
+              class={[
+                "ml-1 px-2 py-0.5 rounded-full text-xs",
+                tab_count_classes(tab[:active], tab[:color] || "teal")
+              ]}
+            >
+              {tab.count}
+            </span>
+          </span>
+        </button>
+      </nav>
+    </div>
+    """
+  end
+
+  defp tab_active_classes(true, color) do
+    case color do
+      "cyan" ->
+        "border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/20"
+
+      "emerald" ->
+        "border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/20"
+
+      _ ->
+        "border-teal-500 text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20"
+    end
+  end
+
+  defp tab_active_classes(_, _color) do
+    "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600"
+  end
+
+  defp tab_count_classes(true, color) do
+    case color do
+      "cyan" -> "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
+      "emerald" -> "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+      _ -> "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300"
+    end
+  end
+
+  defp tab_count_classes(_, _color) do
+    "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+  end
+
+  @doc """
+  My Groups card for responsive display (card on mobile, row-like on desktop).
+
+  ## Examples
+
+      <.liquid_my_group_card
+        id="group-123"
+        name="My Group"
+        description="Group description"
+        is_public={false}
+        can_edit={true}
+        can_delete={true}
+        group_id="123"
+        navigate_url="/app/groups/123"
+        edit_url="/app/groups/123/edit"
+      >
+        <:members>
+          <.group_avatar ... />
+        </:members>
+      </.liquid_my_group_card>
+  """
+  attr :id, :string, required: true
+  attr :name, :string, required: true
+  attr :description, :string, default: nil
+  attr :is_public, :boolean, default: false
+  attr :can_edit, :boolean, default: false
+  attr :can_delete, :boolean, default: false
+  attr :group_id, :string, required: true
+  attr :navigate_url, :string, required: true
+  attr :edit_url, :string, default: nil
+  attr :class, :any, default: ""
+  slot :members
+
+  def liquid_my_group_card(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={[
+        "group/card relative rounded-2xl overflow-hidden cursor-pointer",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "hover:border-teal-300/50 dark:hover:border-teal-600/50",
+        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+        "hover:shadow-xl hover:shadow-teal-500/10 dark:hover:shadow-teal-400/10",
+        "transition-all duration-300 ease-out transform-gpu will-change-transform",
+        "hover:-translate-y-0.5",
+        @class
+      ]}
+      phx-click={JS.navigate(@navigate_url)}
+    >
+      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/60 via-emerald-50/80 to-cyan-50/60 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 transform-gpu">
+      </div>
+      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 transform-gpu group-hover/card:translate-x-full -translate-x-full">
+      </div>
+
+      <div class="relative p-4 sm:p-5">
+        <div class="flex gap-4">
+          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30 shadow-sm">
+            <.phx_icon
+              name={if @is_public, do: "hero-globe-alt", else: "hero-user-group"}
+              class={[
+                "h-6 w-6 transition-colors duration-200",
+                "text-slate-500 dark:text-slate-400",
+                "group-hover/card:text-teal-600 dark:group-hover/card:text-teal-400"
+              ]}
+            />
+          </div>
+
+          <div class="flex-1 min-w-0 pt-0.5">
+            <div class="flex items-start justify-between gap-3 mb-1.5">
+              <div class="flex items-center gap-2 flex-wrap min-w-0">
+                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-teal-700 dark:group-hover/card:text-teal-300 transition-colors duration-200">
+                  {@name}
+                </h2>
+                <span
+                  :if={@is_public}
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-cyan-100 to-teal-100 text-cyan-700 dark:from-cyan-900/40 dark:to-teal-900/40 dark:text-cyan-300 shrink-0"
+                >
+                  <.phx_icon name="hero-globe-alt" class="h-3 w-3 mr-1" /> Public
+                </span>
+              </div>
+
+              <div :if={render_slot(@members) != []} class="isolate flex -space-x-2 shrink-0">
+                {render_slot(@members)}
+              </div>
+            </div>
+
+            <p
+              :if={@description}
+              class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed"
+            >
+              {@description}
+            </p>
+            <p
+              :if={!@description}
+              class="text-sm text-slate-400 dark:text-slate-500 italic"
+            >
+              No description
+            </p>
+          </div>
+        </div>
+
+        <div
+          :if={@can_edit || @can_delete}
+          class="relative mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-end gap-2"
+        >
+          <.link
+            :if={@can_edit && @edit_url}
+            patch={@edit_url}
+            phx-click-stop-propagation
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-teal-100 hover:text-teal-700 dark:hover:bg-teal-900/30 dark:hover:text-teal-400 transition-all duration-200"
+          >
+            <.phx_icon name="hero-pencil-square" class="h-3.5 w-3.5" /> Edit
+          </.link>
+          <button
+            :if={@can_delete}
+            phx-click={JS.push("delete", value: %{id: @group_id}) |> JS.hide(to: "##{@id}")}
+            phx-click-stop-propagation
+            data-confirm="Are you sure you want to delete this group?"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-all duration-200"
+          >
+            <.phx_icon name="hero-trash" class="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>
+      </div>
+
+      <div class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-100 transition-all duration-200 pointer-events-none">
+        <.phx_icon
+          name="hero-chevron-right"
+          class="h-5 w-5 text-teal-500/60 dark:text-teal-400/60"
+        />
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Card component for pending group invitations with liquid metal styling.
+
+  ## Examples
+
+      <.liquid_pending_group_card
+        id="pending-group-123"
+        name="My Awesome Group"
+        description="A group for awesome people"
+        inviter_name="John Doe"
+        inserted_at={~U[2024-01-01 12:00:00Z]}
+        requires_password={false}
+        group_id="123"
+      >
+        <:members>
+          <.avatar src="/avatar.jpg" />
+        </:members>
+        <:actions>
+          <.liquid_button>Join</.liquid_button>
+        </:actions>
+      </.liquid_pending_group_card>
+  """
+  attr :id, :string, required: true
+  attr :name, :string, required: true
+  attr :description, :string, default: nil
+  attr :inviter_name, :string, required: true
+  attr :inserted_at, :any, required: true
+  attr :requires_password, :boolean, default: false
+  attr :class, :any, default: ""
+  slot :members
+  slot :actions
+
+  def liquid_pending_group_card(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={[
+        "group/card relative rounded-2xl overflow-hidden",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-slate-200/60 dark:border-slate-700/60",
+        "hover:border-emerald-300/50 dark:hover:border-emerald-600/50",
+        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+        "hover:shadow-xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-400/10",
+        "transition-all duration-300 ease-out transform-gpu will-change-transform",
+        "hover:-translate-y-0.5",
+        @class
+      ]}
+    >
+      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-300 ease-out bg-gradient-to-r from-emerald-50/60 via-teal-50/80 to-cyan-50/60 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-cyan-900/15 transform-gpu">
+      </div>
+      <div class="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 transform-gpu group-hover/card:translate-x-full -translate-x-full">
+      </div>
+
+      <div class="relative p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30 shadow-sm">
+            <.phx_icon
+              name="hero-gift"
+              class="h-6 w-6 text-emerald-600 dark:text-emerald-400 transition-transform duration-200 group-hover/card:scale-110"
+            />
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div class="flex items-center gap-2 flex-wrap min-w-0">
+                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-emerald-700 dark:group-hover/card:text-emerald-300 transition-colors duration-200">
+                  {@name}
+                </h2>
+                <span
+                  :if={@requires_password}
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 dark:from-amber-900/40 dark:to-orange-900/40 dark:text-amber-300 shrink-0"
+                >
+                  <.phx_icon name="hero-lock-closed" class="h-3 w-3" /> Password
+                </span>
+              </div>
+
+              <div :if={render_slot(@members) != []} class="isolate flex -space-x-2 shrink-0">
+                {render_slot(@members)}
+              </div>
+            </div>
+
+            <p
+              :if={@description}
+              class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3"
+            >
+              {@description}
+            </p>
+            <p
+              :if={!@description}
+              class="text-sm text-slate-400 dark:text-slate-500 italic mb-3"
+            >
+              No description
+            </p>
+
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+              <div class="flex items-center gap-1.5">
+                <.phx_icon name="hero-user" class="w-3.5 h-3.5" />
+                <span class="font-medium text-emerald-700 dark:text-emerald-300">
+                  {@inviter_name}
+                </span>
+                <span>invited you</span>
+              </div>
+              <span class="text-slate-300 dark:text-slate-600">•</span>
+              <time datetime={@inserted_at}>
+                <.local_time_ago id={"time-created-#{@id}"} at={@inserted_at} />
+              </time>
+            </div>
+          </div>
+        </div>
+
+        <div
+          :if={render_slot(@actions) != []}
+          class="relative mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-end gap-2"
+        >
+          {render_slot(@actions)}
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Load more indicator for groups with liquid metal styling.
+  Reuses the same pattern as timeline scroll indicator.
+
+  ## Examples
+
+      <.liquid_load_more_groups
+        remaining_count={15}
+        load_count={10}
+        loading={false}
+        color="teal"
+        phx-click="load_more_groups"
+      />
+  """
+  attr :remaining_count, :integer, default: 0
+  attr :load_count, :integer, default: 10
+  attr :loading, :boolean, default: false
+  attr :color, :string, default: "teal"
+  attr :item_label, :string, default: "groups"
+  attr :class, :any, default: ""
+  attr :rest, :global, include: ~w(phx-click)
+
+  def liquid_load_more_groups(assigns) do
+    assigns = assign(assigns, :color_classes, get_load_more_color_classes(assigns.color))
+
+    ~H"""
+    <div class={["text-center py-6", @class]}>
+      <div
+        :if={@loading}
+        class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400"
+      >
+        <div class={["w-2 h-2 rounded-full animate-pulse", @color_classes.indicator]}></div>
+        <span class="text-sm font-medium">Loading more {@item_label}...</span>
+      </div>
+
+      <button
+        :if={!@loading && @remaining_count > 0}
+        class={[
+          "inline-flex items-center gap-3 px-6 py-3 rounded-xl backdrop-blur-sm transition-all duration-200 ease-out cursor-pointer group text-sm font-medium",
+          @color_classes.button
+        ]}
+        {@rest}
+      >
+        <div class={["w-2 h-2 rounded-full animate-pulse", @color_classes.indicator]}></div>
+        <span>
+          Load {min(@load_count, @remaining_count)} more {@item_label} ({@remaining_count} remaining)
+        </span>
+      </button>
+    </div>
+    """
+  end
+
+  defp get_load_more_color_classes(color) do
+    case color do
+      "teal" ->
+        %{
+          button:
+            "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md hover:from-teal-600 hover:to-emerald-600",
+          indicator: "bg-white/80"
+        }
+
+      "cyan" ->
+        %{
+          button:
+            "bg-gradient-to-r from-cyan-500 to-teal-500 text-white shadow-md hover:from-cyan-600 hover:to-teal-600",
+          indicator: "bg-white/80"
+        }
+
+      "emerald" ->
+        %{
+          button:
+            "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:from-emerald-600 hover:to-teal-600",
+          indicator: "bg-white/80"
+        }
+
+      _ ->
+        %{
+          button:
+            "bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/80",
+          indicator: "bg-gradient-to-r from-slate-400 to-slate-500"
+        }
+    end
+  end
+
+  @doc """
+  Liquid chat message component with premium styling for group chat.
+
+  ## Examples
+
+      <.liquid_chat_message
+        id="msg-123"
+        avatar_src="/images/avatar.jpg"
+        sender_name="John"
+        moniker="JD123"
+        role={:owner}
+        timestamp={~N[2024-01-01 12:00:00]}
+        is_own_message={false}
+        can_delete={true}
+        on_delete="delete_message"
+      >
+        Hello, this is my message!
+      </.liquid_chat_message>
+  """
+  attr :id, :string, required: true
+  attr :avatar_src, :string, required: true
+  attr :avatar_alt, :string, default: "User avatar"
+  attr :sender_name, :string, required: true
+  attr :moniker, :string, required: true
+  attr :role, :atom, default: :member
+  attr :timestamp, :any, required: true
+  attr :is_own_message, :boolean, default: false
+  attr :can_delete, :boolean, default: false
+  attr :on_delete, :string, default: nil
+  attr :class, :any, default: ""
+  slot :inner_block, required: true
+
+  def liquid_chat_message(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={[
+        "group/msg relative",
+        @class
+      ]}
+    >
+      <div class={[
+        "relative py-2.5 px-3 sm:px-4 rounded-2xl transition-all duration-300 ease-out",
+        "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50",
+        "dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20"
+      ]}>
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 pt-0.5">
+            <div class={[
+              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden",
+              "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900",
+              "transition-all duration-200",
+              liquid_chat_avatar_ring(@role)
+            ]}>
+              <img
+                src={@avatar_src}
+                alt={@avatar_alt}
+                class="w-full h-full object-cover"
+              />
+              <div class={[
+                "absolute inset-0 rounded-full opacity-0 group-hover/msg:opacity-100",
+                "bg-gradient-to-br from-white/20 to-transparent",
+                "transition-opacity duration-300"
+              ]} />
+            </div>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
+              <span class={[
+                "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
+                "text-slate-900 dark:text-slate-100",
+                "group-hover/msg:text-teal-700 dark:group-hover/msg:text-teal-300",
+                "transition-colors duration-200"
+              ]}>
+                {@sender_name}
+              </span>
+
+              <span class={[
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                "transition-all duration-200",
+                liquid_chat_role_badge(@role)
+              ]}>
+                <.phx_icon name="hero-finger-print" class="w-3 h-3" />
+                <span class="truncate max-w-[60px] sm:max-w-[100px]">{@moniker}</span>
+              </span>
+
+              <time
+                id={"time-tooltip-" <> @id}
+                class={[
+                  "text-xs whitespace-nowrap cursor-help",
+                  "text-slate-400 dark:text-slate-500",
+                  "hover:text-slate-600 dark:hover:text-slate-300",
+                  "transition-colors duration-150"
+                ]}
+                phx-hook="LocalTimeTooltip"
+                data-timestamp={@timestamp}
+              >
+                <.local_time
+                  id={@id <> "-created"}
+                  for={@timestamp}
+                  preset="TIME_SIMPLE"
+                />
+              </time>
+            </div>
+
+            <div class={[
+              "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
+              "text-sm leading-relaxed",
+              "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
+              "border border-slate-200/60 dark:border-slate-700/50",
+              "shadow-sm",
+              "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
+              "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5",
+              "transition-all duration-200",
+              if(@is_own_message,
+                do:
+                  "bg-gradient-to-br from-teal-50/50 to-emerald-50/30 dark:from-teal-900/20 dark:to-emerald-900/10",
+                else: ""
+              )
+            ]}>
+              <div class="text-slate-700 dark:text-slate-200 break-words">
+                {render_slot(@inner_block)}
+              </div>
+            </div>
+          </div>
+
+          <div
+            :if={@can_delete && @on_delete}
+            class={[
+              "absolute top-2 right-2 flex items-center",
+              "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100",
+              "transition-all duration-200"
+            ]}
+          >
+            <button
+              type="button"
+              phx-click={@on_delete}
+              phx-value-id={@id}
+              class={[
+                "p-1.5 rounded-lg",
+                "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
+                "hover:bg-red-50 dark:hover:bg-red-900/20",
+                "transition-all duration-200"
+              ]}
+              aria-label="Delete message"
+            >
+              <.phx_icon name="hero-trash" class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp liquid_chat_avatar_ring(:owner), do: "ring-pink-400 dark:ring-pink-500"
+  defp liquid_chat_avatar_ring(:admin), do: "ring-orange-400 dark:ring-orange-500"
+  defp liquid_chat_avatar_ring(:moderator), do: "ring-purple-400 dark:ring-purple-500"
+  defp liquid_chat_avatar_ring(:member), do: "ring-emerald-400 dark:ring-emerald-500"
+  defp liquid_chat_avatar_ring(_), do: "ring-teal-300 dark:ring-teal-500"
+
+  defp liquid_chat_role_badge(:owner) do
+    "bg-gradient-to-r from-pink-100 to-rose-50 text-pink-700 dark:from-pink-900/50 dark:to-rose-900/30 dark:text-pink-300"
+  end
+
+  defp liquid_chat_role_badge(:admin) do
+    "bg-gradient-to-r from-orange-100 to-amber-50 text-orange-700 dark:from-orange-900/50 dark:to-amber-900/30 dark:text-orange-300"
+  end
+
+  defp liquid_chat_role_badge(:moderator) do
+    "bg-gradient-to-r from-purple-100 to-indigo-50 text-purple-700 dark:from-purple-900/50 dark:to-indigo-900/30 dark:text-purple-300"
+  end
+
+  defp liquid_chat_role_badge(:member) do
+    "bg-gradient-to-r from-emerald-100 to-teal-50 text-emerald-700 dark:from-emerald-900/50 dark:to-teal-900/30 dark:text-emerald-300"
+  end
+
+  defp liquid_chat_role_badge(_) do
+    "bg-gradient-to-r from-teal-100 to-emerald-50 text-teal-700 dark:from-teal-900/50 dark:to-emerald-900/30 dark:text-teal-300"
   end
 end

@@ -23,6 +23,7 @@ defmodule MossletWeb.GroupLive.Group do
           sender_id={@user_group.id}
           current_user={@current_user}
           user_group_key={@user_group.key}
+          public?={@group.public?}
           key={@key}
           id={"group-#{@group.id}-message-form"}
         />

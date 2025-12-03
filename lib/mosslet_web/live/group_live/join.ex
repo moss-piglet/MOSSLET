@@ -43,7 +43,7 @@ defmodule MossletWeb.GroupLive.Join do
                     >
                       {decr_public_item(
                         @group.name,
-                        get_user_group(@group, @current_user).key
+                        get_public_user_group(@group, @current_user).key
                       )}
                     </span>
                     <span
@@ -203,10 +203,18 @@ defmodule MossletWeb.GroupLive.Join do
     user = socket.assigns.current_user
     group = socket.assigns.group
     user_group = socket.assigns.user_group
+    key = socket.assigns.key
 
     if can_join_group?(group, user_group, user) do
-      case Groups.join_group(group, user_group, join_password: group_params["password"]) do
-        {:ok, group} ->
+      join_result =
+        if group.public? && is_nil(user_group) do
+          Groups.join_public_group(group, user, key, join_password: group_params["password"])
+        else
+          Groups.join_group(group, user_group, join_password: group_params["password"])
+        end
+
+      case join_result do
+        {:ok, _result} ->
           {:noreply,
            socket
            |> put_flash(:success, "Group joined successfully")

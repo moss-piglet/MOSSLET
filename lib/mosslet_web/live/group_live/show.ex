@@ -10,7 +10,16 @@ defmodule MossletWeb.GroupLive.Show do
   alias Mosslet.Timeline.Reply
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(%{"id" => id}, _session, socket) do
+    current_user = socket.assigns.current_user
+
+    if connected?(socket) do
+      Accounts.subscribe_account_deleted()
+      Groups.private_subscribe(current_user)
+      Groups.public_subscribe()
+      Groups.group_subscribe(Groups.get_group(id))
+    end
+
     socket =
       assign(
         socket,
@@ -36,18 +45,11 @@ defmodule MossletWeb.GroupLive.Show do
     current_user = socket.assigns.current_user
     group = Groups.get_group(id)
 
-    if connected?(socket) do
-      Accounts.subscribe_account_deleted()
-      Groups.private_subscribe(current_user)
-      Groups.public_subscribe()
-      Groups.group_subscribe(group)
-    end
-
     # if the group is deleted we redirect everyone currently viewing it.
     if is_nil(group) do
       {:noreply,
        socket
-       |> put_flash(:info, "This group has been deleted.")
+       |> put_flash(:info, "This group cannot be viewed or no longer exists.")
        |> push_navigate(to: ~p"/app/groups")}
     else
       user_group = get_user_group(group, current_user)

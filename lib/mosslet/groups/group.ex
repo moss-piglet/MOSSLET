@@ -39,8 +39,8 @@ defmodule Mosslet.Groups.Group do
     |> validate_length(:name, min: 2, max: 160)
     |> validate_format(
       :name,
-      ~r/^[\p{L}\p{M}' -]+$/u,
-      message: "has invalid format"
+      ~r/\A(?!.*[\x00-\x1F])/,
+      message: "contains invalid characters"
     )
     |> validate_allowed_name()
     |> validate_length(:description, max: 250)

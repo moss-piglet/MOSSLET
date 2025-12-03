@@ -17,6 +17,7 @@ defmodule Mosslet.Groups do
     :group_joined_unconfirmed,
     :group_updated_unconfirmed,
     :group_deleted_unconfirmed,
+    :group_updated_member_unconfirmed,
     :group_updated_members_removed_unconfirmed
   ]
 
@@ -91,7 +92,10 @@ defmodule Mosslet.Groups do
       [%Group{}, ...]
 
   """
-  def list_public_groups(user, search_term \\ nil) do
+  def list_public_groups(user, search_term \\ nil, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+    offset = Keyword.get(opts, :offset, 0)
+
     user_group_ids =
       from(ug in UserGroup,
         where: ug.user_id == ^user.id,
@@ -103,7 +107,8 @@ defmodule Mosslet.Groups do
         where: g.public? == true,
         where: g.id not in subquery(user_group_ids),
         order_by: [desc: g.inserted_at],
-        limit: 50,
+        limit: ^limit,
+        offset: ^offset,
         preload: [:user_groups]
       )
 
@@ -116,6 +121,30 @@ defmodule Mosslet.Groups do
       end
 
     Repo.all(query)
+  end
+
+  def public_group_count(user, search_term \\ nil) do
+    user_group_ids =
+      from(ug in UserGroup,
+        where: ug.user_id == ^user.id,
+        select: ug.group_id
+      )
+
+    query =
+      from(g in Group,
+        where: g.public? == true,
+        where: g.id not in subquery(user_group_ids)
+      )
+
+    query =
+      if search_term && String.trim(search_term) != "" do
+        search_pattern = "%#{String.downcase(search_term)}%"
+        from(g in query, where: g.name_hash == ^search_pattern)
+      else
+        query
+      end
+
+    Repo.aggregate(query, :count)
   end
 
   @doc """
@@ -338,7 +367,26 @@ defmodule Mosslet.Groups do
   """
   def join_public_group(group, user, key, opts \\ [])
 
-  def join_public_group(%Group{public?: true} = group, user, key, _opts) do
+  def join_public_group(%Group{public?: true} = group, user, key, opts) do
+    if group.require_password? do
+      changeset =
+        Group.join_changeset(group, %{password: Keyword.get(opts, :join_password)}, opts)
+
+      if changeset.valid? do
+        do_join_public_group(group, user, key)
+      else
+        {:error, changeset}
+      end
+    else
+      do_join_public_group(group, user, key)
+    end
+  end
+
+  def join_public_group(%Group{public?: false}, _user, _key, _opts) do
+    {:error, :not_public}
+  end
+
+  defp do_join_public_group(group, user, key) do
     owner_user_group = Enum.find(group.user_groups, &(&1.role == :owner))
 
     if owner_user_group do
@@ -347,8 +395,16 @@ defmodule Mosslet.Groups do
           {:error, :decryption_failed}
 
         decrypted_group_key ->
+          decrypted_name =
+            Encrypted.Users.Utils.decrypt_user_item(
+              user.name || user.username,
+              user,
+              user.user_key,
+              key
+            )
+
           attrs = %{
-            name: user.name || user.username,
+            name: decrypted_name,
             key: decrypted_group_key,
             role: "member",
             group_id: group.id,
@@ -371,14 +427,6 @@ defmodule Mosslet.Groups do
     else
       {:error, :no_owner}
     end
-  end
-
-  def join_public_group(%Group{public?: false}, _user, _key, _opts) do
-    {:error, :not_public}
-  end
-
-  def join_public_group(%Group{require_password?: true}, _user, _key, _opts) do
-    {:error, :password_required}
   end
 
   @doc """
@@ -603,16 +651,11 @@ defmodule Mosslet.Groups do
   TODO
   """
   def get_user_group_for_group_and_user(group, user) do
-    if group.public? do
-      Enum.at(group.user_groups, 0)
-      |> Repo.preload([:group, :user])
-    else
-      UserGroup
-      |> where([ug], ug.group_id == ^group.id)
-      |> where([ug], ug.user_id == ^user.id)
-      |> preload([:group, :user])
-      |> Repo.one()
-    end
+    UserGroup
+    |> where([ug], ug.group_id == ^group.id)
+    |> where([ug], ug.user_id == ^user.id)
+    |> preload([:group, :user])
+    |> Repo.one()
   end
 
   @doc """
@@ -706,7 +749,59 @@ defmodule Mosslet.Groups do
     UserGroup.role_changeset(user_group, attrs)
   end
 
-  def update_user_group_role(%UserGroup{} = user_group, attrs \\ %{}) do
+  @doc """
+  Updates a user_group's role with authorization checks.
+
+  Options:
+    - `:actor` - The UserGroup performing the action (required for authorization)
+
+  Authorization rules:
+    - Only owners can change/remove the owner role from another member
+    - There must always be at least one owner in the group
+  """
+  def update_user_group_role(%UserGroup{} = user_group, attrs, opts \\ []) do
+    actor = Keyword.get(opts, :actor)
+    new_role = attrs["role"] || attrs[:role]
+    new_role_atom = if is_binary(new_role), do: String.to_existing_atom(new_role), else: new_role
+
+    with :ok <- authorize_role_change(user_group, new_role_atom, actor),
+         :ok <- validate_owner_count(user_group, new_role_atom) do
+      do_update_user_group_role(user_group, attrs)
+    end
+  end
+
+  defp authorize_role_change(%UserGroup{role: current_role}, new_role, actor) do
+    cond do
+      current_role == :owner and actor.role != :owner ->
+        {:error, :only_owner_can_change_owner}
+
+      new_role == :owner and actor.role != :owner ->
+        {:error, :only_owner_can_grant_owner}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_owner_count(%UserGroup{role: :owner, group_id: group_id} = _user_group, new_role)
+       when new_role != :owner do
+    owner_count =
+      from(ug in UserGroup,
+        where: ug.group_id == ^group_id and ug.role == :owner,
+        select: count(ug.id)
+      )
+      |> Repo.one()
+
+    if owner_count <= 1 do
+      {:error, :must_have_at_least_one_owner}
+    else
+      :ok
+    end
+  end
+
+  defp validate_owner_count(_user_group, _new_role), do: :ok
+
+  defp do_update_user_group_role(%UserGroup{} = user_group, attrs) do
     return =
       Repo.transaction_on_primary(fn ->
         user_group
@@ -739,7 +834,7 @@ defmodule Mosslet.Groups do
   @doc """
   Subscribe to a particular group's messages.
   """
-  def group_subscribe(group) do
+  def group_subscribe(group) when is_struct(group) do
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "group:#{group.id}")
   end
 

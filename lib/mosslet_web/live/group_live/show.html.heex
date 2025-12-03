@@ -1,6 +1,6 @@
 <.layout current_page={:groups} current_user={@current_user} key={@key} type="sidebar">
   <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-    <div class="px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
+    <MossletWeb.DesignSystem.liquid_container max_width="xl" class="pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="flex items-center justify-between gap-4 mb-6">
         <div class="flex items-center gap-3 min-w-0">
           <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 flex-shrink-0">
@@ -31,7 +31,7 @@
             size="sm"
             icon="hero-cog-6-tooth"
           >
-            <span class="hidden sm:inline">Settings</span>
+            <span class="sr-only sm:not-sr-only">Settings</span>
           </MossletWeb.DesignSystem.liquid_button>
 
           <MossletWeb.DesignSystem.liquid_button
@@ -41,11 +41,11 @@
             size="sm"
             icon="hero-arrow-left"
           >
-            <span class="hidden sm:inline">Back</span>
+            <span class="sr-only sm:not-sr-only">Back</span>
           </MossletWeb.DesignSystem.liquid_button>
         </div>
       </div>
-    </div>
+    </MossletWeb.DesignSystem.liquid_container>
 
     <MossletWeb.DesignSystem.liquid_container max_width="xl" class="pb-8">
       <MossletWeb.DesignSystem.liquid_card class="overflow-hidden p-0">

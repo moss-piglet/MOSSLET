@@ -33,7 +33,7 @@ defmodule MossletWeb.ModernSidebarLayout do
     >
       <%!-- Mobile sidebar backdrop --%>
       <div
-        class="fixed inset-0 z-40 lg:hidden"
+        class="fixed inset-0 z-40 xl:hidden"
         x-show="sidebarOpen"
         x-transition:enter="transition-opacity ease-linear duration-200"
         x-transition:enter-start="opacity-0"
@@ -49,7 +49,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       </div>
 
       <%!-- Desktop sidebar --%>
-      <aside class="hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:w-72 lg:flex-col">
+      <aside class="hidden xl:fixed xl:inset-y-0 xl:z-30 xl:flex xl:w-72 xl:flex-col">
         <div class={[
           "flex grow flex-col gap-y-6 overflow-y-auto px-6 pb-4",
           "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
@@ -83,7 +83,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       </aside>
 
       <%!-- Mobile sidebar --%>
-      <aside class="relative z-50 lg:hidden" aria-label="Mobile sidebar">
+      <aside class="relative z-50 xl:hidden" aria-label="Mobile sidebar">
         <div
           class={[
             "fixed z-50 w-72 flex flex-col px-0 pb-4",
@@ -135,7 +135,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       </aside>
 
       <%!-- Main content --%>
-      <div class="lg:pl-72">
+      <div class="xl:pl-72">
         <%!-- Top bar --%>
         <header class={[
           "sticky top-0 z-15 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
@@ -148,7 +148,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           <button
             @click="sidebarOpen = !sidebarOpen"
             class={[
-              "group p-2.5 lg:hidden rounded-lg transition-all duration-200 ease-out",
+              "group p-2.5 xl:hidden rounded-lg transition-all duration-200 ease-out",
               "text-slate-700 dark:text-slate-200",
               "hover:bg-gradient-to-br hover:from-slate-100 hover:to-slate-50",
               "dark:hover:from-slate-700 dark:hover:to-slate-600",
@@ -160,7 +160,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           </button>
 
           <%!-- Separator --%>
-          <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 lg:hidden" aria-hidden="true"></div>
+          <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 xl:hidden" aria-hidden="true"></div>
 
           <%!-- Right side content --%>
           <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">

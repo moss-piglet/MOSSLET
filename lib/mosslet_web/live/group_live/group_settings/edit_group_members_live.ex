@@ -19,22 +19,27 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       edit_group_name={"Edit #{decr_item(@group.name, @current_user, @current_user_group.key, @key, @group)} Members"}
     >
       <div class="space-y-6">
-        <div class="flex items-center justify-between mb-2">
-          <div>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div class="space-y-1">
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
               Group Members
-            </h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            </h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
               Manage roles and permissions for members in this group
             </p>
           </div>
-          <.liquid_badge color="teal">
+          <.liquid_badge color="teal" size="md">
+            <.phx_icon name="hero-users" class="w-4 h-4 mr-1.5" />
             {length(@group.user_groups)} members
           </.liquid_badge>
-        </div>
+        </header>
 
-        <div class="space-y-3">
-          <div :for={ug <- @group.user_groups} id={ug.id}>
+        <div
+          role="list"
+          aria-label="Group members"
+          class="grid gap-3 sm:gap-4"
+        >
+          <div :for={ug <- @group.user_groups} role="listitem">
             <.member_card
               user_group={ug}
               current_user_group={@current_user_group}
@@ -45,42 +50,59 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
           </div>
         </div>
 
-        <div class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
-          <div class="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-teal-50/50 to-emerald-50/50 dark:from-teal-900/20 dark:to-emerald-900/20 border border-teal-200/40 dark:border-teal-700/40">
-            <.phx_icon
-              name="hero-shield-check"
-              class="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5"
-            />
-            <div class="text-sm">
-              <p class="font-medium text-teal-800 dark:text-teal-200">Privacy-First Permissions</p>
-              <p class="text-teal-700 dark:text-teal-300 mt-1">
-                Member roles determine what actions they can take within the group. All group data remains encrypted and private.
+        <aside
+          aria-label="Privacy information"
+          class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60"
+        >
+          <div class={[
+            "flex items-start gap-4 p-4 sm:p-5 rounded-xl",
+            "bg-gradient-to-br from-teal-50/60 via-emerald-50/40 to-cyan-50/60",
+            "dark:from-teal-900/25 dark:via-emerald-900/20 dark:to-cyan-900/25",
+            "border border-teal-200/50 dark:border-teal-700/40",
+            "shadow-sm shadow-teal-500/5 dark:shadow-teal-400/5"
+          ]}>
+            <div class={[
+              "flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg",
+              "bg-gradient-to-br from-teal-500 to-emerald-600",
+              "shadow-md shadow-emerald-500/30 dark:shadow-emerald-400/20"
+            ]}>
+              <.phx_icon name="hero-shield-check" class="w-5 h-5 text-white" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold text-teal-800 dark:text-teal-200">
+                Privacy-First Permissions
+              </h3>
+              <p class="mt-1 text-sm text-teal-700 dark:text-teal-300 leading-relaxed">
+                Member roles determine what actions they can take within the group.
+                All group data remains encrypted and private.
               </p>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
 
-      <.liquid_modal
-        :if={@live_action in [:edit_member]}
-        id="user-group-edit-modal"
-        show
-        on_cancel={JS.patch(~p"/app/groups/#{@group}/edit-group-members")}
-      >
-        <:title>Edit Member Role</:title>
-        <.live_component
-          module={MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent}
-          id="user-group-edit"
-          title={@page_title}
-          action={@live_action}
-          group={@group}
-          current_user_group={@current_user_group}
-          user_group={@user_group}
-          patch={~p"/app/groups/#{@group}/edit-group-members"}
-          current_user={@current_user}
-          key={@key}
-        />
-      </.liquid_modal>
+      <div id="user-group-edit-modal-component-container">
+        <.liquid_modal
+          :if={@live_action in [:edit_member]}
+          id="user-group-edit-modal"
+          show
+          on_cancel={JS.patch(~p"/app/groups/#{@group}/edit-group-members")}
+        >
+          <:title>Edit Member Role</:title>
+          <.live_component
+            module={MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent}
+            id="user-group-edit"
+            title={@page_title}
+            action={@live_action}
+            group={@group}
+            current_user_group={@current_user_group}
+            user_group={@user_group}
+            patch={~p"/app/groups/#{@group}/edit-group-members"}
+            current_user={@current_user}
+            key={@key}
+          />
+        </.liquid_modal>
+      </div>
     </.settings_group_layout>
     """
   end
@@ -94,7 +116,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   defp member_card(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
     is_owner = assigns.current_user_group.role == :owner
-    can_edit = !is_self || !is_owner
+    target_is_owner = assigns.user_group.role == :owner
+    can_edit = (!is_self || !is_owner) && (is_owner || !target_is_owner)
 
     assigns =
       assigns
@@ -105,14 +128,36 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     <div
       id={@user_group.id <> "-edit-member-button"}
       phx-click={if @can_edit, do: JS.patch(~p"/app/groups/user_group/#{@user_group.id}/edit-member")}
+      role={if @can_edit, do: "button", else: nil}
+      tabindex={if @can_edit, do: "0", else: nil}
+      aria-label={
+        if @can_edit,
+          do:
+            "Edit role for #{decr_item(@user_group.name, @current_user, @current_user_group.key, @key, @group)}",
+          else: nil
+      }
+      phx-keydown={
+        if @can_edit, do: JS.patch(~p"/app/groups/user_group/#{@user_group.id}/edit-member")
+      }
+      phx-key="Enter"
       class={[
-        "group relative flex items-center gap-4 p-4 rounded-xl",
-        "bg-white/80 dark:bg-slate-800/60 backdrop-blur-sm",
+        "group relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-5 rounded-xl",
+        "bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm",
         "border border-slate-200/60 dark:border-slate-700/60",
         "transition-all duration-200 ease-out transform-gpu",
+        "shadow-sm shadow-slate-900/5 dark:shadow-slate-900/20",
         @can_edit &&
-          "cursor-pointer hover:bg-gradient-to-r hover:from-teal-50/60 hover:via-emerald-50/40 hover:to-teal-50/60 dark:hover:from-teal-900/20 dark:hover:via-emerald-900/15 dark:hover:to-teal-900/20 hover:border-teal-300/60 dark:hover:border-teal-700/60 hover:shadow-lg hover:shadow-teal-500/10",
-        !@can_edit && "opacity-80"
+          [
+            "cursor-pointer",
+            "hover:bg-gradient-to-r hover:from-teal-50/70 hover:via-emerald-50/50 hover:to-cyan-50/70",
+            "dark:hover:from-teal-900/25 dark:hover:via-emerald-900/20 dark:hover:to-cyan-900/25",
+            "hover:border-teal-300/70 dark:hover:border-teal-700/70",
+            "hover:shadow-lg hover:shadow-teal-500/10 dark:hover:shadow-teal-400/10",
+            "hover:-translate-y-0.5",
+            "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+            "dark:focus:ring-offset-slate-900"
+          ],
+        !@can_edit && "opacity-85"
       ]}
       data-tippy-content={
         if !@can_edit,
@@ -121,70 +166,201 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       }
       phx-hook="TippyHook"
     >
-      <div class="relative flex-shrink-0">
-        <.phx_avatar
-          :if={@current_user_group.id != @user_group.id}
-          src={
-            get_user_avatar(
-              get_uconn_for_users(
-                get_user_from_user_group_id(@user_group.id),
-                @current_user
-              ),
-              @key
-            )
-          }
-          alt=""
-          class={"w-12 h-12 #{group_avatar_role_style(@user_group.role)}"}
-        />
-        <.phx_avatar
-          :if={@current_user_group.user_id == @user_group.user_id}
-          src={maybe_get_user_avatar(@current_user, @key)}
-          alt=""
-          class={"w-12 h-12 #{group_avatar_role_style(@user_group.role)}"}
-        />
+      <div class={[
+        "absolute inset-0 rounded-xl opacity-0 transition-all duration-300 ease-out pointer-events-none",
+        "bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent",
+        "dark:via-emerald-400/10",
+        @can_edit && "group-hover:opacity-100 group-hover:translate-x-full -translate-x-full"
+      ]}>
       </div>
 
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="font-semibold text-slate-900 dark:text-slate-100 truncate">
-            {decr_item(
-              @user_group.name,
-              @current_user,
-              @current_user_group.key,
-              @key,
-              @group
-            )}
-          </span>
-          <.liquid_badge :if={@is_self} color="cyan" size="sm">You</.liquid_badge>
+      <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+        <div class="relative flex-shrink-0 p-1">
+          <.phx_avatar
+            :if={@current_user_group.id != @user_group.id}
+            src={
+              get_user_avatar(
+                get_uconn_for_users(
+                  get_user_from_user_group_id(@user_group.id),
+                  @current_user
+                ),
+                @key
+              )
+            }
+            alt=""
+            class={"w-10 h-10 sm:w-12 sm:h-12 #{role_avatar_ring(@user_group.role)}"}
+          />
+          <.phx_avatar
+            :if={@current_user_group.user_id == @user_group.user_id}
+            src={maybe_get_user_avatar(@current_user, @key)}
+            alt=""
+            class={"w-10 h-10 sm:w-12 sm:h-12 #{role_avatar_ring(@user_group.role)}"}
+          />
+          <div
+            :if={@is_self}
+            class={[
+              "absolute -bottom-1 -right-1 w-5 h-5 rounded-full",
+              "bg-gradient-to-br from-cyan-500 to-teal-600",
+              "border-2 border-white dark:border-slate-800",
+              "flex items-center justify-center",
+              "shadow-md shadow-cyan-500/30"
+            ]}
+            aria-hidden="true"
+          >
+            <.phx_icon name="hero-check-mini" class="w-3 h-3 text-white" />
+          </div>
         </div>
 
-        <div class="flex items-center gap-3 text-sm">
-          <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-            <.phx_icon name="hero-finger-print" class="w-4 h-4 text-teal-500 dark:text-teal-400" />
-            <span class="truncate max-w-[140px]">
+        <div class="flex-1 min-w-0 space-y-1.5 overflow-hidden">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">
               {decr_item(
-                @user_group.moniker,
+                @user_group.name,
                 @current_user,
                 @current_user_group.key,
                 @key,
                 @group
               )}
             </span>
-          </span>
-          <.liquid_badge color={role_badge_color(@user_group.role)} size="sm">
-            {String.capitalize(Atom.to_string(@user_group.role))}
-          </.liquid_badge>
+            <.liquid_badge :if={@is_self} color="cyan" size="xs" variant="soft">
+              You
+            </.liquid_badge>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-1 text-xs sm:text-sm">
+            <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 min-w-0">
+              <.phx_icon
+                name="hero-finger-print"
+                class="w-4 h-4 text-teal-500 dark:text-teal-400 flex-shrink-0"
+              />
+              <span class="truncate">
+                {decr_item(
+                  @user_group.moniker,
+                  @current_user,
+                  @current_user_group.key,
+                  @key,
+                  @group
+                )}
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
-      <div
-        :if={@can_edit}
-        class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-      >
-        <.phx_icon name="hero-pencil-square" class="w-5 h-5 text-teal-500 dark:text-teal-400" />
+      <div class="flex items-center justify-end gap-2 sm:gap-3 sm:flex-shrink-0">
+        <.role_badge role={@user_group.role} />
+
+        <div
+          :if={@can_edit}
+          class={[
+            "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg",
+            "bg-slate-100/80 dark:bg-slate-700/60",
+            "text-slate-400 dark:text-slate-500",
+            "transition-all duration-200 transform-gpu",
+            "group-hover:bg-gradient-to-br group-hover:from-teal-500 group-hover:to-emerald-600",
+            "group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/30"
+          ]}
+          aria-hidden="true"
+        >
+          <.phx_icon name="hero-pencil-square" class="w-4 h-4" />
+        </div>
       </div>
     </div>
     """
+  end
+
+  attr :role, :atom, required: true
+
+  defp role_badge(assigns) do
+    {color, icon} =
+      case assigns.role do
+        :owner -> {"pink", "hero-star"}
+        :admin -> {"orange", "hero-shield-check"}
+        :moderator -> {"purple", "hero-wrench"}
+        :member -> {"emerald", "hero-user"}
+        _ -> {"teal", "hero-user"}
+      end
+
+    assigns =
+      assigns
+      |> assign(:color, color)
+      |> assign(:icon, icon)
+
+    ~H"""
+    <span class={[
+      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold",
+      "transition-all duration-200 transform-gpu",
+      role_badge_styles(@color)
+    ]}>
+      <.phx_icon name={@icon} class="w-3.5 h-3.5" />
+      {String.capitalize(Atom.to_string(@role))}
+    </span>
+    """
+  end
+
+  defp role_badge_styles("pink") do
+    [
+      "bg-gradient-to-r from-pink-100 to-rose-100 text-pink-700",
+      "dark:from-pink-900/40 dark:to-rose-900/40 dark:text-pink-300",
+      "border border-pink-200/60 dark:border-pink-700/50",
+      "shadow-sm shadow-pink-500/10 dark:shadow-pink-400/10"
+    ]
+  end
+
+  defp role_badge_styles("orange") do
+    [
+      "bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700",
+      "dark:from-orange-900/40 dark:to-amber-900/40 dark:text-orange-300",
+      "border border-orange-200/60 dark:border-orange-700/50",
+      "shadow-sm shadow-orange-500/10 dark:shadow-orange-400/10"
+    ]
+  end
+
+  defp role_badge_styles("purple") do
+    [
+      "bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700",
+      "dark:from-purple-900/40 dark:to-violet-900/40 dark:text-purple-300",
+      "border border-purple-200/60 dark:border-purple-700/50",
+      "shadow-sm shadow-purple-500/10 dark:shadow-purple-400/10"
+    ]
+  end
+
+  defp role_badge_styles("emerald") do
+    [
+      "bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700",
+      "dark:from-emerald-900/40 dark:to-teal-900/40 dark:text-emerald-300",
+      "border border-emerald-200/60 dark:border-emerald-700/50",
+      "shadow-sm shadow-emerald-500/10 dark:shadow-emerald-400/10"
+    ]
+  end
+
+  defp role_badge_styles(_color) do
+    [
+      "bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-700",
+      "dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300",
+      "border border-teal-200/60 dark:border-teal-700/50",
+      "shadow-sm shadow-teal-500/10 dark:shadow-teal-400/10"
+    ]
+  end
+
+  defp role_avatar_ring(:owner) do
+    "rounded-full ring-2 ring-pink-400 dark:ring-pink-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-800"
+  end
+
+  defp role_avatar_ring(:admin) do
+    "rounded-full ring-2 ring-orange-400 dark:ring-orange-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-800"
+  end
+
+  defp role_avatar_ring(:moderator) do
+    "rounded-full ring-2 ring-purple-400 dark:ring-purple-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-800"
+  end
+
+  defp role_avatar_ring(:member) do
+    "rounded-full ring-2 ring-emerald-400 dark:ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-800"
+  end
+
+  defp role_avatar_ring(_role) do
+    "rounded-full ring-2 ring-teal-300 dark:ring-teal-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-800"
   end
 
   @impl true
@@ -293,5 +469,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     socket
     |> assign(:page_title, "Edit Group Members")
     |> assign(:group, Mosslet.Groups.get_group!(id))
+  end
+
+  @impl true
+  def handle_event("restore-body-scroll", _params, socket) do
+    {:noreply, socket}
   end
 end
