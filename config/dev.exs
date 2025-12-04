@@ -90,7 +90,7 @@ config :mosslet, :billing_products, [
       "Enjoy lifetime access with a one-time payment. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
     most_popular: false,
     features: [
-      "Unlimited Connections, Groups, and Posts",
+      "Unlimited Connections, Circles, and Posts",
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",

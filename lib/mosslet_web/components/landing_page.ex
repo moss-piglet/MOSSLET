@@ -23,7 +23,7 @@ defmodule MossletWeb.Components.LandingPage do
       |> assign_new(:features, fn ->
         [
           %{
-            title: "Groups",
+            title: "Circles",
             description:
               "Share and remember with the people in your life, no one else. Your memories are yours.",
             icon: :user_group,
@@ -413,10 +413,10 @@ defmodule MossletWeb.Components.LandingPage do
                   />
                   <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
                 </svg>
-                Groups, Memories, Posts, and more.
+                Circles, Memories, Posts, and more.
               </dt>
               <dd class="inline">
-                Make Groups to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. All images are checked for safety against a fine-tuned, pre-trained AI model running on our private servers before being uploaded.
+                Make Circles to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. All images are checked for safety against a fine-tuned, pre-trained AI model running on our private servers before being uploaded.
               </dd>
             </div>
             <div class="relative pl-9">
@@ -438,7 +438,7 @@ defmodule MossletWeb.Components.LandingPage do
                 The right to start over.
               </dt>
               <dd class="inline">
-                Empower your personal growth and discovery by starting fresh whenever you want. Easily delete all of your Connections, Posts, Memories, Groups, Remarks and more across our service in real-time without deleting your account. On MOSSLET, you're in control of your identity and free to be any version of your self, every time.
+                Empower your personal growth and discovery by starting fresh whenever you want. Easily delete all of your Connections, Posts, Memories, Circles, Remarks and more across our service in real-time without deleting your account. On MOSSLET, you're in control of your identity and free to be any version of your self, every time.
               </dd>
             </div>
             <div class="relative pl-9">
@@ -1747,7 +1747,7 @@ defmodule MossletWeb.Components.LandingPage do
                     clip-rule="evenodd"
                   />
                 </svg>
-                Unlimited Connections, Groups, and Posts
+                Unlimited Connections, Circles, and Posts
               </li>
               <li class="flex gap-x-3">
                 <svg

@@ -50,7 +50,7 @@ defmodule MossletWeb.PublicLive.Pricing do
                 </h1>
 
                 <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
-                  Pay once, own forever. No subscriptions. No recurring fees. No surprises. One simple payment gives you lifetime access to privacy and peace of mind.
+                  Say goodbye to never-ending subscription fees. One simple payment gives you lifetime access—no hidden costs, no surprises.
                 </p>
 
                 <%!-- Decorative accent line matching support/FAQ style --%>
@@ -82,7 +82,7 @@ defmodule MossletWeb.PublicLive.Pricing do
                   cta_icon="hero-rocket-launch"
                   featured={true}
                   features={[
-                    "Unlimited Connections, Groups, and Posts",
+                    "Unlimited Connections, Circles, and Posts",
                     "Unlimited new features",
                     "Streamlined settings",
                     "Own your data",
