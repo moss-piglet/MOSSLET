@@ -54,23 +54,30 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         end
       end
 
+    is_self = assigns.user_group.id == assigns.message.sender_id
+    is_connected = not is_nil(uconn)
+
     sender_name =
-      if assigns.message.sender.name do
-        initials(
-          decr_item(
-            assigns.message.sender.name,
-            assigns.current_user,
-            assigns.user_group.key,
-            assigns.key,
-            assigns.group
+      if is_self || is_connected do
+        if assigns.message.sender.name do
+          initials(
+            decr_item(
+              assigns.message.sender.name,
+              assigns.current_user,
+              assigns.user_group.key,
+              assigns.key,
+              assigns.group
+            )
           )
-        )
+        else
+          maybe_decr_username_for_user_group(
+            assigns.message.sender.user_id,
+            assigns.current_user,
+            assigns.key
+          )
+        end
       else
-        maybe_decr_username_for_user_group(
-          assigns.message.sender.user_id,
-          assigns.current_user,
-          assigns.key
-        )
+        nil
       end
 
     moniker =

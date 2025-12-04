@@ -5,6 +5,30 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
 
   @impl true
   def render(assigns) do
+    uconn =
+      get_uconn_for_users(
+        get_user_from_user_group_id(assigns.user_group.id),
+        assigns.current_user
+      )
+
+    is_connected = not is_nil(uconn)
+    is_self = assigns.user_group.id == assigns.current_user_group.id
+
+    member_name =
+      if is_self || is_connected do
+        decr_item(
+          assigns.user_group.name,
+          assigns.current_user,
+          assigns.current_user_group.key,
+          assigns.key,
+          assigns.group
+        )
+      else
+        nil
+      end
+
+    assigns = assign(assigns, :member_name, member_name)
+
     ~H"""
     <div class="space-y-5">
       <div class={[
@@ -27,14 +51,11 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
           class={"w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 " <> avatar_ring_for_role(@user_group.role)}
         />
         <div class="min-w-0 flex-1">
-          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate">
-            {decr_item(
-              @user_group.name,
-              @current_user,
-              @current_user_group.key,
-              @key,
-              @group
-            )}
+          <h3
+            :if={@member_name}
+            class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate"
+          >
+            {@member_name}
           </h3>
           <div class="flex items-center gap-2 mt-1.5 text-sm text-slate-500 dark:text-slate-400">
             <.phx_icon

@@ -10,13 +10,16 @@ defmodule Mosslet.Groups do
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
   alias Mosslet.Encrypted
-  alias Mosslet.Groups.{Group, UserGroup}
+  alias Mosslet.Groups.{Group, GroupBlock, UserGroup}
 
   @existing_unconfirmed_group_event_atoms_list [
     :group_created_unconfirmed,
     :group_joined_unconfirmed,
     :group_updated_unconfirmed,
     :group_deleted_unconfirmed,
+    :group_member_kicked_unconfirmed,
+    :group_member_blocked_unconfirmed,
+    :group_member_unblocked_unconfirmed,
     :group_updated_member_unconfirmed,
     :group_updated_members_removed_unconfirmed
   ]
@@ -51,11 +54,18 @@ defmodule Mosslet.Groups do
 
   """
   def list_unconfirmed_groups(user, _opts \\ []) do
+    blocked_group_ids =
+      from(gb in GroupBlock,
+        where: gb.user_id == ^user.id,
+        select: gb.group_id
+      )
+
     from(g in Group,
       join: ug in UserGroup,
       on: ug.group_id == g.id,
       where: ug.user_id == ^user.id,
       where: is_nil(ug.confirmed_at),
+      where: g.id not in subquery(blocked_group_ids),
       order_by: [desc: g.inserted_at],
       preload: [:user_groups]
     )
@@ -102,10 +112,17 @@ defmodule Mosslet.Groups do
         select: ug.group_id
       )
 
+    blocked_group_ids =
+      from(gb in GroupBlock,
+        where: gb.user_id == ^user.id,
+        select: gb.group_id
+      )
+
     query =
       from(g in Group,
         where: g.public? == true,
         where: g.id not in subquery(user_group_ids),
+        where: g.id not in subquery(blocked_group_ids),
         order_by: [desc: g.inserted_at],
         limit: ^limit,
         offset: ^offset,
@@ -130,10 +147,17 @@ defmodule Mosslet.Groups do
         select: ug.group_id
       )
 
+    blocked_group_ids =
+      from(gb in GroupBlock,
+        where: gb.user_id == ^user.id,
+        select: gb.group_id
+      )
+
     query =
       from(g in Group,
         where: g.public? == true,
-        where: g.id not in subquery(user_group_ids)
+        where: g.id not in subquery(user_group_ids),
+        where: g.id not in subquery(blocked_group_ids)
       )
 
     query =
@@ -387,45 +411,53 @@ defmodule Mosslet.Groups do
   end
 
   defp do_join_public_group(group, user, key) do
-    owner_user_group = Enum.find(group.user_groups, &(&1.role == :owner))
-
-    if owner_user_group do
-      case Encrypted.Users.Utils.decrypt_public_item_key(owner_user_group.key) do
-        nil ->
-          {:error, :decryption_failed}
-
-        decrypted_group_key ->
-          decrypted_name =
-            Encrypted.Users.Utils.decrypt_user_item(
-              user.name || user.username,
-              user,
-              user.user_key,
-              key
-            )
-
-          attrs = %{
-            name: decrypted_name,
-            key: decrypted_group_key,
-            role: "member",
-            group_id: group.id,
-            user_id: user.id,
-            confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-          }
-
-          case create_user_group(attrs, user: user, key: key, public?: true) do
-            {:ok, {:ok, user_group}} ->
-              broadcast({:ok, group}, :group_joined)
-              {:ok, user_group}
-
-            {:ok, {:error, changeset}} ->
-              {:error, changeset}
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-      end
+    if user_blocked?(group.id, user.id) do
+      {:error, :blocked}
     else
-      {:error, :no_owner}
+      owner_user_group = Enum.find(group.user_groups, &(&1.role == :owner))
+
+      if owner_user_group do
+        case Encrypted.Users.Utils.decrypt_public_item_key(owner_user_group.key) do
+          nil ->
+            {:error, :decryption_failed}
+
+          decrypted_group_key ->
+            decrypted_name =
+              Encrypted.Users.Utils.decrypt_user_item(
+                user.name || user.username,
+                user,
+                user.user_key,
+                key
+              )
+
+            attrs = %{
+              name: decrypted_name,
+              key: decrypted_group_key,
+              role: "member",
+              group_id: group.id,
+              user_id: user.id,
+              confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+            }
+
+            case create_user_group(attrs, user: user, key: key, public?: true) do
+              {:ok, {:ok, user_group}} ->
+                group = get_group!(user_group.group_id)
+
+                {:ok, group}
+                |> broadcast(:group_joined)
+
+                {:ok, user_group}
+
+              {:ok, {:error, changeset}} ->
+                {:error, changeset}
+
+              {:error, reason} ->
+                {:error, reason}
+            end
+        end
+      else
+        {:error, :no_owner}
+      end
     end
   end
 
@@ -645,6 +677,9 @@ defmodule Mosslet.Groups do
   def get_user_group!(id),
     do: Repo.get!(UserGroup, id) |> Repo.preload([:user, group: :user_groups])
 
+  def get_user_group(id),
+    do: Repo.get(UserGroup, id) |> Repo.preload([:user, group: :user_groups])
+
   def get_user_group_with_user!(id), do: Repo.get!(UserGroup, id) |> Repo.preload([:user])
 
   @doc """
@@ -749,6 +784,178 @@ defmodule Mosslet.Groups do
     UserGroup.role_changeset(user_group, attrs)
   end
 
+  @role_levels %{owner: 4, admin: 3, moderator: 2, member: 1}
+
+  @doc """
+  Checks if the actor role can moderate the target role.
+
+  Role hierarchy (highest to lowest):
+    - Owner (4): can moderate admin, moderator, member
+    - Admin (3): can moderate moderator, member
+    - Moderator (2): can moderate member only
+    - Member (1): cannot moderate anyone
+
+  ## Examples
+
+      iex> can_moderate?(:owner, :admin)
+      true
+
+      iex> can_moderate?(:admin, :owner)
+      false
+
+      iex> can_moderate?(:moderator, :moderator)
+      false
+  """
+  def can_moderate?(actor_role, target_role) do
+    @role_levels[actor_role] > @role_levels[target_role]
+  end
+
+  @doc """
+  Kicks a member from a group (removes them but doesn't block).
+
+  The actor must have a higher role than the target.
+  """
+  def kick_member(%UserGroup{} = actor, %UserGroup{} = target) do
+    cond do
+      actor.group_id != target.group_id ->
+        {:error, :different_groups}
+
+      actor.id == target.id ->
+        {:error, :cannot_kick_self}
+
+      not can_moderate?(actor.role, target.role) ->
+        {:error, :insufficient_permissions}
+
+      true ->
+        case delete_user_group(target) do
+          {:ok, user_group} ->
+            broadcast(
+              {:ok, get_group!(user_group.group_id), target.user_id},
+              :group_member_kicked
+            )
+
+            {:ok, user_group}
+
+          error ->
+            error
+        end
+    end
+  end
+
+  @doc """
+  Blocks a member from a group (removes them and prevents rejoining).
+
+  The actor must have a higher role than the target.
+  For public groups, this prevents the user from rejoining.
+  For private groups, they would need to be re-invited.
+  """
+  def block_member(%UserGroup{} = actor, %UserGroup{} = target) do
+    cond do
+      actor.group_id != target.group_id ->
+        {:error, :different_groups}
+
+      actor.id == target.id ->
+        {:error, :cannot_block_self}
+
+      not can_moderate?(actor.role, target.role) ->
+        {:error, :insufficient_permissions}
+
+      true ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:block, fn _changes ->
+          %GroupBlock{}
+          |> GroupBlock.changeset(%{
+            group_id: actor.group_id,
+            user_id: target.user_id,
+            blocked_by_id: actor.user_id,
+            blocked_moniker: target.moniker,
+            reason: "Blocked by group moderator"
+          })
+        end)
+        |> Ecto.Multi.run(:remove_member, fn repo, _changes ->
+          case repo.delete(target) do
+            {:ok, user_group} ->
+              broadcast_user_group({:ok, user_group}, :user_group_deleted)
+
+            error ->
+              error
+          end
+        end)
+        |> Repo.transaction_on_primary()
+        |> case do
+          {:ok, %{block: block, remove_member: _}} ->
+            broadcast({:ok, get_group!(actor.group_id), target.user_id}, :group_member_blocked)
+            {:ok, block}
+
+          {:error, :block, changeset, _} ->
+            {:error, changeset}
+
+          {:error, :remove_member, changeset, _} ->
+            {:error, changeset}
+        end
+    end
+  end
+
+  @doc """
+  Unblocks a user from a group, allowing them to rejoin.
+  """
+  def unblock_member(%UserGroup{} = actor, %GroupBlock{} = block) do
+    if actor.role in [:owner, :admin] and actor.group_id == block.group_id do
+      case Repo.delete(block) do
+        {:ok, block} ->
+          target_user_id = block.user_id
+          broadcast({:ok, get_group!(actor.group_id), target_user_id}, :group_member_unblocked)
+          {:ok, block}
+
+        error ->
+          error
+      end
+    else
+      {:error, :insufficient_permissions}
+    end
+  end
+
+  @doc """
+  Lists all blocked users for a group.
+  """
+  def list_blocked_users(group_id) do
+    from(gb in GroupBlock,
+      where: gb.group_id == ^group_id,
+      preload: [:user, :blocked_by]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Checks if a user is blocked from a group.
+  """
+  def user_blocked?(group_id, user_id) do
+    from(gb in GroupBlock,
+      where: gb.group_id == ^group_id and gb.user_id == ^user_id
+    )
+    |> Repo.exists?()
+  end
+
+  @doc """
+  Gets a specific block record.
+  """
+  def get_group_block(group_id, user_id) do
+    from(gb in GroupBlock,
+      where: gb.group_id == ^group_id and gb.user_id == ^user_id,
+      preload: [:user, :blocked_by]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets a specific block record by id. Raises if not found.
+  """
+  def get_group_block!(id) do
+    GroupBlock
+    |> Repo.get!(id)
+    |> Repo.preload([:user, :blocked_by])
+  end
+
   @doc """
   Updates a user_group's role with authorization checks.
 
@@ -851,6 +1058,24 @@ defmodule Mosslet.Groups do
       {event, user_group}
     )
 
+    Phoenix.PubSub.broadcast(
+      Mosslet.PubSub,
+      "group:#{user_group.user_id}",
+      {event, user_group}
+    )
+
+    user_group = Repo.preload(user_group, group: :user_groups)
+
+    Enum.each(user_group.group.user_groups, fn ug ->
+      if ug.user_id != user_group.user_id do
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "group:#{ug.user_id}",
+          {event, user_group}
+        )
+      end
+    end)
+
     {:ok, user_group}
   end
 
@@ -858,29 +1083,74 @@ defmodule Mosslet.Groups do
     member_broadcast({:ok, group}, event)
   end
 
-  defp member_broadcast({:ok, group}, event) do
-    Enum.each(group.user_groups, fn user_group ->
-      cond do
-        is_nil(user_group.confirmed_at) ->
-          existing_event_atom = String.to_existing_atom(Atom.to_string(event) <> "_unconfirmed")
+  defp broadcast({:ok, group, target_user_id}, event) do
+    member_broadcast({:ok, group}, event, target_user_id)
+  end
 
-          if existing_event_atom in @existing_unconfirmed_group_event_atoms_list do
-            Phoenix.PubSub.broadcast(
-              Mosslet.PubSub,
-              "group:#{user_group.user_id}",
-              {existing_event_atom, group}
-            )
+  defp member_broadcast({:ok, group}, event, target_user_id \\ nil) do
+    message = if target_user_id, do: {group, target_user_id}, else: group
+
+    case message do
+      {group, target_user_id} ->
+        Enum.each(group.user_groups, fn user_group ->
+          cond do
+            is_nil(user_group.confirmed_at) ->
+              existing_event_atom =
+                String.to_existing_atom(Atom.to_string(event) <> "_unconfirmed")
+
+              if existing_event_atom in @existing_unconfirmed_group_event_atoms_list do
+                Phoenix.PubSub.broadcast(
+                  Mosslet.PubSub,
+                  "group:#{user_group.user_id}",
+                  {existing_event_atom, message}
+                )
+              end
+
+            true ->
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "group:#{user_group.user_id}",
+                {event, message}
+              )
           end
+        end)
 
-        true ->
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "group:#{user_group.user_id}",
-            {event, group}
-          )
-      end
-    end)
+        # When there's a target_user_id (like kicking or blocking a member from a group), then
+        # we send a separate single broadcast to that target_user_id as they will no longer have
+        # a user_group (to handle redirects if they're on the page)
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "group:#{target_user_id}",
+          {event, message}
+        )
 
-    {:ok, group}
+        {:ok, group}
+
+      group ->
+        Enum.each(group.user_groups, fn user_group ->
+          cond do
+            is_nil(user_group.confirmed_at) ->
+              existing_event_atom =
+                String.to_existing_atom(Atom.to_string(event) <> "_unconfirmed")
+
+              if existing_event_atom in @existing_unconfirmed_group_event_atoms_list do
+                Phoenix.PubSub.broadcast(
+                  Mosslet.PubSub,
+                  "group:#{user_group.user_id}",
+                  {existing_event_atom, group}
+                )
+              end
+
+            true ->
+              Phoenix.PubSub.broadcast(
+                Mosslet.PubSub,
+                "group:#{user_group.user_id}",
+                {event, group}
+              )
+          end
+        end)
+
+        {:ok, group}
+    end
   end
 end

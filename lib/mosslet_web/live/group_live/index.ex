@@ -462,7 +462,7 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_info({:group_joined_unconfirmed, group}, socket) do
-    {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
   end
 
   @impl true
@@ -479,9 +479,102 @@ defmodule MossletWeb.GroupLive.Index do
   end
 
   @impl true
+  def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
+    if kicked_user_id == socket.assigns.current_user.id do
+      new_group_count = Groups.group_count_confirmed(socket.assigns.current_user)
+
+      {:noreply,
+       socket
+       |> assign(:group_count, new_group_count)
+       |> stream_delete(:groups, group)}
+    else
+      {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
+    if blocked_user_id == socket.assigns.current_user.id do
+      new_group_count = Groups.group_count_confirmed(socket.assigns.current_user)
+
+      {:noreply,
+       socket
+       |> assign(:group_count, new_group_count)
+       |> stream_delete(:groups, group)}
+    else
+      {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_unblocked, {group, blocked_user_id}}, socket) do
+    if blocked_user_id == socket.assigns.current_user.id do
+      current_user = socket.assigns.current_user
+      per_page = socket.assigns.options.per_page
+      search_term = socket.assigns.search_term
+      all_groups = Groups.list_groups(current_user)
+      initial_groups = Enum.take(all_groups, per_page)
+      new_group_count = Groups.group_count_confirmed(current_user)
+      public_groups = Groups.list_public_groups(current_user, search_term, limit: per_page)
+      total_public_groups = Groups.public_group_count(current_user, search_term)
+
+      {:noreply,
+       socket
+       |> assign(:group_count, new_group_count)
+       |> assign(:loaded_groups_count, length(initial_groups))
+       |> assign(:has_more_groups, length(initial_groups) < new_group_count)
+       |> assign(:remaining_groups_count, max(0, new_group_count - length(initial_groups)))
+       |> assign(:public_groups, public_groups)
+       |> assign(:loaded_public_groups_count, length(public_groups))
+       |> assign(:has_more_public_groups, length(public_groups) < total_public_groups)
+       |> assign(
+         :remaining_public_groups_count,
+         max(0, total_public_groups - length(public_groups))
+       )
+       |> stream(:groups, initial_groups, reset: true)}
+    else
+      {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    end
+  end
+
+  @impl true
   def handle_info({:user_group_deleted, user_group}, socket) do
-    group = Groups.get_group!(user_group.group_id)
-    {:noreply, stream_insert(socket, :groups, group, at: -1)}
+    if user_group.user_id == socket.assigns.current_user.id do
+      case Groups.get_group(user_group.group_id) do
+        nil ->
+          {:noreply, socket}
+
+        group ->
+          new_group_count = Groups.group_count_confirmed(socket.assigns.current_user)
+          pending_groups = Groups.list_unconfirmed_groups(socket.assigns.current_user)
+
+          {:noreply,
+           socket
+           |> assign(:group_count, new_group_count)
+           |> assign(:any_pending_groups?, !Enum.empty?(pending_groups))
+           |> stream_delete(:groups, group)
+           |> stream_delete(:pending_groups, group)}
+      end
+    else
+      case Groups.get_group(user_group.group_id) do
+        nil ->
+          {:noreply, socket}
+
+        group ->
+          current_user_group = get_user_group(group, socket.assigns.current_user)
+
+          cond do
+            is_nil(current_user_group) ->
+              {:noreply, socket}
+
+            is_nil(current_user_group.confirmed_at) ->
+              {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+
+            true ->
+              {:noreply, stream_insert(socket, :groups, group, at: -1)}
+          end
+      end
+    end
   end
 
   @impl true
@@ -492,7 +585,12 @@ defmodule MossletWeb.GroupLive.Index do
 
   @impl true
   def handle_info({:group_updated_members_removed, group}, socket) do
-    {:noreply, stream_delete(socket, :groups, group)}
+    new_group_count = Groups.group_count_confirmed(socket.assigns.current_user)
+
+    {:noreply,
+     socket
+     |> assign(:group_count, new_group_count)
+     |> stream_delete(:groups, group)}
   end
 
   @impl true
@@ -530,6 +628,48 @@ defmodule MossletWeb.GroupLive.Index do
        socket
        |> assign(:any_pending_groups?, true)
        |> stream_delete(:pending_groups, group)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_kicked_unconfirmed, {group, kicked_user_id}}, socket) do
+    if kicked_user_id == socket.assigns.current_user.id do
+      pending_groups = Groups.list_unconfirmed_groups(socket.assigns.current_user)
+
+      {:noreply,
+       socket
+       |> assign(:any_pending_groups?, !Enum.empty?(pending_groups))
+       |> stream_delete(:pending_groups, group)}
+    else
+      {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_blocked_unconfirmed, {group, blocked_user_id}}, socket) do
+    if blocked_user_id == socket.assigns.current_user.id do
+      pending_groups = Groups.list_unconfirmed_groups(socket.assigns.current_user)
+
+      {:noreply,
+       socket
+       |> assign(:any_pending_groups?, !Enum.empty?(pending_groups))
+       |> stream_delete(:pending_groups, group)}
+    else
+      {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_unblocked_unconfirmed, {group, unblocked_user_id}}, socket) do
+    if unblocked_user_id == socket.assigns.current_user.id do
+      pending_groups = Groups.list_unconfirmed_groups(socket.assigns.current_user)
+
+      {:noreply,
+       socket
+       |> assign(:any_pending_groups?, !Enum.empty?(pending_groups))
+       |> stream(:pending_groups, pending_groups, reset: true)}
+    else
+      {:noreply, stream_insert(socket, :pending_groups, group, at: -1)}
     end
   end
 
@@ -609,7 +749,8 @@ defmodule MossletWeb.GroupLive.Index do
   end
 
   @impl true
-  def handle_info(_message, socket) do
+  def handle_info(message, socket) do
+    IO.inspect(message, label: "MESSAGE: ")
     {:noreply, socket}
   end
 

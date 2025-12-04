@@ -533,6 +533,18 @@ defmodule MossletWeb.Menus do
 
   def get_link(:edit_group_members = _name, _current_user, _group, _user_group), do: nil
 
+  def get_link(:moderate_group_members = name, _current_user, group, user_group)
+      when user_group.role in [:owner, :admin, :moderator] do
+    %{
+      name: name,
+      label: gettext("Manage members"),
+      path: ~p"/app/groups/#{group}/moderate-members",
+      icon: "hero-shield-exclamation"
+    }
+  end
+
+  def get_link(:moderate_group_members = _name, _current_user, _group, _user_group), do: nil
+
   # def get_link(:edit_group_notifications = name, _current_user, group, _user_group) do
   #  %{
   #    name: name,

@@ -9488,12 +9488,15 @@ defmodule MossletWeb.DesignSystem do
 
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
-              <span class={[
-                "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
-                "text-slate-900 dark:text-slate-100",
-                "group-hover/msg:text-teal-700 dark:group-hover/msg:text-teal-300",
-                "transition-colors duration-200"
-              ]}>
+              <span
+                :if={@sender_name}
+                class={[
+                  "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
+                  "text-slate-900 dark:text-slate-100",
+                  "group-hover/msg:text-teal-700 dark:group-hover/msg:text-teal-300",
+                  "transition-colors duration-200"
+                ]}
+              >
                 {@sender_name}
               </span>
 
@@ -9504,6 +9507,19 @@ defmodule MossletWeb.DesignSystem do
               ]}>
                 <.phx_icon name="hero-finger-print" class="w-3 h-3" />
                 <span class="truncate max-w-[60px] sm:max-w-[100px]">{@moniker}</span>
+              </span>
+
+              <span
+                :if={@is_own_message}
+                class={[
+                  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium",
+                  "bg-gradient-to-r from-cyan-100 to-teal-100 text-cyan-700",
+                  "dark:from-cyan-900/40 dark:to-teal-900/40 dark:text-cyan-300",
+                  "border border-cyan-200/60 dark:border-cyan-700/40"
+                ]}
+              >
+                <.phx_icon name="hero-check-mini" class="w-3 h-3" />
+                <span>You</span>
               </span>
 
               <time

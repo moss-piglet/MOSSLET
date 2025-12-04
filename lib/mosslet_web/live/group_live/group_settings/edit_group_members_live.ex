@@ -119,10 +119,32 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     target_is_owner = assigns.user_group.role == :owner
     can_edit = (!is_self || !is_owner) && (is_owner || !target_is_owner)
 
+    uconn =
+      get_uconn_for_users(
+        get_user_from_user_group_id(assigns.user_group.id),
+        assigns.current_user
+      )
+
+    is_connected = not is_nil(uconn)
+
+    member_name =
+      if is_self || is_connected do
+        decr_item(
+          assigns.user_group.name,
+          assigns.current_user,
+          assigns.current_user_group.key,
+          assigns.key,
+          assigns.group
+        )
+      else
+        nil
+      end
+
     assigns =
       assigns
       |> assign(:is_self, is_self)
       |> assign(:can_edit, can_edit)
+      |> assign(:member_name, member_name)
 
     ~H"""
     <div
@@ -131,10 +153,15 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       role={if @can_edit, do: "button", else: nil}
       tabindex={if @can_edit, do: "0", else: nil}
       aria-label={
-        if @can_edit,
-          do:
-            "Edit role for #{decr_item(@user_group.name, @current_user, @current_user_group.key, @key, @group)}",
-          else: nil
+        if @can_edit do
+          if @member_name do
+            "Edit role for #{@member_name}"
+          else
+            "Edit member role"
+          end
+        else
+          nil
+        end
       }
       phx-keydown={
         if @can_edit, do: JS.patch(~p"/app/groups/user_group/#{@user_group.id}/edit-member")
@@ -213,14 +240,11 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
 
         <div class="flex-1 min-w-0 space-y-1.5 overflow-hidden">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">
-              {decr_item(
-                @user_group.name,
-                @current_user,
-                @current_user_group.key,
-                @key,
-                @group
-              )}
+            <span
+              :if={@member_name}
+              class="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base"
+            >
+              {@member_name}
             </span>
             <.liquid_badge :if={@is_self} color="cyan" size="xs" variant="soft">
               You
@@ -473,6 +497,72 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
 
   @impl true
   def handle_event("restore-body-scroll", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:group_joined, group}, socket) do
+    if group.id == socket.assigns.group.id do
+      {:noreply, assign(socket, :group, group)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
+    if group.id == socket.assigns.group.id do
+      if kicked_user_id == socket.assigns.current_user.id do
+        {:noreply,
+         socket
+         |> put_flash(:info, "You have been removed from this group.")
+         |> push_navigate(to: ~p"/app/groups")}
+      else
+        {:noreply, assign(socket, :group, group)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
+    if group.id == socket.assigns.group.id do
+      if blocked_user_id == socket.assigns.current_user.id do
+        {:noreply,
+         socket
+         |> put_flash(:info, "You have been removed from this group.")
+         |> push_navigate(to: ~p"/app/groups")}
+      else
+        blocked_users = Groups.list_blocked_users(group.id)
+
+        {:noreply,
+         socket
+         |> assign(:group, group)
+         |> assign(:blocked_users, blocked_users)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_unblocked, {group, _target_user_id}}, socket) do
+    if group.id == socket.assigns.group.id do
+      blocked_users = Groups.list_blocked_users(group.id)
+
+      {:noreply,
+       socket
+       |> assign(:group, group)
+       |> assign(:blocked_users, blocked_users)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(message, socket) do
+    IO.inspect(message, label: "EDIT GROUP MEMBERS MESSAGE")
     {:noreply, socket}
   end
 end

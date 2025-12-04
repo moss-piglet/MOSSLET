@@ -47,6 +47,18 @@ defmodule MossletWeb.SubscriptionRoutes do
                GroupLive.GroupSettings.EditGroupMembersLive,
                :edit_member
 
+          live "/groups/:id/moderate-members",
+               GroupLive.GroupSettings.ModerateGroupMembersLive,
+               nil
+
+          live "/groups/user_group/:id/kick-member",
+               GroupLive.GroupSettings.ModerateGroupMembersLive,
+               :kick_member
+
+          live "/groups/user_group/:id/block-member",
+               GroupLive.GroupSettings.ModerateGroupMembersLive,
+               :block_member
+
           # Posts
           live "/posts/new", PostLive.Index, :new
           live "/posts/:id/edit", PostLive.Show, :edit

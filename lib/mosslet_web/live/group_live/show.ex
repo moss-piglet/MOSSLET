@@ -186,6 +186,66 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
+  def handle_info({:group_joined, group}, socket) do
+    if group.id == socket.assigns.group.id do
+      {:noreply, assign(socket, :group, group)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
+    if group.id == socket.assigns.group.id do
+      if kicked_user_id == socket.assigns.current_user.id do
+        {:noreply,
+         socket
+         |> put_flash(:info, "You have been removed from this group.")
+         |> push_navigate(to: ~p"/app/groups")}
+      else
+        {:noreply, assign(socket, :group, group)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
+    if group.id == socket.assigns.group.id do
+      if blocked_user_id == socket.assigns.current_user.id do
+        {:noreply,
+         socket
+         |> put_flash(:info, "You have been removed from this group.")
+         |> push_navigate(to: ~p"/app/groups")}
+      else
+        blocked_users = Groups.list_blocked_users(group.id)
+
+        {:noreply,
+         socket
+         |> assign(:group, group)
+         |> assign(:blocked_users, blocked_users)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:group_member_unblocked, {group, _target_user_id}}, socket) do
+    if group.id == socket.assigns.group.id do
+      blocked_users = Groups.list_blocked_users(group.id)
+
+      {:noreply,
+       socket
+       |> assign(:group, group)
+       |> assign(:blocked_users, blocked_users)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
     {:noreply, assign(socket, :current_user, user)}

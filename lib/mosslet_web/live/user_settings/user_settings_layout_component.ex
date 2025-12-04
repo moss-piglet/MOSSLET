@@ -402,7 +402,8 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
   defp settings_menu_items_group(current_user, group, user_group) do
     MossletWeb.Menus.build_menu_group(
       [
-        :edit_group_members
+        :edit_group_members,
+        :moderate_group_members
       ],
       current_user,
       group,
