@@ -8,14 +8,17 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div class="flex items-center gap-3">
             <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-              <.phx_icon name="hero-user-group" class="h-6 w-6 text-teal-600 dark:text-teal-400" />
+              <.phx_icon
+                name="hero-circle-stack"
+                class="h-6 w-6 text-teal-600 dark:text-teal-400"
+              />
             </div>
             <div>
               <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Groups
+                Circles
               </h1>
               <p class="text-sm text-slate-600 dark:text-slate-400">
-                Collaborate privately with your connections
+                Connect privately with your trusted network
               </p>
             </div>
           </div>
@@ -24,9 +27,9 @@
             <MossletWeb.DesignSystem.liquid_button
               :if={!Enum.empty?(@streams.pending_groups.inserts) || @any_pending_groups?}
               id="new-group-invites-button"
-              data-tippy-content="People have invited you to join a group. Privately greet them to see whether you wish to join or decline."
+              data-tippy-content="People have invited you to join a circle. Privately greet them to see whether you wish to join or decline."
               phx-hook="TippyHook"
-              patch={~p"/app/groups/greet"}
+              patch={~p"/app/circles/greet"}
               icon="hero-gift"
               color="emerald"
             >
@@ -35,10 +38,10 @@
 
             <MossletWeb.DesignSystem.liquid_button
               patch={Routes.group_index_path(@socket, :new)}
-              icon="hero-user-group"
+              icon="hero-circle-stack"
               color="teal"
             >
-              New Group
+              New Circle
             </MossletWeb.DesignSystem.liquid_button>
           </div>
         </div>
@@ -53,7 +56,7 @@
             class="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
           />
           <div class="text-sm text-amber-700 dark:text-amber-300">
-            <p class="font-medium mb-1">Groups are actively under construction 🚧</p>
+            <p class="font-medium mb-1">Circles are actively under construction 🚧</p>
             <p class="text-amber-600 dark:text-amber-400">
               If you have any feedback or suggestions, we would love to hear from you.
               <a
@@ -74,11 +77,11 @@
         <MossletWeb.DesignSystem.liquid_tab_bar>
           <:tab
             id="my_groups"
-            icon="hero-user-group"
+            icon="hero-circle-stack"
             active={@active_tab == "my_groups"}
             count={@group_count}
           >
-            My Groups
+            My Circles
           </:tab>
           <:tab
             id="discover"
@@ -93,9 +96,9 @@
         <div :if={@active_tab == "my_groups"} class="p-4 sm:p-6">
           <div :if={@group_count == 0} class="py-12">
             <MossletWeb.DesignSystem.liquid_empty_state
-              icon="hero-user-group"
-              title="No groups yet"
-              description="Create a group to start collaborating with your connections in a private space."
+              icon="hero-circle-stack"
+              title="No circles yet"
+              description="Create a circle to start connecting with your trusted network in a private space."
               color="teal"
             />
           </div>
@@ -116,8 +119,8 @@
                 can_edit={can_edit_group?(get_user_group(group, @current_user), @current_user)}
                 can_delete={can_delete_group?(group, @current_user)}
                 group_id={group.id}
-                navigate_url={~p"/app/groups/#{group}"}
-                edit_url={~p"/app/groups/#{group}/edit"}
+                navigate_url={~p"/app/circles/#{group}"}
+                edit_url={~p"/app/circles/#{group}/edit"}
               >
                 <:members>
                   <%= for user_group <- group.user_groups, user_group.confirmed_at do %>
@@ -183,7 +186,7 @@
                   type="text"
                   name="search"
                   value={@search_term}
-                  placeholder="Search public groups..."
+                  placeholder="Search public circles..."
                   phx-debounce="300"
                   class="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 dark:focus:border-emerald-500 transition-all duration-200"
                 />
@@ -194,8 +197,8 @@
           <div :if={@public_groups == []} class="py-12 text-center">
             <MossletWeb.DesignSystem.liquid_empty_state
               icon="hero-globe-alt"
-              title="No public groups found"
-              description="There are no public groups available to join right now. Check back later or create your own!"
+              title="No public circles found"
+              description="There are no public circles available to join right now. Check back later or create your own!"
               color="cyan"
             />
           </div>
@@ -221,7 +224,7 @@
             load_count={10}
             loading={@load_more_public_loading}
             color="cyan"
-            item_label="groups"
+            item_label="circles"
             phx-click="load_more_public_groups"
           />
         </div>
@@ -236,7 +239,7 @@
       on_cancel={JS.patch(@return_url)}
     >
       <:title>
-        {if @live_action == :new, do: "New Group", else: "Edit Group"}
+        {if @live_action == :new, do: "New Circle", else: "Edit Circle"}
       </:title>
 
       <.live_component
@@ -257,16 +260,16 @@
       id="pending-group-modal"
       show
       size="lg"
-      on_cancel={JS.patch(~p"/app/groups")}
+      on_cancel={JS.patch(~p"/app/circles")}
     >
-      <:title>Group Invitations</:title>
+      <:title>Circle Invitations</:title>
 
       <.live_component
         module={MossletWeb.GroupLive.PendingComponent}
         id={:greet}
         title={@page_title}
         action={@live_action}
-        patch={~p"/app/groups"}
+        patch={~p"/app/circles"}
         current_user={@current_user}
         key={@key}
         user_connections={@user_connections}

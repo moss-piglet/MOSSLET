@@ -91,15 +91,15 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       <.liquid_container max_width="xl" class="py-4 sm:py-8 xl:py-12">
         <div class="space-y-4 sm:space-y-8">
           <.group_settings_header
-            title={Gettext.gettext(MossletWeb.Gettext, "Edit Group Members")}
+            title={Gettext.gettext(MossletWeb.Gettext, "Edit Circle Members")}
             group_name={decr_item(@group.name, @current_user, @user_group.key, @key, @group)}
           >
             <.liquid_button
               variant="secondary"
               icon="hero-arrow-left"
-              navigate={~p"/app/groups/#{@group}"}
+              navigate={~p"/app/circles/#{@group}"}
             >
-              Back to Group
+              Back to Circle
             </.liquid_button>
           </.group_settings_header>
 
@@ -156,7 +156,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
         <div :if={@group_name} class="flex items-center gap-2 mb-2">
           <div class="size-7 flex items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 flex-shrink-0">
             <MossletWeb.CoreComponents.phx_icon
-              name="hero-user-group"
+              name="hero-circle-stack"
               class="size-4 text-teal-600 dark:text-teal-400"
             />
           </div>
@@ -173,7 +173,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
           {@title}
         </h1>
         <p class="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-          Manage your group settings and preferences
+          Manage your circle settings and preferences
         </p>
       </div>
 
@@ -236,7 +236,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
           <div class="xl:w-72 xl:flex-shrink-0">
             <div class="p-4 sm:p-6">
               <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
-                Group Settings Menu
+                Circle Settings Menu
               </h2>
               <nav class="space-y-1">
                 <.group_settings_menu_item
@@ -267,11 +267,11 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       <ol class="flex items-center space-x-2">
         <li>
           <.link
-            navigate={~p"/app/groups/#{@group}"}
+            navigate={~p"/app/circles/#{@group}"}
             class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors duration-200"
           >
-            <MossletWeb.CoreComponents.phx_icon name="hero-user-group" class="h-4 w-4" />
-            <span class="sr-only">Group</span>
+            <MossletWeb.CoreComponents.phx_icon name="hero-circle-stack" class="h-4 w-4" />
+            <span class="sr-only">Circle</span>
           </.link>
         </li>
         <li>
@@ -358,7 +358,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       [
         :home,
         :connections,
-        :groups,
+        :circles,
         :timeline,
         :settings
       ],
@@ -402,8 +402,8 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
   defp settings_menu_items_group(current_user, group, user_group) do
     MossletWeb.Menus.build_menu_group(
       [
-        :edit_group_members,
-        :moderate_group_members
+        :edit_circle_members,
+        :moderate_circle_members
       ],
       current_user,
       group,

@@ -11,17 +11,17 @@ defmodule MossletWeb.GroupLive.FormComponent do
     <div class="space-y-5">
       <div class="flex items-center gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-700/60">
         <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-          <.phx_icon name="hero-user-group" class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+          <.phx_icon name="hero-circle-stack" class="h-5 w-5 text-teal-600 dark:text-teal-400" />
         </div>
         <div>
           <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {@title}
           </h2>
           <p :if={@action in [:new]} class="text-sm text-slate-600 dark:text-slate-400">
-            Create a new group to share and collaborate with your connections
+            Create a new circle to share and collaborate with your connections
           </p>
           <p :if={@action in [:edit]} class="text-sm text-slate-600 dark:text-slate-400">
-            Update group details and manage members
+            Update circle details and manage members
           </p>
         </div>
       </div>
@@ -40,7 +40,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           field={@form[:name]}
           type="text"
           label="Name"
-          placeholder="Enter group name..."
+          placeholder="Enter circle name..."
         />
         <.phx_input
           :if={@action in [:new]}
@@ -48,14 +48,14 @@ defmodule MossletWeb.GroupLive.FormComponent do
           field={@form[:description]}
           type="text"
           label="Description"
-          placeholder="What is this group about?"
+          placeholder="What is this circle about?"
         />
 
         <div :if={@action in [:new]} class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <MossletWeb.DesignSystem.liquid_checkbox
             field={@form[:public?]}
-            label="Make group public?"
-            help="Public groups can be discovered by others"
+            label="Make circle public?"
+            help="Public circles can be discovered by others"
             phx-debounce="500"
           />
           <MossletWeb.DesignSystem.liquid_checkbox
@@ -71,7 +71,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           field={@form[:password]}
           type="password"
           label="Password"
-          placeholder="Enter group password..."
+          placeholder="Enter circle password..."
           phx-debounce="500"
         />
 
@@ -90,7 +90,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           type="text"
           phx-debounce="500"
           label="Name"
-          placeholder="Enter group name..."
+          placeholder="Enter circle name..."
         />
         <.phx_input
           :if={@action in [:edit]}
@@ -107,7 +107,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           type="text"
           phx-debounce="500"
           label="Description"
-          placeholder="What is this group about?"
+          placeholder="What is this circle about?"
         />
         <.phx_input field={@form[:user_id]} type="hidden" value={@current_user.id} />
         <.phx_input
@@ -120,7 +120,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           <div class="flex items-center gap-2 mb-3">
             <.phx_icon name="hero-users" class="h-4 w-4 text-slate-500 dark:text-slate-400" />
             <label class="text-sm font-medium text-slate-900 dark:text-slate-100">
-              {if @action in [:new], do: "Add people to group", else: "Update group members"}
+              {if @action in [:new], do: "Add people to circle", else: "Update circle members"}
             </label>
           </div>
           <.live_select
@@ -217,7 +217,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             </:tag>
           </.live_select>
           <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Select connections to invite to this group
+            Select connections to invite to this circle
           </p>
         </div>
 
@@ -240,7 +240,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             class="w-full sm:w-auto"
             phx-disable-with="Saving..."
           >
-            Save Group
+            Save Circle
           </MossletWeb.DesignSystem.liquid_button>
 
           <MossletWeb.DesignSystem.liquid_button
@@ -251,7 +251,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             disabled
             class="w-full sm:w-auto"
           >
-            Save Group
+            Save Circle
           </MossletWeb.DesignSystem.liquid_button>
 
           <MossletWeb.DesignSystem.liquid_button
@@ -262,7 +262,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
             class="w-full sm:w-auto"
             phx-disable-with="Updating..."
           >
-            Update Group
+            Update Circle
           </MossletWeb.DesignSystem.liquid_button>
         </div>
       </.form>
@@ -431,7 +431,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
 
           {:noreply,
            socket
-           |> put_flash(:success, "Group updated successfully")
+           |> put_flash(:success, "Circle updated successfully")
            |> push_patch(to: socket.assigns.patch)}
 
         {:error, %Ecto.Changeset{} = changeset} ->
@@ -440,7 +440,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
     else
       {:noreply,
        socket
-       |> put_flash(:info, "You do not have permission to edit this group.")
+       |> put_flash(:info, "You do not have permission to edit this circle.")
        |> push_patch(to: socket.assigns.patch)}
     end
   end
@@ -460,7 +460,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
 
           {:noreply,
            socket
-           |> put_flash(:success, "Group created successfully")
+           |> put_flash(:success, "Circle created successfully")
            |> push_patch(to: socket.assigns.patch)}
 
         {:error, %Ecto.Changeset{} = changeset} ->
@@ -471,9 +471,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
        socket
        |> put_flash(
          :info,
-         "Woops! You need to add some Connections first before you can make a Group (otherwise it's just you). Head over to your Connections page to get started!"
+         "Woops! You need to add some Connections first before you can make a Circle (otherwise it's just you). Head over to your Connections page to get started!"
        )
-       |> push_patch(to: ~p"/app/groups/new")}
+       |> push_patch(to: ~p"/app/circles/new")}
     end
   end
 

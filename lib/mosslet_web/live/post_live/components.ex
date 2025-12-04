@@ -82,7 +82,7 @@ defmodule MossletWeb.PostLive.Components do
           :if={@options.page > 1}
           patch={
             if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | page: @options.page - 1}}",
+              do: ~p"/app/circles/#{@group}?#{%{@options | page: @options.page - 1}}",
               else: ~p"/app/timeline?#{%{@options | page: @options.page - 1}}"
           }
           class="inline-flex items-center group border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-gray-400 dark:text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:hover:text-gray-200"
@@ -114,7 +114,7 @@ defmodule MossletWeb.PostLive.Components do
           }
           patch={
             if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | page: page_number}}",
+              do: ~p"/app/circles/#{@group}?#{%{@options | page: page_number}}",
               else: ~p"/app/timeline?#{%{@options | page: page_number}}"
           }
           aria-current="page"
@@ -127,7 +127,7 @@ defmodule MossletWeb.PostLive.Components do
           :if={more_pages?(@options, @post_count)}
           patch={
             if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | page: @options.page + 1}}",
+              do: ~p"/app/circles/#{@group}?#{%{@options | page: @options.page + 1}}",
               else: ~p"/app/timeline?#{%{@options | page: @options.page + 1}}"
           }
           class="inline-flex items-center group border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-gray-400 dark:text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:hover:text-gray-200"
@@ -240,7 +240,7 @@ defmodule MossletWeb.PostLive.Components do
       >
         <.link
           id={"link-#{@post.id}-group-#{@post.group_id}"}
-          navigate={~p"/app/groups/#{@post.group_id}"}
+          navigate={~p"/app/circles/#{@post.group_id}"}
           data-tippy-content="Go to Group"
           phx-hook="TippyHook"
         >
@@ -806,7 +806,7 @@ defmodule MossletWeb.PostLive.Components do
             >
               <.link
                 id={"link-#{@post.id}-group-#{@post.group_id}"}
-                navigate={~p"/app/groups/#{@post.group_id}"}
+                navigate={~p"/app/circles/#{@post.group_id}"}
                 data-tippy-content="Go to Group"
                 phx-hook="TippyHook"
               >

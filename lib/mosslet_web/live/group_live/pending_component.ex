@@ -11,10 +11,10 @@ defmodule MossletWeb.GroupLive.PendingComponent do
         </div>
         <div>
           <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Group Invitations
+            Circle Invitations
           </h2>
           <p class="text-sm text-slate-600 dark:text-slate-400">
-            Review invitations and decide which groups to join
+            Review invitations and decide which circles to join
           </p>
         </div>
       </div>
@@ -92,22 +92,22 @@ defmodule MossletWeb.GroupLive.PendingComponent do
 
               <MossletWeb.DesignSystem.liquid_button
                 :if={group.require_password?}
-                phx-click={JS.navigate(~p"/app/groups/#{group}/join-password")}
+                phx-click={JS.navigate(~p"/app/circles/#{group}/join-password")}
                 size="sm"
                 color="emerald"
                 icon="hero-lock-closed"
               >
-                Join Group
+                Join Circle
               </MossletWeb.DesignSystem.liquid_button>
 
               <MossletWeb.DesignSystem.liquid_button
                 :if={!group.require_password?}
-                phx-click={JS.patch(~p"/app/groups/#{group}/join")}
+                phx-click={JS.patch(~p"/app/circles/#{group}/join")}
                 size="sm"
                 color="emerald"
                 icon="hero-check"
               >
-                Join Group
+                Join Circle
               </MossletWeb.DesignSystem.liquid_button>
             </:actions>
           </MossletWeb.DesignSystem.liquid_pending_group_card>

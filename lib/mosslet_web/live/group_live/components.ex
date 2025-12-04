@@ -15,7 +15,7 @@ defmodule MossletWeb.GroupLive.Components do
       <div class="-mt-px flex w-0 flex-1">
         <.link
           :if={@options.page > 1}
-          patch={~p"/app/groups?#{%{@options | page: @options.page - 1}}"}
+          patch={~p"/app/circles?#{%{@options | page: @options.page - 1}}"}
           class="inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
         >
           <svg
@@ -43,7 +43,7 @@ defmodule MossletWeb.GroupLive.Components do
               else:
                 "inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
           }
-          patch={~p"/app/groups?#{%{@options | page: page_number}}"}
+          patch={~p"/app/circles?#{%{@options | page: page_number}}"}
           aria-current="page"
         >
           {page_number}
@@ -52,7 +52,7 @@ defmodule MossletWeb.GroupLive.Components do
       <div class="-mt-px flex w-0 flex-1 justify-end">
         <.link
           :if={more_group_pages?(@options, @group_count)}
-          patch={~p"/app/groups?#{%{@options | page: @options.page + 1}}"}
+          patch={~p"/app/circles?#{%{@options | page: @options.page + 1}}"}
           class="inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
         >
           Next

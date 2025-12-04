@@ -12,7 +12,7 @@ defmodule MossletWeb.GroupLive.Index do
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(:current_page, :groups)
+     |> assign(:current_page, :circles)
      |> assign(:user_group_loading_count, 0)
      |> assign(:user_group_loading, false)
      |> assign(:user_group_loading_done, false)
@@ -54,8 +54,8 @@ defmodule MossletWeb.GroupLive.Index do
 
     url =
       if options.page == @page_default && options.per_page == @per_page_default,
-        do: ~p"/app/groups",
-        else: ~p"/app/groups?#{options}"
+        do: ~p"/app/circles",
+        else: ~p"/app/circles?#{options}"
 
     public_groups =
       if active_tab == "discover" do
@@ -110,31 +110,31 @@ defmodule MossletWeb.GroupLive.Index do
          socket.assigns.current_user
        ) do
       socket
-      |> assign(:page_title, "Edit Group")
+      |> assign(:page_title, "Edit Circle")
       |> assign(:group, group)
     else
       socket
-      |> put_flash(:info, "You do not have permission to edit this group.")
-      |> push_patch(to: ~p"/app/groups")
+      |> put_flash(:info, "You do not have permission to edit this circle.")
+      |> push_patch(to: ~p"/app/circles")
     end
   end
 
   defp apply_action(socket, :new, _params) do
     socket
-    |> assign(:page_title, "New Group")
+    |> assign(:page_title, "New Circle")
     |> assign(:group, %Group{})
   end
 
   defp apply_action(socket, :index, _params) do
     socket
-    |> assign(:page_title, "Groups")
+    |> assign(:page_title, "Circles")
     |> assign(:group, nil)
     |> assign(:groups_greeter_open?, false)
   end
 
   defp apply_action(socket, :greet, _params) do
     socket
-    |> assign(:page_title, "New Group Invitations")
+    |> assign(:page_title, "New Circle Invitations")
     |> assign(:live_action, :greet)
     |> assign(:groups_greeter_open?, true)
   end
@@ -144,7 +144,7 @@ defmodule MossletWeb.GroupLive.Index do
 
     if group.require_password? do
       socket
-      |> push_navigate(to: ~p"/app/groups/#{group}/join-password")
+      |> push_navigate(to: ~p"/app/circles/#{group}/join-password")
     else
       user_group = get_user_group(group, socket.assigns.current_user)
 
@@ -161,36 +161,36 @@ defmodule MossletWeb.GroupLive.Index do
             notify_self({:joined, group, user_group})
 
             socket
-            |> assign(:page_title, "New Group Invitations")
+            |> assign(:page_title, "New Circle Invitations")
             |> assign(:live_action, :show)
             |> assign(:groups_greeter_open?, false)
-            |> put_flash(:success, "You have joined this group!")
-            |> push_navigate(to: ~p"/app/groups/#{group}")
+            |> put_flash(:success, "You have joined this circle!")
+            |> push_navigate(to: ~p"/app/circles/#{group}")
 
           {:error, %Ecto.Changeset{} = _changeset} ->
             notify_self({:error_joined, group, user_group})
 
             socket
-            |> assign(:page_title, "New Group Invitations")
+            |> assign(:page_title, "New Circle Invitations")
             |> assign(:live_action, :greet)
             |> assign(:groups_greeter_open?, true)
-            |> put_flash(:success, "You could not join this group.")
-            |> push_patch(to: ~p"/app/groups/greet")
+            |> put_flash(:success, "You could not join this circle.")
+            |> push_patch(to: ~p"/app/circles/greet")
 
           {:error, _reason} ->
             socket
-            |> assign(:page_title, "New Group Invitations")
+            |> assign(:page_title, "New Circle Invitations")
             |> assign(:live_action, :greet)
             |> assign(:groups_greeter_open?, true)
-            |> put_flash(:error, "Could not join this group.")
-            |> push_patch(to: ~p"/app/groups/greet")
+            |> put_flash(:error, "Could not join this circle.")
+            |> push_patch(to: ~p"/app/circles/greet")
         end
       else
         socket
-        |> assign(:page_title, "New Group Invitations")
+        |> assign(:page_title, "New Circle Invitations")
         |> assign(:live_action, :greet)
         |> assign(:groups_greeter_open?, true)
-        |> put_flash(:info, "You do not have permission to join this group.")
+        |> put_flash(:info, "You do not have permission to join this circle.")
       end
     end
   end
@@ -207,8 +207,8 @@ defmodule MossletWeb.GroupLive.Index do
     else
       {:noreply,
        socket
-       |> put_flash(:warning, "You do not have permission to delete this group.")
-       |> push_patch(to: ~p"/app/groups")}
+       |> put_flash(:warning, "You do not have permission to delete this circle.")
+       |> push_patch(to: ~p"/app/circles")}
     end
   end
 
@@ -223,8 +223,8 @@ defmodule MossletWeb.GroupLive.Index do
     else
       {:noreply,
        socket
-       |> put_flash(:warning, "You do not have permission to delete this group invitation.")
-       |> push_patch(to: ~p"/app/groups/greet")}
+       |> put_flash(:warning, "You do not have permission to delete this circle invitation.")
+       |> push_patch(to: ~p"/app/circles/greet")}
     end
   end
 
@@ -301,7 +301,7 @@ defmodule MossletWeb.GroupLive.Index do
     group = Groups.get_group!(id)
 
     if group.require_password? do
-      {:noreply, push_navigate(socket, to: ~p"/app/groups/#{group}/join-password")}
+      {:noreply, push_navigate(socket, to: ~p"/app/circles/#{group}/join-password")}
     else
       case Groups.join_public_group(group, socket.assigns.current_user, socket.assigns.key) do
         {:ok, _user_group} ->
@@ -313,17 +313,12 @@ defmodule MossletWeb.GroupLive.Index do
            |> assign(:public_groups, public_groups)
            |> assign(:group_count, Groups.group_count_confirmed(socket.assigns.current_user))
            |> stream(:groups, Groups.list_groups(socket.assigns.current_user), reset: true)
-           |> put_flash(:success, "You have joined this group!")}
+           |> put_flash(:success, "You have joined this circle!")}
 
         {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, "Could not join this group.")}
+          {:noreply, put_flash(socket, :error, "Could not join this circle.")}
       end
     end
-  end
-
-  @impl true
-  def handle_event(_event, _params, socket) do
-    {:noreply, socket}
   end
 
   @impl true
@@ -749,8 +744,7 @@ defmodule MossletWeb.GroupLive.Index do
   end
 
   @impl true
-  def handle_info(message, socket) do
-    IO.inspect(message, label: "MESSAGE: ")
+  def handle_info(_message, socket) do
     {:noreply, socket}
   end
 

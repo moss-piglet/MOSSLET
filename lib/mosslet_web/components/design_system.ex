@@ -8982,7 +8982,7 @@ defmodule MossletWeb.DesignSystem do
             color="cyan"
             icon={if @require_password, do: "hero-lock-closed", else: "hero-arrow-right"}
           >
-            Join Group
+            Join Circle
           </.liquid_button>
         </div>
       </div>
@@ -9091,8 +9091,8 @@ defmodule MossletWeb.DesignSystem do
         can_edit={true}
         can_delete={true}
         group_id="123"
-        navigate_url="/app/groups/123"
-        edit_url="/app/groups/123/edit"
+        navigate_url="/app/circles/123"
+        edit_url="/app/circles/123/edit"
       >
         <:members>
           <.group_avatar ... />
@@ -9137,7 +9137,7 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex gap-4">
           <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30 shadow-sm">
             <.phx_icon
-              name={if @is_public, do: "hero-globe-alt", else: "hero-user-group"}
+              name={if @is_public, do: "hero-globe-alt", else: "hero-circle-stack"}
               class={[
                 "h-6 w-6 transition-colors duration-200",
                 "text-slate-500 dark:text-slate-400",
@@ -9448,142 +9448,142 @@ defmodule MossletWeb.DesignSystem do
   attr :is_own_message, :boolean, default: false
   attr :can_delete, :boolean, default: false
   attr :on_delete, :string, default: nil
+  attr :is_grouped, :boolean, default: false
+  attr :show_date_separator, :boolean, default: false
+  attr :message_date, Date, default: nil
   attr :class, :any, default: ""
   slot :inner_block, required: true
 
   def liquid_chat_message(assigns) do
     ~H"""
-    <div
-      id={@id}
-      class={[
-        "group/msg relative",
-        @class
-      ]}
-    >
-      <div class={[
-        "relative py-2.5 px-3 sm:px-4 rounded-2xl transition-all duration-300 ease-out",
-        "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50",
-        "dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20"
-      ]}>
-        <div class="flex items-start gap-3">
-          <div class="flex-shrink-0 pt-0.5">
-            <div class={[
-              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden",
-              "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900",
-              "transition-all duration-200",
-              liquid_chat_avatar_ring(@role)
-            ]}>
-              <img
-                src={@avatar_src}
-                alt={@avatar_alt}
-                class="w-full h-full object-cover"
-              />
+    <div>
+      <.liquid_chat_date_separator :if={@show_date_separator && @message_date} date={@message_date} />
+      <div
+        id={@id}
+        class={[
+          "group/msg relative",
+          @class
+        ]}
+      >
+        <div class={[
+          "relative rounded-2xl transition-all duration-300 ease-out",
+          "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50",
+          "dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20",
+          if(@is_grouped, do: "py-0.5 px-3 sm:px-4", else: "py-2.5 px-3 sm:px-4")
+        ]}>
+          <div class={["flex items-start", if(@is_grouped, do: "gap-0", else: "gap-3")]}>
+            <div :if={!@is_grouped} class="flex-shrink-0 pt-0.5">
               <div class={[
-                "absolute inset-0 rounded-full opacity-0 group-hover/msg:opacity-100",
-                "bg-gradient-to-br from-white/20 to-transparent",
-                "transition-opacity duration-300"
-              ]} />
-            </div>
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
-              <span
-                :if={@sender_name}
-                class={[
-                  "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
-                  "text-slate-900 dark:text-slate-100",
-                  "group-hover/msg:text-teal-700 dark:group-hover/msg:text-teal-300",
-                  "transition-colors duration-200"
-                ]}
-              >
-                {@sender_name}
-              </span>
-
-              <span class={[
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden",
+                "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900",
                 "transition-all duration-200",
-                liquid_chat_role_badge(@role)
+                liquid_chat_avatar_ring(@role)
               ]}>
-                <.phx_icon name="hero-finger-print" class="w-3 h-3" />
-                <span class="truncate max-w-[60px] sm:max-w-[100px]">{@moniker}</span>
-              </span>
-
-              <span
-                :if={@is_own_message}
-                class={[
-                  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium",
-                  "bg-gradient-to-r from-cyan-100 to-teal-100 text-cyan-700",
-                  "dark:from-cyan-900/40 dark:to-teal-900/40 dark:text-cyan-300",
-                  "border border-cyan-200/60 dark:border-cyan-700/40"
-                ]}
-              >
-                <.phx_icon name="hero-check-mini" class="w-3 h-3" />
-                <span>You</span>
-              </span>
-
-              <time
-                id={"time-tooltip-" <> @id}
-                class={[
-                  "text-xs whitespace-nowrap cursor-help",
-                  "text-slate-400 dark:text-slate-500",
-                  "hover:text-slate-600 dark:hover:text-slate-300",
-                  "transition-colors duration-150"
-                ]}
-                phx-hook="LocalTimeTooltip"
-                data-timestamp={@timestamp}
-              >
-                <.local_time
-                  id={@id <> "-created"}
-                  for={@timestamp}
-                  preset="TIME_SIMPLE"
-                />
-              </time>
-            </div>
-
-            <div class={[
-              "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
-              "text-sm leading-relaxed",
-              "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
-              "border border-slate-200/60 dark:border-slate-700/50",
-              "shadow-sm",
-              "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
-              "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5",
-              "transition-all duration-200",
-              if(@is_own_message,
-                do:
-                  "bg-gradient-to-br from-teal-50/50 to-emerald-50/30 dark:from-teal-900/20 dark:to-emerald-900/10",
-                else: ""
-              )
-            ]}>
-              <div class="text-slate-700 dark:text-slate-200 break-words">
-                {render_slot(@inner_block)}
+                <img src={@avatar_src} alt={@avatar_alt} class="w-full h-full object-cover" />
+                <div class={[
+                  "absolute inset-0 rounded-full opacity-0 group-hover/msg:opacity-100",
+                  "bg-gradient-to-br from-white/20 to-transparent",
+                  "transition-opacity duration-300"
+                ]} />
               </div>
             </div>
-          </div>
+            <div :if={@is_grouped} class="w-9 sm:w-10 flex-shrink-0" />
 
-          <div
-            :if={@can_delete && @on_delete}
-            class={[
-              "absolute top-2 right-2 flex items-center",
-              "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100",
-              "transition-all duration-200"
-            ]}
-          >
-            <button
-              type="button"
-              phx-click={@on_delete}
-              phx-value-id={@id}
+            <div class="flex-1 min-w-0">
+              <div :if={!@is_grouped} class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
+                <span
+                  :if={@sender_name}
+                  class={[
+                    "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
+                    "text-slate-900 dark:text-slate-100",
+                    "group-hover/msg:text-teal-700 dark:group-hover/msg:text-teal-300",
+                    "transition-colors duration-200"
+                  ]}
+                >
+                  {@sender_name}
+                </span>
+
+                <span class={[
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                  "transition-all duration-200",
+                  liquid_chat_role_badge(@role)
+                ]}>
+                  <.phx_icon name="hero-finger-print" class="w-3 h-3" />
+                  <span class="truncate max-w-[60px] sm:max-w-[100px]">{@moniker}</span>
+                </span>
+
+                <span
+                  :if={@is_own_message}
+                  class={[
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium",
+                    "bg-gradient-to-r from-cyan-100 to-teal-100 text-cyan-700",
+                    "dark:from-cyan-900/40 dark:to-teal-900/40 dark:text-cyan-300",
+                    "border border-cyan-200/60 dark:border-cyan-700/40"
+                  ]}
+                >
+                  <.phx_icon name="hero-check-mini" class="w-3 h-3" />
+                  <span>You</span>
+                </span>
+
+                <time
+                  id={"time-tooltip-" <> @id}
+                  class={[
+                    "text-xs whitespace-nowrap cursor-help",
+                    "text-slate-400 dark:text-slate-500",
+                    "hover:text-slate-600 dark:hover:text-slate-300",
+                    "transition-colors duration-150"
+                  ]}
+                  phx-hook="LocalTimeTooltip"
+                  data-timestamp={@timestamp}
+                >
+                  <.local_time id={@id <> "-created"} for={@timestamp} preset="TIME_SIMPLE" />
+                </time>
+              </div>
+
+              <div class={[
+                "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
+                "text-sm leading-relaxed",
+                "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
+                "border border-slate-200/60 dark:border-slate-700/50",
+                "shadow-sm",
+                "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
+                "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5",
+                "transition-all duration-200",
+                if(@is_own_message,
+                  do:
+                    "bg-gradient-to-br from-teal-50/50 to-emerald-50/30 dark:from-teal-900/20 dark:to-emerald-900/10",
+                  else: ""
+                )
+              ]}>
+                <div class="text-slate-700 dark:text-slate-200 break-words">
+                  {render_slot(@inner_block)}
+                </div>
+              </div>
+            </div>
+
+            <div
+              :if={@can_delete && @on_delete}
               class={[
-                "p-1.5 rounded-lg",
-                "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
-                "hover:bg-red-50 dark:hover:bg-red-900/20",
+                "absolute top-2 right-2 flex items-center",
+                "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100",
                 "transition-all duration-200"
               ]}
-              aria-label="Delete message"
             >
-              <.phx_icon name="hero-trash" class="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                phx-click={@on_delete}
+                phx-value-id={@id}
+                class={[
+                  "p-1.5 rounded-lg",
+                  "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
+                  "hover:bg-red-50 dark:hover:bg-red-900/20",
+                  "transition-all duration-200"
+                ]}
+                aria-label="Delete message"
+              >
+                <.phx_icon name="hero-trash" class="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -9615,5 +9615,48 @@ defmodule MossletWeb.DesignSystem do
 
   defp liquid_chat_role_badge(_) do
     "bg-gradient-to-r from-teal-100 to-emerald-50 text-teal-700 dark:from-teal-900/50 dark:to-emerald-900/30 dark:text-teal-300"
+  end
+
+  @doc """
+  Date separator for chat messages.
+
+  ## Examples
+
+      <.liquid_chat_date_separator date={~D[2024-01-15]} />
+  """
+  attr :date, Date, required: true
+  attr :class, :any, default: ""
+
+  def liquid_chat_date_separator(assigns) do
+    ~H"""
+    <div class={["flex items-center gap-3 py-3", @class]}>
+      <div class="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200/60 to-slate-200/40 dark:via-slate-700/60 dark:to-slate-700/40" />
+      <span class={[
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium",
+        "bg-gradient-to-r from-slate-100/80 via-white/60 to-slate-100/80",
+        "dark:from-slate-800/80 dark:via-slate-700/60 dark:to-slate-800/80",
+        "text-slate-500 dark:text-slate-400",
+        "border border-slate-200/40 dark:border-slate-700/40",
+        "shadow-sm"
+      ]}>
+        <.phx_icon name="hero-calendar-days" class="w-3.5 h-3.5" />
+        {format_chat_date(@date)}
+      </span>
+      <div class="flex-1 h-px bg-gradient-to-r from-slate-200/40 via-slate-200/60 to-transparent dark:from-slate-700/40 dark:via-slate-700/60" />
+    </div>
+    """
+  end
+
+  defp format_chat_date(date) do
+    today = Date.utc_today()
+    yesterday = Date.add(today, -1)
+
+    cond do
+      Date.compare(date, today) == :eq -> "Today"
+      Date.compare(date, yesterday) == :eq -> "Yesterday"
+      Date.diff(today, date) < 7 -> Calendar.strftime(date, "%A")
+      date.year == today.year -> Calendar.strftime(date, "%B %d")
+      true -> Calendar.strftime(date, "%B %d, %Y")
+    end
   end
 end

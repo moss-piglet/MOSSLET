@@ -1,10 +1,10 @@
-<.layout current_page={:groups} current_user={@current_user} key={@key} type="sidebar">
+<.layout current_page={:circles} current_user={@current_user} key={@key} type="sidebar">
   <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
     <MossletWeb.DesignSystem.liquid_container max_width="xl" class="pt-6 sm:pt-8 pb-4 sm:pb-6">
       <div class="flex items-center justify-between gap-4 mb-6">
         <div class="flex items-center gap-3 min-w-0">
           <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 flex-shrink-0">
-            <.phx_icon name="hero-user-group" class="h-6 w-6 text-teal-600 dark:text-teal-400" />
+            <.phx_icon name="hero-circle-stack" class="h-6 w-6 text-teal-600 dark:text-teal-400" />
           </div>
           <div class="min-w-0">
             <h1 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
@@ -25,7 +25,7 @@
         <div class="flex items-center gap-2 flex-shrink-0">
           <MossletWeb.DesignSystem.liquid_button
             :if={@current_user_group.role in [:owner, :admin]}
-            navigate={~p"/app/groups/#{@group}/edit-group-members"}
+            navigate={~p"/app/circles/#{@group}/edit-group-members"}
             variant="secondary"
             color="slate"
             size="sm"
@@ -35,7 +35,7 @@
           </MossletWeb.DesignSystem.liquid_button>
 
           <MossletWeb.DesignSystem.liquid_button
-            navigate={~p"/app/groups"}
+            navigate={~p"/app/circles"}
             variant="secondary"
             color="slate"
             size="sm"
@@ -117,7 +117,7 @@
               />
             </div>
             <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Group Info
+              Circle Info
             </h2>
           </div>
           <button
@@ -200,7 +200,7 @@
                 class="w-5 h-5 text-teal-500 dark:text-teal-400"
               />
               <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Group Moniker
+                Circle Moniker
               </span>
             </div>
             <p class="ml-8 text-sm text-slate-900 dark:text-slate-100">
@@ -221,25 +221,25 @@
           :if={@current_user_group.role == :owner}
           phx-click="delete_group"
           phx-value-id={@group.id}
-          data-confirm="Are you sure you want to delete this group? This cannot be undone."
+          data-confirm="Are you sure you want to delete this circle? This cannot be undone."
           color="rose"
           icon="hero-trash"
           class="w-full"
         >
-          Delete Group
+          Delete Circle
         </MossletWeb.DesignSystem.liquid_button>
 
         <MossletWeb.DesignSystem.liquid_button
           :if={@current_user_group.role in [:member, :admin, :moderator]}
           phx-click="leave_group"
           phx-value-id={@current_user_group.id}
-          data-confirm={"Are you sure you want to leave this group? This will remove you as a #{String.capitalize(Atom.to_string(@current_user_group.role))} from this group."}
+          data-confirm={"Are you sure you want to leave this circle? This will remove you as a #{String.capitalize(Atom.to_string(@current_user_group.role))} from this circle."}
           color="rose"
           variant="secondary"
           icon="hero-arrow-right-on-rectangle"
           class="w-full"
         >
-          Leave Group
+          Leave Circle
         </MossletWeb.DesignSystem.liquid_button>
       </div>
     </div>
@@ -262,16 +262,16 @@
     id="group-modal"
     show
     size="md"
-    on_cancel={JS.patch(~p"/app/groups/#{@group}")}
+    on_cancel={JS.patch(~p"/app/circles/#{@group}")}
   >
-    <:title>Edit Group</:title>
+    <:title>Edit Circle</:title>
     <.live_component
       module={MossletWeb.GroupLive.FormComponent}
       id={@group.id}
       title={@page_title}
       action={@live_action}
       group={@group}
-      patch={~p"/app/groups/#{@group}"}
+      patch={~p"/app/circles/#{@group}"}
       current_user={@current_user}
       key={@key}
       user_connections={@user_connections}

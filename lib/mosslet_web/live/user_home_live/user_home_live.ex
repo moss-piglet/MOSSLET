@@ -788,11 +788,11 @@ defmodule MossletWeb.UserHomeLive do
                   </MossletWeb.DesignSystem.liquid_nav_item>
 
                   <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/groups"}
-                    icon="hero-user-group"
+                    navigate={~p"/app/circles"}
+                    icon="hero-circle-stack"
                     class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
                   >
-                    Join Groups
+                    Join Circles
                   </MossletWeb.DesignSystem.liquid_nav_item>
                 </div>
               </div>
@@ -1137,11 +1137,11 @@ defmodule MossletWeb.UserHomeLive do
                   </MossletWeb.DesignSystem.liquid_nav_item>
 
                   <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/groups"}
-                    icon="hero-user-group"
+                    navigate={~p"/app/circles"}
+                    icon="hero-circle-stack"
                     class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
                   >
-                    Join Groups
+                    Join Circles
                   </MossletWeb.DesignSystem.liquid_nav_item>
                 </div>
               </div>
@@ -1460,11 +1460,11 @@ defmodule MossletWeb.UserHomeLive do
                   </MossletWeb.DesignSystem.liquid_nav_item>
 
                   <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/groups"}
-                    icon="hero-user-group"
+                    navigate={~p"/app/circles"}
+                    icon="hero-circle-stack"
                     class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
                   >
-                    Join Groups
+                    Join Circles
                   </MossletWeb.DesignSystem.liquid_nav_item>
                 </div>
               </div>

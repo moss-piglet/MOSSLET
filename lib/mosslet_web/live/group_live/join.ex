@@ -25,16 +25,16 @@ defmodule MossletWeb.GroupLive.Join do
                   </div>
 
                   <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-                    Join Protected Group
+                    Join Protected Circle
                   </h1>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                    Enter the password to join this group
+                    Enter the password to join this circle
                   </p>
 
                   <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-700/50 border border-slate-200/60 dark:border-slate-600/40">
                     <.phx_icon
-                      name="hero-user-group"
+                      name="hero-circle-stack"
                       class="w-4 h-4 text-slate-500 dark:text-slate-400"
                     />
                     <span
@@ -74,9 +74,9 @@ defmodule MossletWeb.GroupLive.Join do
                     field={@form[:password]}
                     phx-debounce="blur"
                     type="password"
-                    label="Group Password"
+                    label="Circle Password"
                     autocomplete="off"
-                    placeholder="Enter group password..."
+                    placeholder="Enter circle password..."
                     required
                     {alpine_autofocus()}
                   />
@@ -101,7 +101,7 @@ defmodule MossletWeb.GroupLive.Join do
                       type="button"
                       variant="secondary"
                       color="slate"
-                      phx-click={JS.navigate(~p"/app/groups/greet")}
+                      phx-click={JS.navigate(~p"/app/circles/greet")}
                       class="w-full sm:w-auto sm:flex-1"
                     >
                       Cancel
@@ -115,7 +115,7 @@ defmodule MossletWeb.GroupLive.Join do
                       class="w-full sm:w-auto sm:flex-1"
                       phx-disable-with="Verifying..."
                     >
-                      Join Group
+                      Join Circle
                     </MossletWeb.DesignSystem.liquid_button>
                   </div>
                 </.form>
@@ -125,7 +125,7 @@ defmodule MossletWeb.GroupLive.Join do
             <p class="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
               Don't know the password?
               <.link
-                navigate={~p"/app/groups/greet"}
+                navigate={~p"/app/circles/greet"}
                 class="font-medium text-amber-600 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300"
               >
                 Go back to invitations
@@ -177,13 +177,13 @@ defmodule MossletWeb.GroupLive.Join do
       socket
       |> assign(:group, Groups.get_group!(id))
       |> assign(:user_group, user_group)
-      |> assign(:page_title, "Joining Group")
+      |> assign(:page_title, "Joining Circle")
       |> assign(:live_action, :join_password)
       |> assign(:groups_greeter_open?, false)
       |> assign_form(changeset)
     else
       socket
-      |> assign(:page_title, "New Group Invitations")
+      |> assign(:page_title, "New Circle Invitations")
       |> assign(:live_action, :greet)
       |> assign(:groups_greeter_open?, true)
       |> put_flash(:info, "You do not have permission to join this group.")
@@ -217,8 +217,8 @@ defmodule MossletWeb.GroupLive.Join do
         {:ok, _result} ->
           {:noreply,
            socket
-           |> put_flash(:success, "Group joined successfully")
-           |> push_navigate(to: ~p"/app/groups/#{group}")}
+           |> put_flash(:success, "Circle joined successfully")
+           |> push_navigate(to: ~p"/app/circles/#{group}")}
 
         {:error, %Ecto.Changeset{} = _changeset} ->
           join_attempts = socket.assigns.join_attempts + 1
@@ -269,13 +269,13 @@ defmodule MossletWeb.GroupLive.Join do
               {:noreply,
                socket
                |> put_flash(:error, "Too many failed attempts. Please try again later.")
-               |> push_navigate(to: ~p"/app/groups/greet")}
+               |> push_navigate(to: ~p"/app/circles/greet")}
 
             _rest ->
               {:noreply,
                socket
                |> put_flash(:error, "Too many failed attempts. Please try again later.")
-               |> push_navigate(to: ~p"/app/groups/greet")}
+               |> push_navigate(to: ~p"/app/circles/greet")}
           end
       end
     else

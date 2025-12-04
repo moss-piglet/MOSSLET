@@ -49,8 +49,8 @@ defmodule MossletWeb.GroupLive.Show do
     if is_nil(group) do
       {:noreply,
        socket
-       |> put_flash(:info, "This group cannot be viewed or no longer exists.")
-       |> push_navigate(to: ~p"/app/groups")}
+       |> put_flash(:info, "This circle cannot be viewed or no longer exists.")
+       |> push_navigate(to: ~p"/app/circles")}
     else
       user_group = get_user_group(group, current_user)
 
@@ -73,8 +73,8 @@ defmodule MossletWeb.GroupLive.Show do
       |> assign(page_title: "Show Group")
     else
       socket
-      |> put_flash(:info, "You don't have permission to view this group or it does not exist.")
-      |> push_navigate(to: ~p"/app/groups")
+      |> put_flash(:info, "You don't have permission to view this circle or it does not exist.")
+      |> push_navigate(to: ~p"/app/circles")
     end
   end
 
@@ -87,25 +87,24 @@ defmodule MossletWeb.GroupLive.Show do
       |> assign(:page_title, "Edit Group")
     else
       socket
-      |> put_flash(:info, "You do not have permission to edit this group.")
-      |> push_patch(to: ~p"/app/groups")
+      |> put_flash(:info, "You do not have permission to edit this circle.")
+      |> push_patch(to: ~p"/app/circles")
     end
   end
 
   @impl true
   def handle_info(%{event: "new_message", payload: %{message: message}}, socket) do
-    # Check if this message is from the current user to avoid double counting
     if message.sender_id == socket.assigns.current_user_group.id do
-      # For own messages: add to stream but don't increment (already counted locally)
       {:noreply,
        socket
-       |> stream_insert(:messages, GroupMessages.preload_message_sender(message))
+       |> stream_insert(:messages, add_grouping_context(message, socket))
+       |> assign(:last_message_info, extract_message_info(message))
        |> assign_last_user_message(message)}
     else
-      # For others' messages: add to stream and increment count
       {:noreply,
        socket
        |> insert_new_message(message)
+       |> assign(:last_message_info, extract_message_info(message))
        |> assign_last_user_message(message)}
     end
   end
@@ -151,7 +150,7 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_info({:user_group_deleted, user_group}, socket) do
     if user_group.user_id != socket.assigns.current_user.id do
-      {:noreply, push_navigate(socket, to: ~p"/app/groups/#{user_group.group_id}")}
+      {:noreply, push_navigate(socket, to: ~p"/app/circles/#{user_group.group_id}")}
     else
       {:noreply, socket}
     end
@@ -159,7 +158,7 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_info({:group_updated_member, group}, socket) do
-    {:noreply, assign(socket, :group, group) |> push_patch(to: ~p"/app/groups/#{group}")}
+    {:noreply, assign(socket, :group, group) |> push_patch(to: ~p"/app/circles/#{group}")}
   end
 
   @impl true
@@ -200,8 +199,8 @@ defmodule MossletWeb.GroupLive.Show do
       if kicked_user_id == socket.assigns.current_user.id do
         {:noreply,
          socket
-         |> put_flash(:info, "You have been removed from this group.")
-         |> push_navigate(to: ~p"/app/groups")}
+         |> put_flash(:info, "You have been removed from this circle.")
+         |> push_navigate(to: ~p"/app/circles")}
       else
         {:noreply, assign(socket, :group, group)}
       end
@@ -216,8 +215,8 @@ defmodule MossletWeb.GroupLive.Show do
       if blocked_user_id == socket.assigns.current_user.id do
         {:noreply,
          socket
-         |> put_flash(:info, "You have been removed from this group.")
-         |> push_navigate(to: ~p"/app/groups")}
+         |> put_flash(:info, "You have been removed from this circle.")
+         |> push_navigate(to: ~p"/app/circles")}
       else
         blocked_users = Groups.list_blocked_users(group.id)
 
@@ -321,9 +320,9 @@ defmodule MossletWeb.GroupLive.Show do
            |> clear_flash(:success)
            |> put_flash(
              :success,
-             "You have succesfully left the group."
+             "You have succesfully left the circle."
            )
-           |> push_navigate(to: ~p"/app/groups")}
+           |> push_navigate(to: ~p"/app/circles")}
 
         {:error, message} ->
           {:noreply,
@@ -334,7 +333,7 @@ defmodule MossletWeb.GroupLive.Show do
       {:noreply,
        socket
        |> put_flash(:warning, "You do not have permission to do this.")
-       |> push_navigate(to: ~p"/app/groups")}
+       |> push_navigate(to: ~p"/app/circles")}
     end
   end
 
@@ -409,7 +408,7 @@ defmodule MossletWeb.GroupLive.Show do
        |> assign(:live_action, :reply)
        |> assign(:current_post, post)
        |> assign(:reply, %Reply{})
-       |> push_patch(to: "/app/groups/#{group.id}/posts/#{post.id}/reply")}
+       |> push_patch(to: "/app/circles/#{group.id}/posts/#{post.id}/reply")}
     else
       {:noreply, socket}
     end
@@ -443,8 +442,8 @@ defmodule MossletWeb.GroupLive.Show do
         {:ok, _group} ->
           {:noreply,
            socket
-           |> put_flash(:success, "Group deleted successfully.")
-           |> push_navigate(to: ~p"/app/groups")}
+           |> put_flash(:success, "Circle deleted successfully.")
+           |> push_navigate(to: ~p"/app/circles")}
 
         {:error, message} ->
           {:noreply,
@@ -454,8 +453,8 @@ defmodule MossletWeb.GroupLive.Show do
     else
       {:noreply,
        socket
-       |> put_flash(:warning, "You do not have permission to delete this group.")
-       |> push_navigate(to: ~p"/app/groups")}
+       |> put_flash(:warning, "You do not have permission to delete this circle.")
+       |> push_navigate(to: ~p"/app/circles")}
     end
   end
 
@@ -530,7 +529,7 @@ defmodule MossletWeb.GroupLive.Show do
 
   def insert_new_message(socket, message) do
     socket
-    |> stream_insert(:messages, GroupMessages.preload_message_sender(message))
+    |> stream_insert(:messages, add_grouping_context(message, socket))
     |> update(:total_messages_count, &(&1 + 1))
   end
 
@@ -548,22 +547,26 @@ defmodule MossletWeb.GroupLive.Show do
 
   def assign_active_group_messages(socket) do
     messages = GroupMessages.last_ten_messages_for(socket.assigns.group.id)
-    messages_list = Enum.with_index(messages, fn element, index -> {index, element} end)
+    messages_with_context = add_initial_grouping_context(messages)
 
     if Enum.empty?(messages) do
       socket
-      |> assign(:messages_list, messages_list)
+      |> assign(:messages_list, messages)
       |> assign(:total_messages_count, 0)
+      |> assign(:last_message_info, nil)
       |> stream(:messages, messages)
       |> assign(:oldest_message_id, nil)
     else
+      last_message = List.last(messages)
+
       socket
-      |> assign(:messages_list, messages_list)
+      |> assign(:messages_list, messages)
       |> assign(
         :total_messages_count,
         GroupMessages.get_message_count_for_group(socket.assigns.group.id)
       )
-      |> stream(:messages, messages)
+      |> assign(:last_message_info, extract_message_info(last_message))
+      |> stream(:messages, messages_with_context)
       |> assign(:oldest_message_id, List.first(messages).id)
     end
   end
@@ -624,4 +627,82 @@ defmodule MossletWeb.GroupLive.Show do
   defp page_title(:reply), do: "Show Group Post"
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
+
+  defp add_grouping_context(message, socket) do
+    message = GroupMessages.preload_message_sender(message)
+    last_info = Map.get(socket.assigns, :last_message_info)
+
+    message_date = get_message_date(message.inserted_at)
+
+    {is_grouped, show_date_separator} =
+      if last_info do
+        same_sender = last_info.sender_id == message.sender_id
+        same_date = last_info.date == message_date
+        within_window = within_grouping_window?(last_info.inserted_at, message.inserted_at)
+
+        is_grouped = same_sender && same_date && within_window
+        show_date_separator = !same_date
+
+        {is_grouped, show_date_separator}
+      else
+        {false, true}
+      end
+
+    message
+    |> Map.put(:is_grouped, is_grouped)
+    |> Map.put(:show_date_separator, show_date_separator)
+    |> Map.put(:message_date, message_date)
+  end
+
+  defp extract_message_info(message) do
+    %{
+      sender_id: message.sender_id,
+      inserted_at: message.inserted_at,
+      date: get_message_date(message.inserted_at)
+    }
+  end
+
+  defp get_message_date(datetime) when is_struct(datetime, NaiveDateTime) do
+    NaiveDateTime.to_date(datetime)
+  end
+
+  defp get_message_date(datetime) when is_struct(datetime, DateTime) do
+    DateTime.to_date(datetime)
+  end
+
+  defp get_message_date(_), do: nil
+
+  defp within_grouping_window?(prev_time, curr_time) do
+    diff = NaiveDateTime.diff(curr_time, prev_time, :minute)
+    diff <= 5
+  end
+
+  defp add_initial_grouping_context(messages) do
+    messages
+    |> Enum.with_index()
+    |> Enum.map(fn {message, index} ->
+      prev_message = if index > 0, do: Enum.at(messages, index - 1)
+      message_date = get_message_date(message.inserted_at)
+
+      {is_grouped, show_date_separator} =
+        if prev_message do
+          prev_date = get_message_date(prev_message.inserted_at)
+          same_sender = prev_message.sender_id == message.sender_id
+          same_date = prev_date == message_date
+          within_window = within_grouping_window?(prev_message.inserted_at, message.inserted_at)
+
+          is_grouped = same_sender && same_date && within_window
+          show_date_separator = !same_date
+
+          {is_grouped, show_date_separator}
+        else
+          {false, true}
+        end
+
+      message
+      |> Map.put(:is_grouped, is_grouped)
+      |> Map.put(:show_date_separator, show_date_separator)
+      |> Map.put(:message_date, message_date)
+    end)
+  end
 end

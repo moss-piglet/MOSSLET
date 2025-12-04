@@ -336,7 +336,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
               </div>
               <.link
                 id={"group-#{group.id}-link"}
-                patch={~p"/app/groups/#{group.id}"}
+                patch={~p"/app/circles/#{group.id}"}
                 class="rounded-full border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 px-2.5 py-1 text-xs font-semibold text-gray-900 dark:text-gray-100 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-400 transition-all duration-200"
                 data-tippy-content="View Group"
                 phx-hook="TippyHook"
@@ -347,7 +347,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           </li>
         </ul>
         <.link
-          patch={~p"/app/groups"}
+          patch={~p"/app/circles"}
           class="flex w-full items-center justify-center rounded-full py-3 px-6 text-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
         >
           View all
@@ -377,7 +377,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           :if={@options.post_page > 1}
           patch={
             if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | post_page: @options.post_page - 1}}",
+              do: ~p"/app/circles/#{@group}?#{%{@options | post_page: @options.post_page - 1}}",
               else:
                 ~p"/app/users/connections/#{@user_connection}?#{%{@options | post_page: @options.post_page - 1}}"
           }
@@ -410,7 +410,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           }
           patch={
             if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | post_page: post_page_number}}",
+              do: ~p"/app/circles/#{@group}?#{%{@options | post_page: post_page_number}}",
               else:
                 ~p"/app/users/connections/#{@user_connection}?#{%{@options | post_page: post_page_number}}"
           }
@@ -424,7 +424,7 @@ defmodule MossletWeb.UserConnectionLive.Components do
           :if={more_post_pages?(@options, @post_count)}
           patch={
             if @group,
-              do: ~p"/app/groups/#{@group}?#{%{@options | post_page: @options.post_page + 1}}",
+              do: ~p"/app/circles/#{@group}?#{%{@options | post_page: @options.post_page + 1}}",
               else:
                 ~p"/app/users/connections/#{@user_connection}?#{%{@options | post_page: @options.post_page + 1}}"
           }

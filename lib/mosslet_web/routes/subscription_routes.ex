@@ -32,30 +32,33 @@ defmodule MossletWeb.SubscriptionRoutes do
           live "/users/connections/:id/edit", UserConnectionLive.Show, :edit
 
           # Groups
-          live "/groups", GroupLive.Index, :index
-          live "/groups/new", GroupLive.Index, :new
-          live "/groups/greet", GroupLive.Index, :greet
-          live "/groups/:id/edit", GroupLive.Index, :edit
-          live "/groups/:id/join", GroupLive.Index, :join
-          live "/groups/:id/join-password", GroupLive.Join, :join_password
-          live "/groups/:id", GroupLive.Show, :show
+          live "/circles", GroupLive.Index, :index
+          live "/circles/new", GroupLive.Index, :new
+          live "/circles/greet", GroupLive.Index, :greet
+          live "/circles/:id/edit", GroupLive.Index, :edit
+          live "/circles/:id/join", GroupLive.Index, :join
+          live "/circles/:id/join-password", GroupLive.Join, :join_password
+          live "/circles/:id", GroupLive.Show, :show
 
-          live "/groups/:id/show/edit", GroupLive.Show, :edit
-          live "/groups/:id/edit-group-members", GroupLive.GroupSettings.EditGroupMembersLive, nil
+          live "/circles/:id/show/edit", GroupLive.Show, :edit
 
-          live "/groups/user_group/:id/edit-member",
+          live "/circles/:id/edit-group-members",
+               GroupLive.GroupSettings.EditGroupMembersLive,
+               nil
+
+          live "/circles/user_group/:id/edit-member",
                GroupLive.GroupSettings.EditGroupMembersLive,
                :edit_member
 
-          live "/groups/:id/moderate-members",
+          live "/circles/:id/moderate-members",
                GroupLive.GroupSettings.ModerateGroupMembersLive,
                nil
 
-          live "/groups/user_group/:id/kick-member",
+          live "/circles/user_group/:id/kick-member",
                GroupLive.GroupSettings.ModerateGroupMembersLive,
                :kick_member
 
-          live "/groups/user_group/:id/block-member",
+          live "/circles/user_group/:id/block-member",
                GroupLive.GroupSettings.ModerateGroupMembersLive,
                :block_member
 

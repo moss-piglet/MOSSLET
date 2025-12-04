@@ -11,7 +11,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   def render(assigns) do
     ~H"""
     <.settings_group_layout
-      current_page={:edit_group_members}
+      current_page={:edit_circle_members}
       current_user={@current_user}
       key={@key}
       group={@group}
@@ -22,10 +22,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
         <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div class="space-y-1">
             <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Group Members
+              Circle Members
             </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
-              Manage roles and permissions for members in this group
+              Manage roles and permissions for members in this circle
             </p>
           </div>
           <.liquid_badge color="teal" size="md">
@@ -86,7 +86,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
           :if={@live_action in [:edit_member]}
           id="user-group-edit-modal"
           show
-          on_cancel={JS.patch(~p"/app/groups/#{@group}/edit-group-members")}
+          on_cancel={JS.patch(~p"/app/circles/#{@group}/edit-group-members")}
         >
           <:title>Edit Member Role</:title>
           <.live_component
@@ -97,7 +97,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
             group={@group}
             current_user_group={@current_user_group}
             user_group={@user_group}
-            patch={~p"/app/groups/#{@group}/edit-group-members"}
+            patch={~p"/app/circles/#{@group}/edit-group-members"}
             current_user={@current_user}
             key={@key}
           />
@@ -149,7 +149,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     ~H"""
     <div
       id={@user_group.id <> "-edit-member-button"}
-      phx-click={if @can_edit, do: JS.patch(~p"/app/groups/user_group/#{@user_group.id}/edit-member")}
+      phx-click={
+        if @can_edit, do: JS.patch(~p"/app/circles/user_group/#{@user_group.id}/edit-member")
+      }
       role={if @can_edit, do: "button", else: nil}
       tabindex={if @can_edit, do: "0", else: nil}
       aria-label={
@@ -164,7 +166,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
         end
       }
       phx-keydown={
-        if @can_edit, do: JS.patch(~p"/app/groups/user_group/#{@user_group.id}/edit-member")
+        if @can_edit, do: JS.patch(~p"/app/circles/user_group/#{@user_group.id}/edit-member")
       }
       phx-key="Enter"
       class={[
@@ -411,7 +413,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
              group
            )
          )
-         |> assign(:page_title, "Edit Group Members"), layout: {MossletWeb.Layouts, :app}}
+         |> assign(:page_title, "Edit Circle Members"), layout: {MossletWeb.Layouts, :app}}
       else
         {:ok,
          socket
@@ -419,7 +421,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
            :info,
            "You do not have permission to access this page or it does not exist."
          )
-         |> push_navigate(to: ~p"/app/groups/#{group}")}
+         |> push_navigate(to: ~p"/app/circles/#{group}")}
       end
     else
       user_group = Mosslet.Groups.get_user_group!(id)
@@ -446,7 +448,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
              group
            )
          )
-         |> assign(:page_title, "Edit Group Members"), layout: {MossletWeb.Layouts, :app}}
+         |> assign(:page_title, "Edit Circle Members"), layout: {MossletWeb.Layouts, :app}}
       else
         {:ok,
          socket
@@ -454,7 +456,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
            :info,
            "You do not have permission to access this page or it does not exist."
          )
-         |> push_navigate(to: ~p"/app/groups/#{group}")}
+         |> push_navigate(to: ~p"/app/circles/#{group}")}
       end
     end
   end
@@ -483,7 +485,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     group = Mosslet.Groups.get_group!(user_group.group_id)
 
     socket
-    |> assign(:page_title, "Edit Group Members")
+    |> assign(:page_title, "Edit Circle Members")
     |> assign(:group, group)
     |> assign(:user_group, user_group)
     |> assign(:current_user_group, socket.assigns.current_user_group)
@@ -491,7 +493,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
 
   defp apply_action(socket, nil, id) do
     socket
-    |> assign(:page_title, "Edit Group Members")
+    |> assign(:page_title, "Edit Circle Members")
     |> assign(:group, Mosslet.Groups.get_group!(id))
   end
 
@@ -515,8 +517,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       if kicked_user_id == socket.assigns.current_user.id do
         {:noreply,
          socket
-         |> put_flash(:info, "You have been removed from this group.")
-         |> push_navigate(to: ~p"/app/groups")}
+         |> put_flash(:info, "You have been removed from this circle.")
+         |> push_navigate(to: ~p"/app/circles")}
       else
         {:noreply, assign(socket, :group, group)}
       end
@@ -531,8 +533,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       if blocked_user_id == socket.assigns.current_user.id do
         {:noreply,
          socket
-         |> put_flash(:info, "You have been removed from this group.")
-         |> push_navigate(to: ~p"/app/groups")}
+         |> put_flash(:info, "You have been removed from this circle.")
+         |> push_navigate(to: ~p"/app/circles")}
       else
         blocked_users = Groups.list_blocked_users(group.id)
 
@@ -561,8 +563,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   end
 
   @impl true
-  def handle_info(message, socket) do
-    IO.inspect(message, label: "EDIT GROUP MEMBERS MESSAGE")
+  def handle_info(_message, socket) do
     {:noreply, socket}
   end
 end

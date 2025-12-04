@@ -334,7 +334,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
           Admin
         </span>
         <p class="text-xs text-orange-600 dark:text-orange-400 mt-0.5 leading-relaxed">
-          Can manage members and edit group settings
+          Can manage members and edit circle settings
         </p>
       </div>
     </div>
@@ -479,13 +479,13 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
         {:error, :only_owner_can_change_owner} ->
           {:noreply,
            socket
-           |> put_flash(:error, "Only group owners can change or remove the owner role.")
+           |> put_flash(:error, "Only circle owners can change or remove the owner role.")
            |> push_patch(to: socket.assigns.patch)}
 
         {:error, :only_owner_can_grant_owner} ->
           {:noreply,
            socket
-           |> put_flash(:error, "Only group owners can grant the owner role to members.")
+           |> put_flash(:error, "Only circle owners can grant the owner role to members.")
            |> push_patch(to: socket.assigns.patch)}
 
         {:error, :must_have_at_least_one_owner} ->
@@ -493,7 +493,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
            socket
            |> put_flash(
              :error,
-             "Cannot remove the last owner. Groups must have at least one owner."
+             "Cannot remove the last owner. Circles must have at least one owner."
            )
            |> push_patch(to: socket.assigns.patch)}
 

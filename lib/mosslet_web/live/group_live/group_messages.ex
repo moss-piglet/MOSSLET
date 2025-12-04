@@ -31,6 +31,14 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     """
   end
 
+  attr :message, :map, required: true
+  attr :current_user, :map, required: true
+  attr :user_group_key, :string, required: true
+  attr :group, :map, required: true
+  attr :key, :string, required: true
+  attr :user_group, :map, required: true
+  attr :messages_list, :list, required: true
+
   def message_details(assigns) do
     uconn =
       get_uconn_for_users(
@@ -102,6 +110,10 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       assigns.user_group.role in [:owner, :admin, :moderator] ||
         assigns.user_group.id == assigns.message.sender_id
 
+    is_grouped = Map.get(assigns.message, :is_grouped, false)
+    show_date_separator = Map.get(assigns.message, :show_date_separator, false)
+    message_date = Map.get(assigns.message, :message_date)
+
     assigns =
       assigns
       |> assign(:avatar_src, avatar_src)
@@ -110,12 +122,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:content, content)
       |> assign(:can_delete, can_delete)
       |> assign(:is_own_message, assigns.user_group.id == assigns.message.sender_id)
+      |> assign(:is_grouped, is_grouped)
+      |> assign(:show_date_separator, show_date_separator)
+      |> assign(:message_date, message_date)
 
     ~H"""
     <DesignSystem.liquid_chat_message
       id={@message.id}
       avatar_src={@avatar_src}
-      avatar_alt="group member avatar"
+      avatar_alt="circle member avatar"
       sender_name={@sender_name}
       moniker={@moniker}
       role={@message.sender.role}
@@ -123,6 +138,9 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       is_own_message={@is_own_message}
       can_delete={@can_delete}
       on_delete="delete_message"
+      is_grouped={@is_grouped}
+      show_date_separator={@show_date_separator}
+      message_date={@message_date}
     >
       {@content}
     </DesignSystem.liquid_chat_message>

@@ -11,7 +11,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   def render(assigns) do
     ~H"""
     <.settings_group_layout
-      current_page={:moderate_group_members}
+      current_page={:moderate_circle_members}
       current_user={@current_user}
       key={@key}
       group={@group}
@@ -25,7 +25,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
               Manage Members
             </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
-              Kick or block members from this group
+              Kick or block members from this circle
             </p>
           </div>
           <.liquid_badge color="emerald" size="md">
@@ -34,7 +34,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           </.liquid_badge>
         </header>
 
-        <div role="list" aria-label="Group members" class="grid gap-3 sm:gap-4">
+        <div role="list" aria-label="Circle members" class="grid gap-3 sm:gap-4">
           <div :for={ug <- @group.user_groups} role="listitem">
             <.member_card
               user_group={ug}
@@ -227,7 +227,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
         <div :if={@can_moderate} class="flex items-center gap-2">
           <.link
-            patch={~p"/app/groups/user_group/#{@user_group.id}/kick-member"}
+            patch={~p"/app/circles/user_group/#{@user_group.id}/kick-member"}
             class={[
               "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg",
               "bg-amber-100/80 dark:bg-amber-900/40",
@@ -240,7 +240,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
             <.phx_icon name="hero-arrow-right-start-on-rectangle" class="w-4 h-4" />
           </.link>
           <.link
-            patch={~p"/app/groups/user_group/#{@user_group.id}/block-member"}
+            patch={~p"/app/circles/user_group/#{@user_group.id}/block-member"}
             class={[
               "flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg",
               "bg-rose-100/80 dark:bg-rose-900/40",
@@ -372,7 +372,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     <.liquid_modal
       id="kick-member-modal"
       show
-      on_cancel={JS.patch(~p"/app/groups/#{@group}/moderate-members")}
+      on_cancel={JS.patch(~p"/app/circles/#{@group}/moderate-members")}
     >
       <:title>Kick Member</:title>
       <div class="space-y-4">
@@ -383,14 +383,14 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
               do: @member_name,
               else: @member_moniker}
           </strong>
-          from this group?
+          from this circle?
         </p>
         <p class="text-sm text-amber-600 dark:text-amber-400">
-          They will be removed but can rejoin the group later.
+          They will be removed but can rejoin the circle later.
         </p>
         <div class="flex justify-end gap-3 pt-4">
           <.link
-            patch={~p"/app/groups/#{@group}/moderate-members"}
+            patch={~p"/app/circles/#{@group}/moderate-members"}
             class={[
               "px-4 py-2 text-sm font-medium rounded-lg",
               "bg-slate-100 dark:bg-slate-700",
@@ -470,7 +470,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     <.liquid_modal
       id="block-member-modal"
       show
-      on_cancel={JS.patch(~p"/app/groups/#{@group}/moderate-members")}
+      on_cancel={JS.patch(~p"/app/circles/#{@group}/moderate-members")}
     >
       <:title>Block Member</:title>
       <div class="space-y-4">
@@ -481,14 +481,14 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
               do: @member_name,
               else: @member_moniker}
           </strong>
-          from this group?
+          from this circle?
         </p>
         <p class="text-sm text-rose-600 dark:text-rose-400">
           They will be removed and prevented from rejoining until unblocked.
         </p>
         <div class="flex justify-end gap-3 pt-4">
           <.link
-            patch={~p"/app/groups/#{@group}/moderate-members"}
+            patch={~p"/app/circles/#{@group}/moderate-members"}
             class={[
               "px-4 py-2 text-sm font-medium rounded-lg",
               "bg-slate-100 dark:bg-slate-700",
@@ -629,8 +629,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     if is_nil(group) do
       {:ok,
        socket
-       |> put_flash(:info, "This member no longer exists in the group.")
-       |> push_navigate(to: ~p"/app/groups")}
+       |> put_flash(:info, "This member no longer exists in the circle.")
+       |> push_navigate(to: ~p"/app/circles")}
     else
       current_user_group =
         Groups.get_user_group_for_group_and_user(group, socket.assigns.current_user)
@@ -659,7 +659,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
         {:ok,
          socket
          |> put_flash(:info, "You do not have permission to access this page.")
-         |> push_navigate(to: ~p"/app/groups/#{group}")}
+         |> push_navigate(to: ~p"/app/circles/#{group}")}
       end
     end
   end
@@ -672,8 +672,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           nil ->
             {:noreply,
              socket
-             |> put_flash(:info, "This member no longer exists in the group.")
-             |> push_navigate(to: ~p"/app/groups")}
+             |> put_flash(:info, "This member no longer exists in the circle.")
+             |> push_navigate(to: ~p"/app/circles")}
 
           user_group ->
             group = Groups.get_group!(user_group.group_id)
@@ -712,9 +712,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
          socket
          |> assign(:group, group)
          |> assign(:target_user_group, nil)
-         |> put_flash(:success, "Member has been kicked from the group.")
+         |> put_flash(:success, "Member has been kicked from the circle.")
          |> push_event("restore-body-scroll", %{})
-         |> push_patch(to: ~p"/app/groups/#{group}/moderate-members")}
+         |> push_patch(to: ~p"/app/circles/#{group}/moderate-members")}
 
       {:error, :cannot_kick_self} ->
         {:noreply, put_flash(socket, :error, "You cannot kick yourself.")}
@@ -742,8 +742,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
          |> assign(:group, group)
          |> assign(:blocked_users, blocked_users)
          |> assign(:target_user_group, nil)
-         |> put_flash(:success, "Member has been blocked from the group.")
-         |> push_patch(to: ~p"/app/groups/#{group}/moderate-members")}
+         |> put_flash(:success, "Member has been blocked from the circle.")
+         |> push_patch(to: ~p"/app/circles/#{group}/moderate-members")}
 
       {:error, :cannot_block_self} ->
         {:noreply, put_flash(socket, :error, "You cannot block yourself.")}
@@ -798,8 +798,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       if kicked_user_id == socket.assigns.current_user.id do
         {:noreply,
          socket
-         |> put_flash(:info, "You have been removed from this group.")
-         |> push_navigate(to: ~p"/app/groups")}
+         |> put_flash(:info, "You have been removed from this circle.")
+         |> push_navigate(to: ~p"/app/circles")}
       else
         {:noreply, assign(socket, :group, group)}
       end
@@ -814,8 +814,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       if blocked_user_id == socket.assigns.current_user.id do
         {:noreply,
          socket
-         |> put_flash(:info, "You have been removed from this group.")
-         |> push_navigate(to: ~p"/app/groups")}
+         |> put_flash(:info, "You have been removed from this circle.")
+         |> push_navigate(to: ~p"/app/circles")}
       else
         blocked_users = Groups.list_blocked_users(group.id)
 
@@ -844,8 +844,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   end
 
   @impl true
-  def handle_info(message, socket) do
-    IO.inspect(message, label: "GROUP MODERATE SETTINGS")
+  def handle_info(_message, socket) do
     {:noreply, socket}
   end
 end

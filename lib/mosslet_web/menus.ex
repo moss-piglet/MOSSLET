@@ -47,14 +47,14 @@ defmodule MossletWeb.Menus do
       # Regular users get normal app menu
       current_user.connection.profile ->
         build_menu(
-          [:home, :connections, :groups, :timeline, :settings, :subscribe],
+          [:home, :connections, :circles, :timeline, :settings, :subscribe],
           current_user
         )
 
       # Users without profile get dashboard menu
       true ->
         build_menu(
-          [:dashboard, :connections, :groups, :timeline, :settings, :subscribe],
+          [:dashboard, :connections, :circles, :timeline, :settings, :subscribe],
           current_user
         )
     end
@@ -391,12 +391,12 @@ defmodule MossletWeb.Menus do
     }
   end
 
-  def get_link(:groups = name, _current_user) do
+  def get_link(:circles = name, _current_user) do
     %{
       name: name,
-      label: gettext("Groups"),
-      path: ~p"/app/groups",
-      icon: "hero-user-group"
+      label: gettext("Circles"),
+      path: ~p"/app/circles",
+      icon: "hero-circle-stack"
     }
   end
 
@@ -516,40 +516,40 @@ defmodule MossletWeb.Menus do
   #  %{
   #    name: name,
   #    label: gettext("Edit group"),
-  #    path: ~p"/app/groups/#{group}/edit-group",
+  #    path: ~p"/app/circles/#{group}/edit-group",
   #    icon: "hero-user-group"
   #  }
   # end
 
-  def get_link(:edit_group_members = name, _current_user, group, user_group)
+  def get_link(:edit_circle_members = name, _current_user, group, user_group)
       when user_group.role in [:owner, :admin] do
     %{
       name: name,
       label: gettext("Edit members"),
-      path: ~p"/app/groups/#{group}/edit-group-members",
+      path: ~p"/app/circles/#{group}/edit-group-members",
       icon: "hero-users"
     }
   end
 
-  def get_link(:edit_group_members = _name, _current_user, _group, _user_group), do: nil
+  def get_link(:edit_circle_members = _name, _current_user, _group, _user_group), do: nil
 
-  def get_link(:moderate_group_members = name, _current_user, group, user_group)
+  def get_link(:moderate_circle_members = name, _current_user, group, user_group)
       when user_group.role in [:owner, :admin, :moderator] do
     %{
       name: name,
       label: gettext("Manage members"),
-      path: ~p"/app/groups/#{group}/moderate-members",
+      path: ~p"/app/circles/#{group}/moderate-members",
       icon: "hero-shield-exclamation"
     }
   end
 
-  def get_link(:moderate_group_members = _name, _current_user, _group, _user_group), do: nil
+  def get_link(:moderate_circle_members = _name, _current_user, _group, _user_group), do: nil
 
   # def get_link(:edit_group_notifications = name, _current_user, group, _user_group) do
   #  %{
   #    name: name,
   #    label: gettext("Edit notifications"),
-  #    path: ~p"/app/groups/#{group}/edit-notifications",
+  #    path: ~p"/app/circles/#{group}/edit-notifications",
   #    icon: "hero-bell"
   #  }
   # end
