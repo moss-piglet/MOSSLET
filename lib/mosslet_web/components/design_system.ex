@@ -8941,9 +8941,9 @@ defmodule MossletWeb.DesignSystem do
           <div class="flex-1 min-w-0 pt-0.5">
             <div class="flex items-start justify-between gap-3 mb-1.5">
               <div class="flex items-center gap-2 flex-wrap min-w-0">
-                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-cyan-700 dark:group-hover/card:text-cyan-300 transition-colors duration-200">
+                <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover/card:text-cyan-700 dark:group-hover/card:text-cyan-300 transition-colors duration-200">
                   {@name}
-                </h3>
+                </h2>
                 <span
                   :if={@require_password}
                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 dark:from-amber-900/40 dark:to-orange-900/40 dark:text-amber-300 shrink-0"

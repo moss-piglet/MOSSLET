@@ -256,7 +256,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
         <div
           :if={@is_self}
-          class="text-xs text-slate-400 dark:text-slate-500 italic"
+          class="text-xs text-slate-600 dark:text-slate-400 italic"
         >
           (You)
         </div>

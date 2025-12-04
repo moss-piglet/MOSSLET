@@ -74,10 +74,36 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.5"
+                  version="0.9.6"
                   date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Circles & Better Messaging ⭕</:title>
+                  <:description>
+                    Groups are now Circles — a more personal way to connect. Plus, chat improvements that make conversations feel more natural.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-circle-stack" color="teal">
+                      Groups renamed to Circles throughout the app for a warmer, more personal feel
+                    </.changelog_item>
+                    <.changelog_item icon="hero-calendar-days" color="purple">
+                      Smart date separators — see "Today", "Yesterday", day names for recent messages, and full dates for older ones
+                    </.changelog_item>
+                    <.changelog_item icon="hero-chat-bubble-left-right" color="blue">
+                      Message grouping — consecutive messages from the same person within 5 minutes are grouped together
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bolt" color="amber">
+                      Live updates preserve grouping context as new messages arrive
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.5"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Accessibility First 🦖</:title>
                   <:description>
