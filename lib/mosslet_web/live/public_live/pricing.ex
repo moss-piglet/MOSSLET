@@ -62,53 +62,151 @@ defmodule MossletWeb.PublicLive.Pricing do
             </.liquid_container>
           </div>
 
-          <%!-- Pricing cards section --%>
+          <%!-- Pricing card section --%>
           <.liquid_container max_width="xl" class="-mt-12 sm:mt-0 xl:-mt-8">
-            <div class="mx-auto max-w-lg lg:max-w-4xl">
-              <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                <%!-- Personal Plan Card --%>
-                <.liquid_pricing_card
-                  title="Personal"
-                  price="$59"
-                  period="/once"
-                  badge="Lifetime"
-                  save_badge="Save 40%"
-                  save_tooltip="Special price while we're in beta"
-                  description="Own your privacy forever with one simple payment. No subscriptions, no recurring fees – just pure digital freedom."
-                  note="Affirm payment plans available."
-                  note_disclosure="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders. CA residents: Loans by Affirm Loan Services, LLC are made or arranged pursuant to a California Finance Lenders Law license."
-                  cta_text="Get Lifetime Access"
-                  cta_href="/auth/register"
-                  cta_icon="hero-rocket-launch"
-                  featured={true}
-                  features={[
-                    "Unlimited Connections, Circles, and Posts",
-                    "Unlimited new features",
-                    "Streamlined settings",
-                    "Own your data",
-                    "Advanced asymmetric encryption",
-                    "Email support"
-                  ]}
-                />
+            <div class="mx-auto max-w-lg">
+              <.liquid_card padding="lg" class="overflow-hidden">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                      Personal
+                    </h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      Lifetime access
+                    </p>
+                  </div>
+                  <div
+                    id="pricing-beta-badge"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Special price while we're in beta"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-700/30"
+                  >
+                    <.phx_icon name="hero-fire" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                      Save 40%
+                    </span>
+                  </div>
+                </div>
 
-                <%!-- Family Plan Card --%>
-                <.liquid_pricing_card
-                  title="Family"
-                  price="TBA"
-                  period="/once"
-                  badge="Coming Soon"
-                  description="Coming soon. Privacy and peace of mind for your whole family with one lifetime payment."
-                  cta_text="Notify Me"
-                  cta_href="mailto:support@mosslet.com?subject=Family Plan Interest"
-                  disabled={false}
-                  features={[
-                    "Priority support",
-                    "Multiple accounts",
-                    "Family management tools",
-                    "Shared privacy controls",
-                    "All Personal features included"
-                  ]}
-                />
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
+                  Own your privacy forever with one simple payment. No subscriptions, no recurring fees – just pure digital freedom.
+                </p>
+
+                <div class="flex items-baseline gap-2 mb-8">
+                  <span class="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                    $59
+                  </span>
+                  <span class="text-lg text-slate-500 dark:text-slate-400">/ once</span>
+                </div>
+
+                <.liquid_button
+                  href="/auth/register"
+                  size="lg"
+                  class="w-full justify-center mb-8"
+                  color="teal"
+                  variant="primary"
+                  icon="hero-rocket-launch"
+                >
+                  Get Lifetime Access
+                </.liquid_button>
+
+                <div class="pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
+                  <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+                    <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" />
+                    Everything included
+                  </h3>
+                  <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      />
+                      <span class="text-sm text-slate-600 dark:text-slate-400">
+                        Unlimited Connections, Circles, and Posts
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      />
+                      <span class="text-sm text-slate-600 dark:text-slate-400">
+                        Unlimited new features
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      />
+                      <span class="text-sm text-slate-600 dark:text-slate-400">
+                        Streamlined settings
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      />
+                      <span class="text-sm text-slate-600 dark:text-slate-400">
+                        Own your data
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      />
+                      <span class="text-sm text-slate-600 dark:text-slate-400">
+                        Advanced asymmetric encryption
+                      </span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      />
+                      <span class="text-sm text-slate-600 dark:text-slate-400">
+                        Email support
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="mt-6 p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/10 dark:to-cyan-900/10 border border-blue-200/30 dark:border-blue-700/20">
+                  <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40">
+                      <.phx_icon
+                        name="hero-credit-card"
+                        class="w-5 h-5 text-blue-600 dark:text-blue-400"
+                      />
+                    </div>
+                    <div
+                      id="affirm-disclosure"
+                      phx-hook="TippyHook"
+                      data-tippy-content="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders. CA residents: Loans by Affirm Loan Services, LLC are made or arranged pursuant to a California Finance Lenders Law license."
+                      class="cursor-help flex-1"
+                    >
+                      <div class="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Flexible payments available
+                      </div>
+                      <div class="text-sm text-blue-700 dark:text-blue-300">
+                        Split into monthly payments with Affirm
+                      </div>
+                    </div>
+                    <.phx_icon
+                      name="hero-information-circle"
+                      class="w-5 h-5 text-blue-400 dark:text-blue-500 flex-shrink-0"
+                    />
+                  </div>
+                </div>
+              </.liquid_card>
+
+              <div class="mt-8 text-center">
+                <p class="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+                  <.phx_icon name="hero-shield-check" class="w-4 h-4 text-emerald-500" />
+                  Secure payment powered by Stripe
+                </p>
               </div>
             </div>
           </.liquid_container>
