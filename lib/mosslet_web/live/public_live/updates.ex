@@ -74,7 +74,7 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.6"
+                  version="0.9.51"
                   date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
