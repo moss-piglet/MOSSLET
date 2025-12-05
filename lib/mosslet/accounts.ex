@@ -1567,8 +1567,10 @@ defmodule Mosslet.Accounts do
     if data == "" do
       {:ok, nil}
     else
-      Enum.each(data, fn string ->
-        delete_data_filter(user, attrs, key, string)
+      data
+      |> Enum.filter(fn {_key, value} -> value == "true" end)
+      |> Enum.each(fn {data_type, _value} ->
+        delete_data_filter(user, attrs, key, data_type)
       end)
     end
   end

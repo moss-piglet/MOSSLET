@@ -10,6 +10,7 @@ defmodule MossletWeb.ManageDataLive do
      assign(socket,
        page_title: "Settings",
        current_password: nil,
+       legacy_expanded: false,
        form: to_form(Accounts.change_user_delete_data(socket.assigns.current_user))
      )}
   end
@@ -19,8 +20,59 @@ defmodule MossletWeb.ManageDataLive do
      assign(socket,
        page_title: "Settings",
        current_password: nil,
+       legacy_expanded: false,
        form: to_form(Accounts.change_user_delete_data(socket.assigns.current_user))
      )}
+  end
+
+  defp data_checked?(form, field) do
+    case form[:data].value do
+      %{^field => val} -> val in ["true", true]
+      _ -> false
+    end
+  end
+
+  attr :id, :string, required: true
+  attr :name, :string, required: true
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :description, :string, required: true
+  attr :legacy, :boolean, default: false
+  attr :checked, :boolean, default: false
+
+  defp data_checkbox(assigns) do
+    ~H"""
+    <div class={[
+      "group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50",
+      @legacy && "opacity-75"
+    ]}>
+      <div class="relative flex items-start gap-4">
+        <div class="relative flex-shrink-0 pt-0.5">
+          <input type="hidden" name={@name} value="false" />
+          <input
+            type="checkbox"
+            id={@id}
+            name={@name}
+            value="true"
+            checked={@checked}
+            class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
+          />
+        </div>
+        <div class="flex-1 min-w-0">
+          <label
+            for={@id}
+            class="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
+          >
+            <.phx_icon name={@icon} class="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            {@label}
+          </label>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            {@description}
+          </p>
+        </div>
+      </div>
+    </div>
+    """
   end
 
   def render(assigns) do
@@ -96,6 +148,7 @@ defmodule MossletWeb.ManageDataLive do
 
             <.form
               for={@form}
+              id="delete-data-form"
               phx-change="validate_password"
               phx-submit="delete_data"
               class="space-y-8"
@@ -108,171 +161,91 @@ defmodule MossletWeb.ManageDataLive do
               />
 
               <%!-- Data Selection Section --%>
-              <div class="space-y-4">
-                <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                  Select Data to Delete
-                </h3>
-                <p class="text-sm text-slate-600 dark:text-slate-400">
-                  Choose which types of data you'd like to permanently remove from your account.
-                </p>
-
-                <div class="space-y-4">
-                  <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="relative flex items-start gap-4">
-                      <div class="relative flex-shrink-0 pt-0.5">
-                        <input type="hidden" name="user[data][user_connections]" value="false" />
-                        <input
-                          type="checkbox"
-                          id="user_data_user_connections"
-                          name="user[data][user_connections]"
-                          value="true"
-                          class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <label
-                          for="user_data_user_connections"
-                          class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
-                        >
-                          Connections
-                        </label>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Remove all your connection relationships with other users
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="relative flex items-start gap-4">
-                      <div class="relative flex-shrink-0 pt-0.5">
-                        <input type="hidden" name="user[data][groups]" value="false" />
-                        <input
-                          type="checkbox"
-                          id="user_data_groups"
-                          name="user[data][groups]"
-                          value="true"
-                          class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <label
-                          for="user_data_groups"
-                          class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
-                        >
-                          Groups
-                        </label>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Delete all groups you've created and remove you from groups you've joined
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="relative flex items-start gap-4">
-                      <div class="relative flex-shrink-0 pt-0.5">
-                        <input type="hidden" name="user[data][memories]" value="false" />
-                        <input
-                          type="checkbox"
-                          id="user_data_memories"
-                          name="user[data][memories]"
-                          value="true"
-                          class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <label
-                          for="user_data_memories"
-                          class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
-                        >
-                          Memories
-                        </label>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Permanently delete all your saved memories and media
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="relative flex items-start gap-4">
-                      <div class="relative flex-shrink-0 pt-0.5">
-                        <input type="hidden" name="user[data][posts]" value="false" />
-                        <input
-                          type="checkbox"
-                          id="user_data_posts"
-                          name="user[data][posts]"
-                          value="true"
-                          class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <label
-                          for="user_data_posts"
-                          class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
-                        >
-                          Posts
-                        </label>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Remove all posts you've shared on your timeline
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="relative flex items-start gap-4">
-                      <div class="relative flex-shrink-0 pt-0.5">
-                        <input type="hidden" name="user[data][remarks]" value="false" />
-                        <input
-                          type="checkbox"
-                          id="user_data_remarks"
-                          name="user[data][remarks]"
-                          value="true"
-                          class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <label
-                          for="user_data_remarks"
-                          class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
-                        >
-                          Remarks
-                        </label>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Delete all remarks and comments you've made
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="group relative overflow-hidden rounded-xl p-3 -m-3 transition-all duration-200 ease-out hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <div class="relative flex items-start gap-4">
-                      <div class="relative flex-shrink-0 pt-0.5">
-                        <input type="hidden" name="user[data][replies]" value="false" />
-                        <input
-                          type="checkbox"
-                          id="user_data_replies"
-                          name="user[data][replies]"
-                          value="true"
-                          class="h-5 w-5 rounded-lg border-2 transition-all duration-200 ease-out transform-gpu cursor-pointer bg-slate-50 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none focus:ring-0 checked:border-emerald-600 dark:checked:border-emerald-400 checked:bg-emerald-600 dark:checked:bg-emerald-500 shadow-sm hover:shadow-md focus:shadow-lg focus:shadow-emerald-500/10"
-                        />
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <label
-                          for="user_data_replies"
-                          class="block text-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer leading-relaxed"
-                        >
-                          Replies
-                        </label>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          Remove all your replies to posts and conversations
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+              <div class="space-y-6">
+                <div>
+                  <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                    Select Data to Delete
+                  </h3>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Choose which types of data you'd like to permanently remove from your account.
+                  </p>
                 </div>
+
+                <div class="space-y-3">
+                  <.data_checkbox
+                    id="user_data_user_connections"
+                    name="user[data][user_connections]"
+                    icon="hero-users"
+                    label="Connections"
+                    description="Remove all your connection relationships with other users"
+                    checked={data_checked?(@form, "user_connections")}
+                  />
+
+                  <.data_checkbox
+                    id="user_data_groups"
+                    name="user[data][groups]"
+                    icon="hero-circle-stack"
+                    label="Circles"
+                    description="Delete all circles you've created and remove yourself from circles you've joined"
+                    checked={data_checked?(@form, "groups")}
+                  />
+
+                  <.data_checkbox
+                    id="user_data_posts"
+                    name="user[data][posts]"
+                    icon="hero-book-open"
+                    label="Posts"
+                    description="Remove all posts you've shared on your timeline"
+                    checked={data_checked?(@form, "posts")}
+                  />
+
+                  <.data_checkbox
+                    id="user_data_replies"
+                    name="user[data][replies]"
+                    icon="hero-chat-bubble-left-right"
+                    label="Replies"
+                    description="Remove all your replies to posts and conversations"
+                    checked={data_checked?(@form, "replies")}
+                  />
+                </div>
+
+                <%!-- Legacy Data Section --%>
+                <details class="group" open={@legacy_expanded}>
+                  <summary
+                    class="flex items-center gap-2 cursor-pointer text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                    phx-click="toggle_legacy"
+                  >
+                    <.phx_icon
+                      name="hero-chevron-right"
+                      class="h-4 w-4 transition-transform group-open:rotate-90"
+                    />
+                    <span>Legacy data options</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400">
+                      (from previous app versions)
+                    </span>
+                  </summary>
+                  <div class="mt-3 ml-6 space-y-3 border-l-2 border-slate-200 dark:border-slate-700 pl-4">
+                    <.data_checkbox
+                      id="user_data_memories"
+                      name="user[data][memories]"
+                      icon="hero-photo"
+                      label="Memories"
+                      description="Permanently delete all your saved memories and media"
+                      legacy={true}
+                      checked={data_checked?(@form, "memories")}
+                    />
+
+                    <.data_checkbox
+                      id="user_data_remarks"
+                      name="user[data][remarks]"
+                      icon="hero-chat-bubble-left"
+                      label="Remarks"
+                      description="Delete all remarks you've made"
+                      legacy={true}
+                      checked={data_checked?(@form, "remarks")}
+                    />
+                  </div>
+                </details>
               </div>
 
               <%!-- Password Confirmation Section --%>
@@ -419,37 +392,22 @@ defmodule MossletWeb.ManageDataLive do
                 <div class="space-y-2">
                   <div class="flex items-center gap-2">
                     <.phx_icon
-                      name="hero-user-group"
+                      name="hero-circle-stack"
                       class="h-4 w-4 text-blue-600 dark:text-blue-400"
                     />
                     <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                      Groups
+                      Circles
                     </span>
                   </div>
                   <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
-                    Deletes groups you created and removes you from joined groups
+                    Deletes circles you created and removes you from joined circles
                   </p>
                 </div>
 
                 <div class="space-y-2">
                   <div class="flex items-center gap-2">
                     <.phx_icon
-                      name="hero-photo"
-                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
-                    />
-                    <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                      Memories
-                    </span>
-                  </div>
-                  <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
-                    Permanently removes all saved photos, videos, and memory content
-                  </p>
-                </div>
-
-                <div class="space-y-2">
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-document-text"
+                      name="hero-book-open"
                       class="h-4 w-4 text-blue-600 dark:text-blue-400"
                     />
                     <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
@@ -458,21 +416,6 @@ defmodule MossletWeb.ManageDataLive do
                   </div>
                   <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
                     Erases all timeline posts and shared content
-                  </p>
-                </div>
-
-                <div class="space-y-2">
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-chat-bubble-left"
-                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
-                    />
-                    <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                      Remarks
-                    </span>
-                  </div>
-                  <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
-                    Removes all comments and remarks on posts
                   </p>
                 </div>
 
@@ -610,6 +553,10 @@ defmodule MossletWeb.ManageDataLive do
       |> to_form()
 
     {:noreply, assign(socket, form: form, current_password: password)}
+  end
+
+  def handle_event("toggle_legacy", _params, socket) do
+    {:noreply, assign(socket, legacy_expanded: !socket.assigns.legacy_expanded)}
   end
 
   def handle_event("delete_data", params, socket) do
