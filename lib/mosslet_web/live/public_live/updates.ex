@@ -74,10 +74,36 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.51"
+                  version="0.9.6"
                   date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Bot Defense & Collapsible Sidebar 🐜</:title>
+                  <:description>
+                    Improved security with bot defense, a cleaner sidebar experience, and uniformed page headers throughout the app.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-bug-ant" color="rose">
+                      Bot defense system to protect against automated spam and abuse
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrows-pointing-in" color="teal">
+                      Collapsible sidebar — click to collapse for more screen space, expands on hover
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bars-3" color="purple">
+                      Uniformed page headers across all app sections for a consistent experience
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="blue">
+                      Enhanced moderation UI for better content management
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.51"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Circles & Better Messaging ⭕</:title>
                   <:description>
