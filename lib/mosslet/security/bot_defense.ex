@@ -109,7 +109,7 @@ defmodule Mosslet.Security.BotDefense do
   Get the HMAC hash of an IP for lookups.
   """
   def hash_ip(ip) when is_tuple(ip) do
-    ip_string = ip |> Tuple.to_list() |> Enum.join(".")
+    ip_string = :inet.ntoa(ip) |> to_string()
     Mosslet.Encrypted.HMAC.dump(ip_string) |> elem(1)
   end
 

@@ -118,10 +118,7 @@ defmodule MossletWeb.Plugs.PlugAttack do
 
   # account for invalid Unicode code point errors
   defp convert_ip(ip) do
-    ip
-    |> Tuple.to_list()
-    |> Enum.map(fn i -> Integer.to_string(i) end)
-    |> List.to_string()
+    :inet.ntoa(ip) |> to_string()
   end
 
   defp convert_email(email) do

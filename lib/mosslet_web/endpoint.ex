@@ -79,8 +79,9 @@ defmodule MossletWeb.Endpoint do
   plug Plug.Session, @session_options
 
   plug RemoteIp,
-    headers: ~w[http_fly_client_ip]
+    headers: ~w[fly-client-ip]
 
+  plug MossletWeb.Plugs.PlugAttack
   plug MossletWeb.Plugs.BotDefense
 
   plug MossletWeb.Router
