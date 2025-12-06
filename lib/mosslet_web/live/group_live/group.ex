@@ -12,6 +12,7 @@ defmodule MossletWeb.GroupLive.Group do
         current_user={@current_user}
         user_group_key={@user_group.key}
         group={@group}
+        current_page={@current_page}
         user_group={@user_group}
         key={@key}
       />
@@ -24,6 +25,7 @@ defmodule MossletWeb.GroupLive.Group do
           current_user={@current_user}
           user_group_key={@user_group.key}
           public?={@group.public?}
+          current_page={@current_page}
           key={@key}
           id={"group-#{@group.id}-message-form"}
         />

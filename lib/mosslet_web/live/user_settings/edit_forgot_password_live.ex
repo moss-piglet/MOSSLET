@@ -18,6 +18,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
     <.layout
       current_user={@current_user}
       current_page={:edit_forgot_password}
+      sidebar_current_page={:edit_forgot_password}
       key={@key}
       type="sidebar"
     >

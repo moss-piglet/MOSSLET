@@ -17,7 +17,7 @@ defmodule MossletWeb.UserOrgInvitationsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.settings_layout current_page={:org_invitations} current_user={@current_user} key={@key}>
+    <.settings_layout current_page={:org_invitations} sidebar_current_page={:settings} current_user={@current_user} key={@key}>
       <%= if @current_user.confirmed_at do %>
         <%= if Util.blank?(@invitations) do %>
           <.p>

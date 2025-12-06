@@ -31,7 +31,7 @@ defmodule MossletWeb.EditProfileLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_user={@current_user} current_page={:edit_profile} key={@key} type="sidebar">
+    <.layout current_user={@current_user} current_page={:edit_profile} sidebar_current_page={:edit_profile} key={@key} type="sidebar">
       <DesignSystem.liquid_container max_width="lg" class="py-16">
         <%!-- Page header with liquid metal styling --%>
         <div class="mb-12">

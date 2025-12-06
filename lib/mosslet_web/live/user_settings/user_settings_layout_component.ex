@@ -20,12 +20,15 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
       key={@key}
       main_menu_items={sidebar_main_menu_items(@current_user)}
       user_menu_items={sidebar_user_menu_items(@current_user)}
-      sidebar_title="Settings"
       home_path="/app"
     >
       <:logo>
         <MossletWeb.CoreComponents.logo class="h-8 w-auto" />
       </:logo>
+
+      <:logo_icon>
+        <MossletWeb.CoreComponents.logo_icon class="h-8 w-auto" />
+      </:logo_icon>
 
       <:top_right>
         <.link
@@ -63,16 +66,20 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
     ~H"""
     <.modern_sidebar_layout
       current_page={@current_page}
+      sidebar_current_page={:circles}
       current_user={@current_user}
       key={@key}
       main_menu_items={sidebar_main_menu_items(@current_user)}
       user_menu_items={sidebar_user_menu_items(@current_user)}
-      sidebar_title="Group Settings"
       home_path="/app"
     >
       <:logo>
         <MossletWeb.CoreComponents.logo class="h-8 w-auto" />
       </:logo>
+
+      <:logo_icon>
+        <MossletWeb.CoreComponents.logo_icon class="h-8 w-auto" />
+      </:logo_icon>
 
       <:top_right>
         <.link

@@ -35,6 +35,7 @@ defmodule MossletWeb.GroupLive.Show do
      socket
      |> assign(:slide_over, false)
      |> assign(:slide_over_content, "")
+     |> assign(:current_page, :circles)
      |> assign_active_group()
      |> assign_scrolled_to_top()
      |> assign_last_user_message(), layout: {MossletWeb.Layouts, :app}}

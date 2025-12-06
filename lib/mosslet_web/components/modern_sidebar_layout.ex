@@ -12,6 +12,7 @@ defmodule MossletWeb.ModernSidebarLayout do
   alias Phoenix.LiveView.JS, as: JS
 
   attr :current_page, :atom, required: true
+  attr :sidebar_current_page, :atom, default: nil
   attr :current_user, :map, required: true
   attr :key, :string, required: true
   attr :main_menu_items, :list, default: []
@@ -25,6 +26,7 @@ defmodule MossletWeb.ModernSidebarLayout do
   slot :top_right
 
   def modern_sidebar_layout(assigns) do
+    assigns = assign_new(assigns, :sidebar_current_page, fn -> assigns.current_page end)
     ~H"""
     <div
       class="min-h-screen bg-slate-50/50 dark:bg-slate-900"
@@ -56,7 +58,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       >
         <div
           class={[
-            "flex flex-col h-full max-h-screen transition-all duration-300 ease-out",
+            "flex flex-col h-full max-h-screen transition-[padding] duration-300 ease-out",
             "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
             "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
             "border-r border-slate-200/60 dark:border-slate-700/60",
@@ -88,6 +90,7 @@ defmodule MossletWeb.ModernSidebarLayout do
             </.link>
             <.link
               navigate={@home_path}
+              aria-label="Home"
               class="group block transition-transform duration-300 ease-out hover:scale-105"
               x-show="sidebarCollapsed"
               x-cloak
@@ -110,7 +113,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           <nav aria-label="Main navigation" class="flex-1 overflow-y-auto min-h-0 space-y-2">
             <.modern_sidebar_menu
               menu_items={@main_menu_items}
-              current_page={@current_page}
+              current_page={@sidebar_current_page}
               title={@sidebar_title}
               collapsed={false}
             />
@@ -173,6 +176,7 @@ defmodule MossletWeb.ModernSidebarLayout do
             "border-r border-slate-200/60 dark:border-slate-700/60",
             "backdrop-blur-sm transition-transform duration-300 ease-out"
           ]}
+          x-data="{ sidebarCollapsed: false }"
           x-show="sidebarOpen"
           x-transition:enter="transform transition ease-out duration-300"
           x-transition:enter-start="-translate-x-full opacity-90"
@@ -208,7 +212,7 @@ defmodule MossletWeb.ModernSidebarLayout do
           >
             <.modern_sidebar_menu
               menu_items={@main_menu_items}
-              current_page={@current_page}
+              current_page={@sidebar_current_page}
               title={@sidebar_title}
             />
           </nav>

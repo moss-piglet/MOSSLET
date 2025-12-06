@@ -20,7 +20,7 @@ defmodule MossletWeb.EditTotpLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.layout current_user={@current_user} current_page={:edit_totp} key={@key} type="sidebar">
+    <.layout current_user={@current_user} current_page={:edit_totp} sidebar_current_page={:edit_totp} key={@key} type="sidebar">
       <DesignSystem.liquid_container max_width="lg" class="py-16">
         <%!-- Page header with liquid metal styling --%>
         <div class="mb-12">

@@ -1,4 +1,4 @@
-<.layout current_page={:circles} current_user={@current_user} key={@key} type="sidebar">
+<.layout current_page={@current_page} sidebar_current_page={@current_page} current_user={@current_user} key={@key} type="sidebar">
   <div class="h-[calc(100vh-4rem)] flex flex-col bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
     <div class="flex-1 min-h-0 p-3 sm:p-4">
       <div class="h-full mx-auto w-full max-w-screen-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 overflow-hidden flex flex-col">
@@ -6,6 +6,7 @@
           <div class="flex items-center gap-3 min-w-0">
             <.link
               navigate={~p"/app/circles"}
+              aria-label="Back to circles"
               class="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200 flex-shrink-0"
             >
               <.phx_icon name="hero-arrow-left" class="w-4 h-4 sm:w-5 sm:h-5" />
@@ -88,6 +89,7 @@
             group={@group}
             user_group={@current_user_group}
             scrolled_to_top={@scrolled_to_top}
+            current_page={@current_page}
           />
         </div>
       </div>

@@ -115,7 +115,7 @@ defmodule MossletWeb.BillingLive do
     ~H"""
     <%= case @source do %>
       <% :user -> %>
-        <.layout current_user={@current_user} current_page={:billing} key={@key} type="sidebar">
+        <.layout current_user={@current_user} current_page={:billing} sidebar_current_page={:billing} key={@key} type="sidebar">
           <DesignSystem.liquid_container max_width="lg" class="py-16">
             <%!-- Page header with liquid metal styling --%>
             <div class="mb-12">
