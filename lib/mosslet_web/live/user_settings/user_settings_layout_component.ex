@@ -9,6 +9,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
 
   attr :current_user, :map
   attr :current_page, :atom
+  attr :sidebar_current_page, :atom, default: nil
   attr :key, :string, doc: "the session key for the current user"
   slot :inner_block
 

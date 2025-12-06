@@ -29,7 +29,13 @@ defmodule MossletWeb.BlockedUsersLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_user={@current_user} current_page={:blocked_users} sidebar_current_page={:blocked_users} key={@key} type="sidebar">
+    <.layout
+      current_user={@current_user}
+      current_page={:blocked_users}
+      sidebar_current_page={:blocked_users}
+      key={@key}
+      type="sidebar"
+    >
       <DesignSystem.liquid_container max_width="lg" class="py-8">
         <%!-- Page header with rose/pink styling --%>
         <div class="mb-8">

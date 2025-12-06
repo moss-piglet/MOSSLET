@@ -2291,6 +2291,7 @@ defmodule MossletWeb.CoreComponents do
   """
   attr :type, :string, default: "sidebar", values: ["sidebar", "stacked", "public"]
   attr :current_page, :atom, required: true
+  attr :sidebar_current_page, :atom, default: nil
   attr :current_user, :map, default: nil
   attr :public_menu_items, :list
   attr :main_menu_items, :list

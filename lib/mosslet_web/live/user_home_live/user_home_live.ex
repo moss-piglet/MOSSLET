@@ -298,7 +298,13 @@ defmodule MossletWeb.UserHomeLive do
   defp render_own_profile(assigns) do
     ~H"""
     <%!-- Enhanced Profile Page with AT Protocol Federation Support --%>
-    <.layout current_page={:home} sidebar_current_page={:home} current_user={@current_user} key={@key} type="sidebar">
+    <.layout
+      current_page={:home}
+      sidebar_current_page={:home}
+      current_user={@current_user}
+      key={@key}
+      type="sidebar"
+    >
       <%!-- Hero Section with responsive design --%>
       <div class="relative overflow-hidden">
         <%!-- Banner/Cover Image Section --%>
@@ -892,7 +898,13 @@ defmodule MossletWeb.UserHomeLive do
 
   defp render_public_profile(assigns) do
     ~H"""
-    <.layout current_page={:home} sidebar_current_page={:home} current_user={@current_user} key={@key} type="sidebar">
+    <.layout
+      current_page={:home}
+      sidebar_current_page={:home}
+      current_user={@current_user}
+      key={@key}
+      type="sidebar"
+    >
       <div class="relative overflow-hidden">
         <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
           <div
@@ -1185,7 +1197,13 @@ defmodule MossletWeb.UserHomeLive do
   defp render_connections_profile(assigns) do
     ~H"""
     <%!-- Connection Profile Page - Current user viewing their connection's profile --%>
-    <.layout current_page={:home} sidebar_current_page={:home} current_user={@current_user} key={@key} type="sidebar">
+    <.layout
+      current_page={:home}
+      sidebar_current_page={:home}
+      current_user={@current_user}
+      key={@key}
+      type="sidebar"
+    >
       <%!-- Hero Section with responsive design --%>
       <div class="relative overflow-hidden">
         <%!-- Banner/Cover Image Section --%>

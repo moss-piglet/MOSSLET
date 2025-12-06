@@ -77,7 +77,13 @@ defmodule MossletWeb.ManageDataLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_user={@current_user} current_page={:manage_data} sidebar_current_page={:manage_data} key={@key} type="sidebar">
+    <.layout
+      current_user={@current_user}
+      current_page={:manage_data}
+      sidebar_current_page={:manage_data}
+      key={@key}
+      type="sidebar"
+    >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
         <%!-- Page header with liquid metal styling --%>
         <div class="mb-12">

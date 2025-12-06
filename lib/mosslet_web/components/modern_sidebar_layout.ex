@@ -27,6 +27,7 @@ defmodule MossletWeb.ModernSidebarLayout do
 
   def modern_sidebar_layout(assigns) do
     assigns = assign_new(assigns, :sidebar_current_page, fn -> assigns.current_page end)
+
     ~H"""
     <div
       class="min-h-screen bg-slate-50/50 dark:bg-slate-900"
