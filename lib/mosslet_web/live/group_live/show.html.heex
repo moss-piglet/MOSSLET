@@ -5,100 +5,98 @@
   key={@key}
   type="sidebar"
 >
-  <div class="h-[calc(100vh-4rem)] flex flex-col bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">
-    <div class="flex-1 min-h-0 p-3 sm:p-4">
-      <div class="h-full mx-auto w-full max-w-screen-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 overflow-hidden flex flex-col">
-        <div class="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-slate-50/50 via-white/30 to-slate-50/50 dark:from-slate-800/50 dark:via-slate-700/30 dark:to-slate-800/50">
-          <div class="flex items-center gap-3 min-w-0">
-            <.link
-              navigate={~p"/app/circles"}
-              aria-label="Back to circles"
-              class="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200 flex-shrink-0"
-            >
-              <.phx_icon name="hero-arrow-left" class="w-4 h-4 sm:w-5 sm:h-5" />
-            </.link>
+  <div class="h-[calc(100vh-4rem)] flex flex-col bg-white/60 dark:bg-slate-800/60">
+    <div class="flex-shrink-0 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 dark:from-slate-800/80 dark:via-slate-700/60 dark:to-slate-800/80">
+      <div class="flex items-center justify-between gap-3 max-w-4xl mx-auto">
+        <div class="flex items-center gap-3 min-w-0">
+          <.link
+            navigate={~p"/app/circles"}
+            aria-label="Back to circles"
+            class="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200 flex-shrink-0"
+          >
+            <.phx_icon name="hero-arrow-left" class="w-4 h-4 sm:w-5 sm:h-5" />
+          </.link>
 
-            <div class="p-1.5 sm:p-2 rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 flex-shrink-0">
-              <.phx_icon
-                name="hero-circle-stack"
-                class="h-4 w-4 sm:h-5 sm:w-5 text-teal-600 dark:text-teal-400"
-              />
-            </div>
-
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <h1 class="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  {decr_item(
-                    @group.name,
-                    @current_user,
-                    @current_user_group.key,
-                    @key,
-                    @group
-                  )}
-                </h1>
-                <span class="relative flex-shrink-0">
-                  <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75">
-                    </span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                </span>
-              </div>
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                {@total_messages_count} messages
-              </p>
-            </div>
+          <div class="p-1.5 sm:p-2 rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 flex-shrink-0">
+            <.phx_icon
+              name="hero-circle-stack"
+              class="h-4 w-4 sm:h-5 sm:w-5 text-teal-600 dark:text-teal-400"
+            />
           </div>
 
-          <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            <MossletWeb.DesignSystem.liquid_button
-              :if={@current_user_group.role in [:owner, :admin]}
-              navigate={~p"/app/circles/#{@group}/edit-group-members"}
-              variant="ghost"
-              color="slate"
-              size="sm"
-              icon="hero-cog-6-tooth"
-            >
-              <span class="sr-only">Settings</span>
-            </MossletWeb.DesignSystem.liquid_button>
-
-            <button
-              id="group-info-toggle"
-              type="button"
-              aria-label="Group info"
-              phx-click={
-                JS.toggle(
-                  to: "#group-info-backdrop",
-                  in: "fade-in-scale",
-                  out: "fade-out-scale"
-                )
-                |> JS.toggle(
-                  to: "#group-info-panel",
-                  in: "slide-in-right",
-                  out: "slide-out-right"
-                )
-              }
-              class="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all duration-200"
-            >
-              <.phx_icon name="hero-information-circle" class="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h1 class="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
+                {decr_item(
+                  @group.name,
+                  @current_user,
+                  @current_user_group.key,
+                  @key,
+                  @group
+                )}
+              </h1>
+              <span class="relative flex-shrink-0">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75">
+                  </span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              {@total_messages_count} messages
+            </p>
           </div>
         </div>
 
-        <div class="flex-1 min-h-0">
-          <Group.show
-            :if={@live_action == :show}
-            messages={@streams.messages}
-            messages_list={@messages_list}
-            current_user={@current_user}
-            key={@key}
-            group={@group}
-            user_group={@current_user_group}
-            scrolled_to_top={@scrolled_to_top}
-            current_page={@current_page}
-          />
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <MossletWeb.DesignSystem.liquid_button
+            :if={@current_user_group.role in [:owner, :admin]}
+            navigate={~p"/app/circles/#{@group}/edit-group-members"}
+            variant="ghost"
+            color="slate"
+            size="sm"
+            icon="hero-cog-6-tooth"
+          >
+            <span class="sr-only">Settings</span>
+          </MossletWeb.DesignSystem.liquid_button>
+
+          <button
+            id="group-info-toggle"
+            type="button"
+            aria-label="Group info"
+            phx-click={
+              JS.toggle(
+                to: "#group-info-backdrop",
+                in: "fade-in-scale",
+                out: "fade-out-scale"
+              )
+              |> JS.toggle(
+                to: "#group-info-panel",
+                in: "slide-in-right",
+                out: "slide-out-right"
+              )
+            }
+            class="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all duration-200"
+          >
+            <.phx_icon name="hero-information-circle" class="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
         </div>
       </div>
+    </div>
+
+    <div class="flex-1 min-h-0">
+      <Group.show
+        :if={@live_action == :show}
+        messages={@streams.messages}
+        messages_list={@messages_list}
+        current_user={@current_user}
+        key={@key}
+        group={@group}
+        user_group={@current_user_group}
+        scrolled_to_top={@scrolled_to_top}
+        current_page={@current_page}
+      />
     </div>
 
     <div

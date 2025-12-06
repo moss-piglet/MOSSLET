@@ -17,7 +17,7 @@ defmodule MossletWeb.GroupLive.Group do
         key={@key}
       />
 
-      <div class="flex-shrink-0 border-t border-slate-200/60 dark:border-slate-700/60 bg-gradient-to-r from-slate-50/80 via-white/60 to-slate-50/80 dark:from-slate-800/60 dark:via-slate-700/40 dark:to-slate-800/60 backdrop-blur-sm px-4 sm:px-6 py-3 sm:py-4">
+      <div class="flex-shrink-0">
         <.live_component
           module={GroupMessage.Form}
           group_id={@group.id}

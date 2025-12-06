@@ -1061,8 +1061,7 @@ defmodule MossletWeb.CoreComponents do
           if @apply_classes?,
             do: [
               "#{@classes} min-h-[6rem]",
-              @errors == [] && "border-zinc-500 focus:border-zinc-400",
-              @errors != [] && "border-rose-400 focus:border-rose-400"
+              @errors != [] && "!border-rose-400 focus:!border-rose-400"
             ],
             else: [
               "w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",

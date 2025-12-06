@@ -19,16 +19,16 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
 
   def render(assigns) do
     ~H"""
-    <div>
+    <div class="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-slate-200/60 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
       <.form
         for={@message_form}
         phx-submit="save"
         phx-change="update"
         phx-target={@myself}
         id="group-message-form"
-        class="flex items-end gap-2 sm:gap-3"
+        class="max-w-4xl mx-auto"
       >
-        <div class="flex-1 min-w-0">
+        <div class="relative">
           <label for="message_form[content]" class="sr-only">Add new message to group</label>
           <.phx_input
             autocomplete="off"
@@ -41,25 +41,21 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             apply_classes?={true}
             phx-debounce="500"
             classes={[
-              "block w-full resize-none border-0 bg-white/95 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-teal-500/50 dark:focus:ring-teal-400/50 focus:ring-offset-0 rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 shadow-sm border border-slate-200/60 dark:border-slate-700/60 text-sm leading-relaxed max-h-24 sm:max-h-32 backdrop-blur-sm transition-all duration-200 focus:border-teal-300 dark:focus:border-teal-600 focus:shadow-md focus:shadow-teal-500/10"
+              "block w-full resize-none bg-slate-50/60 dark:bg-slate-900/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-2xl py-3 pl-4 pr-14 text-base sm:text-sm leading-relaxed min-h-[48px] max-h-32 border border-slate-200/60 dark:border-slate-700/60 focus:border-teal-400/60 dark:focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:outline-none transition-all duration-200"
             ]}
           />
+          <button
+            type="submit"
+            class="group/btn absolute right-2 bottom-2 inline-flex items-center justify-center gap-1.5 h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
+          >
+            <span class="hidden sm:inline text-sm font-medium">Send</span>
+            <.phx_icon name="hero-paper-airplane" class="w-4 h-4 sm:w-4 sm:h-4" />
+            <span class="sr-only sm:hidden">Send message</span>
+          </button>
         </div>
 
         <.phx_input type="hidden" field={@message_form[:group_id]} value={@group_id} />
         <.phx_input type="hidden" field={@message_form[:sender_id]} value={@sender_id} />
-
-        <button
-          type="submit"
-          class="group/btn relative flex-shrink-0 inline-flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
-        >
-          <div class="absolute inset-0 bg-gradient-to-br from-teal-500 to-emerald-500 group-hover/btn:from-teal-400 group-hover/btn:to-emerald-400 transition-all duration-200">
-          </div>
-          <div class="absolute inset-0 opacity-0 group-hover/btn:opacity-100 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-all duration-500 ease-out">
-          </div>
-          <.phx_icon name="hero-paper-airplane" class="relative w-5 h-5 text-white" />
-          <span class="sr-only">Send message</span>
-        </button>
       </.form>
     </div>
     """

@@ -9530,8 +9530,8 @@ defmodule MossletWeb.DesignSystem do
                   id={"time-tooltip-" <> @id}
                   class={[
                     "text-xs whitespace-nowrap cursor-help",
-                    "text-slate-400 dark:text-slate-500",
-                    "hover:text-slate-600 dark:hover:text-slate-300",
+                    "text-slate-500 dark:text-slate-400",
+                    "hover:text-slate-700 dark:hover:text-slate-200",
                     "transition-colors duration-150"
                   ]}
                   phx-hook="LocalTimeTooltip"
