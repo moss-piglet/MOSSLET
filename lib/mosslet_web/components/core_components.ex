@@ -2343,6 +2343,9 @@ defmodule MossletWeb.CoreComponents do
           <:logo>
             <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
           </:logo>
+          <:logo_icon>
+            <.logo_icon class="h-8 w-8 transition-transform duration-300 ease-out transform hover:scale-105" />
+          </:logo_icon>
           <:top_right>
             <.link
               :if={@current_user && @current_user.confirmed_at}

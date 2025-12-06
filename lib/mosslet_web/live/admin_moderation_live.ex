@@ -141,9 +141,9 @@ defmodule MossletWeb.AdminModerationLive do
                       class="h-6 w-6 text-emerald-500 dark:text-emerald-400"
                     />
                   </div>
-                  <h3 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <h2 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
                     No post reports
-                  </h3>
+                  </h2>
                 </div>
                 <div
                   :for={{id, report} <- @streams.post_reports}
@@ -177,9 +177,9 @@ defmodule MossletWeb.AdminModerationLive do
                       class="h-6 w-6 text-purple-500 dark:text-purple-400"
                     />
                   </div>
-                  <h3 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <h2 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
                     No reply reports
-                  </h3>
+                  </h2>
                 </div>
                 <div
                   :for={{id, report} <- @streams.reply_reports}

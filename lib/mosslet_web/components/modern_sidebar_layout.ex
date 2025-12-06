@@ -4,7 +4,7 @@ defmodule MossletWeb.ModernSidebarLayout do
   Designed to be responsive, accessible, and visually appealing on both mobile and desktop.
   """
   use MossletWeb, :verified_routes
-  use Phoenix.Component
+  use Phoenix.Component, global_prefixes: ~w(x-)
 
   import MossletWeb.ModernSidebarMenu
   import MossletWeb.Helpers
@@ -28,7 +28,8 @@ defmodule MossletWeb.ModernSidebarLayout do
     ~H"""
     <div
       class="min-h-screen bg-slate-50/50 dark:bg-slate-900"
-      x-data="{ sidebarOpen: false }"
+      x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }"
+      x-init="$watch('sidebarCollapsed', val => localStorage.setItem('sidebarCollapsed', val))"
       x-bind:class="{ 'overflow-hidden h-screen': sidebarOpen }"
     >
       <%!-- Mobile sidebar backdrop --%>
@@ -49,19 +50,35 @@ defmodule MossletWeb.ModernSidebarLayout do
       </div>
 
       <%!-- Desktop sidebar --%>
-      <aside class="hidden xl:fixed xl:inset-y-0 xl:z-30 xl:flex xl:w-72 xl:flex-col">
-        <div class={[
-          "flex grow flex-col gap-y-6 overflow-y-auto px-6 pb-4",
-          "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
-          "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
-          "border-r border-slate-200/60 dark:border-slate-700/60",
-          "backdrop-blur-sm"
-        ]}>
+      <aside
+        class="hidden xl:fixed xl:inset-y-0 xl:z-30 xl:flex xl:flex-col xl:h-screen transition-all duration-300 ease-out"
+        x-bind:class="sidebarCollapsed ? 'xl:w-20' : 'xl:w-72'"
+      >
+        <div
+          class={[
+            "flex flex-col h-full max-h-screen transition-all duration-300 ease-out",
+            "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
+            "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
+            "border-r border-slate-200/60 dark:border-slate-700/60",
+            "backdrop-blur-sm"
+          ]}
+          x-bind:class="sidebarCollapsed ? 'px-3' : 'px-6'"
+        >
           <%!-- Logo --%>
-          <div class="flex h-16 shrink-0 items-center">
+          <div
+            class="flex h-16 shrink-0 items-center"
+            x-bind:class="sidebarCollapsed ? 'justify-center' : 'lg:px-4'"
+          >
             <.link
               navigate={@home_path}
               class="group block transition-transform duration-300 ease-out hover:scale-105"
+              x-show="!sidebarCollapsed"
+              x-transition:enter="transition ease-out duration-200"
+              x-transition:enter-start="opacity-0 scale-90"
+              x-transition:enter-end="opacity-100 scale-100"
+              x-transition:leave="transition ease-in duration-150"
+              x-transition:leave-start="opacity-100 scale-100"
+              x-transition:leave-end="opacity-0 scale-90"
             >
               <div class="relative">
                 {render_slot(@logo)}
@@ -69,16 +86,80 @@ defmodule MossletWeb.ModernSidebarLayout do
                 </div>
               </div>
             </.link>
+            <.link
+              navigate={@home_path}
+              class="group block transition-transform duration-300 ease-out hover:scale-105"
+              x-show="sidebarCollapsed"
+              x-cloak
+              x-transition:enter="transition ease-out duration-200"
+              x-transition:enter-start="opacity-0 scale-90"
+              x-transition:enter-end="opacity-100 scale-100"
+              x-transition:leave="transition ease-in duration-150"
+              x-transition:leave-start="opacity-100 scale-100"
+              x-transition:leave-end="opacity-0 scale-90"
+            >
+              <div class="relative">
+                {render_slot(@logo_icon)}
+                <div class="absolute inset-0 rounded-lg bg-gradient-to-br from-emerald-500/0 to-cyan-500/0 group-hover:from-emerald-500/5 group-hover:to-cyan-500/5 transition-all duration-300">
+                </div>
+              </div>
+            </.link>
           </div>
 
           <%!-- Navigation --%>
-          <nav aria-label="Main navigation" class="flex flex-1 flex-col space-y-2">
+          <nav aria-label="Main navigation" class="flex-1 overflow-y-auto min-h-0 space-y-2">
             <.modern_sidebar_menu
               menu_items={@main_menu_items}
               current_page={@current_page}
               title={@sidebar_title}
+              collapsed={false}
             />
           </nav>
+
+          <%!-- Collapse toggle button --%>
+          <div class="shrink-0 pt-4 pb-4 border-t border-slate-200/40 dark:border-slate-700/40">
+            <button
+              @click="sidebarCollapsed = !sidebarCollapsed"
+              class={[
+                "group relative flex items-center justify-center w-full rounded-lg py-2.5 overflow-hidden",
+                "transition-all duration-300 ease-out",
+                "text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400",
+                "hover:bg-gradient-to-r hover:from-teal-50/60 hover:via-emerald-50/80 hover:to-cyan-50/60",
+                "dark:hover:from-teal-900/15 dark:hover:via-emerald-900/20 dark:hover:to-cyan-900/15",
+                "hover:shadow-sm hover:shadow-emerald-500/10"
+              ]}
+            >
+              <span class="sr-only">Toggle sidebar</span>
+              <div class={[
+                "absolute inset-0 opacity-0 transition-all duration-300 ease-out",
+                "bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40",
+                "dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10",
+                "group-hover:opacity-100"
+              ]}>
+              </div>
+              <div
+                class="relative flex items-center gap-x-2 transition-transform duration-300"
+                x-bind:class="sidebarCollapsed ? 'rotate-180' : ''"
+              >
+                <MossletWeb.CoreComponents.phx_icon
+                  name="hero-chevron-double-left"
+                  class="w-5 h-5 transition-all duration-300 group-hover:scale-110"
+                />
+                <span
+                  class="text-sm font-medium whitespace-nowrap"
+                  x-show="!sidebarCollapsed"
+                  x-transition:enter="transition ease-out duration-200"
+                  x-transition:enter-start="opacity-0"
+                  x-transition:enter-end="opacity-100"
+                  x-transition:leave="transition ease-in duration-100"
+                  x-transition:leave-start="opacity-100"
+                  x-transition:leave-end="opacity-0"
+                >
+                  Collapse
+                </span>
+              </div>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -135,7 +216,10 @@ defmodule MossletWeb.ModernSidebarLayout do
       </aside>
 
       <%!-- Main content --%>
-      <div class="xl:pl-72">
+      <div
+        class="transition-all duration-300 ease-out"
+        x-bind:class="sidebarCollapsed ? 'xl:pl-20' : 'xl:pl-72'"
+      >
         <%!-- Top bar --%>
         <header class={[
           "sticky top-0 z-15 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",

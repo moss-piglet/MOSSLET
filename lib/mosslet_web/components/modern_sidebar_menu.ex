@@ -2,23 +2,34 @@ defmodule MossletWeb.ModernSidebarMenu do
   @moduledoc """
   Modern sidebar menu component with improved visual hierarchy and clean design.
   """
-  use Phoenix.Component
+  use Phoenix.Component, global_prefixes: ~w(x-)
 
   attr :menu_items, :list, required: true
   attr :current_page, :atom, required: true
   attr :title, :string, default: nil
+  attr :collapsed, :boolean, default: false
 
   def modern_sidebar_menu(assigns) do
     ~H"""
     <div class="space-y-1">
-      <div :if={@title} class="px-4 py-2">
+      <div
+        :if={@title}
+        class="px-4 py-2"
+        x-show="!sidebarCollapsed"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+      >
         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
           {@title}
         </h3>
       </div>
 
       <div class="space-y-0.5">
-        <div :for={item <- @menu_items} class="lg:px-4">
+        <div :for={item <- @menu_items} x-bind:class="sidebarCollapsed ? 'lg:px-0' : 'lg:px-4'">
           <.modern_menu_item item={item} current_page={@current_page} />
         </div>
       </div>
@@ -39,16 +50,17 @@ defmodule MossletWeb.ModernSidebarMenu do
     >
       <!-- Parent menu item (Settings) with click handler -->
       <button
-        @click="expanded = !expanded"
+        @click="sidebarCollapsed ? (sidebarCollapsed = false, expanded = true) : (expanded = !expanded)"
+        x-bind:title={"sidebarCollapsed ? '#{@item[:label]}' : ''"}
         class={[
-          "group relative flex items-center gap-x-3 text-sm font-medium w-full",
-          "lg:rounded-lg lg:px-4 lg:py-3",
-          "px-6 py-4 lg:px-4 lg:py-3",
+          "group relative flex items-center text-sm font-medium w-full",
+          "lg:rounded-lg",
+          "px-6 py-4 lg:py-3",
           "transition-all duration-200 ease-out will-change-transform",
           "overflow-hidden backdrop-blur-sm transform-gpu",
-          "hover:translate-x-1 active:translate-x-0",
           menu_item_classes(@current_page, @item[:name], @item[:children])
         ]}
+        x-bind:class="sidebarCollapsed ? 'lg:px-3 lg:justify-center' : 'lg:px-4 gap-x-3 hover:translate-x-1 active:translate-x-0'"
       >
         <%!-- Liquid background effect --%>
         <div class={[
@@ -74,10 +86,19 @@ defmodule MossletWeb.ModernSidebarMenu do
           icon={@item[:icon]}
           active={@current_page == @item[:name] or child_active?(@item[:children], @current_page)}
         />
-        <span class={[
-          "relative flex-1 truncate transition-colors duration-200 text-left",
-          "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
-        ]}>
+        <span
+          class={[
+            "relative flex-1 truncate transition-colors duration-200 text-left",
+            "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
+          ]}
+          x-show="!sidebarCollapsed"
+          x-transition:enter="transition ease-out duration-200"
+          x-transition:enter-start="opacity-0"
+          x-transition:enter-end="opacity-100"
+          x-transition:leave="transition ease-in duration-100"
+          x-transition:leave-start="opacity-100"
+          x-transition:leave-end="opacity-0"
+        >
           {@item[:label]}
         </span>
 
@@ -85,6 +106,13 @@ defmodule MossletWeb.ModernSidebarMenu do
         <div
           class="relative w-4 h-4 transition-transform duration-200 transform-gpu"
           x-bind:class="expanded ? 'rotate-90' : ''"
+          x-show="!sidebarCollapsed"
+          x-transition:enter="transition ease-out duration-200"
+          x-transition:enter-start="opacity-0"
+          x-transition:enter-end="opacity-100"
+          x-transition:leave="transition ease-in duration-100"
+          x-transition:leave-start="opacity-100"
+          x-transition:leave-end="opacity-0"
         >
           <MossletWeb.CoreComponents.phx_icon
             name="hero-chevron-right"
@@ -105,7 +133,7 @@ defmodule MossletWeb.ModernSidebarMenu do
 
       <%!-- Submenu items with Alpine.js animation --%>
       <div
-        x-show="expanded"
+        x-show="expanded && !sidebarCollapsed"
         x-transition:enter="transition ease-out duration-200 transform"
         x-transition:enter-start="opacity-0 -translate-y-2"
         x-transition:enter-end="opacity-100 translate-y-0"
@@ -173,15 +201,16 @@ defmodule MossletWeb.ModernSidebarMenu do
     <.link
       :if={!@item[:children]}
       {if @item[:method], do: %{method: @item[:method], href: @item[:path]}, else: %{navigate: @item[:path]}}
+      x-bind:title={"sidebarCollapsed ? '#{@item[:label]}' : ''"}
       class={[
-        "group relative flex items-center gap-x-3 text-sm font-medium",
-        "lg:rounded-lg lg:px-4 lg:py-3",
-        "px-6 py-4 lg:px-4 lg:py-3",
+        "group relative flex items-center text-sm font-medium",
+        "lg:rounded-lg",
+        "px-6 py-4 lg:py-3",
         "transition-all duration-200 ease-out will-change-transform",
         "overflow-hidden backdrop-blur-sm transform-gpu",
-        "hover:translate-x-1 active:translate-x-0",
         menu_item_classes(@current_page, @item[:name], @item[:children])
       ]}
+      x-bind:class="sidebarCollapsed ? 'lg:px-3 lg:justify-center' : 'lg:px-4 gap-x-3 hover:translate-x-1 active:translate-x-0'"
     >
       <%!-- Liquid background effect --%>
       <div class={[
@@ -207,21 +236,33 @@ defmodule MossletWeb.ModernSidebarMenu do
         icon={@item[:icon]}
         active={@current_page == @item[:name]}
       />
-      <span class={[
-        "relative flex-1 truncate transition-colors duration-200",
-        "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
-      ]}>
+      <span
+        class={[
+          "relative flex-1 truncate transition-colors duration-200",
+          "group-hover:text-emerald-700 dark:group-hover:text-emerald-300"
+        ]}
+        x-show="!sidebarCollapsed"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+      >
         {@item[:label]}
       </span>
 
       <%!-- Row indicator --%>
-      <div class={[
-        "relative w-1 h-8 rounded-full transition-all duration-200 transform-gpu",
-        "lg:block hidden",
-        "opacity-0 group-hover:opacity-100",
-        "bg-gradient-to-b from-teal-400 to-emerald-500",
-        "shadow-sm shadow-emerald-500/50"
-      ]}>
+      <div
+        class={[
+          "relative w-1 h-8 rounded-full transition-all duration-200 transform-gpu",
+          "lg:block hidden",
+          "opacity-0 group-hover:opacity-100",
+          "bg-gradient-to-b from-teal-400 to-emerald-500",
+          "shadow-sm shadow-emerald-500/50"
+        ]}
+        x-show="!sidebarCollapsed"
+      >
       </div>
 
       <%!-- Mobile edge indicator --%>

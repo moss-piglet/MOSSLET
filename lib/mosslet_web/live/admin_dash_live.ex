@@ -12,80 +12,120 @@ defmodule MossletWeb.AdminDashLive do
   def render(assigns) do
     ~H"""
     <.layout current_page={:admin_dashboard} current_user={@current_user} key={@key} type="sidebar">
-      <.container>
-        <div class="pt-6 md:flex md:items-center md:justify-between">
-          <div class="min-w-0 flex-1">
-            <h1 class="text-2xl/7 font-bold text-gray-900 dark:text-gray-50 sm:truncate sm:text-3xl sm:tracking-tight">
-              Admin Dashboard
-            </h1>
-          </div>
-          <div class="mt-4 flex md:mt-0 md:ml-4">
-            <%!--
-            <button
-              type="button"
-              class="inline-flex items-center rounded-md bg-background-50 px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50"
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              class="ml-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-            >
-              Publish
-            </button>
-            --%>
-          </div>
-        </div>
+      <div class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+        <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          <header class="mb-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex items-center gap-3">
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/20">
+                  <.phx_icon name="hero-chart-bar" class="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                    Admin Dashboard
+                  </h1>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">
+                    System overview and statistics
+                  </p>
+                </div>
+              </div>
 
-        <div class="pt-6">
-          <h2 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-50">Stats</h2>
-          <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
-            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6">
-              <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-                Total Accounts
-              </dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                {@user_count}
-              </dd>
+              <div class="flex items-center gap-2">
+                <.link
+                  navigate={~p"/admin/moderation"}
+                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <.phx_icon name="hero-shield-check" class="h-4 w-4" /> Moderation
+                </.link>
+                <.link
+                  navigate={~p"/admin/bot-defense"}
+                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <.phx_icon name="hero-shield-exclamation" class="h-4 w-4" /> Bot Defense
+                </.link>
+              </div>
             </div>
-            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6">
-              <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-                Total Confirmed
-              </dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                {@confirmed_user_count}
-              </dd>
-            </div>
-            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6">
-              <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-                Total Paid Members
-              </dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                {@paid_count}
-              </dd>
-            </div>
-            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6">
-              <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-                Total Memories
-              </dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                {@memory_count}
-              </dd>
-            </div>
-            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6">
-              <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-                Total Posts
-              </dt>
-              <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                {@post_count}
-              </dd>
-            </div>
-          </dl>
+          </header>
+
+          <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+            <.stat_card
+              title="Total Accounts"
+              value={@user_count}
+              icon="hero-users"
+              color="blue"
+            />
+            <.stat_card
+              title="Confirmed"
+              value={@confirmed_user_count}
+              icon="hero-check-badge"
+              color="emerald"
+            />
+            <.stat_card
+              title="Paid Members"
+              value={@paid_count}
+              icon="hero-currency-dollar"
+              color="amber"
+            />
+            <.stat_card
+              title="Memories"
+              value={@memory_count}
+              icon="hero-photo"
+              color="purple"
+            />
+            <.stat_card
+              title="Posts"
+              value={@post_count}
+              icon="hero-document-text"
+              color="rose"
+            />
+          </div>
         </div>
-      </.container>
+      </div>
     </.layout>
     """
   end
+
+  attr :title, :string, required: true
+  attr :value, :integer, required: true
+  attr :icon, :string, required: true
+  attr :color, :string, default: "slate"
+
+  defp stat_card(assigns) do
+    ~H"""
+    <div class="rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-sm p-4 sm:p-5">
+      <div class="flex items-center gap-3">
+        <div class={[
+          "flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg",
+          stat_icon_bg(@color)
+        ]}>
+          <.phx_icon name={@icon} class={["h-5 w-5 sm:h-6 sm:w-6", stat_icon_color(@color)]} />
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 truncate">
+            {@title}
+          </p>
+          <p class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {@value}
+          </p>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp stat_icon_bg("blue"), do: "bg-blue-100 dark:bg-blue-900/50"
+  defp stat_icon_bg("emerald"), do: "bg-emerald-100 dark:bg-emerald-900/50"
+  defp stat_icon_bg("amber"), do: "bg-amber-100 dark:bg-amber-900/50"
+  defp stat_icon_bg("purple"), do: "bg-purple-100 dark:bg-purple-900/50"
+  defp stat_icon_bg("rose"), do: "bg-rose-100 dark:bg-rose-900/50"
+  defp stat_icon_bg(_), do: "bg-slate-100 dark:bg-slate-700/50"
+
+  defp stat_icon_color("blue"), do: "text-blue-600 dark:text-blue-400"
+  defp stat_icon_color("emerald"), do: "text-emerald-600 dark:text-emerald-400"
+  defp stat_icon_color("amber"), do: "text-amber-600 dark:text-amber-400"
+  defp stat_icon_color("purple"), do: "text-purple-600 dark:text-purple-400"
+  defp stat_icon_color("rose"), do: "text-rose-600 dark:text-rose-400"
+  defp stat_icon_color(_), do: "text-slate-600 dark:text-slate-400"
 
   def mount(_params, _session, socket) do
     if connected?(socket) do

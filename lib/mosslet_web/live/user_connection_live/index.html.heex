@@ -1,25 +1,13 @@
 <.layout current_page={:connections} current_user={@current_user} key={@key} type="sidebar">
-  <%!-- Main connections container with liquid metal styling --%>
   <div
     id="connections-container"
     class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10"
   >
-    <%!-- Header section with calmer mobile spacing --%>
-    <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
-      <div class="mx-auto max-w-4xl text-center">
-        <MossletWeb.DesignSystem.liquid_connections_header
-          id="user-connections-liquid-header"
-          user_name={user_name(@current_user, @key)}
-          status={Atom.to_string(@current_user.status || :offline)}
-          status_message={get_user_status_message(@current_user, @current_user, @key)}
-          show_status={can_view_status?(@current_user, @current_user, @key)}
-          class="space-y-2 sm:space-y-3"
-        />
-      </div>
-    </div>
-
-    <%!-- Content container with enhanced spacing --%>
-    <MossletWeb.DesignSystem.liquid_container max_width="xl" class="space-y-6 sm:space-y-8">
+    <MossletWeb.DesignSystem.liquid_container
+      max_width="xl"
+      class="space-y-6 sm:space-y-8 pt-6 sm:pt-8"
+    >
+      <MossletWeb.DesignSystem.liquid_connections_header id="user-connections-liquid-header" />
       <%!-- Modern tab navigation with proper responsive behavior --%>
       <div class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 relative z-0 overflow-visible">
         <%!-- Responsive layout optimized for all screen sizes --%>

@@ -10,15 +10,20 @@ defmodule MossletWeb.AdminBotDefenseLive do
   def render(assigns) do
     ~H"""
     <.layout current_page={:admin_bot_defense} current_user={@current_user} key={@key} type="sidebar">
-      <.container>
-        <div class="pt-6 md:flex md:items-center md:justify-between">
-          <div class="min-w-0 flex-1">
-            <h1 class="text-2xl/7 font-bold text-gray-900 dark:text-gray-50 sm:truncate sm:text-3xl sm:tracking-tight">
-              Bot Defense
-            </h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Monitor and manage IP bans to protect against malicious traffic.
-            </p>
+      <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <div class="md:flex md:items-center md:justify-between">
+          <div class="min-w-0 flex-1 flex items-center gap-3">
+            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/20">
+              <.phx_icon name="hero-bug-ant" class="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
+                Bot Defense
+              </h1>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                Monitor and manage IP bans to protect against malicious traffic.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -189,7 +194,7 @@ defmodule MossletWeb.AdminBotDefenseLive do
             </div>
           </div>
         </div>
-      </.container>
+      </div>
     </.layout>
     """
   end

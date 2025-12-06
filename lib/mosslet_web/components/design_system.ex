@@ -4659,16 +4659,8 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
-  Timeline header with calm, meaningful messaging about community and privacy.
+  Timeline header - minimal design focusing on content.
   """
-  attr :user_name, :string, required: true
-  attr :status, :string, default: "calm"
-  attr :status_message, :string, default: nil
-
-  attr :show_status, :boolean,
-    default: true,
-    doc: "Whether to show the status indicator (based on privacy settings)"
-
   attr :class, :any, default: ""
   attr :id, :string, default: nil
 
@@ -4677,29 +4669,20 @@ defmodule MossletWeb.DesignSystem do
     <div
       id={@id}
       class={[
-        "relative p-6 text-center",
+        "flex items-center gap-3 pb-2",
         @class
       ]}
     >
-      <%!-- Meaningful header about community and privacy --%>
-      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-        {@user_name}'s
-        <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-          timeline
-        </span>
-      </h1>
-
-      <p class="text-slate-600 dark:text-slate-400 mb-4">
-        Share thoughtfully in your private, peaceful space
-      </p>
-
-      <%!-- Status indicator --%>
-      <div class="flex justify-center">
-        <.liquid_timeline_status
-          status={@status}
-          message={@status_message}
-          show_status={@show_status}
-        />
+      <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 shadow-sm">
+        <.phx_icon name="hero-book-open" class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          Timeline
+        </h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          Your private feed
+        </p>
       </div>
     </div>
     """
@@ -7495,16 +7478,38 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
-  Header component for connections page matching timeline header structure.
+  Header component for circles page - minimal design focusing on content.
   """
-  attr :user_name, :string, required: true
-  attr :status, :string, default: "calm"
-  attr :status_message, :string, default: nil
+  attr :class, :any, default: ""
+  attr :id, :string, default: nil
 
-  attr :show_status, :boolean,
-    default: true,
-    doc: "Whether to show the status indicator (based on privacy settings)"
+  def liquid_circles_header(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={[
+        "flex items-center gap-3 pb-2",
+        @class
+      ]}
+    >
+      <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 shadow-sm">
+        <.phx_icon name="hero-circle-stack" class="w-5 h-5 text-teal-600 dark:text-teal-400" />
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          Circles
+        </h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          Your private groups
+        </p>
+      </div>
+    </div>
+    """
+  end
 
+  @doc """
+  Header component for connections page - minimal design focusing on content.
+  """
   attr :class, :any, default: ""
   attr :id, :string, default: nil
 
@@ -7513,29 +7518,20 @@ defmodule MossletWeb.DesignSystem do
     <div
       id={@id}
       class={[
-        "relative p-6 text-center",
+        "flex items-center gap-3 pb-2",
         @class
       ]}
     >
-      <%!-- Meaningful header about connections and privacy --%>
-      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-        {@user_name}'s
-        <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-          connections
-        </span>
-      </h1>
-
-      <p class="text-slate-600 dark:text-slate-400 mb-4">
-        Building meaningful relationships in your privacy-first network
-      </p>
-
-      <%!-- Status indicator --%>
-      <div class="flex justify-center">
-        <.liquid_timeline_status
-          status={@status}
-          message={@status_message}
-          show_status={@show_status}
-        />
+      <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 shadow-sm">
+        <.phx_icon name="hero-users" class="w-5 h-5 text-teal-600 dark:text-teal-400" />
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          Connections
+        </h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          Your trusted network
+        </p>
       </div>
     </div>
     """

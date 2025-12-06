@@ -3,52 +3,11 @@
     id="groups-container"
     class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10"
   >
-    <div class="relative px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6">
-      <div class="mx-auto max-w-4xl">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div class="flex items-center gap-3">
-            <div class="p-2.5 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-              <.phx_icon
-                name="hero-circle-stack"
-                class="h-6 w-6 text-teal-600 dark:text-teal-400"
-              />
-            </div>
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Circles
-              </h1>
-              <p class="text-sm text-slate-600 dark:text-slate-400">
-                Connect privately with your trusted network
-              </p>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <MossletWeb.DesignSystem.liquid_button
-              :if={!Enum.empty?(@streams.pending_groups.inserts) || @any_pending_groups?}
-              id="new-group-invites-button"
-              data-tippy-content="People have invited you to join a circle. Privately greet them to see whether you wish to join or decline."
-              phx-hook="TippyHook"
-              patch={~p"/app/circles/greet"}
-              icon="hero-gift"
-              color="emerald"
-            >
-              You've got Invites
-            </MossletWeb.DesignSystem.liquid_button>
-
-            <MossletWeb.DesignSystem.liquid_button
-              patch={Routes.group_index_path(@socket, :new)}
-              icon="hero-circle-stack"
-              color="teal"
-            >
-              New Circle
-            </MossletWeb.DesignSystem.liquid_button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <MossletWeb.DesignSystem.liquid_container max_width="xl" class="space-y-6 sm:space-y-8">
+    <MossletWeb.DesignSystem.liquid_container
+      max_width="xl"
+      class="space-y-6 sm:space-y-8 pt-6 sm:pt-8"
+    >
+      <MossletWeb.DesignSystem.liquid_circles_header id="circles-header" />
       <div class="p-4 bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-amber-50/60 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-amber-900/20 backdrop-blur-md rounded-2xl border border-amber-200/40 dark:border-amber-700/40 shadow-lg shadow-amber-500/5 dark:shadow-amber-500/10">
         <div class="flex gap-3">
           <.phx_icon
@@ -72,26 +31,62 @@
 
       <div
         :if={@live_action != :joining_group}
-        class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 overflow-hidden"
+        class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-700/40 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 relative z-0 overflow-visible"
       >
-        <MossletWeb.DesignSystem.liquid_tab_bar>
-          <:tab
-            id="my_groups"
-            icon="hero-circle-stack"
-            active={@active_tab == "my_groups"}
-            count={@group_count}
-          >
-            My Circles
-          </:tab>
-          <:tab
-            id="discover"
-            icon="hero-globe-alt"
-            active={@active_tab == "discover"}
-            color="cyan"
-          >
-            Discover
-          </:tab>
-        </MossletWeb.DesignSystem.liquid_tab_bar>
+        <div class="p-4 md:p-6">
+          <div class="flex flex-col gap-4 md:gap-6 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex justify-center xl:justify-start">
+              <MossletWeb.DesignSystem.liquid_connections_tabs
+                tabs={[
+                  %{
+                    key: "my_groups",
+                    label: "My Circles",
+                    count: @group_count,
+                    icon: "hero-circle-stack",
+                    color: "teal",
+                    unread: 0
+                  },
+                  %{
+                    key: "discover",
+                    label: "Discover",
+                    count: 0,
+                    icon: "hero-globe-alt",
+                    color: "cyan",
+                    unread: 0
+                  }
+                ]}
+                active_tab={@active_tab || "my_groups"}
+                class="flex-shrink-0"
+              />
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4 xl:justify-end xl:gap-4">
+              <MossletWeb.DesignSystem.liquid_button
+                :if={!Enum.empty?(@streams.pending_groups.inserts) || @any_pending_groups?}
+                id="new-group-invites-button"
+                data-tippy-content="People have invited you to join a circle. Privately greet them to see whether you wish to join or decline."
+                phx-hook="TippyHook"
+                patch={~p"/app/circles/greet"}
+                icon="hero-gift"
+                color="emerald"
+                shimmer="page"
+                class="w-full sm:w-auto justify-center"
+              >
+                You've got Invites
+              </MossletWeb.DesignSystem.liquid_button>
+
+              <MossletWeb.DesignSystem.liquid_button
+                patch={Routes.group_index_path(@socket, :new)}
+                icon="hero-circle-stack"
+                color="teal"
+                shimmer="page"
+                class="w-full sm:w-auto justify-center"
+              >
+                New Circle
+              </MossletWeb.DesignSystem.liquid_button>
+            </div>
+          </div>
+        </div>
 
         <div :if={@active_tab == "my_groups"} class="p-4 sm:p-6">
           <div :if={@group_count == 0} class="py-12">
