@@ -5,9 +5,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   def list_messages(assigns) do
     ~H"""
     <div
-      id="messages"
-      phx-update="stream"
-      class="flex-1 overflow-y-auto min-h-0 px-3 sm:px-4 lg:px-6 py-4 space-y-1"
+      id="messages-container"
+      class="flex-1 overflow-y-auto min-h-0 px-3 sm:px-4 lg:px-6 py-4"
       phx-hook="ScrollDown"
       data-scrolled-to-top={@scrolled_to_top}
       style="scrollbar-width: thin; scrollbar-color: rgb(20 184 166 / 0.5) transparent;"
@@ -17,16 +16,18 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     >
       <div class="max-w-4xl mx-auto">
         <div id="infinite-scroll-marker" phx-hook="InfiniteScrollGroupMessage"></div>
-        <div :for={{dom_id, message} <- @messages} id={dom_id}>
-          <.message_details
-            message={message}
-            current_user={@current_user}
-            user_group_key={@user_group_key}
-            group={@group}
-            key={@key}
-            user_group={@user_group}
-            messages_list={@messages_list}
-          />
+        <div id="messages" phx-update="stream" class="space-y-1">
+          <div :for={{dom_id, message} <- @messages} id={dom_id}>
+            <.message_details
+              message={message}
+              current_user={@current_user}
+              user_group_key={@user_group_key}
+              group={@group}
+              key={@key}
+              user_group={@user_group}
+              messages_list={@messages_list}
+            />
+          </div>
         </div>
       </div>
     </div>
