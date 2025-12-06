@@ -176,7 +176,7 @@ defmodule Mosslet.Security.BotDefense do
     source = Keyword.get(opts, :source, :manual)
 
     attrs = %{
-      ip_hash: ip |> Tuple.to_list() |> Enum.join("."),
+      ip_hash: :inet.ntoa(ip) |> to_string(),
       reason: Keyword.get(opts, :reason),
       source: source,
       expires_at: expires_at,
@@ -208,9 +208,10 @@ defmodule Mosslet.Security.BotDefense do
 
   defp do_unban_ip(ip) do
     ip_hash = hash_ip(ip)
+    ip_string = :inet.ntoa(ip) |> to_string()
 
     case Repo.transaction_on_primary(fn ->
-           from(b in IpBan, where: b.ip_hash == ^ip_hash)
+           from(b in IpBan, where: b.ip_hash == ^ip_string)
            |> Repo.delete_all()
          end) do
       {:ok, {count, _}} when count > 0 ->
@@ -268,10 +269,10 @@ defmodule Mosslet.Security.BotDefense do
   end
 
   defp do_increment_blocked(ip) do
-    ip_hash = hash_ip(ip)
+    ip_string = :inet.ntoa(ip) |> to_string()
 
     Repo.transaction_on_primary(fn ->
-      from(b in IpBan, where: b.ip_hash == ^ip_hash)
+      from(b in IpBan, where: b.ip_hash == ^ip_string)
       |> Repo.update_all(inc: [request_count: 1])
     end)
   end
