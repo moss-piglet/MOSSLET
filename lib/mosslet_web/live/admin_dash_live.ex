@@ -15,9 +15,9 @@ defmodule MossletWeb.AdminDashLive do
       <.container>
         <div class="pt-6 md:flex md:items-center md:justify-between">
           <div class="min-w-0 flex-1">
-            <h2 class="text-2xl/7 font-bold text-gray-900 dark:text-gray-50 sm:truncate sm:text-3xl sm:tracking-tight">
+            <h1 class="text-2xl/7 font-bold text-gray-900 dark:text-gray-50 sm:truncate sm:text-3xl sm:tracking-tight">
               Admin Dashboard
-            </h2>
+            </h1>
           </div>
           <div class="mt-4 flex md:mt-0 md:ml-4">
             <%!--
@@ -38,7 +38,7 @@ defmodule MossletWeb.AdminDashLive do
         </div>
 
         <div class="pt-6">
-          <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-50">Stats</h3>
+          <h2 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-50">Stats</h2>
           <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
             <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6">
               <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">

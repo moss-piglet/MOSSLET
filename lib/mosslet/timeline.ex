@@ -3912,6 +3912,33 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Counts all reports matching the given filters for admin review.
+  """
+  def count_post_reports(opts \\ []) do
+    query = from r in PostReport, select: count(r.id)
+
+    query =
+      case opts[:status] do
+        nil -> query
+        status -> where(query, [r], r.status == ^status)
+      end
+
+    query =
+      case opts[:severity] do
+        nil -> query
+        severity -> where(query, [r], r.severity == ^severity)
+      end
+
+    query =
+      case opts[:report_type] do
+        nil -> query
+        report_type -> where(query, [r], r.report_type == ^report_type)
+      end
+
+    Repo.one(query)
+  end
+
+  @doc """
   Gets all reports for admin review.
   """
   def list_post_reports(opts \\ []) do

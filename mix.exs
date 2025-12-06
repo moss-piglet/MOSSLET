@@ -121,7 +121,7 @@ defmodule Mosslet.MixProject do
       {:sentry, "~> 8.0"},
       {:sizeable, "~> 1.0"},
       {:slugify, "~> 1.3"},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},
       {:stripity_stripe, "~> 3.1"},
       {:sweet_xml, "~> 0.6"},
       {:swoosh, "~> 1.3"},

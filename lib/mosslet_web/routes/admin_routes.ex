@@ -20,6 +20,7 @@ defmodule MossletWeb.AdminRoutes do
           ] do
           live "/dash", AdminDashLive, :index
           live "/moderation", AdminModerationLive, :index
+          live "/bot-defense", AdminBotDefenseLive, :index
         end
       end
     end

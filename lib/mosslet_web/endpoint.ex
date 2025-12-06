@@ -81,6 +81,8 @@ defmodule MossletWeb.Endpoint do
   plug RemoteIp,
     headers: ~w[http_fly_client_ip]
 
+  plug MossletWeb.Plugs.BotDefense
+
   plug MossletWeb.Router
 
   defp canonical_host(conn, _opts) do

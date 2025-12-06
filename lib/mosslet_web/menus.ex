@@ -42,7 +42,10 @@ defmodule MossletWeb.Menus do
     cond do
       # Admin users get admin-only menu
       admin?(current_user) ->
-        build_menu([:admin_dashboard, :admin_moderation, :admin_settings], current_user)
+        build_menu(
+          [:admin_bot_defense, :admin_dashboard, :admin_moderation, :admin_settings],
+          current_user
+        )
 
       # Regular users get normal app menu
       current_user.connection.profile ->
@@ -463,6 +466,17 @@ defmodule MossletWeb.Menus do
   end
 
   # Admin menu items
+  def get_link(:admin_bot_defense = name, current_user) do
+    if current_user.is_admin? && current_user.confirmed_at do
+      %{
+        name: name,
+        label: gettext("Bot Defense"),
+        path: ~p"/admin/bot-defense",
+        icon: "hero-bug-ant"
+      }
+    end
+  end
+
   def get_link(:admin_dashboard = name, current_user) do
     if current_user.is_admin? && current_user.confirmed_at do
       %{

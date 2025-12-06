@@ -59,6 +59,8 @@ defmodule Mosslet.Application do
         {Task.Supervisor, name: Mosslet.StorjTask},
         # Start PlugAttack storage (1 hour = 3_600_000 milliseconds)
         {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
+        # Start BotDefense GenServer for IP ban management
+        Mosslet.Security.BotDefense,
         # Start the Endpoint (http/https)
         # Start Oban supervision.
         {Oban, oban_config()},

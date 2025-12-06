@@ -6838,12 +6838,16 @@ defmodule MossletWeb.DesignSystem do
   attr :name, :string, required: true
   attr :value, :string, required: true
   attr :options, :list, required: true
+  attr :label, :string, default: nil
   attr :class, :any, default: ""
   attr :rest, :global
 
   def liquid_filter_select(assigns) do
+    assigns = assign_new(assigns, :id, fn -> assigns.name end)
+
     ~H"""
     <div class={["group relative", @class]}>
+      <label :if={@label} for={@id} class="sr-only">{@label}</label>
       <%!-- Enhanced liquid background effect on focus (matching main liquid_select) --%>
       <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/40 to-emerald-50/30 dark:from-emerald-900/15 dark:via-teal-900/20 dark:to-emerald-900/15 group-focus-within:opacity-100 rounded-xl pointer-events-none">
       </div>
@@ -6862,6 +6866,7 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Select field with enhanced contrast (matching main liquid_select styling) --%>
       <select
+        id={@id}
         name={@name}
         class={[
           "relative z-10 block w-full rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-slate-100",

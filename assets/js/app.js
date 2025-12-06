@@ -401,8 +401,10 @@ document.addEventListener(
     e.preventDefault();
     e.stopImmediatePropagation();
 
+    const actionText = element.getAttribute("data-confirm-action");
+
     // Show our custom confirmation dialog
-    showCustomConfirm(message, () => {
+    showCustomConfirm(message, actionText, () => {
       // User confirmed - trigger the action without data-confirm
       const originalConfirm = element.getAttribute("data-confirm");
       element.removeAttribute("data-confirm");
@@ -425,7 +427,17 @@ document.addEventListener(
   true
 ); // Use capture phase to intercept before Phoenix
 
-function showCustomConfirm(message, onConfirm) {
+function extractActionFromMessage(message) {
+  const match = message.match(/want to (\w+)/i);
+  if (match && match[1]) {
+    const action = match[1].toLowerCase();
+    return action.charAt(0).toUpperCase() + action.slice(1);
+  }
+  return null;
+}
+
+function showCustomConfirm(message, actionText, onConfirm) {
+  const buttonLabel = actionText || extractActionFromMessage(message) || "Confirm";
   // Create dialog element that matches our CSS selectors
   const dialog = document.createElement("dialog");
   dialog.setAttribute("data-confirm", "");
@@ -445,7 +457,7 @@ function showCustomConfirm(message, onConfirm) {
   const acceptButton = document.createElement("button");
   acceptButton.type = "button";
   acceptButton.setAttribute("data-confirm-accept", "");
-  acceptButton.textContent = "Delete";
+  acceptButton.textContent = buttonLabel;
 
   buttonsDiv.appendChild(cancelButton);
   buttonsDiv.appendChild(acceptButton);
