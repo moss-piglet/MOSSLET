@@ -81,7 +81,6 @@ defmodule MossletWeb.Endpoint do
   plug RemoteIp,
     headers: ~w[fly-client-ip]
 
-  plug MossletWeb.Plugs.PlugAttack
   plug MossletWeb.Plugs.BotDefense
 
   plug MossletWeb.Router
