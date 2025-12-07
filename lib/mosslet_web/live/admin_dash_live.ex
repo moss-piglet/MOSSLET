@@ -11,7 +11,13 @@ defmodule MossletWeb.AdminDashLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_page={:admin_dashboard} current_user={@current_user} key={@key} type="sidebar">
+    <.layout
+      current_page={:admin_dashboard}
+      sidebar_current_page={:admin_dashboard}
+      current_user={@current_user}
+      key={@key}
+      type="sidebar"
+    >
       <div class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
         <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           <header class="mb-6">

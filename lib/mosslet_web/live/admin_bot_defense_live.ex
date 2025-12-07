@@ -9,7 +9,13 @@ defmodule MossletWeb.AdminBotDefenseLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.layout current_page={:admin_bot_defense} current_user={@current_user} key={@key} type="sidebar">
+    <.layout
+      current_page={:admin_bot_defense}
+      sidebar_current_page={:admin_bot_defense}
+      current_user={@current_user}
+      key={@key}
+      type="sidebar"
+    >
       <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div class="md:flex md:items-center md:justify-between">
           <div class="min-w-0 flex-1 flex items-center gap-3">
