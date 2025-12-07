@@ -32,6 +32,14 @@ config :mosslet,
   s3_access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
   env: :dev
 
+config :mosslet, Mosslet.Security.BotDetector,
+  rate_limit_window: 60_000,
+  rate_limit_max: 100,
+  burst_window: 5_000,
+  burst_max: 30,
+  rate_limit_ban_duration: :timer.hours(1),
+  auto_ban_enabled: true
+
 # Configures the upload adapter for Trix uploads in dev
 config :mosslet, :uploader, adapter: Mosslet.FileUploads.Tigris
 

@@ -210,4 +210,20 @@ defmodule MossletWeb.Router do
     # DevRoutes must always be last
     use MossletWeb.DevRoutes
   end
+
+  scope "/", MossletWeb do
+    pipe_through [:browser]
+
+    get "/wp-admin", HoneypotController, :trap
+    get "/wp-admin/*path", HoneypotController, :trap
+    get "/wp-login.php", HoneypotController, :trap
+    get "/wp-content/*path", HoneypotController, :trap
+    get "/administrator", HoneypotController, :trap
+    get "/phpmyadmin", HoneypotController, :trap
+    get "/phpMyAdmin", HoneypotController, :trap
+    get "/.env", HoneypotController, :trap
+    get "/.git/*path", HoneypotController, :trap
+    get "/config.php", HoneypotController, :trap
+    get "/xmlrpc.php", HoneypotController, :trap
+  end
 end

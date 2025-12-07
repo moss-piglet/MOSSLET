@@ -61,6 +61,8 @@ defmodule Mosslet.Application do
         {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
         # Start BotDefense GenServer for IP ban management
         Mosslet.Security.BotDefense,
+        # Start BotDetector GenServer for automatic bot detection
+        Mosslet.Security.BotDetector,
         # Start the Endpoint (http/https)
         # Start Oban supervision.
         {Oban, oban_config()},
