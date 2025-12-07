@@ -372,7 +372,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     <.liquid_modal
       id="kick-member-modal"
       show
-      on_cancel={JS.patch(~p"/app/circles/#{@group}/moderate-members")}
+      on_cancel={
+        JS.remove_class("overflow-hidden", to: "body")
+        |> JS.patch(~p"/app/circles/#{@group}/moderate-members")
+      }
     >
       <:title>Kick Member</:title>
       <div class="space-y-4">
@@ -389,8 +392,12 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           They will be removed but can rejoin the circle later.
         </p>
         <div class="flex justify-end gap-3 pt-4">
-          <.link
-            patch={~p"/app/circles/#{@group}/moderate-members"}
+          <button
+            type="button"
+            phx-click={
+              JS.remove_class("overflow-hidden", to: "body")
+              |> JS.patch(~p"/app/circles/#{@group}/moderate-members")
+            }
             class={[
               "px-4 py-2 text-sm font-medium rounded-lg",
               "bg-slate-100 dark:bg-slate-700",
@@ -400,7 +407,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
             ]}
           >
             Cancel
-          </.link>
+          </button>
           <button
             phx-click={if @can_moderate, do: "kick", else: nil}
             phx-value-user-group-id={@user_group.id}
@@ -470,7 +477,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     <.liquid_modal
       id="block-member-modal"
       show
-      on_cancel={JS.patch(~p"/app/circles/#{@group}/moderate-members")}
+      on_cancel={
+        JS.remove_class("overflow-hidden", to: "body")
+        |> JS.patch(~p"/app/circles/#{@group}/moderate-members")
+      }
     >
       <:title>Block Member</:title>
       <div class="space-y-4">
@@ -487,8 +497,12 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           They will be removed and prevented from rejoining until unblocked.
         </p>
         <div class="flex justify-end gap-3 pt-4">
-          <.link
-            patch={~p"/app/circles/#{@group}/moderate-members"}
+          <button
+            type="button"
+            phx-click={
+              JS.remove_class("overflow-hidden", to: "body")
+              |> JS.patch(~p"/app/circles/#{@group}/moderate-members")
+            }
             class={[
               "px-4 py-2 text-sm font-medium rounded-lg",
               "bg-slate-100 dark:bg-slate-700",
@@ -498,7 +512,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
             ]}
           >
             Cancel
-          </.link>
+          </button>
           <button
             phx-click="block"
             phx-value-user-group-id={@user_group.id}
@@ -743,6 +757,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
          |> assign(:blocked_users, blocked_users)
          |> assign(:target_user_group, nil)
          |> put_flash(:success, "Member has been blocked from the circle.")
+         |> push_event("restore-body-scroll", %{})
          |> push_patch(to: ~p"/app/circles/#{group}/moderate-members")}
 
       {:error, :cannot_block_self} ->
