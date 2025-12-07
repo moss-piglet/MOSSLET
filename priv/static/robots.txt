@@ -19,6 +19,9 @@ Allow: /
 User-agent: Slurp
 Allow: /
 
+User-agent: LinkedInBot
+Allow: /
+
 User-agent: AdsBot-Google
 Disallow: /
 
