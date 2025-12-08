@@ -70,7 +70,10 @@ defmodule MossletWeb.PublicLayout do
           </div>
 
           <%!-- Desktop navigation with full liquid metal effects matching footer --%>
-          <nav class="hidden lg:flex lg:items-center lg:justify-center flex-1 max-w-3xl mx-8">
+          <nav
+            aria-label="Main"
+            class="hidden lg:flex lg:items-center lg:justify-center flex-1 max-w-3xl mx-8"
+          >
             <div class="flex items-center space-x-1">
               <.link
                 :for={item <- @public_menu_items}
