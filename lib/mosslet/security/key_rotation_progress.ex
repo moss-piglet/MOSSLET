@@ -43,7 +43,9 @@ defmodule Mosslet.Security.KeyRotationProgress do
     ])
     |> validate_required([:schema_name, :table_name, :from_cipher_tag, :to_cipher_tag])
     |> validate_inclusion(:status, @statuses)
-    |> unique_constraint([:schema_name, :from_cipher_tag, :to_cipher_tag])
+    |> unique_constraint([:schema_name, :from_cipher_tag, :to_cipher_tag],
+      name: :key_rotation_progress_schema_name_from_cipher_tag_to_cipher_tag
+    )
   end
 
   def progress_percentage(%__MODULE__{total_records: 0}), do: 0

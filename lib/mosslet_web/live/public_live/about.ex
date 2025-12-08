@@ -375,6 +375,15 @@ defmodule MossletWeb.PublicLive.About do
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
                 id="blogPostUSPMCTHS"
+                img_source={~p"/images/blog/dec_8_2025_hsrsm.jpg"}
+                date="December 8, 2025"
+                title="How We Built Surveillance-Resistant Social Media"
+                author_mark?={true}
+                author_isabella?={false}
+                link={~p"/blog/articles/10"}
+              />
+              <.article_preview
+                id="blogPostUSPMCTHS"
                 img_source={~p"/images/blog/nov_27_2025_usfys.jpg"}
                 date="November 27, 2025"
                 title="Unlock Sessions: Privacy Meets Convenience This Holiday Season"

@@ -84,6 +84,8 @@ defmodule MossletWeb.AdminKeyRotationLive do
                       No new key configured. Set CLOAK_KEY_NEW to enable rotation.
                     <% @has_active_rotations -> %>
                       Rotation is initialized with {@summary.total_schemas} schemas.
+                    <% @has_failed_rotations -> %>
+                      {Map.get(@summary.by_status, "failed", 0)} schema(s) failed. You can resume to continue from where they left off.
                     <% true -> %>
                       Ready to initialize rotation from {@vault_status.base_key_tag} to {@vault_status.current_default_tag}.
                   <% end %>
@@ -115,6 +117,16 @@ defmodule MossletWeb.AdminKeyRotationLive do
                       data-confirm="Are you sure you want to cancel all pending rotations?"
                     >
                       Cancel
+                    </.liquid_button>
+                  <% @has_failed_rotations -> %>
+                    <.liquid_button
+                      variant="primary"
+                      color="amber"
+                      size="sm"
+                      phx-click="resume_all_failed"
+                      icon="hero-arrow-path"
+                    >
+                      Resume All Failed
                     </.liquid_button>
                   <% true -> %>
                     <.liquid_button
@@ -761,6 +773,27 @@ defmodule MossletWeb.AdminKeyRotationLive do
             </span>
           </div>
 
+          <div
+            :if={@progress.status in ["failed", "stalled"]}
+            class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700"
+          >
+            <.liquid_button
+              variant="secondary"
+              color="amber"
+              size="sm"
+              phx-click="resume_rotation"
+              phx-value-progress-id={@progress.id}
+              icon="hero-arrow-path"
+            >
+              Resume from {format_number(@progress.processed_records)}/{format_number(
+                @progress.total_records
+              )}
+            </.liquid_button>
+            <span class="text-xs text-slate-500 dark:text-slate-400">
+              Will continue from last processed record
+            </span>
+          </div>
+
           <div class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700">
             <div :if={@progress.started_at} class="flex items-center gap-1.5">
               <.phx_icon name="hero-play" class="h-3.5 w-3.5" /> Started:
@@ -1013,6 +1046,44 @@ defmodule MossletWeb.AdminKeyRotationLive do
     end
   end
 
+  def handle_event("resume_rotation", %{"progress-id" => progress_id}, socket) do
+    case Mosslet.Workers.KeyRotationWorker.resume(progress_id) do
+      {:ok, _job} ->
+        socket =
+          socket
+          |> put_flash(:info, "Resumed rotation, continuing from last processed record")
+          |> load_data()
+
+        {:noreply, socket}
+
+      {:error, :not_resumable} ->
+        {:noreply, put_flash(socket, :error, "This rotation cannot be resumed")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to resume: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_event("resume_all_failed", _params, socket) do
+    failed_progress =
+      socket.assigns.progress_list
+      |> Enum.filter(&(&1.status in ["failed", "stalled"]))
+
+    results =
+      Enum.map(failed_progress, fn progress ->
+        Mosslet.Workers.KeyRotationWorker.resume(progress.id)
+      end)
+
+    resumed_count = Enum.count(results, fn result -> match?({:ok, _}, result) end)
+
+    socket =
+      socket
+      |> put_flash(:info, "Resumed #{resumed_count} failed rotation(s)")
+      |> load_data()
+
+    {:noreply, socket}
+  end
+
   def handle_info({:progress_updated, _progress}, socket) do
     {:noreply, load_data(socket)}
   end
@@ -1044,6 +1115,19 @@ defmodule MossletWeb.AdminKeyRotationLive do
       summary.total_schemas > 0 and
         Map.get(summary.by_status, "completed", 0) == summary.total_schemas
 
+    current_transition_completed =
+      if display_rotation_id && all_completed && vault_status.rotation_in_progress do
+        case Enum.find(rotation_history, &(&1.rotation_id == display_rotation_id)) do
+          %{from_cipher_tag: from, to_cipher_tag: to} ->
+            from == vault_status.base_key_tag and to == vault_status.current_default_tag
+
+          _ ->
+            false
+        end
+      else
+        false
+      end
+
     socket
     |> assign(:current_rotation_id, display_rotation_id)
     |> assign(:rotation_history, rotation_history)
@@ -1052,7 +1136,8 @@ defmodule MossletWeb.AdminKeyRotationLive do
     |> assign(:vault_status, vault_status)
     |> assign(:new_key_configured, vault_status.rotation_in_progress)
     |> assign(:has_active_rotations, has_active)
-    |> assign(:rotation_complete, all_completed and vault_status.rotation_in_progress)
+    |> assign(:has_failed_rotations, Map.get(summary.by_status, "failed", 0) > 0)
+    |> assign(:rotation_complete, current_transition_completed)
   end
 
   defp filter_progress("", nil), do: []

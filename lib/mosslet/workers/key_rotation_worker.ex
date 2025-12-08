@@ -32,6 +32,13 @@ defmodule Mosslet.Workers.KeyRotationWorker do
         Logger.info("[KeyRotationWorker] Rotation was cancelled for #{progress.schema_name}")
         :ok
 
+      progress.status == "failed" ->
+        Logger.info(
+          "[KeyRotationWorker] Rotation failed, skipping #{progress.schema_name}. Use resume to retry."
+        )
+
+        :ok
+
       true ->
         process_batch(progress)
     end
@@ -112,5 +119,18 @@ defmodule Mosslet.Workers.KeyRotationWorker do
     %{progress_id: progress_id}
     |> __MODULE__.new()
     |> Oban.insert()
+  end
+
+  @doc """
+  Resumes a failed rotation by resetting its status and enqueueing a new job.
+  """
+  def resume(progress_id) do
+    case KeyRotation.resume_rotation(progress_id) do
+      {:ok, _progress} ->
+        enqueue(progress_id)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 end

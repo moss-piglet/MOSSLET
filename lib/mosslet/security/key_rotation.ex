@@ -12,36 +12,8 @@ defmodule Mosslet.Security.KeyRotation do
 
   ## Encrypted Schemas
 
-  The following schemas use `Encrypted.Binary` fields and are candidates for rotation:
-  - `Mosslet.Accounts.User`
-  - `Mosslet.Accounts.Connection`
-  - `Mosslet.Accounts.UserBlock`
-  - `Mosslet.Accounts.UserConnection`
-  - `Mosslet.Accounts.UserToken`
-  - `Mosslet.Accounts.UserTOTP`
-  - `Mosslet.Billing.Customers.Customer`
-  - `Mosslet.Billing.PaymentIntents.PaymentIntent`
-  - `Mosslet.Conversations.Conversation`
-  - `Mosslet.Groups.Group`
-  - `Mosslet.Groups.GroupBlock`
-  - `Mosslet.Groups.GroupMessage`
-  - `Mosslet.Groups.UserGroup`
-  - `Mosslet.Memories.Memory`
-  - `Mosslet.Memories.Remark`
-  - `Mosslet.Memories.UserMemory`
-  - `Mosslet.Messages.Message`
-  - `Mosslet.Orgs.Invitation`
-  - `Mosslet.Orgs.Org`
-  - `Mosslet.Security.IpBan`
-  - `Mosslet.Timeline.Bookmark`
-  - `Mosslet.Timeline.BookmarkCategory`
-  - `Mosslet.Timeline.ContentWarningCategory`
-  - `Mosslet.Timeline.Post`
-  - `Mosslet.Timeline.PostHide`
-  - `Mosslet.Timeline.PostReport`
-  - `Mosslet.Timeline.Reply`
-  - `Mosslet.Timeline.UserPost`
-  - `Mosslet.Timeline.UserPostReport`
+  Schemas with encrypted fields are auto-discovered at runtime by scanning
+  all Ecto schemas for fields using `Mosslet.Encrypted.Binary` types.
   """
 
   import Ecto.Query
@@ -61,42 +33,45 @@ defmodule Mosslet.Security.KeyRotation do
     Phoenix.PubSub.broadcast(Mosslet.PubSub, @pubsub_topic, message)
   end
 
-  @encrypted_schemas [
-    {Mosslet.Accounts.User, :users},
-    {Mosslet.Accounts.Connection, :connections},
-    {Mosslet.Accounts.UserBlock, :user_blocks},
-    {Mosslet.Accounts.UserConnection, :user_connections},
-    {Mosslet.Accounts.UserToken, :users_tokens},
-    {Mosslet.Accounts.UserTOTP, :users_totps},
-    {Mosslet.Billing.Customers.Customer, :billing_customers},
-    {Mosslet.Billing.PaymentIntents.PaymentIntent, :payment_intents},
-    {Mosslet.Conversations.Conversation, :conversations},
-    {Mosslet.Groups.Group, :groups},
-    {Mosslet.Groups.GroupBlock, :group_blocks},
-    {Mosslet.Groups.GroupMessage, :group_messages},
-    {Mosslet.Groups.UserGroup, :user_groups},
-    {Mosslet.Memories.Memory, :memories},
-    {Mosslet.Memories.Remark, :remarks},
-    {Mosslet.Memories.UserMemory, :user_memories},
-    {Mosslet.Messages.Message, :messages},
-    {Mosslet.Orgs.Invitation, :org_invitations},
-    {Mosslet.Orgs.Org, :orgs},
-    {Mosslet.Security.IpBan, :ip_bans},
-    {Mosslet.Timeline.Bookmark, :bookmarks},
-    {Mosslet.Timeline.BookmarkCategory, :bookmark_categories},
-    {Mosslet.Timeline.ContentWarningCategory, :content_warning_categories},
-    {Mosslet.Timeline.Post, :posts},
-    {Mosslet.Timeline.PostHide, :post_hides},
-    {Mosslet.Timeline.PostReport, :post_reports},
-    {Mosslet.Timeline.Reply, :replies},
-    {Mosslet.Timeline.UserPost, :user_posts},
-    {Mosslet.Timeline.UserPostReport, :user_post_reports}
-  ]
-
   @doc """
   Returns a list of all schemas that have encrypted fields.
+
+  Auto-discovers schemas by scanning all loaded modules under `Mosslet.*`
+  for Ecto schemas with `Mosslet.Encrypted.Binary` field types.
+
+  Embedded schemas are excluded since their data is stored in the parent
+  schema's table and rotated when the parent is rotated.
+
+  Returns a list of `{schema_module, table_name}` tuples.
   """
-  def encrypted_schemas, do: @encrypted_schemas
+  def encrypted_schemas do
+    {:ok, modules} = :application.get_key(:mosslet, :modules)
+
+    modules
+    |> Enum.filter(&ecto_schema_with_encrypted_fields?/1)
+    |> Enum.reject(&embedded_schema?/1)
+    |> Enum.map(fn module -> {module, module.__schema__(:source) |> String.to_atom()} end)
+    |> Enum.sort_by(fn {mod, _} -> inspect(mod) end)
+  end
+
+  defp ecto_schema_with_encrypted_fields?(module) do
+    Code.ensure_loaded(module)
+
+    function_exported?(module, :__schema__, 1) and
+      has_encrypted_fields?(module)
+  end
+
+  defp embedded_schema?(module) do
+    module.__schema__(:source) == nil
+  end
+
+  defp has_encrypted_fields?(module) do
+    module.__schema__(:fields)
+    |> Enum.any?(fn field ->
+      type = module.__schema__(:type, field)
+      is_encrypted_type?(type)
+    end)
+  end
 
   @doc """
   Gets the encrypted binary fields for a schema module.
@@ -109,8 +84,21 @@ defmodule Mosslet.Security.KeyRotation do
     end)
   end
 
-  defp is_encrypted_type?(Mosslet.Encrypted.Binary), do: true
-  defp is_encrypted_type?({:map, Mosslet.Encrypted.Binary}), do: true
+  @encrypted_types [
+    Mosslet.Encrypted.Binary,
+    Mosslet.Encrypted.DateTime,
+    Mosslet.Encrypted.Date,
+    Mosslet.Encrypted.Float,
+    Mosslet.Encrypted.HMAC,
+    Mosslet.Encrypted.IntegerList,
+    Mosslet.Encrypted.Integer,
+    Mosslet.Encrypted.Map,
+    Mosslet.Encrypted.NaiveDateTime,
+    Mosslet.Encrypted.StringList,
+    Mosslet.Encrypted.Time
+  ]
+
+  defp is_encrypted_type?(type) when type in @encrypted_types, do: true
   defp is_encrypted_type?(_), do: false
 
   @doc """
@@ -118,8 +106,7 @@ defmodule Mosslet.Security.KeyRotation do
   """
   def create_progress(schema_module, from_tag, to_tag, rotation_id) do
     schema_name = inspect(schema_module)
-
-    {_, table_name} = Enum.find(@encrypted_schemas, fn {mod, _} -> mod == schema_module end)
+    table_name = schema_module.__schema__(:source)
     total = count_records(schema_module)
 
     %KeyRotationProgress{}
@@ -329,6 +316,36 @@ defmodule Mosslet.Security.KeyRotation do
   end
 
   @doc """
+  Resets a failed rotation to in_progress status so it can be resumed.
+  The rotation will continue from the last_processed_id.
+  """
+  def resume_rotation(progress_id) do
+    progress = Repo.get!(KeyRotationProgress, progress_id)
+
+    if progress.status in ["failed", "stalled"] do
+      timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+      new_log = "#{progress.error_log || ""}[#{timestamp}] Rotation resumed\n"
+
+      result =
+        progress
+        |> KeyRotationProgress.changeset(%{
+          status: "in_progress",
+          error_log: new_log
+        })
+        |> Repo.update()
+
+      case result do
+        {:ok, updated} -> broadcast({:progress_updated, updated})
+        _ -> :ok
+      end
+
+      result
+    else
+      {:error, :not_resumable}
+    end
+  end
+
+  @doc """
   Cancels all pending/in_progress rotations by deleting their progress records.
   """
   def cancel_rotation do
@@ -363,7 +380,7 @@ defmodule Mosslet.Security.KeyRotation do
   end
 
   @doc """
-  Re-encrypts a single record's encrypted fields.
+  Re-encrypts a single record's encrypted fields, including embedded schemas.
 
   This decrypts with the current vault (which can use any configured cipher)
   and re-encrypts with the default cipher.
@@ -372,47 +389,69 @@ defmodule Mosslet.Security.KeyRotation do
     schema_module = record.__struct__
     fields = encrypted_fields(schema_module)
 
-    changes =
-      Enum.reduce(fields, %{}, fn field, acc ->
+    changeset =
+      Enum.reduce(fields, Ecto.Changeset.change(record), fn field, changeset ->
         value = Map.get(record, field)
 
-        if value != nil do
-          rotated = rotate_field_value(value, schema_module.__schema__(:type, field))
-          Map.put(acc, field, rotated)
+        if value != nil and value != "" and value != [] do
+          Ecto.Changeset.force_change(changeset, field, value)
         else
-          acc
+          changeset
         end
       end)
 
-    if map_size(changes) > 0 do
-      record
-      |> Ecto.Changeset.change(changes)
-      |> Repo.update()
+    embed_changes = rotate_embeds(record, schema_module)
+    changeset = Ecto.Changeset.change(changeset, embed_changes)
+
+    if changeset.changes != %{} do
+      Repo.update(changeset)
     else
       {:ok, record}
     end
   end
 
-  defp rotate_field_value(value, Mosslet.Encrypted.Binary) do
-    case Vault.decrypt(value) do
-      {:ok, plaintext} -> Vault.encrypt!(plaintext)
-      {:error, _} -> value
-    end
-  end
+  defp rotate_embeds(record, schema_module) do
+    schema_module.__schema__(:embeds)
+    |> Enum.reduce(%{}, fn embed_field, acc ->
+      embed_value = Map.get(record, embed_field)
+      embed_type = schema_module.__schema__(:type, embed_field)
 
-  defp rotate_field_value(value, {:map, Mosslet.Encrypted.Binary}) when is_map(value) do
-    Enum.into(value, %{}, fn {k, v} ->
-      rotated =
-        case Vault.decrypt(v) do
-          {:ok, plaintext} -> Vault.encrypt!(plaintext)
-          {:error, _} -> v
-        end
+      case embed_type do
+        {:parameterized, {Ecto.Embedded, %Ecto.Embedded{cardinality: :one, related: related}}} ->
+          if embed_value do
+            rotated = rotate_embedded_struct(embed_value, related)
+            if rotated != embed_value, do: Map.put(acc, embed_field, rotated), else: acc
+          else
+            acc
+          end
 
-      {k, rotated}
+        {:parameterized, {Ecto.Embedded, %Ecto.Embedded{cardinality: :many, related: related}}} ->
+          if is_list(embed_value) and embed_value != [] do
+            rotated = Enum.map(embed_value, &rotate_embedded_struct(&1, related))
+            if rotated != embed_value, do: Map.put(acc, embed_field, rotated), else: acc
+          else
+            acc
+          end
+
+        _ ->
+          acc
+      end
     end)
   end
 
-  defp rotate_field_value(value, _), do: value
+  defp rotate_embedded_struct(struct, related_module) do
+    fields = encrypted_fields(related_module)
+
+    Enum.reduce(fields, struct, fn field, acc ->
+      value = Map.get(acc, field)
+
+      if value != nil and value != "" and value != [] do
+        Map.put(acc, field, value)
+      else
+        acc
+      end
+    end)
+  end
 
   @doc """
   Counts total records in a schema.
@@ -501,7 +540,7 @@ defmodule Mosslet.Security.KeyRotation do
     rotation_id = Ecto.UUID.generate()
 
     results =
-      @encrypted_schemas
+      encrypted_schemas()
       |> Enum.map(fn {schema_module, _table} ->
         create_progress(schema_module, from_tag, to_tag, rotation_id)
       end)

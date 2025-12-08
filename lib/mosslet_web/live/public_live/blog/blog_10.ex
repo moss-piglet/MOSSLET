@@ -13,7 +13,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog10 do
       key={@key}
     >
       <Components.blog_article
-        date="December 15, 2025"
+        date="December 8, 2025"
         title="How We Built Surveillance-Resistant Social Media"
         author_name="Mark"
         author_image={~p"/images/about/mark_photo.jpg"}
@@ -71,7 +71,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog10 do
             <div class="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-slate-950/10 ring-inset dark:ring-white/10">
             </div>
             <img
-              src={~p"/images/blog/nov_27_2025_usfys.jpg"}
+              src={~p"/images/blog/dec_8_2025_hsrsm.jpg"}
               class="w-full"
               alt="Surveillance-resistant architecture illustration"
             />
@@ -81,10 +81,10 @@ defmodule MossletWeb.PublicLive.Blog.Blog10 do
             <.link
               target="_blank"
               rel="noopener noreferrer"
-              href="https://unsplash.com/@melkszr/illustrations"
+              href="https://unsplash.com/@riswanr_/illustrations"
               class="ml-1"
             >
-              Esma melike Sezer
+              Riswan Ratta
             </.link>
           </figcaption>
         </div>
@@ -515,8 +515,8 @@ defmodule MossletWeb.PublicLive.Blog.Blog10 do
      |> assign_new(:meta_description, fn ->
        "A technical deep-dive into MOSSLET's encryption architecture: password-derived keys, per-object encryption, public-key cryptography with enacl, and defense-in-depth security. How we built a social network that can't spy on its own people."
      end)
-     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/nov_27_2025_usfys.jpg")
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/dec_8_2025_hsrsm.jpg")
      |> assign(:og_image_type, "image/jpeg")
-     |> assign(:og_image_alt, "Surveillance-resistant architecture illustration")}
+     |> assign(:og_image_alt, "Peaceful hiker in the sunset-colored woods illustration")}
   end
 end
