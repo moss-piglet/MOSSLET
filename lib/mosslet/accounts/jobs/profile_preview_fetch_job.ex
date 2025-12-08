@@ -123,7 +123,7 @@ defmodule Mosslet.Accounts.Jobs.ProfilePreviewFetchJob do
 
   defp fetch_and_cache_preview(website_url, profile_key, connection_id) do
     url_hash =
-      :crypto.hash(:sha3_256, "#{website_url}-#{connection_id}") |> Base.encode16(case: :lower)
+      :crypto.hash(:sha3_512, "#{website_url}-#{connection_id}") |> Base.encode16(case: :lower)
 
     case URLPreviewServer.fetch_and_cache(website_url, url_hash, profile_key,
            profile_key: connection_id,

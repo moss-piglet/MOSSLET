@@ -128,7 +128,9 @@ config :mosslet, Oban,
        {"0 * * * *", Mosslet.Timeline.Jobs.EphemeralPostCleanupJob,
         args: %{"action" => "cleanup_expired_posts", "cleanup_type" => "bulk_expired"}},
        # Log cleanup daily at 2 AM UTC (privacy-compliant 7-day retention)
-       {"0 2 * * *", Mosslet.Logs.Jobs.LogCleanupJob, args: %{"action" => "cleanup_old_logs"}}
+       {"0 2 * * *", Mosslet.Logs.Jobs.LogCleanupJob, args: %{"action" => "cleanup_old_logs"}},
+       # Key rotation monitoring - weekly check on Sundays at 3 AM UTC
+       {"0 3 * * 0", Mosslet.Security.KeyRotationOrchestratorJob, args: %{"action" => "monitor"}}
      ]}
   ],
   queues: [
@@ -139,7 +141,9 @@ config :mosslet, Oban,
     timeline: 5,
     cache_maintenance: 2,
     ephemeral_cleanup: 3,
-    email_notifications: 5
+    email_notifications: 5,
+    security: 3,
+    key_rotation: 5
   ],
   peer: Oban.Peers.Global
 

@@ -1,5 +1,6 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import CharacterCounter from "./character-counter";
+import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
 import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
@@ -32,6 +33,7 @@ import ScrollableTabs from "./scrollable-tabs";
 
 export default {
   CharacterCounter,
+  ClipboardHook,
   ComposerEmojiPicker,
   KeywordFilterInput,
   ClearFlashHook,

@@ -3390,7 +3390,7 @@ defmodule Mosslet.Accounts do
 
         if decrypted_url do
           url_hash =
-            :crypto.hash(:sha3_256, "#{decrypted_url}-#{conn.id}")
+            :crypto.hash(:sha3_512, "#{decrypted_url}-#{conn.id}")
             |> Base.encode16(case: :lower)
 
           Mosslet.Extensions.URLPreviewServer.delete_cached_preview(url_hash)
@@ -3404,7 +3404,7 @@ defmodule Mosslet.Accounts do
             case Encrypted.Utils.decrypt(%{key: profile_key, payload: profile.website_url}) do
               {:ok, decrypted_url} ->
                 url_hash =
-                  :crypto.hash(:sha3_256, "#{decrypted_url}-#{conn.id}")
+                  :crypto.hash(:sha3_512, "#{decrypted_url}-#{conn.id}")
                   |> Base.encode16(case: :lower)
 
                 Mosslet.Extensions.URLPreviewServer.delete_cached_preview(url_hash)

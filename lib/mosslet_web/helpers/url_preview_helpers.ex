@@ -34,7 +34,7 @@ defmodule MossletWeb.Helpers.URLPreviewHelpers do
   def maybe_start_preview_fetch(socket, website_url, profile_key, connection_id) do
     if is_binary(website_url) && website_url != "" && profile_key do
       url_hash =
-        :crypto.hash(:sha3_256, "#{website_url}-#{connection_id}") |> Base.encode16(case: :lower)
+        :crypto.hash(:sha3_512, "#{website_url}-#{connection_id}") |> Base.encode16(case: :lower)
 
       Task.async(fn ->
         {:website_preview_result,

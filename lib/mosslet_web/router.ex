@@ -76,6 +76,7 @@ defmodule MossletWeb.Router do
       live "/blog/articles/07", PublicLive.Blog.Blog07
       live "/blog/articles/08", PublicLive.Blog.Blog08
       live "/blog/articles/09", PublicLive.Blog.Blog09
+      live "/blog/articles/10", PublicLive.Blog.Blog10
       live "/faq", PublicLive.Faq, :faq
       live "/support", PublicLive.Support, :support
       live "/features", PublicLive.Features, :features

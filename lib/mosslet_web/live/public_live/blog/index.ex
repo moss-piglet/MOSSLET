@@ -30,6 +30,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_10"
+                date="December 7, 2025"
+                title="How we built surveillance-resistant social media"
+                preview="I've been asked a few times now to write about how MOSSLET actually works under the hood. We're open source, so anyone can read the code, but code isn't documentation — and most people don't read Elixir. So here's the technical story of how we built a social network that can't spy on its own people."
+                link={~p"/blog/articles/10"}
+              />
+              <.blog_entry
                 id="blog_09"
                 date="November 27, 2025"
                 title="Unlock Sessions: Privacy Meets Convenience This Holiday Season"

@@ -43,7 +43,13 @@ defmodule MossletWeb.Menus do
       # Admin users get admin-only menu
       admin?(current_user) ->
         build_menu(
-          [:admin_bot_defense, :admin_dashboard, :admin_moderation, :admin_settings],
+          [
+            :admin_bot_defense,
+            :admin_dashboard,
+            :admin_key_rotation,
+            :admin_moderation,
+            :admin_settings
+          ],
           current_user
         )
 
@@ -484,6 +490,17 @@ defmodule MossletWeb.Menus do
         label: gettext("Dashboard"),
         path: ~p"/admin/dash",
         icon: "hero-chart-bar"
+      }
+    end
+  end
+
+  def get_link(:admin_key_rotation = name, current_user) do
+    if current_user.is_admin? && current_user.confirmed_at do
+      %{
+        name: name,
+        label: gettext("Key Rotation"),
+        path: ~p"/admin/key-rotation",
+        icon: "hero-key"
       }
     end
   end
