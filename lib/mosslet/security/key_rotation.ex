@@ -393,7 +393,7 @@ defmodule Mosslet.Security.KeyRotation do
       Enum.reduce(fields, Ecto.Changeset.change(record), fn field, changeset ->
         value = Map.get(record, field)
 
-        if value != nil and value != "" and value != [] do
+        if value != nil do
           Ecto.Changeset.force_change(changeset, field, value)
         else
           changeset
@@ -445,7 +445,7 @@ defmodule Mosslet.Security.KeyRotation do
     Enum.reduce(fields, struct, fn field, acc ->
       value = Map.get(acc, field)
 
-      if value != nil and value != "" and value != [] do
+      if value != nil do
         Map.put(acc, field, value)
       else
         acc
