@@ -466,7 +466,7 @@ defmodule MossletWeb.AdminKeyRotationLive do
                   </div>
                 </div>
                 <div>
-                  <p class="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1.5">
+                  <p class="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1.5">
                     HMAC Fields ({length(schema.hmac_fields)}) — Non-rotatable
                   </p>
                   <div class="flex flex-wrap gap-1">
