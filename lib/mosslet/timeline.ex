@@ -1366,8 +1366,10 @@ defmodule Mosslet.Timeline do
         )
 
       from(p in Post,
+        left_join: up in UserPost,
+        on: up.post_id == p.id and up.user_id == ^current_user.id,
         left_join: upr in UserPostReceipt,
-        on: upr.post_id == p.id and upr.user_id == ^current_user.id,
+        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
         where: p.id in subquery(public_post_ids),
         order_by: [
           asc: coalesce(upr.is_read?, true),
