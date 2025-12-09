@@ -3,6 +3,14 @@ defmodule MossletWeb.Plugs.PlugAttack do
   use PlugAttack
   import Plug.Conn
 
+  def call(conn, opts) do
+    if Application.get_env(:mosslet, :env) == :test do
+      conn
+    else
+      super(conn, opts)
+    end
+  end
+
   @alg :sha3_512
 
   # when hashing the ip
