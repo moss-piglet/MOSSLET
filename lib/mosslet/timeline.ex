@@ -1357,39 +1357,42 @@ defmodule Mosslet.Timeline do
 
   defp fetch_discover_posts_from_db(current_user, options) do
     if current_user do
-      # With user context - show unread posts first
+      public_post_ids =
+        from(p in Post,
+          inner_join: up in UserPost,
+          on: up.post_id == p.id,
+          where: p.visibility == :public,
+          select: p.id
+        )
+
       from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
         left_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
-        where: p.visibility == :public,
-        distinct: p.id,
+        on: upr.post_id == p.id and upr.user_id == ^current_user.id,
+        where: p.id in subquery(public_post_ids),
         order_by: [
-          # Unread posts first: false (unread) < true (read)
-          # COALESCE treats NULL (no join record) as true (read)
           asc: coalesce(upr.is_read?, true),
-          # Most recent posts first within each group
           desc: p.inserted_at
         ],
         preload: [:user_posts, :replies, :user_post_receipts]
       )
-      # Use consistent pagination helper
       |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
       |> add_nested_replies_to_posts(options)
     else
-      # Without user context - just show by date
+      public_post_ids =
+        from(p in Post,
+          inner_join: up in UserPost,
+          on: up.post_id == p.id,
+          where: p.visibility == :public,
+          select: p.id
+        )
+
       from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.visibility == :public,
-        distinct: p.id,
+        where: p.id in subquery(public_post_ids),
         order_by: [desc: p.inserted_at],
         preload: [:user_posts, :replies]
       )
-      # Use consistent pagination helper
       |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
