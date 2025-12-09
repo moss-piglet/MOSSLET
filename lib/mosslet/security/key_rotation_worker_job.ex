@@ -16,7 +16,7 @@ defmodule Mosslet.Security.KeyRotationWorkerJob do
 
   alias Mosslet.Security.KeyRotation
   alias Mosslet.Security.KeyRotationProgress
-  alias Mosslet.Repo.Local, as: Repo
+  alias Mosslet.Repo
 
   require Logger
 

@@ -53,7 +53,7 @@ defmodule Mosslet.Security.BotDetectorTest do
     test "allows normal paths" do
       refute BotDetector.suspicious_path?("/")
       refute BotDetector.suspicious_path?("/app/timeline")
-      refute BotDetector.suspicious_path?("/auth/log_in")
+      refute BotDetector.suspicious_path?("/auth/sign_in")
       refute BotDetector.suspicious_path?("/users/settings")
     end
   end

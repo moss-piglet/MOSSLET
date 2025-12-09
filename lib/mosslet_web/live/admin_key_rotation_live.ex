@@ -267,6 +267,14 @@ defmodule MossletWeb.AdminKeyRotationLive do
             </div>
           </div>
 
+          <.cipher_tag_tracker_section
+            cipher_tag_report={@cipher_tag_report}
+            show_cipher_tags={@show_cipher_tags}
+            selected_old_tag={@selected_old_tag}
+            old_tag_scan_result={@old_tag_scan_result}
+            vault_status={@vault_status}
+          />
+
           <.rotation_history_section
             rotation_history={@rotation_history}
             current_rotation_id={@current_rotation_id}
@@ -275,6 +283,240 @@ defmodule MossletWeb.AdminKeyRotationLive do
         </div>
       </div>
     </.layout>
+    """
+  end
+
+  attr :cipher_tag_report, :map, required: true
+  attr :show_cipher_tags, :boolean, default: false
+  attr :selected_old_tag, :string
+  attr :old_tag_scan_result, :map
+  attr :vault_status, :map, required: true
+
+  defp cipher_tag_tracker_section(assigns) do
+    retired_tags = assigns.vault_status.retired_tags || []
+    assigns = assign(assigns, :retired_tags, retired_tags)
+
+    ~H"""
+    <div class="mt-8">
+      <button
+        type="button"
+        phx-click="toggle_cipher_tags"
+        class="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors mb-4"
+      >
+        <.phx_icon
+          name={if @show_cipher_tags, do: "hero-chevron-down", else: "hero-chevron-right"}
+          class="h-4 w-4"
+        />
+        <.phx_icon name="hero-finger-print" class="h-4 w-4" /> Cipher Tag Tracking
+      </button>
+
+      <div :if={@show_cipher_tags} class="space-y-4">
+        <div class="rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-sm p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <.phx_icon
+              name="hero-magnifying-glass"
+              class="h-5 w-5 text-amber-600 dark:text-amber-400"
+            />
+            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+              Scan for Old Key Usage
+            </h2>
+          </div>
+
+          <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            Select a retired cipher tag to scan for records that still use it.
+            HMAC fields are deterministic hashes and cannot be re-encrypted.
+          </p>
+
+          <div class="flex flex-wrap gap-2 mb-4">
+            <button
+              :for={tag <- @retired_tags}
+              type="button"
+              phx-click="scan_old_tag"
+              phx-value-tag={tag}
+              class={[
+                "px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                if(@selected_old_tag == tag,
+                  do:
+                    "bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200",
+                  else:
+                    "bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                )
+              ]}
+            >
+              {tag}
+            </button>
+            <span :if={@retired_tags == []} class="text-sm text-slate-500 dark:text-slate-400 italic">
+              No retired keys configured
+            </span>
+          </div>
+
+          <div
+            :if={@old_tag_scan_result}
+            class="mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Scan Results for
+                <code class="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded font-mono">
+                  {@old_tag_scan_result.target_tag}
+                </code>
+              </h3>
+              <span class={[
+                "px-2 py-1 rounded-full text-xs font-medium",
+                if(@old_tag_scan_result.total_records_affected == 0,
+                  do: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+                  else: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                )
+              ]}>
+                <%= if @old_tag_scan_result.total_records_affected == 0 do %>
+                  <.phx_icon name="hero-check-circle" class="h-3.5 w-3.5 inline -mt-0.5 mr-1" />
+                  All Clear
+                <% else %>
+                  <.phx_icon name="hero-exclamation-triangle" class="h-3.5 w-3.5 inline -mt-0.5 mr-1" /> {@old_tag_scan_result.total_records_affected} records
+                <% end %>
+              </span>
+            </div>
+
+            <%= if @old_tag_scan_result.total_records_affected == 0 do %>
+              <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                No records found using this cipher tag. All data has been rotated.
+              </p>
+            <% else %>
+              <div class="space-y-3">
+                <p class="text-sm text-amber-700 dark:text-amber-300">
+                  Found {@old_tag_scan_result.schemas_affected} schema(s) with records still using this key.
+                </p>
+
+                <div
+                  :for={schema_result <- @old_tag_scan_result.by_schema}
+                  class="p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-slate-800 dark:text-slate-200">
+                      {format_schema_name(schema_result.schema)}
+                    </span>
+                    <span class="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      {schema_result.records_with_old_key} record(s)
+                    </span>
+                  </div>
+
+                  <div class="flex flex-wrap gap-1.5 mb-2">
+                    <span
+                      :for={{field, count} <- schema_result.field_breakdown}
+                      class="px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
+                    >
+                      {field}: {count}
+                    </span>
+                  </div>
+
+                  <details :if={schema_result.sample_record_ids != []} class="mt-2">
+                    <summary class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">
+                      Sample record IDs ({length(schema_result.sample_record_ids)})
+                    </summary>
+                    <div class="mt-1 text-xs font-mono text-slate-600 dark:text-slate-400 break-all">
+                      {Enum.join(schema_result.sample_record_ids, ", ")}
+                    </div>
+                  </details>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-sm p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <.phx_icon name="hero-chart-pie" class="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+              Current Cipher Tag Distribution
+            </h2>
+          </div>
+
+          <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            Overview of which cipher tags are in use across all encrypted schemas.
+            <span class="text-amber-600 dark:text-amber-400 font-medium">HMAC fields</span>
+            are shown separately as they cannot be rotated.
+          </p>
+
+          <div class="space-y-4">
+            <div
+              :for={schema <- @cipher_tag_report.schemas}
+              class="p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {format_schema_name(schema.schema)}
+                </h3>
+                <span class="text-xs text-slate-500 dark:text-slate-400">
+                  {schema.records_sampled} records sampled
+                </span>
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2 mb-3">
+                <div>
+                  <p class="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+                    Rotatable Fields ({length(schema.rotatable_fields)})
+                  </p>
+                  <div class="flex flex-wrap gap-1">
+                    <code
+                      :for={field <- schema.rotatable_fields}
+                      class="text-xs bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded"
+                    >
+                      {field}
+                    </code>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1.5">
+                    HMAC Fields ({length(schema.hmac_fields)}) — Non-rotatable
+                  </p>
+                  <div class="flex flex-wrap gap-1">
+                    <code
+                      :for={field <- schema.hmac_fields}
+                      class="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded"
+                    >
+                      {field}
+                    </code>
+                    <span
+                      :if={schema.hmac_fields == []}
+                      class="text-xs text-slate-500 dark:text-slate-400 italic"
+                    >
+                      None
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <%= if schema.cipher_tag_distribution != %{} do %>
+                <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                  <p class="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                    Tag Distribution
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      :for={{key, count} <- schema.cipher_tag_distribution}
+                      class={[
+                        "px-2 py-1 rounded text-xs font-medium",
+                        if(String.contains?(key, @cipher_tag_report.current_cipher_tag),
+                          do:
+                            "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+                          else: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                        )
+                      ]}
+                    >
+                      {key}: {count}
+                    </span>
+                  </div>
+                </div>
+              <% else %>
+                <p class="text-xs text-slate-500 dark:text-slate-400 italic">
+                  No encrypted data found (all fields may be nil)
+                </p>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     """
   end
 
@@ -943,7 +1185,10 @@ defmodule MossletWeb.AdminKeyRotationLive do
       |> assign(:old_key_copied, false)
       |> assign(:show_completed, false)
       |> assign(:show_history, false)
+      |> assign(:show_cipher_tags, false)
       |> assign(:viewing_rotation_id, nil)
+      |> assign(:selected_old_tag, nil)
+      |> assign(:old_tag_scan_result, nil)
       |> load_data()
 
     {:ok, socket}
@@ -963,6 +1208,21 @@ defmodule MossletWeb.AdminKeyRotationLive do
 
   def handle_event("toggle_history", _params, socket) do
     {:noreply, assign(socket, :show_history, !socket.assigns.show_history)}
+  end
+
+  def handle_event("toggle_cipher_tags", _params, socket) do
+    {:noreply, assign(socket, :show_cipher_tags, !socket.assigns.show_cipher_tags)}
+  end
+
+  def handle_event("scan_old_tag", %{"tag" => tag}, socket) do
+    result = KeyRotation.scan_all_for_cipher_tag(tag, limit: 500)
+
+    socket =
+      socket
+      |> assign(:selected_old_tag, tag)
+      |> assign(:old_tag_scan_result, result)
+
+    {:noreply, socket}
   end
 
   def handle_event("view_rotation", %{"rotation-id" => rotation_id}, socket) do
@@ -1128,6 +1388,8 @@ defmodule MossletWeb.AdminKeyRotationLive do
         false
       end
 
+    cipher_tag_report = KeyRotation.cipher_tag_usage_report(limit: 100)
+
     socket
     |> assign(:current_rotation_id, display_rotation_id)
     |> assign(:rotation_history, rotation_history)
@@ -1138,6 +1400,7 @@ defmodule MossletWeb.AdminKeyRotationLive do
     |> assign(:has_active_rotations, has_active)
     |> assign(:has_failed_rotations, Map.get(summary.by_status, "failed", 0) > 0)
     |> assign(:rotation_complete, current_transition_completed)
+    |> assign(:cipher_tag_report, cipher_tag_report)
   end
 
   defp filter_progress("", nil), do: []

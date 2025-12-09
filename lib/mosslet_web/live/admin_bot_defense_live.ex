@@ -6,6 +6,8 @@ defmodule MossletWeb.AdminBotDefenseLive do
 
   alias Mosslet.Security.BotDefense
 
+  import MossletWeb.LocalTime, only: [local_time: 1]
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -165,10 +167,11 @@ defmodule MossletWeb.AdminBotDefenseLive do
                     {ban.request_count}
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    {format_expires(ban.expires_at)}
+                    <.local_time :if={ban.expires_at} for={ban.expires_at} preset="DATETIME_MED" />
+                    <span :if={is_nil(ban.expires_at)}>Never</span>
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    {format_datetime(ban.inserted_at)}
+                    <.local_time for={ban.inserted_at} preset="DATETIME_MED" />
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-right text-sm">
                     <button
@@ -408,20 +411,4 @@ defmodule MossletWeb.AdminBotDefenseLive do
   end
 
   defp truncate_hash(_), do: "-"
-
-  defp format_expires(nil), do: "Never"
-
-  defp format_expires(datetime) do
-    if DateTime.compare(datetime, DateTime.utc_now()) == :gt do
-      DateTime.to_string(datetime) |> String.slice(0, 16)
-    else
-      "Expired"
-    end
-  end
-
-  defp format_datetime(datetime) do
-    datetime
-    |> NaiveDateTime.to_string()
-    |> String.slice(0, 16)
-  end
 end

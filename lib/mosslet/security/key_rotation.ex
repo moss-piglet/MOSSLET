@@ -17,7 +17,7 @@ defmodule Mosslet.Security.KeyRotation do
   """
 
   import Ecto.Query
-  alias Mosslet.Repo.Local, as: Repo
+  alias Mosslet.Repo
   alias Mosslet.Security.KeyRotationProgress
   alias Mosslet.Vault
 
@@ -74,7 +74,7 @@ defmodule Mosslet.Security.KeyRotation do
   end
 
   @doc """
-  Gets the encrypted binary fields for a schema module.
+  Gets all encrypted fields for a schema module (including HMAC).
   """
   def encrypted_fields(schema_module) do
     schema_module.__schema__(:fields)
@@ -84,12 +84,35 @@ defmodule Mosslet.Security.KeyRotation do
     end)
   end
 
-  @encrypted_types [
+  @doc """
+  Gets only the rotatable encrypted fields for a schema module (excludes HMAC).
+  HMAC fields are deterministic hashes and cannot be re-encrypted without the original plaintext.
+  """
+  def rotatable_fields(schema_module) do
+    schema_module.__schema__(:fields)
+    |> Enum.filter(fn field ->
+      type = schema_module.__schema__(:type, field)
+      is_rotatable_type?(type)
+    end)
+  end
+
+  @doc """
+  Gets the HMAC fields for a schema module.
+  These fields use deterministic hashing and cannot be rotated.
+  """
+  def hmac_fields(schema_module) do
+    schema_module.__schema__(:fields)
+    |> Enum.filter(fn field ->
+      type = schema_module.__schema__(:type, field)
+      is_hmac_type?(type)
+    end)
+  end
+
+  @rotatable_encrypted_types [
     Mosslet.Encrypted.Binary,
     Mosslet.Encrypted.DateTime,
     Mosslet.Encrypted.Date,
     Mosslet.Encrypted.Float,
-    Mosslet.Encrypted.HMAC,
     Mosslet.Encrypted.IntegerList,
     Mosslet.Encrypted.Integer,
     Mosslet.Encrypted.Map,
@@ -98,8 +121,20 @@ defmodule Mosslet.Security.KeyRotation do
     Mosslet.Encrypted.Time
   ]
 
-  defp is_encrypted_type?(type) when type in @encrypted_types, do: true
+  @hmac_types [
+    Mosslet.Encrypted.HMAC
+  ]
+
+  @all_encrypted_types @rotatable_encrypted_types ++ @hmac_types
+
+  defp is_encrypted_type?(type) when type in @all_encrypted_types, do: true
   defp is_encrypted_type?(_), do: false
+
+  defp is_rotatable_type?(type) when type in @rotatable_encrypted_types, do: true
+  defp is_rotatable_type?(_), do: false
+
+  defp is_hmac_type?(type) when type in @hmac_types, do: true
+  defp is_hmac_type?(_), do: false
 
   @doc """
   Creates progress tracking for a schema rotation with a given rotation_id.
@@ -381,13 +416,14 @@ defmodule Mosslet.Security.KeyRotation do
 
   @doc """
   Re-encrypts a single record's encrypted fields, including embedded schemas.
+  HMAC fields are skipped since they are deterministic hashes that cannot be re-encrypted.
 
   This decrypts with the current vault (which can use any configured cipher)
   and re-encrypts with the default cipher.
   """
   def rotate_record(record) do
     schema_module = record.__struct__
-    fields = encrypted_fields(schema_module)
+    fields = rotatable_fields(schema_module)
 
     changeset =
       Enum.reduce(fields, Ecto.Changeset.change(record), fn field, changeset ->
@@ -440,7 +476,7 @@ defmodule Mosslet.Security.KeyRotation do
   end
 
   defp rotate_embedded_struct(struct, related_module) do
-    fields = encrypted_fields(related_module)
+    fields = rotatable_fields(related_module)
 
     Enum.reduce(fields, struct, fn field, acc ->
       value = Map.get(acc, field)
@@ -552,5 +588,278 @@ defmodule Mosslet.Security.KeyRotation do
     else
       {:error, errors}
     end
+  end
+
+  @doc """
+  Extracts the cipher tag from encrypted binary data.
+
+  Cloak's AES.GCM format stores the tag at the beginning:
+  - Type (1 byte): 0x01 for string tags
+  - Length (1 byte): length of the tag
+  - Tag value (n bytes): the actual tag string
+
+  Returns {:ok, tag} or {:error, reason}.
+  """
+  def extract_cipher_tag(nil), do: {:ok, nil}
+
+  def extract_cipher_tag(<<0x01, length, tag::binary-size(length), _rest::binary>>)
+      when length > 0 do
+    {:ok, tag}
+  end
+
+  def extract_cipher_tag(<<type, _rest::binary>>) when type != 0x01 do
+    {:error, :unknown_tag_type}
+  end
+
+  def extract_cipher_tag(_) do
+    {:error, :invalid_format}
+  end
+
+  @doc """
+  Extracts cipher tags from all rotatable fields of a record.
+  Returns a map of field => tag.
+  """
+  def extract_record_cipher_tags(record) do
+    schema_module = record.__struct__
+    fields = rotatable_fields(schema_module)
+
+    Enum.reduce(fields, %{}, fn field, acc ->
+      value = Map.get(record, field)
+
+      case extract_cipher_tag(value) do
+        {:ok, nil} -> acc
+        {:ok, tag} -> Map.put(acc, field, tag)
+        {:error, _} -> acc
+      end
+    end)
+  end
+
+  @doc """
+  Checks if a record has any fields encrypted with the specified cipher tag.
+  """
+  def record_uses_cipher_tag?(record, target_tag) do
+    tags = extract_record_cipher_tags(record)
+
+    Enum.any?(tags, fn {_field, tag} -> tag == target_tag end)
+  end
+
+  @doc """
+  Scans a schema for records that still use a specific cipher tag.
+  Returns a summary of affected records.
+
+  This queries the database directly to read raw encrypted values,
+  bypassing Cloak's automatic decryption.
+
+  Options:
+  - :limit - maximum number of records to scan (default: 1000)
+  - :sample_records - number of sample record IDs to return (default: 10)
+  """
+  def scan_schema_for_cipher_tag(schema_module, target_tag, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 1000)
+    sample_size = Keyword.get(opts, :sample_records, 10)
+    fields = rotatable_fields(schema_module)
+    table_name = schema_module.__schema__(:source)
+
+    if fields == [] do
+      %{
+        schema: inspect(schema_module),
+        fields: [],
+        total_scanned: 0,
+        records_with_old_key: 0,
+        sample_record_ids: [],
+        field_breakdown: %{}
+      }
+    else
+      field_names = Enum.map(fields, &Atom.to_string/1) |> Enum.join(", ")
+      query = "SELECT id::text, #{field_names} FROM #{table_name} ORDER BY id LIMIT $1"
+
+      result = Repo.query!(query, [limit])
+      id_col_idx = Enum.find_index(result.columns, &(&1 == "id"))
+
+      field_indices =
+        Enum.map(fields, fn field ->
+          {field, Enum.find_index(result.columns, &(&1 == Atom.to_string(field)))}
+        end)
+
+      {affected_records, field_breakdown} =
+        Enum.reduce(result.rows, {[], %{}}, fn row, {affected, breakdown} ->
+          record_id = Enum.at(row, id_col_idx)
+
+          affected_fields =
+            Enum.filter(field_indices, fn {_field, idx} ->
+              raw_value = Enum.at(row, idx)
+
+              case extract_cipher_tag(raw_value) do
+                {:ok, ^target_tag} -> true
+                _ -> false
+              end
+            end)
+            |> Enum.map(fn {field, _} -> field end)
+
+          if affected_fields != [] do
+            new_breakdown =
+              Enum.reduce(affected_fields, breakdown, fn field, acc ->
+                Map.update(acc, field, 1, &(&1 + 1))
+              end)
+
+            {[record_id | affected], new_breakdown}
+          else
+            {affected, breakdown}
+          end
+        end)
+
+      sample_ids = Enum.take(affected_records, sample_size)
+
+      %{
+        schema: inspect(schema_module),
+        fields: fields,
+        total_scanned: length(result.rows),
+        records_with_old_key: length(affected_records),
+        sample_record_ids: sample_ids,
+        field_breakdown: field_breakdown
+      }
+    end
+  end
+
+  @doc """
+  Scans all encrypted schemas for records using a specific cipher tag.
+  Returns a comprehensive report of all affected schemas and records.
+  """
+  def scan_all_for_cipher_tag(target_tag, opts \\ []) do
+    schemas = encrypted_schemas()
+
+    results =
+      Enum.map(schemas, fn {schema_module, _table} ->
+        scan_schema_for_cipher_tag(schema_module, target_tag, opts)
+      end)
+      |> Enum.reject(fn result -> result.records_with_old_key == 0 end)
+
+    total_affected =
+      results
+      |> Enum.map(& &1.records_with_old_key)
+      |> Enum.sum()
+
+    %{
+      target_tag: target_tag,
+      schemas_affected: length(results),
+      total_records_affected: total_affected,
+      by_schema: results
+    }
+  end
+
+  @doc """
+  Gets a detailed breakdown of cipher tag usage across all schemas.
+  Useful for monitoring rotation progress and identifying remaining work.
+
+  Queries the database directly to read raw encrypted values.
+  """
+  def cipher_tag_usage_report(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 500)
+    schemas = encrypted_schemas()
+
+    results =
+      Enum.map(schemas, fn {schema_module, table} ->
+        fields = rotatable_fields(schema_module)
+
+        if fields == [] do
+          nil
+        else
+          field_names = Enum.map(fields, &Atom.to_string/1) |> Enum.join(", ")
+          query = "SELECT #{field_names} FROM #{table} LIMIT $1"
+
+          result = Repo.query!(query, [limit])
+
+          field_indices =
+            Enum.map(fields, fn field ->
+              {field, Enum.find_index(result.columns, &(&1 == Atom.to_string(field)))}
+            end)
+
+          tag_counts =
+            Enum.reduce(result.rows, %{}, fn row, acc ->
+              Enum.reduce(field_indices, acc, fn {field, idx}, field_acc ->
+                raw_value = Enum.at(row, idx)
+
+                case extract_cipher_tag(raw_value) do
+                  {:ok, nil} ->
+                    field_acc
+
+                  {:ok, tag} ->
+                    key = "#{field}:#{tag}"
+                    Map.update(field_acc, key, 1, &(&1 + 1))
+
+                  {:error, _} ->
+                    field_acc
+                end
+              end)
+            end)
+
+          %{
+            schema: inspect(schema_module),
+            table: table,
+            rotatable_fields: fields,
+            hmac_fields: hmac_fields(schema_module),
+            records_sampled: length(result.rows),
+            cipher_tag_distribution: tag_counts
+          }
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    current_tag = Vault.current_cipher_tag()
+    base_tag = Vault.base_cipher_tag()
+
+    %{
+      current_cipher_tag: current_tag,
+      base_cipher_tag: base_tag,
+      rotation_in_progress: Vault.rotation_in_progress?(),
+      schemas: results
+    }
+  end
+
+  @doc """
+  Scans for users that have records using an old cipher tag.
+  Returns a list of user IDs whose data needs rotation.
+
+  This is useful for tracking which specific users still have data
+  encrypted with the old key.
+
+  Queries the database directly to read raw encrypted values.
+  """
+  def scan_users_for_cipher_tag(target_tag, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 1000)
+    schema_module = Mosslet.Accounts.User
+    fields = rotatable_fields(schema_module)
+    table_name = schema_module.__schema__(:source)
+
+    field_names = Enum.map(fields, &Atom.to_string/1) |> Enum.join(", ")
+    query = "SELECT id::text, #{field_names} FROM #{table_name} ORDER BY id LIMIT $1"
+
+    result = Repo.query!(query, [limit])
+    id_col_idx = Enum.find_index(result.columns, &(&1 == "id"))
+
+    field_indices =
+      Enum.map(fields, fn field ->
+        {field, Enum.find_index(result.columns, &(&1 == Atom.to_string(field)))}
+      end)
+
+    affected_user_ids =
+      Enum.filter(result.rows, fn row ->
+        Enum.any?(field_indices, fn {_field, idx} ->
+          raw_value = Enum.at(row, idx)
+
+          case extract_cipher_tag(raw_value) do
+            {:ok, ^target_tag} -> true
+            _ -> false
+          end
+        end)
+      end)
+      |> Enum.map(fn row -> Enum.at(row, id_col_idx) end)
+
+    %{
+      target_tag: target_tag,
+      total_scanned: length(result.rows),
+      users_with_old_key: length(affected_user_ids),
+      user_ids: affected_user_ids
+    }
   end
 end
