@@ -59,8 +59,8 @@ defmodule MossletWeb.Router do
 
     live_session :home,
       on_mount: [
-        {MossletWeb.BotDefenseHook, :check_banned},
         MossletWeb.AllowEctoSandboxHook,
+        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :mount_current_user},
         {MossletWeb.UserAuth, :mount_current_user_session_key},
         {MossletWeb.UserAuth, :ensure_session_key}
@@ -93,8 +93,8 @@ defmodule MossletWeb.Router do
 
     live_session :public_profile,
       on_mount: [
-        {MossletWeb.BotDefenseHook, :check_banned},
         MossletWeb.AllowEctoSandboxHook,
+        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :mount_current_user},
         {MossletWeb.UserAuth, :mount_current_user_session_key},
         {MossletWeb.UserAuth, :ensure_session_key},
