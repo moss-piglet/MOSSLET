@@ -26,6 +26,7 @@ defmodule Mosslet.Security.BotDefense do
 
   @ets_table :bot_defense_bans
   @cleanup_interval :timer.minutes(5)
+  @flush_interval :timer.seconds(30)
   @pubsub_topic "bot_defense"
 
   def start_link(opts) do
@@ -121,8 +122,9 @@ defmodule Mosslet.Security.BotDefense do
 
     send(self(), :load_bans)
     schedule_cleanup()
+    schedule_flush()
 
-    {:ok, %{}}
+    {:ok, %{pending_increments: %{}}}
   end
 
   @impl true
@@ -136,6 +138,13 @@ defmodule Mosslet.Security.BotDefense do
     cleanup_expired_bans()
     schedule_cleanup()
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:flush_increments, state) do
+    flush_pending_increments(state.pending_increments)
+    schedule_flush()
+    {:noreply, %{state | pending_increments: %{}}}
   end
 
   @impl true
@@ -164,8 +173,9 @@ defmodule Mosslet.Security.BotDefense do
 
   @impl true
   def handle_cast({:increment_blocked, ip}, state) do
-    do_increment_blocked(ip)
-    {:noreply, state}
+    ip_string = :inet.ntoa(ip) |> to_string()
+    pending = Map.update(state.pending_increments, ip_string, 1, &(&1 + 1))
+    {:noreply, %{state | pending_increments: pending}}
   end
 
   ## Private Implementation
@@ -268,12 +278,14 @@ defmodule Mosslet.Security.BotDefense do
     }
   end
 
-  defp do_increment_blocked(ip) do
-    ip_string = :inet.ntoa(ip) |> to_string()
+  defp flush_pending_increments(pending) when map_size(pending) == 0, do: :ok
 
+  defp flush_pending_increments(pending) do
     Repo.transaction_on_primary(fn ->
-      from(b in IpBan, where: b.ip_hash == ^ip_string)
-      |> Repo.update_all(inc: [request_count: 1])
+      Enum.each(pending, fn {ip_string, count} ->
+        from(b in IpBan, where: b.ip_hash == ^ip_string)
+        |> Repo.update_all(inc: [request_count: count])
+      end)
     end)
   end
 
@@ -324,6 +336,10 @@ defmodule Mosslet.Security.BotDefense do
 
   defp schedule_cleanup do
     Process.send_after(self(), :cleanup_expired, @cleanup_interval)
+  end
+
+  defp schedule_flush do
+    Process.send_after(self(), :flush_increments, @flush_interval)
   end
 
   defp broadcast(message) do
