@@ -2,7 +2,7 @@ defmodule Oban.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/oban-bg/oban"
-  @version "2.20.1"
+  @version "2.20.2"
 
   def project do
     [
@@ -25,7 +25,7 @@ defmodule Oban.MixProject do
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix, :postgrex],
         plt_core_path: "_build/#{Mix.env()}",
-        flags: [:error_handling, :missing_return, :underspecs]
+        flags: [:error_handling, :missing_return, :no_opaque, :underspecs]
       ],
 
       # Docs

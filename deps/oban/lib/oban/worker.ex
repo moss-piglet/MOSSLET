@@ -162,8 +162,9 @@ defmodule Oban.Worker do
   When jobs fail they may be retried again in the future using a backoff algorithm. By default the
   backoff is exponential with a fixed padding of 15 seconds and a small amount of jitter. The
   jitter helps to prevent jobs that fail simultaneously from consistently retrying at the same
-  time. With the default backoff behavior the 20th attempt will occur around 12 days after the
-  19th attempt, and a total of 25 days after the first attempt.
+  time. With the default backoff behavior and the maximum amount of jitter, the 20th attempt will 
+  occur 6 days and 16 hours after the 19th attempt, and a total of 13 days and 8 hours after 
+  the first attempt.
 
   If the default strategy is too aggressive or otherwise unsuited to your app's workload you can
   define a custom backoff function using the `c:backoff/1` callback.
@@ -387,9 +388,10 @@ defmodule Oban.Worker do
   @doc """
   The `c:perform/1` function is called to execute a job.
 
-  Each `c:perform/1` function should return `:ok` or a success tuple. When the return is an error
-  tuple, an uncaught exception or a throw then the error is recorded and the job may be retried if
-  there are any attempts remaining.
+  Each `c:perform/1` function should return a `t:result/0` value (see that type's documentation
+  for details on what each does). When the return is an error tuple, an exception is not rescued,
+  or a throw is not caught then the error is recorded and the job may be retried if there are
+  any attempts remaining.
 
   > #### `args` Are Stored as JSON {: .info}
   >

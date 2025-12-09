@@ -42,7 +42,7 @@ defmodule Plug.Conn do
     * `query_params` - the request query params, populated through `fetch_query_params/2`
     * `path_params` - the request path params, populated by routers such as `Plug.Router`
     * `params` - the request params, the result of merging `:body_params` on top of
-      `:query_params` alongsaide any further changes (such as the ones done by `Plug.Router`)
+      `:query_params` alongside any further changes (such as the ones done by `Plug.Router`)
 
   ## Session vs Assigns
 
@@ -174,7 +174,6 @@ defmodule Plug.Conn do
   @type headers :: [{binary, binary}]
   @type host :: binary
   @type int_status :: non_neg_integer | nil
-  @type owner :: pid
   @type method :: binary
   @type query_param :: binary | %{optional(binary) => query_param} | [query_param]
   @type query_params :: %{optional(binary) => query_param}
@@ -196,7 +195,7 @@ defmodule Plug.Conn do
           halted: halted,
           host: host,
           method: method,
-          owner: owner,
+          owner: pid | nil,
           params: params | Unfetched.t(),
           path_info: segments,
           path_params: query_params,
@@ -447,7 +446,7 @@ defmodule Plug.Conn do
     {:ok, body, payload} =
       adapter.send_resp(payload, conn.status, conn.resp_headers, conn.resp_body)
 
-    send(owner, @already_sent)
+    owner && send(owner, @already_sent)
     %{conn | adapter: {adapter, payload}, resp_body: body, state: :sent}
   end
 
@@ -498,7 +497,7 @@ defmodule Plug.Conn do
     {:ok, body, payload} =
       adapter.send_file(payload, conn.status, conn.resp_headers, file, offset, length)
 
-    send(owner, @already_sent)
+    owner && send(owner, @already_sent)
     %{conn | adapter: {adapter, payload}, state: :file, resp_body: body}
   end
 
@@ -511,7 +510,7 @@ defmodule Plug.Conn do
   the `chunk/2` function.
 
   HTTP/2 does not support chunking and will instead stream the response without a
-  transfer encoding. When using HTTP/1.1, the Cowboy adapter will stream the response
+  transfer encoding. When using HTTP/1.1, the underlying adapter will stream the response
   instead of emitting chunks if the `content-length` header has been set before calling
   `send_chunked/2`.
   """
@@ -526,7 +525,7 @@ defmodule Plug.Conn do
     conn = %{conn | status: Plug.Conn.Status.code(status), resp_body: nil}
     conn = run_before_send(conn, :set_chunked)
     {:ok, body, payload} = adapter.send_chunked(payload, conn.status, conn.resp_headers)
-    send(owner, @already_sent)
+    owner && send(owner, @already_sent)
     %{conn | adapter: {adapter, payload}, state: :chunked, resp_body: body}
   end
 
@@ -1657,7 +1656,7 @@ defmodule Plug.Conn do
       option will set both the _max-age_ and _expires_ cookie attributes. Unset
       by default, which means the browser will default to a [session cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies#define_the_lifetime_of_a_cookie).
     * `:path` - the path the cookie applies to
-    * `:http_only` - when `false`, the cookie is accessible beyond HTTP
+    * `:http_only` - when `false`, the cookie is accessible beyond HTTP. Defaults to `true`
     * `:secure` - if the cookie must be sent only over https. Defaults
       to true when the connection is HTTPS
     * `:extra` - string to append to cookie. Use this to take advantage of
