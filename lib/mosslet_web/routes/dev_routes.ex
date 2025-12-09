@@ -11,7 +11,11 @@ defmodule MossletWeb.DevRoutes do
           forward "/dev/mailbox", Plug.Swoosh.MailboxPreview
         end
 
-        live_session :dev, on_mount: [{MossletWeb.UserOnMountHooks, :maybe_assign_user}] do
+        live_session :dev,
+          on_mount: [
+            {MossletWeb.BotDefenseHook, :check_banned},
+            {MossletWeb.UserOnMountHooks, :maybe_assign_user}
+          ] do
           scope "/dev", MossletWeb do
             pipe_through :browser
 

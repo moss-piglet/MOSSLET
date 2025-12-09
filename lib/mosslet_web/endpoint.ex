@@ -19,9 +19,10 @@ defmodule MossletWeb.Endpoint do
   ]
 
   # We pass the `:user_agent` in the websocket for Wallaby testing
+  # We also pass `:peer_data` and `:x_headers` for IP-based bot defense at socket level
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [:user_agent, session: @session_options]],
-    longpoll: [connect_info: [session: @session_options]]
+    websocket: [connect_info: [:peer_data, :x_headers, :user_agent, session: @session_options]],
+    longpoll: [connect_info: [:peer_data, :x_headers, session: @session_options]]
 
   # redirect requests through the canonical host
   plug(:canonical_host)

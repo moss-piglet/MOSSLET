@@ -8,7 +8,10 @@ defmodule MossletWeb.AuthRoutes do
         delete "/sign_out", UserSessionController, :delete
 
         live_session :current_user,
-          on_mount: [{MossletWeb.UserOnMountHooks, :maybe_assign_user}] do
+          on_mount: [
+            {MossletWeb.BotDefenseHook, :check_banned},
+            {MossletWeb.UserOnMountHooks, :maybe_assign_user}
+          ] do
           live "/confirm/:token", UserConfirmationLive, :edit
           live "/confirm", UserConfirmationInstructionsLive, :new
           live "/reset-password/:token", UserResetPasswordLive, :edit
@@ -21,7 +24,10 @@ defmodule MossletWeb.AuthRoutes do
         pipe_through [:browser, :redirect_if_user_is_authenticated]
 
         live_session :redirect_if_user_is_authenticated,
-          on_mount: [{MossletWeb.UserOnMountHooks, :redirect_if_user_is_authenticated}] do
+          on_mount: [
+            {MossletWeb.BotDefenseHook, :check_banned},
+            {MossletWeb.UserOnMountHooks, :redirect_if_user_is_authenticated}
+          ] do
           live "/register", UserRegistrationLive, :new
           live "/sign_in", UserLoginLive, :new
 
