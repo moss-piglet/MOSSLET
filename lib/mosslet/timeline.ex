@@ -1364,6 +1364,7 @@ defmodule Mosslet.Timeline do
         left_join: upr in UserPostReceipt,
         on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
         where: p.visibility == :public,
+        distinct: p.id,
         order_by: [
           # Unread posts first: false (unread) < true (read)
           # COALESCE treats NULL (no join record) as true (read)
@@ -1384,6 +1385,7 @@ defmodule Mosslet.Timeline do
         inner_join: up in UserPost,
         on: up.post_id == p.id,
         where: p.visibility == :public,
+        distinct: p.id,
         order_by: [desc: p.inserted_at],
         preload: [:user_posts, :replies]
       )
