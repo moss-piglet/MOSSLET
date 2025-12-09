@@ -50,6 +50,7 @@ npm-debug.log
 /assets/node_modules/
 
 # Environment files
+*.env
 .env
 
 # OS specific files
