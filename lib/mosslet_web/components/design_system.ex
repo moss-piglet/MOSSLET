@@ -3745,6 +3745,7 @@ defmodule MossletWeb.DesignSystem do
               class="absolute -top-1 -right-1 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
               phx-hook="TippyHook"
               data-tippy-content="Remove avatar"
+              aria-label="Remove avatar"
             >
               <.phx_icon name="hero-x-mark" class="h-4 w-4" />
             </button>
@@ -3903,8 +3904,7 @@ defmodule MossletWeb.DesignSystem do
             <%= if status == :active do %>
               <div class="ml-auto flex items-center gap-2">
                 <div class="w-16 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                  <div class="h-full bg-emerald-500 rounded-full animate-pulse w-2/3">
-                  </div>
+                  <div class="h-full bg-emerald-500 rounded-full animate-pulse w-2/3"></div>
                 </div>
               </div>
             <% end %>
@@ -3927,7 +3927,9 @@ defmodule MossletWeb.DesignSystem do
   defp avatar_upload_border_class(nil), do: "border-slate-200 dark:border-slate-600"
   defp avatar_upload_border_class({:error, _}), do: "border-red-400 dark:border-red-500"
   defp avatar_upload_border_class({:ready, _}), do: "border-emerald-400 dark:border-emerald-500"
-  defp avatar_upload_border_class(_), do: "border-emerald-400/50 dark:border-emerald-500/50 animate-pulse"
+
+  defp avatar_upload_border_class(_),
+    do: "border-emerald-400/50 dark:border-emerald-500/50 animate-pulse"
 
   defp is_processing?(nil), do: false
   defp is_processing?({:ready, _}), do: false
