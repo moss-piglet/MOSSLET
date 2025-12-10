@@ -74,10 +74,36 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.6"
-                  date="December 2025"
+                  version="0.9.61"
+                  date="January 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Better Image Uploads 📸</:title>
+                  <:description>
+                    Enhanced image upload experience with broader format support, real-time progress feedback, and improved performance.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-photo" color="teal">
+                      Expanded format support — upload HEIC, WebP, and more, we convert them automatically
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrow-path" color="blue">
+                      Real-time progress feedback — see exactly what's happening during upload and conversion
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bolt" color="amber">
+                      Improved performance — faster uploads and optimized image processing
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="emerald">
+                      Enhanced security — safer image handling and validation
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.6"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Bot Defense & Collapsible Sidebar 🐜</:title>
                   <:description>
