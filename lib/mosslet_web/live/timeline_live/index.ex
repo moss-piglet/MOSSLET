@@ -2041,13 +2041,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    # Cancel a specific upload
-    {:noreply, cancel_upload(socket, :photos, ref)}
-  end
-
   def handle_event("remove_photo", %{"ref" => ref}, socket) do
-    # Remove a photo that has already been uploaded
     {:noreply, cancel_upload(socket, :photos, ref)}
   end
 
@@ -5657,13 +5651,9 @@ defmodule MossletWeb.TimelineLive.Index do
     })
   end
 
-  defp handle_upload_progress(:photos, entry, socket) do
-    Logger.debug("📷 UPLOAD_PROGRESS callback: ref=#{entry.ref}, done?=#{entry.done?}")
+  defp handle_upload_progress(:photos, _entry, socket) do
     {:noreply, socket}
   end
-
-  defp is_ready_stage?({:ready, _}), do: true
-  defp is_ready_stage?(_), do: false
 
   defp generate_preview_data_url(binary) do
     case Image.from_binary(binary) do

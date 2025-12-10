@@ -2,22 +2,15 @@ defmodule MossletWeb.EditDetailsLive do
   @moduledoc false
   use MossletWeb, :live_view
 
+  require Logger
+
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
   alias Mosslet.Extensions.AvatarProcessor
-  alias MossletWeb.FileUploadComponents
   alias Mosslet.FileUploads.Storj
   alias MossletWeb.DesignSystem
 
-  # SETUP_TODO: pick a storage option for images below.
-  # Cloudinary setup info: /lib/petal_pro/file_uploads/cloudinary.ex
-  # S3 setup info: /lib/petal_pro/file_uploads/s3.ex
-  # We recommend cloudinary due to its ability to optimize and transform images based on URL parameters
-  # For non-image files, we recommend S3
-
   @upload_provider Mosslet.FileUploads.Storj
-  # @upload_provider Mosslet.FileUploads.Cloudinary
-  # @upload_provider Mosslet.FileUploads.S3
 
   @impl true
   def render(assigns) do
@@ -30,7 +23,6 @@ defmodule MossletWeb.EditDetailsLive do
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
-        <%!-- Page header with liquid metal styling --%>
         <div class="mb-12">
           <div class="mb-8">
             <h1 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -40,13 +32,11 @@ defmodule MossletWeb.EditDetailsLive do
               Update your avatar, name, and username to personalize your MOSSLET profile.
             </p>
           </div>
-          <%!-- Decorative accent line --%>
           <div class="h-1 w-24 rounded-full bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 shadow-sm shadow-emerald-500/30">
           </div>
         </div>
 
         <div class="space-y-8 max-w-2xl">
-          <%!-- Avatar Section with liquid card --%>
           <DesignSystem.liquid_card>
             <:title>
               <div class="flex items-center gap-3">
@@ -67,15 +57,13 @@ defmodule MossletWeb.EditDetailsLive do
               phx-change="validate"
               class="space-y-6"
             >
-              <FileUploadComponents.image_input
+              <DesignSystem.liquid_avatar_upload
                 upload={@uploads.avatar}
-                label={gettext("Avatar")}
-                current_image_src={maybe_get_user_avatar(@current_user, @key)}
+                upload_stage={@avatar_upload_stage}
+                current_avatar_src={maybe_get_user_avatar(@current_user, @key)}
                 user={@current_user}
-                key={@key}
-                placeholder_icon={:user}
+                encryption_key={@key}
                 on_delete="delete_avatar"
-                automatic_help_text
                 url={
                   if @current_user.connection.avatar_url,
                     do:
@@ -91,17 +79,28 @@ defmodule MossletWeb.EditDetailsLive do
 
               <div class="flex flex-col sm:flex-row gap-3">
                 <DesignSystem.liquid_button
-                  :if={Enum.any?(@uploads.avatar.entries)}
+                  :if={Enum.any?(@uploads.avatar.entries) && !is_processing?(@avatar_upload_stage)}
                   type="submit"
                   phx-disable-with="Updating..."
-                  disabled={!@uploads.avatar.entries}
+                  disabled={!@uploads.avatar.entries || is_processing?(@avatar_upload_stage)}
                   icon="hero-photo"
                 >
                   {gettext("Update avatar")}
                 </DesignSystem.liquid_button>
 
                 <DesignSystem.liquid_button
-                  :if={@uploads.avatar.entries == []}
+                  :if={is_processing?(@avatar_upload_stage)}
+                  type="button"
+                  disabled
+                  variant="secondary"
+                  icon="hero-cog-6-tooth"
+                  class="animate-pulse"
+                >
+                  {gettext("Processing...")}
+                </DesignSystem.liquid_button>
+
+                <DesignSystem.liquid_button
+                  :if={@uploads.avatar.entries == [] && !is_processing?(@avatar_upload_stage)}
                   type="button"
                   disabled
                   variant="secondary"
@@ -113,7 +112,6 @@ defmodule MossletWeb.EditDetailsLive do
             </.form>
           </DesignSystem.liquid_card>
 
-          <%!-- Name Section with liquid card --%>
           <DesignSystem.liquid_card>
             <:title>
               <div class="flex items-center gap-3">
@@ -155,7 +153,6 @@ defmodule MossletWeb.EditDetailsLive do
             </div>
           </DesignSystem.liquid_card>
 
-          <%!-- Username Section with liquid card --%>
           <DesignSystem.liquid_card>
             <:title>
               <div class="flex items-center gap-3">
@@ -202,17 +199,22 @@ defmodule MossletWeb.EditDetailsLive do
     """
   end
 
+  defp is_processing?(nil), do: false
+  defp is_processing?({:ready, _}), do: false
+  defp is_processing?({:error, _}), do: false
+  defp is_processing?(_), do: true
+
   @impl true
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
-    # AvatarProcessor.delete_ets_avatar("profile-#{current_user.connection.id}")
 
     socket =
       socket
       |> assign(%{
         page_title: "Settings",
-        uploaded_files: []
+        uploaded_files: [],
+        avatar_upload_stage: nil
       })
       |> assign(:name_change_valid?, false)
       |> assign(:username_change_valid?, false)
@@ -233,19 +235,193 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign_username_form(current_user)
       |> allow_upload(:avatar,
         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+        auto_upload: false,
         max_entries: 1,
-        writer: fn _name, _entry, _socket ->
-          {Mosslet.FileUploads.ImageUploadWriter, []}
-        end
+        progress: &handle_progress/3
       )
 
     {:ok, socket}
   end
 
+  defp handle_progress(:avatar, entry, socket) do
+    if entry.done? do
+      process_avatar_upload(socket)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp process_avatar_upload(socket) do
+    lv_pid = self()
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+    avatars_bucket = Encrypted.Session.avatars_bucket()
+
+    socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
+
+    avatar_url_tuple_list =
+      consume_uploaded_entries(
+        socket,
+        :avatar,
+        fn meta, entry ->
+          case meta do
+            %{error: error} ->
+              send(lv_pid, {:avatar_upload_stage, {:error, error}})
+              {:postpone, {:error, error}}
+
+            %{path: path} ->
+              send(lv_pid, {:avatar_upload_stage, {:receiving, 30}})
+              mime_type = ExMarcel.MimeType.for({:path, path})
+
+              cond do
+                mime_type in [
+                  "image/jpeg",
+                  "image/jpg",
+                  "image/png",
+                  "image/webp",
+                  "image/heic",
+                  "image/heif"
+                ] ->
+                  send(lv_pid, {:avatar_upload_stage, {:converting, 40}})
+
+                  with {:ok, image} <- load_image_for_avatar(path, mime_type),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
+                       {:ok, safe_image} <- check_for_safety(image),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
+                       {:ok, vix_image} <-
+                         Image.avatar(safe_image,
+                           crop: :attention,
+                           shape: :square,
+                           size: 360
+                         ),
+                       {:ok, blob} <-
+                         Image.write(vix_image, :memory,
+                           suffix: ".webp",
+                           minimize_file_size: true
+                         ),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:encrypting, 75}}),
+                       {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
+                       {:ok, file_path} <-
+                         @upload_provider.prepare_file_path(entry, user.connection.id),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:uploading, 85}}) do
+                    @upload_provider.make_aws_requests(
+                      entry,
+                      avatars_bucket,
+                      file_path,
+                      e_blob,
+                      user,
+                      key
+                    )
+                  else
+                    {:nsfw, message} ->
+                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
+                      {:postpone, {:nsfw, message}}
+
+                    {:error, message} ->
+                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
+                      {:postpone, {:error, message}}
+                  end
+
+                true ->
+                  send(lv_pid, {:avatar_upload_stage, {:error, "Incorrect file type."}})
+                  {:postpone, :error}
+              end
+          end
+        end
+      )
+
+    case avatar_url_tuple_list do
+      [nsfw: message] ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [error: message] ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [:error] ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, "Incorrect file type."})
+         |> put_flash(:warning, "Incorrect file type.")}
+
+      [{_entry, file_path, e_blob}] ->
+        user_params = %{avatar_url: file_path}
+        send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
+        {:noreply, assign(socket, :avatar_upload_stage, {:uploading, 95})}
+
+      _rest ->
+        error_msg =
+          "There was an error trying to upload your image, please try a different image."
+
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, error_msg})
+         |> put_flash(:warning, error_msg)}
+    end
+  end
+
   @impl true
-  def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
-    user = Accounts.get_user_with_preloads(user_id)
-    {:noreply, assign(socket, :current_user, user)}
+  def handle_info({:avatar_upload_stage, stage}, socket) do
+    {:noreply, assign(socket, :avatar_upload_stage, stage)}
+  end
+
+  @impl true
+  def handle_info({:avatar_upload_complete, {:ok, {e_blob, user_params}}}, socket) do
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    case Accounts.update_user_avatar(user, user_params, user: user, key: key) do
+      {:ok, user, conn} ->
+        AvatarProcessor.delete_ets_avatar(conn.id)
+        AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
+        AvatarProcessor.put_ets_avatar("profile-#{conn.id}", e_blob)
+        AvatarProcessor.mark_avatar_recently_updated(conn.id)
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "avatar_cache_global",
+          {:avatar_updated, conn.id, e_blob}
+        )
+
+        Accounts.user_lifecycle_action("after_update_profile", user)
+
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:ready, 100})
+         |> put_flash(:success, gettext("Your avatar has been updated successfully."))
+         |> assign_avatar_form(user)
+         |> push_navigate(to: ~p"/app/users/edit-details")}
+
+      {:error, changeset} ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, "Update failed"})
+         |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
+         |> assign(form: to_form(changeset))}
+    end
+  end
+
+  @impl true
+  def handle_info({:avatar_upload_complete, {:error, error}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:avatar_upload_stage, {:error, error})
+     |> put_flash(:warning, error)}
+  end
+
+  @impl true
+  def handle_info({_ref, {_type, _result}}, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -292,7 +468,10 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :avatar, ref)}
+    {:noreply,
+     socket
+     |> cancel_upload(:avatar, ref)
+     |> assign(:avatar_upload_stage, nil)}
   end
 
   @impl true
@@ -301,55 +480,117 @@ defmodule MossletWeb.EditDetailsLive do
   end
 
   @impl true
-  def handle_event("update_avatar", user_params, socket) do
+  def handle_event("update_avatar", _user_params, socket) do
+    lv_pid = self()
     user = socket.assigns.current_user
     key = socket.assigns.key
+    avatars_bucket = Encrypted.Session.avatars_bucket()
 
-    case maybe_add_avatar(user_params, socket) do
-      {:postpone, {:nsfw, message}} ->
-        {:noreply,
-         socket |> put_flash(:warning, message) |> push_navigate(to: ~p"/app/users/edit-details")}
+    socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
 
-      {:postpone, {:error, message}} ->
-        {:noreply,
-         socket |> put_flash(:warning, message) |> push_navigate(to: ~p"/app/users/edit-details")}
+    avatar_url_tuple_list =
+      consume_uploaded_entries(
+        socket,
+        :avatar,
+        fn meta, entry ->
+          case meta do
+            %{error: error} ->
+              send(lv_pid, {:avatar_upload_stage, {:error, error}})
+              {:postpone, {:error, error}}
 
-      {:ok, {e_blob, user_params}} ->
-        case Accounts.update_user_avatar(user, user_params, user: user, key: key) do
-          {:ok, user, conn} ->
-            # ATOMIC: Delete old cache and immediately put new avatar
-            # This prevents any race condition where avatar helper fetches old data
-            AvatarProcessor.delete_ets_avatar(conn.id)
-            AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
-            AvatarProcessor.put_ets_avatar("profile-#{conn.id}", e_blob)
+            %{path: path} ->
+              send(lv_pid, {:avatar_upload_stage, {:receiving, 30}})
+              mime_type = ExMarcel.MimeType.for({:path, path})
 
-            # Prevent S3 re-fetch for 60 seconds to avoid replica lag issues
-            AvatarProcessor.mark_avatar_recently_updated(conn.id)
+              cond do
+                mime_type in [
+                  "image/jpeg",
+                  "image/jpg",
+                  "image/png",
+                  "image/webp",
+                  "image/heic",
+                  "image/heif"
+                ] ->
+                  send(lv_pid, {:avatar_upload_stage, {:converting, 40}})
 
-            # CRITICAL: Broadcast to ALL Fly.io app instances globally to clear their ETS caches
-            Phoenix.PubSub.broadcast(
-              Mosslet.PubSub,
-              "avatar_cache_global",
-              {:avatar_updated, conn.id, e_blob}
-            )
+                  with {:ok, image} <- load_image_for_avatar(path, mime_type),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
+                       {:ok, safe_image} <- check_for_safety(image),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
+                       {:ok, vix_image} <-
+                         Image.avatar(safe_image,
+                           crop: :attention,
+                           shape: :square,
+                           size: 360
+                         ),
+                       {:ok, blob} <-
+                         Image.write(vix_image, :memory,
+                           suffix: ".webp",
+                           minimize_file_size: true
+                         ),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:encrypting, 75}}),
+                       {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
+                       {:ok, file_path} <-
+                         @upload_provider.prepare_file_path(entry, user.connection.id),
+                       _ <- send(lv_pid, {:avatar_upload_stage, {:uploading, 85}}) do
+                    @upload_provider.make_aws_requests(
+                      entry,
+                      avatars_bucket,
+                      file_path,
+                      e_blob,
+                      user,
+                      key
+                    )
+                  else
+                    {:nsfw, message} ->
+                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
+                      {:postpone, {:nsfw, message}}
 
-            Accounts.user_lifecycle_action("after_update_profile", user)
-            info = "Your avatar has been updated successfully."
+                    {:error, message} ->
+                      send(lv_pid, {:avatar_upload_stage, {:error, message}})
+                      {:postpone, {:error, message}}
+                  end
 
-            {:noreply,
-             socket
-             |> put_flash(:success, Gettext.gettext(MossletWeb.Gettext, info))
-             |> assign_avatar_form(user)
-             |> push_navigate(to: ~p"/app/users/edit-details")}
-
-          {:error, changeset} ->
-            socket =
-              socket
-              |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
-              |> assign(form: to_form(changeset))
-
-            {:noreply, socket}
+                true ->
+                  send(lv_pid, {:avatar_upload_stage, {:error, "Incorrect file type."}})
+                  {:postpone, :error}
+              end
+          end
         end
+      )
+
+    case avatar_url_tuple_list do
+      [nsfw: message] ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [error: message] ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [:error] ->
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, "Incorrect file type."})
+         |> put_flash(:warning, "Incorrect file type.")}
+
+      [{_entry, file_path, e_blob}] ->
+        user_params = %{avatar_url: file_path}
+        send(lv_pid, {:avatar_upload_complete, {:ok, {e_blob, user_params}}})
+        {:noreply, assign(socket, :avatar_upload_stage, {:uploading, 95})}
+
+      _rest ->
+        error_msg =
+          "There was an error trying to upload your image, please try a different image."
+
+        {:noreply,
+         socket
+         |> assign(:avatar_upload_stage, {:error, error_msg})
+         |> put_flash(:warning, error_msg)}
     end
   end
 
@@ -369,11 +610,9 @@ defmodule MossletWeb.EditDetailsLive do
 
       with {:ok, _user, conn} <-
              Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true) do
-        # Clear ALL avatar cache entries for this user
         AvatarProcessor.delete_ets_avatar(conn.id)
         AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
 
-        # CRITICAL: Broadcast to ALL Fly.io app instances globally
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "avatar_cache_global",
@@ -384,12 +623,9 @@ defmodule MossletWeb.EditDetailsLive do
 
         Accounts.user_lifecycle_action("after_update_profile", user)
 
-        info =
-          "Your avatar has been deleted successfully."
-
         {:noreply,
          socket
-         |> put_flash(:success, Gettext.gettext(MossletWeb.Gettext, info))
+         |> put_flash(:success, gettext("Your avatar has been deleted successfully."))
          |> assign_avatar_form(user)
          |> push_navigate(to: ~p"/app/users/edit-details")}
       else
@@ -397,21 +633,17 @@ defmodule MossletWeb.EditDetailsLive do
           {:noreply, socket}
 
         {:error, changeset} ->
-          socket =
-            socket
-            |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
-            |> assign(form: to_form(changeset))
-
-          {:noreply, socket}
+          {:noreply,
+           socket
+           |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
+           |> assign(form: to_form(changeset))}
       end
     else
       with {:ok, _user, conn} <-
              Accounts.update_user_avatar(user, %{avatar_url: nil}, delete_avatar: true) do
-        # Clear ALL avatar cache entries for this user
         AvatarProcessor.delete_ets_avatar(conn.id)
         AvatarProcessor.delete_ets_avatar("profile-#{conn.id}")
 
-        # CRITICAL: Broadcast to ALL Fly.io app instances globally
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "avatar_cache_global",
@@ -422,22 +654,17 @@ defmodule MossletWeb.EditDetailsLive do
 
         Accounts.user_lifecycle_action("after_update_profile", user)
 
-        info =
-          "Your avatar has been deleted successfully."
-
         {:noreply,
          socket
-         |> put_flash(:success, Gettext.gettext(MossletWeb.Gettext, info))
+         |> put_flash(:success, gettext("Your avatar has been deleted successfully."))
          |> assign_avatar_form(user)
          |> push_navigate(to: ~p"/app/users/edit-details")}
       else
         {:error, changeset} ->
-          socket =
-            socket
-            |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
-            |> assign(avatar_form: to_form(changeset))
-
-          {:noreply, socket}
+          {:noreply,
+           socket
+           |> put_flash(:error, gettext("Update failed. Please check the form for issues"))
+           |> assign(avatar_form: to_form(changeset))}
       end
     end
   end
@@ -454,27 +681,21 @@ defmodule MossletWeb.EditDetailsLive do
              user: user
            ) do
         {:ok, user} ->
-          info = "Your name has been updated successfully."
-
           {:noreply,
            socket
-           |> put_flash(:success, Gettext.gettext(MossletWeb.Gettext, info))
+           |> put_flash(:success, gettext("Your name has been updated successfully."))
            |> assign_name_form(user)}
 
         {:error, changeset} ->
-          info = "There was an error when trying to update your name."
-
           {:noreply,
            socket
-           |> put_flash(:info, Gettext.gettext(MossletWeb.Gettext, info))
+           |> put_flash(:info, gettext("There was an error when trying to update your name."))
            |> assign(name_form: to_form(changeset))}
       end
     else
-      info = "Your name can't be blank."
-
       {:noreply,
        socket
-       |> put_flash(:info, Gettext.gettext(MossletWeb.Gettext, info))
+       |> put_flash(:info, gettext("Your name can't be blank."))
        |> assign_name_form(user)
        |> push_navigate(to: ~p"/app/users/edit-details")}
     end
@@ -492,111 +713,105 @@ defmodule MossletWeb.EditDetailsLive do
              user: user
            ) do
         {:ok, user} ->
-          info = "Your username has been updated successfully."
-
           {:noreply,
            socket
-           |> put_flash(:success, Gettext.gettext(MossletWeb.Gettext, info))
+           |> put_flash(:success, gettext("Your username has been updated successfully."))
            |> assign_username_form(user)
            |> push_navigate(to: ~p"/app/users/edit-details")}
 
         {:error, changeset} ->
-          info = "That username may already be taken."
-
           {:noreply,
            socket
-           |> put_flash(:info, Gettext.gettext(MossletWeb.Gettext, info))
+           |> put_flash(:info, gettext("That username may already be taken."))
            |> assign(username_form: to_form(changeset))}
       end
     else
-      info = "Your username can't be blank."
-
       {:noreply,
        socket
-       |> put_flash(:info, Gettext.gettext(MossletWeb.Gettext, info))
+       |> put_flash(:info, gettext("Your username can't be blank."))
        |> assign_username_form(user)
        |> push_navigate(to: ~p"/app/users/edit-details")}
     end
   end
 
-  defp maybe_add_avatar(user_params, socket) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
-    avatars_bucket = Encrypted.Session.avatars_bucket()
+  defp load_image_for_avatar(path, mime_type) when mime_type in ["image/heic", "image/heif"] do
+    binary = File.read!(path)
 
-    avatar_url_tuple_list =
-      consume_uploaded_entries(
-        socket,
-        :avatar,
-        fn meta, entry ->
-          case meta do
-            %{error: error} ->
-              {:postpone, {:error, error}}
-
-            %{path: path} ->
-              mime_type = ExMarcel.MimeType.for({:path, path})
-
-              cond do
-                mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] ->
-                  with {:ok, image_binary} <-
-                         Image.open!(path)
-                         |> check_for_safety(),
-                       {:ok, vix_image} <-
-                         Image.avatar(image_binary,
-                           crop: :attention,
-                           shape: :square,
-                           size: 360
-                         ),
-                       {:ok, blob} <-
-                         Image.write(vix_image, :memory,
-                           suffix: ".webp",
-                           minimize_file_size: true
-                         ),
-                       {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
-                       {:ok, file_path} <-
-                         @upload_provider.prepare_file_path(entry, user.connection.id) do
-                    @upload_provider.make_aws_requests(
-                      entry,
-                      avatars_bucket,
-                      file_path,
-                      e_blob,
-                      user,
-                      key
-                    )
-                  else
-                    {:nsfw, message} ->
-                      {:postpone, {:nsfw, message}}
-
-                    {:error, message} ->
-                      {:postpone, {:error, message}}
-                  end
-
-                true ->
-                  {:postpone, :error}
-              end
-          end
-        end
-      )
-
-    case avatar_url_tuple_list do
-      [nsfw: message] ->
-        {:postpone, {:nsfw, message}}
-
-      [error: message] ->
-        {:postpone, {:error, message}}
-
-      [:error] ->
-        {:postpone, {:error, "Incorrect file type."}}
-
-      [{_entry, file_path, e_blob}] ->
-        # Return the encrypted blob and user_params map
-        user_params = Map.put(user_params, :avatar_url, file_path)
-        {:ok, {e_blob, user_params}}
-
-      _rest ->
-        {:postpone,
-         {:error, "There was an error trying to upload your image, please try a different image."}}
+    with {:ok, {heic_image, _metadata}} <- Vix.Vips.Operation.heifload_buffer(binary),
+         {:ok, materialized} <- materialize_heic(heic_image) do
+      {:ok, materialized}
+    else
+      {:error, _reason} ->
+        load_heic_with_sips(path)
     end
+  end
+
+  defp load_image_for_avatar(path, _mime_type) do
+    case Image.open(path) do
+      {:ok, image} -> {:ok, image}
+      {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
+    end
+  end
+
+  defp materialize_heic(image) do
+    case Image.to_colorspace(image, :srgb) do
+      {:ok, srgb_image} ->
+        case Image.write(srgb_image, :memory, suffix: ".png") do
+          {:ok, png_binary} -> Image.from_binary(png_binary)
+          {:error, _} -> fallback_heic_materialization(srgb_image)
+        end
+
+      {:error, _} ->
+        fallback_heic_materialization(image)
+    end
+  end
+
+  defp fallback_heic_materialization(image) do
+    case Image.write(image, :memory, suffix: ".png") do
+      {:ok, png_binary} ->
+        Image.from_binary(png_binary)
+
+      {:error, _} ->
+        case Image.write(image, :memory, suffix: ".jpg") do
+          {:ok, jpg_binary} -> Image.from_binary(jpg_binary)
+          {:error, reason} -> {:error, "Failed to materialize HEIC image: #{inspect(reason)}"}
+        end
+    end
+  end
+
+  defp load_heic_with_sips(path) do
+    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
+
+    result =
+      case :os.type() do
+        {:unix, :darwin} ->
+          case System.cmd("sips", ["-s", "format", "png", path, "--out", tmp_png],
+                 stderr_to_stdout: true
+               ) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
+          end
+
+        {:unix, _linux} ->
+          case System.cmd("heif-convert", [path, tmp_png], stderr_to_stdout: true) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
+          end
+
+        _ ->
+          {:error, "HEIC/HEIF files are not supported on this platform."}
+      end
+
+    File.rm(tmp_png)
+    result
   end
 
   defp check_for_safety(image_binary) do

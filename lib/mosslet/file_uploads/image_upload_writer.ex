@@ -51,8 +51,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   @behaviour Phoenix.LiveView.UploadWriter
 
-  require Logger
-
   alias Mosslet.Encrypted
   alias Mosslet.Accounts
 
@@ -163,16 +161,12 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   end
 
   defp load_image(binary, mime_type) when mime_type in ["image/heic", "image/heif"] do
-    Logger.info("🖼️ Loading HEIC/HEIF image, size: #{byte_size(binary)} bytes, mime: #{mime_type}")
-
-    case Vix.Vips.Operation.heifload_buffer(binary) do
-      {:ok, {image, _metadata}} ->
-        Logger.info("🖼️ HEIC/HEIF loaded successfully")
-        {:ok, image}
-
-      {:error, reason} ->
-        Logger.error("🖼️ HEIC/HEIF load failed: #{inspect(reason)}")
-        {:error, heic_error_message(reason)}
+    with {:ok, {heic_image, _metadata}} <- Vix.Vips.Operation.heifload_buffer(binary),
+         {:ok, materialized} <- materialize_heic(heic_image) do
+      {:ok, materialized}
+    else
+      {:error, _reason} ->
+        load_heic_with_sips(binary)
     end
   end
 
@@ -188,6 +182,95 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     {:error, "Unsupported image type: #{mime_type}"}
   end
 
+  defp load_heic_with_sips(binary) do
+    tmp_heic = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.heic")
+    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
+
+    :ok = File.write(tmp_heic, binary)
+
+    result =
+      case :os.type() do
+        {:unix, :darwin} ->
+          case System.cmd("sips", ["-s", "format", "png", tmp_heic, "--out", tmp_png],
+                 stderr_to_stdout: true
+               ) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, heic_error_message("sips conversion failed")}
+          end
+
+        {:unix, _linux} ->
+          case System.cmd("heif-convert", [tmp_heic, tmp_png], stderr_to_stdout: true) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, heic_error_message("heif-convert failed")}
+          end
+
+        _ ->
+          {:error, heic_error_message("Unsupported platform for HEIC conversion")}
+      end
+
+    File.rm(tmp_heic)
+    File.rm(tmp_png)
+    result
+  end
+
+  defp materialize_heic(image) do
+    srgb_image =
+      case Image.to_colorspace(image, :srgb) do
+        {:ok, srgb} -> srgb
+        {:error, _} -> image
+      end
+
+    case Vix.Vips.Operation.rawsave_buffer(srgb_image) do
+      {:ok, raw_binary} ->
+        raw_width = Image.width(srgb_image)
+        raw_height = Image.height(srgb_image)
+        raw_bands = Image.bands(srgb_image)
+
+        case Vix.Vips.Operation.rawload(raw_binary, raw_width, raw_height, raw_bands) do
+          {:ok, {raw_image, _}} ->
+            case Image.to_colorspace(raw_image, :srgb) do
+              {:ok, final} ->
+                {:ok, final}
+
+              {:error, _} ->
+                {:ok, raw_image}
+            end
+
+          {:error, _rawload_reason} ->
+            fallback_heic_materialization(srgb_image)
+        end
+
+      {:error, _rawsave_reason} ->
+        fallback_heic_materialization(srgb_image)
+    end
+  end
+
+  defp fallback_heic_materialization(image) do
+    case Image.write(image, :memory, suffix: ".png") do
+      {:ok, png_binary} ->
+        Image.from_binary(png_binary)
+
+      {:error, _reason} ->
+        case Image.write(image, :memory, suffix: ".jpg") do
+          {:ok, jpg_binary} ->
+            Image.from_binary(jpg_binary)
+
+          {:error, _jpg_reason} ->
+            {:error, "Failed to materialize HEIC image"}
+        end
+    end
+  end
+
   defp check_safety(image, state) do
     notify_progress(state, :validating, 50)
 
@@ -196,11 +279,9 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
         {:ok, image}
 
       {:nsfw, message} ->
-        Logger.warning("🖼️ Safety check NSFW: #{message}")
         {:nsfw, message}
 
       {:error, reason} ->
-        Logger.error("🖼️ Safety check error: #{inspect(reason)}")
         {:error, reason}
 
       {:nsfw, message} ->
@@ -280,9 +361,9 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     total_pixels = width * height
 
     cond do
-      total_pixels < 500_000 -> 85
-      total_pixels < 2_000_000 -> 80
-      true -> 75
+      total_pixels < 500_000 -> 90
+      total_pixels < 2_000_000 -> 85
+      true -> 80
     end
   end
 

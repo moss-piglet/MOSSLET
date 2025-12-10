@@ -82,7 +82,7 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 libsodium-dev locales \
-  && apt install -y libvips-dev && apt-get clean && rm -f /var/lib/apt/lists/*_*
+  && apt install -y libvips-dev libheif-examples && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen

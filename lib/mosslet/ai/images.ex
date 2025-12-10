@@ -3,8 +3,6 @@ defmodule Mosslet.AI.Images do
   Functions for processing images with AI.
   """
 
-  require Logger
-
   @doc """
   Classifies an image as either "normal"
   or "nsfw".
@@ -28,8 +26,7 @@ defmodule Mosslet.AI.Images do
       {:ok, _} = result ->
         result
 
-      {:error, reason} ->
-        Logger.error("🖼️ Safety thumbnail failed: #{inspect(reason)}")
+      {:error, _reason} ->
         {:error, "Failed to resize image for safety check"}
     end
   end
@@ -39,8 +36,7 @@ defmodule Mosslet.AI.Images do
       {:ok, _} = result ->
         result
 
-      {:error, reason} ->
-        Logger.error("🖼️ Safety flatten failed: #{inspect(reason)}")
+      {:error, _reason} ->
         {:error, "Failed to flatten image for safety check"}
     end
   end
@@ -50,18 +46,13 @@ defmodule Mosslet.AI.Images do
       {:ok, _} = result ->
         result
 
-      {:error, reason} ->
-        Logger.error("🖼️ Safety srgb failed: #{inspect(reason)}")
+      {:error, _reason} ->
         {:error, "Failed to convert colorspace for safety check"}
     end
   end
 
   defp to_tensor(image) do
     bands = Image.bands(image)
-
-    Logger.info(
-      "🖼️ to_tensor: bands=#{bands}, interpretation=#{inspect(Image.interpretation(image))}"
-    )
 
     image =
       cond do
@@ -81,19 +72,14 @@ defmodule Mosslet.AI.Images do
           image
 
         true ->
-          Logger.warning("🖼️ Unexpected band count: #{bands}, attempting to extract RGB")
-
           case Vix.Vips.Operation.extract_band(image, 0, n: min(bands, 3)) do
             {:ok, rgb} -> rgb
             _ -> image
           end
       end
 
-    Logger.info(
-      "🖼️ to_tensor after processing: bands=#{Image.bands(image)}, format=#{inspect(Vix.Vips.Image.format(image))}"
-    )
-
-    with {:ok, memory_image} <- Vix.Vips.Image.copy_memory(image) do
+    with {:ok, image} <- materialize_image(image),
+         {:ok, memory_image} <- Vix.Vips.Image.copy_memory(image) do
       case Image.to_nx(memory_image,
              shape: :hwc,
              backend: Application.fetch_env!(:nx, :default_backend)
@@ -101,17 +87,22 @@ defmodule Mosslet.AI.Images do
         {:ok, _} = result ->
           result
 
-        {:error, reason} ->
-          Logger.error(
-            "🖼️ Safety to_nx failed: #{inspect(reason)}, format=#{inspect(Vix.Vips.Image.format(image))}"
-          )
-
+        {:error, _reason} ->
           {:error, "Failed to convert image to tensor for safety check"}
       end
     else
-      {:error, reason} ->
-        Logger.error("🖼️ copy_memory failed: #{inspect(reason)}")
+      {:error, _reason} ->
         {:error, "Failed to convert image to tensor for safety check"}
+    end
+  end
+
+  defp materialize_image(image) do
+    with {:ok, png_binary} <- Image.write(image, :memory, suffix: ".png"),
+         {:ok, materialized} <- Image.from_binary(png_binary) do
+      {:ok, materialized}
+    else
+      {:error, _reason} ->
+        {:ok, image}
     end
   end
 
@@ -120,8 +111,7 @@ defmodule Mosslet.AI.Images do
       %{predictions: [%{label: label}]} ->
         {:ok, label}
 
-      other ->
-        Logger.error("🖼️ Safety classify failed: #{inspect(other)}")
+      _other ->
         {:error, "Failed to classify image"}
     end
   end

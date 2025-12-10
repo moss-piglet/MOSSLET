@@ -3707,6 +3707,271 @@ defmodule MossletWeb.DesignSystem do
   defp stage_label({:uploading, _}), do: "Uploading..."
   defp stage_label(_), do: "Processing..."
 
+  @doc """
+  Liquid avatar upload component with detailed progress feedback.
+  Shows processing stages (receiving, converting, resizing, checking safety, encrypting, uploading).
+  """
+  attr :upload, :map, required: true
+  attr :upload_stage, :any, default: nil
+  attr :current_avatar_src, :string, default: nil
+  attr :user, :map, required: true
+  attr :encryption_key, :string, required: true
+  attr :url, :string, default: nil
+  attr :on_delete, :string, default: nil
+  attr :class, :any, default: nil
+
+  def liquid_avatar_upload(assigns) do
+    ~H"""
+    <div class={["space-y-4", @class]}>
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <.liquid_avatar
+              src={@current_avatar_src}
+              name={user_name(@user, @encryption_key) || "User"}
+              size="xl"
+              status={to_string(@user.status || "offline")}
+              user_id={@user.id}
+              show_status={false}
+              id={"avatar-upload-preview-#{@user.id}"}
+            />
+            <button
+              :if={@current_avatar_src && @on_delete}
+              type="button"
+              id="delete-avatar-button"
+              phx-click={@on_delete}
+              phx-value-url={@url}
+              data-confirm="Are you sure you want to remove your avatar?"
+              class="absolute -top-1 -right-1 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
+              phx-hook="TippyHook"
+              data-tippy-content="Remove avatar"
+            >
+              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+            </button>
+          </div>
+
+          <%= if Enum.any?(@upload.entries) do %>
+            <div class="flex items-center gap-3">
+              <.phx_icon
+                name="hero-arrow-right"
+                class="h-5 w-5 text-slate-400 dark:text-slate-500"
+              />
+              <%= for entry <- @upload.entries do %>
+                <div class="relative">
+                  <div class={[
+                    "w-20 h-20 rounded-xl overflow-hidden",
+                    "border-2 transition-all duration-300",
+                    avatar_upload_border_class(@upload_stage)
+                  ]}>
+                    <.live_img_preview
+                      entry={entry}
+                      class="w-full h-full object-cover"
+                      alt="Avatar preview"
+                    />
+                  </div>
+                  <%= if is_processing?(@upload_stage) do %>
+                    <div class="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
+                      <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin">
+                      </div>
+                    </div>
+                  <% else %>
+                    <button
+                      type="button"
+                      id={"cancel-avatar-upload-#{entry.ref}"}
+                      phx-click="cancel-upload"
+                      phx-value-ref={entry.ref}
+                      class="absolute -top-1 -right-1 w-6 h-6 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                      phx-hook="TippyHook"
+                      data-tippy-content="Cancel"
+                      aria-label="Cancel upload"
+                    >
+                      <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <label
+            for={@upload.ref}
+            class={[
+              "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl cursor-pointer",
+              "bg-slate-100 dark:bg-slate-700/80",
+              "border border-slate-200/60 dark:border-slate-600/60",
+              "hover:bg-slate-200/80 dark:hover:bg-slate-600/80",
+              "transition-all duration-200 ease-out",
+              "text-sm font-medium text-slate-700 dark:text-slate-200"
+            ]}
+          >
+            <.phx_icon name="hero-photo" class="h-4 w-4" />
+            <span>Choose photo</span>
+          </label>
+          <.live_file_input upload={@upload} class="hidden" />
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            {Enum.join(@upload.acceptable_exts, ", ")}
+          </p>
+        </div>
+      </div>
+
+      <%= if Enum.any?(@upload.entries) || is_processing?(@upload_stage) do %>
+        <.liquid_avatar_upload_progress
+          upload={@upload}
+          upload_stage={@upload_stage}
+        />
+      <% end %>
+
+      <%= for entry <- @upload.entries do %>
+        <%= for err <- upload_errors(@upload, entry) do %>
+          <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+              <span>{humanize_upload_error(err)}</span>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :upload, :map, required: true
+  attr :upload_stage, :any, default: nil
+
+  def liquid_avatar_upload_progress(assigns) do
+    stages = [
+      {:receiving, "Receiving", "hero-arrow-down-tray"},
+      {:converting, "Converting", "hero-arrows-right-left"},
+      {:resizing, "Resizing", "hero-arrows-pointing-in"},
+      {:checking, "Safety check", "hero-shield-check"},
+      {:encrypting, "Encrypting", "hero-lock-closed"},
+      {:uploading, "Uploading", "hero-cloud-arrow-up"}
+    ]
+
+    assigns = assign(assigns, :stages, stages)
+
+    ~H"""
+    <div class={[
+      "p-4 rounded-xl border",
+      "bg-gradient-to-br from-slate-50/80 to-slate-100/60 dark:from-slate-800/60 dark:to-slate-800/40",
+      "border-slate-200/60 dark:border-slate-700/60"
+    ]}>
+      <div class="flex items-center gap-2 mb-4">
+        <.phx_icon
+          name="hero-cog-6-tooth"
+          class="h-4 w-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+        />
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Processing your avatar
+        </span>
+      </div>
+
+      <div class="space-y-2">
+        <%= for {stage_key, stage_label, stage_icon} <- @stages do %>
+          <% status = get_stage_status(@upload_stage, stage_key) %>
+          <div class={[
+            "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-300",
+            stage_status_bg_class(status)
+          ]}>
+            <div class={[
+              "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
+              stage_status_icon_class(status)
+            ]}>
+              <%= case status do %>
+                <% :completed -> %>
+                  <.phx_icon name="hero-check" class="h-3.5 w-3.5 text-white" />
+                <% :active -> %>
+                  <div class="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin">
+                  </div>
+                <% :pending -> %>
+                  <.phx_icon name={stage_icon} class="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                <% :error -> %>
+                  <.phx_icon name="hero-x-mark" class="h-3.5 w-3.5 text-white" />
+              <% end %>
+            </div>
+
+            <span class={[
+              "text-sm font-medium transition-all duration-300",
+              stage_status_text_class(status)
+            ]}>
+              {stage_label}
+            </span>
+
+            <%= if status == :active do %>
+              <div class="ml-auto flex items-center gap-2">
+                <div class="w-16 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                  <div class="h-full bg-emerald-500 rounded-full animate-pulse w-2/3">
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <%= if is_upload_error?(@upload_stage) do %>
+        <div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+            <span>{get_upload_error_message(@upload_stage)}</span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp avatar_upload_border_class(nil), do: "border-slate-200 dark:border-slate-600"
+  defp avatar_upload_border_class({:error, _}), do: "border-red-400 dark:border-red-500"
+  defp avatar_upload_border_class({:ready, _}), do: "border-emerald-400 dark:border-emerald-500"
+  defp avatar_upload_border_class(_), do: "border-emerald-400/50 dark:border-emerald-500/50 animate-pulse"
+
+  defp is_processing?(nil), do: false
+  defp is_processing?({:ready, _}), do: false
+  defp is_processing?({:error, _}), do: false
+  defp is_processing?(_), do: true
+
+  defp is_upload_error?({:error, _}), do: true
+  defp is_upload_error?(_), do: false
+
+  defp get_upload_error_message({:error, {:nsfw, msg}}), do: msg
+  defp get_upload_error_message({:error, msg}) when is_binary(msg), do: msg
+  defp get_upload_error_message({:error, _}), do: "Upload failed. Please try again."
+  defp get_upload_error_message(_), do: ""
+
+  defp get_stage_status(nil, _stage_key), do: :pending
+  defp get_stage_status({:error, _}, _stage_key), do: :error
+
+  defp get_stage_status({current_stage, _progress}, stage_key) do
+    stage_order = [:receiving, :converting, :resizing, :checking, :encrypting, :uploading, :ready]
+    current_idx = Enum.find_index(stage_order, &(&1 == current_stage)) || 0
+    stage_idx = Enum.find_index(stage_order, &(&1 == stage_key)) || 0
+
+    cond do
+      current_stage == :ready -> :completed
+      stage_idx < current_idx -> :completed
+      stage_idx == current_idx -> :active
+      true -> :pending
+    end
+  end
+
+  defp stage_status_bg_class(:completed), do: "bg-emerald-50/80 dark:bg-emerald-900/20"
+  defp stage_status_bg_class(:active), do: "bg-emerald-100/80 dark:bg-emerald-900/30"
+  defp stage_status_bg_class(:error), do: "bg-red-50/80 dark:bg-red-900/20"
+  defp stage_status_bg_class(:pending), do: "bg-transparent"
+
+  defp stage_status_icon_class(:completed), do: "bg-emerald-500"
+  defp stage_status_icon_class(:active), do: "bg-emerald-100 dark:bg-emerald-900/50"
+  defp stage_status_icon_class(:error), do: "bg-red-500"
+  defp stage_status_icon_class(:pending), do: "bg-slate-100 dark:bg-slate-700"
+
+  defp stage_status_text_class(:completed), do: "text-emerald-700 dark:text-emerald-300"
+  defp stage_status_text_class(:active), do: "text-emerald-700 dark:text-emerald-300"
+  defp stage_status_text_class(:error), do: "text-red-700 dark:text-red-300"
+  defp stage_status_text_class(:pending), do: "text-slate-500 dark:text-slate-400"
+
   defp stage_progress({_stage, progress}) when is_integer(progress), do: progress
   defp stage_progress(_), do: 0
 
