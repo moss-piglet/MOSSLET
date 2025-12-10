@@ -802,16 +802,11 @@ defmodule Mosslet.Timeline.Post do
       end
     else
       # creating a new post
+      # trix_key is now a raw unencrypted key (stays server-side, no JS round-trip)
       cond do
-        # For public posts that are reposts, preserve the original public key
         visibility === :public ->
-          if opts[:trix_key] do
-            Encrypted.Users.Utils.decrypt_public_item_key(opts[:trix_key])
-          else
-            Encrypted.Utils.generate_key()
-          end
+          opts[:trix_key] || Encrypted.Utils.generate_key()
 
-        # use the group_key if associated with a group
         visibility in [:connections, :specific_groups, :specific_users] ->
           if not is_nil(group_id) do
             group = Groups.get_group!(group_id)
@@ -826,33 +821,11 @@ defmodule Mosslet.Timeline.Post do
 
             d_post_key
           else
-            if opts[:trix_key] do
-              {:ok, d_post_key} =
-                Encrypted.Users.Utils.decrypt_user_attrs_key(
-                  opts[:trix_key],
-                  opts[:user],
-                  opts[:key]
-                )
-
-              d_post_key
-            else
-              Encrypted.Utils.generate_key()
-            end
+            opts[:trix_key] || Encrypted.Utils.generate_key()
           end
 
         visibility === :private ->
-          if opts[:trix_key] do
-            {:ok, d_post_key} =
-              Encrypted.Users.Utils.decrypt_user_attrs_key(
-                opts[:trix_key],
-                opts[:user],
-                opts[:key]
-              )
-
-            d_post_key
-          else
-            Encrypted.Utils.generate_key()
-          end
+          opts[:trix_key] || Encrypted.Utils.generate_key()
 
         true ->
           Encrypted.Utils.generate_key()

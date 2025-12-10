@@ -2295,7 +2295,10 @@ defmodule Mosslet.Timeline do
             |> schedule_ephemeral_deletion_if_needed()
             |> broadcast_admin(:post_created)
 
-          {:error, insert_post: changeset, insert_user_post: _user_post_changeset} ->
+          {:error, :insert_post, changeset, _changes_so_far} ->
+            {:error, changeset}
+
+          {:error, _failed_op, changeset, _changes_so_far} ->
             {:error, changeset}
         end
       end

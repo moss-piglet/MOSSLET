@@ -2581,10 +2581,21 @@ defmodule MossletWeb.CoreComponents do
         end)
       end)
 
-    Enum.map_join(errors, "\n", fn {_key, errors} ->
-      "#{Enum.join(errors, ", ")}\n"
-    end)
+    flatten_errors(errors)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n")
   end
+
+  defp flatten_errors(errors) when is_map(errors) do
+    Enum.flat_map(errors, fn {_key, value} -> flatten_errors(value) end)
+  end
+
+  defp flatten_errors(errors) when is_list(errors) do
+    Enum.flat_map(errors, &flatten_errors/1)
+  end
+
+  defp flatten_errors(error) when is_binary(error), do: [error]
+  defp flatten_errors(_), do: []
 
   slot :title, required: true
   slot :right

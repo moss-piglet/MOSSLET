@@ -2975,6 +2975,8 @@ defmodule MossletWeb.DesignSystem do
   attr :selector, :string, default: "connections"
   attr :form, :any, required: true
   attr :uploads, :any, default: nil
+  attr :upload_stages, :map, default: %{}
+  attr :completed_uploads, :list, default: []
   attr :class, :any, default: ""
   attr :privacy_controls_expanded, :boolean, default: false
   attr :content_warning_enabled?, :boolean, default: false
@@ -3073,7 +3075,13 @@ defmodule MossletWeb.DesignSystem do
         </div>
 
         <%!-- Photo upload preview section --%>
-        <.liquid_photo_upload_preview :if={@uploads} uploads={@uploads} class="" />
+        <.liquid_photo_upload_preview
+          :if={@uploads}
+          uploads={@uploads}
+          upload_stages={@upload_stages}
+          completed_uploads={@completed_uploads}
+          class=""
+        />
         <%!-- URL Preview Section --%>
         <div :if={assigns[:url_preview_loading]} class="mt-4 animate-pulse">
           <div class="flex gap-3 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/50">
@@ -3156,7 +3164,6 @@ defmodule MossletWeb.DesignSystem do
             <.live_file_input
               upload={@uploads.photos}
               class="hidden"
-              accept="image/*"
             />
 
             <button
@@ -3480,21 +3487,28 @@ defmodule MossletWeb.DesignSystem do
 
   @doc """
   Enhanced photo upload preview with liquid metal styling for the composer.
+  Shows real processing stages: receiving, validating, processing, uploading, ready.
   """
   attr :uploads, :any, required: true
+  attr :upload_stages, :map, default: %{}
+  attr :completed_uploads, :list, default: []
   attr :class, :any, default: ""
 
   def liquid_photo_upload_preview(assigns) do
     ~H"""
     <div
-      :if={@uploads && @uploads.photos && length(@uploads.photos.entries) > 0}
+      :if={
+        (@uploads && @uploads.photos && length(@uploads.photos.entries) > 0) ||
+          length(@completed_uploads) > 0
+      }
       class={[
         "mt-4 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60",
         "bg-gradient-to-br from-emerald-50/30 to-teal-50/20 dark:from-emerald-900/10 dark:to-teal-900/5",
         @class
       ]}
     >
-      <%!-- Upload preview header --%>
+      <% total_count = length(@uploads.photos.entries) + length(@completed_uploads) %>
+      <% entries_count = length(@uploads.photos.entries) %>
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <.phx_icon
@@ -3502,52 +3516,112 @@ defmodule MossletWeb.DesignSystem do
             class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
           />
           <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            {length(@uploads.photos.entries)} {if length(@uploads.photos.entries) == 1,
-              do: "photo",
-              else: "photos"} ready
+            {total_count} {if total_count == 1, do: "photo", else: "photos"}
           </span>
         </div>
 
-        <%!-- Progress indicator --%>
-        <div class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-          {if Enum.all?(@uploads.photos.entries, &(&1.progress == 100)),
-            do: "✓ Ready",
-            else: "Uploading..."}
+        <div class="text-xs font-medium">
+          <%= cond do %>
+            <% entries_count == 0 and length(@completed_uploads) > 0 -> %>
+              <span class="text-emerald-600 dark:text-emerald-400">✓ Ready to post</span>
+            <% all_ready?(@uploads.photos.entries, @upload_stages) and entries_count > 0 -> %>
+              <span class="text-emerald-600 dark:text-emerald-400">✓ Ready to post</span>
+            <% any_error?(@uploads.photos.entries, @upload_stages) -> %>
+              <span class="text-red-500">Error processing</span>
+            <% entries_count > 0 -> %>
+              <span class="text-amber-600 dark:text-amber-400">Processing...</span>
+            <% true -> %>
+              <span class="text-emerald-600 dark:text-emerald-400">✓ Ready to post</span>
+          <% end %>
         </div>
       </div>
 
-      <%!-- Photo preview grid --%>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        <%= for entry <- @uploads.photos.entries do %>
+        <%!-- Show completed uploads first --%>
+        <%= for upload <- @completed_uploads do %>
           <div class="relative group overflow-hidden rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 bg-white dark:bg-slate-800">
-            <%!-- Photo preview --%>
+            <%= if upload[:preview_data_url] do %>
+              <img
+                src={upload.preview_data_url}
+                alt={"Completed upload preview #{upload.ref}"}
+                class="w-full h-24 object-cover transition-all duration-200 group-hover:scale-105"
+              />
+            <% else %>
+              <div class="w-full h-24 bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                <.phx_icon name="hero-photo" class="h-8 w-8 text-emerald-500 dark:text-emerald-400" />
+              </div>
+            <% end %>
+
+            <div class="absolute top-1 left-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+              <.phx_icon name="hero-check" class="h-3 w-3 text-white" />
+            </div>
+
+            <button
+              type="button"
+              id={"remove-completed-photo-#{upload.ref}"}
+              phx-click="remove_completed_upload"
+              phx-value-ref={upload.ref}
+              aria-label="Remove photo"
+              class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+              phx-hook="TippyHook"
+              data-tippy-content="Remove photo"
+            >
+              <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+            </button>
+
+            <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs text-white truncate">
+              {upload.client_name}
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Show in-progress entries (excluding completed ones) --%>
+        <% completed_refs = Enum.map(@completed_uploads, & &1.ref) %>
+        <%= for entry <- @uploads.photos.entries, entry.ref not in completed_refs do %>
+          <% stage_info = Map.get(@upload_stages, entry.ref, {:receiving, 0}) %>
+          <div class="relative group overflow-hidden rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 bg-white dark:bg-slate-800">
             <.live_img_preview
               entry={entry}
               alt={"Photo upload preview #{entry.ref}"}
               class="w-full h-24 object-cover transition-all duration-200 group-hover:scale-105"
             />
 
-            <%!-- Upload progress overlay --%>
-            <div
-              :if={entry.progress < 100}
-              class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-2"
-            >
-              <div class="text-center">
-                <div class="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-1 mx-auto">
+            <%= cond do %>
+              <% is_entry_error?(stage_info) -> %>
+                <div class="absolute inset-0 bg-red-500/90 flex items-center justify-center p-2">
+                  <div class="text-center">
+                    <.phx_icon
+                      name="hero-exclamation-triangle"
+                      class="h-5 w-5 text-white mx-auto mb-1"
+                    />
+                    <div class="text-xs text-white font-medium">
+                      {format_error(stage_info)}
+                    </div>
+                  </div>
                 </div>
-                <div class="text-xs text-white font-medium">{entry.progress}%</div>
-              </div>
-            </div>
+              <% is_entry_ready?(stage_info) -> %>
+                <div class="absolute top-1 left-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                  <.phx_icon name="hero-check" class="h-3 w-3 text-white" />
+                </div>
+              <% true -> %>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20 flex flex-col items-center justify-center">
+                  <div class="text-center">
+                    <div class="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-2 mx-auto">
+                    </div>
+                    <div class="text-xs text-white font-medium mb-1">
+                      {stage_label(stage_info)}
+                    </div>
+                    <div class="w-16 h-1 bg-white/30 rounded-full overflow-hidden mx-auto">
+                      <div
+                        class="h-full bg-emerald-400 transition-all duration-300"
+                        style={"width: #{stage_progress(stage_info)}%"}
+                      >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+            <% end %>
 
-            <%!-- Success indicator --%>
-            <div
-              :if={entry.progress == 100}
-              class="absolute top-1 left-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center"
-            >
-              <.phx_icon name="hero-check" class="h-3 w-3 text-white" />
-            </div>
-
-            <%!-- Remove button --%>
             <button
               type="button"
               id={"remove-photo-#{entry.ref}"}
@@ -3561,7 +3635,6 @@ defmodule MossletWeb.DesignSystem do
               <.phx_icon name="hero-x-mark" class="h-3 w-3" />
             </button>
 
-            <%!-- Upload errors --%>
             <div
               :if={length(upload_errors(@uploads.photos, entry)) > 0}
               class="absolute inset-0 bg-red-500/90 flex items-center justify-center p-2"
@@ -3579,7 +3652,6 @@ defmodule MossletWeb.DesignSystem do
         <% end %>
       </div>
 
-      <%!-- Upload errors for the upload config itself --%>
       <div
         :if={length(upload_errors(@uploads.photos)) > 0}
         class="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
@@ -3599,6 +3671,44 @@ defmodule MossletWeb.DesignSystem do
     </div>
     """
   end
+
+  defp all_ready?(entries, upload_stages) do
+    Enum.all?(entries, fn entry ->
+      case Map.get(upload_stages, entry.ref) do
+        {:ready, _} -> true
+        _ -> false
+      end
+    end)
+  end
+
+  defp any_error?(entries, upload_stages) do
+    Enum.any?(entries, fn entry ->
+      case Map.get(upload_stages, entry.ref) do
+        {:error, _} -> true
+        _ -> false
+      end
+    end)
+  end
+
+  defp is_entry_ready?({:ready, _}), do: true
+  defp is_entry_ready?(_), do: false
+
+  defp is_entry_error?({:error, _}), do: true
+  defp is_entry_error?(_), do: false
+
+  defp format_error({:error, {:nsfw, _}}), do: "Content not allowed"
+  defp format_error({:error, reason}) when is_binary(reason), do: reason
+  defp format_error({:error, _}), do: "Upload failed"
+  defp format_error(_), do: ""
+
+  defp stage_label({:receiving, _}), do: "Receiving..."
+  defp stage_label({:validating, _}), do: "Checking..."
+  defp stage_label({:processing, _}), do: "Processing..."
+  defp stage_label({:uploading, _}), do: "Uploading..."
+  defp stage_label(_), do: "Processing..."
+
+  defp stage_progress({_stage, progress}) when is_integer(progress), do: progress
+  defp stage_progress(_), do: 0
 
   defp privacy_icon("public"), do: "hero-globe-alt"
   defp privacy_icon("connections"), do: "hero-user-group"

@@ -1,222 +1,102 @@
 defmodule Mosslet.FileUploads.Tigris do
-  @moduledoc false
+  @moduledoc """
+  Simple object storage operations for Tigris S3-compatible storage.
+
+  This module handles only storage operations:
+  - Uploading objects (with optional encryption)
+  - Deleting objects
+  - Generating presigned URLs
+
+  All image processing (HEIC conversion, safety checks, resize, webp)
+  is handled by `Mosslet.FileUploads.ImageUploadWriter` before upload.
+  """
+
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
 
   @folder "uploads/trix"
 
+  @doc """
+  Uploads a pre-processed file to Tigris storage.
+
+  Expects the file at `tmp_path` to already be fully processed (WebP format).
+
+  ## Options
+    - `session` - Map with "user_token" and "key"
+    - `storage_key` - Unique identifier for the file
+    - `tmp_path` - Path to the processed file
+    - `trix_key` - Encryption key for the file
+    - `visibility` - :public or :private
+
+  Returns `{:ok, presigned_url}` or `{:error, reason}`.
+  """
   def upload(session, %{
-        "Content-Type" => content_type,
         "storage_key" => storage_key,
-        "file" => %Plug.Upload{path: tmp_path} = _upload,
+        "tmp_path" => tmp_path,
         "trix_key" => trix_key,
         "visibility" => visibility
       }) do
-    region = Encrypted.Session.s3_region()
-    access_key_id = Encrypted.Session.s3_access_key_id()
-    secret_key_access = Encrypted.Session.s3_secret_key_access()
-    memories_bucket = Encrypted.Session.memories_bucket()
-    s3_host = Encrypted.Session.s3_host()
-
     user = Accounts.get_user_by_session_token(session["user_token"])
-
-    # convert everything to webp for compression/quality
-    file_ext = ext(content_type)
-    file_key = get_file_key(storage_key)
-    file_path = "#{@folder}/#{file_key}.#{file_ext}"
     session_key = session["key"]
 
-    # the trix_key is generated/set in the trix_uploads_controller
-    case process_file(tmp_path, file_ext, user, trix_key, session_key, visibility) do
-      {:ok, e_file} ->
-        ExAws.S3.put_object(memories_bucket, file_path, e_file)
-        |> ExAws.request()
-        |> case do
-          {:ok, %{status_code: 200} = _response} ->
-            config = %{
-              region: region,
-              access_key_id: access_key_id,
-              secret_access_key: secret_key_access
-            }
+    file_path = "#{@folder}/#{storage_key}.webp"
 
-            options = [
-              virtual_host: true,
-              bucket_as_host: true,
-              # just less than 1 week (604,800)
-              expires_in: 600_000
-            ]
-
-            # "https://#{memories_bucket}.#{s3_region}.#{s3_host}"
-            # our s3_region is "auto" so we leave it out
-            host_name = "https://#{memories_bucket}.#{s3_host}"
-
-            {:ok, presigned_url} =
-              generate_tigris_presigned_url(
-                config,
-                :get,
-                host_name,
-                file_path,
-                options
-              )
-
-            {:ok, presigned_url}
-
-          _ = _response ->
-            {:error, "Unable to upload file, please try again later."}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, binary} <- File.read(tmp_path),
+         {:ok, encrypted} <- encrypt_file(binary, user, trix_key, session_key, visibility),
+         {:ok, _resp} <- put_object(file_path, encrypted) do
+      {:ok, generate_presigned_url(file_path)}
     end
   end
 
-  def delete_file(file_url, content_type) do
-    file_key = get_file_key(file_url)
-    path_to_delete = "#{@folder}/#{file_key}.#{ext(content_type)}"
-    memories_bucket = Encrypted.Session.memories_bucket()
+  @doc """
+  Deletes a file from Tigris storage.
+  """
+  def delete_file(storage_key) do
+    file_path = "#{@folder}/#{storage_key}.webp"
+    bucket = Encrypted.Session.memories_bucket()
 
-    case ExAws.S3.delete_object(memories_bucket, path_to_delete) |> ExAws.request() do
-      {:ok, %{status_code: 204} = _response} -> :ok
+    case ExAws.S3.delete_object(bucket, file_path) |> ExAws.request() do
+      {:ok, %{status_code: 204}} -> :ok
       {:error, _reason} = error -> error
     end
   end
 
-  defp process_file(tmp_path, file_ext, user, trix_key, session_key, visibility) do
-    # Check the mime_type to avoid malicious file naming
-    mime_type = ExMarcel.MimeType.for({:path, tmp_path})
+  @doc """
+  Generates a presigned URL for accessing a file.
+  """
+  def generate_presigned_url(file_path) do
+    config = %{
+      region: Encrypted.Session.s3_region(),
+      access_key_id: Encrypted.Session.s3_access_key_id(),
+      secret_access_key: Encrypted.Session.s3_secret_key_access()
+    }
 
-    cond do
-      mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] ->
-        with {:ok, binary} <-
-               Image.open!(tmp_path)
-               |> check_for_safety(),
-             {:ok, clean_binary} <- remove_metadata(binary),
-             {:ok, {resize, quality}} <- resize_and_recolor_image(clean_binary),
-             {:ok, file} <-
-               write_file(resize, file_ext, quality),
-             {:ok, e_file} <- encrypt_file(file, user, trix_key, session_key, visibility) do
-          {:ok, e_file}
-        else
-          {:postpone, {:nsfw, message}} ->
-            {:error, {:nsfw, message}}
+    bucket = Encrypted.Session.memories_bucket()
+    s3_host = Encrypted.Session.s3_host()
+    host_name = "https://#{bucket}.#{s3_host}"
 
-          {:error, message} ->
-            {:error, {:error, message}}
-        end
+    options = [
+      virtual_host: true,
+      bucket_as_host: true,
+      expires_in: 600_000
+    ]
 
-      true ->
-        {:error, "Unknown error, please try again or contact support."}
+    {:ok, url} = ExAws.S3.presigned_url(config, :get, host_name, file_path, options)
+    url
+  end
+
+  defp put_object(file_path, data) do
+    bucket = Encrypted.Session.memories_bucket()
+
+    case ExAws.S3.put_object(bucket, file_path, data) |> ExAws.request() do
+      {:ok, %{status_code: 200}} = resp -> resp
+      {:ok, resp} -> {:error, "Upload failed: #{inspect(resp)}"}
+      {:error, _} = error -> error
     end
   end
 
-  defp remove_metadata(binary) do
-    Image.remove_metadata(binary)
-  end
-
-  defp resize_and_recolor_image(binary) do
-    width = Image.width(binary)
-    height = Image.height(binary)
-    max_dimension = 2560
-
-    {:ok, resize} =
-      if width > max_dimension or height > max_dimension do
-        Image.thumbnail(binary, "#{max_dimension}x#{max_dimension}")
-      else
-        {:ok, binary}
-      end
-
-    resized_srgb = Image.to_colorspace!(resize, :srgb)
-
-    # Calculate adaptive quality
-    quality = calculate_adaptive_quality(resized_srgb)
-
-    {:ok, {resized_srgb, quality}}
-  end
-
-  defp calculate_adaptive_quality(image) do
-    # Get basic image info
-    width = Image.width(image)
-    height = Image.height(image)
-    total_pixels = width * height
-
-    # Smaller images can use higher quality (less compression artifacts visible)
-    # Larger images can use lower quality (artifacts less noticeable)
-    base_quality =
-      cond do
-        # Small images (< 500k pixels)
-        total_pixels < 500_000 -> 85
-        # Medium images (< 2M pixels)
-        total_pixels < 2_000_000 -> 80
-        # Large images
-        true -> 75
-      end
-
-    base_quality
-  end
-
-  defp write_file(resize, file_ext, quality) do
-    Image.write(resize, :memory,
-      suffix: ".#{file_ext}",
-      webp: [quality: quality]
-    )
-  end
-
-  defp generate_tigris_presigned_url(config, request_type, host_name, object_key, options) do
-    ExAws.S3.presigned_url(
-      config,
-      request_type,
-      host_name,
-      object_key,
-      options
-    )
-  end
-
-  defp get_file_key(url) do
-    url |> String.split("/") |> List.last()
-  end
-
-  defp ext(content_type) do
-    [ext | _] = MIME.extensions(content_type)
-
-    case ext do
-      "jpg" -> "webp"
-      "jpeg" -> "webp"
-      "png" -> "webp"
-      _rest -> "webp"
-    end
-  end
-
-  defp check_for_safety(binary) do
-    case Mosslet.AI.Images.check_for_safety(binary) do
-      {:ok, tensor} ->
-        {:ok, tensor}
-
-      {:nsfw, message} ->
-        {:postpone, {:nsfw, message}}
-    end
-  end
-
-  # the trix_key stays encrypted on the client
-  # and is passed back and forth encrypted,
-  # so we we need to decrypt it before using
-  # it to encrypt the file
-  defp encrypt_file(file, user, trix_key, session_key, visibility) do
-    d_trix_key =
-      if visibility in [:public, "public"] do
-        Encrypted.Users.Utils.decrypt_public_item_key(trix_key)
-      else
-        {:ok, key} =
-          Encrypted.Users.Utils.decrypt_user_attrs_key(
-            trix_key,
-            user,
-            session_key
-          )
-
-        key
-      end
-
-    encrypted_file = Encrypted.Utils.encrypt(%{key: d_trix_key, payload: file})
-
-    {:ok, encrypted_file}
+  defp encrypt_file(file, _user, trix_key, _session_key, _visibility) do
+    encrypted = Encrypted.Utils.encrypt(%{key: trix_key, payload: file})
+    {:ok, encrypted}
   end
 end

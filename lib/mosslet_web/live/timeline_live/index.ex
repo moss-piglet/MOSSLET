@@ -165,19 +165,30 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:block_user_name, nil)
       |> assign(:loaded_replies_counts, %{})
       |> assign(:loaded_nested_replies, %{})
+      |> assign(:upload_stages, %{})
+      |> assign(:completed_uploads, [])
+      |> assign(:composer_trix_key, nil)
       |> stream(:posts, [])
-      # Initialize timeline_data as an AsyncResult for loading states
       |> assign(:timeline_data, AsyncResult.loading())
-      # Configure photo uploads with proper constraints and encryption-ready settings
       |> allow_upload(:photos,
-        accept: ~w(.jpg .jpeg .png .webp),
-        max_entries: 4,
-        # 10MB to accommodate modern phone photos
+        accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+        max_entries: 10,
         max_file_size: 10_000_000,
-        # 64KB chunks for smooth progress
         chunk_size: 64_000,
-        # Upload immediately when selected
-        auto_upload: true
+        auto_upload: true,
+        progress: &handle_upload_progress/3,
+        writer: fn _name, entry, socket ->
+          {Mosslet.FileUploads.ImageUploadWriter,
+           %{
+             lv_pid: self(),
+             entry_ref: entry.ref,
+             user_token: socket.assigns.user_token,
+             key: socket.assigns.key,
+             visibility: socket.assigns.selector,
+             trix_key: socket.assigns.composer_trix_key,
+             expected_size: entry.client_size
+           }}
+        end
       )
 
     {:ok, assign(socket, page_title: "Timeline")}
@@ -319,6 +330,52 @@ defmodule MossletWeb.TimelineLive.Index do
       end)
 
     {:noreply, socket}
+  end
+
+  def handle_info(
+        {:upload_ready, entry_ref, %{processed_binary: binary, trix_key: trix_key}},
+        socket
+      ) do
+    entry = Enum.find(socket.assigns.uploads.photos.entries, &(&1.ref == entry_ref))
+    Logger.debug("📷 HANDLE_INFO upload_ready: ref=#{entry_ref}, has_entry?=#{entry != nil}")
+
+    upload_stages = Map.put(socket.assigns.upload_stages, entry_ref, {:ready, nil})
+
+    preview_data_url = generate_preview_data_url(binary)
+
+    completed_upload = %{
+      ref: entry_ref,
+      client_name: (entry && entry.client_name) || "photo",
+      processed_binary: binary,
+      trix_key: trix_key,
+      preview_data_url: preview_data_url
+    }
+
+    socket =
+      socket
+      |> assign(:upload_stages, upload_stages)
+      |> assign(:completed_uploads, socket.assigns.completed_uploads ++ [completed_upload])
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:upload_progress, entry_ref, stage, value}, socket) do
+    Logger.debug("📷 HANDLE_INFO upload_progress: ref=#{entry_ref}, stage=#{stage}")
+
+    upload_stages = Map.put(socket.assigns.upload_stages, entry_ref, {stage, value})
+    socket = assign(socket, :upload_stages, upload_stages)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:upload_trix_key, _entry_ref, trix_key}, socket) do
+    current_key = socket.assigns.composer_trix_key
+
+    if is_nil(current_key) do
+      {:noreply, assign(socket, :composer_trix_key, trix_key)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info({MossletWeb.Presence, {:join, presence}}, socket) do
@@ -1525,6 +1582,49 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    ref_value = if is_binary(ref), do: String.to_integer(ref), else: ref
+    upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
+    completed_uploads = Enum.reject(socket.assigns.completed_uploads, &(&1.ref == ref_value))
+
+    {:noreply,
+     socket
+     |> cancel_upload(:photos, ref)
+     |> assign(:upload_stages, upload_stages)
+     |> assign(:completed_uploads, completed_uploads)}
+  end
+
+  def handle_event("remove_completed_upload", %{"ref" => ref}, socket) do
+    require Logger
+    ref_value = if is_binary(ref), do: String.to_integer(ref), else: ref
+    Logger.debug("📷 remove_completed_upload: ref=#{ref}, ref_value=#{ref_value}")
+
+    upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
+
+    completed_uploads =
+      Enum.reject(socket.assigns.completed_uploads, fn upload ->
+        upload_ref = if is_binary(upload.ref), do: String.to_integer(upload.ref), else: upload.ref
+        upload_ref == ref_value
+      end)
+
+    Logger.debug("📷 completed_uploads after reject: #{length(completed_uploads)}")
+
+    entry_exists? =
+      Enum.any?(socket.assigns.uploads.photos.entries, &(&1.ref == ref_value))
+
+    socket =
+      if entry_exists? do
+        cancel_upload(socket, :photos, ref)
+      else
+        socket
+      end
+
+    {:noreply,
+     socket
+     |> assign(:upload_stages, upload_stages)
+     |> assign(:completed_uploads, completed_uploads)}
+  end
+
   def handle_event("remove_files", %{"flag" => flag}, socket) do
     socket =
       socket
@@ -2058,6 +2158,9 @@ defmodule MossletWeb.TimelineLive.Index do
       key = socket.assigns.key
       post_shared_users = socket.assigns.post_shared_users
 
+      require Logger
+      Logger.debug("🔑 save_post: key=#{inspect(key)}, key nil?=#{is_nil(key)}")
+
       # Process uploaded photos and get their URLs with trix_key
       {uploaded_photo_urls, trix_key} =
         process_uploaded_photos(socket, current_user, key)
@@ -2144,8 +2247,11 @@ defmodule MossletWeb.TimelineLive.Index do
             socket =
               socket
               |> assign(:trix_key, nil)
+              |> assign(:composer_trix_key, nil)
               |> assign(:post_form, to_form(clean_changeset))
               |> assign(:image_urls, [])
+              |> assign(:upload_stages, %{})
+              |> assign(:completed_uploads, [])
               |> assign(:content_warning_enabled?, false)
               |> assign(:selected_visibility_groups, [])
               |> assign(:selected_visibility_users, [])
@@ -2178,6 +2284,15 @@ defmodule MossletWeb.TimelineLive.Index do
             {:noreply, socket}
 
           {:error, changeset} ->
+            Logger.debug("❌ save_post error changeset.errors: #{inspect(changeset.errors)}")
+            Logger.debug("❌ save_post changeset valid?: #{changeset.valid?}")
+
+            Logger.debug(
+              "❌ save_post user_post_map: #{inspect(changeset.changes[:user_post_map])}"
+            )
+
+            Logger.debug("❌ save_post full changeset: #{inspect(changeset)}")
+
             error_message =
               MossletWeb.CoreComponents.combine_changeset_error_messages_sans_key(changeset)
 
@@ -4657,63 +4772,41 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to process uploaded photos using Tigris.ex encryption
   # Returns {upload_paths, trix_key} tuple for idiomatic Elixir/Phoenix
-  defp process_uploaded_photos(socket, current_user, key) do
-    upload_entries = socket.assigns.uploads.photos.entries
+  defp process_uploaded_photos(socket, _current_user, _key) do
+    completed_uploads = socket.assigns.completed_uploads
 
-    if upload_entries == [] do
+    if completed_uploads == [] do
       {[], nil}
     else
-      visibility = socket.assigns.selector
-
-      trix_key =
-        socket.assigns[:trix_key] ||
-          generate_and_encrypt_trix_key(current_user, nil, visibility)
+      trix_key = socket.assigns[:composer_trix_key]
 
       upload_results =
-        for entry <- upload_entries do
-          consume_uploaded_entry(socket, entry, fn %{path: tmp_path} ->
-            storage_key = Ecto.UUID.generate()
+        Enum.map(completed_uploads, fn upload ->
+          actual_trix_key = trix_key || upload.trix_key
 
-            upload_params = %{
-              "Content-Type" => entry.client_type,
-              "storage_key" => storage_key,
-              "file" => %Plug.Upload{
-                path: tmp_path,
-                content_type: entry.client_type,
-                filename: entry.client_name
-              },
-              "trix_key" => trix_key,
-              "visibility" => visibility
-            }
+          case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(
+                 upload.processed_binary,
+                 actual_trix_key
+               ) do
+            {:ok, file_path} ->
+              {file_path, actual_trix_key}
 
-            session = %{
-              "user_token" => socket.assigns.user_token,
-              "key" => key
-            }
+            {:error, reason} ->
+              Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
+              nil
+          end
+        end)
 
-            case Mosslet.FileUploads.Tigris.upload(session, upload_params) do
-              {:ok, _presigned_url} ->
-                [file_ext | _] = MIME.extensions(entry.client_type)
-                file_path = "#{@folder}/#{storage_key}.#{file_ext}"
+      successful_results = Enum.filter(upload_results, &(&1 != nil))
 
-                file_path
+      case successful_results do
+        [] ->
+          {[], trix_key}
 
-              {:error, {:nsfw, message}} ->
-                Logger.error("📷 PROCESS_UPLOADED_PHOTOS: NSFW content detected: #{message}")
-                nil
-
-              {:error, reason} ->
-                Logger.error("📷 PROCESS_UPLOADED_PHOTOS: Upload failed: #{inspect(reason)}")
-                nil
-            end
-          end)
-        end
-
-      successful_paths =
-        upload_results
-        |> Enum.filter(&(&1 != nil))
-
-      {successful_paths, trix_key}
+        [{_first_path, first_trix_key} | _] ->
+          paths = Enum.map(successful_results, fn {path, _key} -> path end)
+          {paths, first_trix_key}
+      end
     end
   end
 
@@ -5562,5 +5655,36 @@ defmodule MossletWeb.TimelineLive.Index do
       current_user_id: current_user_id,
       limit: limit
     })
+  end
+
+  defp handle_upload_progress(:photos, entry, socket) do
+    Logger.debug("📷 UPLOAD_PROGRESS callback: ref=#{entry.ref}, done?=#{entry.done?}")
+    {:noreply, socket}
+  end
+
+  defp is_ready_stage?({:ready, _}), do: true
+  defp is_ready_stage?(_), do: false
+
+  defp generate_preview_data_url(binary) do
+    case Image.from_binary(binary) do
+      {:ok, image} ->
+        case Image.thumbnail(image, "200x200", crop: :attention) do
+          {:ok, thumb} ->
+            case Image.write(thumb, :memory, suffix: ".webp", webp: [quality: 60]) do
+              {:ok, thumb_binary} ->
+                base64 = Base.encode64(thumb_binary)
+                "data:image/webp;base64,#{base64}"
+
+              _ ->
+                nil
+            end
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
   end
 end

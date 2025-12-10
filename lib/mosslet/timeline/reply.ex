@@ -133,14 +133,7 @@ defmodule Mosslet.Timeline.Reply do
           d_post_key
         else
           if opts[:trix_key] do
-            {:ok, d_post_key} =
-              Encrypted.Users.Utils.decrypt_user_attrs_key(
-                opts[:trix_key],
-                opts[:user],
-                opts[:key]
-              )
-
-            d_post_key
+            opts[:trix_key]
           else
             {:ok, d_post_key} =
               Encrypted.Users.Utils.decrypt_user_attrs_key(

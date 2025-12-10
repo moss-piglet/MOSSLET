@@ -232,10 +232,11 @@ defmodule MossletWeb.EditDetailsLive do
       |> assign_name_form(current_user)
       |> assign_username_form(current_user)
       |> allow_upload(:avatar,
-        # SETUP_TODO: Uncomment the line below if using an external provider (Cloudinary or S3)
-        # external: &@upload_provider.presign_upload/2,
-        accept: ~w(.jpg .jpeg .png .webp),
-        max_entries: 1
+        accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+        max_entries: 1,
+        writer: fn _name, _entry, _socket ->
+          {Mosslet.FileUploads.ImageUploadWriter, []}
+        end
       )
 
     {:ok, socket}
@@ -527,47 +528,52 @@ defmodule MossletWeb.EditDetailsLive do
       consume_uploaded_entries(
         socket,
         :avatar,
-        fn %{path: path} = _meta, entry ->
-          # Check the mime_type to avoid malicious file naming
-          mime_type = ExMarcel.MimeType.for({:path, path})
+        fn meta, entry ->
+          case meta do
+            %{error: error} ->
+              {:postpone, {:error, error}}
 
-          cond do
-            mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] ->
-              with {:ok, image_binary} <-
-                     Image.open!(path)
-                     |> check_for_safety(),
-                   {:ok, vix_image} <-
-                     Image.avatar(image_binary,
-                       crop: :attention,
-                       shape: :square,
-                       size: 360
-                     ),
-                   {:ok, blob} <-
-                     Image.write(vix_image, :memory,
-                       suffix: ".webp",
-                       minimize_file_size: true
-                     ),
-                   {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
-                   {:ok, file_path} <-
-                     @upload_provider.prepare_file_path(entry, user.connection.id) do
-                @upload_provider.make_aws_requests(
-                  entry,
-                  avatars_bucket,
-                  file_path,
-                  e_blob,
-                  user,
-                  key
-                )
-              else
-                {:nsfw, message} ->
-                  {:postpone, {:nsfw, message}}
+            %{path: path} ->
+              mime_type = ExMarcel.MimeType.for({:path, path})
 
-                {:error, message} ->
-                  {:postpone, {:error, message}}
+              cond do
+                mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] ->
+                  with {:ok, image_binary} <-
+                         Image.open!(path)
+                         |> check_for_safety(),
+                       {:ok, vix_image} <-
+                         Image.avatar(image_binary,
+                           crop: :attention,
+                           shape: :square,
+                           size: 360
+                         ),
+                       {:ok, blob} <-
+                         Image.write(vix_image, :memory,
+                           suffix: ".webp",
+                           minimize_file_size: true
+                         ),
+                       {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
+                       {:ok, file_path} <-
+                         @upload_provider.prepare_file_path(entry, user.connection.id) do
+                    @upload_provider.make_aws_requests(
+                      entry,
+                      avatars_bucket,
+                      file_path,
+                      e_blob,
+                      user,
+                      key
+                    )
+                  else
+                    {:nsfw, message} ->
+                      {:postpone, {:nsfw, message}}
+
+                    {:error, message} ->
+                      {:postpone, {:error, message}}
+                  end
+
+                true ->
+                  {:postpone, :error}
               end
-
-            true ->
-              {:postpone, :error}
           end
         end
       )

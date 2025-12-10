@@ -249,61 +249,21 @@ defmodule MossletWeb.UserRegistrationLive do
 
               <%!-- Password field --%>
               <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                  <div></div>
-                  <%!-- Empty div to maintain layout --%>
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      id="pw-generator-button"
-                      phx-hook="TippyHook"
-                      data-tippy-content="Generate password"
-                      aria-label="Generate password"
-                      phx-click={JS.push("generate-password")}
-                      class="group p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors duration-200"
-                    >
-                      <.phx_icon
-                        name="hero-sparkles"
-                        class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      id="eye"
-                      data-tippy-content="Show password"
-                      aria-label="Show password"
-                      phx-hook="TippyHook"
-                      phx-click={
-                        JS.set_attribute({"type", "text"}, to: "#password-text")
-                        |> JS.remove_class("hidden", to: "#eye-slash")
-                        |> JS.add_class("hidden", to: "#eye")
-                      }
-                      class="group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
-                    >
-                      <.phx_icon
-                        name="hero-eye"
-                        class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors"
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      id="eye-slash"
-                      data-tippy-content="Hide password"
-                      aria-label="Hide password"
-                      phx-hook="TippyHook"
-                      class="hidden group p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
-                      phx-click={
-                        JS.set_attribute({"type", "password"}, to: "#password-text")
-                        |> JS.add_class("hidden", to: "#eye-slash")
-                        |> JS.remove_class("hidden", to: "#eye")
-                      }
-                    >
-                      <.phx_icon
-                        name="hero-eye-slash"
-                        class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors"
-                      />
-                    </button>
-                  </div>
+                <div class="flex justify-end items-center">
+                  <button
+                    type="button"
+                    id="pw-generator-button"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Generate password"
+                    aria-label="Generate password"
+                    phx-click={JS.push("generate-password")}
+                    class="group p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors duration-200"
+                  >
+                    <.phx_icon
+                      name="hero-sparkles"
+                      class="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+                    />
+                  </button>
                 </div>
                 <.phx_input
                   field={@form[:password]}
