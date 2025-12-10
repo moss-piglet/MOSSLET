@@ -3724,8 +3724,8 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div class={["space-y-4", @class]}>
       <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-        <div class="flex items-center gap-4">
-          <div class="relative">
+        <div class="flex items-center gap-4 shrink-0">
+          <div class="relative shrink-0">
             <.liquid_avatar
               src={@current_avatar_src}
               name={user_name(@user, @encryption_key) || "User"}
@@ -3751,13 +3751,13 @@ defmodule MossletWeb.DesignSystem do
           </div>
 
           <%= if Enum.any?(@upload.entries) do %>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 shrink-0">
               <.phx_icon
                 name="hero-arrow-right"
-                class="h-5 w-5 text-slate-400 dark:text-slate-500"
+                class="h-5 w-5 text-slate-400 dark:text-slate-500 shrink-0"
               />
               <%= for entry <- @upload.entries do %>
-                <div class="relative">
+                <div class="relative shrink-0">
                   <div class={[
                     "w-20 h-20 rounded-xl overflow-hidden",
                     "border-2 transition-all duration-300",
@@ -3769,25 +3769,26 @@ defmodule MossletWeb.DesignSystem do
                       alt="Avatar preview"
                     />
                   </div>
-                  <%= if is_processing?(@upload_stage) do %>
-                    <div class="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
-                      <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin">
-                      </div>
+                  <div
+                    :if={is_processing?(@upload_stage)}
+                    class="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center"
+                  >
+                    <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin">
                     </div>
-                  <% else %>
-                    <button
-                      type="button"
-                      id={"cancel-avatar-upload-#{entry.ref}"}
-                      phx-click="cancel-upload"
-                      phx-value-ref={entry.ref}
-                      class="absolute -top-1 -right-1 w-6 h-6 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
-                      phx-hook="TippyHook"
-                      data-tippy-content="Cancel"
-                      aria-label="Cancel upload"
-                    >
-                      <.phx_icon name="hero-x-mark" class="h-3 w-3" />
-                    </button>
-                  <% end %>
+                  </div>
+                  <button
+                    :if={!is_processing?(@upload_stage)}
+                    type="button"
+                    id={"cancel-avatar-upload-#{entry.ref}"}
+                    phx-click="cancel-upload"
+                    phx-value-ref={entry.ref}
+                    class="absolute -top-1 -right-1 w-6 h-6 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Cancel"
+                    aria-label="Cancel upload"
+                  >
+                    <.phx_icon name="hero-x-mark" class="h-3 w-3" />
+                  </button>
                 </div>
               <% end %>
             </div>

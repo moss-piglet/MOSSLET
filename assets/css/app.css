@@ -21,7 +21,7 @@
 
 /* ===== LIQUID METAL DISABLED BUTTON ENHANCEMENT ===== */
 /* Custom liquid shimmer for disabled buttons - more subtle approach */
-button:disabled {
+button:disabled:not(.absolute) {
   position: relative;
   overflow: hidden;
 }
