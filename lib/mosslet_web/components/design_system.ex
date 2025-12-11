@@ -2937,7 +2937,7 @@ defmodule MossletWeb.DesignSystem do
       :if={@new_posts_count > 0}
       id="timeline-realtime-indicator"
       class={[
-        "sticky top-20 z-20 text-center mb-4",
+        "text-center",
         @class
       ]}
     >

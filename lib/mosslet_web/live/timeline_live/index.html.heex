@@ -18,15 +18,6 @@
       class="space-y-4 sm:space-y-6 pt-6 sm:pt-8"
     >
       <MossletWeb.DesignSystem.liquid_timeline_header id={"timeline-header-#{@active_tab}"} />
-      <%!-- Realtime update indicator (sticky at top when new posts arrive) --%>
-      <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator
-        new_posts_count={
-          if @current_user.calm_notifications,
-            do: Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0),
-            else: 0
-        }
-        active_tab={@active_tab || "home"}
-      />
 
       <%!-- Sticky header group: tabs, content filter, and composer --%>
       <div class="sticky top-16 z-30 space-y-4">
@@ -222,6 +213,16 @@
             />
           </.form>
         </div>
+
+        <%!-- Realtime update indicator (below composer, inside sticky group) --%>
+        <MossletWeb.DesignSystem.liquid_timeline_realtime_indicator
+          new_posts_count={
+            if @current_user.calm_notifications,
+              do: Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0),
+              else: 0
+          }
+          active_tab={@active_tab || "home"}
+        />
       </div>
       <%!-- End sticky header group --%>
 
