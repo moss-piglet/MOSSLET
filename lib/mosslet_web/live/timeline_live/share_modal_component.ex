@@ -2,7 +2,9 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
   use MossletWeb, :live_component
 
   import MossletWeb.CoreComponents, only: [phx_icon: 1, phx_input: 1]
-  import MossletWeb.DesignSystem, only: [liquid_button: 1, liquid_modal: 1, liquid_avatar: 1]
+
+  import MossletWeb.DesignSystem,
+    only: [liquid_button: 1, liquid_modal: 1, liquid_avatar: 1, get_connection_avatar_src: 3]
 
   alias Mosslet.Timeline.UserPost
   alias Phoenix.LiveView.JS
@@ -108,6 +110,12 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
         String.contains?(String.downcase(conn.username || ""), query)
       end)
     end
+  end
+
+  defp find_user_connection(user_connections, user_id) do
+    Enum.find(user_connections, fn uc ->
+      uc.connection.user_id == user_id || uc.reverse_user_id == user_id
+    end)
   end
 
   def render(assigns) do
@@ -238,6 +246,12 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                   </div>
                 <% else %>
                   <%= for conn <- @filtered_connections do %>
+                    <% user_connection = find_user_connection(@user_connections, conn.user_id) %>
+                    <% avatar_src =
+                      if user_connection,
+                        do:
+                          get_connection_avatar_src(user_connection, @current_user, @encryption_key),
+                        else: nil %>
                     <button
                       type="button"
                       phx-click="toggle_user"
@@ -252,7 +266,12 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                         )
                       ]}
                     >
-                      <.liquid_avatar name={conn.username} size="sm" show_status={false} />
+                      <.liquid_avatar
+                        name={conn.username}
+                        src={avatar_src}
+                        size="sm"
+                        show_status={false}
+                      />
                       <span class="flex-1 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                         {conn.username}
                       </span>

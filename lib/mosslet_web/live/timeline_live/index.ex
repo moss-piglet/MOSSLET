@@ -237,9 +237,11 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns[:active_tab] || "home"
 
     # Prepare shared users first as they're needed for both posts and counts
+    user_connections = Accounts.get_all_confirmed_user_connections(current_user.id)
+
     post_shared_users =
       decrypt_shared_user_connections(
-        Accounts.get_all_confirmed_user_connections(current_user.id),
+        user_connections,
         current_user,
         key,
         :post
@@ -251,6 +253,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     socket =
       socket
+      |> assign(:user_connections, user_connections)
       |> assign(:post_shared_users, post_shared_users)
       |> assign(:content_filters, hydrated_content_filters)
       |> assign(:options, options)
