@@ -74,10 +74,42 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.61"
-                  date="January 2025"
+                  version="0.9.7"
+                  date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Intentional Sharing & Polished UI 🦖</:title>
+                  <:description>
+                    A thoughtful revamp focused on mental health and privacy-first design. The accessibility dino has been hard at work making everything feel more intentional.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-face-smile" color="amber">
+                      Accessible emoji picker — the a11y dino 🦖 brought a fully keyboard-navigable emoji picker
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrow-path-rounded-square" color="purple">
+                      Repost revamp — redesigned sharing flow that encourages intentional, thoughtful sharing over reflexive reposting
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bolt" color="cyan">
+                      Real-time timeline improvements — smoother live updates with better UI/UX feedback
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bookmark-square" color="teal">
+                      Sticky navigation — timeline nav stays put as you scroll for easier access
+                    </.changelog_item>
+                    <.changelog_item icon="hero-user-group" color="blue">
+                      "Shared with" enhancements — clearer visibility into who sees your posts, reinforcing privacy-first design
+                    </.changelog_item>
+                    <.changelog_item icon="hero-heart" color="rose">
+                      Mental health-first design — thoughtful friction points that encourage mindful engagement
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.61"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Better Image Uploads 📸</:title>
                   <:description>
