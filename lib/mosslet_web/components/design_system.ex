@@ -3001,12 +3001,13 @@ defmodule MossletWeb.DesignSystem do
       id={@id}
       class={[
         "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-        "border border-slate-200/60 dark:border-slate-700/60",
-        "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
-        "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl",
+        "border border-slate-200/80 dark:border-slate-700/80",
+        "shadow-xl shadow-slate-900/10 dark:shadow-black/40",
+        "ring-1 ring-slate-900/5 dark:ring-white/5",
+        "hover:shadow-2xl hover:shadow-slate-900/15 dark:hover:shadow-black/50",
         "focus-within:border-emerald-500/60 dark:focus-within:border-emerald-400/60",
-        "focus-within:shadow-xl focus-within:shadow-emerald-500/10",
+        "focus-within:shadow-2xl focus-within:shadow-emerald-500/15",
         @class
       ]}
     >
