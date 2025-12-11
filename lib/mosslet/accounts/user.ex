@@ -553,7 +553,7 @@ defmodule Mosslet.Accounts.User do
   defp encrypt_status_visibility_groups(changeset, opts) do
     status_visible_to_groups = get_field(changeset, :status_visible_to_groups)
 
-    if status_visible_to_groups && length(status_visible_to_groups) > 0 do
+    if status_visible_to_groups != [] do
       # Encrypt each group ID with user_key (personal data)
       encrypted_group_ids =
         Enum.map(status_visible_to_groups, fn group_id ->
@@ -570,7 +570,7 @@ defmodule Mosslet.Accounts.User do
   defp encrypt_status_visibility_users(changeset, opts) do
     status_visible_to_users = get_field(changeset, :status_visible_to_users)
 
-    if status_visible_to_users && length(status_visible_to_users) > 0 do
+    if status_visible_to_users != [] do
       # Encrypt each user ID with user_key (personal data)
       encrypted_user_ids =
         Enum.map(status_visible_to_users, fn user_id ->
@@ -588,7 +588,7 @@ defmodule Mosslet.Accounts.User do
     # Encrypt presence visibility groups and users
     changeset =
       if presence_groups = get_field(changeset, :presence_visible_to_groups) do
-        if presence_groups && length(presence_groups) > 0 do
+        if presence_groups != [] do
           encrypted_presence_groups =
             Enum.map(presence_groups, fn group_id ->
               encrypt_user_data(group_id, opts[:user], opts[:key])
@@ -603,7 +603,7 @@ defmodule Mosslet.Accounts.User do
       end
 
     if presence_users = get_field(changeset, :presence_visible_to_users) do
-      if presence_users && length(presence_users) > 0 do
+      if presence_users != [] do
         encrypted_presence_users =
           Enum.map(presence_users, fn user_id ->
             encrypt_user_data(user_id, opts[:user], opts[:key])
@@ -636,7 +636,7 @@ defmodule Mosslet.Accounts.User do
     # Encrypt group IDs for connection sharing AND expand groups to user IDs
     connection_map_updates =
       if status_groups = get_field(changeset, :status_visible_to_groups) do
-        if status_groups && length(status_groups) > 0 do
+        if status_groups != [] do
           # Re-encrypt with conn_key for sharing
           c_encrypted_status_groups =
             Enum.map(status_groups, fn encrypted_group_id ->
@@ -707,7 +707,7 @@ defmodule Mosslet.Accounts.User do
     # Encrypt user IDs for connection sharing (follows same pattern as email/username/avatar)
     connection_map_updates =
       if status_users = get_field(changeset, :status_visible_to_users) do
-        if status_users && length(status_users) > 0 do
+        if status_users != [] do
           # status_users come from form as plain UUIDs - encrypt directly with conn_key
 
           c_encrypted_status_users =

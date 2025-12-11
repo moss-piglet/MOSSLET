@@ -590,7 +590,7 @@ defmodule Mosslet.Statuses do
          user_connection,
          session_key
        ) do
-    with encrypted_list when is_list(encrypted_list) and length(encrypted_list) > 0 <-
+    with encrypted_list when is_list(encrypted_list) and encrypted_list != [] <-
            target_user.connection.presence_visible_to_groups_user_ids do
       encrypted_list
       |> Enum.map(fn encrypted_group_user_id ->

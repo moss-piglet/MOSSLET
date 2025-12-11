@@ -56,7 +56,7 @@ defmodule Mosslet.Timeline.Performance.Manager do
     # Schedule feed updates for affected users
     affected_user_ids = get_affected_user_ids(post)
 
-    if length(affected_user_ids) > 0 do
+    if affected_user_ids != [] do
       TimelineFeedJob.schedule_batch_feed_update(affected_user_ids, "post_update")
     end
 

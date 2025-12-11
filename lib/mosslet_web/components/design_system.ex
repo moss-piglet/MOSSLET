@@ -1065,7 +1065,7 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Features list --%>
       <ul
-        :if={length(@features) > 0}
+        :if={@features != []}
         role="list"
         class="relative space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-400 mb-8"
       >
@@ -3572,8 +3572,8 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div
       :if={
-        (@uploads && @uploads.photos && length(@uploads.photos.entries) > 0) ||
-          length(@completed_uploads) > 0
+        (@uploads && @uploads.photos && @uploads.photos.entries != []) ||
+          @completed_uploads != []
       }
       class={[
         "mt-4 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60",
@@ -3596,7 +3596,7 @@ defmodule MossletWeb.DesignSystem do
 
         <div class="text-xs font-medium">
           <%= cond do %>
-            <% entries_count == 0 and length(@completed_uploads) > 0 -> %>
+            <% entries_count == 0 and @completed_uploads != [] -> %>
               <span class="text-emerald-600 dark:text-emerald-400">✓ Ready to post</span>
             <% all_ready?(@uploads.photos.entries, @upload_stages) and entries_count > 0 -> %>
               <span class="text-emerald-600 dark:text-emerald-400">✓ Ready to post</span>
@@ -3710,7 +3710,7 @@ defmodule MossletWeb.DesignSystem do
             </button>
 
             <div
-              :if={length(upload_errors(@uploads.photos, entry)) > 0}
+              :if={upload_errors(@uploads.photos, entry) != []}
               class="absolute inset-0 bg-red-500/90 flex items-center justify-center p-2"
             >
               <div class="text-center">
@@ -3727,7 +3727,7 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <div
-        :if={length(upload_errors(@uploads.photos)) > 0}
+        :if={upload_errors(@uploads.photos) != []}
         class="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
       >
         <div class="flex items-start gap-2">
@@ -7234,7 +7234,7 @@ defmodule MossletWeb.DesignSystem do
       %Ecto.Association.NotLoaded{} -> false
       nil -> false
       [] -> false
-      list when is_list(list) -> length(list) > 0
+      list when is_list(list) -> list != []
       _ -> false
     end
   end
@@ -7843,7 +7843,7 @@ defmodule MossletWeb.DesignSystem do
                       Choose which of your connection groups can see this post. Groups help organize your connections by context like work colleagues, family members, or friend circles.
                     </p>
                     <%!-- Real group selection UI --%>
-                    <%= if length(@visibility_groups) > 0 do %>
+                    <%= if @visibility_groups != [] do %>
                       <div class="space-y-3">
                         <%= for group_data <- @visibility_groups do %>
                           <% group = group_data.group %>
@@ -7953,7 +7953,7 @@ defmodule MossletWeb.DesignSystem do
                       Choose specific individuals from your connections who can see this post. Perfect for sharing personal content with just a select few people you trust.
                     </p>
                     <%!-- Real user selection UI --%>
-                    <%= if length(@user_connections) > 0 do %>
+                    <%= if @user_connections != [] do %>
                       <div class="space-y-3">
                         <div class="max-h-48 overflow-y-auto space-y-2">
                           <%= for connection <- @user_connections do %>
@@ -9463,7 +9463,7 @@ defmodule MossletWeb.DesignSystem do
               <div class="flex items-center space-x-2">
                 <%!-- Download button - only show if user has photos permission --%>
                 <.liquid_button
-                  :if={@can_download && length(@images) > 0}
+                  :if={@can_download && @images != []}
                   id={"download-photo-button-#{@id}"}
                   size="sm"
                   variant="ghost"
@@ -9496,7 +9496,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Image container with proper viewport constraints --%>
             <div class="relative flex-1 min-h-0 bg-slate-100 dark:bg-slate-900 overflow-hidden">
               <div
-                :if={length(@images) == 0}
+                :if={@images == []}
                 class="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400"
               >
                 <div class="text-center">
@@ -9506,7 +9506,7 @@ defmodule MossletWeb.DesignSystem do
               </div>
 
               <div
-                :if={length(@images) > 0}
+                :if={@images != []}
                 id={"photo-container-#{@id}-#{@current_index}"}
                 class="relative w-full h-full flex items-center justify-center p-4"
                 phx-hook="DisableContextMenu"

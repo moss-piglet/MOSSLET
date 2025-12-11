@@ -129,7 +129,7 @@ defmodule Mosslet.Timeline.Jobs.CacheMaintenanceJob do
     # Get recently active users from Timeline context (proper separation of concerns)
     active_users = Timeline.get_recently_active_users(window, max_users)
 
-    if length(active_users) > 0 do
+    if active_users != [] do
       # Warm cache for active users in small batches
       active_users
       |> Enum.chunk_every(10)

@@ -80,14 +80,14 @@ defmodule MossletWeb.BlockedUsersLive do
                   icon={if @show_blocked_users, do: "hero-eye-slash", else: "hero-eye"}
                   phx-click="toggle_blocked_users"
                   class="text-sm"
-                  disabled={if length(@blocked_users) <= 0, do: true}
+                  disabled={@blocked_users == []}
                 >
-                  {if @show_blocked_users && length(@blocked_users) > 0, do: "Hide", else: "Show"}
-                  {if length(@blocked_users) > 0, do: "(#{length(@blocked_users)})"}
+                  {if @show_blocked_users && @blocked_users != [], do: "Hide", else: "Show"}
+                  {if @blocked_users != [], do: "(#{length(@blocked_users)})"}
                 </DesignSystem.liquid_button>
               </div>
 
-              <%= if length(@blocked_users) > 0 do %>
+              <%= if @blocked_users != [] do %>
                 <div class="bg-rose-100 dark:bg-rose-900/30 rounded-lg p-4 border border-rose-200 dark:border-rose-700">
                   <div class="flex items-start gap-3">
                     <.phx_icon
@@ -131,7 +131,7 @@ defmodule MossletWeb.BlockedUsersLive do
           </DesignSystem.liquid_card>
 
           <%!-- Expandable Blocked Users List --%>
-          <%= if @show_blocked_users && length(@blocked_users) > 0 do %>
+          <%= if @show_blocked_users && @blocked_users != [] do %>
             <DesignSystem.liquid_card>
               <:title>
                 <div class="flex items-center justify-between w-full">

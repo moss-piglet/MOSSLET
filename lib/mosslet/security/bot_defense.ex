@@ -324,7 +324,7 @@ defmodule Mosslet.Security.BotDefense do
       :ets.delete(@ets_table, hash)
     end)
 
-    if length(expired_hashes) > 0 do
+    if expired_hashes != [] do
       Repo.transaction_on_primary(fn ->
         from(b in IpBan, where: b.ip_hash in ^expired_hashes)
         |> Repo.delete_all()

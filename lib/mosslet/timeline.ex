@@ -619,7 +619,7 @@ defmodule Mosslet.Timeline do
   # Filters out posts based on content warning categories that the user has muted.
   # Uses the content_warning_category_hash for efficient database-level filtering.
   defp filter_by_muted_keywords(query, muted_keywords)
-       when is_list(muted_keywords) and length(muted_keywords) > 0 do
+       when is_list(muted_keywords) and muted_keywords != [] do
     # For each muted keyword, add a condition to exclude posts with that category hash
     Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
       # Convert to lowercase to match hash storage format
@@ -665,7 +665,7 @@ defmodule Mosslet.Timeline do
   # Filters out posts from muted users.
   # Handles both legacy format (list of user IDs) and hydrated format (list of user objects)
   defp filter_by_muted_users(query, muted_users)
-       when is_list(muted_users) and length(muted_users) > 0 do
+       when is_list(muted_users) and muted_users != [] do
     # Extract user IDs from the muted users list
     user_ids = extract_user_ids_from_muted_users(muted_users)
 
@@ -836,7 +836,7 @@ defmodule Mosslet.Timeline do
 
   # Simple bookmark filters for [b, p] join pattern used in list_user_bookmarks
   defp filter_by_muted_keywords_simple_bookmark(query, muted_keywords)
-       when is_list(muted_keywords) and length(muted_keywords) > 0 do
+       when is_list(muted_keywords) and muted_keywords != [] do
     Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
       muted_hash = String.downcase(muted_keyword)
 
@@ -872,7 +872,7 @@ defmodule Mosslet.Timeline do
   end
 
   defp filter_by_muted_users_simple_bookmark(query, muted_users)
-       when is_list(muted_users) and length(muted_users) > 0 do
+       when is_list(muted_users) and muted_users != [] do
     user_ids = extract_user_ids_from_muted_users(muted_users)
 
     case user_ids do
@@ -910,7 +910,7 @@ defmodule Mosslet.Timeline do
 
   # Bookmark-specific filter functions that reference the correct table order: [p, b, up, upr]
   defp filter_by_muted_keywords_bookmark(query, muted_keywords)
-       when is_list(muted_keywords) and length(muted_keywords) > 0 do
+       when is_list(muted_keywords) and muted_keywords != [] do
     Enum.reduce(muted_keywords, query, fn muted_keyword, acc_query ->
       muted_hash = String.downcase(muted_keyword)
 
@@ -950,7 +950,7 @@ defmodule Mosslet.Timeline do
   end
 
   defp filter_by_muted_users_bookmark(query, muted_users)
-       when is_list(muted_users) and length(muted_users) > 0 do
+       when is_list(muted_users) and muted_users != [] do
     user_ids = extract_user_ids_from_muted_users(muted_users)
 
     case user_ids do
@@ -1091,7 +1091,7 @@ defmodule Mosslet.Timeline do
 
   # Helper to decrypt filter keywords
   defp decrypt_filter_keywords(prefs, current_user) do
-    if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
+    if prefs.mute_keywords != [] do
       user_key = current_user.key
 
       if user_key do
@@ -1113,7 +1113,7 @@ defmodule Mosslet.Timeline do
 
   # Helper to decrypt muted users
   defp decrypt_muted_users(prefs, current_user) do
-    if prefs.muted_users && length(prefs.muted_users) > 0 do
+    if prefs.muted_users != [] do
       user_key = current_user.key
 
       if user_key do
@@ -4605,9 +4605,9 @@ defmodule Mosslet.Timeline do
   def has_active_filters?(filter_prefs) when is_nil(filter_prefs), do: false
 
   def has_active_filters?(filter_prefs) do
-    keywords_active = length(filter_prefs[:keywords] || []) > 0
+    keywords_active = (filter_prefs[:keywords] || []) != []
     cw_active = Map.get(filter_prefs[:content_warnings] || %{}, :hide_all, false)
-    users_active = length(filter_prefs[:muted_users] || []) > 0
+    users_active = (filter_prefs[:muted_users] || []) != []
     reposts_active = Map.get(filter_prefs, :hide_reposts, false)
 
     keywords_active || cw_active || users_active || reposts_active

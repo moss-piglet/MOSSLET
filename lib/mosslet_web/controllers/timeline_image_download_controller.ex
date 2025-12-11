@@ -58,7 +58,7 @@ defmodule MossletWeb.TimelineImageDownloadController do
     key = get_session(conn, "key")
 
     case post.image_urls do
-      urls when is_list(urls) and length(urls) > 0 ->
+      urls when is_list(urls) and urls != [] ->
         case Enum.at(urls, image_index) do
           nil ->
             conn

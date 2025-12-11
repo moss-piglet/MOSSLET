@@ -734,7 +734,7 @@ defmodule Mosslet.Accounts do
 
                # Get current decrypted muted users
                current_muted_users =
-                 if timeline_prefs.muted_users && length(timeline_prefs.muted_users) > 0 do
+                 if timeline_prefs.muted_users != [] do
                    Enum.map(timeline_prefs.muted_users, fn encrypted_user_id ->
                      Mosslet.Encrypted.Users.Utils.decrypt_user_data(
                        encrypted_user_id,

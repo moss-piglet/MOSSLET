@@ -157,7 +157,7 @@ defmodule Mosslet.Notifications.EmailNotificationsGenServer do
   def handle_info(:process_batch, state) do
     {batch, remaining_queue} = take_batch_from_queue(state.queue)
 
-    if length(batch) > 0 and can_send_emails?(state, length(batch)) do
+    if batch != [] and can_send_emails?(state, length(batch)) do
       # Process the batch (same logic as Broadway)
       {successful, failed} = process_email_batch(batch)
 

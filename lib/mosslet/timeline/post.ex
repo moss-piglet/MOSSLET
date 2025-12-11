@@ -207,7 +207,7 @@ defmodule Mosslet.Timeline.Post do
     if changeset.valid? && opts[:user] && opts[:key] do
       favs_list = get_field(changeset, :favs_list)
 
-      if favs_list && length(favs_list) > 0 do
+      if favs_list != [] do
         # Get existing post_key for this post (not generate a new one)
         group_id = get_field(changeset, :group_id)
         visibility = get_field(changeset, :visibility)
@@ -259,7 +259,7 @@ defmodule Mosslet.Timeline.Post do
     if changeset.valid? && opts[:user] && opts[:key] do
       reposts_list = get_field(changeset, :reposts_list)
 
-      if reposts_list && length(reposts_list) > 0 do
+      if reposts_list != [] do
         # Get existing post_key for this post (not generate a new one)
         group_id = get_field(changeset, :group_id)
         visibility = get_field(changeset, :visibility)
@@ -658,7 +658,7 @@ defmodule Mosslet.Timeline.Post do
     if changeset.valid? && opts[:user] && opts[:key] do
       favs_list = get_field(changeset, :favs_list)
 
-      if favs_list && length(favs_list) > 0 do
+      if favs_list != [] do
         # Asymmetrically encrypt each user_id in the favs_list individually with post_key
         encrypted_favs_list =
           Enum.map(favs_list, fn favs_id ->
@@ -685,7 +685,7 @@ defmodule Mosslet.Timeline.Post do
     if changeset.valid? && opts[:user] && opts[:key] do
       reposts_list = get_field(changeset, :reposts_list)
 
-      if reposts_list && length(reposts_list) > 0 do
+      if reposts_list != [] do
         # Asymmetrically encrypt each user_id in the reposts_list individually with post_key
         encrypted_reposts_list =
           Enum.map(reposts_list, fn reposts_id ->

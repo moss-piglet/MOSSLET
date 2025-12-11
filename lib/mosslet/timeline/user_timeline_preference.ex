@@ -126,7 +126,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     if changeset.valid? && opts[:user] && opts[:key] do
       mute_keywords = get_field(changeset, :mute_keywords)
 
-      if mute_keywords && length(mute_keywords) > 0 do
+      if mute_keywords != [] do
         # Asymmetrically encrypt each keyword individually with user_key
         encrypted_keywords =
           Enum.map(mute_keywords, fn keyword ->
@@ -157,7 +157,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     if changeset.valid? && opts[:user] && opts[:key] do
       muted_users = get_field(changeset, :muted_users)
 
-      if muted_users && length(muted_users) > 0 do
+      if muted_users != [] do
         # Asymmetrically encrypt each user_id individually with user_key
         encrypted_user_ids =
           Enum.map(muted_users, fn user_id ->

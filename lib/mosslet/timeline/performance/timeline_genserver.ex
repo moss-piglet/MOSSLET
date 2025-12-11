@@ -160,7 +160,7 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
   def handle_info(:process_timeline_batch, state) do
     {batch, remaining_queue} = take_batch_from_queue(state.timeline_queue, @batch_size)
 
-    if length(batch) > 0 do
+    if batch != [] do
       # Process the batch (same logic as Broadway)
       processed_count = process_timeline_batch(batch)
 
@@ -181,7 +181,7 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
   def handle_info(:process_cache_batch, state) do
     {batch, remaining_queue} = take_batch_from_queue(state.cache_queue, @cache_batch_size)
 
-    if length(batch) > 0 do
+    if batch != [] do
       # Process cache operations
       processed_count = process_cache_batch(batch)
 

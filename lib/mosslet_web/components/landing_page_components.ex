@@ -59,7 +59,7 @@ defmodule MossletWeb.LandingPageComponents do
           </div>
         </div>
 
-        <%= if length(@cloud_logo) > 0 do %>
+        <%= if @cloud_logo != [] do %>
           <div class="mt-40">
             <.logo_cloud title={@logo_cloud_title} cloud_logo={@cloud_logo} />
           </div>

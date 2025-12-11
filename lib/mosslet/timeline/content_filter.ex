@@ -148,7 +148,7 @@ defmodule Mosslet.Timeline.ContentFilter do
       else
         # Preserve existing keywords, but decrypt them first since schema will re-encrypt
         case prefs.mute_keywords do
-          keywords when is_list(keywords) and length(keywords) > 0 ->
+          keywords when is_list(keywords) and keywords != [] ->
             user = opts[:user]
             key = opts[:key]
 
@@ -169,11 +169,11 @@ defmodule Mosslet.Timeline.ContentFilter do
 
     # Muted users - only update if preferences explicitly contains muted users
     muted_users_list =
-      if preferences[:muted_users] && length(preferences[:muted_users]) > 0 do
+      if preferences[:muted_users] != [] do
         preferences[:muted_users]
       else
         # Preserve existing muted users, but decrypt them first since schema will re-encrypt
-        if prefs.muted_users && length(prefs.muted_users) > 0 do
+        if prefs.muted_users != [] do
           user = opts[:user]
           key = opts[:key]
 

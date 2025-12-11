@@ -85,7 +85,7 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
       eligible_users = filter_eligible_users(target_user_ids, current_user)
 
       # 🔄 NEW: Push all eligible users to GenServer for rate-limited processing
-      if length(eligible_users) > 0 do
+      if eligible_users != [] do
         EmailNotificationsGenServer.queue_post_notifications(
           post,
           eligible_users,

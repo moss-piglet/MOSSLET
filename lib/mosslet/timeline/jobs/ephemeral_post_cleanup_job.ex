@@ -176,7 +176,7 @@ defmodule Mosslet.Timeline.Jobs.EphemeralPostCleanupJob do
     now = NaiveDateTime.utc_now()
     expired_posts = Timeline.get_expired_ephemeral_posts(now)
 
-    if length(expired_posts) > 0 do
+    if expired_posts != [] do
       Logger.info("Found #{length(expired_posts)} expired ephemeral posts to delete")
 
       # Process in batches to avoid overwhelming the system
@@ -212,7 +212,7 @@ defmodule Mosslet.Timeline.Jobs.EphemeralPostCleanupJob do
         # Get all ephemeral posts for this user
         ephemeral_posts = Timeline.get_user_ephemeral_posts(user)
 
-        if length(ephemeral_posts) > 0 do
+        if ephemeral_posts != [] do
           Logger.info("Deleting #{length(ephemeral_posts)} ephemeral posts for user #{user_id}")
 
           # Delete all ephemeral posts for this user
