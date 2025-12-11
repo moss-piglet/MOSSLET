@@ -260,6 +260,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:return_url, url)
       |> assign(:filter, filter)
       |> assign(:show_content_filter, false)
+      |> assign(:loading_content_filter, false)
       |> assign_keyword_filter_form()
       |> assign(:load_more_loading, false)
 
@@ -339,6 +340,15 @@ defmodule MossletWeb.TimelineLive.Index do
       end)
 
     {:noreply, socket}
+  end
+
+  def handle_info(:complete_content_filter_toggle, socket) do
+    current_state = socket.assigns.show_content_filter
+
+    {:noreply,
+     socket
+     |> assign(:show_content_filter, !current_state)
+     |> assign(:loading_content_filter, false)}
   end
 
   def handle_info(
@@ -2128,8 +2138,13 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("toggle_content_filter", _params, socket) do
-    current_state = socket.assigns.show_content_filter
-    {:noreply, assign(socket, :show_content_filter, !current_state)}
+    socket =
+      socket
+      |> assign(:loading_content_filter, true)
+
+    Process.send_after(self(), :complete_content_filter_toggle, 150)
+
+    {:noreply, socket}
   end
 
   def handle_event("remove_url_preview", _params, socket) do

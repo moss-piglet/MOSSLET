@@ -90,10 +90,16 @@
                 else: "open-content-filter-button-timeline"
             }
             type="button"
+            disabled={@loading_content_filter}
             class={[
               "p-2.5 rounded-xl transition-all duration-200 ease-out group relative",
+              "focus:outline-none focus:ring-2 focus:ring-teal-500/50",
+              if(@loading_content_filter,
+                do: "cursor-wait opacity-75",
+                else: ""
+              ),
               if(@show_content_filter,
-                do: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
+                do: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 scale-95",
                 else:
                   "text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
               )
@@ -107,14 +113,44 @@
             phx-click="toggle_content_filter"
             title="Content Filters"
           >
+            <%!-- Loading spinner --%>
+            <div
+              :if={@loading_content_filter}
+              class="h-5 w-5 flex-shrink-0 animate-spin"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="3"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+
+            <%!-- Funnel icon (hide when loading) --%>
             <.phx_icon
+              :if={!@loading_content_filter}
               name="hero-funnel"
-              class="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
+              class={[
+                "h-5 w-5 transition-all duration-200",
+                if(@show_content_filter,
+                  do: "rotate-180",
+                  else: "group-hover:scale-110"
+                )
+              ]}
             />
 
             <%!-- Enhanced filter indicator badge --%>
             <div
-              :if={has_active_filters?(@content_filters)}
+              :if={has_active_filters?(@content_filters) && !@loading_content_filter}
               class={[
                 "absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center",
                 "bg-gradient-to-br from-emerald-500 to-teal-600",
