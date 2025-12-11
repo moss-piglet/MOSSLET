@@ -4582,10 +4582,12 @@ defmodule MossletWeb.DesignSystem do
             <.liquid_timeline_action
               :if={@can_repost}
               icon="hero-arrow-path"
-              id={"new-repost-button-#{@post.id}"}
+              id={"repost-button-#{@post.id}"}
+              icon_id={"repost-icon-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
+              repost_post_id={@post.id}
               phx-hook="TippyHook"
               data-tippy-content="Repost this post"
               phx-click="repost"
@@ -4596,13 +4598,32 @@ defmodule MossletWeb.DesignSystem do
             <.liquid_timeline_action
               :if={!@can_repost && @post.user_id == @current_user.id && @post.allow_shares}
               icon="hero-arrow-path"
-              id={"cannot-repost-button-#{@post.id}"}
+              id={"repost-button-disabled-#{@post.id}"}
+              icon_id={"repost-icon-disabled-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
+              repost_post_id={@post.id}
               phx-hook="TippyHook"
               class="cursor-not-allowed"
               data-tippy-content="You cannot repost your own post"
+              phx-click={nil}
+              phx-value-id={nil}
+              phx-value-body={nil}
+              phx-value-username={nil}
+            />
+            <.liquid_timeline_action
+              :if={!@can_repost && @post.user_id != @current_user.id}
+              icon="hero-arrow-path"
+              id={"repost-button-disabled-#{@post.id}"}
+              icon_id={"repost-icon-disabled-#{@post.id}"}
+              count={Map.get(@stats, :shares, 0)}
+              label="Share"
+              color="emerald"
+              repost_post_id={@post.id}
+              phx-hook="TippyHook"
+              class="cursor-not-allowed"
+              data-tippy-content="You have already reposted this"
               phx-click={nil}
               phx-value-id={nil}
               phx-value-body={nil}
@@ -4833,6 +4854,7 @@ defmodule MossletWeb.DesignSystem do
   attr :reply_id, :string, default: nil
   attr :current_user_id, :string, default: nil
   attr :icon_id, :string, default: nil
+  attr :repost_post_id, :string, default: nil
 
   attr :rest, :global,
     include:
@@ -4884,10 +4906,11 @@ defmodule MossletWeb.DesignSystem do
         </svg>
 
         <span
-          :if={@count > 0 || (@color == "rose" && (@post_id || @reply_id))}
+          :if={@count > 0 || (@color == "rose" && (@post_id || @reply_id)) || @repost_post_id}
           class="text-sm font-medium"
           data-post-fav-count={if @color == "rose" && @post_id, do: @post_id, else: nil}
           data-reply-fav-count={if @color == "rose" && @reply_id, do: @reply_id, else: nil}
+          data-post-repost-count={@repost_post_id}
         >
           {if @count > 0, do: @count, else: ""}
         </span>

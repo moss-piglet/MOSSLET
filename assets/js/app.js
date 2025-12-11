@@ -459,6 +459,43 @@ window.addEventListener("phx:update_post_bookmark", (event) => {
   }
 });
 
+window.addEventListener("phx:update_post_repost_count", (event) => {
+  const { post_id, reposts_count, can_repost } = event.detail;
+
+  const countElements = document.querySelectorAll(
+    `[data-post-repost-count="${post_id}"]`
+  );
+  countElements.forEach((el) => {
+    el.textContent = reposts_count > 0 ? reposts_count : "";
+  });
+
+  if (can_repost === false) {
+    const repostButton = document.getElementById(`repost-button-${post_id}`);
+
+    if (repostButton) {
+      repostButton.removeAttribute("phx-click");
+      repostButton.removeAttribute("phx-value-id");
+      repostButton.removeAttribute("phx-value-body");
+      repostButton.removeAttribute("phx-value-username");
+      repostButton.classList.add("cursor-not-allowed", "opacity-60");
+      repostButton.classList.add(
+        "text-emerald-600",
+        "dark:text-emerald-400",
+        "bg-emerald-50/50",
+        "dark:bg-emerald-900/20"
+      );
+      repostButton.setAttribute(
+        "data-tippy-content",
+        "You have already reposted this"
+      );
+
+      if (repostButton._tippy) {
+        repostButton._tippy.setContent("You have already reposted this");
+      }
+    }
+  }
+});
+
 window.addEventListener("phx:update_reply_fav_count", (event) => {
   const { reply_id, favs_count, is_liked } = event.detail;
   const countElements = document.querySelectorAll(

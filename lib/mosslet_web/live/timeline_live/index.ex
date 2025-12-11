@@ -2932,17 +2932,28 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("repost", %{"id" => id, "body" => body, "username" => username}, socket) do
     post = Timeline.get_post!(id)
     user = socket.assigns.current_user
-    # Add the post_key to the opts as the trix_key.
-    #
-    # This way, if there are any images in the post, then
-    # we will correctly reuse the trix_key from the original
-    # post to decrypt the images (this way we don't have to
-    # duplicate the images in storage).
-    #
-    # Also, it's a repost, so it is essentially a duplicate post
-    # and thus the duplicate use of the same key.
-    post_key = get_post_key(post, user)
     key = socket.assigns.key
+    encrypted_post_key = get_post_key(post, user)
+
+    decrypted_post_key =
+      case post.visibility do
+        :public ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+            decrypted when is_binary(decrypted) -> decrypted
+            _ -> nil
+          end
+
+        _ ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                 encrypted_post_key,
+                 user,
+                 key
+               ) do
+            {:ok, decrypted} -> decrypted
+            _ -> nil
+          end
+      end
+
     post_shared_users = socket.assigns.post_shared_users
 
     # Decrypt reposts list to check if user already reposted
@@ -2968,7 +2979,11 @@ defmodule MossletWeb.TimelineLive.Index do
         }
         |> add_shared_users_list(post_shared_users)
 
-      case Timeline.create_repost(repost_params, user: user, key: key, trix_key: post_key) do
+      case Timeline.create_repost(repost_params,
+             user: user,
+             key: key,
+             trix_key: decrypted_post_key
+           ) do
         {:ok, repost} ->
           {:ok, post} = Timeline.inc_reposts(post)
 
@@ -3002,6 +3017,11 @@ defmodule MossletWeb.TimelineLive.Index do
           socket =
             socket
             |> put_flash(:success, "Post reposted successfully.")
+            |> push_event("update_post_repost_count", %{
+              post_id: post.id,
+              reposts_count: post.reposts_count,
+              can_repost: false
+            })
 
           socket =
             if should_show_post and passes_content_filters do
