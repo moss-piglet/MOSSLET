@@ -55,6 +55,11 @@ button:disabled::before {
 
 /* This file is for your main application CSS */
 
+/* Character counter visibility */
+.char-counter-hidden {
+  opacity: 0;
+}
+
 @layer base {
   /* Use the pointer for buttons */
   button:not(:disabled),

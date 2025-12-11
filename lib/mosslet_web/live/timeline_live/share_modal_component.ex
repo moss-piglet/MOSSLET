@@ -171,15 +171,29 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
               >
                 Add a personal note (optional)
               </label>
-              <.phx_input
-                field={@form[:share_note]}
-                type="textarea"
-                id={"share-note-#{@post_id}"}
-                rows="2"
-                phx-debounce="300"
-                class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 resize-none"
-                placeholder="I thought you'd enjoy this..."
-              />
+              <div class="relative">
+                <.phx_input
+                  field={@form[:share_note]}
+                  type="textarea"
+                  id={"share-note-#{@post_id}"}
+                  rows="2"
+                  maxlength={@max_note_length}
+                  phx-debounce="300"
+                  phx-hook="CharacterCounter"
+                  data-limit={@max_note_length}
+                  class="w-full px-4 py-3 pr-20 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 resize-none"
+                  placeholder="I thought you'd enjoy this..."
+                />
+                <div
+                  phx-update="ignore"
+                  class="absolute bottom-3.5 right-3 transition-all duration-300 ease-out char-counter-hidden"
+                  id={"share-note-char-counter-#{@post_id}"}
+                >
+                  <span class="text-xs text-emerald-600 dark:text-emerald-400 bg-white/95 dark:bg-slate-800/95 px-2 py-1 rounded-full backdrop-blur-sm border border-emerald-200/60 dark:border-emerald-700/60 shadow-sm">
+                    <span class="js-char-count">0</span>/{@max_note_length}
+                  </span>
+                </div>
+              </div>
               <p class="text-xs text-slate-500 dark:text-slate-400">
                 Your note will appear with the shared post (max {@max_note_length} characters)
               </p>
