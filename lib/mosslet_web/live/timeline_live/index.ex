@@ -136,6 +136,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loaded_posts_count, 0)
       |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
+      # Track which tab is currently loading for UI feedback
+      |> assign(:loading_tab, nil)
       # Track dynamic stream limit
       |> assign(:stream_limit, @post_per_page_default)
       # Store user token for uploads
@@ -2585,9 +2587,11 @@ defmodule MossletWeb.TimelineLive.Index do
       |> Map.put(:post_page, 1)
 
     # Update the active tab immediately for responsive UI
+    # Set loading_tab to show loading indicator on the clicked tab
     socket =
       socket
       |> assign(:active_tab, tab)
+      |> assign(:loading_tab, tab)
       |> assign(:timeline_data, AsyncResult.loading())
 
     # Prepare variables for async operation
@@ -3654,6 +3658,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply,
      socket
      |> assign(:timeline_data, AsyncResult.ok(socket.assigns.timeline_data, timeline_result))
+     |> assign(:loading_tab, nil)
      |> assign(:post_loading_list, post_loading_list)
      |> assign(:post_count, post_count)
      |> assign(:timeline_counts, timeline_counts)
@@ -3670,6 +3675,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply,
      socket
      |> assign(:timeline_data, AsyncResult.failed(socket.assigns.timeline_data, {:exit, reason}))
+     |> assign(:loading_tab, nil)
      |> assign(:timeline_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
      |> assign(:unread_counts, %{home: 0, connections: 0, groups: 0, bookmarks: 0, discover: 0})
      |> assign(:loaded_posts_count, 0)

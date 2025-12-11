@@ -4966,6 +4966,7 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :tabs, :list, required: true
   attr :active_tab, :string, required: true
+  attr :loading_tab, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_timeline_tabs(assigns) do
@@ -4984,12 +4985,14 @@ defmodule MossletWeb.DesignSystem do
           <button
             :for={tab <- @tabs}
             data-active={to_string(tab.key == @active_tab)}
+            disabled={@loading_tab != nil}
             class={[
               "relative flex items-center justify-center gap-1.5 transition-all duration-200 ease-out",
               "focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
               "whitespace-nowrap",
               "px-3 py-2 text-xs sm:text-sm font-medium rounded-lg",
-              timeline_tab_classes(tab.key, tab.key == @active_tab)
+              timeline_tab_classes(tab.key, tab.key == @active_tab),
+              @loading_tab != nil && "cursor-wait"
             ]}
             phx-click="switch_tab"
             phx-value-tab={tab.key}
@@ -5004,9 +5007,31 @@ defmodule MossletWeb.DesignSystem do
             >
             </div>
 
-            <%!-- Tab icon --%>
+            <%!-- Loading spinner for the tab being loaded --%>
+            <div
+              :if={tab.key == @loading_tab}
+              class="h-4 w-4 flex-shrink-0 relative z-10 animate-spin"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="3"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+
+            <%!-- Tab icon (hide when loading this tab) --%>
             <.phx_icon
-              :if={tab_icon(tab.key)}
+              :if={tab_icon(tab.key) && tab.key != @loading_tab}
               name={tab_icon(tab.key)}
               class="h-4 w-4 flex-shrink-0 relative z-10"
             />
@@ -5018,7 +5043,7 @@ defmodule MossletWeb.DesignSystem do
 
             <%!-- Unread badge (inline flow, never clipped) --%>
             <span
-              :if={tab[:unread] && tab.unread > 0}
+              :if={tab[:unread] && tab.unread > 0 && tab.key != @loading_tab}
               class={[
                 "flex-shrink-0 relative z-10",
                 "flex items-center justify-center",
@@ -6416,6 +6441,7 @@ defmodule MossletWeb.DesignSystem do
             name={get_reply_author_name(@reply, @current_user, @key)}
             status={get_reply_author_status(@reply, @current_user, @key)}
             status_message={get_reply_author_status_message(@reply, @current_user, @key)}
+            show_status={get_reply_author_show_status(@reply, @current_user, @key)}
             user_id={@reply.user_id}
             size="sm"
             class="flex-shrink-0 mt-0.5"
@@ -6685,6 +6711,16 @@ defmodule MossletWeb.DesignSystem do
       nil ->
         # User account not found
         nil
+    end
+  end
+
+  def get_reply_author_show_status(reply, current_user, key) do
+    case Accounts.get_user_with_preloads(reply.user_id) do
+      %{} = reply_author ->
+        MossletWeb.Helpers.StatusHelpers.can_view_status?(reply_author, current_user, key)
+
+      nil ->
+        false
     end
   end
 
