@@ -2691,17 +2691,12 @@ defmodule MossletWeb.TimelineLive.Index do
 
     case Timeline.get_post(post_id) do
       %Post{} = post ->
-        # Check if post is already bookmarked using Timeline.bookmarked?
         if Timeline.bookmarked?(current_user, post) do
-          # Remove existing bookmark
           bookmark = Timeline.get_bookmark(current_user, post)
 
           case Timeline.delete_bookmark(bookmark, current_user) do
             {:ok, _bookmark} ->
-              # Track user activity for auto-status (bookmarking is user interaction)
               Accounts.track_user_activity(current_user, :interaction)
-              # Recalculate bookmark count
-              # Use cached content filters from socket assigns
               content_filter_prefs = socket.assigns.content_filters
               options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
               timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
@@ -2709,16 +2704,17 @@ defmodule MossletWeb.TimelineLive.Index do
               socket =
                 socket
                 |> assign(:timeline_counts, timeline_counts)
-                |> put_flash(:info, "Bookmark removed sucessfully.")
+                |> push_event("update_post_bookmark", %{
+                  post_id: post_id,
+                  is_bookmarked: false
+                })
+                |> put_flash(:info, "Bookmark removed successfully.")
 
               socket =
                 if current_tab == "bookmarks" do
                   stream_delete(socket, :posts, post)
                 else
-                  updated_post =
-                    get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
-
-                  stream_insert(socket, :posts, updated_post, at: -1)
+                  socket
                 end
 
               {:noreply, socket}
@@ -2738,6 +2734,10 @@ defmodule MossletWeb.TimelineLive.Index do
               socket =
                 socket
                 |> assign(:timeline_counts, timeline_counts)
+                |> push_event("update_post_bookmark", %{
+                  post_id: post_id,
+                  is_bookmarked: true
+                })
                 |> put_flash(:success, "Post bookmarked successfully.")
 
               socket =
@@ -2750,10 +2750,7 @@ defmodule MossletWeb.TimelineLive.Index do
                     limit: @post_per_page_default
                   )
                 else
-                  updated_post =
-                    get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
-
-                  stream_insert(socket, :posts, updated_post, at: -1)
+                  socket
                 end
 
               {:noreply, socket}

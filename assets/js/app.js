@@ -393,6 +393,72 @@ window.addEventListener("phx:update_post_fav_count", (event) => {
   }
 });
 
+window.addEventListener("phx:update_post_bookmark", (event) => {
+  const { post_id, is_bookmarked } = event.detail;
+
+  const bookmarkedButton = document.getElementById(
+    `hero-bookmark-solid-button-${post_id}`
+  );
+  const unbookmarkedButton = document.getElementById(
+    `hero-bookmark-button-${post_id}`
+  );
+  const button = bookmarkedButton || unbookmarkedButton;
+
+  if (button) {
+    const iconEl = button.querySelector("[id^='hero-bookmark']");
+
+    if (is_bookmarked) {
+      button.id = `hero-bookmark-solid-button-${post_id}`;
+      button.setAttribute("data-tippy-content", "Remove bookmark");
+      button.classList.remove(
+        "text-slate-400",
+        "hover:text-amber-600",
+        "dark:hover:text-amber-400",
+        "hover:bg-amber-50/50",
+        "dark:hover:bg-amber-900/20"
+      );
+      button.classList.add(
+        "text-amber-600",
+        "dark:text-amber-400",
+        "bg-amber-50/50",
+        "dark:bg-amber-900/20"
+      );
+      if (iconEl) {
+        iconEl.id = `hero-bookmark-solid-icon-${post_id}`;
+        iconEl.classList.remove("hero-bookmark");
+        iconEl.classList.add("hero-bookmark-solid");
+      }
+    } else {
+      button.id = `hero-bookmark-button-${post_id}`;
+      button.setAttribute("data-tippy-content", "Bookmark this post");
+      button.classList.remove(
+        "text-amber-600",
+        "dark:text-amber-400",
+        "bg-amber-50/50",
+        "dark:bg-amber-900/20"
+      );
+      button.classList.add(
+        "text-slate-400",
+        "hover:text-amber-600",
+        "dark:hover:text-amber-400",
+        "hover:bg-amber-50/50",
+        "dark:hover:bg-amber-900/20"
+      );
+      if (iconEl) {
+        iconEl.id = `hero-bookmark-icon-${post_id}`;
+        iconEl.classList.remove("hero-bookmark-solid");
+        iconEl.classList.add("hero-bookmark");
+      }
+    }
+
+    if (button._tippy) {
+      button._tippy.setContent(
+        is_bookmarked ? "Remove bookmark" : "Bookmark this post"
+      );
+    }
+  }
+});
+
 window.addEventListener("phx:update_reply_fav_count", (event) => {
   const { reply_id, favs_count, is_liked } = event.detail;
   const countElements = document.querySelectorAll(

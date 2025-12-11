@@ -4634,7 +4634,11 @@ defmodule MossletWeb.DesignSystem do
 
           <button
             :if={@can_bookmark?}
-            id={"bookmark-button-#{@post_id}"}
+            id={
+              if @bookmarked,
+                do: "hero-bookmark-solid-button-#{@post_id}",
+                else: "hero-bookmark-button-#{@post_id}"
+            }
             class={[
               "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
               "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
@@ -4650,6 +4654,11 @@ defmodule MossletWeb.DesignSystem do
             data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
           >
             <.phx_icon
+              id={
+                if @bookmarked,
+                  do: "hero-bookmark-solid-icon-#{@post_id}",
+                  else: "hero-bookmark-icon-#{@post_id}"
+              }
               name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
               class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
             />
