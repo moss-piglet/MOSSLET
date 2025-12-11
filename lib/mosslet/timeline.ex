@@ -2747,10 +2747,22 @@ defmodule Mosslet.Timeline do
             visibility: attrs["visibility"]
           )
 
-        # p_attrs.temp_key is not encrypted yet
         {:ok, %{insert_user_post: _user_post}} =
           Ecto.Multi.new()
           |> Ecto.Multi.insert(:insert_user_post, user_post)
+          |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
+            UserPostReceipt.changeset(
+              %UserPostReceipt{},
+              %{
+                user_id: user.id,
+                user_post_id: user_post.id,
+                is_read?: false,
+                read_at: nil
+              }
+            )
+            |> Ecto.Changeset.put_assoc(:user, user)
+            |> Ecto.Changeset.put_assoc(:user_post, user_post)
+          end)
           |> Repo.transaction_on_primary()
       end
 
@@ -2849,6 +2861,19 @@ defmodule Mosslet.Timeline do
         {:ok, %{insert_user_post: _user_post}} =
           Ecto.Multi.new()
           |> Ecto.Multi.insert(:insert_user_post, user_post)
+          |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
+            UserPostReceipt.changeset(
+              %UserPostReceipt{},
+              %{
+                user_id: user.id,
+                user_post_id: user_post.id,
+                is_read?: false,
+                read_at: nil
+              }
+            )
+            |> Ecto.Changeset.put_assoc(:user, user)
+            |> Ecto.Changeset.put_assoc(:user_post, user_post)
+          end)
           |> Repo.transaction_on_primary()
       end
 

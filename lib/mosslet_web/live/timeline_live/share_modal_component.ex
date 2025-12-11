@@ -181,7 +181,7 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                 placeholder="I thought you'd enjoy this..."
               />
               <p class="text-xs text-slate-500 dark:text-slate-400">
-                Your note will appear above the shared post (max {@max_note_length} characters)
+                Your note will appear with the shared post (max {@max_note_length} characters)
               </p>
             </div>
 
@@ -238,7 +238,7 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                         )
                       ]}
                     >
-                      <.liquid_avatar name={conn.username} size="sm" />
+                      <.liquid_avatar name={conn.username} size="sm" show_status={false} />
                       <span class="flex-1 text-left text-sm font-medium text-slate-900 dark:text-slate-100">
                         {conn.username}
                       </span>

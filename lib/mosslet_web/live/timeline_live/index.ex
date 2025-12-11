@@ -852,13 +852,12 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_info({:post_reposted, post}, socket) do
+  def handle_info({:post_shared, post}, socket) do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this reposted post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
@@ -870,11 +869,12 @@ defmodule MossletWeb.TimelineLive.Index do
 
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
-      # Add the reposted post to the top of the stream
+
       socket =
         socket
         |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
+        |> add_new_share_post_notification(post, current_user)
 
       {:noreply,
        push_event(socket, "update_user_status", %{
@@ -883,10 +883,10 @@ defmodule MossletWeb.TimelineLive.Index do
          status_message: new_status_message
        })}
     else
-      # Post doesn't match current tab or is filtered out, but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
+        |> add_subtle_tab_indicator(current_user, options)
 
       {:noreply, socket}
     end
@@ -4512,8 +4512,12 @@ defmodule MossletWeb.TimelineLive.Index do
               end)
 
           # For other visibility types (public, connections), show if from connected user
+          # OR if it's a repost shared with the current user
           true ->
-            post.user_id in connection_user_ids
+            post.user_id in connection_user_ids or
+              (post.repost == true and
+                 Ecto.assoc_loaded?(post.user_posts) and
+                 Enum.any?(post.user_posts, fn up -> up.user_id == current_user.id end))
         end
 
       "groups" ->
@@ -4570,15 +4574,28 @@ defmodule MossletWeb.TimelineLive.Index do
     if post.user_id === current_user.id do
       socket
     else
-      author_name = get_safe_post_author_name(post, current_user, socket.assigns.key)
+      session_key = socket.assigns.key
+      author_name = get_safe_post_author_name(post, current_user, session_key)
 
       message =
         case action do
-          "new" -> "New post from #{author_name}"
-          "updated" -> "Post updated by #{author_name}"
-          "deleted" -> "Post deleted by #{author_name}"
-          "reposted" -> "Post reposted by #{author_name}"
-          _ -> "Post from #{author_name}"
+          "new" ->
+            "New post from #{author_name}"
+
+          "updated" ->
+            "Post updated by #{author_name}"
+
+          "deleted" ->
+            "Post deleted by #{author_name}"
+
+          "reposted" ->
+            "Post reposted by #{author_name}"
+
+          "shared" ->
+            "Post from #{author_name} shared with you"
+
+          _ ->
+            "Post from #{author_name}"
         end
 
       # Add a gentle flash message
@@ -4589,6 +4606,10 @@ defmodule MossletWeb.TimelineLive.Index do
   # Backward compatibility alias
   defp add_new_post_notification(socket, post, current_user) do
     add_post_notification(socket, post, current_user, "new")
+  end
+
+  defp add_new_share_post_notification(socket, post, current_user) do
+    add_post_notification(socket, post, current_user, "shared")
   end
 
   # Reply notification function
@@ -4824,10 +4845,19 @@ defmodule MossletWeb.TimelineLive.Index do
             uconn = get_uconn_for_shared_item(post, current_user)
 
             if uconn && uconn.connection do
-              case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
-                name when is_binary(name) -> name
-                # User chose to keep identity private
-                :failed_verification -> "Private Author"
+              # we respect the user's preference for displaying their name
+              if uconn.connection.profile && uconn.connection.profile.show_name? do
+                case decr_uconn(uconn.connection.name, current_user, uconn.key, key) do
+                  name when is_binary(name) -> name
+                  # User chose to keep identity private
+                  :failed_verification -> "Private Author"
+                end
+              else
+                case decr_uconn(uconn.connection.username, current_user, uconn.key, key) do
+                  username when is_binary(username) -> username
+                  # User chose to keep identity private
+                  :failed_verification -> "Private Author"
+                end
               end
             else
               # No connection or privacy-focused sharing
@@ -4868,8 +4898,8 @@ defmodule MossletWeb.TimelineLive.Index do
         case Enum.find(post.user_post_receipts || [], fn receipt ->
                receipt.user_id == current_user.id
              end) do
-          # No receipt = treat as read
-          nil -> false
+          # No receipt = treat as unread
+          nil -> true
           # Use receipt status
           %{is_read?: is_read} -> !is_read
         end
@@ -4897,7 +4927,7 @@ defmodule MossletWeb.TimelineLive.Index do
         post_key = get_post_key(post, current_user)
         decr_item(user_post.share_note, current_user, post_key, key, post, "body")
       else
-        "hooray"
+        nil
       end
     else
       nil

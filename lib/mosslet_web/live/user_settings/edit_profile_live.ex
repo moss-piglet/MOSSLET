@@ -297,7 +297,7 @@ defmodule MossletWeb.EditProfileLive do
                       <DesignSystem.liquid_checkbox
                         field={f_nested[:show_name?]}
                         label="Show your name?"
-                        help="Display your name for future profile verification badge (TBD)."
+                        help="Display your name on your profile and posts"
                       />
                     </div>
                   </div>
@@ -641,7 +641,8 @@ defmodule MossletWeb.EditProfileLive do
           {:noreply,
            socket
            |> put_flash(:success, info)
-           |> assign(profile_form: profile_form)}
+           |> assign(profile_form: profile_form)
+           |> push_navigate(~p"/app/users/edit-profile")}
       end
     else
       info = "Woops, you need to confirm your account first."

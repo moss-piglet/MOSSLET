@@ -1066,12 +1066,12 @@ defmodule Mosslet.Accounts do
     cond do
       updated_conn.profile.visibility == :public ->
         broadcast_public_connection(updated_conn, :conn_updated)
-        broadcast_connection(updated_conn, :conn_updated)
+        broadcast_connection(updated_conn, :uconn_updated)
         broadcast_public_user_connections(uconns, :uconn_updated)
         {:ok, updated_conn}
 
       true ->
-        broadcast_connection(updated_conn, :conn_updated)
+        broadcast_connection(updated_conn, :uconn_updated)
         broadcast_public_user_connections(uconns, :uconn_updated)
         {:ok, updated_conn}
     end
