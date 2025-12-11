@@ -48,15 +48,15 @@ window.tippy = tippy;
 // Set default tippy props to fix accessibility landmark issues
 tippy.setDefaultProps({
   appendTo: () => {
-    let container = document.getElementById('tippy-container');
+    let container = document.getElementById("tippy-container");
     if (!container) {
-      container = document.createElement('div');
-      container.id = 'tippy-container';
-      container.setAttribute('aria-hidden', 'true');
+      container = document.createElement("div");
+      container.id = "tippy-container";
+      container.setAttribute("aria-hidden", "true");
       document.body.appendChild(container);
     }
     return container;
-  }
+  },
 });
 
 Alpine.start();
@@ -128,24 +128,27 @@ window.addEventListener("phx:close-reply-composer", (event) => {
   const composerId = `reply-composer-${post_id}`;
   const cardId = `timeline-card-${post_id}`;
   const buttonId = `reply-button-${post_id}`;
-  
+
   // Use the same toggle logic as the original JS.toggle command
   const composer = document.getElementById(composerId);
   const card = document.getElementById(cardId);
   const button = document.getElementById(buttonId);
-  
-  if (composer && composer.classList.contains('block') || !composer.classList.contains('hidden')) {
+
+  if (
+    (composer && composer.classList.contains("block")) ||
+    !composer.classList.contains("hidden")
+  ) {
     // Close the composer
-    composer.classList.add('hidden');
-    
+    composer.classList.add("hidden");
+
     // Remove ring from card
     if (card) {
-      card.classList.remove('ring-2', 'ring-emerald-300');
+      card.classList.remove("ring-2", "ring-emerald-300");
     }
-    
+
     // Reset button state
     if (button) {
-      button.setAttribute('data-composer-open', 'false');
+      button.setAttribute("data-composer-open", "false");
     }
   }
 });
@@ -318,6 +321,150 @@ window.addEventListener("phx:show-el", (e) =>
   document.getElementById(e.detail.id).removeAttribute("style")
 );
 
+window.addEventListener("phx:update_post_fav_count", (event) => {
+  const { post_id, favs_count, is_liked } = event.detail;
+  const countElements = document.querySelectorAll(
+    `[data-post-fav-count="${post_id}"]`
+  );
+  countElements.forEach((el) => {
+    el.textContent = favs_count > 0 ? favs_count : "";
+  });
+
+  if (is_liked !== undefined) {
+    const likedButton = document.getElementById(
+      `hero-heart-solid-button-${post_id}`
+    );
+    const unlikedButton = document.getElementById(
+      `hero-heart-button-${post_id}`
+    );
+    const button = likedButton || unlikedButton;
+
+    if (button) {
+      const iconEl = button.querySelector("[id^='hero-heart']");
+
+      if (is_liked) {
+        button.id = `hero-heart-solid-button-${post_id}`;
+        button.setAttribute("phx-click", "unfav");
+        button.setAttribute("data-tippy-content", "Remove love");
+        button.classList.remove(
+          "text-slate-500",
+          "dark:text-slate-400",
+          "hover:text-rose-600",
+          "dark:hover:text-rose-400"
+        );
+        button.classList.add(
+          "text-rose-600",
+          "dark:text-rose-400",
+          "bg-rose-50/50",
+          "dark:bg-rose-900/20"
+        );
+        if (iconEl) {
+          iconEl.id = `hero-heart-solid-icon-${post_id}`;
+          iconEl.classList.remove("hero-heart");
+          iconEl.classList.add("hero-heart-solid");
+        }
+      } else {
+        button.id = `hero-heart-button-${post_id}`;
+        button.setAttribute("phx-click", "fav");
+        button.setAttribute("data-tippy-content", "Show love");
+        button.classList.remove(
+          "text-rose-600",
+          "dark:text-rose-400",
+          "bg-rose-50/50",
+          "dark:bg-rose-900/20"
+        );
+        button.classList.add(
+          "text-slate-500",
+          "dark:text-slate-400",
+          "hover:text-rose-600",
+          "dark:hover:text-rose-400"
+        );
+        if (iconEl) {
+          iconEl.id = `hero-heart-icon-${post_id}`;
+          iconEl.classList.remove("hero-heart-solid");
+          iconEl.classList.add("hero-heart");
+        }
+      }
+
+      if (button._tippy) {
+        button._tippy.setContent(is_liked ? "Remove love" : "Show love");
+      }
+    }
+  }
+});
+
+window.addEventListener("phx:update_reply_fav_count", (event) => {
+  const { reply_id, favs_count, is_liked } = event.detail;
+  const countElements = document.querySelectorAll(
+    `[data-reply-fav-count="${reply_id}"]`
+  );
+  countElements.forEach((el) => {
+    el.textContent = favs_count > 0 ? favs_count : "";
+  });
+
+  if (is_liked !== undefined) {
+    const likedButton = document.getElementById(
+      `hero-heart-solid-reply-button-${reply_id}`
+    );
+    const unlikedButton = document.getElementById(
+      `hero-heart-reply-button-${reply_id}`
+    );
+    const button = likedButton || unlikedButton;
+
+    if (button) {
+      const iconEl = button.querySelector("[id^='hero-heart']");
+
+      if (is_liked) {
+        button.id = `hero-heart-solid-reply-button-${reply_id}`;
+        button.setAttribute("phx-click", "unfav_reply");
+        button.setAttribute("data-tippy-content", "Remove love");
+        button.classList.remove(
+          "text-slate-500",
+          "dark:text-slate-400",
+          "hover:text-rose-600",
+          "dark:hover:text-rose-400"
+        );
+        button.classList.add(
+          "text-rose-600",
+          "dark:text-rose-400",
+          "bg-rose-50/50",
+          "dark:bg-rose-900/20"
+        );
+        if (iconEl) {
+          iconEl.id = `hero-heart-solid-reply-icon-${reply_id}`;
+          iconEl.classList.remove("hero-heart");
+          iconEl.classList.add("hero-heart-solid");
+        }
+      } else {
+        button.id = `hero-heart-reply-button-${reply_id}`;
+        button.setAttribute("phx-click", "fav_reply");
+        button.setAttribute("data-tippy-content", "Show love");
+        button.classList.remove(
+          "text-rose-600",
+          "dark:text-rose-400",
+          "bg-rose-50/50",
+          "dark:bg-rose-900/20"
+        );
+        button.classList.add(
+          "text-slate-500",
+          "dark:text-slate-400",
+          "hover:text-rose-600",
+          "dark:hover:text-rose-400"
+        );
+        if (iconEl) {
+          iconEl.id = `hero-heart-reply-icon-${reply_id}`;
+          iconEl.classList.remove("hero-heart-solid");
+          iconEl.classList.add("hero-heart");
+        }
+      }
+
+      if (button._tippy) {
+        button._tippy.setContent(is_liked ? "Remove love" : "Show love");
+      }
+    }
+  }
+});
+
 window.addEventListener("phx:remove-el", (e) =>
   document.getElementById(e.detail.id).remove()
 );
@@ -437,7 +584,8 @@ function extractActionFromMessage(message) {
 }
 
 function showCustomConfirm(message, actionText, onConfirm) {
-  const buttonLabel = actionText || extractActionFromMessage(message) || "Confirm";
+  const buttonLabel =
+    actionText || extractActionFromMessage(message) || "Confirm";
   // Create dialog element that matches our CSS selectors
   const dialog = document.createElement("dialog");
   dialog.setAttribute("data-confirm", "");
@@ -545,8 +693,6 @@ topbar.config({
 });
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
-
-
 
 // connect if there are any LiveViews on the page
 liveSocket.getSocket().onOpen(() => execJS("#connection-status", "js-hide"));

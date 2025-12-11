@@ -339,7 +339,6 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
       ) do
     entry = Enum.find(socket.assigns.uploads.photos.entries, &(&1.ref == entry_ref))
-    Logger.debug("📷 HANDLE_INFO upload_ready: ref=#{entry_ref}, has_entry?=#{entry != nil}")
 
     upload_stages = Map.put(socket.assigns.upload_stages, entry_ref, {:ready, nil})
 
@@ -362,8 +361,6 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:upload_progress, entry_ref, stage, value}, socket) do
-    Logger.debug("📷 HANDLE_INFO upload_progress: ref=#{entry_ref}, stage=#{stage}")
-
     upload_stages = Map.put(socket.assigns.upload_stages, entry_ref, {stage, value})
     socket = assign(socket, :upload_stages, upload_stages)
 
@@ -800,44 +797,18 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_info({:post_updated_fav, post}, socket) do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
-    options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this updated post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
-
-    # Apply content filtering to the updated post
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
-      key = socket.assigns.key
-      current_user = Accounts.get_user_with_preloads(current_user.id)
-      post_user = Accounts.get_user_with_preloads(post.user_id)
-      status_info = get_user_status_info(post_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
-      # Update the post in the stream - this will update the existing post in place
-      socket =
-        socket
-        # Update existing post
-        |> stream_insert(:posts, post, at: -1)
-        |> recalculate_counts_after_post_update(current_user, options)
-
       {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: current_user.id,
-         status: new_status,
-         status_message: new_status_message
+       push_event(socket, "update_post_fav_count", %{
+         post_id: post.id,
+         favs_count: post.favs_count
        })}
     else
-      # Post no longer matches current tab or is now filtered out
-      # Remove it from stream and update counts
-      socket =
-        socket
-        |> stream_delete(:posts, post)
-        |> recalculate_counts_after_post_update(current_user, options)
-
       {:noreply, socket}
     end
   end
@@ -845,40 +816,18 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_info({:reply_updated_fav, post, reply}, socket) do
     current_user = socket.assigns.current_user
     current_tab = socket.assigns.active_tab || "home"
-    options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
-      key = socket.assigns.key
-      current_user = Accounts.get_user_with_preloads(current_user.id)
-      reply_user = Accounts.get_user_with_preloads(reply.user_id)
-      status_info = get_user_status_info(reply_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
-
-      post_with_limited_replies =
-        get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
-
-      socket =
-        socket
-        |> stream_insert(:posts, post_with_limited_replies, at: -1)
-        |> recalculate_counts_after_post_update(current_user, options)
-
       {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: reply.user_id,
-         status: new_status,
-         status_message: new_status_message
+       push_event(socket, "update_reply_fav_count", %{
+         reply_id: reply.id,
+         favs_count: reply.favs_count
        })}
     else
-      socket =
-        socket
-        |> recalculate_counts_after_post_update(current_user, options)
-
       {:noreply, socket}
     end
   end
@@ -1597,9 +1546,7 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("remove_completed_upload", %{"ref" => ref}, socket) do
-    require Logger
     ref_value = if is_binary(ref), do: String.to_integer(ref), else: ref
-    Logger.debug("📷 remove_completed_upload: ref=#{ref}, ref_value=#{ref_value}")
 
     upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
 
@@ -1608,8 +1555,6 @@ defmodule MossletWeb.TimelineLive.Index do
         upload_ref = if is_binary(upload.ref), do: String.to_integer(upload.ref), else: upload.ref
         upload_ref == ref_value
       end)
-
-    Logger.debug("📷 completed_uploads after reject: #{length(completed_uploads)}")
 
     entry_exists? =
       Enum.any?(socket.assigns.uploads.photos.entries, &(&1.ref == ref_value))
@@ -2154,9 +2099,6 @@ defmodule MossletWeb.TimelineLive.Index do
       key = socket.assigns.key
       post_shared_users = socket.assigns.post_shared_users
 
-      require Logger
-      Logger.debug("🔑 save_post: key=#{inspect(key)}, key nil?=#{is_nil(key)}")
-
       # Process uploaded photos and get their URLs with trix_key
       {uploaded_photo_urls, trix_key} =
         process_uploaded_photos(socket, current_user, key)
@@ -2280,15 +2222,6 @@ defmodule MossletWeb.TimelineLive.Index do
             {:noreply, socket}
 
           {:error, changeset} ->
-            Logger.debug("❌ save_post error changeset.errors: #{inspect(changeset.errors)}")
-            Logger.debug("❌ save_post changeset valid?: #{changeset.valid?}")
-
-            Logger.debug(
-              "❌ save_post user_post_map: #{inspect(changeset.changes[:user_post_map])}"
-            )
-
-            Logger.debug("❌ save_post full changeset: #{inspect(changeset)}")
-
             error_message =
               MossletWeb.CoreComponents.combine_changeset_error_messages_sans_key(changeset)
 
@@ -2858,11 +2791,18 @@ defmodule MossletWeb.TimelineLive.Index do
              post_key: encrypted_post_key
            ) do
         {:ok, updated_post} ->
-          # Track user activity for auto-status (liking is user interaction)
           Accounts.track_user_activity(current_user, :interaction)
 
-          socket = stream_insert(socket, :posts, updated_post, at: -1)
-          {:noreply, put_flash(socket, :success, "You loved this post!")}
+          socket =
+            socket
+            |> push_event("update_post_fav_count", %{
+              post_id: updated_post.id,
+              favs_count: updated_post.favs_count,
+              is_liked: true
+            })
+            |> put_flash(:success, "You loved this post!")
+
+          {:noreply, socket}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
@@ -2895,11 +2835,18 @@ defmodule MossletWeb.TimelineLive.Index do
              post_key: encrypted_post_key
            ) do
         {:ok, updated_post} ->
-          # Track user activity for auto-status (unliking is user interaction)
           Accounts.track_user_activity(current_user, :interaction)
 
-          socket = stream_insert(socket, :posts, updated_post, at: -1)
-          {:noreply, put_flash(socket, :success, "You removed love from this post.")}
+          socket =
+            socket
+            |> push_event("update_post_fav_count", %{
+              post_id: updated_post.id,
+              favs_count: updated_post.favs_count,
+              is_liked: false
+            })
+            |> put_flash(:success, "You removed love from this post.")
+
+          {:noreply, socket}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
@@ -2921,10 +2868,19 @@ defmodule MossletWeb.TimelineLive.Index do
                  %{favs_list: List.insert_at(reply.favs_list, 0, current_user.id)},
                  user: current_user
                ) do
-            {:ok, _reply} ->
-              # Track user activity for auto-status (reply fav is significant activity)
+            {:ok, updated_reply} ->
               Accounts.track_user_activity(current_user, :interaction)
-              {:noreply, put_flash(socket, :success, "You loved this reply!")}
+
+              socket =
+                socket
+                |> push_event("update_reply_fav_count", %{
+                  reply_id: updated_reply.id,
+                  favs_count: updated_reply.favs_count,
+                  is_liked: true
+                })
+                |> put_flash(:success, "You loved this reply!")
+
+              {:noreply, socket}
 
             {:error, _changeset} ->
               {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
@@ -2950,10 +2906,19 @@ defmodule MossletWeb.TimelineLive.Index do
                  %{favs_list: List.delete(reply.favs_list, current_user.id)},
                  user: current_user
                ) do
-            {:ok, _reply} ->
-              # Track user activity for auto-status (reply unfav is significant activity)
+            {:ok, updated_reply} ->
               Accounts.track_user_activity(current_user, :interaction)
-              {:noreply, put_flash(socket, :success, "You removed love from this reply.")}
+
+              socket =
+                socket
+                |> push_event("update_reply_fav_count", %{
+                  reply_id: updated_reply.id,
+                  favs_count: updated_reply.favs_count,
+                  is_liked: false
+                })
+                |> put_flash(:success, "You removed love from this reply.")
+
+              {:noreply, socket}
 
             {:error, _changeset} ->
               {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}

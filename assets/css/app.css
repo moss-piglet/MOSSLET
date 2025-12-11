@@ -3,6 +3,11 @@
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Phoenix LiveView loading state variants */
+@custom-variant phx-click-loading (&.phx-click-loading, .phx-click-loading &);
+@custom-variant phx-submit-loading (&.phx-submit-loading, .phx-submit-loading &);
+@custom-variant phx-change-loading (&.phx-change-loading, .phx-change-loading &);
+
 @source "../js/**/*.js";
 @source "../../lib/mosslet_web.ex";
 @source "../../lib/mosslet_web/*.*ex";

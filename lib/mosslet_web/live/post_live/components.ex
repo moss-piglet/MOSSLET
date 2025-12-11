@@ -402,7 +402,7 @@ defmodule MossletWeb.PostLive.Components do
           phx-hook="TippyHook"
         >
           <.phx_icon name="hero-star" class="h-4 w-4" />
-          <span class="ml-1 text-xs">{@post.favs_count}</span>
+          <span class="ml-1 text-xs" data-post-fav-count={@post.id}>{@post.favs_count}</span>
         </div>
 
         <div
@@ -415,7 +415,7 @@ defmodule MossletWeb.PostLive.Components do
           phx-hook="TippyHook"
         >
           <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-          <span class="ml-1 text-xs">{@post.favs_count}</span>
+          <span class="ml-1 text-xs" data-post-fav-count={@post.id}>{@post.favs_count}</span>
         </div>
 
         <div
@@ -423,7 +423,7 @@ defmodule MossletWeb.PostLive.Components do
           class="inline-flex align-middle text-emerald-600 dark:text-emerald-400"
         >
           <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-          <span class="ml-1 text-xs">{@post.favs_count}</span>
+          <span class="ml-1 text-xs" data-post-fav-count={@post.id}>{@post.favs_count}</span>
         </div>
         <div class="inline-flex space-x-2 ml-1 text-xs align-middle">
           <%!-- Reply --%>
@@ -961,7 +961,7 @@ defmodule MossletWeb.PostLive.Components do
                 phx-hook="TippyHook"
               >
                 <.phx_icon name="hero-star" class="h-4 w-4" />
-                <span class="ml-1 text-xs">{@post.favs_count}</span>
+                <span class="ml-1 text-xs" data-post-fav-count={@post.id}>{@post.favs_count}</span>
               </div>
 
               <div
@@ -974,7 +974,7 @@ defmodule MossletWeb.PostLive.Components do
                 phx-hook="TippyHook"
               >
                 <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-                <span class="ml-1 text-xs">{@post.favs_count}</span>
+                <span class="ml-1 text-xs" data-post-fav-count={@post.id}>{@post.favs_count}</span>
               </div>
 
               <div
@@ -982,7 +982,7 @@ defmodule MossletWeb.PostLive.Components do
                 class="inline-flex align-middle text-emerald-600 dark:text-emerald-400"
               >
                 <.phx_icon name="hero-star-solid" class="h-4 w-4" />
-                <span class="ml-1 text-xs">{@post.favs_count}</span>
+                <span class="ml-1 text-xs" data-post-fav-count={@post.id}>{@post.favs_count}</span>
               </div>
               <div class="inline-flex space-x-2 ml-1 text-xs align-middle">
                 <%!-- Reply --%>

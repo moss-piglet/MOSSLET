@@ -171,27 +171,18 @@ defmodule MossletWeb.DesignSystem do
       :if={!@is_link}
       type={@type}
       disabled={@disabled}
-      class={
-        [
-          # Base styles
-          "group relative overflow-hidden inline-flex items-center justify-center gap-2 font-semibold",
-          "transition-all duration-200 ease-out transform-gpu will-change-transform",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
-
-          # Size variants
-          button_size_classes(@size),
-
-          # Style variants
-          button_variant_classes(@variant, @color),
-
-          # Custom classes
-          @class
-        ]
-      }
+      class={[
+        "group relative overflow-hidden inline-flex items-center justify-center gap-2 font-semibold",
+        "transition-all duration-200 ease-out transform-gpu will-change-transform",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+        "phx-submit-loading:opacity-80 phx-submit-loading:cursor-wait",
+        button_size_classes(@size),
+        button_variant_classes(@variant, @color),
+        @class
+      ]}
       {@rest}
     >
-      <%!-- Shimmer effect for primary buttons --%>
       <div
         :if={@variant == "primary"}
         class={[
@@ -203,11 +194,27 @@ defmodule MossletWeb.DesignSystem do
       >
       </div>
 
+      <svg
+        class="hidden phx-submit-loading:inline-block h-4 w-4 animate-spin relative z-10 mr-1"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+        </circle>
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        >
+        </path>
+      </svg>
+
       <.phx_icon
         :if={@icon}
         name={@icon}
         class={[
-          "h-4 w-4 relative z-10 transition-transform duration-200 ease-out",
+          "h-4 w-4 relative z-10 transition-transform duration-200 ease-out phx-submit-loading:hidden",
           icon_animation_classes(@icon)
         ]}
       />
@@ -4498,11 +4505,8 @@ defmodule MossletWeb.DesignSystem do
           </div>
         <% end %>
 
-        <%!-- Engagement actions (calm and minimal) with semantic colors --%>
         <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
-          <%!-- Action buttons with semantic color coding --%>
           <div class="flex items-center gap-1">
-            <%!-- Read/Unread toggle action button (moved to left section) --%>
             <button
               id={
                 if @unread?,
@@ -4511,6 +4515,7 @@ defmodule MossletWeb.DesignSystem do
               }
               class={[
                 "p-2 rounded-lg transition-all duration-200 ease-out group/read active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2",
+                "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
                 if(@unread?,
                   do: "text-teal-600 dark:text-cyan-400 bg-teal-50/50 dark:bg-teal-900/20",
                   else:
@@ -4524,8 +4529,30 @@ defmodule MossletWeb.DesignSystem do
             >
               <.phx_icon
                 name={if @unread?, do: "hero-eye-solid", else: "hero-eye-slash"}
-                class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110"
+                class="h-5 w-5 transition-transform duration-200 group-hover/read:scale-110 phx-click-loading:hidden"
               />
+              <svg
+                class="hidden phx-click-loading:block h-5 w-5 animate-spin text-teal-500"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                >
+                </circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                >
+                </path>
+              </svg>
               <span class="sr-only">{if @unread?, do: "Mark as read", else: "Mark as unread"}</span>
             </button>
 
@@ -4585,13 +4612,19 @@ defmodule MossletWeb.DesignSystem do
               id={
                 if @liked,
                   do: "hero-heart-solid-button-#{@post_id}",
-                  else: "hero-heart-button=#{@post_id}"
+                  else: "hero-heart-button-#{@post_id}"
+              }
+              icon_id={
+                if @liked,
+                  do: "hero-heart-solid-icon-#{@post_id}",
+                  else: "hero-heart-icon-#{@post_id}"
               }
               icon={if @liked, do: "hero-heart-solid", else: "hero-heart"}
               count={Map.get(@stats, :likes, 0)}
               label={if @liked, do: "Unlike", else: "Like"}
               color="rose"
               active={@liked}
+              post_id={@post_id}
               phx-hook="TippyHook"
               data-tippy-content={if @liked, do: "Remove love", else: "Show love"}
               phx-click={if @liked, do: "unfav", else: "fav"}
@@ -4599,11 +4632,12 @@ defmodule MossletWeb.DesignSystem do
             />
           </div>
 
-          <%!-- Enhanced bookmark action with amber semantic color (matches Bookmarks tab) --%>
           <button
             :if={@can_bookmark?}
+            id={"bookmark-button-#{@post_id}"}
             class={[
               "p-2 rounded-lg transition-all duration-200 ease-out group/bookmark active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2",
+              "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
               if(@bookmarked,
                 do: "text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20",
                 else:
@@ -4612,12 +4646,31 @@ defmodule MossletWeb.DesignSystem do
             ]}
             phx-click="bookmark_post"
             phx-value-id={@post_id}
+            phx-hook="TippyHook"
+            data-tippy-content={if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
           >
             <.phx_icon
               name={if @bookmarked, do: "hero-bookmark-solid", else: "hero-bookmark"}
-              class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110"
+              class="h-5 w-5 transition-transform duration-200 group-hover/bookmark:scale-110 phx-click-loading:hidden"
             />
-            <span class="sr-only">Bookmark this post</span>
+            <svg
+              class="hidden phx-click-loading:block h-5 w-5 animate-spin text-amber-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+              </circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              >
+              </path>
+            </svg>
+            <span class="sr-only">
+              {if @bookmarked, do: "Remove bookmark", else: "Bookmark this post"}
+            </span>
           </button>
         </div>
       </div>
@@ -4768,6 +4821,7 @@ defmodule MossletWeb.DesignSystem do
   attr :color, :string, default: "slate", values: ~w(slate emerald amber rose)
   attr :class, :any, default: ""
   attr :post_id, :string, default: nil
+  attr :reply_id, :string, default: nil
   attr :current_user_id, :string, default: nil
   attr :icon_id, :string, default: nil
 
@@ -4782,12 +4836,12 @@ defmodule MossletWeb.DesignSystem do
         "group/action relative flex items-center gap-2 px-3 py-2 rounded-xl",
         "transition-all duration-200 ease-out active:scale-95",
         "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
+        "phx-click-loading:opacity-60 phx-click-loading:cursor-wait phx-click-loading:pointer-events-none",
         timeline_action_classes(@active, @color),
         @class
       ]}
       {@rest}
     >
-      <%!-- Subtle liquid background on hover --%>
       <div class={[
         "absolute inset-0 opacity-0 transition-all duration-300 ease-out rounded-xl",
         "group-hover/action:opacity-100",
@@ -4795,16 +4849,40 @@ defmodule MossletWeb.DesignSystem do
       ]}>
       </div>
 
-      <%!-- Single icon with conditional state --%>
-      <.phx_icon
-        name={@icon}
-        id={@icon_id}
-        class="relative h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-outline"
-      />
+      <div class="relative flex items-center gap-2">
+        <.phx_icon
+          name={@icon}
+          id={@icon_id}
+          class={[
+            "h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-outline",
+            "phx-click-loading:hidden"
+          ]}
+        />
+        <svg
+          class="hidden phx-click-loading:block h-4 w-4 animate-spin"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+          </circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          >
+          </path>
+        </svg>
 
-      <span :if={@count > 0} class="relative text-sm font-medium">
-        {@count}
-      </span>
+        <span
+          :if={@count > 0 || (@color == "rose" && (@post_id || @reply_id))}
+          class="text-sm font-medium"
+          data-post-fav-count={if @color == "rose" && @post_id, do: @post_id, else: nil}
+          data-reply-fav-count={if @color == "rose" && @reply_id, do: @reply_id, else: nil}
+        >
+          {if @count > 0, do: @count, else: ""}
+        </span>
+      </div>
       <span class="sr-only">{@label}</span>
     </button>
     """
@@ -6472,6 +6550,11 @@ defmodule MossletWeb.DesignSystem do
                       do: "hero-heart-solid-reply-button-#{@reply.id}",
                       else: "hero-heart-reply-button-#{@reply.id}"
                   }
+                  icon_id={
+                    if @current_user.id in @reply.favs_list,
+                      do: "hero-heart-solid-reply-icon-#{@reply.id}",
+                      else: "hero-heart-reply-icon-#{@reply.id}"
+                  }
                   icon={
                     if @current_user.id in @reply.favs_list,
                       do: "hero-heart-solid",
@@ -6481,6 +6564,7 @@ defmodule MossletWeb.DesignSystem do
                   label={if @current_user.id in @reply.favs_list, do: "Unlike", else: "Love"}
                   color="rose"
                   active={@current_user.id in @reply.favs_list}
+                  reply_id={@reply.id}
                   phx-click={
                     if @current_user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
                   }
