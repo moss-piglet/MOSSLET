@@ -6,8 +6,13 @@ const ComposerEmojiPicker = {
     this.pickerInstance = null;
     this.isPickerVisible = false;
 
+    if (!this.el.hasAttribute("aria-label")) {
+      this.el.setAttribute("aria-label", "Open emoji picker");
+    }
+    this.el.setAttribute("aria-haspopup", "dialog");
+    this.el.setAttribute("aria-expanded", "false");
+
     this.handleClickOutside = (event) => {
-      // Don't close if clicking inside the emoji picker itself
       if (
         this.pickerInstance &&
         !this.el.contains(event.target) &&
@@ -17,10 +22,14 @@ const ComposerEmojiPicker = {
       }
     };
 
-    // Listen for theme changes
+    this.handleKeyDown = (event) => {
+      if (event.key === "Escape" && this.isPickerVisible) {
+        this.hidePicker();
+      }
+    };
+
     this.handleThemeChange = (event) => {
       if (this.isPickerVisible && this.pickerInstance) {
-        // Recreate picker with new theme and styling
         this.hidePicker();
         setTimeout(() => this.showPicker(), 100);
       }
@@ -32,13 +41,14 @@ const ComposerEmojiPicker = {
       this.togglePicker();
     });
 
-    // Listen for theme changes
+    document.addEventListener("keydown", this.handleKeyDown);
     document.addEventListener("phx:set-theme", this.handleThemeChange);
   },
 
   destroyed() {
     this.hidePicker();
     document.removeEventListener("click", this.handleClickOutside);
+    document.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("phx:set-theme", this.handleThemeChange);
   },
 
@@ -55,13 +65,15 @@ const ComposerEmojiPicker = {
       this.hidePicker();
     }
 
-    // Find the textarea
     const textarea = document.getElementById("new-timeline-composer-textarea");
     if (!textarea) return;
 
-    // Create picker container - append to body to avoid overflow issues
+    this.el.setAttribute("aria-expanded", "true");
+
     const pickerContainer = document.createElement("div");
     pickerContainer.className = "fixed z-[9999]";
+    pickerContainer.setAttribute("role", "dialog");
+    pickerContainer.setAttribute("aria-label", "Emoji picker");
 
     // Hide initially to prevent style flash
     pickerContainer.style.opacity = "0";
@@ -100,13 +112,11 @@ const ComposerEmojiPicker = {
         window.matchMedia("(prefers-color-scheme: dark)").matches);
     const theme = isDark ? "dark" : "light";
 
-    // Create emoji picker with detected theme and custom liquid metal styling
     this.pickerInstance = new Picker({
       data: data,
       parent: pickerContainer,
       theme: theme,
-      emojiButtonColors: ["oklch(69.6% 0.17 162.48)"], // Teal color from design system
-      // Custom liquid metal styling
+      emojiButtonColors: ["oklch(69.6% 0.17 162.48)"],
       custom: [
         {
           id: "liquid-metal-theme",
@@ -120,22 +130,21 @@ const ComposerEmojiPicker = {
       },
     });
 
-    // Apply custom liquid metal styling immediately, then show picker
     setTimeout(() => {
       this.applyLiquidMetalStyling(theme);
-      // Show picker with smooth animation after styles are applied
+      this.fixA11yIssues();
       setTimeout(() => {
         if (pickerContainer) {
           pickerContainer.style.opacity = "1";
           pickerContainer.style.transform = "scale(1)";
+          this.focusPickerSearch();
         }
-      }, 50); // Small delay to ensure styles are applied
-    }, 50); // Reduced delay to minimize flash
+      }, 50);
+    }, 50);
 
     this.pickerContainer = pickerContainer;
     this.isPickerVisible = true;
 
-    // Add click outside listener
     setTimeout(() => {
       document.addEventListener("click", this.handleClickOutside);
     }, 100);
@@ -148,7 +157,49 @@ const ComposerEmojiPicker = {
     }
     this.pickerInstance = null;
     this.isPickerVisible = false;
+    this.el.setAttribute("aria-expanded", "false");
     document.removeEventListener("click", this.handleClickOutside);
+    this.el.focus();
+  },
+
+  focusPickerSearch() {
+    if (!this.pickerContainer) return;
+    const emojiMart = this.pickerContainer.querySelector("em-emoji-picker");
+    if (!emojiMart?.shadowRoot) {
+      setTimeout(() => this.focusPickerSearch(), 50);
+      return;
+    }
+    const searchInput = emojiMart.shadowRoot.querySelector(".search input");
+    if (searchInput) {
+      searchInput.focus();
+    }
+  },
+
+  fixA11yIssues() {
+    if (!this.pickerContainer) return;
+    const emojiMart = this.pickerContainer.querySelector("em-emoji-picker");
+    if (!emojiMart?.shadowRoot) {
+      setTimeout(() => this.fixA11yIssues(), 50);
+      return;
+    }
+    const scrollRegion = emojiMart.shadowRoot.querySelector(".scroll");
+    if (scrollRegion && !scrollRegion.hasAttribute("tabindex")) {
+      scrollRegion.setAttribute("tabindex", "0");
+    }
+    const nav = emojiMart.shadowRoot.querySelector("nav");
+    if (nav) {
+      nav.setAttribute("role", "tablist");
+      nav.querySelectorAll("button").forEach((btn) => {
+        btn.setAttribute("role", "tab");
+        if (!btn.hasAttribute("aria-selected")) {
+          btn.setAttribute("aria-selected", "false");
+        }
+      });
+    }
+    emojiMart.shadowRoot.querySelectorAll("button[aria-posinset]").forEach((btn) => {
+      btn.removeAttribute("aria-posinset");
+      btn.removeAttribute("aria-setsize");
+    });
   },
 
   applyLiquidMetalStyling(theme) {

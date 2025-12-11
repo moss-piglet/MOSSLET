@@ -7,12 +7,24 @@ const ReplyEmojiPicker = {
     this.isPickerVisible = false;
     this.targetTextareaId = this.el.dataset.targetTextarea;
 
+    if (!this.el.hasAttribute("aria-label")) {
+      this.el.setAttribute("aria-label", "Open emoji picker");
+    }
+    this.el.setAttribute("aria-haspopup", "dialog");
+    this.el.setAttribute("aria-expanded", "false");
+
     this.handleClickOutside = (event) => {
       if (
         this.pickerInstance &&
         !this.el.contains(event.target) &&
         !this.pickerContainer?.contains(event.target)
       ) {
+        this.hidePicker();
+      }
+    };
+
+    this.handleKeyDown = (event) => {
+      if (event.key === "Escape" && this.isPickerVisible) {
         this.hidePicker();
       }
     };
@@ -30,12 +42,14 @@ const ReplyEmojiPicker = {
       this.togglePicker();
     });
 
+    document.addEventListener("keydown", this.handleKeyDown);
     document.addEventListener("phx:set-theme", this.handleThemeChange);
   },
 
   destroyed() {
     this.hidePicker();
     document.removeEventListener("click", this.handleClickOutside);
+    document.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("phx:set-theme", this.handleThemeChange);
   },
 
@@ -55,8 +69,12 @@ const ReplyEmojiPicker = {
     const textarea = document.getElementById(this.targetTextareaId);
     if (!textarea) return;
 
+    this.el.setAttribute("aria-expanded", "true");
+
     const pickerContainer = document.createElement("div");
     pickerContainer.className = "fixed z-[9999]";
+    pickerContainer.setAttribute("role", "dialog");
+    pickerContainer.setAttribute("aria-label", "Emoji picker");
     pickerContainer.style.opacity = "0";
     pickerContainer.style.transform = "scale(0.95)";
     pickerContainer.style.transition =
@@ -99,10 +117,12 @@ const ReplyEmojiPicker = {
 
     setTimeout(() => {
       this.applyLiquidMetalStyling(theme);
+      this.fixA11yIssues();
       setTimeout(() => {
         if (pickerContainer) {
           pickerContainer.style.opacity = "1";
           pickerContainer.style.transform = "scale(1)";
+          this.focusPickerSearch();
         }
       }, 50);
     }, 50);
@@ -122,7 +142,49 @@ const ReplyEmojiPicker = {
     }
     this.pickerInstance = null;
     this.isPickerVisible = false;
+    this.el.setAttribute("aria-expanded", "false");
     document.removeEventListener("click", this.handleClickOutside);
+    this.el.focus();
+  },
+
+  focusPickerSearch() {
+    if (!this.pickerContainer) return;
+    const emojiMart = this.pickerContainer.querySelector("em-emoji-picker");
+    if (!emojiMart?.shadowRoot) {
+      setTimeout(() => this.focusPickerSearch(), 50);
+      return;
+    }
+    const searchInput = emojiMart.shadowRoot.querySelector(".search input");
+    if (searchInput) {
+      searchInput.focus();
+    }
+  },
+
+  fixA11yIssues() {
+    if (!this.pickerContainer) return;
+    const emojiMart = this.pickerContainer.querySelector("em-emoji-picker");
+    if (!emojiMart?.shadowRoot) {
+      setTimeout(() => this.fixA11yIssues(), 50);
+      return;
+    }
+    const scrollRegion = emojiMart.shadowRoot.querySelector(".scroll");
+    if (scrollRegion && !scrollRegion.hasAttribute("tabindex")) {
+      scrollRegion.setAttribute("tabindex", "0");
+    }
+    const nav = emojiMart.shadowRoot.querySelector("nav");
+    if (nav) {
+      nav.setAttribute("role", "tablist");
+      nav.querySelectorAll("button").forEach((btn) => {
+        btn.setAttribute("role", "tab");
+        if (!btn.hasAttribute("aria-selected")) {
+          btn.setAttribute("aria-selected", "false");
+        }
+      });
+    }
+    emojiMart.shadowRoot.querySelectorAll("button[aria-posinset]").forEach((btn) => {
+      btn.removeAttribute("aria-posinset");
+      btn.removeAttribute("aria-setsize");
+    });
   },
 
   applyLiquidMetalStyling(theme) {
