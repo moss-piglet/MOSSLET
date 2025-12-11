@@ -31,13 +31,13 @@ defmodule MossletWeb.ModernSidebarLayout do
     ~H"""
     <div
       class="min-h-screen bg-slate-50/50 dark:bg-slate-900"
-      x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }"
+      x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true', scrollPos: 0 }"
       x-init="$watch('sidebarCollapsed', val => localStorage.setItem('sidebarCollapsed', val))"
-      x-bind:class="{ 'overflow-hidden h-screen': sidebarOpen }"
+      x-effect="if (sidebarOpen) { scrollPos = window.scrollY; document.body.style.overflow = 'hidden'; } else { document.body.style.overflow = ''; window.scrollTo(0, scrollPos); }"
     >
       <%!-- Mobile sidebar backdrop --%>
       <div
-        class="fixed inset-0 z-40 xl:hidden"
+        class="fixed inset-0 z-[55] xl:hidden"
         x-show="sidebarOpen"
         x-transition:enter="transition-opacity ease-linear duration-200"
         x-transition:enter-start="opacity-0"
@@ -47,9 +47,8 @@ defmodule MossletWeb.ModernSidebarLayout do
         x-transition:leave-end="opacity-0"
         @click="sidebarOpen = false"
         x-cloak
-        style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important;"
       >
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
       </div>
 
       <%!-- Desktop sidebar --%>
@@ -168,10 +167,10 @@ defmodule MossletWeb.ModernSidebarLayout do
       </aside>
 
       <%!-- Mobile sidebar --%>
-      <aside class="relative z-50 xl:hidden" aria-label="Mobile sidebar">
+      <aside class="relative z-[60] xl:hidden" aria-label="Mobile sidebar">
         <div
           class={[
-            "fixed z-50 w-72 flex flex-col px-0 pb-4",
+            "fixed z-[60] w-72 flex flex-col px-0 pb-4",
             "bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30",
             "dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900/60",
             "border-r border-slate-200/60 dark:border-slate-700/60",
@@ -227,11 +226,11 @@ defmodule MossletWeb.ModernSidebarLayout do
       >
         <%!-- Top bar --%>
         <header class={[
-          "sticky top-0 z-15 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
+          "sticky top-0 z-50 flex h-16 shrink-0 items-center gap-x-4 px-4 sm:gap-x-6 sm:px-6 lg:px-8",
           "border-b border-slate-200/60 dark:border-slate-700/60",
           "bg-gradient-to-r from-white/90 via-slate-50/80 to-white/90",
           "dark:from-slate-800/90 dark:via-slate-800/80 dark:to-slate-800/90",
-          "backdrop-blur-md shadow-sm shadow-slate-900/5 dark:shadow-slate-900/20"
+          "backdrop-blur-md shadow-md shadow-slate-900/5 dark:shadow-lg dark:shadow-black/40"
         ]}>
           <%!-- Mobile menu button --%>
           <button
