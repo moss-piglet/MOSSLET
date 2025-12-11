@@ -150,6 +150,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     with {:ok, image} <- load_image(binary, mime_type),
          {:ok, image} <- check_safety(image, state),
          :ok <- notify_progress(state, :processing, 55),
+         {:ok, image} <- autorotate(image),
          {:ok, image} <- remove_metadata(image),
          {:ok, image} <- resize_image(image),
          {:ok, image} <- to_srgb(image),
@@ -289,6 +290,13 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp autorotate(image) do
+    case Image.autorotate(image) do
+      {:ok, {rotated_image, _flags}} -> {:ok, rotated_image}
+      {:error, reason} -> {:error, "Failed to autorotate: #{inspect(reason)}"}
     end
   end
 

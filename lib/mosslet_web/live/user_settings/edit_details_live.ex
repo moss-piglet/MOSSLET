@@ -285,6 +285,7 @@ defmodule MossletWeb.EditDetailsLive do
                   send(lv_pid, {:avatar_upload_stage, {:converting, 40}})
 
                   with {:ok, image} <- load_image_for_avatar(path, mime_type),
+                       {:ok, image} <- autorotate_image(image),
                        _ <- send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
                        {:ok, safe_image} <- check_for_safety(image),
                        _ <- send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
@@ -514,6 +515,7 @@ defmodule MossletWeb.EditDetailsLive do
                   send(lv_pid, {:avatar_upload_stage, {:converting, 40}})
 
                   with {:ok, image} <- load_image_for_avatar(path, mime_type),
+                       {:ok, image} <- autorotate_image(image),
                        _ <- send(lv_pid, {:avatar_upload_stage, {:checking, 50}}),
                        {:ok, safe_image} <- check_for_safety(image),
                        _ <- send(lv_pid, {:avatar_upload_stage, {:resizing, 60}}),
@@ -816,6 +818,13 @@ defmodule MossletWeb.EditDetailsLive do
 
   defp check_for_safety(image_binary) do
     Mosslet.AI.Images.check_for_safety(image_binary)
+  end
+
+  defp autorotate_image(image) do
+    case Image.autorotate(image) do
+      {:ok, {rotated_image, _flags}} -> {:ok, rotated_image}
+      {:error, reason} -> {:error, "Failed to autorotate: #{inspect(reason)}"}
+    end
   end
 
   defp assign_avatar_form(socket, user) do
