@@ -4057,6 +4057,7 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
   attr :is_repost, :boolean, default: false
+  attr :share_note, :string, default: nil, doc: "Personal note from the sender when sharing"
   # New: unread state
   attr :unread?, :boolean, default: false
   attr :class, :any, default: ""
@@ -4106,24 +4107,200 @@ defmodule MossletWeb.DesignSystem do
       ]}>
       </div>
 
+      <%!-- Subtle left-side shared indicator for posts shared WITH you --%>
+      <button
+        :if={@is_repost && @current_user_id != @post.user_id}
+        type="button"
+        phx-click={
+          JS.show(
+            to: "#share-overlay-#{@post.id}",
+            transition:
+              {"ease-out duration-200", "opacity-0 -translate-x-4", "opacity-100 translate-x-0"}
+          )
+        }
+        class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
+        aria-label="View shared message"
+      >
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-emerald-200/50 dark:border-emerald-700/50">
+          Shared with you
+        </span>
+      </button>
+
+      <%!-- Subtle left-side indicator for posts YOU shared with others (reposts only) --%>
+      <button
+        :if={@is_repost && @current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
+        type="button"
+        phx-click={
+          JS.show(
+            to: "#shared-by-you-overlay-#{@post.id}",
+            transition:
+              {"ease-out duration-200", "opacity-0 -translate-x-4", "opacity-100 translate-x-0"}
+          )
+        }
+        class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
+        aria-label="View who you shared with"
+      >
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-sky-600 dark:text-sky-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-sky-200/50 dark:border-sky-700/50">
+          You shared this
+        </span>
+      </button>
+
+      <%!-- Share note overlay modal for posts shared WITH you --%>
+      <div
+        :if={@is_repost && @current_user_id != @post.user_id}
+        id={"share-overlay-#{@post.id}"}
+        class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      >
+        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.4)] dark:shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+        </div>
+        <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+          <div class="flex items-center gap-3 mb-3 shrink-0">
+            <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 shadow-sm">
+              <.phx_icon
+                name="hero-paper-airplane-solid"
+                class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Shared by {@user_name}
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click={
+                JS.hide(
+                  to: "#share-overlay-#{@post.id}",
+                  transition:
+                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+                )
+              }
+              class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+              aria-label="Close"
+            >
+              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+            </button>
+          </div>
+          <%= if @share_note do %>
+            <div class="flex-1 min-h-0 overflow-y-auto">
+              <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
+                {@share_note}
+              </p>
+            </div>
+          <% else %>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+              No message included
+            </p>
+          <% end %>
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#share-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+              )
+            }
+            class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 px-3 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50 transition-colors duration-200 shrink-0"
+          >
+            <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+          </button>
+        </div>
+      </div>
+
+      <%!-- Overlay modal for posts YOU shared with others --%>
+      <div
+        :if={@current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
+        id={"shared-by-you-overlay-#{@post.id}"}
+        class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      >
+        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full shadow-[0_0_8px_rgba(56,189,248,0.4)] dark:shadow-[0_0_8px_rgba(56,189,248,0.3)]">
+        </div>
+        <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+          <div class="flex items-center gap-3 mb-3 shrink-0">
+            <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-sky-100 to-blue-100 dark:from-sky-900/50 dark:to-blue-900/50 shadow-sm">
+              <.phx_icon
+                name="hero-share-solid"
+                class="h-4 w-4 text-sky-600 dark:text-sky-400"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                You shared this
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click={
+                JS.hide(
+                  to: "#shared-by-you-overlay-#{@post.id}",
+                  transition:
+                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+                )
+              }
+              class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+              aria-label="Close"
+            >
+              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-3 shrink-0">
+            Shared with {length(@post.shared_users)} {if length(@post.shared_users) == 1,
+              do: "person",
+              else: "people"}
+          </p>
+          <div class="flex-1 min-h-0 overflow-y-auto space-y-1.5">
+            <%= for shared_user <- @post.shared_users do %>
+              <% shared_post_user = get_shared_connection(shared_user.user_id, @post_shared_users) %>
+              <div class="flex items-center gap-3 p-2 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg">
+                <%= if shared_post_user do %>
+                  <div class={[
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                    "bg-gradient-to-br transition-all duration-200",
+                    get_post_shared_user_classes(shared_post_user.color)
+                  ]}>
+                    <span class={[
+                      "text-sm font-semibold",
+                      get_post_shared_user_text_classes(shared_post_user.color)
+                    ]}>
+                      {String.first(shared_post_user.username || "?") |> String.upcase()}
+                    </span>
+                  </div>
+                  <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                    {shared_post_user.username}
+                  </span>
+                <% else %>
+                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
+                    <.phx_icon
+                      name="hero-user-minus"
+                      class="w-4 h-4 text-slate-400 dark:text-slate-500"
+                    />
+                  </div>
+                  <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                    Former connection
+                  </span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#shared-by-you-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+              )
+            }
+            class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50/80 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 px-3 py-1.5 rounded-lg border border-sky-200/50 dark:border-sky-700/50 transition-colors duration-200 shrink-0"
+          >
+            <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+          </button>
+        </div>
+      </div>
+
       <%!-- Post content --%>
       <div class="relative p-6">
-        <%!-- Enhanced repost indicator badge with better visual hierarchy --%>
-        <div
-          :if={@is_repost}
-          class="flex items-center gap-2 mb-4 px-3 py-2 bg-gradient-to-r from-emerald-50/80 via-teal-50/60 to-emerald-50/80 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30 rounded-xl border border-emerald-200/50 dark:border-emerald-700/40 shadow-sm shadow-emerald-500/10 dark:shadow-emerald-400/15"
-        >
-          <.phx_icon
-            name="hero-arrow-path"
-            class="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
-          />
-          <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-            Reposted
-          </span>
-          <%!-- Optional: Add subtle pulse animation --%>
-          <div class="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-pulse ml-auto">
-          </div>
-        </div>
         <%!-- User header --%>
         <div class="flex items-start gap-4 mb-4">
           <%!-- Enhanced liquid metal avatar --%>
@@ -4581,32 +4758,32 @@ defmodule MossletWeb.DesignSystem do
             />
             <.liquid_timeline_action
               :if={@can_repost}
-              icon="hero-arrow-path"
-              id={"repost-button-#{@post.id}"}
-              icon_id={"repost-icon-#{@post.id}"}
+              icon="hero-paper-airplane"
+              id={"share-button-#{@post.id}"}
+              icon_id={"share-icon-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
               phx-hook="TippyHook"
-              data-tippy-content="Repost this post"
-              phx-click="repost"
+              data-tippy-content="Share with someone"
+              phx-click="open_share_modal"
               phx-value-id={@post_id}
               phx-value-body={@content}
               phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
               :if={!@can_repost && @post.user_id == @current_user.id && @post.allow_shares}
-              icon="hero-arrow-path"
-              id={"repost-button-disabled-#{@post.id}"}
-              icon_id={"repost-icon-disabled-#{@post.id}"}
+              icon="hero-paper-airplane"
+              id={"share-button-disabled-#{@post.id}"}
+              icon_id={"share-icon-disabled-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
               phx-hook="TippyHook"
               class="cursor-not-allowed"
-              data-tippy-content="You cannot repost your own post"
+              data-tippy-content="You cannot share your own post"
               phx-click={nil}
               phx-value-id={nil}
               phx-value-body={nil}
@@ -4614,16 +4791,16 @@ defmodule MossletWeb.DesignSystem do
             />
             <.liquid_timeline_action
               :if={!@can_repost && @post.user_id != @current_user.id}
-              icon="hero-arrow-path"
-              id={"repost-button-disabled-#{@post.id}"}
-              icon_id={"repost-icon-disabled-#{@post.id}"}
+              icon="hero-paper-airplane"
+              id={"share-button-disabled-#{@post.id}"}
+              icon_id={"share-icon-disabled-#{@post.id}"}
               count={Map.get(@stats, :shares, 0)}
               label="Share"
               color="emerald"
               repost_post_id={@post.id}
               phx-hook="TippyHook"
               class="cursor-not-allowed"
-              data-tippy-content="You have already reposted this"
+              data-tippy-content="You have already shared this"
               phx-click={nil}
               phx-value-id={nil}
               phx-value-body={nil}

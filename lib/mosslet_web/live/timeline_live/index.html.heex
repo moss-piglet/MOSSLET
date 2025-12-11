@@ -387,6 +387,7 @@
                   current_user={@current_user}
                   key={@key}
                   is_repost={post.repost || false}
+                  share_note={get_decrypted_share_note(post, @current_user, @key)}
                   liked={get_post_liked_status(post, @current_user, @key)}
                   bookmarked={get_post_bookmarked_status(post, @current_user)}
                   can_repost={can_repost_with_decryption?(post, @current_user, @key)}
@@ -469,6 +470,17 @@
       default_block_type={@block_default_type}
       block_update?={@block_update?}
       block_reply_context={assigns[:block_reply_context]}
+    />
+
+    <.live_component
+      :if={@show_share_modal}
+      module={MossletWeb.TimelineLive.ShareModalComponent}
+      id={"share-modal-component-#{@share_post_id}"}
+      show={@show_share_modal}
+      post_id={@share_post_id}
+      body={@share_post_body}
+      username={@share_post_username}
+      connections={@post_shared_users}
     />
 
     <%!-- Image viewer modal --%>

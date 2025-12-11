@@ -2654,7 +2654,8 @@ defmodule Mosslet.Timeline do
           {:ok, %{insert_post: post, insert_user_post: _user_post}} ->
             # For public posts, we also need to create receipts for other users
             # But we don't need to create additional UserPost records
-            post_with_associations = post |> Repo.preload([:user_posts, :replies, :user_post_receipts])
+            post_with_associations =
+              post |> Repo.preload([:user_posts, :replies, :user_post_receipts])
 
             conn = Accounts.get_connection_from_item(post, user)
 
@@ -2762,6 +2763,101 @@ defmodule Mosslet.Timeline do
 
       {:ok, conn, post |> Repo.preload([:user_posts, :replies, :user_post_receipts])}
       |> broadcast(:post_reposted)
+    end
+  end
+
+  @doc """
+  Creates a targeted share - shares a post only with specifically selected connections.
+
+  Unlike create_repost which broadcasts to all connections, this sends to selected users only.
+  This promotes intentional, thoughtful sharing over viral broadcast patterns.
+  """
+  def create_targeted_share(attrs \\ %{}, opts \\ []) do
+    post = Post.repost_changeset(%Post{}, attrs, opts)
+    user = Accounts.get_user!(opts[:user].id)
+    p_attrs = post.changes.user_post_map
+
+    case Ecto.Multi.new()
+         |> Ecto.Multi.insert(:insert_post, post)
+         |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
+           UserPost.changeset(
+             %UserPost{},
+             %{
+               key: p_attrs.temp_key,
+               user_id: user.id,
+               post_id: post.id
+             },
+             user: user,
+             visibility: :connections
+           )
+           |> Ecto.Changeset.put_assoc(:post, post)
+           |> Ecto.Changeset.put_assoc(:user, user)
+         end)
+         |> Ecto.Multi.insert(:insert_user_post_receipt_creator, fn %{insert_user_post: user_post} ->
+           {:ok, dt} = DateTime.now("Etc/UTC")
+
+           UserPostReceipt.changeset(
+             %UserPostReceipt{},
+             %{
+               user_id: user.id,
+               user_post_id: user_post.id,
+               is_read?: true,
+               read_at: DateTime.to_naive(dt)
+             }
+           )
+           |> Ecto.Changeset.put_assoc(:user, user)
+           |> Ecto.Changeset.put_assoc(:user_post, user_post)
+         end)
+         |> Repo.transaction_on_primary() do
+      {:ok, %{insert_post: post, insert_user_post: _user_post_conn}} ->
+        create_targeted_share_user_posts(post, attrs, p_attrs, user)
+
+      {:error, :insert_post, changeset, _map} ->
+        {:error, changeset}
+
+      {:error, :insert_user_post, changeset, _map} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error creating targeted share")
+        Logger.debug("Error creating targeted share: #{inspect(rest)}")
+        {:error, "error"}
+    end
+  end
+
+  defp create_targeted_share_user_posts(post, attrs, p_attrs, current_user) do
+    if attrs.shared_users && !Enum.empty?(attrs.shared_users) do
+      share_note = Map.get(attrs, :share_note) || Map.get(attrs, "share_note")
+
+      for su <- attrs.shared_users do
+        user = Mosslet.Accounts.get_user!(su.user_id || su[:user_id] || su["user_id"])
+
+        user_post =
+          UserPost.sharing_changeset(
+            %UserPost{},
+            %{
+              key: p_attrs.temp_key,
+              post_id: post.id,
+              user_id: user.id,
+              share_note: share_note
+            },
+            user: user,
+            visibility: :connections,
+            post_key: p_attrs.temp_key
+          )
+
+        {:ok, %{insert_user_post: _user_post}} =
+          Ecto.Multi.new()
+          |> Ecto.Multi.insert(:insert_user_post, user_post)
+          |> Repo.transaction_on_primary()
+      end
+
+      conn = Accounts.get_connection_from_item(post, current_user)
+
+      {:ok, conn, post |> Repo.preload([:user_posts, :replies, :user_post_receipts])}
+      |> broadcast(:post_shared)
+    else
+      {:error, "No recipients selected"}
     end
   end
 

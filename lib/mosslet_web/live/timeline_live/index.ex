@@ -165,6 +165,10 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:show_block_modal, false)
       |> assign(:block_user_id, nil)
       |> assign(:block_user_name, nil)
+      |> assign(:show_share_modal, false)
+      |> assign(:share_post_id, nil)
+      |> assign(:share_post_body, nil)
+      |> assign(:share_post_username, nil)
       |> assign(:loaded_replies_counts, %{})
       |> assign(:loaded_nested_replies, %{})
       |> assign(:upload_stages, %{})
@@ -1151,6 +1155,133 @@ defmodule MossletWeb.TimelineLive.Index do
 
       nil ->
         {:noreply, put_flash(socket, :error, "Author not found.")}
+    end
+  end
+
+  def handle_info({:close_share_modal, _params}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, false)
+     |> assign(:share_post_id, nil)
+     |> assign(:share_post_body, nil)
+     |> assign(:share_post_username, nil)}
+  end
+
+  def handle_info({:submit_share, share_params}, socket) do
+    post = Timeline.get_post!(share_params.post_id)
+    user = socket.assigns.current_user
+    key = socket.assigns.key
+    encrypted_post_key = get_post_key(post, user)
+
+    decrypted_post_key =
+      case post.visibility do
+        :public ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+            decrypted when is_binary(decrypted) -> decrypted
+            _ -> nil
+          end
+
+        _ ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                 encrypted_post_key,
+                 user,
+                 key
+               ) do
+            {:ok, decrypted} -> decrypted
+            _ -> nil
+          end
+      end
+
+    decrypted_reposts = decrypt_post_reposts_list(post, user, key)
+
+    if post.user_id != user.id && user.id not in decrypted_reposts do
+      selected_user_ids = share_params.selected_user_ids
+      note = share_params.note || ""
+      body = share_params.body
+      username = share_params.username
+
+      all_shared_users = socket.assigns.post_shared_users
+
+      selected_shared_users =
+        all_shared_users
+        |> Enum.filter(fn su -> su.user_id in selected_user_ids end)
+        |> Enum.map(fn su ->
+          %{
+            sender_id: su.sender_id,
+            username: su.username,
+            user_id: su.user_id,
+            color: su.color
+          }
+        end)
+
+      repost_params =
+        %{
+          body: body,
+          username: username,
+          favs_list: post.favs_list,
+          reposts_list: post.reposts_list,
+          favs_count: post.favs_count,
+          reposts_count: post.reposts_count,
+          user_id: user.id,
+          original_post_id: post.id,
+          visibility: :connections,
+          image_urls: decrypt_image_urls_for_repost(post, user, key),
+          image_urls_updated_at: post.image_urls_updated_at,
+          shared_users: selected_shared_users,
+          repost: true,
+          share_note: note
+        }
+
+      case Timeline.create_targeted_share(repost_params,
+             user: user,
+             key: key,
+             trix_key: decrypted_post_key
+           ) do
+        {:ok, _shared_post} ->
+          {:ok, post} = Timeline.inc_reposts(post)
+          updated_reposts = [user.id | decrypted_reposts]
+          encrypted_post_key = get_post_key(post, user)
+
+          {:ok, _post} =
+            Timeline.update_post_repost(
+              post,
+              %{reposts_list: updated_reposts},
+              user: user,
+              key: key,
+              post_key: encrypted_post_key
+            )
+
+          Accounts.track_user_activity(user, :interaction)
+
+          recipient_count = length(selected_user_ids)
+
+          {:noreply,
+           socket
+           |> assign(:show_share_modal, false)
+           |> assign(:share_post_id, nil)
+           |> assign(:share_post_body, nil)
+           |> assign(:share_post_username, nil)
+           |> put_flash(
+             :success,
+             "Shared with #{recipient_count} #{if recipient_count == 1, do: "person", else: "people"}!"
+           )
+           |> push_event("update_post_repost_count", %{
+             post_id: post.id,
+             reposts_count: post.reposts_count,
+             can_repost: false
+           })}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> assign(:show_share_modal, false)
+           |> put_flash(:error, "Failed to share. Please try again.")}
+      end
+    else
+      {:noreply,
+       socket
+       |> assign(:show_share_modal, false)
+       |> put_flash(:error, "You cannot share this post.")}
     end
   end
 
@@ -2927,6 +3058,28 @@ defmodule MossletWeb.TimelineLive.Index do
     else
       {:noreply, socket}
     end
+  end
+
+  def handle_event(
+        "open_share_modal",
+        %{"id" => id, "body" => body, "username" => username},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, true)
+     |> assign(:share_post_id, id)
+     |> assign(:share_post_body, body)
+     |> assign(:share_post_username, username)}
+  end
+
+  def handle_event("close_share_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, false)
+     |> assign(:share_post_id, nil)
+     |> assign(:share_post_body, nil)
+     |> assign(:share_post_username, nil)}
   end
 
   def handle_event("repost", %{"id" => id, "body" => body, "username" => username}, socket) do
@@ -4733,6 +4886,21 @@ defmodule MossletWeb.TimelineLive.Index do
           # Default to unread for any other case
           _ -> true
         end
+    end
+  end
+
+  defp get_decrypted_share_note(post, current_user, key) do
+    if Ecto.assoc_loaded?(post.user_posts) do
+      user_post = Enum.find(post.user_posts, fn up -> up.user_id == current_user.id end)
+
+      if user_post && user_post.share_note do
+        post_key = get_post_key(post, current_user)
+        decr_item(user_post.share_note, current_user, post_key, key, post, "body")
+      else
+        "hooray"
+      end
+    else
+      nil
     end
   end
 
