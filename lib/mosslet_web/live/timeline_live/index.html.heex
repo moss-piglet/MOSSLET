@@ -28,195 +28,202 @@
         active_tab={@active_tab || "home"}
       />
 
-      <%!-- Timeline navigation tabs --%>
-      <div class="sticky top-16 z-30 bg-white/80 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-black/30 p-2 relative ring-1 ring-slate-900/5 dark:ring-white/5">
-        <div class="flex items-center gap-2">
-          <MossletWeb.DesignSystem.liquid_timeline_tabs
-            tabs={[
-              %{
-                key: "home",
-                label: "Home",
-                count: @timeline_counts[:home] || 12,
-                unread:
-                  if(@current_user.calm_notifications, do: @unread_counts[:home] || 0, else: 0)
-              },
-              %{
-                key: "connections",
-                label: "Connections",
-                count: @timeline_counts[:connections] || 4,
-                unread:
-                  if(@current_user.calm_notifications,
-                    do: @unread_counts[:connections] || 0,
-                    else: 0
-                  )
-              },
-              %{
-                key: "groups",
-                label: "Groups",
-                count: @timeline_counts[:groups] || 2,
-                unread:
-                  if(@current_user.calm_notifications, do: @unread_counts[:groups] || 0, else: 0)
-              },
-              %{
-                key: "bookmarks",
-                label: "Bookmarks",
-                count: @timeline_counts[:bookmarks] || 8,
-                unread:
-                  if(@current_user.calm_notifications,
-                    do: @unread_counts[:bookmarks] || 0,
-                    else: 0
-                  )
-              },
-              %{
-                key: "discover",
-                label: "Discover",
-                count: @timeline_counts[:discover] || 0,
-                unread:
-                  if(@current_user.calm_notifications,
-                    do: @unread_counts[:discover] || 0,
-                    else: 0
-                  )
-              }
-            ]}
-            active_tab={@active_tab || "home"}
-            loading_tab={@loading_tab}
-          />
-
-          <%!-- Content Filter Toggle --%>
-          <button
-            id={
-              if @show_content_filter,
-                do: "close-content-filter-button-timeline",
-                else: "open-content-filter-button-timeline"
-            }
-            type="button"
-            disabled={@loading_content_filter}
-            class={[
-              "p-2.5 rounded-xl transition-all duration-200 ease-out group relative",
-              "focus:outline-none focus:ring-2 focus:ring-teal-500/50",
-              if(@loading_content_filter,
-                do: "cursor-wait opacity-75",
-                else: ""
-              ),
-              if(@show_content_filter,
-                do: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 scale-95",
-                else:
-                  "text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
-              )
-            ]}
-            phx-hook="TippyHook"
-            data-tippy-content={
-              if @show_content_filter,
-                do: "Close content filter controls",
-                else: "Open content filter controls"
-            }
-            phx-click="toggle_content_filter"
-            title="Content Filters"
-          >
-            <%!-- Loading spinner --%>
-            <div
-              :if={@loading_content_filter}
-              class="h-5 w-5 flex-shrink-0 animate-spin"
-            >
-              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="3"
-                />
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-
-            <%!-- Funnel icon (hide when loading) --%>
-            <.phx_icon
-              :if={!@loading_content_filter}
-              name="hero-funnel"
-              class={[
-                "h-5 w-5 transition-all duration-200",
-                if(@show_content_filter,
-                  do: "rotate-180",
-                  else: "group-hover:scale-110"
-                )
+      <%!-- Sticky header group: tabs, content filter, and composer --%>
+      <div class="sticky top-16 z-30 space-y-4">
+        <%!-- Timeline navigation tabs --%>
+        <div class="bg-white/80 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-black/30 p-2 relative ring-1 ring-slate-900/5 dark:ring-white/5">
+          <div class="flex items-center gap-2">
+            <MossletWeb.DesignSystem.liquid_timeline_tabs
+              tabs={[
+                %{
+                  key: "home",
+                  label: "Home",
+                  count: @timeline_counts[:home] || 12,
+                  unread:
+                    if(@current_user.calm_notifications, do: @unread_counts[:home] || 0, else: 0)
+                },
+                %{
+                  key: "connections",
+                  label: "Connections",
+                  count: @timeline_counts[:connections] || 4,
+                  unread:
+                    if(@current_user.calm_notifications,
+                      do: @unread_counts[:connections] || 0,
+                      else: 0
+                    )
+                },
+                %{
+                  key: "groups",
+                  label: "Groups",
+                  count: @timeline_counts[:groups] || 2,
+                  unread:
+                    if(@current_user.calm_notifications,
+                      do: @unread_counts[:groups] || 0,
+                      else: 0
+                    )
+                },
+                %{
+                  key: "bookmarks",
+                  label: "Bookmarks",
+                  count: @timeline_counts[:bookmarks] || 8,
+                  unread:
+                    if(@current_user.calm_notifications,
+                      do: @unread_counts[:bookmarks] || 0,
+                      else: 0
+                    )
+                },
+                %{
+                  key: "discover",
+                  label: "Discover",
+                  count: @timeline_counts[:discover] || 0,
+                  unread:
+                    if(@current_user.calm_notifications,
+                      do: @unread_counts[:discover] || 0,
+                      else: 0
+                    )
+                }
               ]}
+              active_tab={@active_tab || "home"}
+              loading_tab={@loading_tab}
             />
 
-            <%!-- Enhanced filter indicator badge --%>
-            <div
-              :if={has_active_filters?(@content_filters) && !@loading_content_filter}
+            <%!-- Content Filter Toggle --%>
+            <button
+              id={
+                if @show_content_filter,
+                  do: "close-content-filter-button-timeline",
+                  else: "open-content-filter-button-timeline"
+              }
+              type="button"
+              disabled={@loading_content_filter}
               class={[
-                "absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center",
-                "bg-gradient-to-br from-emerald-500 to-teal-600",
-                "border-2 border-white dark:border-slate-800",
-                "shadow-lg shadow-emerald-500/30",
-                "animate-pulse",
-                "z-10"
+                "p-2.5 rounded-xl transition-all duration-200 ease-out group relative",
+                "focus:outline-none focus:ring-2 focus:ring-teal-500/50",
+                if(@loading_content_filter,
+                  do: "cursor-wait opacity-75",
+                  else: ""
+                ),
+                if(@show_content_filter,
+                  do: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 scale-95",
+                  else:
+                    "text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20"
+                )
               ]}
+              phx-hook="TippyHook"
+              data-tippy-content={
+                if @show_content_filter,
+                  do: "Close content filter controls",
+                  else: "Open content filter controls"
+              }
+              phx-click="toggle_content_filter"
+              title="Content Filters"
             >
-              <div class="h-1.5 w-1.5 bg-white rounded-full opacity-90"></div>
-            </div>
-          </button>
-        </div>
-      </div>
+              <%!-- Loading spinner --%>
+              <div
+                :if={@loading_content_filter}
+                class="h-5 w-5 flex-shrink-0 animate-spin"
+              >
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  />
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+              </div>
 
-      <%!-- Content Filtering Panel with improved spacing --%>
-      <div :if={@show_content_filter} class="mb-8">
-        <div class="animate-in slide-in-from-top-2 duration-300 ease-out">
-          <MossletWeb.TimelineContentFilter.liquid_content_filter
-            filters={@content_filters}
-            current_user={@current_user}
-            key={@key}
-            class=""
-          />
-        </div>
-      </div>
+              <%!-- Funnel icon (hide when loading) --%>
+              <.phx_icon
+                :if={!@loading_content_filter}
+                name="hero-funnel"
+                class={[
+                  "h-5 w-5 transition-all duration-200",
+                  if(@show_content_filter,
+                    do: "rotate-180",
+                    else: "group-hover:scale-110"
+                  )
+                ]}
+              />
 
-      <%!-- Enhanced compose with better visual prominence --%>
-      <div class="sticky top-32 z-20 relative">
-        <%!-- Subtle glow effect for composer --%>
-        <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl blur-xl">
+              <%!-- Enhanced filter indicator badge --%>
+              <div
+                :if={has_active_filters?(@content_filters) && !@loading_content_filter}
+                class={[
+                  "absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full flex items-center justify-center",
+                  "bg-gradient-to-br from-emerald-500 to-teal-600",
+                  "border-2 border-white dark:border-slate-800",
+                  "shadow-lg shadow-emerald-500/30",
+                  "animate-pulse",
+                  "z-10"
+                ]}
+              >
+                <div class="h-1.5 w-1.5 bg-white rounded-full opacity-90"></div>
+              </div>
+            </button>
+          </div>
         </div>
-        <%!-- Real functional composer connected to backend --%>
-        <.form
-          for={@post_form}
-          id="timeline-composer"
-          phx-submit="save_post"
-          phx-change="validate_post"
-          phx-drop-target={@uploads.photos.ref}
-          class="relative"
-        >
-          <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
-            id={"timeline-composer-enhanced-#{@active_tab}"}
-            user_name={user_name(@current_user, @key) || "Private Author"}
-            user_avatar={
-              if show_avatar?(@current_user),
-                do: maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg",
-                else: "/images/logo.svg"
-            }
-            placeholder="Share something meaningful with your community..."
-            character_limit={500}
-            selector={@selector}
-            privacy_controls_expanded={@privacy_controls_expanded}
-            form={@post_form}
-            uploads={@uploads}
-            upload_stages={@upload_stages}
-            completed_uploads={@completed_uploads}
+
+        <%!-- Content Filtering Panel with improved spacing --%>
+        <div :if={@show_content_filter}>
+          <div class="animate-in slide-in-from-top-2 duration-300 ease-out">
+            <MossletWeb.TimelineContentFilter.liquid_content_filter
+              filters={@content_filters}
+              current_user={@current_user}
+              key={@key}
+              class=""
+            />
+          </div>
+        </div>
+
+        <%!-- Enhanced compose with better visual prominence --%>
+        <div class="relative">
+          <%!-- Subtle glow effect for composer --%>
+          <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl blur-xl">
+          </div>
+          <%!-- Real functional composer connected to backend --%>
+          <.form
+            for={@post_form}
+            id="timeline-composer"
+            phx-submit="save_post"
+            phx-change="validate_post"
+            phx-drop-target={@uploads.photos.ref}
             class="relative"
-            content_warning_enabled?={@content_warning_enabled?}
-            current_user={@current_user}
-            key={@key}
-            url_preview={@url_preview}
-            url_preview_loading={@url_preview_loading}
-          />
-        </.form>
+          >
+            <MossletWeb.DesignSystem.liquid_timeline_composer_enhanced
+              id={"timeline-composer-enhanced-#{@active_tab}"}
+              user_name={user_name(@current_user, @key) || "Private Author"}
+              user_avatar={
+                if show_avatar?(@current_user),
+                  do: maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg",
+                  else: "/images/logo.svg"
+              }
+              placeholder="Share something meaningful with your community..."
+              character_limit={500}
+              selector={@selector}
+              privacy_controls_expanded={@privacy_controls_expanded}
+              form={@post_form}
+              uploads={@uploads}
+              upload_stages={@upload_stages}
+              completed_uploads={@completed_uploads}
+              class="relative"
+              content_warning_enabled?={@content_warning_enabled?}
+              current_user={@current_user}
+              key={@key}
+              url_preview={@url_preview}
+              url_preview_loading={@url_preview_loading}
+            />
+          </.form>
+        </div>
       </div>
+      <%!-- End sticky header group --%>
 
       <%!-- Timeline feed with calmer spacing and visual flow --%>
       <%!-- Timeline feed with async loading states --%>

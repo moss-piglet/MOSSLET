@@ -179,6 +179,7 @@ defmodule MossletWeb.DesignSystem do
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
         "phx-submit-loading:opacity-80 phx-submit-loading:cursor-wait",
+        "phx-click-loading:opacity-80 phx-click-loading:cursor-wait phx-click-loading:scale-95",
         button_size_classes(@size),
         button_variant_classes(@variant, @color),
         @class
@@ -197,7 +198,7 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <svg
-        class="hidden phx-submit-loading:inline-block h-4 w-4 animate-spin relative z-10 mr-1"
+        class="hidden phx-submit-loading:inline-block phx-click-loading:inline-block h-4 w-4 animate-spin relative z-10 mr-1"
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
@@ -216,7 +217,7 @@ defmodule MossletWeb.DesignSystem do
         :if={@icon}
         name={@icon}
         class={[
-          "h-4 w-4 relative z-10 transition-transform duration-200 ease-out phx-submit-loading:hidden",
+          "h-4 w-4 relative z-10 transition-transform duration-200 ease-out phx-submit-loading:hidden phx-click-loading:hidden",
           icon_animation_classes(@icon)
         ]}
       />
@@ -2140,6 +2141,7 @@ defmodule MossletWeb.DesignSystem do
   attr :required, :boolean, default: false
   attr :color, :string, default: "amber"
   attr :class, :any, default: ""
+  attr :aria_label, :string, default: nil
   attr :rest, :global
 
   def liquid_select_custom(assigns) do
@@ -2155,10 +2157,19 @@ defmodule MossletWeb.DesignSystem do
     # Color-specific classes
     assigns = assign(assigns, :focus_colors, get_custom_focus_colors(assigns.color))
 
+    # Compute effective aria-label for accessibility
+    assigns =
+      assign(
+        assigns,
+        :effective_aria_label,
+        assigns.aria_label || if(assigns.label == "", do: assigns.prompt, else: nil)
+      )
+
     ~H"""
     <div phx-feedback-for={@name} class={["space-y-3", @class]}>
       <%!-- Label --%>
       <label
+        :if={@label != ""}
         for={@id}
         class={[
           "block text-xs font-medium transition-colors duration-200 ease-out",
@@ -2203,6 +2214,7 @@ defmodule MossletWeb.DesignSystem do
         <select
           id={@id}
           name={@name}
+          aria-label={@effective_aria_label}
           class={[
             "relative block w-full rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-slate-100",
             "bg-white dark:bg-slate-800",
