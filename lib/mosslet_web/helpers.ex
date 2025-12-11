@@ -982,6 +982,57 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  # Helper to get the post_key for a reply (same as the post it belongs to)
+  def get_reply_post_key(reply, current_user) do
+    # Get the post this reply belongs to with user_posts preloaded
+    post = Mosslet.Repo.preload(reply, post: :user_posts).post
+
+    # Use the existing get_post_key helper function
+    case get_post_key(post, current_user) do
+      encrypted_post_key when is_binary(encrypted_post_key) ->
+        {:ok, encrypted_post_key}
+
+      _ ->
+        {:error, :no_access}
+    end
+  end
+
+  # Safe version to get reply author name
+  def get_safe_reply_author_name(reply, current_user, key) do
+    cond do
+      reply.user_id == current_user.id ->
+        case user_name(current_user, key) do
+          name when is_binary(name) -> name
+          :failed_verification -> "You"
+          _ -> "You"
+        end
+
+      not is_connected_to_reply_author?(reply, current_user) ->
+        "Private Author"
+
+      true ->
+        case get_reply_post_key(reply, current_user) do
+          {:ok, post_key} ->
+            case decr_item(reply.username, current_user, post_key, key, reply, "username") do
+              name when is_binary(name) -> name
+              :failed_verification -> "Private Author"
+              _ -> "Private Author"
+            end
+
+          _ ->
+            "Private Author"
+        end
+    end
+  end
+
+  def is_connected_to_reply_author?(reply, current_user) do
+    case get_uconn_for_shared_item(reply, current_user) do
+      nil -> false
+      %Mosslet.Accounts.UserConnection{} -> true
+      _ -> false
+    end
+  end
+
   # Enhanced Privacy Control Helper Functions
   # These functions check the new interaction controls we implemented
 

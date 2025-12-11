@@ -22,11 +22,13 @@ defmodule MossletWeb.DesignSystem do
       decr: 3,
       decr_uconn: 4,
       html_block: 1,
+      is_connected_to_reply_author?: 2,
+      get_reply_post_key: 2,
+      get_safe_reply_author_name: 3,
       photos?: 1,
       user_name: 2,
       maybe_get_user_avatar: 2,
       decr_item: 6,
-      get_post_key: 2,
       show_avatar?: 1,
       maybe_get_avatar_src: 4,
       get_uconn_for_shared_item: 2
@@ -6681,7 +6683,7 @@ defmodule MossletWeb.DesignSystem do
           post_id={@post_id}
           current_user={@current_user}
           key={Map.get(assigns, :key)}
-          author_name={get_reply_author_name(@reply, @current_user, Map.get(assigns, :key))}
+          author_name={get_safe_reply_author_name(@reply, @current_user, Map.get(assigns, :key))}
           class=""
         />
       </div>
@@ -6725,7 +6727,7 @@ defmodule MossletWeb.DesignSystem do
           <.liquid_avatar
             id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_user.id}"}
             src={get_reply_author_avatar(@reply, @current_user, @key)}
-            name={get_reply_author_name(@reply, @current_user, @key)}
+            name={get_safe_reply_author_name(@reply, @current_user, @key)}
             status={get_reply_author_status(@reply, @current_user, @key)}
             status_message={get_reply_author_status_message(@reply, @current_user, @key)}
             show_status={get_reply_author_show_status(@reply, @current_user, @key)}
@@ -6738,7 +6740,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Reply header --%>
             <div class="flex items-center gap-2 mb-2">
               <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {get_reply_author_name(@reply, @current_user, @key)}
+                {get_safe_reply_author_name(@reply, @current_user, @key)}
               </span>
               <span class="text-xs text-slate-500 dark:text-slate-400">
                 {format_reply_timestamp(@reply.inserted_at)}
@@ -6851,7 +6853,7 @@ defmodule MossletWeb.DesignSystem do
                     color="rose"
                     phx_click="block_user_from_reply"
                     phx_value_id={@reply.user_id}
-                    phx_value_user_name={get_reply_author_name(@reply, @current_user, @key)}
+                    phx_value_user_name={get_safe_reply_author_name(@reply, @current_user, @key)}
                     phx_value_reply_id={@reply.id}
                   >
                     <.phx_icon name="hero-no-symbol" class="h-4 w-4" />
@@ -6897,34 +6899,6 @@ defmodule MossletWeb.DesignSystem do
 
   defp get_user_post_for_user_id(post_id, user_id) do
     Timeline.get_user_post_by_post_id_and_user_id(post_id, user_id)
-  end
-
-  # Helper functions for reply data extraction
-  def get_reply_author_name(reply, current_user, key) do
-    cond do
-      reply.user_id == current_user.id ->
-        case user_name(current_user, key) do
-          name when is_binary(name) -> name
-          :failed_verification -> "You"
-          _ -> "You"
-        end
-
-      not is_connected_to_reply_author?(reply, current_user) ->
-        "Private Author"
-
-      true ->
-        case get_reply_post_key(reply, current_user) do
-          {:ok, post_key} ->
-            case decr_item(reply.username, current_user, post_key, key, reply, "username") do
-              name when is_binary(name) -> name
-              :failed_verification -> "Private Author"
-              _ -> "Private Author"
-            end
-
-          _ ->
-            "Private Author"
-        end
-    end
   end
 
   defp get_reply_author_avatar(reply, current_user, key) do
@@ -6981,29 +6955,6 @@ defmodule MossletWeb.DesignSystem do
           _ ->
             "[Could not decrypt reply]"
         end
-    end
-  end
-
-  defp is_connected_to_reply_author?(reply, current_user) do
-    case get_uconn_for_shared_item(reply, current_user) do
-      nil -> false
-      %Mosslet.Accounts.UserConnection{} -> true
-      _ -> false
-    end
-  end
-
-  # Helper to get the post_key for a reply (same as the post it belongs to)
-  def get_reply_post_key(reply, current_user) do
-    # Get the post this reply belongs to with user_posts preloaded
-    post = Mosslet.Repo.preload(reply, post: :user_posts).post
-
-    # Use the existing get_post_key helper function
-    case get_post_key(post, current_user) do
-      encrypted_post_key when is_binary(encrypted_post_key) ->
-        {:ok, encrypted_post_key}
-
-      _ ->
-        {:error, :no_access}
     end
   end
 

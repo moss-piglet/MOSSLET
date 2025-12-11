@@ -3334,9 +3334,13 @@ defmodule MossletWeb.TimelineLive.Index do
 
       case Timeline.delete_reply(reply, user: current_user) do
         {:ok, reply} ->
+          updated_post =
+            get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
+
           socket =
             socket
             |> put_flash(:success, "Reply deleted successfully.")
+            |> stream_insert(:posts, updated_post, at: -1)
             |> assign(:delete_reply_from_cloud_message, AsyncResult.loading())
             |> start_async(
               :delete_reply_from_cloud,
@@ -3350,7 +3354,7 @@ defmodule MossletWeb.TimelineLive.Index do
               end
             )
 
-          {:noreply, push_patch(socket, to: socket.assigns.return_url)}
+          {:noreply, socket}
 
         {:error, message} ->
           {:noreply, put_flash(socket, :warning, message)}
@@ -4635,35 +4639,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
       # Add a gentle flash message
       put_flash(socket, :info, message)
-    end
-  end
-
-  # Safe version to get reply author name
-  defp get_safe_reply_author_name(reply, current_user, key) do
-    case reply.user_id do
-      user_id when user_id == current_user.id ->
-        "You"
-
-      _ ->
-        # Try to get the actual username if they're connected
-        case reply do
-          %{username: username} when is_binary(username) ->
-            # Reply has encrypted username - try to decrypt it
-            case Mosslet.Encrypted.Users.Utils.decrypt_user_item(
-                   username,
-                   current_user,
-                   get_post_key(reply.post, current_user),
-                   key
-                 ) do
-              :failed_verification -> "@private_author"
-              decrypted_name when is_binary(decrypted_name) -> "@" <> decrypted_name
-              _ -> "@private_author"
-            end
-
-          _ ->
-            # Fallback to generic identifier
-            "@private_author"
-        end
     end
   end
 
