@@ -3006,6 +3006,7 @@ defmodule MossletWeb.DesignSystem do
   attr :id, :string, default: nil
   attr :url_preview, :map, default: nil
   attr :url_preview_loading, :boolean, default: false
+  attr :collapsed, :boolean, default: false
 
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
@@ -3023,11 +3024,62 @@ defmodule MossletWeb.DesignSystem do
         @class
       ]}
     >
+      <%!-- Collapse/Expand toggle button --%>
+      <button
+        type="button"
+        phx-click="toggle_composer_collapsed"
+        class={[
+          "absolute top-3 right-3 z-20 p-1 rounded-lg",
+          "bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm",
+          "border border-slate-200/40 dark:border-slate-600/40",
+          "text-slate-400 dark:text-slate-500",
+          "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
+          "hover:text-emerald-600 dark:hover:text-emerald-400",
+          "hover:border-emerald-200 dark:hover:border-emerald-700",
+          "transition-all duration-200 ease-out",
+          "focus:outline-none focus:ring-2 focus:ring-emerald-500/40",
+          "opacity-60 hover:opacity-100"
+        ]}
+        title={if @collapsed, do: "Expand composer", else: "Collapse composer"}
+      >
+        <.phx_icon
+          name={if @collapsed, do: "hero-chevron-down", else: "hero-chevron-up"}
+          class="h-3.5 w-3.5 transition-transform duration-200"
+        />
+      </button>
+
       <%!-- Liquid background on focus --%>
       <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-cyan-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 focus-within:opacity-100">
       </div>
 
-      <div class="relative p-6">
+      <%!-- Collapsed state: minimal bar --%>
+      <div
+        :if={@collapsed}
+        class="relative p-4 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-200"
+        phx-click="toggle_composer_collapsed"
+      >
+        <div class="flex items-center gap-3">
+          <.liquid_avatar
+            src={@user_avatar}
+            name={@user_name}
+            size="sm"
+            status={to_string(@current_user.status || "offline")}
+            user_id={@current_user.id}
+            status_message={get_user_status_message(@current_user, @current_user, @key)}
+            show_status={can_view_status?(@current_user, @current_user, @key)}
+            id={"composer-avatar-collapsed-#{@id}"}
+          />
+          <span class="text-slate-500 dark:text-slate-400 text-sm">
+            Click to share something meaningful...
+          </span>
+        </div>
+      </div>
+
+      <%!-- Expanded state: full composer --%>
+      <div
+        :if={!@collapsed}
+        class="relative p-6 animate-in fade-in slide-in-from-top-2 duration-200"
+      >
         <%!-- User section with enhanced liquid avatar --%>
         <div class="flex items-start gap-4 mb-4">
           <%!-- Enhanced liquid metal avatar --%>

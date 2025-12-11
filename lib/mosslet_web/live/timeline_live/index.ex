@@ -146,6 +146,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:content_warning_enabled?, false)
       # Enhanced privacy controls state
       |> assign(:privacy_controls_expanded, false)
+      # Composer collapsed state for scrolling convenience
+      |> assign(:composer_collapsed, false)
       # Store selected groups/users to preserve when privacy controls are collapsed
       |> assign(:selected_visibility_groups, [])
       |> assign(:selected_visibility_users, [])
@@ -1771,7 +1773,7 @@ defmodule MossletWeb.TimelineLive.Index do
       %Post{} = post ->
         # Get the encrypted image URLs and decrypt them to get actual S3 paths for decrypt_post_images
         case post.image_urls do
-          urls when is_list(urls) and length(urls) > 0 ->
+          [_ | _] = urls ->
             post_key = get_post_key(post, current_user)
 
             # Decrypt each URL to get the actual S3 file path for the decrypt_post_images handler
@@ -2115,6 +2117,10 @@ defmodule MossletWeb.TimelineLive.Index do
     current_expanded = socket.assigns.privacy_controls_expanded
 
     {:noreply, assign(socket, :privacy_controls_expanded, !current_expanded)}
+  end
+
+  def handle_event("toggle_composer_collapsed", _params, socket) do
+    {:noreply, assign(socket, :composer_collapsed, !socket.assigns.composer_collapsed)}
   end
 
   def handle_event("update_privacy_visibility", %{"visibility" => visibility}, socket) do
@@ -3702,7 +3708,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
         # Get decrypted image URLs
         case post.image_urls do
-          urls when is_list(urls) and length(urls) > 0 ->
+          [_ | _] = urls ->
             post_key = get_post_key(post, current_user)
 
             decrypted_urls =
@@ -4072,7 +4078,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Check blocked users
     blocked_users_pass =
-      if content_filters[:blocked_users] && length(content_filters[:blocked_users]) > 0 do
+      if content_filters[:blocked_users] && content_filters[:blocked_users] != [] do
         post.user_id not in content_filters[:blocked_users]
       else
         true
@@ -4080,7 +4086,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     # Check muted users - handle both legacy format (user IDs) and hydrated format (user objects)
     muted_users_pass =
-      if content_filters[:muted_users] && length(content_filters[:muted_users]) > 0 do
+      if content_filters[:muted_users] && content_filters[:muted_users] != [] do
         muted_user_ids =
           extract_user_ids_from_muted_users_content_filter(content_filters[:muted_users])
 
@@ -5169,7 +5175,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp get_decrypted_post_images(post, current_user, key) do
     cond do
-      is_list(post.image_urls) and length(post.image_urls) > 0 ->
+      is_list(post.image_urls) and post.image_urls != [] ->
         encrypted_post_key =
           case post.visibility do
             :public -> get_post_key(post)
@@ -5293,10 +5299,10 @@ defmodule MossletWeb.TimelineLive.Index do
   # Helper function to check if user has active content filters
   # Helper function to check if user has active content filters
   defp has_active_filters?(filters) do
-    keywords_active = length(filters.keywords || []) > 0
+    keywords_active = (filters.keywords || []) != []
     cw_active = Map.get(filters.content_warnings || %{}, :hide_all, false)
     mature_active = Map.get(filters.content_warnings || %{}, :hide_mature, false)
-    users_active = length(filters.muted_users || []) > 0
+    users_active = (filters.muted_users || []) != []
     reposts_active = Map.get(filters, :hide_reposts, false)
 
     keywords_active || cw_active || mature_active || users_active || reposts_active
@@ -5382,7 +5388,7 @@ defmodule MossletWeb.TimelineLive.Index do
       %Timeline.UserTimelinePreference{} = prefs ->
         # Decrypt keywords - StringList gives us list of asymmetrically encrypted keywords
         decrypted_keywords =
-          if prefs.mute_keywords && length(prefs.mute_keywords) > 0 do
+          if prefs.mute_keywords && prefs.mute_keywords != [] do
             Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
               # decrypt_user_data returns the decrypted string directly
               Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, user, key)
@@ -5395,7 +5401,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
         # Decrypt muted users - StringList gives us list of asymmetrically encrypted user_ids
         decrypted_muted_users =
-          if prefs.muted_users && length(prefs.muted_users) > 0 do
+          if prefs.muted_users && prefs.muted_users != [] do
             Enum.map(prefs.muted_users, fn encrypted_user_id ->
               # decrypt_user_data returns the decrypted string directly
               Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, user, key)
@@ -5564,7 +5570,7 @@ defmodule MossletWeb.TimelineLive.Index do
       true ->
         # Resolve visibility groups to user connections
         user_connections =
-          if length(visibility_groups) > 0 do
+          if visibility_groups != [] do
             # Get fresh user data with visibility groups
             fresh_user = Mosslet.Accounts.get_user!(current_user.id)
 
@@ -5580,8 +5586,7 @@ defmodule MossletWeb.TimelineLive.Index do
             end)
             |> Enum.uniq()
           else
-            # Resolve visibility users (direct user_connection_ids) to user connections
-            if length(visibility_users) > 0 do
+            if visibility_users != [] do
               visibility_users
               |> Enum.map(fn user_id ->
                 Accounts.get_user_connection_between_users(user_id, current_user.id)
