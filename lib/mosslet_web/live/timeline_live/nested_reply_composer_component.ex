@@ -233,6 +233,7 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
             <%!-- Action buttons with consistent order --%>
             <div class="flex items-center gap-3">
               <.liquid_button
+                :if={@form[:body].value && String.trim(@form[:body].value) != ""}
                 type="button"
                 variant="ghost"
                 size="sm"

@@ -173,8 +173,9 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
 
                       <%!-- Action buttons with consistent order (Cancel always left, Reply always right) --%>
                       <div class="flex items-center gap-3">
-                        <%!-- Cancel button (always on left for consistent UX) --%>
+                        <%!-- Cancel button (only shown when there's content to clear) --%>
                         <MossletWeb.DesignSystem.liquid_button
+                          :if={@form[:body].value && String.trim(@form[:body].value) != ""}
                           type="button"
                           variant="secondary"
                           size="sm"

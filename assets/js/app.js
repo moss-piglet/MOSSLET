@@ -198,6 +198,28 @@ window.addEventListener("phx:hide-nested-reply-composer", (event) => {
   }
 });
 
+// Animate newly loaded replies
+window.addEventListener("phx:animate-new-replies", (event) => {
+  const { post_id, start_index } = event.detail;
+  const thread = document.getElementById(`reply-thread-${post_id}`);
+  
+  if (thread) {
+    const replyItems = thread.querySelectorAll('.reply-item');
+    replyItems.forEach((item, index) => {
+      if (index >= start_index) {
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(-8px) translateY(-8px)';
+        
+        setTimeout(() => {
+          item.classList.add('nested-reply-expand-enter');
+          item.style.opacity = '';
+          item.style.transform = '';
+        }, (index - start_index) * 50);
+      }
+    });
+  }
+});
+
 // Add event listener for scroll to top
 window.addEventListener("phx:scroll-to-top", (event) => {
   // Use a custom smooth scroll with easing for better animation

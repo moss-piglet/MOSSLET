@@ -1524,6 +1524,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket
         |> assign(:loaded_replies_counts, updated_counts)
         |> stream_insert(:posts, post, at: -1)
+        |> push_event("animate-new-replies", %{post_id: post_id, start_index: current_count})
 
       {:noreply, socket}
     else
