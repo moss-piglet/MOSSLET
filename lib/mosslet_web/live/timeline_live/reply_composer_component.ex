@@ -158,20 +158,26 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
 
                   <%!-- Reply actions with consistent button order and enhanced mobile UX --%>
                   <div class="mt-4">
-                    <%!-- Privacy indicator and action buttons on same line for better visual hierarchy --%>
+                    <%!-- Toolbar and action buttons row --%>
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <%!-- Privacy indicator --%>
-                      <div class="flex justify-center sm:justify-start">
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50/80 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-700/40 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                      <%!-- Left side: Toolbar with emoji picker --%>
+                      <div class="flex items-center justify-center sm:justify-start gap-1">
+                        <button
+                          id={"reply-emoji-picker-#{@post_id}"}
+                          type="button"
+                          class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
+                          phx-hook="ReplyEmojiPicker"
+                          data-target-textarea={"reply-textarea-#{@post_id}"}
+                          title="Add emoji"
+                        >
                           <.phx_icon
-                            name="hero-link"
-                            class="h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                            name="hero-face-smile"
+                            class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
                           />
-                          <span>Reply inherits post privacy</span>
-                        </div>
+                        </button>
                       </div>
 
-                      <%!-- Action buttons with consistent order (Cancel always left, Reply always right) --%>
+                      <%!-- Right side: Cancel and Reply buttons --%>
                       <div class="flex items-center gap-3">
                         <%!-- Cancel button (only shown when there's content to clear) --%>
                         <MossletWeb.DesignSystem.liquid_button
@@ -187,7 +193,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                           Cancel
                         </MossletWeb.DesignSystem.liquid_button>
 
-                        <%!-- Reply submit button (always on right for consistent UX) --%>
+                        <%!-- Reply submit button --%>
                         <MossletWeb.DesignSystem.liquid_button
                           type="submit"
                           size="sm"

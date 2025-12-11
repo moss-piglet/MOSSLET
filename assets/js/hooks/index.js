@@ -17,6 +17,7 @@ import MaintainFocus from "./maintain-focus";
 import Menu from "./dropdown-menu";
 import ModalPortal from "./modal-portal";
 import ReplyComposer from "./reply-composer";
+import ReplyEmojiPicker from "./reply-emoji-picker";
 import TippyHook from "./tippy-hook";
 import TrixEditor from "./trix";
 import TrixContentPostHook from "./trix-content-post-hook";
@@ -50,6 +51,7 @@ export default {
   ModalPortal,
   MossletFrameworkHooks,
   ReplyComposer,
+  ReplyEmojiPicker,
   RestoreBodyScroll,
   ScrollableTabs,
   ScrollDown,

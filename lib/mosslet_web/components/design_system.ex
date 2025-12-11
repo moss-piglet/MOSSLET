@@ -7289,7 +7289,7 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex items-center justify-between pt-2">
           <div class="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
             <.phx_icon name="hero-lock-closed" class="h-3 w-3" />
-            <span>Reply will be {String.capitalize(to_string(@post.visibility))}</span>
+            <span>Reply inherits post's visibility</span>
           </div>
 
           <div class="flex items-center gap-2">

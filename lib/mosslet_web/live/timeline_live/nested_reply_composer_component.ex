@@ -217,20 +217,26 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
 
         <%!-- Action section with improved mobile/desktop visual hierarchy --%>
         <div class="pt-2">
-          <%!-- Privacy indicator and action buttons with responsive layout --%>
+          <%!-- Toolbar and action buttons row --%>
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <%!-- Privacy indicator --%>
-            <div class="flex justify-center sm:justify-start">
-              <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50/80 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-700/40 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+            <%!-- Left side: Toolbar with emoji picker --%>
+            <div class="flex items-center justify-center sm:justify-start gap-1">
+              <button
+                id={"nested-reply-emoji-picker-#{@parent_reply.id}"}
+                type="button"
+                class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
+                phx-hook="ReplyEmojiPicker"
+                data-target-textarea={"nested-reply-textarea-#{@parent_reply.id}"}
+                title="Add emoji"
+              >
                 <.phx_icon
-                  name="hero-lock-closed"
-                  class="h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                  name="hero-face-smile"
+                  class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
                 />
-                <span>Reply will be {String.capitalize(to_string(@post.visibility))}</span>
-              </div>
+              </button>
             </div>
 
-            <%!-- Action buttons with consistent order --%>
+            <%!-- Right side: Clear and Reply buttons --%>
             <div class="flex items-center gap-3">
               <.liquid_button
                 :if={@form[:body].value && String.trim(@form[:body].value) != ""}
