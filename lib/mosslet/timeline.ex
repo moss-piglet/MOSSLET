@@ -2654,7 +2654,7 @@ defmodule Mosslet.Timeline do
           {:ok, %{insert_post: post, insert_user_post: _user_post}} ->
             # For public posts, we also need to create receipts for other users
             # But we don't need to create additional UserPost records
-            post_with_associations = post |> Repo.preload([:user_posts, :replies])
+            post_with_associations = post |> Repo.preload([:user_posts, :replies, :user_post_receipts])
 
             conn = Accounts.get_connection_from_item(post, user)
 
@@ -2755,12 +2755,12 @@ defmodule Mosslet.Timeline do
 
       conn = Accounts.get_connection_from_item(post, current_user)
 
-      {:ok, conn, post |> Repo.preload([:user_posts, :replies])}
+      {:ok, conn, post |> Repo.preload([:user_posts, :replies, :user_post_receipts])}
       |> broadcast(:post_reposted)
     else
       conn = Accounts.get_connection_from_item(post, current_user)
 
-      {:ok, conn, post |> Repo.preload([:user_posts, :replies])}
+      {:ok, conn, post |> Repo.preload([:user_posts, :replies, :user_post_receipts])}
       |> broadcast(:post_reposted)
     end
   end
