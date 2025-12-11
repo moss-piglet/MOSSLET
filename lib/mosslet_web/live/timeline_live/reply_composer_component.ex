@@ -28,8 +28,15 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
     ~H"""
     <div
       id={"reply-composer-#{@post_id}"}
+      data-hide-js={
+        JS.hide(
+          to: "#reply-composer-#{@post_id}",
+          transition: {"nested-reply-expand-leave", "", ""},
+          time: 200
+        )
+      }
       class={[
-        "hidden overflow-hidden transition-all duration-300 ease-out",
+        "hidden overflow-hidden",
         "bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40",
         "dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/20",
         "border border-emerald-200/60 dark:border-emerald-700/50",

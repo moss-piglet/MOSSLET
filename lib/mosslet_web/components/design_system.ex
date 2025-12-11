@@ -3283,7 +3283,7 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Enhanced Privacy Controls Section (conditionally shown) --%>
         <%= if @privacy_controls_expanded do %>
-          <div class="mt-4 animate-in slide-in-from-top-2 duration-300 ease-out">
+          <div class="mt-4 nested-reply-expand-enter">
             <.liquid_enhanced_privacy_controls
               form={@form}
               selector={@selector}
@@ -4738,25 +4738,15 @@ defmodule MossletWeb.DesignSystem do
             <.liquid_timeline_action
               :if={@can_reply?}
               icon="hero-chat-bubble-oval-left"
+              active_icon="hero-chat-bubble-oval-left-solid"
               count={Map.get(@stats, :replies, 0)}
               label="Reply"
               color="emerald"
-              phx-click={
-                JS.toggle(to: "#reply-composer-#{@post_id}")
-                |> JS.toggle(to: "#reply-thread-#{@post_id}")
-                |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{@post_id}")
-                |> JS.toggle_class("hero-chat-bubble-oval-left hero-chat-bubble-oval-left-solid",
-                  to: "#reply-icon-#{@post_id}"
-                )
-                |> JS.toggle_attribute({"data-composer-open", "true", "false"},
-                  to: "#reply-button-#{@post_id}"
-                )
-              }
               icon_id={"reply-icon-#{@post_id}"}
               id={"reply-button-#{@post_id}"}
-              data-composer-open="false"
               phx-hook="TippyHook"
               data-tippy-content="Toggle reply composer"
+              phx-click={toggle_reply_section(@post_id)}
             />
             <.liquid_timeline_action
               :if={@can_repost}
@@ -5024,6 +5014,7 @@ defmodule MossletWeb.DesignSystem do
   Timeline action button (reply, share, like, bookmark) with calm interaction design.
   """
   attr :icon, :string, required: true
+  attr :active_icon, :string, default: nil
   attr :count, :integer, default: 0
   attr :label, :string, required: true
   attr :active, :boolean, default: false
@@ -5037,9 +5028,11 @@ defmodule MossletWeb.DesignSystem do
 
   attr :rest, :global,
     include:
-      ~w(phx-click phx-value-id phx-value-url data-confirm id data-composer-open phx-hook data-tippy-content)
+      ~w(phx-click phx-value-id phx-value-url data-confirm id data-composer-open data-expanded phx-hook data-tippy-content)
 
   def liquid_timeline_action(assigns) do
+    assigns = assign_new(assigns, :has_active_icon, fn -> assigns[:active_icon] != nil end)
+
     ~H"""
     <button
       class={[
@@ -5050,24 +5043,40 @@ defmodule MossletWeb.DesignSystem do
         timeline_action_classes(@active, @color),
         @class
       ]}
+      data-expanded="false"
       {@rest}
     >
       <div class={[
         "absolute inset-0 opacity-0 transition-all duration-300 ease-out rounded-xl",
         "group-hover/action:opacity-100",
+        "[.reply-expanded_&]:opacity-100",
         timeline_action_bg_classes(@color)
       ]}>
       </div>
 
       <div class="relative flex items-center gap-2">
+        <%!-- Default icon (shown when not expanded) --%>
         <.phx_icon
           name={@icon}
           id={@icon_id}
           class={[
-            "h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110 reply-icon-outline",
-            "phx-click-loading:hidden"
+            "h-4 w-4 transition-all duration-200 ease-out group-hover/action:scale-110",
+            "phx-click-loading:hidden",
+            @has_active_icon && "[.reply-expanded_&]:hidden"
           ]}
         />
+        <%!-- Active/filled icon (shown when expanded, only if active_icon is provided) --%>
+        <.phx_icon
+          :if={@has_active_icon}
+          name={@active_icon}
+          id={"#{@icon_id}-active"}
+          class={[
+            "h-4 w-4 transition-all duration-200 ease-out scale-110",
+            "phx-click-loading:hidden",
+            "hidden [.reply-expanded_&]:block"
+          ]}
+        />
+        <%!-- Loading spinner --%>
         <svg
           class="hidden phx-click-loading:block h-4 w-4 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
@@ -5536,7 +5545,9 @@ defmodule MossletWeb.DesignSystem do
   defp timeline_action_classes(false, "emerald") do
     [
       "text-slate-500 dark:text-slate-400",
-      "hover:text-emerald-600 dark:hover:text-emerald-400"
+      "hover:text-emerald-600 dark:hover:text-emerald-400",
+      "[&.reply-expanded]:text-emerald-600 [&.reply-expanded]:dark:text-emerald-400",
+      "[&.reply-expanded]:bg-emerald-50/50 [&.reply-expanded]:dark:bg-emerald-900/20"
     ]
   end
 
@@ -6498,8 +6509,15 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <div
       id={"reply-thread-#{@post_id}"}
+      data-show-js={
+        JS.show(
+          to: "#reply-thread-#{@post_id}",
+          transition: {"nested-reply-expand-enter", "", ""},
+          time: 300
+        )
+      }
       class={[
-        "transition-all duration-300 ease-out hidden",
+        "hidden",
         @class
       ]}
     >
@@ -6674,7 +6692,19 @@ defmodule MossletWeb.DesignSystem do
         :if={@current_user}
         id={"nested-composer-#{@reply.id}"}
         class="ml-4 sm:ml-6 mt-3 hidden"
-        phx-hook="HideNestedReplyComposer"
+        data-hide-js={
+          JS.hide(
+            to: "#nested-composer-#{@reply.id}",
+            transition: {"nested-reply-expand-leave", "", ""},
+            time: 300
+          )
+          |> JS.remove_class("text-emerald-600 dark:text-emerald-400",
+            to: "#reply-button-#{@reply.id}"
+          )
+          |> JS.set_attribute({"data-composer-open", "false"},
+            to: "#reply-button-#{@reply.id}"
+          )
+        }
       >
         <.live_component
           module={MossletWeb.TimelineLive.NestedReplyComposerComponent}
@@ -6791,7 +6821,12 @@ defmodule MossletWeb.DesignSystem do
                   :if={can_interact_with_reply?(@reply, @current_user)}
                   id={"reply-button-#{@reply.id}"}
                   phx-click={
-                    JS.toggle(to: "#nested-composer-#{@reply.id}")
+                    JS.toggle(
+                      to: "#nested-composer-#{@reply.id}",
+                      in: {"nested-reply-expand-enter", "", ""},
+                      out: {"nested-reply-expand-leave", "", ""},
+                      time: 300
+                    )
                     |> JS.toggle_class("text-emerald-600 dark:text-emerald-400",
                       to: "#reply-button-#{@reply.id}"
                     )
@@ -7148,8 +7183,31 @@ defmodule MossletWeb.DesignSystem do
     end
   end
 
+  defp toggle_reply_section(post_id) do
+    JS.toggle(
+      to: "#reply-composer-#{post_id}",
+      in: {"nested-reply-expand-enter", "", ""},
+      out: {"nested-reply-expand-leave", "", ""},
+      time: 300
+    )
+    |> JS.toggle(
+      to: "#reply-thread-#{post_id}",
+      in: {"nested-reply-expand-enter", "", ""},
+      out: {"nested-reply-expand-leave", "", ""},
+      time: 300
+    )
+    |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{post_id}")
+    |> JS.toggle_class("reply-expanded", to: "#reply-button-#{post_id}")
+    |> JS.toggle_attribute({"data-expanded", "true", "false"}, to: "#reply-button-#{post_id}")
+  end
+
   defp toggle_nested_replies(reply_id) do
-    JS.toggle(to: "#nested-children-#{reply_id}")
+    JS.toggle(
+      to: "#nested-children-#{reply_id}",
+      in: {"nested-reply-expand-enter", "", ""},
+      out: {"nested-reply-expand-leave", "", ""},
+      time: 300
+    )
     |> JS.toggle_class("hidden", to: "#collapse-text-#{reply_id}")
     |> JS.toggle_class("hidden", to: "#expand-text-#{reply_id}")
     |> JS.toggle_class("-rotate-90", to: "#collapse-icon-#{reply_id}")

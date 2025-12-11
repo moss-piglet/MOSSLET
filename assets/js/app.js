@@ -129,17 +129,17 @@ window.addEventListener("phx:close-reply-composer", (event) => {
   const cardId = `timeline-card-${post_id}`;
   const buttonId = `reply-button-${post_id}`;
 
-  // Use the same toggle logic as the original JS.toggle command
   const composer = document.getElementById(composerId);
   const card = document.getElementById(cardId);
   const button = document.getElementById(buttonId);
 
-  if (
-    (composer && composer.classList.contains("block")) ||
-    !composer.classList.contains("hidden")
-  ) {
-    // Close the composer
-    composer.classList.add("hidden");
+  // Hide the composer using stored JS command if available
+  if (composer && !composer.classList.contains("hidden")) {
+    if (composer.dataset.hideJs) {
+      liveSocket.execJS(composer, composer.dataset.hideJs);
+    } else {
+      composer.classList.add("hidden");
+    }
 
     // Remove ring from card
     if (card) {
@@ -150,6 +150,51 @@ window.addEventListener("phx:close-reply-composer", (event) => {
     if (button) {
       button.setAttribute("data-composer-open", "false");
     }
+  }
+});
+
+// Show reply thread after creating a reply (keeps thread expanded)
+window.addEventListener("phx:show-reply-thread", (event) => {
+  const { post_id } = event.detail;
+  const threadId = `reply-thread-${post_id}`;
+  const cardId = `timeline-card-${post_id}`;
+
+  const thread = document.getElementById(threadId);
+  const card = document.getElementById(cardId);
+
+  // Show the thread using stored JS command
+  if (thread && thread.dataset.showJs) {
+    liveSocket.execJS(thread, thread.dataset.showJs);
+  } else if (thread) {
+    thread.classList.remove("hidden");
+  }
+
+  // Keep the card highlighted
+  if (card) {
+    card.classList.add("ring-2", "ring-emerald-300");
+  }
+});
+
+// Hide nested reply composer after successful submission
+window.addEventListener("phx:hide-nested-reply-composer", (event) => {
+  const { reply_id } = event.detail;
+  const composer = document.getElementById(`nested-composer-${reply_id}`);
+  
+  if (composer && composer.dataset.hideJs) {
+    liveSocket.execJS(composer, composer.dataset.hideJs);
+  } else if (composer) {
+    composer.classList.add("hidden");
+    const button = document.getElementById(`reply-button-${reply_id}`);
+    if (button) {
+      button.classList.remove("text-emerald-600", "dark:text-emerald-400");
+      button.setAttribute("data-composer-open", "false");
+    }
+  }
+
+  const textarea = composer?.querySelector(`#nested-reply-textarea-${reply_id}`);
+  if (textarea) {
+    textarea.value = "";
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 });
 

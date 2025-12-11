@@ -576,7 +576,7 @@ defmodule MossletWeb.TimelineLive.Index do
               socket
               |> put_flash(:success, "Reply posted successfully!")
               |> stream_insert(:posts, updated_post)
-              |> push_event("hide-reply-composer", %{post_id: post_id})
+              |> push_event("show-reply-thread", %{post_id: post_id})
 
             {:noreply, socket}
 
