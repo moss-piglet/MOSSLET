@@ -287,7 +287,7 @@ defmodule MossletWeb.EditProfileLive do
                         :if={@current_user.connection.avatar_url}
                         field={f_nested[:show_avatar?]}
                         label="Show your avatar?"
-                        help="Display your avatar on your profile page (deleting your avatar will disable this)."
+                        help="Display your avatar on your profile and posts (deleting your avatar will disable this)."
                       />
                       <DesignSystem.liquid_checkbox
                         field={f_nested[:show_email?]}

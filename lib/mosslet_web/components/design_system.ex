@@ -6709,10 +6709,10 @@ defmodule MossletWeb.DesignSystem do
       "shadow-sm hover:shadow-md dark:shadow-slate-900/20",
       @class
     ]}>
-      <%!-- Depth-aware reply accent --%>
+      <%!-- Depth-aware reply accent (top bar) --%>
       <div class={[
-        "absolute left-0 top-0 bottom-0 rounded-r-full",
-        reply_accent_classes(@depth)
+        "absolute left-0 right-0 top-0 rounded-b-full",
+        reply_top_accent_classes(@depth)
       ]}>
       </div>
 
@@ -6750,10 +6750,11 @@ defmodule MossletWeb.DesignSystem do
               {get_decrypted_reply_content(@reply, @current_user, @key)}
             </div>
 
-            <%!-- Reply actions (mobile-optimized) --%>
+            <%!-- Reply actions (mobile-optimized) - only show for connected users or own replies --%>
             <div class="flex items-center justify-between mt-3 sm:mt-2">
               <div class="flex items-center gap-3 sm:gap-4">
                 <.liquid_timeline_action
+                  :if={can_interact_with_reply?(@reply, @current_user)}
                   id={
                     if @current_user.id in @reply.favs_list,
                       do: "hero-heart-solid-reply-button-#{@reply.id}",
@@ -6785,6 +6786,7 @@ defmodule MossletWeb.DesignSystem do
                   class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
                 />
                 <button
+                  :if={can_interact_with_reply?(@reply, @current_user)}
                   id={"reply-button-#{@reply.id}"}
                   phx-click={
                     JS.toggle(to: "#nested-composer-#{@reply.id}")
@@ -6901,17 +6903,16 @@ defmodule MossletWeb.DesignSystem do
   def get_reply_author_name(reply, current_user, key) do
     cond do
       reply.user_id == current_user.id ->
-        # Current user's own reply - use their name
         case user_name(current_user, key) do
           name when is_binary(name) -> name
-          # Graceful fallback for decryption issues
           :failed_verification -> "You"
           _ -> "You"
         end
 
+      not is_connected_to_reply_author?(reply, current_user) ->
+        "Private Author"
+
       true ->
-        # Other user's reply - decrypt their username from reply
-        # Replies store username encrypted with same post_key as the post content
         case get_reply_post_key(reply, current_user) do
           {:ok, post_key} ->
             case decr_item(reply.username, current_user, post_key, key, reply, "username") do
@@ -6929,13 +6930,14 @@ defmodule MossletWeb.DesignSystem do
   defp get_reply_author_avatar(reply, current_user, key) do
     cond do
       reply.user_id == current_user.id ->
-        # Current user's own reply - use their avatar
         if show_avatar?(current_user),
           do: maybe_get_user_avatar(current_user, key) || "/images/logo.svg",
           else: "/images/logo.svg"
 
+      not is_connected_to_reply_author?(reply, current_user) ->
+        "/images/logo.svg"
+
       true ->
-        # Other user's reply
         user_connection = get_uconn_for_shared_item(reply, current_user)
 
         if show_avatar?(user_connection) do
@@ -6950,16 +6952,43 @@ defmodule MossletWeb.DesignSystem do
   end
 
   defp get_decrypted_reply_content(reply, current_user, key) do
-    case get_reply_post_key(reply, current_user) do
-      {:ok, post_key} ->
-        case decr_item(reply.body, current_user, post_key, key, reply, "body") do
-          content when is_binary(content) -> content
-          :failed_verification -> "[Could not decrypt reply]"
-          _ -> "[Could not decrypt reply]"
+    cond do
+      reply.user_id == current_user.id ->
+        case get_reply_post_key(reply, current_user) do
+          {:ok, post_key} ->
+            case decr_item(reply.body, current_user, post_key, key, reply, "body") do
+              content when is_binary(content) -> content
+              :failed_verification -> "[Could not decrypt reply]"
+              _ -> "[Could not decrypt reply]"
+            end
+
+          _ ->
+            "[Could not decrypt reply]"
         end
 
-      _ ->
-        "[Could not decrypt reply]"
+      not is_connected_to_reply_author?(reply, current_user) ->
+        "[Reply from non-connected user]"
+
+      true ->
+        case get_reply_post_key(reply, current_user) do
+          {:ok, post_key} ->
+            case decr_item(reply.body, current_user, post_key, key, reply, "body") do
+              content when is_binary(content) -> content
+              :failed_verification -> "[Could not decrypt reply]"
+              _ -> "[Could not decrypt reply]"
+            end
+
+          _ ->
+            "[Could not decrypt reply]"
+        end
+    end
+  end
+
+  defp is_connected_to_reply_author?(reply, current_user) do
+    case get_uconn_for_shared_item(reply, current_user) do
+      nil -> false
+      %Mosslet.Accounts.UserConnection{} -> true
+      _ -> false
     end
   end
 
@@ -7039,6 +7068,12 @@ defmodule MossletWeb.DesignSystem do
     reply.user_id != current_user.id
   end
 
+  # Helper function to check if user can interact with a reply (fav/reply)
+  # User can interact if they are the reply author OR connected to the reply author
+  defp can_interact_with_reply?(reply, current_user) do
+    reply.user_id == current_user.id or is_connected_to_reply_author?(reply, current_user)
+  end
+
   # Format content warning category for display
   defp format_content_warning_category(category) when is_binary(category) do
     case category do
@@ -7109,28 +7144,28 @@ defmodule MossletWeb.DesignSystem do
     end
   end
 
-  defp reply_accent_classes(depth) do
+  defp reply_top_accent_classes(depth) do
     case depth do
       0 ->
-        "w-1 bg-gradient-to-b from-emerald-400/80 via-teal-400/60 to-emerald-300/40 dark:from-emerald-500/80 dark:via-teal-500/60 dark:to-emerald-400/40"
+        "h-1 bg-gradient-to-r from-emerald-400/80 via-teal-400/60 to-emerald-300/40 dark:from-emerald-500/80 dark:via-teal-500/60 dark:to-emerald-400/40"
 
       1 ->
-        "w-0.5 bg-gradient-to-b from-teal-400/70 via-emerald-400/50 to-teal-300/30 dark:from-teal-500/70 dark:via-emerald-500/50 dark:to-teal-400/30"
+        "h-0.5 bg-gradient-to-r from-teal-400/70 via-emerald-400/50 to-teal-300/30 dark:from-teal-500/70 dark:via-emerald-500/50 dark:to-teal-400/30"
 
       2 ->
-        "w-0.5 bg-gradient-to-b from-cyan-400/60 via-teal-400/40 to-cyan-300/20 dark:from-cyan-500/60 dark:via-teal-500/40 dark:to-cyan-400/20"
+        "h-0.5 bg-gradient-to-r from-cyan-400/60 via-teal-400/40 to-cyan-300/20 dark:from-cyan-500/60 dark:via-teal-500/40 dark:to-cyan-400/20"
 
       _ ->
-        "w-px bg-gradient-to-b from-slate-400/50 via-slate-300/30 to-transparent dark:from-slate-500/50 dark:via-slate-400/30"
+        "h-px bg-gradient-to-r from-slate-400/50 via-slate-300/30 to-transparent dark:from-slate-500/50 dark:via-slate-400/30"
     end
   end
 
   defp reply_padding_classes(depth) do
     case depth do
-      0 -> "pl-5 sm:pl-6"
-      1 -> "pl-4 sm:pl-5"
-      2 -> "pl-3 sm:pl-4"
-      _ -> "pl-2 sm:pl-3"
+      0 -> "pt-5 sm:pt-6"
+      1 -> "pt-4 sm:pt-5"
+      2 -> "pt-3 sm:pt-4"
+      _ -> "pt-2 sm:pt-3"
     end
   end
 

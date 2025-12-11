@@ -4489,35 +4489,40 @@ defmodule MossletWeb.TimelineLive.Index do
         post.user_id == current_user.id
 
       "connections" ->
-        # Show posts from connected users, but with specific visibility rules
-        connection_user_ids =
-          Accounts.get_all_confirmed_user_connections(current_user.id)
-          |> Enum.map(& &1.reverse_user_id)
-          |> Enum.uniq()
+        # Never show current user's own posts in connections tab (including their reposts)
+        if post.user_id == current_user.id do
+          false
+        else
+          # Show posts from connected users, but with specific visibility rules
+          connection_user_ids =
+            Accounts.get_all_confirmed_user_connections(current_user.id)
+            |> Enum.map(& &1.reverse_user_id)
+            |> Enum.uniq()
 
-        cond do
-          # Always exclude private posts
-          post.visibility == :private ->
-            false
+          cond do
+            # Always exclude private posts
+            post.visibility == :private ->
+              false
 
-          # Exclude group-specific posts (they should only appear in groups tab)
-          post.visibility == :specific_groups ->
-            false
+            # Exclude group-specific posts (they should only appear in groups tab)
+            post.visibility == :specific_groups ->
+              false
 
-          # For specific_users posts, only show if current user is in shared_users list
-          post.visibility == :specific_users ->
-            post.user_id in connection_user_ids and
-              Enum.any?(post.shared_users || [], fn shared_user ->
-                shared_user.user_id == current_user.id
-              end)
+            # For specific_users posts, only show if current user is in shared_users list
+            post.visibility == :specific_users ->
+              post.user_id in connection_user_ids and
+                Enum.any?(post.shared_users || [], fn shared_user ->
+                  shared_user.user_id == current_user.id
+                end)
 
-          # For other visibility types (public, connections), show if from connected user
-          # OR if it's a repost shared with the current user
-          true ->
-            post.user_id in connection_user_ids or
-              (post.repost == true and
-                 Ecto.assoc_loaded?(post.user_posts) and
-                 Enum.any?(post.user_posts, fn up -> up.user_id == current_user.id end))
+            # For other visibility types (public, connections), show if from connected user
+            # OR if it's a repost shared with the current user
+            true ->
+              post.user_id in connection_user_ids or
+                (post.repost == true and
+                   Ecto.assoc_loaded?(post.user_posts) and
+                   Enum.any?(post.user_posts, fn up -> up.user_id == current_user.id end))
+          end
         end
 
       "groups" ->
