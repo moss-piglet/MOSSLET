@@ -3123,75 +3123,55 @@ defmodule MossletWeb.DesignSystem do
   def liquid_timeline_composer_enhanced(assigns) do
     ~H"""
     <div
+      :if={!@collapsed}
       id={@id}
+      phx-remove={
+        JS.transition(
+          {"ease-out duration-150", "opacity-100 scale-100", "opacity-0 scale-[0.97]"},
+          time: 150
+        )
+      }
       class={[
         "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl",
-        "border border-slate-200/80 dark:border-slate-700/80",
-        "shadow-xl shadow-slate-900/10 dark:shadow-black/40",
-        "ring-1 ring-slate-900/5 dark:ring-white/5",
-        "hover:shadow-2xl hover:shadow-slate-900/15 dark:hover:shadow-black/50",
-        "focus-within:border-emerald-500/60 dark:focus-within:border-emerald-400/60",
-        "focus-within:shadow-2xl focus-within:shadow-emerald-500/15",
+        "bg-white dark:bg-slate-800 backdrop-blur-xl",
+        "border-2 border-emerald-200/80 dark:border-emerald-700/60",
+        "shadow-xl shadow-emerald-500/10 dark:shadow-emerald-900/30",
+        "ring-1 ring-emerald-500/10 dark:ring-emerald-400/10",
+        "hover:shadow-2xl hover:shadow-emerald-500/15 dark:hover:shadow-emerald-900/40",
+        "hover:border-emerald-300/80 dark:hover:border-emerald-600/60",
+        "focus-within:border-emerald-400 dark:focus-within:border-emerald-500",
+        "focus-within:shadow-2xl focus-within:shadow-emerald-500/20",
+        "focus-within:ring-2 focus-within:ring-emerald-500/30",
+        "animate-in fade-in slide-in-from-top-2 duration-300",
         @class
       ]}
     >
-      <%!-- Collapse/Expand toggle button --%>
       <button
         type="button"
+        id={"collapse-composer-btn-#{@id}"}
         phx-click="toggle_composer_collapsed"
         class={[
-          "absolute top-3 right-3 z-20 p-1 rounded-lg",
-          "bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm",
-          "border border-slate-200/40 dark:border-slate-600/40",
-          "text-slate-400 dark:text-slate-500",
-          "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
-          "hover:text-emerald-600 dark:hover:text-emerald-400",
-          "hover:border-emerald-200 dark:hover:border-emerald-700",
+          "absolute top-3 right-3 z-20 p-2 rounded-full",
+          "bg-slate-100/80 dark:bg-slate-700/80 backdrop-blur-sm",
+          "text-slate-500 dark:text-slate-400",
+          "hover:bg-slate-200/90 dark:hover:bg-slate-600/90",
+          "hover:text-slate-700 dark:hover:text-slate-200",
+          "hover:scale-110 active:scale-95",
           "transition-all duration-200 ease-out",
-          "focus:outline-none focus:ring-2 focus:ring-emerald-500/40",
-          "opacity-60 hover:opacity-100"
+          "focus:outline-none focus:ring-2 focus:ring-slate-400/40",
+          "shadow-sm hover:shadow-md"
         ]}
-        title={if @collapsed, do: "Expand composer", else: "Collapse composer"}
+        title="Collapse composer"
+        phx-hook="TippyHook"
+        data-tippy-content="Collapse composer"
       >
-        <.phx_icon
-          name={if @collapsed, do: "hero-chevron-down", else: "hero-chevron-up"}
-          class="h-3.5 w-3.5 transition-transform duration-200"
-        />
+        <.phx_icon name="hero-x-mark" class="h-3.5 w-3.5" />
       </button>
 
-      <%!-- Liquid background on focus --%>
-      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/20 via-teal-50/10 to-cyan-50/20 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 focus-within:opacity-100">
+      <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-cyan-50/30 dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/20 focus-within:opacity-100">
       </div>
 
-      <%!-- Collapsed state: minimal bar --%>
-      <div
-        :if={@collapsed}
-        class="relative p-4 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-200"
-        phx-click="toggle_composer_collapsed"
-      >
-        <div class="flex items-center gap-3">
-          <.liquid_avatar
-            src={@user_avatar}
-            name={@user_name}
-            size="sm"
-            status={to_string(@current_user.status || "offline")}
-            user_id={@current_user.id}
-            status_message={get_user_status_message(@current_user, @current_user, @key)}
-            show_status={can_view_status?(@current_user, @current_user, @key)}
-            id={"composer-avatar-collapsed-#{@id}"}
-          />
-          <span class="text-slate-500 dark:text-slate-400 text-sm">
-            Click to share something meaningful...
-          </span>
-        </div>
-      </div>
-
-      <%!-- Expanded state: full composer --%>
-      <div
-        :if={!@collapsed}
-        class="relative p-6 animate-in fade-in slide-in-from-top-2 duration-200"
-      >
+      <div class="relative p-6 animate-in fade-in duration-200">
         <%!-- User section with enhanced liquid avatar --%>
         <div class="flex items-start gap-4 mb-4">
           <%!-- Enhanced liquid metal avatar --%>
