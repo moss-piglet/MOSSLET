@@ -17,6 +17,7 @@ defmodule MossletWeb.DesignSystem do
   # Import helper functions
   import MossletWeb.Helpers,
     only: [
+      alpine_autofocus: 0,
       contains_html?: 1,
       format_decrypted_content: 1,
       decr: 3,
@@ -2986,6 +2987,117 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
+  A beautiful, calm "New Post" prompt card that navigates to the timeline composer.
+  Perfect for profile pages and dashboards.
+  """
+  attr :user_name, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :placeholder, :string, default: "Share something meaningful..."
+  attr :class, :any, default: ""
+  attr :id, :string, default: "new-post-prompt"
+  attr :current_user, :any, default: nil
+  attr :session_key, :any, default: nil
+  attr :show_status, :boolean, default: false
+  attr :status_message, :string, default: nil
+
+  def liquid_new_post_prompt(assigns) do
+    ~H"""
+    <.link
+      navigate={~p"/app/timeline"}
+      id={@id}
+      class={[
+        "block relative rounded-2xl transition-all duration-300 ease-out",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl",
+        "border border-slate-200/80 dark:border-slate-700/80",
+        "shadow-lg shadow-slate-900/5 dark:shadow-black/30",
+        "ring-1 ring-slate-900/5 dark:ring-white/5",
+        "hover:shadow-xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/5",
+        "hover:border-emerald-400/60 dark:hover:border-emerald-500/40",
+        "hover:scale-[1.01] active:scale-[0.99]",
+        "focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60",
+        "group cursor-pointer",
+        @class
+      ]}
+    >
+      <%!-- Subtle liquid gradient background on hover --%>
+      <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-cyan-50/30 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10">
+      </div>
+
+      <%!-- Content --%>
+      <div class="relative p-4 sm:p-5">
+        <div class="flex items-center gap-3 sm:gap-4">
+          <%!-- User avatar --%>
+          <div class="flex-shrink-0">
+            <.liquid_avatar
+              src={@user_avatar}
+              name={@user_name}
+              size="md"
+              status={
+                if @current_user, do: to_string(@current_user.status || "offline"), else: "offline"
+              }
+              status_message={@status_message}
+              user_id={if @current_user, do: @current_user.id}
+              show_status={@show_status}
+              id={"#{@id}-avatar"}
+            />
+          </div>
+
+          <%!-- Prompt text area simulation --%>
+          <div class="flex-1 min-w-0">
+            <div class={[
+              "w-full px-4 py-3 rounded-xl",
+              "bg-slate-50/80 dark:bg-slate-700/50",
+              "border border-slate-200/60 dark:border-slate-600/40",
+              "group-hover:bg-emerald-50/50 dark:group-hover:bg-emerald-900/20",
+              "group-hover:border-emerald-200/60 dark:group-hover:border-emerald-700/40",
+              "transition-all duration-200"
+            ]}>
+              <span class="text-slate-500 dark:text-slate-400 text-sm sm:text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200">
+                {@placeholder}
+              </span>
+            </div>
+          </div>
+
+          <%!-- Action icons (visible on larger screens) --%>
+          <div class="hidden sm:flex items-center gap-2">
+            <div class="p-2 rounded-lg text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors duration-200">
+              <.phx_icon name="hero-photo" class="h-5 w-5" />
+            </div>
+            <div class="p-2 rounded-lg text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors duration-200">
+              <.phx_icon name="hero-face-smile" class="h-5 w-5" />
+            </div>
+          </div>
+
+          <%!-- Arrow indicator --%>
+          <div class="flex-shrink-0 p-2 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 dark:group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200">
+            <.phx_icon
+              name="hero-arrow-right"
+              class="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </div>
+        </div>
+
+        <%!-- Mobile hint --%>
+        <div class="sm:hidden mt-3 flex items-center justify-center gap-4 text-xs text-slate-600 dark:text-slate-400">
+          <div class="flex items-center gap-1">
+            <.phx_icon name="hero-photo" class="h-3.5 w-3.5" />
+            <span>Photos</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <.phx_icon name="hero-face-smile" class="h-3.5 w-3.5" />
+            <span>Emoji</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <.phx_icon name="hero-lock-closed" class="h-3.5 w-3.5" />
+            <span>Privacy</span>
+          </div>
+        </div>
+      </div>
+    </.link>
+    """
+  end
+
+  @doc """
   Timeline composer with enhanced liquid metal avatar and calm design focus.
   """
   attr :user_name, :string, required: true
@@ -3129,6 +3241,7 @@ defmodule MossletWeb.DesignSystem do
                 phx-debounce="500"
                 data-limit={@character_limit}
                 value={@form[:body].value}
+                {alpine_autofocus()}
               >{@form[:body].value}</textarea>
 
               <%!-- Character counter (shows when textarea has content) --%>

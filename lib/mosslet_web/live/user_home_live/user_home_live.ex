@@ -494,6 +494,28 @@ defmodule MossletWeb.UserHomeLive do
 
       <%!-- Main Content --%>
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+        <%!-- New Post Prompt --%>
+        <div class="mb-8">
+          <MossletWeb.DesignSystem.liquid_new_post_prompt
+            id="home-new-post-prompt"
+            user_name={
+              decr_item(
+                @current_user.connection.profile.name,
+                @current_user,
+                @current_user.conn_key,
+                @key,
+                @current_user.connection.profile
+              )
+            }
+            user_avatar={maybe_get_user_avatar(@current_user, @key)}
+            placeholder="Share something meaningful with your community..."
+            current_user={@current_user}
+            session_key={@key}
+            show_status={can_view_status?(@current_user, @current_user, @key)}
+            status_message={get_current_user_status_message(@current_user, @key)}
+          />
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Left Column: Profile Details & Federation --%>
           <div class="lg:col-span-2 space-y-8">
@@ -588,12 +610,14 @@ defmodule MossletWeb.UserHomeLive do
                 :if={!@current_user.connection.profile.about}
                 class="text-center py-8"
               >
-                <div class="text-slate-400 dark:text-slate-500 mb-4">
+                <div class="mb-4">
                   <.phx_icon
                     name="hero-chat-bubble-left-right"
-                    class="size-12 mx-auto mb-3 opacity-50"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
                   />
-                  <p class="text-sm">Share something about yourself!</p>
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    Share something about yourself!
+                  </p>
                 </div>
                 <MossletWeb.DesignSystem.liquid_button
                   navigate={~p"/app/users/edit-profile"}
