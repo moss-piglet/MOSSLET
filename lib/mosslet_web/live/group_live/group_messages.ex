@@ -51,7 +51,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
     avatar_src =
       if assigns.user_group.id == assigns.message.sender_id do
-        maybe_get_user_avatar(assigns.current_user, assigns.key)
+        maybe_get_user_avatar(assigns.current_user, assigns.key) ||
+          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_user, assigns.user_group.key, assigns.key, assigns.group)}"
       else
         if uconn do
           maybe_get_avatar_src(
