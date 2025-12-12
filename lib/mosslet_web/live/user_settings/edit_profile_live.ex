@@ -642,7 +642,7 @@ defmodule MossletWeb.EditProfileLive do
            socket
            |> put_flash(:success, info)
            |> assign(profile_form: profile_form)
-           |> push_navigate(~p"/app/users/edit-profile")}
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
       end
     else
       info = "Woops, you need to confirm your account first."
