@@ -25,6 +25,7 @@ erl_crash.dump
 /tmp/
 
 # Implementation plan files
+/docs/
 AT_PROTOCOL_FEDERATION_GUIDE.md
 AT_PROTOCOL_PHASES_4_6.md
 IMPLEMENTATION_GUIDE.md
@@ -34,6 +35,7 @@ PRESENCE_ARCHITECTURE.md
 DESIGN_SYSTEM.md
 PROFILE_AND_FEDERATION_PLAN.md
 PROFILE_AND_FEDERATION_PLAN_FIXED.md
+IOS_APP_PLAN.md
 
 # Ignore package tarball (built via "mix hex.build").
 Mosslet-*.tar
