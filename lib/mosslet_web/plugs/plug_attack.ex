@@ -3,22 +3,13 @@ defmodule MossletWeb.Plugs.PlugAttack do
   use PlugAttack
   import Plug.Conn
 
-  def call(conn, opts) do
-    if Application.get_env(:mosslet, :env) == :test do
-      conn
-    else
-      super(conn, opts)
-    end
-  end
-
   @alg :sha3_512
+  @minute 60_000
+  @week 60_000 * 60 * 24 * 7
 
   # when hashing the ip
   # hash_ip(@alg, convert_ip(conn.remote_ip)
   # ban_for:  3_600_000 (in milliseconds - 1 hour)
-
-  @minute 60_000
-  @week 60_000 * 60 * 24 * 7
 
   rule "throttle login requests", conn do
     if conn.method == "GET" and conn.path_info == ["auth", "log_in"] and conn.remote_ip do

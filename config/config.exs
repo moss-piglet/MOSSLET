@@ -9,8 +9,7 @@ import Config
 
 config :mosslet,
   ecto_repos: [Mosslet.Repo.Local],
-  generators: [binary_id: true],
-  env: config_env()
+  generators: [binary_id: true]
 
 config :mosslet,
   app_name: "MOSSLET",
