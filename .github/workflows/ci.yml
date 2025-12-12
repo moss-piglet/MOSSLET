@@ -20,6 +20,7 @@ jobs:
       BUMBLEBEE_OFFLINE: ${{ secrets.BUMBLEBEE_OFFLINE }}
       C_INCLUDE_PATH: ${{ secrets.C_INCLUDE_PATH }}
       CLOAK_KEY: ${{ secrets.CLOAK_KEY }}
+      CLOAK_KEY_TAG: ${{ secrets.CLOAK_KEY_TAG }}
       DNS_CLUSTER_QUERY: ${{ secrets.DNS_CLUSTER_QUERY }}
       FLY_REGION: ${{ secrets.FLY_REGION }}
       HMAC_SECRET: ${{ secrets.HMAC_SECRET }}
