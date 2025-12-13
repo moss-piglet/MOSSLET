@@ -95,15 +95,46 @@ defmodule MossletWeb.Endpoint do
   plug MossletWeb.Router
 
   defp canonical_host(conn, _opts) do
-    :mosslet
-    |> Application.get_env(:canonical_host)
-    |> case do
-      host when is_binary(host) ->
-        opts = PlugCanonicalHost.init(canonical_host: host)
-        PlugCanonicalHost.call(conn, opts)
+    canonical = Application.get_env(:mosslet, :canonical_host)
+    request_host = get_request_host(conn)
 
-      _ ->
+    cond do
+      is_nil(canonical) or canonical == "" ->
         conn
+
+      request_host == canonical ->
+        conn
+
+      true ->
+        location = build_canonical_url(conn, canonical)
+
+        conn
+        |> Plug.Conn.put_resp_header("location", location)
+        |> Plug.Conn.send_resp(301, "Moved Permanently")
+        |> Plug.Conn.halt()
     end
+  end
+
+  defp get_request_host(conn) do
+    case Plug.Conn.get_req_header(conn, "x-forwarded-host") do
+      [forwarded_host | _] -> forwarded_host
+      [] -> conn.host
+    end
+  end
+
+  defp build_canonical_url(conn, canonical_host) do
+    scheme =
+      case Plug.Conn.get_req_header(conn, "x-forwarded-proto") do
+        [proto | _] -> proto
+        [] -> to_string(conn.scheme)
+      end
+
+    query =
+      case conn.query_string do
+        "" -> ""
+        qs -> "?" <> qs
+      end
+
+    "#{scheme}://#{canonical_host}#{conn.request_path}#{query}"
   end
 end
