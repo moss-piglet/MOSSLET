@@ -1058,3 +1058,43 @@ dialog[data-confirm] button[data-confirm-accept]::before {
 dialog[data-confirm] button[data-confirm-accept]:hover::before {
   left: 100%;
 }
+
+/* ===== PHOTO GALLERY ANIMATIONS ===== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.photos-loading .grid > div {
+  animation: pulse 1.5s ease-in-out infinite;
+}

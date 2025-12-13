@@ -3597,54 +3597,117 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
 
   def liquid_post_photo_gallery(assigns) do
+    image_count = length(assigns.post.image_urls)
+
+    grid_class =
+      cond do
+        image_count == 1 -> "grid-cols-1"
+        image_count == 2 -> "grid-cols-2"
+        image_count <= 4 -> "grid-cols-2"
+        image_count <= 6 -> "grid-cols-2 sm:grid-cols-3"
+        true -> "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+      end
+
+    assigns = assign(assigns, :grid_class, grid_class)
+    assigns = assign(assigns, :image_count, image_count)
+
     ~H"""
     <div
       :if={photos?(@post.image_urls)}
+      id={"photo-gallery-#{@post.id}"}
       class={[
         "mt-4 overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60",
         "bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-800/50 dark:to-slate-900/30",
+        "transform transition-all duration-300",
         @class
       ]}
     >
-      <%!-- Photo gallery header --%>
-      <div class="flex items-center justify-between p-3 border-b border-slate-200/50 dark:border-slate-700/50">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-slate-200/50 dark:border-slate-700/50">
         <div class="flex items-center gap-2">
           <.phx_icon name="hero-photo" class="h-4 w-4 text-slate-600 dark:text-slate-400" />
           <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {length(@post.image_urls)} {if length(@post.image_urls) == 1, do: "photo", else: "photos"}
+            {if @image_count == 1, do: "1 photo", else: "#{@image_count} photos"}
           </span>
         </div>
 
-        <%!-- Show photos button integrated with existing hook system --%>
         <button
           id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          class="group inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 hover:from-emerald-600 hover:to-teal-600 hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           phx-click={
-            JS.dispatch("mosslet:show-post-photos-#{@post.id}",
+            JS.add_class("photos-loading", to: "#post-body-#{@post.id}")
+            |> JS.dispatch("mosslet:show-post-photos-#{@post.id}",
               to: "#post-body-#{@post.id}",
               detail: %{post_id: @post.id, user_id: @current_user.id}
             )
+            |> JS.hide(to: "#post-#{@post.id}-show-photos-#{@current_user.id}")
+            |> JS.show(to: "#post-#{@post.id}-loading-indicator", display: "inline-flex")
           }
           phx-hook="TippyHook"
           data-tippy-content="Decrypt and display photos"
         >
-          <.phx_icon name="hero-eye" class="h-4 w-4" /> View photos
+          <.phx_icon
+            name="hero-eye"
+            class="h-4 w-4 transition-transform duration-300 group-hover:scale-110"
+          />
+          <span>View photos</span>
+          <.phx_icon
+            name="hero-chevron-right"
+            class="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5"
+          />
         </button>
+
+        <div
+          id={"post-#{@post.id}-loading-indicator"}
+          style="display: none;"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+        >
+          <svg
+            class="animate-spin h-4 w-4 text-emerald-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+            </circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            >
+            </path>
+          </svg>
+          <span>Decrypting...</span>
+        </div>
       </div>
 
-      <%!-- Photos will be decrypted and displayed here by TrixContentPostHook --%>
       <div
         id={"post-body-#{@post.id}"}
         phx-hook="TrixContentPostHook"
         class="photos-container p-3"
+        data-image-count={@image_count}
+        data-grid-class={@grid_class}
       >
-        <%!-- Placeholder while photos load --%>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class={"grid #{@grid_class} gap-3"}>
           <div
-            :for={_image_url <- @post.image_urls}
-            class="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 rounded-lg flex items-center justify-center animate-pulse"
+            :for={{_image_url, index} <- Enum.with_index(@post.image_urls)}
+            class="group relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800"
+            style={"animation-delay: #{index * 100}ms"}
           >
-            <.phx_icon name="hero-photo" class="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            <div class="aspect-square flex items-center justify-center">
+              <div class="relative">
+                <div class="w-12 h-12 rounded-full bg-slate-200/80 dark:bg-slate-600/80 flex items-center justify-center">
+                  <.phx_icon
+                    name="hero-photo"
+                    class="h-6 w-6 text-slate-400 dark:text-slate-500"
+                  />
+                </div>
+                <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-emerald-500/30 animate-spin opacity-0 group-[.photos-loading]:opacity-100 transition-opacity duration-300">
+                </div>
+              </div>
+            </div>
+            <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/30 text-white text-xs font-medium backdrop-blur-sm">
+              {index + 1}/{@image_count}
+            </div>
           </div>
         </div>
       </div>
@@ -9622,6 +9685,7 @@ defmodule MossletWeb.DesignSystem do
                   class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110"
                   data-tippy-content="Previous photo"
                   phx-hook="TippyHook"
+                  aria-label="Previous photo"
                 >
                   <.phx_icon name="hero-chevron-left" class="h-6 w-6" />
                 </button>
@@ -9633,6 +9697,7 @@ defmodule MossletWeb.DesignSystem do
                   class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110"
                   data-tippy-content="Next photo"
                   phx-hook="TippyHook"
+                  aria-label="Next photo"
                 >
                   <.phx_icon name="hero-chevron-right" class="h-6 w-6" />
                 </button>
@@ -9660,6 +9725,7 @@ defmodule MossletWeb.DesignSystem do
                   ]}
                   data-tippy-content={"Photo #{index + 1}"}
                   phx-hook="TippyHook"
+                  aria-label={"Go to photo #{index + 1}"}
                 />
               </div>
             </div>

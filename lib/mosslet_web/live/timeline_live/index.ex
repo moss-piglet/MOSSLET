@@ -202,6 +202,14 @@ defmodule MossletWeb.TimelineLive.Index do
     {:ok, assign(socket, page_title: "Timeline")}
   end
 
+  def terminate(_reason, socket) do
+    Enum.each(socket.assigns[:completed_uploads] || [], fn upload ->
+      if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+    end)
+
+    :ok
+  end
+
   def handle_params(params, _url, socket) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
@@ -361,12 +369,13 @@ defmodule MossletWeb.TimelineLive.Index do
 
     upload_stages = Map.put(socket.assigns.upload_stages, entry_ref, {:ready, nil})
 
-    preview_data_url = generate_preview_data_url(binary)
+    temp_path = write_upload_to_temp_file(binary, entry_ref)
+    preview_data_url = generate_thumbnail_preview(binary)
 
     completed_upload = %{
       ref: entry_ref,
       client_name: (entry && entry.client_name) || "photo",
-      processed_binary: binary,
+      temp_path: temp_path,
       trix_key: trix_key,
       preview_data_url: preview_data_url
     }
@@ -1683,13 +1692,19 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     ref_value = if is_binary(ref), do: String.to_integer(ref), else: ref
     upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
-    completed_uploads = Enum.reject(socket.assigns.completed_uploads, &(&1.ref == ref_value))
+
+    {removed, remaining} =
+      Enum.split_with(socket.assigns.completed_uploads, &(&1.ref == ref_value))
+
+    Enum.each(removed, fn upload ->
+      if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+    end)
 
     {:noreply,
      socket
      |> cancel_upload(:photos, ref)
      |> assign(:upload_stages, upload_stages)
-     |> assign(:completed_uploads, completed_uploads)}
+     |> assign(:completed_uploads, remaining)}
   end
 
   def handle_event("remove_completed_upload", %{"ref" => ref}, socket) do
@@ -1697,11 +1712,15 @@ defmodule MossletWeb.TimelineLive.Index do
 
     upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
 
-    completed_uploads =
-      Enum.reject(socket.assigns.completed_uploads, fn upload ->
+    {removed, remaining} =
+      Enum.split_with(socket.assigns.completed_uploads, fn upload ->
         upload_ref = if is_binary(upload.ref), do: String.to_integer(upload.ref), else: upload.ref
         upload_ref == ref_value
       end)
+
+    Enum.each(removed, fn upload ->
+      if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
+    end)
 
     entry_exists? =
       Enum.any?(socket.assigns.uploads.photos.entries, &(&1.ref == ref_value))
@@ -1716,7 +1735,7 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply,
      socket
      |> assign(:upload_stages, upload_stages)
-     |> assign(:completed_uploads, completed_uploads)}
+     |> assign(:completed_uploads, remaining)}
   end
 
   def handle_event("remove_files", %{"flag" => flag}, socket) do
@@ -4969,11 +4988,14 @@ defmodule MossletWeb.TimelineLive.Index do
         Enum.map(completed_uploads, fn upload ->
           actual_trix_key = trix_key || upload.trix_key
 
+          binary = File.read!(upload.temp_path)
+
           case Mosslet.FileUploads.ImageUploadWriter.upload_to_storage(
-                 upload.processed_binary,
+                 binary,
                  actual_trix_key
                ) do
             {:ok, file_path} ->
+              cleanup_temp_upload(upload.temp_path)
               {file_path, actual_trix_key}
 
             {:error, reason} ->
@@ -5845,15 +5867,22 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  defp generate_preview_data_url(binary) do
+  defp write_upload_to_temp_file(binary, entry_ref) do
+    temp_dir = Path.join(System.tmp_dir!(), "mosslet_uploads")
+    File.mkdir_p!(temp_dir)
+    temp_path = Path.join(temp_dir, "#{entry_ref}.webp")
+    File.write!(temp_path, binary)
+    temp_path
+  end
+
+  defp generate_thumbnail_preview(binary) do
     case Image.from_binary(binary) do
       {:ok, image} ->
-        case Image.thumbnail(image, "200x200", crop: :attention) do
+        case Image.thumbnail(image, "400x400", crop: :attention) do
           {:ok, thumb} ->
-            case Image.write(thumb, :memory, suffix: ".webp", webp: [quality: 60]) do
+            case Image.write(thumb, :memory, suffix: ".webp", webp: [quality: 75]) do
               {:ok, thumb_binary} ->
-                base64 = Base.encode64(thumb_binary)
-                "data:image/webp;base64,#{base64}"
+                "data:image/webp;base64,#{Base.encode64(thumb_binary)}"
 
               _ ->
                 nil
@@ -5865,6 +5894,23 @@ defmodule MossletWeb.TimelineLive.Index do
 
       _ ->
         nil
+    end
+  end
+
+  defp cleanup_temp_upload(nil), do: :ok
+
+  defp cleanup_temp_upload(temp_path) do
+    case File.rm(temp_path) do
+      :ok ->
+        :ok
+
+      # Already gone, that's fine
+      {:error, :enoent} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to cleanup temp upload at #{temp_path}: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 end

@@ -57,17 +57,45 @@ const TrixContentPostHook = {
   },
 
   show_loading_state() {
-    // Replace placeholder grid with loading spinners
     const placeholderGrid = this.el.querySelector(".grid");
     if (placeholderGrid) {
-      const imageCount = placeholderGrid.children.length;
+      this.el.classList.add("photos-loading");
+      
+      const gridClass = this.el.dataset.gridClass || "grid-cols-2 sm:grid-cols-3";
+      const imageCount = parseInt(this.el.dataset.imageCount) || placeholderGrid.children.length;
+      
+      placeholderGrid.className = `grid ${gridClass} gap-3`;
       placeholderGrid.innerHTML = "";
 
       for (let i = 0; i < imageCount; i++) {
-        const spinner = this.createSpinner();
-        placeholderGrid.appendChild(spinner);
+        const skeleton = this.createLoadingSkeleton(i, imageCount);
+        placeholderGrid.appendChild(skeleton);
       }
     }
+  },
+  
+  createLoadingSkeleton(index, total) {
+    const container = document.createElement("div");
+    container.className = "relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800";
+    container.style.animationDelay = `${index * 50}ms`;
+    container.style.opacity = "0";
+    container.style.animation = "fadeInUp 0.3s ease-out forwards";
+    container.style.animationDelay = `${index * 50}ms`;
+    
+    container.innerHTML = `
+      <div class="aspect-square flex items-center justify-center relative">
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skeleton-shimmer"></div>
+        <div class="relative flex flex-col items-center gap-2">
+          <div class="w-10 h-10 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Decrypting...</span>
+        </div>
+      </div>
+      <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/40 text-white text-xs font-medium backdrop-blur-sm">
+        ${index + 1}/${total}
+      </div>
+    `;
+    
+    return container;
   },
 
   decrypt_images(imageUrls, postId, userId) {
@@ -101,36 +129,39 @@ const TrixContentPostHook = {
   ) {
     const container = this.el.querySelector(".grid");
     if (container) {
+      this.el.classList.remove("photos-loading");
+      
+      const imageCount = decryptedBinaries.length;
+      let gridClass = "grid-cols-2 sm:grid-cols-3";
+      
+      if (imageCount === 1) {
+        gridClass = "grid-cols-1 max-w-md mx-auto";
+      } else if (imageCount === 2) {
+        gridClass = "grid-cols-2";
+      } else if (imageCount <= 4) {
+        gridClass = "grid-cols-2";
+      } else if (imageCount <= 6) {
+        gridClass = "grid-cols-2 sm:grid-cols-3";
+      } else {
+        gridClass = "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4";
+      }
+      
       container.innerHTML = "";
-      container.classList.remove(
-        "grid-cols-1",
-        "sm:grid-cols-2",
-        "lg:grid-cols-3"
-      );
-      container.classList.add(
-        "grid-cols-1",
-        "sm:grid-cols-2",
-        "lg:grid-cols-3"
-      );
+      container.className = `grid ${gridClass} gap-3`;
 
       decryptedBinaries.forEach((imageBinary, index) => {
         const imageContainer = document.createElement("div");
-        imageContainer.classList.add(
-          "relative",
-          "group",
-          "overflow-hidden",
-          "rounded-lg",
-          "cursor-pointer" // Always allow viewing
-        );
+        imageContainer.className = "relative group overflow-hidden rounded-lg cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/10";
+        imageContainer.style.opacity = "0";
+        imageContainer.style.animation = "fadeInScale 0.4s ease-out forwards";
+        imageContainer.style.animationDelay = `${index * 80}ms`;
 
         const link = document.createElement("a");
         link.href = imageBinary;
-        link.classList.add("cursor-pointer"); // Always allow viewing
+        link.className = "block relative";
 
-        // Add click handler to open modal
         link.addEventListener("click", (e) => {
           e.preventDefault();
-          // Always allow modal viewing, regardless of download permission
           try {
             this.pushEvent("show_timeline_images", {
               post_id: postId,
@@ -138,14 +169,10 @@ const TrixContentPostHook = {
               images: decryptedBinaries,
             });
           } catch (error) {
-            console.warn(
-              "Failed to open image modal - LiveView not connected:",
-              error
-            );
+            console.warn("Failed to open image modal:", error);
           }
         });
 
-        // Enhanced right-click protection based on download permission
         link.addEventListener("contextmenu", (e) => {
           e.preventDefault();
         });
@@ -153,39 +180,31 @@ const TrixContentPostHook = {
         const img = document.createElement("img");
         img.src = imageBinary;
         img.alt = `Photo ${index + 1}`;
-        img.classList.add(
-          "w-full",
-          "aspect-square",
-          "object-cover",
-          "transition-all",
-          "duration-200",
-          "group-hover:scale-105"
-        );
+        img.className = "w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110";
+        img.style.opacity = "0";
+        img.onload = () => {
+          img.style.transition = "opacity 0.3s ease-out";
+          img.style.opacity = "1";
+        };
 
-        // Add hover overlay for better UX with proper pointer events
         const overlay = document.createElement("div");
-        overlay.classList.add(
-          "absolute",
-          "inset-0",
-          "bg-black/0",
-          "group-hover:bg-black/20",
-          "transition-all",
-          "duration-200",
-          "flex",
-          "items-center",
-          "justify-center",
-          "pointer-events-none" // Critical: prevent overlay from intercepting clicks
-        );
-
-        const expandIcon = document.createElement("div");
-        expandIcon.classList.add("pointer-events-none"); // Also disable pointer events on icon
-        expandIcon.innerHTML = `
-          <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path>
-          </svg>
+        overlay.className = "absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none flex items-end justify-center pb-4";
+        
+        overlay.innerHTML = `
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path>
+            </svg>
+            <span class="text-white text-xs font-medium">View</span>
+          </div>
         `;
 
-        overlay.appendChild(expandIcon);
+        if (decryptedBinaries.length > 1) {
+          const counter = document.createElement("div");
+          counter.className = "absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/40 text-white text-xs font-medium backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300";
+          counter.textContent = `${index + 1}/${decryptedBinaries.length}`;
+          imageContainer.appendChild(counter);
+        }
 
         link.appendChild(img);
         imageContainer.appendChild(link);
@@ -193,12 +212,18 @@ const TrixContentPostHook = {
         container.appendChild(imageContainer);
       });
 
-      // Hide the "View photos" button after successful load
       const photoButton = document.querySelector(
         `#post-${postId}-show-photos-${userId}`
       );
       if (photoButton) {
         photoButton.style.display = "none";
+      }
+      
+      const loadingIndicator = document.querySelector(
+        `#post-${postId}-loading-indicator`
+      );
+      if (loadingIndicator) {
+        loadingIndicator.style.display = "none";
       }
     }
   },
@@ -206,13 +231,27 @@ const TrixContentPostHook = {
   show_error_state() {
     const container = this.el.querySelector(".grid");
     if (container) {
+      this.el.classList.remove("photos-loading");
+      
+      const loadingIndicator = document.querySelector(
+        `#${this.el.id.replace("post-body-", "post-")}-loading-indicator`
+      );
+      if (loadingIndicator) {
+        loadingIndicator.style.display = "none";
+      }
+      
       container.innerHTML = `
-        <div class="col-span-full text-center py-8">
-          <div class="text-red-500 dark:text-red-400">
-            <svg class="h-8 w-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-            <p class="text-sm">Unable to load photos</p>
+        <div class="col-span-full text-center py-8 animate-fade-in">
+          <div class="inline-flex flex-col items-center gap-3 px-6 py-5 rounded-xl bg-red-50/50 dark:bg-red-900/10 border border-red-200/50 dark:border-red-800/30">
+            <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <svg class="h-6 w-6 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div class="text-center">
+              <p class="text-sm font-medium text-red-700 dark:text-red-300">Unable to load photos</p>
+              <p class="text-xs text-red-500/80 dark:text-red-400/60 mt-1">Please try again later</p>
+            </div>
           </div>
         </div>
       `;
