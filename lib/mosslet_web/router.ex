@@ -60,7 +60,6 @@ defmodule MossletWeb.Router do
     live_session :home,
       on_mount: [
         MossletWeb.AllowEctoSandboxHook,
-        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :mount_current_user},
         {MossletWeb.UserAuth, :mount_current_user_session_key},
         {MossletWeb.UserAuth, :ensure_session_key}
@@ -94,7 +93,6 @@ defmodule MossletWeb.Router do
     live_session :public_profile,
       on_mount: [
         MossletWeb.AllowEctoSandboxHook,
-        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :mount_current_user},
         {MossletWeb.UserAuth, :mount_current_user_session_key},
         {MossletWeb.UserAuth, :ensure_session_key},
@@ -132,7 +130,6 @@ defmodule MossletWeb.Router do
 
     live_session :require_authenticated_user,
       on_mount: [
-        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
@@ -175,7 +172,6 @@ defmodule MossletWeb.Router do
 
     live_session :billing_authenticated_user,
       on_mount: [
-        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
@@ -197,7 +193,6 @@ defmodule MossletWeb.Router do
 
     live_session :require_authenticated_user_not_confirmed,
       on_mount: [
-        {MossletWeb.BotDefenseHook, :check_banned},
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},

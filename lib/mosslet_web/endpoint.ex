@@ -98,6 +98,9 @@ defmodule MossletWeb.Endpoint do
     canonical = Application.get_env(:mosslet, :canonical_host)
     request_host = get_request_host(conn)
 
+    require Logger
+    Logger.warning("canonical_host check: conn.host=#{conn.host}, request_host=#{request_host}, canonical=#{canonical}, x-forwarded-host=#{inspect(Plug.Conn.get_req_header(conn, "x-forwarded-host"))}, host_header=#{inspect(Plug.Conn.get_req_header(conn, "host"))}")
+
     cond do
       is_nil(canonical) or canonical == "" ->
         conn
@@ -107,6 +110,7 @@ defmodule MossletWeb.Endpoint do
 
       true ->
         location = build_canonical_url(conn, canonical)
+        Logger.warning("canonical_host redirecting to: #{location}")
 
         conn
         |> Plug.Conn.put_resp_header("location", location)
