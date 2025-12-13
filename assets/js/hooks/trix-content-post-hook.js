@@ -8,7 +8,30 @@ const TrixContentPostHook = {
 
   updated() {
     this.init_links();
+    this.reset_photo_viewer_state();
     this.setup_photo_viewer();
+  },
+
+  reset_photo_viewer_state() {
+    const postId = this.el.getAttribute("id").split("post-body-")[1];
+    if (!postId) return;
+
+    const photoButton = document.querySelector(
+      `[id^="post-${postId}-show-photos-"]`
+    );
+    if (photoButton) {
+      photoButton.style.display = "";
+    }
+
+    const loadingIndicator = document.querySelector(
+      `#post-${postId}-loading-indicator`
+    );
+    if (loadingIndicator) {
+      loadingIndicator.style.display = "none";
+    }
+
+    this.el.classList.remove("photos-loading");
+    this.isModalOpening = false;
   },
 
   destroyed() {
