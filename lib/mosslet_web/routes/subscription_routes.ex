@@ -14,7 +14,6 @@ defmodule MossletWeb.SubscriptionRoutes do
 
         live_session :subscription_authenticated_user,
           on_mount: [
-            {MossletWeb.BotDefenseHook, :check_banned},
             {MossletWeb.UserOnMountHooks, :require_authenticated_user},
             {MossletWeb.UserAuth, :ensure_session_key},
             {MossletWeb.UserAuth, :maybe_ensure_connection},
@@ -94,7 +93,6 @@ defmodule MossletWeb.SubscriptionRoutes do
 
         live_session :app_profile,
           on_mount: [
-            {MossletWeb.BotDefenseHook, :check_banned},
             {MossletWeb.UserAuth, :ensure_authenticated},
             {MossletWeb.UserAuth, :ensure_confirmed},
             {MossletWeb.UserAuth, :ensure_session_key},

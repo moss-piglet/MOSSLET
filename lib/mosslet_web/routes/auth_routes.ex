@@ -9,7 +9,6 @@ defmodule MossletWeb.AuthRoutes do
 
         live_session :current_user,
           on_mount: [
-            {MossletWeb.BotDefenseHook, :check_banned},
             {MossletWeb.UserOnMountHooks, :maybe_assign_user}
           ] do
           live "/confirm/:token", UserConfirmationLive, :edit
@@ -25,7 +24,6 @@ defmodule MossletWeb.AuthRoutes do
 
         live_session :redirect_if_user_is_authenticated,
           on_mount: [
-            {MossletWeb.BotDefenseHook, :check_banned},
             {MossletWeb.UserOnMountHooks, :redirect_if_user_is_authenticated}
           ] do
           live "/register", UserRegistrationLive, :new

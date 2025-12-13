@@ -14,7 +14,6 @@ defmodule MossletWeb.AdminRoutes do
 
         live_session :require_admin_user,
           on_mount: [
-            {MossletWeb.BotDefenseHook, :check_banned},
             {MossletWeb.UserOnMountHooks, :require_authenticated_user},
             {MossletWeb.UserAuth, :ensure_session_key},
             {MossletWeb.UserOnMountHooks, :require_admin_user}
