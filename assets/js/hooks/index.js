@@ -27,6 +27,7 @@ import ScrollDown from "./scroll";
 import RestoreBodyScroll from "./restore-body-scroll";
 import ImageDownloadHook from "./image-download-hook";
 import DisableContextMenu from "./disable-context-menu";
+import ImageModalHook from "./image-modal-hook";
 import StatusIndicatorHook from "./status-indicator-hook";
 import URLPreviewHook from "./url-preview-hook";
 import ScrollableTabs from "./scrollable-tabs";
@@ -62,6 +63,7 @@ export default {
   ContentWarningHook,
   ImageDownloadHook,
   DisableContextMenu,
+  ImageModalHook,
   StatusIndicatorHook,
   URLPreviewHook,
 };

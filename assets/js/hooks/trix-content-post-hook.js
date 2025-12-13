@@ -1,5 +1,7 @@
 const TrixContentPostHook = {
   mounted() {
+    this.eventListeners = [];
+    this.isModalOpening = false;
     this.init_links();
     this.setup_photo_viewer();
   },
@@ -9,30 +11,36 @@ const TrixContentPostHook = {
     this.setup_photo_viewer();
   },
 
-  setup_photo_viewer() {
-    var postId = null;
-    // Get the post's id from the element ID
-    postId = this.el.getAttribute("id").split("post-body-")[1];
+  destroyed() {
+    this.eventListeners.forEach(({ event, handler }) => {
+      window.removeEventListener(event, handler);
+    });
+    this.eventListeners = [];
+    this.isModalOpening = false;
+  },
 
-    // Check if this post has image placeholders that need decryption
+  setup_photo_viewer() {
+    const postId = this.el.getAttribute("id").split("post-body-")[1];
+
     const hasImages =
       this.el.querySelector(".grid") &&
       this.el.querySelector(".grid").children.length > 0;
 
     if (hasImages && postId) {
-      // Set up event listener for the "View photos" button
-      window.addEventListener(`mosslet:show-post-photos-${postId}`, (event) => {
+      const eventName = `mosslet:show-post-photos-${postId}`;
+      const handler = (event) => {
         if (event && event.detail.post_id === postId) {
           const userId = event.detail.user_id;
           this.load_and_decrypt_images(postId, userId);
         }
-      });
-    } else {
+      };
+
+      window.addEventListener(eventName, handler);
+      this.eventListeners.push({ event: eventName, handler });
     }
   },
 
   load_and_decrypt_images(postId, userId) {
-    // First, request the encrypted image URLs from the server
     this.pushEvent(
       "get_post_image_urls",
       { post_id: postId },
@@ -42,11 +50,7 @@ const TrixContentPostHook = {
           reply.image_urls &&
           reply.image_urls.length > 0
         ) {
-          // Replace placeholders with spinners
           this.show_loading_state();
-
-          // Now decrypt the images through the server-side decrypt process
-
           this.decrypt_images(reply.image_urls, postId, userId);
         } else {
           console.error("Failed to get image URLs for post", postId, reply);
@@ -60,10 +64,12 @@ const TrixContentPostHook = {
     const placeholderGrid = this.el.querySelector(".grid");
     if (placeholderGrid) {
       this.el.classList.add("photos-loading");
-      
-      const gridClass = this.el.dataset.gridClass || "grid-cols-2 sm:grid-cols-3";
-      const imageCount = parseInt(this.el.dataset.imageCount) || placeholderGrid.children.length;
-      
+
+      const gridClass =
+        this.el.dataset.gridClass || "grid-cols-2 sm:grid-cols-3";
+      const imageCount =
+        parseInt(this.el.dataset.imageCount) || placeholderGrid.children.length;
+
       placeholderGrid.className = `grid ${gridClass} gap-3`;
       placeholderGrid.innerHTML = "";
 
@@ -73,15 +79,16 @@ const TrixContentPostHook = {
       }
     }
   },
-  
+
   createLoadingSkeleton(index, total) {
     const container = document.createElement("div");
-    container.className = "relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800";
+    container.className =
+      "relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800";
     container.style.animationDelay = `${index * 50}ms`;
     container.style.opacity = "0";
     container.style.animation = "fadeInUp 0.3s ease-out forwards";
     container.style.animationDelay = `${index * 50}ms`;
-    
+
     container.innerHTML = `
       <div class="aspect-square flex items-center justify-center relative">
         <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skeleton-shimmer"></div>
@@ -94,7 +101,7 @@ const TrixContentPostHook = {
         ${index + 1}/${total}
       </div>
     `;
-    
+
     return container;
   },
 
@@ -112,7 +119,7 @@ const TrixContentPostHook = {
             reply.decrypted_binaries,
             postId,
             userId,
-            reply.can_download || false // Pass download permission from server
+            reply.can_download || false
           );
         } else {
           this.show_error_state();
@@ -130,10 +137,10 @@ const TrixContentPostHook = {
     const container = this.el.querySelector(".grid");
     if (container) {
       this.el.classList.remove("photos-loading");
-      
+
       const imageCount = decryptedBinaries.length;
       let gridClass = "grid-cols-2 sm:grid-cols-3";
-      
+
       if (imageCount === 1) {
         gridClass = "grid-cols-1 max-w-md mx-auto";
       } else if (imageCount === 2) {
@@ -145,13 +152,14 @@ const TrixContentPostHook = {
       } else {
         gridClass = "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4";
       }
-      
+
       container.innerHTML = "";
       container.className = `grid ${gridClass} gap-3`;
 
       decryptedBinaries.forEach((imageBinary, index) => {
         const imageContainer = document.createElement("div");
-        imageContainer.className = "relative group overflow-hidden rounded-lg cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/10";
+        imageContainer.className =
+          "relative group overflow-hidden rounded-lg cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/10";
         imageContainer.style.opacity = "0";
         imageContainer.style.animation = "fadeInScale 0.4s ease-out forwards";
         imageContainer.style.animationDelay = `${index * 80}ms`;
@@ -162,14 +170,34 @@ const TrixContentPostHook = {
 
         link.addEventListener("click", (e) => {
           e.preventDefault();
+
+          if (this.isModalOpening) return;
+          this.isModalOpening = true;
+
+          this.showImageClickLoading(imageContainer);
+
           try {
-            this.pushEvent("show_timeline_images", {
-              post_id: postId,
-              image_index: index,
-              images: decryptedBinaries,
-            });
+            this.pushEvent(
+              "show_timeline_images",
+              {
+                post_id: postId,
+                image_index: index,
+                images: decryptedBinaries,
+              },
+              () => {
+                this.hideImageClickLoading(imageContainer);
+                this.isModalOpening = false;
+              }
+            );
+
+            setTimeout(() => {
+              this.hideImageClickLoading(imageContainer);
+              this.isModalOpening = false;
+            }, 3000);
           } catch (error) {
             console.warn("Failed to open image modal:", error);
+            this.hideImageClickLoading(imageContainer);
+            this.isModalOpening = false;
           }
         });
 
@@ -180,7 +208,8 @@ const TrixContentPostHook = {
         const img = document.createElement("img");
         img.src = imageBinary;
         img.alt = `Photo ${index + 1}`;
-        img.className = "w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110";
+        img.className =
+          "w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-110";
         img.style.opacity = "0";
         img.onload = () => {
           img.style.transition = "opacity 0.3s ease-out";
@@ -188,8 +217,9 @@ const TrixContentPostHook = {
         };
 
         const overlay = document.createElement("div");
-        overlay.className = "absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none flex items-end justify-center pb-4";
-        
+        overlay.className =
+          "absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none flex items-end justify-center pb-4";
+
         overlay.innerHTML = `
           <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,9 +229,17 @@ const TrixContentPostHook = {
           </div>
         `;
 
+        const loadingOverlay = document.createElement("div");
+        loadingOverlay.className =
+          "image-click-loading absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 z-10";
+        loadingOverlay.innerHTML = `
+          <div class="w-8 h-8 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+        `;
+
         if (decryptedBinaries.length > 1) {
           const counter = document.createElement("div");
-          counter.className = "absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/40 text-white text-xs font-medium backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300";
+          counter.className =
+            "absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/40 text-white text-xs font-medium backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300";
           counter.textContent = `${index + 1}/${decryptedBinaries.length}`;
           imageContainer.appendChild(counter);
         }
@@ -209,6 +247,7 @@ const TrixContentPostHook = {
         link.appendChild(img);
         imageContainer.appendChild(link);
         imageContainer.appendChild(overlay);
+        imageContainer.appendChild(loadingOverlay);
         container.appendChild(imageContainer);
       });
 
@@ -218,7 +257,7 @@ const TrixContentPostHook = {
       if (photoButton) {
         photoButton.style.display = "none";
       }
-      
+
       const loadingIndicator = document.querySelector(
         `#post-${postId}-loading-indicator`
       );
@@ -228,18 +267,34 @@ const TrixContentPostHook = {
     }
   },
 
+  showImageClickLoading(imageContainer) {
+    const loadingOverlay = imageContainer.querySelector(".image-click-loading");
+    if (loadingOverlay) {
+      loadingOverlay.style.opacity = "1";
+      loadingOverlay.style.pointerEvents = "auto";
+    }
+  },
+
+  hideImageClickLoading(imageContainer) {
+    const loadingOverlay = imageContainer.querySelector(".image-click-loading");
+    if (loadingOverlay) {
+      loadingOverlay.style.opacity = "0";
+      loadingOverlay.style.pointerEvents = "none";
+    }
+  },
+
   show_error_state() {
     const container = this.el.querySelector(".grid");
     if (container) {
       this.el.classList.remove("photos-loading");
-      
+
       const loadingIndicator = document.querySelector(
         `#${this.el.id.replace("post-body-", "post-")}-loading-indicator`
       );
       if (loadingIndicator) {
         loadingIndicator.style.display = "none";
       }
-      
+
       container.innerHTML = `
         <div class="col-span-full text-center py-8 animate-fade-in">
           <div class="inline-flex flex-col items-center gap-3 px-6 py-5 rounded-xl bg-red-50/50 dark:bg-red-900/10 border border-red-200/50 dark:border-red-800/30">
@@ -259,25 +314,19 @@ const TrixContentPostHook = {
   },
 
   init_links() {
-    // Get all <a> tags
     var links = this.el.querySelectorAll("a");
-
     links.forEach((link) => {
       this.transform_link(link);
     });
   },
 
   init_images(checkLinks, postId, userId) {
-    // Check to first see if there are any images present in the post
     if (checkLinks && checkLinks.length) {
       this.originalLinks = [];
       this.newLinks = [];
       this.newPresignedUrls = [];
       this.oldPresignedUrls = [];
 
-      // the time in milliseconds that the presigned_urls expire
-      // we set this slightly before the urls actual expiration
-      // this is in milliseconds (whereas tigris expires in is seconds)
       const URL_EXPIRES_IN = 590_000;
 
       var imagePromises = [];
@@ -289,10 +338,8 @@ const TrixContentPostHook = {
       var postUpdatedAt = null;
       var imageCounter = 0;
 
-      // Set an initial count of all images
       imageCounter = checkLinks.length;
 
-      // First update promise is to check if the urls are expired
       let updatePromise = new Promise((resolve, reject) => {
         timestampElement = document.querySelector(
           `#timestamp-${postId}-updated time`
@@ -309,36 +356,20 @@ const TrixContentPostHook = {
 
       Promise.all(updatePromises)
         .then(() => {
-          // Loop through the links and check if the innerHTML is NOT empty
-          // we use image_links and not the checkLinks because we want to
-          // update the <a> that wraps the <img> as well as the <img>
           this.el.querySelectorAll("a").forEach((link) => {
-            // This link has an innerHTML which will contain the image
             if (link.children.length > 0 && postId) {
               if (link.querySelector("img")) {
-                // Store the original link in the list
                 this.originalLinks.push(link);
 
-                // Create a spinner for the link
                 let spinner = this.createSpinner();
-
-                // Insert the spinner before the link
                 link.parentNode.insertBefore(spinner, link);
                 this.spinners.push(spinner);
-
-                // Remove the old link element from the document
                 link.classList.add("hidden");
 
-                // Start the presigned_url regeneration
-                // we should send count of items and send back a full list of the urls.
-                // so we don't make mulitple trips to the server
                 if (imageCounter > 0) {
-                  // add the old presigned url to a list
                   this.oldPresignedUrls.push(
                     link.querySelector("img").getAttribute("src")
                   );
-
-                  // Decrement the imageCounter
                   imageCounter--;
                 }
               }
@@ -355,7 +386,6 @@ const TrixContentPostHook = {
                 { src_list: this.oldPresignedUrls },
                 (reply, ref) => {
                   if (reply && reply.response === "success") {
-                    // Update the link and image elements with the new URLs
                     reply.presigned_url_list.forEach((presigned_url) => {
                       this.newPresignedUrls.push(presigned_url);
                     });
@@ -385,7 +415,6 @@ const TrixContentPostHook = {
                 imageCounter === 0 &&
                 this.newPresignedUrls.length === this.oldPresignedUrls.length
               ) {
-                // Update the postBody with the new URLs
                 let replaceLink = new Promise((resolve, reject) => {
                   var newLink = null;
 
@@ -396,7 +425,6 @@ const TrixContentPostHook = {
                       .querySelector("img")
                       .setAttribute("src", this.newPresignedUrls[index]);
 
-                    // Add the newLink to a list
                     this.newLinks.push(newLink);
                   });
                   resolve();
@@ -405,20 +433,14 @@ const TrixContentPostHook = {
 
                 Promise.all(replaceLinkPromises)
                   .then(() => {
-                    // Set the update counter to the length of originalLinks
                     var updateLinkCounter = this.originalLinks.length;
 
                     this.originalLinks.forEach((link, index) => {
-                      // This link has an innerHTML which will contain the image
-
-                      // Set the proper attributes based on the index
                       link.setAttribute("href", this.newLinks[index]);
                       link
                         .querySelector("img")
                         .setAttribute("src", this.newLinks[index]);
 
-                      // Remove the old link element from the document
-                      // We currently don't allow image downloads from Posts
                       link.classList.add("cursor-not-allowed");
                       link.classList.remove("hidden");
 
@@ -429,8 +451,6 @@ const TrixContentPostHook = {
                       this.spinners.forEach((spinner) => {
                         this.removeSpinner(spinner);
                       });
-                      // Send the updated body to update the post on the server
-                      // this.el is the post's body content
                       this.pushEvent("update_post_body", {
                         body: this.el.innerHTML,
                         id: postId,
@@ -463,7 +483,6 @@ const TrixContentPostHook = {
 
                 Promise.all(dbPromises)
                   .then(() => {
-                    // hide show photos button
                     photoButton = document.querySelector(
                       `#post-${postId}-show-photos-${userId}`
                     );
@@ -476,22 +495,16 @@ const TrixContentPostHook = {
                       data: error,
                     });
 
-                    // Post not updated correctly, reinsert the spinners
                     this.el.querySelectorAll("a").forEach((link) => {
-                      // This link has an innerHTML which will contain the image
                       if (link.children.length > 0 && postId) {
                         if (link.querySelector("img")) {
-                          // reset the original links list
-                          // and store the original link back in the list
                           this.originalLinks = [];
                           this.originalLinks.push(link);
                           let spinner = this.createSpinner();
 
-                          // Insert the spinner before the link
                           link.parentNode.insertBefore(spinner, link);
                           this.spinners.push(spinner);
 
-                          // Remove the old link element from the document
                           link.remove();
                         }
                       }
@@ -508,36 +521,26 @@ const TrixContentPostHook = {
             });
         })
         .catch((_error) => {
-          // images don't need updating, just decrypt
-
-          // hide show photos button
           photoButton = document.querySelector(
             `#post-${postId}-show-photos-${userId}`
           );
           photoButton.style.display = "none";
 
-          // replace images with spinners while decrypting
           this.el.querySelectorAll("a").forEach((link) => {
-            // This link has an innerHTML which will contain the image
             if (link.children.length > 0 && postId) {
               if (link.querySelector("img")) {
-                // Store the original link in the list
                 this.originalLinks.push(link);
 
-                // Create a spinner for the link
                 let spinner = this.createSpinner();
 
-                // Insert the spinner before the link
                 link.parentNode.insertBefore(spinner, link);
                 this.spinners.push(spinner);
 
-                // Remove the old link element from the document
                 link.classList.add("hidden");
               }
             }
           });
 
-          // build a list of src's (the checkLinks are the image elements)
           var imageSources = [];
           checkLinks.forEach((link) => {
             imageSources.push(link.getAttribute("src"));
@@ -555,17 +558,12 @@ const TrixContentPostHook = {
                   var updateLinkCounter = this.originalLinks.length;
                   var decryptedBinaries = reply.decrypted_binaries;
                   this.originalLinks.forEach((link, index) => {
-                    // This link has an innerHTML which will contain the image
-
-                    // Set the proper attributes based on the index
                     link.setAttribute("href", decryptedBinaries[index]);
 
                     link
                       .querySelector("img")
                       .setAttribute("src", decryptedBinaries[index]);
 
-                    // Remove the old link element from the document
-                    // We currently don't allow image downloads from Posts
                     link.classList.add("cursor-not-allowed");
                     link.classList.remove("hidden");
 
@@ -599,25 +597,18 @@ const TrixContentPostHook = {
       this.newLinks = [];
       this.spinners = [];
 
-      // Get the post's id (leave this independent of our postBody variable)
-      postId = this.el.getAttribute("id").split("post-body-")[1];
+      const postId = this.el.getAttribute("id").split("post-body-")[1];
 
-      // replace images with spinners while decrypting
       this.el.querySelectorAll("a").forEach((link) => {
-        // This link has an innerHTML which will contain the image
         if (link.children.length > 0 && postId) {
           if (link.querySelector("img")) {
-            // Store the original link in the list
             this.originalLinks.push(link);
 
-            // Create a spinner for the link
             let spinner = this.createPlaceholderImage();
 
-            // Insert the spinner before the link
             link.parentNode.insertBefore(spinner, link);
             this.spinners.push(spinner);
 
-            // Remove the old link element from the document
             link.classList.add("hidden");
           }
         }
@@ -687,17 +678,14 @@ const TrixContentPostHook = {
   },
 
   transform_link(link) {
-    // link will have inner html (presumably an image)
     if (link.children.length > 0) {
       link.setAttribute("target", "_blank");
       link.setAttribute("rel", "noopener noreferrer");
 
-      // Prevent image downloads currently
       link.addEventListener("click", function (event) {
         event.preventDefault();
       });
 
-      // Prevent image downloads currently
       link.addEventListener("contextmenu", function (event) {
         event.preventDefault();
       });
@@ -709,24 +697,15 @@ const TrixContentPostHook = {
 
   isUrlExpired(postUpdatedAt, urlExpiresIn) {
     var postUpdatedAtDate = new Date(postUpdatedAt);
-    // Adjust the timezone offset
     postUpdatedAtDate.setMinutes(
       postUpdatedAtDate.getMinutes() - postUpdatedAtDate.getTimezoneOffset()
     );
     var expirationDate = new Date(
-      postUpdatedAtDate.getTime() + urlExpiresIn * 1_000 // convert to seconds
+      postUpdatedAtDate.getTime() + urlExpiresIn * 1_000
     );
     var currentDate = new Date();
     return currentDate > expirationDate;
   },
 };
-
-// Possible way to prevent default link behavior
-// on users that are not allowed to download a memory
-//
-// link.addEventListener("click", function(event) {
-//  event.preventDefault();
-//  console.log("ImageHook link clicked");
-// });
 
 export default TrixContentPostHook;

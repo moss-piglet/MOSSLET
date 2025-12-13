@@ -9561,13 +9561,19 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
 
   def liquid_image_modal(assigns) do
+    images_json = Jason.encode!(assigns.images || [])
+    assigns = assign(assigns, :images_json, images_json)
+
     ~H"""
     <.portal :if={@show} id={"#{@id}-portal"} target="body">
       <div
         id={@id}
         phx-mounted={@show && liquid_show_modal(@id)}
         phx-remove={liquid_hide_modal(@id)}
+        phx-hook="ImageModalHook"
         data-cancel={JS.exec(@on_cancel, "phx-remove")}
+        data-current-index={@current_index}
+        data-images={@images_json}
         class="fixed top-0 left-0 w-screen h-screen z-[60] hidden"
         style="position: fixed !important;"
         data-modal-type="liquid-image-modal"
@@ -9683,11 +9689,13 @@ defmodule MossletWeb.DesignSystem do
                   id={"previous-photo-button-#{@id}"}
                   phx-click="prev_timeline_image"
                   class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110"
-                  data-tippy-content="Previous photo"
+                  data-tippy-content="Previous photo (←)"
                   phx-hook="TippyHook"
                   aria-label="Previous photo"
                 >
-                  <.phx_icon name="hero-chevron-left" class="h-6 w-6" />
+                  <.phx_icon name="hero-chevron-left" class="h-6 w-6 nav-icon" />
+                  <div class="nav-spinner hidden w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin">
+                  </div>
                 </button>
 
                 <button
@@ -9695,11 +9703,13 @@ defmodule MossletWeb.DesignSystem do
                   id={"next-photo-button-#{@id}"}
                   phx-click="next_timeline_image"
                   class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white transition-all duration-200 hover:scale-110"
-                  data-tippy-content="Next photo"
+                  data-tippy-content="Next photo (→)"
                   phx-hook="TippyHook"
                   aria-label="Next photo"
                 >
-                  <.phx_icon name="hero-chevron-right" class="h-6 w-6" />
+                  <.phx_icon name="hero-chevron-right" class="h-6 w-6 nav-icon" />
+                  <div class="nav-spinner hidden w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin">
+                  </div>
                 </button>
               </div>
             </div>
@@ -9716,7 +9726,7 @@ defmodule MossletWeb.DesignSystem do
                   phx-click="goto_timeline_image"
                   phx-value-index={index}
                   class={[
-                    "w-3 h-3 rounded-full transition-all duration-200 hover:scale-125",
+                    "relative w-3 h-3 rounded-full transition-all duration-200 hover:scale-125",
                     if(index == @current_index,
                       do: "bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-800",
                       else:
@@ -9726,7 +9736,13 @@ defmodule MossletWeb.DesignSystem do
                   data-tippy-content={"Photo #{index + 1}"}
                   phx-hook="TippyHook"
                   aria-label={"Go to photo #{index + 1}"}
-                />
+                >
+                  <span class="nav-dot absolute inset-0 rounded-full"></span>
+                  <div class="nav-spinner hidden absolute inset-0 flex items-center justify-center">
+                    <div class="w-3 h-3 border-2 border-emerald-200 dark:border-emerald-800 border-t-emerald-500 rounded-full animate-spin">
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
           </.focus_wrap>
