@@ -9614,15 +9614,18 @@ defmodule MossletWeb.DesignSystem do
             ]}
           >
             <%!-- Header with controls --%>
-            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50">
-              <div class="flex items-center space-x-3">
-                <.phx_icon name="hero-photo" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                <span class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <div class="flex items-center justify-between px-3 py-2.5 sm:p-4 gap-2 border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50">
+              <div class="flex items-center gap-1.5 sm:space-x-3 min-w-0">
+                <.phx_icon
+                  name="hero-photo"
+                  class="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400"
+                />
+                <span class="text-sm sm:text-lg font-semibold text-slate-900 dark:text-slate-100 truncate">
                   Photo {@current_index + 1} of {length(@images)}
                 </span>
               </div>
 
-              <div class="flex items-center space-x-2">
+              <div class="flex items-center gap-1.5 sm:space-x-2 flex-shrink-0">
                 <%!-- Download button - only show if user has photos permission --%>
                 <.liquid_button
                   :if={@can_download && @images != []}
