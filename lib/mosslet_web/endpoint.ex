@@ -116,10 +116,7 @@ defmodule MossletWeb.Endpoint do
   end
 
   defp get_request_host(conn) do
-    case Plug.Conn.get_req_header(conn, "x-forwarded-host") do
-      [forwarded_host | _] -> forwarded_host
-      [] -> conn.host
-    end
+    conn.host
   end
 
   defp build_canonical_url(conn, canonical_host) do
