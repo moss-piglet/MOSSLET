@@ -73,28 +73,10 @@ defmodule MossletWeb.BotDefenseHook do
   end
 
   defp extract_ip_from_headers(headers) do
-    fly_client_ip =
-      Enum.find_value(headers, fn
-        {"fly-client-ip", value} -> value
-        _ -> nil
-      end)
+    configured_headers = Application.get_env(:mosslet, :remote_ip_headers, ~w[fly-client-ip])
+    configured_proxies = Application.get_env(:mosslet, :remote_ip_proxies, [])
 
-    if fly_client_ip do
-      parse_ip(fly_client_ip)
-    else
-      RemoteIp.from(headers, headers: ~w[x-forwarded-for x-real-ip])
-    end
-  end
-
-  defp parse_ip(ip_string) when is_binary(ip_string) do
-    ip_string
-    |> String.trim()
-    |> String.to_charlist()
-    |> :inet.parse_address()
-    |> case do
-      {:ok, ip} -> ip
-      _ -> nil
-    end
+    RemoteIp.from(headers, headers: configured_headers, proxies: configured_proxies)
   end
 
   defp format_ip(ip) when is_tuple(ip) do

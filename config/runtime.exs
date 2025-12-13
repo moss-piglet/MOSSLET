@@ -36,6 +36,25 @@ if config_env() == :prod do
   # Configure plug_attack
   config :mosslet, plug_attack_ip_secret: System.get_env("PLUG_ATTACK_IP_SECRET")
 
+  # Configure RemoteIp for CDN/proxy setup
+  # When behind BunnyCDN: headers should be ["bunny-connecting-ip", "x-forwarded-for"]
+  # When behind Fly.io only: headers should be ["fly-client-ip"]
+  remote_ip_headers =
+    case System.get_env("REMOTE_IP_HEADERS") do
+      nil -> ~w[fly-client-ip]
+      headers -> String.split(headers, ",", trim: true)
+    end
+
+  remote_ip_proxies =
+    case System.get_env("REMOTE_IP_PROXIES") do
+      nil -> []
+      proxies -> String.split(proxies, ",", trim: true)
+    end
+
+  config :mosslet,
+    remote_ip_headers: remote_ip_headers,
+    remote_ip_proxies: remote_ip_proxies
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

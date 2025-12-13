@@ -24,9 +24,6 @@ defmodule MossletWeb.Endpoint do
     websocket: [connect_info: [:peer_data, :x_headers, :user_agent, session: @session_options]],
     longpoll: [connect_info: [:peer_data, :x_headers, session: @session_options]]
 
-  # redirect requests through the canonical host
-  plug(:canonical_host)
-
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),
@@ -80,7 +77,18 @@ defmodule MossletWeb.Endpoint do
   plug Plug.Session, @session_options
 
   plug RemoteIp,
-    headers: ~w[fly-client-ip]
+    headers: {__MODULE__, :remote_ip_headers, []},
+    proxies: {__MODULE__, :remote_ip_proxies, []}
+
+  def remote_ip_headers do
+    Application.get_env(:mosslet, :remote_ip_headers, ~w[fly-client-ip])
+  end
+
+  def remote_ip_proxies do
+    Application.get_env(:mosslet, :remote_ip_proxies, [])
+  end
+
+  plug :canonical_host
 
   plug MossletWeb.Plugs.BotDefense
 
