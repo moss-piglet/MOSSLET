@@ -130,7 +130,9 @@ config :mosslet, Oban,
        # Log cleanup daily at 2 AM UTC (privacy-compliant 7-day retention)
        {"0 2 * * *", Mosslet.Logs.Jobs.LogCleanupJob, args: %{"action" => "cleanup_old_logs"}},
        # Key rotation monitoring - weekly check on Sundays at 3 AM UTC
-       {"0 3 * * 0", Mosslet.Security.KeyRotationOrchestratorJob, args: %{"action" => "monitor"}}
+       {"0 3 * * 0", Mosslet.Security.KeyRotationOrchestratorJob, args: %{"action" => "monitor"}},
+       # Prune old IP bans weekly on Sundays at 4 AM UTC (90-day retention)
+       {"0 4 * * 0", Mosslet.Workers.BanPruneWorker, args: %{"retention_days" => 90}}
      ]}
   ],
   queues: [

@@ -83,9 +83,9 @@ defmodule MossletWeb.AdminBotDefenseLive do
               <div class="flex items-end">
                 <button
                   type="submit"
-                  class="w-full inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 transition-colors"
+                  class="w-full inline-flex items-center justify-center rounded-xl border border-red-600 bg-red-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 hover:border-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 transition-colors"
                 >
-                  <.phx_icon name="hero-shield-exclamation" class="w-4 h-4 mr-2" /> Ban IP
+                  <.phx_icon name="hero-shield-exclamation" class="size-5 mr-2" /> Ban IP
                 </button>
               </div>
             </div>
@@ -117,7 +117,7 @@ defmodule MossletWeb.AdminBotDefenseLive do
             </div>
           </div>
 
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto max-h-96 overflow-y-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead class="bg-gray-50 dark:bg-gray-800">
                 <tr>
