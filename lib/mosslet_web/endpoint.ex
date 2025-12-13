@@ -76,17 +76,7 @@ defmodule MossletWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
 
-  plug RemoteIp,
-    headers: {__MODULE__, :remote_ip_headers, []},
-    proxies: {__MODULE__, :remote_ip_proxies, []}
-
-  def remote_ip_headers do
-    Application.get_env(:mosslet, :remote_ip_headers, ~w[fly-client-ip])
-  end
-
-  def remote_ip_proxies do
-    Application.get_env(:mosslet, :remote_ip_proxies, [])
-  end
+  plug RemoteIp, headers: ~w[fly-client-ip]
 
   plug :canonical_host
 
