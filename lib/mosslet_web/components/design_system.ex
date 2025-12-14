@@ -3171,7 +3171,7 @@ defmodule MossletWeb.DesignSystem do
       <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-cyan-50/30 dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/20 focus-within:opacity-100">
       </div>
 
-      <div class="relative p-6 animate-in fade-in duration-200">
+      <div class="relative p-6 animate-in fade-in duration-200 overflow-auto max-h-[calc(100vh-10rem)]">
         <%!-- User section with enhanced liquid avatar --%>
         <div class="flex items-start gap-4 mb-4">
           <%!-- Enhanced liquid metal avatar --%>
@@ -3441,7 +3441,7 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Enhanced Privacy Controls Section (conditionally shown) --%>
         <%= if @privacy_controls_expanded do %>
-          <div class="mt-4 nested-reply-expand-enter">
+          <div class="mt-4 nested-reply-expand-enter max-h-[80vh] overflow-y-auto rounded-xl">
             <.liquid_enhanced_privacy_controls
               form={@form}
               selector={@selector}
@@ -4276,6 +4276,14 @@ defmodule MossletWeb.DesignSystem do
     default: [],
     doc: "the list of Post.SharedUser structs mapped from the current_user's user_connections"
 
+  attr :removing_shared_user_id, :string,
+    default: nil,
+    doc: "the user_id of the shared user currently being removed"
+
+  attr :adding_shared_user, :map,
+    default: nil,
+    doc: "map with post_id and username of user being added"
+
   attr :post_id, :string, default: nil
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
@@ -4522,6 +4530,252 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </div>
 
+      <%!-- Visibility/Shared users overlay for post owner --%>
+      <div
+        :if={@current_user_id == @post.user_id && @post.visibility != :public}
+        id={"visibility-overlay-#{@post.id}"}
+        class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+      >
+        <div class={"absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-r-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
+        </div>
+        <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+          <div class="flex items-center gap-3 mb-3 shrink-0">
+            <div class={"flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br #{visibility_overlay_icon_bg(@post.visibility)} shadow-sm"}>
+              <.phx_icon
+                name={visibility_overlay_icon(@post.visibility)}
+                class={"h-4 w-4 #{visibility_overlay_icon_color(@post.visibility)}"}
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {visibility_badge_text(@post.visibility)}
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {length(@post.shared_users)} {if length(@post.shared_users) == 1,
+                  do: "person",
+                  else: "people"}
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click={
+                JS.hide(
+                  to: "#visibility-overlay-#{@post.id}",
+                  transition:
+                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+                )
+              }
+              class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+              aria-label="Close"
+            >
+              <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+            </button>
+          </div>
+
+          <div class="flex-1 min-h-0 overflow-y-auto">
+            <div class="grid grid-cols-2 gap-1.5">
+              <%= for shared_user <- @post.shared_users do %>
+                <% shared_post_user = get_shared_connection(shared_user.user_id, @post_shared_users) %>
+                <% shared_user_id_str =
+                  if is_binary(shared_user.user_id),
+                    do: Ecto.UUID.cast!(shared_user.user_id),
+                    else: shared_user.user_id %>
+                <% is_removing = @removing_shared_user_id == shared_user_id_str %>
+                <div class={[
+                  "relative flex items-center gap-2 p-1.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg transition-all duration-200",
+                  is_removing && "opacity-50 pointer-events-none"
+                ]}>
+                  <%= if shared_post_user do %>
+                    <.link
+                      :if={show_profile?(shared_post_user)}
+                      id={"profile-link-#{@post.id}-person-#{shared_user.user_id}"}
+                      phx-hook="TippyHook"
+                      data-tippy-content="View profile"
+                      navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
+                      class="flex items-center gap-2 flex-1 min-w-0"
+                    >
+                      <div class={[
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                        "bg-gradient-to-br transition-all duration-200",
+                        get_post_shared_user_classes(shared_post_user.color)
+                      ]}>
+                        <span class={[
+                          "text-xs font-semibold",
+                          get_post_shared_user_text_classes(shared_post_user.color)
+                        ]}>
+                          {String.first(shared_post_user.username || "?") |> String.upcase()}
+                        </span>
+                      </div>
+                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {shared_post_user.username}
+                      </span>
+                    </.link>
+                    <div
+                      :if={!show_profile?(shared_post_user)}
+                      class="flex items-center gap-2 flex-1 min-w-0"
+                    >
+                      <div class={[
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                        "bg-gradient-to-br transition-all duration-200",
+                        get_post_shared_user_classes(shared_post_user.color)
+                      ]}>
+                        <span class={[
+                          "text-xs font-semibold",
+                          get_post_shared_user_text_classes(shared_post_user.color)
+                        ]}>
+                          {String.first(shared_post_user.username || "?") |> String.upcase()}
+                        </span>
+                      </div>
+                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {shared_post_user.username}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="remove_shared_user"
+                      phx-value-post-id={@post.id}
+                      phx-value-user-id={shared_user.user_id}
+                      phx-value-shared-username={shared_post_user.username}
+                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                      phx-hook="TippyHook"
+                      data-tippy-content="Remove access"
+                      id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
+                    >
+                      <span class="sr-only">Remove access for {shared_post_user.username}</span>
+                      <%= if is_removing do %>
+                        <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
+                      <% else %>
+                        <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+                      <% end %>
+                    </button>
+                  <% else %>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-200 dark:bg-slate-700">
+                        <.phx_icon
+                          name="hero-user-minus"
+                          class="w-3 h-3 text-slate-400 dark:text-slate-500"
+                        />
+                      </div>
+                      <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                        Former
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="remove_shared_user"
+                      phx-value-post-id={@post.id}
+                      phx-value-user-id={shared_user.user_id}
+                      phx-value-shared-username=""
+                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                      title="Remove"
+                    >
+                      <%= if is_removing do %>
+                        <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
+                      <% else %>
+                        <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+                      <% end %>
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+
+            <div :if={Enum.empty?(@post.shared_users)} class="py-2 text-center">
+              <div class="inline-flex items-center justify-center w-8 h-8 mb-1.5 rounded-full bg-slate-100 dark:bg-slate-700">
+                <.phx_icon name="hero-user-group" class="w-4 h-4 text-slate-400 dark:text-slate-500" />
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Not shared with anyone yet
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0">
+            <% available_connections =
+              Enum.reject(@post_shared_users, fn psu ->
+                Enum.any?(@post.shared_users, &(&1.user_id == psu.user_id))
+              end) %>
+
+            <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id do %>
+              <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 animate-pulse">
+                <.phx_icon
+                  name="hero-arrow-path"
+                  class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                />
+                <span class="text-sm text-emerald-700 dark:text-emerald-300">
+                  Adding {@adding_shared_user.username}...
+                </span>
+              </div>
+            <% else %>
+              <%= if Enum.empty?(available_connections) do %>
+                <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-1">
+                  All connections have access
+                </p>
+              <% else %>
+                <div class="relative" id={"add-shared-user-overlay-#{@post.id}"}>
+                  <button
+                    type="button"
+                    phx-click={JS.toggle(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 rounded-lg border border-dashed border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200"
+                  >
+                    <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
+                  </button>
+
+                  <div
+                    id={"add-shared-user-overlay-list-#{@post.id}"}
+                    class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150"
+                  >
+                    <div class="p-1.5 space-y-0.5">
+                      <div
+                        :for={conn <- available_connections}
+                        phx-click="add_shared_user"
+                        phx-value-post-id={@post.id}
+                        phx-value-user-id={conn.user_id}
+                        phx-value-username={conn.username}
+                        class="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150"
+                      >
+                        <div class={[
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                          "bg-gradient-to-br",
+                          get_post_shared_user_classes(conn.color)
+                        ]}>
+                          <span class={[
+                            "text-xs font-bold",
+                            get_post_shared_user_text_classes(conn.color)
+                          ]}>
+                            {String.first(conn.username || "?") |> String.upcase()}
+                          </span>
+                        </div>
+                        <span class={[
+                          "text-sm font-medium truncate",
+                          get_post_shared_user_text_classes(conn.color)
+                        ]}>
+                          {conn.username}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+
+          <button
+            type="button"
+            phx-click={
+              JS.hide(
+                to: "#visibility-overlay-#{@post.id}",
+                transition:
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+              )
+            }
+            class={"mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
+          >
+            <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+          </button>
+        </div>
+      </div>
+
       <%!-- Post content --%>
       <div class="relative p-6">
         <%!-- User header --%>
@@ -4553,90 +4807,29 @@ defmodule MossletWeb.DesignSystem do
               />
               <%!-- Enhanced visibility badge with interaction indicators --%>
               <div class="flex items-center gap-2 ml-2">
-                <%!-- shared users dropdown --%>
-                <.liquid_dropdown
+                <%!-- Clickable visibility badge for post owner (non-public) --%>
+                <button
                   :if={@current_user_id == @post.user_id && @post.visibility != :public}
-                  id={"post-shared-users-menu-#{@post.id}"}
-                  trigger_class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
-                  placement="bottom-end"
-                  phx_hook_id={"post-shared-users-menu-trigger-#{@post.id}"}
-                  phx_hook="TippyHook"
-                  phx_data_tippy_content="View who you shared with"
+                  type="button"
+                  phx-click={
+                    JS.show(
+                      to: "#visibility-overlay-#{@post.id}",
+                      transition:
+                        {"ease-out duration-200", "opacity-0 -translate-x-4",
+                         "opacity-100 translate-x-0"}
+                    )
+                  }
+                  class="cursor-pointer hover:opacity-80 transition-opacity duration-200"
+                  id={"visibility-badge-trigger-#{@post.id}"}
                 >
-                  <:trigger>
-                    <.liquid_badge
-                      variant="soft"
-                      color={visibility_badge_color(@post.visibility)}
-                      size="sm"
-                    >
-                      {visibility_badge_text(@post.visibility)}
-                    </.liquid_badge>
-                  </:trigger>
-
-                  <%!-- Shared with users list --%>
-                  <:item
-                    :for={shared_user <- @post.shared_users}
-                    :if={!Enum.empty?(@post.shared_users)}
+                  <.liquid_badge
+                    variant="soft"
+                    color={visibility_badge_color(@post.visibility)}
+                    size="sm"
                   >
-                    <div class="flex items-center gap-3 px-1 py-0.5">
-                      <% shared_post_user =
-                        get_shared_connection(shared_user.user_id, @post_shared_users) %>
-                      <%= if shared_post_user do %>
-                        <div class={[
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                          "bg-gradient-to-br transition-all duration-200",
-                          get_post_shared_user_classes(shared_post_user.color)
-                        ]}>
-                          <span class={[
-                            "text-sm font-semibold",
-                            get_post_shared_user_text_classes(shared_post_user.color)
-                          ]}>
-                            {String.first(shared_post_user.username || "?") |> String.upcase()}
-                          </span>
-                        </div>
-                        <div class="flex flex-col min-w-0">
-                          <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {shared_post_user.username}
-                          </span>
-                          <span class="text-xs text-slate-500 dark:text-slate-400">
-                            Connection
-                          </span>
-                        </div>
-                      <% else %>
-                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
-                          <.phx_icon
-                            name="hero-user-minus"
-                            class="w-4 h-4 text-slate-400 dark:text-slate-500"
-                          />
-                        </div>
-                        <div class="flex flex-col min-w-0">
-                          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic">
-                            Former connection
-                          </span>
-                          <span class="text-xs text-slate-400 dark:text-slate-500">
-                            No longer connected
-                          </span>
-                        </div>
-                      <% end %>
-                    </div>
-                  </:item>
-
-                  <:item :if={Enum.empty?(@post.shared_users)}>
-                    <%!-- start empty state --%>
-                    <div class="px-4 py-3 text-center">
-                      <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-emerald-100 dark:bg-emerald-900">
-                        <.phx_icon
-                          name="hero-user-group"
-                          class="w-6 h-6 text-emerald-400 dark:text-emerald-500"
-                        />
-                      </div>
-                      <p class="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                        Not shared with anyone yet
-                      </p>
-                    </div>
-                    <%!-- end empty state --%>
-                  </:item>
-                </.liquid_dropdown>
+                    {visibility_badge_text(@post.visibility)}
+                  </.liquid_badge>
+                </button>
                 <.liquid_badge
                   :if={@current_user_id != @post.user_id || @post.visibility == :public}
                   variant="soft"
@@ -5149,6 +5342,83 @@ defmodule MossletWeb.DesignSystem do
       :specific_groups -> "Groups"
       :specific_users -> "Specific"
       _ -> "Private"
+    end
+  end
+
+  defp visibility_overlay_gradient(visibility) do
+    case visibility do
+      :private ->
+        "from-slate-400 via-slate-500 to-slate-400 dark:from-slate-500 dark:via-slate-600 dark:to-slate-500"
+
+      :connections ->
+        "from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500"
+
+      :specific_groups ->
+        "from-purple-400 via-violet-400 to-purple-400 dark:from-purple-500 dark:via-violet-500 dark:to-purple-500"
+
+      :specific_users ->
+        "from-amber-400 via-yellow-400 to-amber-400 dark:from-amber-500 dark:via-yellow-500 dark:to-amber-500"
+
+      _ ->
+        "from-slate-400 via-slate-500 to-slate-400 dark:from-slate-500 dark:via-slate-600 dark:to-slate-500"
+    end
+  end
+
+  defp visibility_overlay_icon_bg(visibility) do
+    case visibility do
+      :private ->
+        "from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-700/50"
+
+      :connections ->
+        "from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50"
+
+      :specific_groups ->
+        "from-purple-100 to-violet-100 dark:from-purple-900/50 dark:to-violet-900/50"
+
+      :specific_users ->
+        "from-amber-100 to-yellow-100 dark:from-amber-900/50 dark:to-yellow-900/50"
+
+      _ ->
+        "from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-700/50"
+    end
+  end
+
+  defp visibility_overlay_icon(visibility) do
+    case visibility do
+      :private -> "hero-lock-closed-solid"
+      :connections -> "hero-user-group-solid"
+      :specific_groups -> "hero-user-group-solid"
+      :specific_users -> "hero-users-solid"
+      _ -> "hero-lock-closed-solid"
+    end
+  end
+
+  defp visibility_overlay_icon_color(visibility) do
+    case visibility do
+      :private -> "text-slate-600 dark:text-slate-400"
+      :connections -> "text-emerald-600 dark:text-emerald-400"
+      :specific_groups -> "text-purple-600 dark:text-purple-400"
+      :specific_users -> "text-amber-600 dark:text-amber-400"
+      _ -> "text-slate-600 dark:text-slate-400"
+    end
+  end
+
+  defp visibility_overlay_back_button_classes(visibility) do
+    case visibility do
+      :private ->
+        "text-slate-600 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50"
+
+      :connections ->
+        "text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border-emerald-200/50 dark:border-emerald-700/50"
+
+      :specific_groups ->
+        "text-purple-600 dark:text-purple-400 bg-purple-50/80 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 border-purple-200/50 dark:border-purple-700/50"
+
+      :specific_users ->
+        "text-amber-600 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 border-amber-200/50 dark:border-amber-700/50"
+
+      _ ->
+        "text-slate-600 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50"
     end
   end
 
@@ -6704,6 +6974,260 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
+  Shared users dropdown with profile links, remove functionality, and add user UI.
+  """
+  attr :post, :map, required: true
+  attr :post_shared_users, :list, required: true
+  attr :removing_shared_user_id, :string, default: nil
+  attr :adding_shared_user, :map, default: nil
+
+  def liquid_shared_users_dropdown(assigns) do
+    ~H"""
+    <div
+      id={"post-shared-users-menu-#{@post.id}"}
+      class="relative"
+      phx-click-away={JS.hide(to: "#post-shared-users-menu-#{@post.id}-menu")}
+    >
+      <button
+        type="button"
+        phx-click={JS.toggle(to: "#post-shared-users-menu-#{@post.id}-menu")}
+        class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-all duration-200 ease-out"
+        id={"post-shared-users-menu-trigger-#{@post.id}"}
+        phx-hook="TippyHook"
+        data-tippy-content="Manage who you shared with"
+      >
+        <.liquid_badge variant="soft" color={visibility_badge_color(@post.visibility)} size="sm">
+          {visibility_badge_text(@post.visibility)}
+        </.liquid_badge>
+      </button>
+
+      <div
+        id={"post-shared-users-menu-#{@post.id}-menu"}
+        class={[
+          "absolute z-[200] mt-2 w-72 origin-top-right hidden right-0",
+          "rounded-xl border border-slate-200/60 dark:border-slate-700/60",
+          "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+          "shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30",
+          "ring-1 ring-slate-200/60 dark:ring-slate-700/60",
+          "animate-in fade-in slide-in-from-top-2 duration-200"
+        ]}
+      >
+        <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10 opacity-50">
+        </div>
+
+        <div class="relative">
+          <div class="px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/60">
+            <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Shared with
+            </h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {length(@post.shared_users)} {if length(@post.shared_users) == 1,
+                do: "person",
+                else: "people"}
+            </p>
+          </div>
+
+          <div class="max-h-[14rem] overflow-y-auto py-2">
+            <div
+              :for={shared_user <- @post.shared_users}
+              :if={!Enum.empty?(@post.shared_users)}
+              class="group"
+            >
+              <% shared_post_user = get_shared_connection(shared_user.user_id, @post_shared_users) %>
+              <% is_removing = @removing_shared_user_id == shared_user.user_id %>
+              <div class={[
+                "flex items-center gap-3 px-2 py-1.5 transition-all duration-200",
+                is_removing && "opacity-50 pointer-events-none"
+              ]}>
+                <%= if shared_post_user do %>
+                  <.link
+                    :if={show_profile?(shared_post_user)}
+                    id={"profile-link-#{@post.id}-person-#{shared_user.user_id}"}
+                    navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
+                    phx-hook="TippyHook"
+                    data-tippy-content="View profile"
+                    class="flex items-center gap-3 flex-1 min-w-0 px-2 py-1.5 -mx-2 -my-1.5 rounded-lg hover:bg-slate-100/80 dark:hover:bg-slate-700/50 transition-all duration-200"
+                  >
+                    <div class={[
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                      "bg-gradient-to-br transition-all duration-200",
+                      get_post_shared_user_classes(shared_post_user.color)
+                    ]}>
+                      <span class={[
+                        "text-sm font-semibold",
+                        get_post_shared_user_text_classes(shared_post_user.color)
+                      ]}>
+                        {String.first(shared_post_user.username || "?") |> String.upcase()}
+                      </span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate block">
+                        {shared_post_user.username}
+                      </span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400">
+                        Connection
+                      </span>
+                    </div>
+                  </.link>
+                  <div
+                    :if={!show_profile?(shared_post_user)}
+                    class="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    <div class={[
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                      "bg-gradient-to-br transition-all duration-200",
+                      get_post_shared_user_classes(shared_post_user.color)
+                    ]}>
+                      <span class={[
+                        "text-sm font-semibold",
+                        get_post_shared_user_text_classes(shared_post_user.color)
+                      ]}>
+                        {String.first(shared_post_user.username || "?") |> String.upcase()}
+                      </span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <span class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate block">
+                        {shared_post_user.username}
+                      </span>
+                      <span class="text-xs text-slate-500 dark:text-slate-400">
+                        Connection
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="remove_shared_user"
+                    phx-value-post-id={@post.id}
+                    phx-value-user-id={shared_user.user_id}
+                    phx-value-shared-username={shared_post_user.username}
+                    class="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-100/60 dark:bg-slate-700/40 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Remove access"
+                    id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
+                  >
+                    <%= if is_removing do %>
+                      <.phx_icon name="hero-arrow-path-mini" class="w-4 h-4 animate-spin" />
+                    <% else %>
+                      <.phx_icon name="hero-x-mark-mini" class="w-4 h-4" />
+                    <% end %>
+                  </button>
+                <% else %>
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
+                      <.phx_icon
+                        name="hero-user-minus"
+                        class="w-4 h-4 text-slate-400 dark:text-slate-500"
+                      />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <span class="text-sm font-medium text-slate-500 dark:text-slate-400 truncate italic block">
+                        Former connection
+                      </span>
+                      <span class="text-xs text-slate-400 dark:text-slate-500">
+                        No longer connected
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="remove_shared_user"
+                    phx-value-post-id={@post.id}
+                    phx-value-user-id={shared_user.user_id}
+                    phx-value-shared-username=""
+                    class="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-100/60 dark:bg-slate-700/40 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                    title="Remove"
+                  >
+                    <%= if is_removing do %>
+                      <.phx_icon name="hero-arrow-path-mini" class="w-4 h-4 animate-spin" />
+                    <% else %>
+                      <.phx_icon name="hero-x-mark-mini" class="w-4 h-4" />
+                    <% end %>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+
+            <div :if={Enum.empty?(@post.shared_users)} class="px-4 py-6 text-center">
+              <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-slate-100 dark:bg-slate-700">
+                <.phx_icon name="hero-user-group" class="w-6 h-6 text-slate-400 dark:text-slate-500" />
+              </div>
+              <p class="text-sm text-slate-500 dark:text-slate-400">
+                Not shared with anyone yet
+              </p>
+            </div>
+          </div>
+
+          <div class="px-4 py-3 border-t border-slate-200/60 dark:border-slate-700/60">
+            <% available_connections =
+              Enum.reject(@post_shared_users, fn psu ->
+                Enum.any?(@post.shared_users, &(&1.user_id == psu.user_id))
+              end) %>
+
+            <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id do %>
+              <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 animate-pulse">
+                <.phx_icon
+                  name="hero-arrow-path"
+                  class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                />
+                <span class="text-sm text-emerald-700 dark:text-emerald-300">
+                  Adding {@adding_shared_user.username}...
+                </span>
+              </div>
+            <% else %>
+              <%= if Enum.empty?(available_connections) do %>
+                <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-1">
+                  All connections have access
+                </p>
+              <% else %>
+                <div class="relative" id={"add-shared-user-#{@post.id}"}>
+                  <button
+                    type="button"
+                    phx-click={JS.toggle(to: "#add-shared-user-list-#{@post.id}")}
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 rounded-lg border border-dashed border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200"
+                  >
+                    <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
+                  </button>
+
+                  <div
+                    id={"add-shared-user-list-#{@post.id}"}
+                    class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-40 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150"
+                  >
+                    <div
+                      :for={conn <- available_connections}
+                      phx-click="add_shared_user"
+                      phx-value-post-id={@post.id}
+                      phx-value-user-id={conn.user_id}
+                      phx-value-username={conn.username}
+                      class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150"
+                    >
+                      <div class={[
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+                        "bg-gradient-to-br",
+                        get_post_shared_user_classes(conn.color)
+                      ]}>
+                        <span class={[
+                          "text-xs font-semibold",
+                          get_post_shared_user_text_classes(conn.color)
+                        ]}>
+                          {String.first(conn.username || "?") |> String.upcase()}
+                        </span>
+                      </div>
+                      <span class="text-sm text-slate-700 dark:text-slate-300 truncate">
+                        {conn.username}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Collapsible reply thread display component.
 
   ## Examples
@@ -7144,6 +7668,11 @@ defmodule MossletWeb.DesignSystem do
     Enum.find(post_shared_users_list, nil, fn post_shared_user ->
       post_shared_user.user_id === user_id
     end)
+  end
+
+  def show_profile?(shared_post_user) do
+    shared_post_user.profile_slug &&
+      shared_post_user.profile_visibility in [:connections, :public]
   end
 
   def connection_has_user_post?(post_id, user_id) do

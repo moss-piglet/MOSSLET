@@ -77,6 +77,12 @@ defmodule Mosslet.Timeline.Post do
       @derive Jason.Encoder
       field :sender_id, :string, virtual: true
       field :username, :string, virtual: true
+      field :profile_slug, :string, virtual: true
+
+      field :profile_visibility, Ecto.Enum,
+        values: [:private, :connections, :public],
+        virtual: true
+
       field :user_id, :binary_id
       field :color, Ecto.Enum, values: [:emerald, :orange, :pink, :purple, :rose, :yellow, :zinc]
     end
@@ -239,13 +245,18 @@ defmodule Mosslet.Timeline.Post do
 
   def shared_user_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
     shared_user
-    |> cast(attrs, [:sender_id, :username])
+    |> cast(attrs, [:user_id, :sender_id, :username])
     |> validate_shared_username()
   end
 
   def shared_user_repost_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
     shared_user
     |> cast(attrs, [:user_id])
+  end
+
+  def shared_user_removal_changeset(shared_user, attrs \\ %{}, _opts \\ []) do
+    shared_user
+    |> cast(attrs, [:user_id, :sender_id, :color])
   end
 
   def change_post_to_repost_changeset(post, attrs, opts \\ []) do
@@ -296,6 +307,14 @@ defmodule Mosslet.Timeline.Post do
       with: &shared_user_changeset/2,
       soft_param: :shared_users_order,
       drop_param: :shared_users_delete
+    )
+  end
+
+  def change_post_remove_shared_user_changeset(post, attrs, _opts \\ []) do
+    post
+    |> cast(attrs, [])
+    |> cast_embed(:shared_users,
+      with: &shared_user_removal_changeset/2
     )
   end
 

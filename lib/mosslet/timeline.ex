@@ -3152,6 +3152,50 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  def remove_post_shared_user(%Post{} = post, attrs, opts \\ []) do
+    original_shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+    new_shared_user_ids = Enum.map(attrs[:shared_users] || [], & &1[:user_id])
+    removed_user_ids = original_shared_user_ids -- new_shared_user_ids
+
+    case Repo.transaction_on_primary(fn ->
+           Post.change_post_remove_shared_user_changeset(post, attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_post}} ->
+        conn = Accounts.get_connection_from_item(updated_post, opts[:user])
+
+        updated_post =
+          updated_post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
+
+        # broadcast to each removed user
+        Enum.each(removed_user_ids, fn user_id ->
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "conn_posts:#{user_id}",
+            {:post_updated_user_removed, updated_post}
+          )
+        end)
+
+        # broadcast to the post author
+        # who removed the shared_user
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "conn_posts:#{updated_post.user_id}",
+          {:post_shared_users_updated, updated_post}
+        )
+
+        {:ok, conn, updated_post}
+
+      {:ok, {:error, changeset}} ->
+        Logger.error(
+          "There was an error remove_post_shared_user/3 in Mosslet.Timeline #{inspect(changeset)}"
+        )
+
+        Logger.debug({inspect(changeset)})
+        {:error, changeset}
+    end
+  end
+
   @doc """
   Creates a %Reply{}.
   """
@@ -3424,24 +3468,22 @@ defmodule Mosslet.Timeline do
         # remove the shared_user
         shared_user_structs =
           Enum.reject(post.shared_users, fn shared_user ->
-            shared_user.id === user.id
+            shared_user.user_id == user.id
           end)
 
-        # convert list from structs to maps
+        # convert list from structs to maps, preserving each user's own username
         shared_user_map_list =
           Enum.into(shared_user_structs, [], fn shared_user_struct ->
             Map.from_struct(shared_user_struct)
             |> Map.put(:sender_id, opts[:user].id)
-            |> Map.put(:username, opts[:shared_username])
           end)
 
-        # call update_post to remove the user_post_map
-        update_post_shared_users(
+        # call remove_post_shared_user to update the shared_users list
+        remove_post_shared_user(
           post,
           %{
             shared_users: shared_user_map_list
           },
-          # is the current_user
           user: opts[:user]
         )
 
@@ -3449,6 +3491,85 @@ defmodule Mosslet.Timeline do
         Logger.warning("Error deleting user_post")
         Logger.debug("Error deleting user_post: #{inspect(rest)}")
         {:error, "error"}
+    end
+  end
+
+  @doc """
+  Shares an existing post with a single user by creating a user_post record.
+
+  ## Options
+    * `:user` - The current user who owns the post (required)
+  """
+  def share_post_with_user(%Post{} = post, user_to_share_with, decrypted_post_key, opts \\ []) do
+    current_user = opts[:user]
+
+    if post.user_id != current_user.id do
+      {:error, "You can only share your own posts"}
+    else
+      user_post_changeset =
+        UserPost.sharing_changeset(
+          %UserPost{},
+          %{
+            key: decrypted_post_key,
+            post_id: post.id,
+            user_id: user_to_share_with.id
+          },
+          user: user_to_share_with,
+          visibility: post.visibility
+        )
+
+      result =
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:insert_user_post, user_post_changeset)
+        |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
+          UserPostReceipt.changeset(
+            %UserPostReceipt{},
+            %{
+              user_id: user_to_share_with.id,
+              user_post_id: user_post.id,
+              is_read?: false,
+              read_at: nil
+            }
+          )
+          |> Ecto.Changeset.put_assoc(:user, user_to_share_with)
+          |> Ecto.Changeset.put_assoc(:user_post, user_post)
+        end)
+        |> Repo.transaction_on_primary()
+
+      case result do
+        {:ok, %{insert_user_post: user_post}} ->
+          new_shared_user = %Post.SharedUser{
+            user_id: user_to_share_with.id,
+            color: get_shared_user_color(user_to_share_with, current_user)
+          }
+
+          existing_shared_users = post.shared_users || []
+
+          shared_user_map_list =
+            (existing_shared_users ++ [new_shared_user])
+            |> Enum.map(fn su ->
+              Map.from_struct(su)
+              |> Map.put(:sender_id, current_user.id)
+            end)
+
+          update_post_shared_users(
+            post,
+            %{shared_users: shared_user_map_list},
+            user: current_user
+          )
+
+          {:ok, user_post}
+
+        {:error, _op, changeset, _changes} ->
+          {:error, changeset}
+      end
+    end
+  end
+
+  defp get_shared_user_color(user_to_share_with, current_user) do
+    case Accounts.get_user_connection_between_users(user_to_share_with.id, current_user.id) do
+      %{color: color} when not is_nil(color) -> color
+      _ -> :emerald
     end
   end
 

@@ -805,7 +805,9 @@ defmodule MossletWeb.Helpers do
         sender_id: current_user.id,
         username: decr_uconn(uconn.connection.username, current_user, uconn.key, key),
         user_id: uconn.connection.user_id,
-        color: uconn.color
+        color: uconn.color,
+        profile_slug: uconn.connection.profile && uconn.connection.profile.slug,
+        profile_visibility: uconn.connection.profile && uconn.connection.profile.visibility
       }
     end)
   end

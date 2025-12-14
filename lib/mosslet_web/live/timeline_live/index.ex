@@ -171,6 +171,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:share_post_id, nil)
       |> assign(:share_post_body, nil)
       |> assign(:share_post_username, nil)
+      |> assign(:removing_shared_user_id, nil)
+      |> assign(:adding_shared_user, nil)
       |> assign(:loaded_replies_counts, %{})
       |> assign(:loaded_nested_replies, %{})
       |> assign(:upload_stages, %{})
@@ -818,8 +820,31 @@ defmodule MossletWeb.TimelineLive.Index do
         |> stream_delete(:posts, post)
         |> recalculate_counts_after_post_update(current_user, options)
 
-      {:noreply, socket}
+      {:noreply,
+       socket
+       |> assign(:removing_shared_user_id, nil)
+       |> assign(:adding_shared_user, nil)}
     end
+  end
+
+  def handle_info({:post_updated_user_removed, post}, socket) do
+    current_user = socket.assigns.current_user
+    options = socket.assigns.options
+
+    socket =
+      socket
+      |> stream_delete(:posts, post)
+      |> recalculate_counts_after_post_update(current_user, options)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:post_shared_users_updated, post}, socket) do
+    {:noreply,
+     socket
+     |> assign(:removing_shared_user_id, nil)
+     |> assign(:adding_shared_user, nil)
+     |> stream_insert(:posts, post, at: -1)}
   end
 
   def handle_info({:post_updated_fav, post}, socket) do
@@ -3485,12 +3510,79 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event(
+        "remove_shared_user",
+        %{"post-id" => post_id, "user-id" => user_id, "shared-username" => shared_username},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+
+    socket =
+      socket
+      |> assign(:removing_shared_user_id, user_id)
+      |> start_async(:remove_shared_user, fn ->
+        user_post = Timeline.get_user_post_by_post_id_and_user_id!(post_id, user_id)
+
+        Timeline.delete_user_post(user_post,
+          user: current_user,
+          shared_username: shared_username
+        )
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "add_shared_user",
+        %{"post-id" => post_id, "user-id" => user_id, "username" => username},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    socket =
+      assign(socket, :adding_shared_user, %{post_id: post_id, username: username})
+
+    Task.start(fn ->
+      post = Timeline.get_post!(post_id)
+
+      if post.user_id == current_user.id do
+        user_to_share_with = Accounts.get_user!(user_id)
+
+        encrypted_post_key =
+          post.user_posts
+          |> Enum.find(fn up -> up.user_id == current_user.id end)
+          |> case do
+            nil -> nil
+            user_post -> user_post.key
+          end
+
+        decrypted_post_key =
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                 encrypted_post_key,
+                 current_user,
+                 key
+               ) do
+            {:ok, decrypted} -> decrypted
+            _ -> nil
+          end
+
+        if decrypted_post_key do
+          Timeline.share_post_with_user(post, user_to_share_with, decrypted_post_key,
+            user: current_user
+          )
+        end
+      end
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
         "delete_user_post",
         %{"post-id" => post_id, "user-id" => user_id, "shared-username" => shared_username},
         socket
       ) do
     current_user = socket.assigns.current_user
-    # delete the user_post for the shared_with user
     user_post = Timeline.get_user_post_by_post_id_and_user_id!(post_id, user_id)
 
     Timeline.delete_user_post(user_post,
@@ -3966,6 +4058,19 @@ defmodule MossletWeb.TimelineLive.Index do
        :delete_reply_from_cloud_message,
        AsyncResult.failed(del_message, {:exit, reason})
      )}
+  end
+
+  def handle_async(:remove_shared_user, {:ok, _result}, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_shared_user, {:exit, reason}, socket) do
+    socket =
+      socket
+      |> assign(:removing_shared_user_id, nil)
+      |> put_flash(:error, "Failed to remove shared user: #{inspect(reason)}")
+
+    {:noreply, socket}
   end
 
   def handle_async(:url_preview_task, {:ok, {:ok, preview}}, socket) do

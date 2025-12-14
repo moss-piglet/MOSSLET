@@ -20,7 +20,7 @@
       <MossletWeb.DesignSystem.liquid_timeline_header id={"timeline-header-#{@active_tab}"} />
 
       <%!-- Sticky header group: tabs, content filter, and composer --%>
-      <div class="sticky top-16 z-30 space-y-4">
+      <div class="sticky top-16 z-30 space-y-4 pb-4">
         <%!-- Timeline navigation tabs --%>
         <div class="bg-white/80 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/10 dark:shadow-black/30 p-2 relative ring-1 ring-slate-900/5 dark:ring-white/5">
           <div class="flex items-center gap-2">
@@ -463,6 +463,8 @@
                   post_id={post.id}
                   current_user_id={@current_user.id}
                   post_shared_users={@post_shared_users}
+                  removing_shared_user_id={@removing_shared_user_id}
+                  adding_shared_user={@adding_shared_user}
                   post={post}
                   current_user={@current_user}
                   key={@key}

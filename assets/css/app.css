@@ -834,7 +834,7 @@ trix-editor {
   100% {
     opacity: 1;
     transform: translateX(0) translateY(0);
-    max-height: 600px;
+    max-height: 2000px;
   }
 }
 
@@ -842,7 +842,7 @@ trix-editor {
   0% {
     opacity: 1;
     transform: translateX(0) translateY(0);
-    max-height: 600px;
+    max-height: 2000px;
   }
   100% {
     opacity: 0;
