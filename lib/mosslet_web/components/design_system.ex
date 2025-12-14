@@ -4376,6 +4376,37 @@ defmodule MossletWeb.DesignSystem do
         </span>
       </button>
 
+      <%!-- Right-side visibility indicator for post owner (non-public posts) --%>
+      <button
+        :if={@current_user_id == @post.user_id && @post.visibility != :public}
+        type="button"
+        phx-click={
+          JS.show(
+            to: "#visibility-overlay-#{@post.id}",
+            transition:
+              {"ease-out duration-200", "opacity-0 translate-x-4", "opacity-100 translate-x-0"}
+          )
+        }
+        class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"}
+        aria-label="View visibility settings"
+        id={"visibility-indicator-#{@post.id}"}
+      >
+        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
+          {visibility_badge_text(@post.visibility)}
+        </span>
+      </button>
+
+      <%!-- Right-side visibility indicator for non-owner or public posts (non-interactive) --%>
+      <div
+        :if={@current_user_id != @post.user_id || @post.visibility == :public}
+        class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-50 group z-10"}
+        aria-label={visibility_badge_text(@post.visibility)}
+      >
+        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
+          {visibility_badge_text(@post.visibility)}
+        </span>
+      </div>
+
       <%!-- Share note overlay modal for posts shared WITH you --%>
       <div
         :if={@is_repost && @current_user_id != @post.user_id}
@@ -4536,9 +4567,9 @@ defmodule MossletWeb.DesignSystem do
         id={"visibility-overlay-#{@post.id}"}
         class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
       >
-        <div class={"absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-r-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
+        <div class={"absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-l-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
         </div>
-        <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+        <div class="h-full flex flex-col p-4 pr-5 overflow-hidden">
           <div class="flex items-center gap-3 mb-3 shrink-0">
             <div class={"flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br #{visibility_overlay_icon_bg(@post.visibility)} shadow-sm"}>
               <.phx_icon
@@ -4562,7 +4593,7 @@ defmodule MossletWeb.DesignSystem do
                 JS.hide(
                   to: "#visibility-overlay-#{@post.id}",
                   transition:
-                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
                 )
               }
               class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
@@ -4716,42 +4747,66 @@ defmodule MossletWeb.DesignSystem do
                   <button
                     type="button"
                     phx-click={JS.toggle(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                    class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 rounded-lg border border-dashed border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200"
+                    class={"w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-dashed transition-all duration-200 #{visibility_add_button_classes(@post.visibility)}"}
                   >
                     <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
                   </button>
 
                   <div
                     id={"add-shared-user-overlay-list-#{@post.id}"}
+                    phx-click-away={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                    phx-key="escape"
+                    phx-window-keydown={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
                     class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150"
                   >
                     <div class="p-1.5 space-y-0.5">
                       <div
                         :for={conn <- available_connections}
-                        phx-click="add_shared_user"
+                        id={"add-shared-user-item-#{@post.id}-#{conn.user_id}"}
+                        phx-click={
+                          JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")
+                          |> JS.push("add_shared_user")
+                        }
                         phx-value-post-id={@post.id}
                         phx-value-user-id={conn.user_id}
                         phx-value-username={conn.username}
-                        class="flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150"
+                        class={[
+                          "flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150",
+                          @adding_shared_user && @adding_shared_user.post_id == @post.id &&
+                            @adding_shared_user.username == conn.username &&
+                            "opacity-50 pointer-events-none"
+                        ]}
                       >
-                        <div class={[
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
-                          "bg-gradient-to-br",
-                          get_post_shared_user_classes(conn.color)
-                        ]}>
+                        <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id && @adding_shared_user.username == conn.username do %>
+                          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                            <.phx_icon
+                              name="hero-arrow-path"
+                              class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                            />
+                          </div>
+                          <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                            Adding...
+                          </span>
+                        <% else %>
+                          <div class={[
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                            "bg-gradient-to-br",
+                            get_post_shared_user_classes(conn.color)
+                          ]}>
+                            <span class={[
+                              "text-xs font-bold",
+                              get_post_shared_user_text_classes(conn.color)
+                            ]}>
+                              {String.first(conn.username || "?") |> String.upcase()}
+                            </span>
+                          </div>
                           <span class={[
-                            "text-xs font-bold",
+                            "text-sm font-medium truncate",
                             get_post_shared_user_text_classes(conn.color)
                           ]}>
-                            {String.first(conn.username || "?") |> String.upcase()}
+                            {conn.username}
                           </span>
-                        </div>
-                        <span class={[
-                          "text-sm font-medium truncate",
-                          get_post_shared_user_text_classes(conn.color)
-                        ]}>
-                          {conn.username}
-                        </span>
+                        <% end %>
                       </div>
                     </div>
                   </div>
@@ -4766,12 +4821,12 @@ defmodule MossletWeb.DesignSystem do
               JS.hide(
                 to: "#visibility-overlay-#{@post.id}",
                 transition:
-                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
               )
             }
-            class={"mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
+            class={"mt-3 inline-flex items-center gap-1.5 self-end text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
           >
-            <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+            Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -4805,114 +4860,79 @@ defmodule MossletWeb.DesignSystem do
                 name="hero-check-badge"
                 class="h-5 w-5 text-emerald-500 flex-shrink-0"
               />
-              <%!-- Enhanced visibility badge with interaction indicators --%>
-              <div class="flex items-center gap-2 ml-2">
-                <%!-- Clickable visibility badge for post owner (non-public) --%>
-                <button
-                  :if={@current_user_id == @post.user_id && @post.visibility != :public}
-                  type="button"
-                  phx-click={
-                    JS.show(
-                      to: "#visibility-overlay-#{@post.id}",
-                      transition:
-                        {"ease-out duration-200", "opacity-0 -translate-x-4",
-                         "opacity-100 translate-x-0"}
-                    )
-                  }
-                  class="cursor-pointer hover:opacity-80 transition-opacity duration-200"
-                  id={"visibility-badge-trigger-#{@post.id}"}
-                >
-                  <.liquid_badge
-                    variant="soft"
-                    color={visibility_badge_color(@post.visibility)}
-                    size="sm"
-                  >
-                    {visibility_badge_text(@post.visibility)}
-                  </.liquid_badge>
-                </button>
-                <.liquid_badge
-                  :if={@current_user_id != @post.user_id || @post.visibility == :public}
-                  variant="soft"
-                  color={visibility_badge_color(@post.visibility)}
-                  size="sm"
-                >
-                  {visibility_badge_text(@post.visibility)}
-                </.liquid_badge>
+              <%!-- Interaction controls indicators --%>
+              <div class="flex items-center gap-1 ml-2">
+                <%!-- Ephemeral indicator with countdown --%>
+                <.phx_icon
+                  :if={@post.is_ephemeral}
+                  id={"ephemeral-indicator-#{@post.id}"}
+                  name="hero-clock"
+                  class="h-3 w-3 text-amber-500 dark:text-amber-400"
+                  phx_hook="TippyHook"
+                  data_tippy_content={
+                    if @post.expires_at do
+                      expires_in = MossletWeb.Helpers.get_expiration_time_remaining(@post)
 
-                <%!-- Interaction controls indicators --%>
-                <div class="flex items-center gap-1">
-                  <%!-- Ephemeral indicator with countdown --%>
-                  <.phx_icon
-                    :if={@post.is_ephemeral}
-                    id={"ephemeral-indicator-#{@post.id}"}
-                    name="hero-clock"
-                    class="h-3 w-3 text-amber-500 dark:text-amber-400"
-                    phx_hook="TippyHook"
-                    data_tippy_content={
-                      if @post.expires_at do
-                        expires_in = MossletWeb.Helpers.get_expiration_time_remaining(@post)
-
-                        if expires_in do
-                          "Ephemeral post - expires in #{expires_in}"
-                        else
-                          "Ephemeral post - expired"
-                        end
+                      if expires_in do
+                        "Ephemeral post - expires in #{expires_in}"
                       else
-                        "Ephemeral post - will auto-delete"
+                        "Ephemeral post - expired"
                       end
-                    }
-                  />
+                    else
+                      "Ephemeral post - will auto-delete"
+                    end
+                  }
+                />
 
-                  <%!-- Mature content indicator --%>
-                  <.phx_icon
-                    :if={@post.mature_content}
-                    id={"mature-content-indicator-#{@post.id}"}
-                    name="hero-exclamation-triangle"
-                    class="h-3 w-3 text-orange-500 dark:text-orange-400"
-                    phx_hook="TippyHook"
-                    data_tippy_content="Mature content (18+)"
-                  />
+                <%!-- Mature content indicator --%>
+                <.phx_icon
+                  :if={@post.mature_content}
+                  id={"mature-content-indicator-#{@post.id}"}
+                  name="hero-exclamation-triangle"
+                  class="h-3 w-3 text-orange-500 dark:text-orange-400"
+                  phx_hook="TippyHook"
+                  data_tippy_content="Mature content (18+)"
+                />
 
-                  <%!-- No replies indicator --%>
-                  <.phx_icon
-                    :if={!@post.allow_replies}
-                    id={"allow-replies-indicator-#{@post.id}"}
-                    name="hero-chat-bubble-oval-left-ellipsis"
-                    class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                    phx_hook="TippyHook"
-                    data_tippy_content="Replies disabled"
-                  />
+                <%!-- No replies indicator --%>
+                <.phx_icon
+                  :if={!@post.allow_replies}
+                  id={"allow-replies-indicator-#{@post.id}"}
+                  name="hero-chat-bubble-oval-left-ellipsis"
+                  class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                  phx_hook="TippyHook"
+                  data_tippy_content="Replies disabled"
+                />
 
-                  <%!-- No shares indicator --%>
-                  <.phx_icon
-                    :if={!@post.allow_shares}
-                    id={"allow-shares-indicator-#{@post.id}"}
-                    name="hero-arrow-path"
-                    class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                    phx_hook="TippyHook"
-                    data_tippy_content="Sharing disabled"
-                  />
+                <%!-- No shares indicator --%>
+                <.phx_icon
+                  :if={!@post.allow_shares}
+                  id={"allow-shares-indicator-#{@post.id}"}
+                  name="hero-arrow-path"
+                  class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                  phx_hook="TippyHook"
+                  data_tippy_content="Sharing disabled"
+                />
 
-                  <%!-- No bookmarks indicator --%>
-                  <.phx_icon
-                    :if={!@post.allow_bookmarks}
-                    id={"allow-bookmarks-indicator-#{@post.id}"}
-                    name="hero-bookmark"
-                    class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
-                    phx_hook="TippyHook"
-                    data_tippy_content="Bookmarking disabled"
-                  />
+                <%!-- No bookmarks indicator --%>
+                <.phx_icon
+                  :if={!@post.allow_bookmarks}
+                  id={"allow-bookmarks-indicator-#{@post.id}"}
+                  name="hero-bookmark"
+                  class="h-3 w-3 text-slate-400 dark:text-slate-500 line-through"
+                  phx_hook="TippyHook"
+                  data_tippy_content="Bookmarking disabled"
+                />
 
-                  <%!-- Connection required for replies indicator --%>
-                  <.phx_icon
-                    :if={@post.require_follow_to_reply && @post.visibility == :public}
-                    id={"connection-required-reply-indicator-#{@post.id}"}
-                    name="hero-shield-check"
-                    class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
-                    phx_hook="TippyHook"
-                    data_tippy_content="Connection required to reply"
-                  />
-                </div>
+                <%!-- Connection required for replies indicator --%>
+                <.phx_icon
+                  :if={@post.require_follow_to_reply && @post.visibility == :public}
+                  id={"connection-required-reply-indicator-#{@post.id}"}
+                  name="hero-shield-check"
+                  class="h-3 w-3 text-emerald-500 dark:text-emerald-400"
+                  phx_hook="TippyHook"
+                  data_tippy_content="Connection required to reply"
+                />
               </div>
             </div>
             <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -5419,6 +5439,72 @@ defmodule MossletWeb.DesignSystem do
 
       _ ->
         "text-slate-600 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50"
+    end
+  end
+
+  defp visibility_add_button_classes(visibility) do
+    case visibility do
+      :private ->
+        "text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+
+      :connections ->
+        "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+
+      :public ->
+        "text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+
+      :specific_groups ->
+        "text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+
+      :specific_users ->
+        "text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+
+      _ ->
+        "text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+    end
+  end
+
+  defp visibility_indicator_hover_text_classes(visibility) do
+    case visibility do
+      :private ->
+        "text-slate-600 dark:text-slate-400 bg-white/90 dark:bg-slate-800/90 border-slate-200/50 dark:border-slate-700/50"
+
+      :connections ->
+        "text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 border-emerald-200/50 dark:border-emerald-700/50"
+
+      :public ->
+        "text-blue-600 dark:text-blue-400 bg-white/90 dark:bg-slate-800/90 border-blue-200/50 dark:border-blue-700/50"
+
+      :specific_groups ->
+        "text-purple-600 dark:text-purple-400 bg-white/90 dark:bg-slate-800/90 border-purple-200/50 dark:border-purple-700/50"
+
+      :specific_users ->
+        "text-amber-600 dark:text-amber-400 bg-white/90 dark:bg-slate-800/90 border-amber-200/50 dark:border-amber-700/50"
+
+      _ ->
+        "text-slate-600 dark:text-slate-400 bg-white/90 dark:bg-slate-800/90 border-slate-200/50 dark:border-slate-700/50"
+    end
+  end
+
+  defp visibility_indicator_gradient(visibility) do
+    case visibility do
+      :private ->
+        "from-slate-400 via-slate-500 to-slate-400 dark:from-slate-500 dark:via-slate-600 dark:to-slate-500"
+
+      :connections ->
+        "from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500"
+
+      :public ->
+        "from-blue-400 via-sky-400 to-blue-400 dark:from-blue-500 dark:via-sky-500 dark:to-blue-500"
+
+      :specific_groups ->
+        "from-purple-400 via-violet-400 to-purple-400 dark:from-purple-500 dark:via-violet-500 dark:to-purple-500"
+
+      :specific_users ->
+        "from-amber-400 via-yellow-400 to-amber-400 dark:from-amber-500 dark:via-yellow-500 dark:to-amber-500"
+
+      _ ->
+        "from-slate-400 via-slate-500 to-slate-400 dark:from-slate-500 dark:via-slate-600 dark:to-slate-500"
     end
   end
 
@@ -7190,31 +7276,55 @@ defmodule MossletWeb.DesignSystem do
 
                   <div
                     id={"add-shared-user-list-#{@post.id}"}
+                    phx-click-away={JS.hide(to: "#add-shared-user-list-#{@post.id}")}
+                    phx-key="escape"
+                    phx-window-keydown={JS.hide(to: "#add-shared-user-list-#{@post.id}")}
                     class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-40 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150"
                   >
                     <div
                       :for={conn <- available_connections}
-                      phx-click="add_shared_user"
+                      id={"add-shared-user-list-item-#{@post.id}-#{conn.user_id}"}
+                      phx-click={
+                        JS.hide(to: "#add-shared-user-list-#{@post.id}")
+                        |> JS.push("add_shared_user")
+                      }
                       phx-value-post-id={@post.id}
                       phx-value-user-id={conn.user_id}
                       phx-value-username={conn.username}
-                      class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150"
+                      class={[
+                        "flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150",
+                        @adding_shared_user && @adding_shared_user.post_id == @post.id &&
+                          @adding_shared_user.username == conn.username &&
+                          "opacity-50 pointer-events-none"
+                      ]}
                     >
-                      <div class={[
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-                        "bg-gradient-to-br",
-                        get_post_shared_user_classes(conn.color)
-                      ]}>
-                        <span class={[
-                          "text-xs font-semibold",
-                          get_post_shared_user_text_classes(conn.color)
-                        ]}>
-                          {String.first(conn.username || "?") |> String.upcase()}
+                      <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id && @adding_shared_user.username == conn.username do %>
+                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-100 dark:bg-emerald-900/30">
+                          <.phx_icon
+                            name="hero-arrow-path"
+                            class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                          />
+                        </div>
+                        <span class="text-sm text-emerald-600 dark:text-emerald-400">
+                          Adding...
                         </span>
-                      </div>
-                      <span class="text-sm text-slate-700 dark:text-slate-300 truncate">
-                        {conn.username}
-                      </span>
+                      <% else %>
+                        <div class={[
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+                          "bg-gradient-to-br",
+                          get_post_shared_user_classes(conn.color)
+                        ]}>
+                          <span class={[
+                            "text-xs font-semibold",
+                            get_post_shared_user_text_classes(conn.color)
+                          ]}>
+                            {String.first(conn.username || "?") |> String.upcase()}
+                          </span>
+                        </div>
+                        <span class="text-sm text-slate-700 dark:text-slate-300 truncate">
+                          {conn.username}
+                        </span>
+                      <% end %>
                     </div>
                   </div>
                 </div>
@@ -9996,6 +10106,9 @@ defmodule MossletWeb.DesignSystem do
       :indigo ->
         "#{base_classes} border-indigo-200/40 dark:border-indigo-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-indigo-300/60 dark:hover:border-indigo-600/60 hover:shadow-indigo-500/10"
 
+      :pink ->
+        "#{base_classes} border-pink-200/40 dark:border-pink-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-pink-300/60 dark:hover:border-pink-600/60 hover:shadow-pink-500/10"
+
       _ ->
         "#{base_classes} border-slate-200/40 dark:border-slate-700/40 hover:bg-white/98 dark:hover:bg-slate-800/98 hover:border-slate-300/60 dark:hover:border-slate-600/60 hover:shadow-slate-500/10"
     end
@@ -10030,6 +10143,9 @@ defmodule MossletWeb.DesignSystem do
       :indigo ->
         "#{base_classes} hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20"
 
+      :pink ->
+        "#{base_classes} hover:text-pink-600 hover:bg-pink-50 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
+
       _ ->
         "#{base_classes} hover:text-slate-600 hover:bg-slate-50 dark:hover:text-slate-400 dark:hover:bg-slate-900/20"
     end
@@ -10061,6 +10177,9 @@ defmodule MossletWeb.DesignSystem do
 
       :indigo ->
         "bg-gradient-to-br from-indigo-400 to-indigo-500 ring-2 ring-indigo-500/20"
+
+      :pink ->
+        "bg-gradient-to-br from-pink-400 to-pink-500 ring-2 ring-pink-500/20"
 
       _ ->
         "bg-gradient-to-br from-slate-400 to-slate-500 ring-2 ring-slate-500/20"

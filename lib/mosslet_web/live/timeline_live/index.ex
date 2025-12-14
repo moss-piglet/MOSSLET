@@ -839,7 +839,15 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_info({:post_shared_users_updated, post}, socket) do
+  def handle_info({:post_shared_users_added, post}, socket) do
+    {:noreply,
+     socket
+     |> assign(:removing_shared_user_id, nil)
+     |> assign(:adding_shared_user, nil)
+     |> stream_insert(:posts, post, at: -1)}
+  end
+
+  def handle_info({:post_shared_users_removed, post}, socket) do
     {:noreply,
      socket
      |> assign(:removing_shared_user_id, nil)
@@ -3540,39 +3548,43 @@ defmodule MossletWeb.TimelineLive.Index do
     key = socket.assigns.key
 
     socket =
-      assign(socket, :adding_shared_user, %{post_id: post_id, username: username})
+      socket
+      |> assign(:adding_shared_user, %{post_id: post_id, username: username})
+      |> start_async(:add_shared_user, fn ->
+        post = Timeline.get_post!(post_id)
 
-    Task.start(fn ->
-      post = Timeline.get_post!(post_id)
+        if post.user_id == current_user.id do
+          user_to_share_with = Accounts.get_user!(user_id)
 
-      if post.user_id == current_user.id do
-        user_to_share_with = Accounts.get_user!(user_id)
+          encrypted_post_key =
+            post.user_posts
+            |> Enum.find(fn up -> up.user_id == current_user.id end)
+            |> case do
+              nil -> nil
+              user_post -> user_post.key
+            end
 
-        encrypted_post_key =
-          post.user_posts
-          |> Enum.find(fn up -> up.user_id == current_user.id end)
-          |> case do
-            nil -> nil
-            user_post -> user_post.key
+          decrypted_post_key =
+            case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                   encrypted_post_key,
+                   current_user,
+                   key
+                 ) do
+              {:ok, decrypted} -> decrypted
+              _ -> nil
+            end
+
+          if decrypted_post_key do
+            Timeline.share_post_with_user(post, user_to_share_with, decrypted_post_key,
+              user: current_user
+            )
+          else
+            {:error, :decryption_failed}
           end
-
-        decrypted_post_key =
-          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
-                 encrypted_post_key,
-                 current_user,
-                 key
-               ) do
-            {:ok, decrypted} -> decrypted
-            _ -> nil
-          end
-
-        if decrypted_post_key do
-          Timeline.share_post_with_user(post, user_to_share_with, decrypted_post_key,
-            user: current_user
-          )
+        else
+          {:error, :not_owner}
         end
-      end
-    end)
+      end)
 
     {:noreply, socket}
   end
@@ -4069,6 +4081,28 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
       |> assign(:removing_shared_user_id, nil)
       |> put_flash(:error, "Failed to remove shared user: #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:add_shared_user, {:ok, {:ok, _user_post}}, socket) do
+    {:noreply, assign(socket, :adding_shared_user, nil)}
+  end
+
+  def handle_async(:add_shared_user, {:ok, {:error, _reason}}, socket) do
+    socket =
+      socket
+      |> assign(:adding_shared_user, nil)
+      |> put_flash(:error, "Failed to share post with user")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:add_shared_user, {:exit, reason}, socket) do
+    socket =
+      socket
+      |> assign(:adding_shared_user, nil)
+      |> put_flash(:error, "Failed to share post with user: #{inspect(reason)}")
 
     {:noreply, socket}
   end

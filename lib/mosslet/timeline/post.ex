@@ -84,7 +84,21 @@ defmodule Mosslet.Timeline.Post do
         virtual: true
 
       field :user_id, :binary_id
-      field :color, Ecto.Enum, values: [:emerald, :orange, :pink, :purple, :rose, :yellow, :zinc]
+
+      field :color, Ecto.Enum,
+        values: [
+          :emerald,
+          :teal,
+          :orange,
+          :pink,
+          :purple,
+          :rose,
+          :amber,
+          :yellow,
+          :cyan,
+          :indigo,
+          :zinc
+        ]
     end
 
     belongs_to :group, Group

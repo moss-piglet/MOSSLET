@@ -3144,10 +3144,51 @@ defmodule Mosslet.Timeline do
 
       {:ok, {:error, changeset}} ->
         Logger.error(
-          "There was an error update_post_shared_users/3 in Mosslet.Timeline #{changeset}"
+          "There was an error update_post_shared_users/3 in Mosslet.Timeline #{inspect(changeset)}"
         )
 
-        Logger.debug({inspect(changeset)})
+        Logger.debug(inspect(changeset))
+        {:error, changeset}
+    end
+  end
+
+  def update_post_shared_users_without_validation(%Post{} = post, attrs, opts \\ []) do
+    original_shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+    new_shared_user_ids = Enum.map(attrs[:shared_users] || [], & &1[:user_id])
+    added_user_ids = new_shared_user_ids -- original_shared_user_ids
+
+    case Repo.transaction_on_primary(fn ->
+           Post.change_post_remove_shared_user_changeset(post, attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_post}} ->
+        conn = Accounts.get_connection_from_item(updated_post, opts[:user])
+
+        updated_post =
+          updated_post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
+
+        Enum.each(added_user_ids, fn user_id ->
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "conn_posts:#{user_id}",
+            {:post_created, updated_post}
+          )
+        end)
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "conn_posts:#{updated_post.user_id}",
+          {:post_shared_users_added, updated_post}
+        )
+
+        {:ok, conn, updated_post}
+
+      {:ok, {:error, changeset}} ->
+        Logger.error(
+          "There was an error update_post_shared_users_without_validation/3 in Mosslet.Timeline #{inspect(changeset)}"
+        )
+
+        Logger.debug(inspect(changeset))
         {:error, changeset}
     end
   end
@@ -3181,7 +3222,7 @@ defmodule Mosslet.Timeline do
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "conn_posts:#{updated_post.user_id}",
-          {:post_shared_users_updated, updated_post}
+          {:post_shared_users_removed, updated_post}
         )
 
         {:ok, conn, updated_post}
@@ -3503,66 +3544,71 @@ defmodule Mosslet.Timeline do
   def share_post_with_user(%Post{} = post, user_to_share_with, decrypted_post_key, opts \\ []) do
     current_user = opts[:user]
 
-    if post.user_id != current_user.id do
-      {:error, "You can only share your own posts"}
-    else
-      user_post_changeset =
-        UserPost.sharing_changeset(
-          %UserPost{},
-          %{
-            key: decrypted_post_key,
-            post_id: post.id,
-            user_id: user_to_share_with.id
-          },
-          user: user_to_share_with,
-          visibility: post.visibility
-        )
+    cond do
+      post.user_id != current_user.id ->
+        {:error, "You can only share your own posts"}
 
-      result =
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert(:insert_user_post, user_post_changeset)
-        |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
-          UserPostReceipt.changeset(
-            %UserPostReceipt{},
+      get_user_post_by_post_id_and_user_id(post.id, user_to_share_with.id) != nil ->
+        {:error, :already_shared}
+
+      true ->
+        user_post_changeset =
+          UserPost.sharing_changeset(
+            %UserPost{},
             %{
+              key: decrypted_post_key,
+              post_id: post.id,
+              user_id: user_to_share_with.id
+            },
+            user: user_to_share_with,
+            visibility: post.visibility
+          )
+
+        result =
+          Ecto.Multi.new()
+          |> Ecto.Multi.insert(:insert_user_post, user_post_changeset)
+          |> Ecto.Multi.insert(:insert_user_post_receipt, fn %{insert_user_post: user_post} ->
+            UserPostReceipt.changeset(
+              %UserPostReceipt{},
+              %{
+                user_id: user_to_share_with.id,
+                user_post_id: user_post.id,
+                is_read?: false,
+                read_at: nil
+              }
+            )
+            |> Ecto.Changeset.put_assoc(:user, user_to_share_with)
+            |> Ecto.Changeset.put_assoc(:user_post, user_post)
+          end)
+          |> Repo.transaction_on_primary()
+
+        case result do
+          {:ok, %{insert_user_post: user_post}} ->
+            new_shared_user = %Post.SharedUser{
               user_id: user_to_share_with.id,
-              user_post_id: user_post.id,
-              is_read?: false,
-              read_at: nil
+              color: get_shared_user_color(user_to_share_with, current_user)
             }
-          )
-          |> Ecto.Changeset.put_assoc(:user, user_to_share_with)
-          |> Ecto.Changeset.put_assoc(:user_post, user_post)
-        end)
-        |> Repo.transaction_on_primary()
 
-      case result do
-        {:ok, %{insert_user_post: user_post}} ->
-          new_shared_user = %Post.SharedUser{
-            user_id: user_to_share_with.id,
-            color: get_shared_user_color(user_to_share_with, current_user)
-          }
+            existing_shared_users = post.shared_users || []
 
-          existing_shared_users = post.shared_users || []
+            shared_user_map_list =
+              (existing_shared_users ++ [new_shared_user])
+              |> Enum.map(fn su ->
+                Map.from_struct(su)
+                |> Map.put(:sender_id, current_user.id)
+              end)
 
-          shared_user_map_list =
-            (existing_shared_users ++ [new_shared_user])
-            |> Enum.map(fn su ->
-              Map.from_struct(su)
-              |> Map.put(:sender_id, current_user.id)
-            end)
+            update_post_shared_users_without_validation(
+              post,
+              %{shared_users: shared_user_map_list},
+              user: current_user
+            )
 
-          update_post_shared_users(
-            post,
-            %{shared_users: shared_user_map_list},
-            user: current_user
-          )
+            {:ok, user_post}
 
-          {:ok, user_post}
-
-        {:error, _op, changeset, _changes} ->
-          {:error, changeset}
-      end
+          {:error, _op, changeset, _changes} ->
+            {:error, changeset}
+        end
     end
   end
 
