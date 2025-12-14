@@ -273,7 +273,7 @@ defmodule MossletWeb.PublicLive.Features do
               </div>
 
               <%!-- Three feature cards below the main post with liquid metal styling --%>
-              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+              <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
                 <%!-- Privacy Controls Feature with liquid_privacy_selector mockup --%>
                 <.liquid_card
                   padding="lg"
@@ -377,28 +377,87 @@ defmodule MossletWeb.PublicLive.Features do
                     </div>
 
                     <%!-- Content warning mockup matching liquid_timeline_post --%>
-                    <div class="relative rounded-xl overflow-hidden bg-teal-50/95 dark:bg-slate-800/98 border border-teal-200/60 dark:border-teal-700/40">
-                      <div class="absolute inset-0 bg-gradient-to-b from-teal-100/50 via-teal-50/30 to-teal-100/50 dark:from-teal-900/40 dark:via-slate-800/20 dark:to-teal-900/40">
-                      </div>
-                      <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500 opacity-60">
-                      </div>
-                      <div class="relative text-center px-3 py-3">
-                        <div class="inline-flex items-center justify-center w-8 h-8 mb-2 rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-800/60 dark:to-cyan-800/60 border border-teal-200 dark:border-teal-700">
-                          <.phx_icon
-                            name="hero-hand-raised"
-                            class="h-4 w-4 text-teal-600 dark:text-teal-400"
-                          />
+                    <div class="relative rounded-xl overflow-hidden border border-slate-200/60 dark:border-slate-700/40">
+                      <div
+                        id="cw-overlay-demo"
+                        class="absolute inset-0 z-10 bg-teal-50/95 dark:bg-slate-800/98 transition-all duration-300 ease-out"
+                      >
+                        <div class="absolute inset-0 bg-gradient-to-b from-teal-100/50 via-teal-50/30 to-teal-100/50 dark:from-teal-900/40 dark:via-slate-800/20 dark:to-teal-900/40">
                         </div>
-                        <p class="text-xs font-semibold text-teal-700 dark:text-teal-300 mb-1">
-                          Content Warning
+                        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500 opacity-60">
+                        </div>
+                        <div class="relative h-full flex items-center gap-3 p-3">
+                          <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-800/60 dark:to-cyan-800/60 border border-teal-200 dark:border-teal-700 shadow-sm">
+                            <.phx_icon
+                              name="hero-hand-raised"
+                              class="h-4 w-4 text-teal-600 dark:text-teal-400"
+                            />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                              <span class="text-xs font-semibold text-teal-700 dark:text-teal-300">
+                                Content Warning
+                              </span>
+                              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-700">
+                                Spoilers
+                              </span>
+                            </div>
+                            <p class="text-xs text-teal-600 dark:text-teal-400 leading-relaxed line-clamp-2">
+                              Movie ending discussion
+                            </p>
+                          </div>
+                          <button
+                            aria-label="Show hidden content"
+                            phx-click={
+                              JS.hide(
+                                to: "#cw-overlay-demo",
+                                transition:
+                                  {"ease-in duration-200", "opacity-100 translate-y-0",
+                                   "opacity-0 -translate-y-4"}
+                              )
+                              |> JS.show(
+                                to: "#cw-bar-demo",
+                                transition:
+                                  {"ease-out duration-200", "opacity-0 translate-y-4",
+                                   "opacity-100 translate-y-0"}
+                              )
+                            }
+                            class="flex-shrink-0 inline-flex items-center justify-center w-7 h-7 text-white bg-gradient-to-r from-teal-500 to-cyan-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-cyan-600 transition-all duration-200"
+                          >
+                            <.phx_icon name="hero-eye" class="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        id="cw-bar-demo"
+                        class="hidden absolute left-2 right-2 top-0 h-1 rounded-b-lg bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500 opacity-70 hover:opacity-100 hover:h-1.5 transition-all duration-200 cursor-pointer group/cw z-20"
+                        aria-label="Hide content"
+                        phx-click={
+                          JS.hide(
+                            to: "#cw-bar-demo",
+                            transition:
+                              {"ease-in duration-150", "opacity-100 translate-y-0",
+                               "opacity-0 -translate-y-4"}
+                          )
+                          |> JS.show(
+                            to: "#cw-overlay-demo",
+                            transition:
+                              {"ease-out duration-200", "opacity-0 translate-y-4",
+                               "opacity-100 translate-y-0"}
+                          )
+                        }
+                      >
+                        <span class="absolute left-1/2 -translate-x-1/2 top-3 opacity-60 group-hover/cw:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-teal-600 dark:text-teal-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-teal-200/50 dark:border-teal-700/50">
+                          Hide content
+                        </span>
+                      </button>
+                      <div class="p-3 pt-6 bg-white/95 dark:bg-slate-800/95">
+                        <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          Just finished watching that movie everyone's been talking about. The ending where the hero turns out to be the villain's long-lost sibling was mind-blowing! 🎬✨
                         </p>
-                        <p class="text-xs text-teal-600 dark:text-teal-400 mb-2">
-                          Spoilers ahead
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                          10/10 would recommend. Has anyone else seen it?
                         </p>
-                        <button class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-500 rounded-md shadow-sm">
-                          <.phx_icon name="hero-eye" class="h-3 w-3" />
-                          <span>Show</span>
-                        </button>
                       </div>
                     </div>
                   </div>
