@@ -512,10 +512,13 @@ defmodule Mosslet.Timeline.Post do
   end
 
   # Content warning validation
+  # If content_warning? is enabled, require content_warning text UNLESS mature_content is set
+  # This allows users to just mark a post as 18+ mature without needing a content warning label
   defp validate_content_warning(changeset) do
     content_warning_enabled? = get_field(changeset, :content_warning?)
+    mature_content = get_field(changeset, :mature_content)
 
-    if content_warning_enabled? do
+    if content_warning_enabled? && !mature_content do
       changeset
       |> validate_required(:content_warning)
     else

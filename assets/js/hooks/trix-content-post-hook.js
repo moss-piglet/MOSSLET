@@ -89,11 +89,11 @@ const TrixContentPostHook = {
       this.el.classList.add("photos-loading");
 
       const gridClass =
-        this.el.dataset.gridClass || "grid-cols-2 sm:grid-cols-3";
+        this.el.dataset.gridClass || "grid-cols-6 sm:grid-cols-8";
       const imageCount =
         parseInt(this.el.dataset.imageCount) || placeholderGrid.children.length;
 
-      placeholderGrid.className = `grid ${gridClass} gap-3`;
+      placeholderGrid.className = `grid ${gridClass} gap-1.5`;
       placeholderGrid.innerHTML = "";
 
       for (let i = 0; i < imageCount; i++) {
@@ -106,7 +106,7 @@ const TrixContentPostHook = {
   createLoadingSkeleton(index, total) {
     const container = document.createElement("div");
     container.className =
-      "relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800";
+      "relative overflow-hidden rounded-md bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800";
     container.style.animationDelay = `${index * 50}ms`;
     container.style.opacity = "0";
     container.style.animation = "fadeInUp 0.3s ease-out forwards";
@@ -115,12 +115,11 @@ const TrixContentPostHook = {
     container.innerHTML = `
       <div class="aspect-square flex items-center justify-center relative">
         <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skeleton-shimmer"></div>
-        <div class="relative flex flex-col items-center gap-2">
-          <div class="w-10 h-10 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
-          <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Decrypting...</span>
+        <div class="relative flex flex-col items-center gap-1">
+          <div class="w-6 h-6 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
         </div>
       </div>
-      <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/40 text-white text-xs font-medium backdrop-blur-sm">
+      <div class="absolute bottom-1 right-1 px-1 py-0.5 rounded text-[10px] bg-black/40 text-white font-medium backdrop-blur-sm">
         ${index + 1}/${total}
       </div>
     `;
@@ -162,27 +161,27 @@ const TrixContentPostHook = {
       this.el.classList.remove("photos-loading");
 
       const imageCount = decryptedBinaries.length;
-      let gridClass = "grid-cols-2 sm:grid-cols-3";
+      let gridClass = "grid-cols-6 sm:grid-cols-8";
 
       if (imageCount === 1) {
-        gridClass = "grid-cols-1 max-w-md mx-auto";
+        gridClass = "grid-cols-6";
       } else if (imageCount === 2) {
-        gridClass = "grid-cols-2";
+        gridClass = "grid-cols-6";
       } else if (imageCount <= 4) {
-        gridClass = "grid-cols-2";
+        gridClass = "grid-cols-6";
       } else if (imageCount <= 6) {
-        gridClass = "grid-cols-2 sm:grid-cols-3";
+        gridClass = "grid-cols-6 sm:grid-cols-8";
       } else {
-        gridClass = "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4";
+        gridClass = "grid-cols-6 sm:grid-cols-8 lg:grid-cols-10";
       }
 
       container.innerHTML = "";
-      container.className = `grid ${gridClass} gap-3`;
+      container.className = `grid ${gridClass} gap-1.5`;
 
       decryptedBinaries.forEach((imageBinary, index) => {
         const imageContainer = document.createElement("div");
         imageContainer.className =
-          "relative group overflow-hidden rounded-lg cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/10";
+          "relative group overflow-hidden rounded-md cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/10";
         imageContainer.style.opacity = "0";
         imageContainer.style.animation = "fadeInScale 0.4s ease-out forwards";
         imageContainer.style.animationDelay = `${index * 80}ms`;

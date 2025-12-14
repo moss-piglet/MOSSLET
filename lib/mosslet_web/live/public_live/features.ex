@@ -93,16 +93,107 @@ defmodule MossletWeb.PublicLive.Features do
 
               <%!-- Large centered post mockup matching actual timeline styling --%>
               <div class="max-w-2xl mx-auto mb-12">
-                <article class="group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 hover:border-slate-300/60 dark:hover:border-slate-600/60 transform-gpu will-change-transform">
+                <article
+                  id="features-demo-post"
+                  class="group relative rounded-2xl overflow-hidden transition-all duration-300 ease-out bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 hover:border-slate-300/60 dark:hover:border-slate-600/60 transform-gpu will-change-transform"
+                >
                   <%!-- Enhanced liquid background on hover --%>
                   <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10">
+                  </div>
+
+                  <%!-- Left-side shared indicator - "Shared with you" (someone shared TO Meg) --%>
+                  <button
+                    type="button"
+                    id="demo-left-indicator"
+                    phx-click={
+                      JS.show(
+                        to: "#demo-share-overlay",
+                        transition:
+                          {"ease-out duration-200", "opacity-0 -translate-x-4",
+                           "opacity-100 translate-x-0"}
+                      )
+                    }
+                    class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group/left z-10"
+                    aria-label="View shared message"
+                  >
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover/left:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-emerald-200/50 dark:border-emerald-700/50">
+                      Shared with you
+                    </span>
+                  </button>
+
+                  <%!-- Right-side indicator - Group visibility (non-interactive since Meg is recipient, not owner) --%>
+                  <div
+                    id="demo-right-indicator"
+                    class="absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b from-purple-400 via-violet-400 to-purple-400 dark:from-purple-500 dark:via-violet-500 dark:to-purple-500 rounded-l-full opacity-50 transition-all duration-200 group/right z-10"
+                    aria-label="Group post visibility"
+                  >
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover/right:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-purple-600 dark:text-purple-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-purple-200/50 dark:border-purple-700/50">
+                      Groups
+                    </span>
+                  </div>
+
+                  <%!-- Left overlay: Share note from someone who shared with Meg --%>
+                  <div
+                    id="demo-share-overlay"
+                    class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+                  >
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.4)] dark:shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+                    </div>
+                    <div class="h-full flex flex-col p-4 pl-5 overflow-hidden">
+                      <div class="flex items-center gap-3 mb-3 shrink-0">
+                        <div class="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 shadow-sm">
+                          <.phx_icon
+                            name="hero-paper-airplane-solid"
+                            class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                          />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            Shared by Poppy
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          phx-click={
+                            JS.hide(
+                              to: "#demo-share-overlay",
+                              transition:
+                                {"ease-in duration-150", "opacity-100 translate-x-0",
+                                 "opacity-0 -translate-x-4"}
+                            )
+                          }
+                          class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors duration-200"
+                          aria-label="Close"
+                        >
+                          <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div class="flex-1 min-h-0 overflow-y-auto">
+                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
+                          Hey Meg! 💜 Thought you'd love this — it's exactly what we were talking about last week. Finally a place where we can share without the noise!
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click={
+                          JS.hide(
+                            to: "#demo-share-overlay",
+                            transition:
+                              {"ease-in duration-150", "opacity-100 translate-x-0",
+                               "opacity-0 -translate-x-4"}
+                          )
+                        }
+                        class="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 px-3 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-700/50 transition-colors duration-200 shrink-0"
+                      >
+                        <.phx_icon name="hero-arrow-left-mini" class="h-3.5 w-3.5" /> Back to post
+                      </button>
+                    </div>
                   </div>
 
                   <%!-- Post content --%>
                   <div class="relative p-6">
                     <%!-- User header --%>
                     <div class="flex items-start gap-4 mb-4">
-                      <%!-- Enhanced liquid metal avatar using liquid_avatar component exactly like timeline --%>
                       <.liquid_avatar
                         src={~p"/images/features/meg-aghamyan-unsplash.jpg"}
                         name="Meg Aghamyan"
@@ -111,21 +202,11 @@ defmodule MossletWeb.PublicLive.Features do
                         clickable={true}
                       />
 
-                      <%!-- User info matching liquid_timeline_post exactly --%>
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
                           <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
                             Meg Aghamyan
                           </h3>
-                          <%!-- Visibility badge using liquid_badge component exactly like liquid_timeline_post --%>
-                          <.liquid_badge
-                            variant="soft"
-                            color="emerald"
-                            size="sm"
-                            class="ml-2"
-                          >
-                            Connections
-                          </.liquid_badge>
                         </div>
                         <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                           <span class="truncate">@meg_creates</span>
@@ -135,7 +216,7 @@ defmodule MossletWeb.PublicLive.Features do
                       </div>
                     </div>
 
-                    <%!-- Post content matching component --%>
+                    <%!-- Post content --%>
                     <div class="mb-4">
                       <p class="text-slate-900 dark:text-slate-100 leading-relaxed text-base">
                         Just finished sharing peacefully with my close ones! 🧘‍♀️
@@ -145,11 +226,9 @@ defmodule MossletWeb.PublicLive.Features do
                       </p>
                     </div>
 
-                    <%!-- Engagement actions exactly matching liquid_timeline_post --%>
+                    <%!-- Engagement actions --%>
                     <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
-                      <%!-- Action buttons with semantic color coding exactly like liquid_timeline_post --%>
                       <div class="flex items-center gap-1">
-                        <%!-- Read/Unread toggle action button matching liquid_timeline_post --%>
                         <button class="p-2 rounded-lg transition-all duration-200 ease-out group/read text-slate-400 hover:text-teal-600 dark:hover:text-cyan-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2">
                           <.phx_icon
                             name="hero-eye-slash"
@@ -158,7 +237,6 @@ defmodule MossletWeb.PublicLive.Features do
                           <span class="sr-only">Mark as unread</span>
                         </button>
 
-                        <%!-- Reply action using liquid_timeline_action component --%>
                         <.liquid_timeline_action
                           icon="hero-chat-bubble-oval-left"
                           count={4}
@@ -166,15 +244,13 @@ defmodule MossletWeb.PublicLive.Features do
                           color="emerald"
                         />
 
-                        <%!-- Share action using liquid_timeline_action component --%>
                         <.liquid_timeline_action
-                          icon="hero-arrow-path"
-                          count={0}
+                          icon="hero-paper-airplane"
+                          count={2}
                           label="Share"
                           color="emerald"
                         />
 
-                        <%!-- Like action using liquid_timeline_action component (active state) --%>
                         <.liquid_timeline_action
                           icon="hero-heart-solid"
                           count={12}
@@ -184,7 +260,6 @@ defmodule MossletWeb.PublicLive.Features do
                         />
                       </div>
 
-                      <%!-- Bookmark button exactly matching liquid_timeline_post --%>
                       <button class="p-2 rounded-lg transition-all duration-200 ease-out group/bookmark text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2">
                         <.phx_icon
                           name="hero-bookmark-solid"
@@ -284,44 +359,52 @@ defmodule MossletWeb.PublicLive.Features do
                     </div>
                   </:title>
 
-                  <%!-- Mini content filter matching actual filter section styling --%>
-                  <div class="mb-4">
-                    <div class="space-y-3">
-                      <div class="flex items-center gap-2">
-                        <div class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                          Active Filters:
-                        </div>
-                        <span class="px-2 py-1 text-xs font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 rounded-full">
-                          3
-                        </span>
+                  <div class="mb-4 space-y-3">
+                    <%!-- Keyword filters preview --%>
+                    <div class="flex flex-wrap gap-1.5">
+                      <div class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-700/40">
+                        <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
+                        <span>spoilers</span>
                       </div>
-
-                      <div class="flex flex-wrap gap-2">
-                        <%!-- Active filter items matching actual filter styling --%>
-                        <div class="group relative inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-rose-100 via-pink-50 to-rose-100 dark:from-rose-900/30 dark:via-pink-900/20 dark:to-rose-900/30 text-rose-800 dark:text-rose-200 border border-rose-200/60 dark:border-rose-700/40 transition-all duration-200 ease-out shadow-sm">
-                          <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
-                          <span class="font-medium">violence</span>
-                        </div>
-
-                        <div class="group relative inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-amber-100 via-yellow-50 to-amber-100 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200/60 dark:border-amber-700/40 transition-all duration-200 ease-out shadow-sm">
-                          <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
-                          <span class="font-medium">politics</span>
-                        </div>
-
-                        <div class="group relative inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/20 dark:to-purple-900/30 text-purple-800 dark:text-purple-200 border border-purple-200/60 dark:border-purple-700/40 transition-all duration-200 ease-out shadow-sm">
-                          <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
-                          <span class="font-medium">mental health</span>
-                        </div>
+                      <div class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-lg bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-700/40">
+                        <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
+                        <span>politics</span>
                       </div>
+                      <div class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-lg bg-gradient-to-r from-sky-100 to-blue-100 dark:from-sky-900/30 dark:to-blue-900/30 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-700/40">
+                        <.phx_icon name="hero-hashtag" class="h-3 w-3 opacity-70" />
+                        <span>news</span>
+                      </div>
+                    </div>
 
-                      <div class="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                        <.phx_icon name="hero-sparkles" class="h-3 w-3" /> Your timeline, your rules
+                    <%!-- Content warning mockup matching liquid_timeline_post --%>
+                    <div class="relative rounded-xl overflow-hidden bg-teal-50/95 dark:bg-slate-800/98 border border-teal-200/60 dark:border-teal-700/40">
+                      <div class="absolute inset-0 bg-gradient-to-b from-teal-100/50 via-teal-50/30 to-teal-100/50 dark:from-teal-900/40 dark:via-slate-800/20 dark:to-teal-900/40">
+                      </div>
+                      <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500 opacity-60">
+                      </div>
+                      <div class="relative text-center px-3 py-3">
+                        <div class="inline-flex items-center justify-center w-8 h-8 mb-2 rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-800/60 dark:to-cyan-800/60 border border-teal-200 dark:border-teal-700">
+                          <.phx_icon
+                            name="hero-hand-raised"
+                            class="h-4 w-4 text-teal-600 dark:text-teal-400"
+                          />
+                        </div>
+                        <p class="text-xs font-semibold text-teal-700 dark:text-teal-300 mb-1">
+                          Content Warning
+                        </p>
+                        <p class="text-xs text-teal-600 dark:text-teal-400 mb-2">
+                          Spoilers ahead
+                        </p>
+                        <button class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-500 rounded-md shadow-sm">
+                          <.phx_icon name="hero-eye" class="h-3 w-3" />
+                          <span>Show</span>
+                        </button>
                       </div>
                     </div>
                   </div>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Customize your feed to see what brings you joy. Your preferences stay private.
+                    Authors can add content warnings to help readers prepare. Keyword filters let you customize your feed. Your timeline, your rules.
                   </p>
                 </.liquid_card>
 

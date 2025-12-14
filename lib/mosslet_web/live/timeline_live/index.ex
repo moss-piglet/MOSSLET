@@ -916,10 +916,13 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
+    shared_user_ids = Enum.map(post.shared_users || [], & &1.user_id)
+    is_share_recipient = current_user.id in shared_user_ids
+
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
-    if should_show_post and passes_content_filters do
+    if should_show_post and passes_content_filters and is_share_recipient do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
       post_user = Accounts.get_user_with_preloads(post.user_id)

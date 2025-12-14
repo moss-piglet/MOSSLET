@@ -22,6 +22,9 @@ defmodule Mosslet.Timeline.ContentFilter do
     # The encrypted data should only be used for storage, not for filtering
     # Database filtering happens with decrypted data in the LiveView layer
 
+    # Track which keys were explicitly provided in updates so we know what to preserve
+    opts = Keyword.put(opts, :explicit_updates, Map.keys(updates))
+
     case save_user_filter_preferences(user_id, new_prefs, opts) do
       :ok ->
         # Update cache with new preferences (this should contain encrypted data for storage)
@@ -140,9 +143,11 @@ defmodule Mosslet.Timeline.ContentFilter do
     # CRITICAL FIX: Only update fields that are explicitly being changed
     # Preserve existing encrypted data for fields not being updated
 
-    # Keywords - update if preferences explicitly contains keywords (including empty list to clear)
+    explicit_updates = opts[:explicit_updates] || []
+
+    # Keywords - update if keywords was explicitly provided in the original updates
     keywords_list =
-      if is_map_key(preferences, :keywords) do
+      if :keywords in explicit_updates do
         # Explicitly setting keywords (including [] to clear them)
         preferences[:keywords]
       else
@@ -167,9 +172,9 @@ defmodule Mosslet.Timeline.ContentFilter do
         end
       end
 
-    # Muted users - only update if preferences explicitly contains muted users
+    # Muted users - only update if muted_users was explicitly provided in the original updates
     muted_users_list =
-      if preferences[:muted_users] != [] do
+      if :muted_users in explicit_updates do
         preferences[:muted_users]
       else
         # Preserve existing muted users, but decrypt them first since schema will re-encrypt

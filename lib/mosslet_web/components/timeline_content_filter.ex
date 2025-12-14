@@ -201,11 +201,16 @@ defmodule MossletWeb.TimelineContentFilter do
             color="teal"
             class="text-xs"
             options={[
+              {"Violence", "violence"},
+              {"Graphic Content", "graphic"},
               {"Mental Health", "mental_health"},
-              {"Violence & Graphic", "violence"},
               {"Substance Use", "substance_use"},
+              {"Sexual Content", "sexual"},
+              {"Spoilers", "spoilers"},
               {"Politics", "politics"},
-              {"Personal", "personal"},
+              {"News", "news"},
+              {"Flashing/Strobing", "flashing"},
+              {"Personal/Sensitive", "personal"},
               {"Other", "other"}
             ]}
           />
@@ -397,11 +402,16 @@ defmodule MossletWeb.TimelineContentFilter do
 
   defp format_keyword_label(keyword) when is_binary(keyword) do
     case keyword do
-      "mental_health" -> "Mental Health"
       "violence" -> "Violence"
+      "graphic" -> "Graphic Content"
+      "mental_health" -> "Mental Health"
       "substance_use" -> "Substance Use"
+      "sexual" -> "Sexual Content"
+      "spoilers" -> "Spoilers"
       "politics" -> "Politics"
-      "personal" -> "Personal"
+      "news" -> "News"
+      "flashing" -> "Flashing/Strobing"
+      "personal" -> "Personal/Sensitive"
       "other" -> "Other"
       _ -> String.capitalize(keyword)
     end

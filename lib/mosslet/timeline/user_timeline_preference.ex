@@ -48,7 +48,7 @@ defmodule Mosslet.Timeline.UserTimelinePreference do
     timestamps()
   end
 
-  @valid_content_warning_categories ~w(mental_health violence substance_use politics personal other)
+  @valid_content_warning_categories ~w(violence graphic mental_health substance_use sexual spoilers politics news flashing personal other)
 
   @doc false
   def changeset(preferences, attrs, opts \\ []) do

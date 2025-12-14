@@ -3501,14 +3501,24 @@ defmodule MossletWeb.DesignSystem do
                 color="teal"
                 class="text-xs"
                 options={[
-                  {"Mental Health", "mental_health"},
                   {"Violence", "violence"},
+                  {"Graphic Content", "graphic"},
+                  {"Mental Health", "mental_health"},
                   {"Substance Use", "substance_use"},
+                  {"Sexual Content", "sexual"},
+                  {"Spoilers", "spoilers"},
                   {"Politics", "politics"},
+                  {"News", "news"},
+                  {"Flashing/Strobing", "flashing"},
                   {"Personal/Sensitive", "personal"},
                   {"Other", "other"}
                 ]}
               />
+
+              <%!-- 18+ Mature Content Toggle - Styled as a prominent button --%>
+              <div class="pt-3 mt-3 border-t border-teal-200/40 dark:border-teal-700/30">
+                <.mature_content_toggle field={@form[:mature_content]} />
+              </div>
             </div>
           </div>
         <% end %>
@@ -3574,11 +3584,11 @@ defmodule MossletWeb.DesignSystem do
 
     grid_class =
       cond do
-        image_count == 1 -> "grid-cols-1"
-        image_count == 2 -> "grid-cols-2"
-        image_count <= 4 -> "grid-cols-2"
-        image_count <= 6 -> "grid-cols-2 sm:grid-cols-3"
-        true -> "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+        image_count == 1 -> "grid-cols-6"
+        image_count == 2 -> "grid-cols-6"
+        image_count <= 4 -> "grid-cols-6"
+        image_count <= 6 -> "grid-cols-6 sm:grid-cols-8"
+        true -> "grid-cols-6 sm:grid-cols-8 lg:grid-cols-10"
       end
 
     assigns = assign(assigns, :grid_class, grid_class)
@@ -3589,23 +3599,52 @@ defmodule MossletWeb.DesignSystem do
       :if={photos?(@post.image_urls)}
       id={"photo-gallery-#{@post.id}"}
       class={[
-        "mt-4 overflow-hidden rounded-xl border border-slate-200/60 dark:border-slate-700/60",
-        "bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-800/50 dark:to-slate-900/30",
-        "transform transition-all duration-300",
+        "mt-3 overflow-hidden rounded-lg border border-slate-200/60 dark:border-slate-700/60",
+        "bg-slate-50/50 dark:bg-slate-800/30",
         @class
       ]}
     >
-      <div class="flex items-center justify-between px-3 py-2 border-b border-slate-200/50 dark:border-slate-700/50">
-        <div class="flex items-center gap-2">
-          <.phx_icon name="hero-photo" class="h-4 w-4 text-slate-600 dark:text-slate-400" />
-          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {if @image_count == 1, do: "1 photo", else: "#{@image_count} photos"}
-          </span>
+      <div
+        id={"post-body-#{@post.id}"}
+        phx-hook="TrixContentPostHook"
+        class="photos-container p-2"
+        data-image-count={@image_count}
+        data-grid-class={@grid_class}
+      >
+        <div class={"grid #{@grid_class} gap-1.5"}>
+          <div
+            :for={{_image_url, index} <- Enum.with_index(@post.image_urls)}
+            class="group relative overflow-hidden rounded-md bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800"
+            style={"animation-delay: #{index * 100}ms"}
+          >
+            <div class="aspect-square flex items-center justify-center">
+              <div class="relative">
+                <div class="w-6 h-6 rounded-full bg-slate-200/80 dark:bg-slate-600/80 flex items-center justify-center">
+                  <.phx_icon
+                    name="hero-photo"
+                    class="h-3 w-3 text-slate-400 dark:text-slate-500"
+                  />
+                </div>
+                <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-emerald-500/30 animate-spin opacity-0 group-[.photos-loading]:opacity-100 transition-opacity duration-300">
+                </div>
+              </div>
+            </div>
+            <div class="absolute bottom-1 right-1 px-1 py-0.5 rounded text-[10px] bg-black/30 text-white font-medium backdrop-blur-sm">
+              {index + 1}/{@image_count}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between px-2.5 py-1.5">
+        <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <.phx_icon name="hero-photo" class="h-3.5 w-3.5" />
+          <span>{@image_count} {if @image_count == 1, do: "photo", else: "photos"}</span>
         </div>
 
         <button
           id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
-          class="group inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 hover:from-emerald-600 hover:to-teal-600 hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.97]"
           phx-click={
             JS.add_class("photos-loading", to: "#post-body-#{@post.id}")
             |> JS.dispatch("mosslet:show-post-photos-#{@post.id}",
@@ -3618,24 +3657,17 @@ defmodule MossletWeb.DesignSystem do
           phx-hook="TippyHook"
           data-tippy-content="Decrypt and display photos"
         >
-          <.phx_icon
-            name="hero-eye"
-            class="h-4 w-4 transition-transform duration-300 group-hover:scale-110"
-          />
-          <span>View photos</span>
-          <.phx_icon
-            name="hero-chevron-right"
-            class="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5"
-          />
+          <.phx_icon name="hero-eye" class="h-3.5 w-3.5" />
+          <span>View</span>
         </button>
 
         <div
           id={"post-#{@post.id}-loading-indicator"}
           style="display: none;"
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
         >
           <svg
-            class="animate-spin h-4 w-4 text-emerald-500"
+            class="animate-spin h-3 w-3 text-emerald-500"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -3650,38 +3682,6 @@ defmodule MossletWeb.DesignSystem do
             </path>
           </svg>
           <span>Decrypting...</span>
-        </div>
-      </div>
-
-      <div
-        id={"post-body-#{@post.id}"}
-        phx-hook="TrixContentPostHook"
-        class="photos-container p-3"
-        data-image-count={@image_count}
-        data-grid-class={@grid_class}
-      >
-        <div class={"grid #{@grid_class} gap-3"}>
-          <div
-            :for={{_image_url, index} <- Enum.with_index(@post.image_urls)}
-            class="group relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800"
-            style={"animation-delay: #{index * 100}ms"}
-          >
-            <div class="aspect-square flex items-center justify-center">
-              <div class="relative">
-                <div class="w-12 h-12 rounded-full bg-slate-200/80 dark:bg-slate-600/80 flex items-center justify-center">
-                  <.phx_icon
-                    name="hero-photo"
-                    class="h-6 w-6 text-slate-400 dark:text-slate-500"
-                  />
-                </div>
-                <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-emerald-500/30 animate-spin opacity-0 group-[.photos-loading]:opacity-100 transition-opacity duration-300">
-                </div>
-              </div>
-            </div>
-            <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/30 text-white text-xs font-medium backdrop-blur-sm">
-              {index + 1}/{@image_count}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -4448,6 +4448,14 @@ defmodule MossletWeb.DesignSystem do
         :if={@current_user_id == @post.user_id && !Enum.empty?(@post.shared_users)}
         id={"shared-by-you-overlay-#{@post.id}"}
         class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+        phx-window-keydown={
+          JS.hide(
+            to: "#shared-by-you-overlay-#{@post.id}",
+            transition:
+              {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+          )
+        }
+        phx-key="Escape"
       >
         <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full shadow-[0_0_8px_rgba(56,189,248,0.4)] dark:shadow-[0_0_8px_rgba(56,189,248,0.3)]">
         </div>
@@ -4539,6 +4547,14 @@ defmodule MossletWeb.DesignSystem do
         :if={@current_user_id == @post.user_id && @post.visibility != :public}
         id={"visibility-overlay-#{@post.id}"}
         class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+        phx-window-keydown={
+          JS.hide(
+            to: "#visibility-overlay-#{@post.id}",
+            transition:
+              {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+          )
+        }
+        phx-key="Escape"
       >
         <div class={"absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b #{visibility_overlay_gradient(@post.visibility)} rounded-l-full shadow-[0_0_8px_rgba(168,85,247,0.4)] dark:shadow-[0_0_8px_rgba(168,85,247,0.3)]"}>
         </div>
@@ -4681,7 +4697,7 @@ defmodule MossletWeb.DesignSystem do
                         <%= if is_removing do %>
                           <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
                         <% else %>
-                          <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+                          <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
                         <% end %>
                       </button>
                     <% else %>
@@ -4708,7 +4724,7 @@ defmodule MossletWeb.DesignSystem do
                         <%= if is_removing do %>
                           <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
                         <% else %>
-                          <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+                          <.phx_icon name="hero-trash-mini" class="w-3.5 h-3.5" />
                         <% end %>
                       </button>
                     <% end %>
@@ -4836,6 +4852,146 @@ defmodule MossletWeb.DesignSystem do
               Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
             </button>
           <% end %>
+        </div>
+      </div>
+
+      <%!-- Content Warning Overlay (covers entire post) --%>
+      <div
+        :if={(@content_warning? && @content_warning) || @post.mature_content}
+        id={"content-warning-#{@post.id}"}
+        class={[
+          "content-warning-overlay absolute inset-0 z-20 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out overflow-hidden",
+          if(@post.mature_content && !(@content_warning? && @content_warning),
+            do: "bg-amber-50/95 dark:bg-slate-800/98",
+            else: "bg-teal-50/95 dark:bg-slate-800/98"
+          )
+        ]}
+      >
+        <div class={[
+          "absolute inset-0",
+          if(@post.mature_content && !(@content_warning? && @content_warning),
+            do:
+              "bg-gradient-to-b from-amber-100/50 via-amber-50/30 to-amber-100/50 dark:from-amber-900/40 dark:via-slate-800/20 dark:to-amber-900/40",
+            else:
+              "bg-gradient-to-b from-teal-100/50 via-teal-50/30 to-teal-100/50 dark:from-teal-900/40 dark:via-slate-800/20 dark:to-teal-900/40"
+          )
+        ]}>
+        </div>
+        <div class={[
+          "absolute top-0 left-0 right-0 h-1 opacity-60",
+          if(@post.mature_content && !(@content_warning? && @content_warning),
+            do:
+              "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 dark:from-amber-500 dark:via-orange-500 dark:to-amber-500",
+            else:
+              "bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500"
+          )
+        ]}>
+        </div>
+        <div class="relative h-full flex flex-col justify-center p-4 sm:p-6">
+          <div class="flex items-start gap-4">
+            <div class={[
+              "flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full border shadow-sm",
+              if(@post.mature_content && !(@content_warning? && @content_warning),
+                do:
+                  "bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-800/60 dark:to-orange-800/60 border-amber-200 dark:border-amber-700",
+                else:
+                  "bg-gradient-to-br from-teal-100 to-cyan-100 dark:from-teal-800/60 dark:to-cyan-800/60 border-teal-200 dark:border-teal-700"
+              )
+            ]}>
+              <.phx_icon
+                name={
+                  if @post.mature_content && !(@content_warning? && @content_warning),
+                    do: "hero-exclamation-triangle",
+                    else: "hero-hand-raised"
+                }
+                class={[
+                  "h-5 w-5 sm:h-6 sm:w-6",
+                  if(@post.mature_content && !(@content_warning? && @content_warning),
+                    do: "text-amber-600 dark:text-amber-400",
+                    else: "text-teal-600 dark:text-teal-400"
+                  )
+                ]}
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <span class={[
+                  "text-base sm:text-lg font-semibold",
+                  if(@post.mature_content && !(@content_warning? && @content_warning),
+                    do: "text-amber-700 dark:text-amber-300",
+                    else: "text-teal-700 dark:text-teal-300"
+                  )
+                ]}>
+                  <%= if @post.mature_content && !(@content_warning? && @content_warning) do %>
+                    18+ Mature Content
+                  <% else %>
+                    Content Warning
+                  <% end %>
+                </span>
+                <%= if @content_warning_category do %>
+                  <span class={[
+                    "text-xs px-2 py-0.5 rounded-full border",
+                    if(@post.mature_content && !(@content_warning? && @content_warning),
+                      do:
+                        "bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700",
+                      else:
+                        "bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700"
+                    )
+                  ]}>
+                    {format_content_warning_category(@content_warning_category)}
+                  </span>
+                <% end %>
+                <%= if @post.mature_content && !@content_warning_category do %>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                    Age Restricted
+                  </span>
+                <% end %>
+              </div>
+              <%= if @content_warning? && @content_warning do %>
+                <p class={[
+                  "text-sm leading-relaxed line-clamp-2",
+                  if(@post.mature_content,
+                    do: "text-amber-600 dark:text-amber-400",
+                    else: "text-teal-600 dark:text-teal-400"
+                  )
+                ]}>
+                  {@content_warning}
+                </p>
+              <% else %>
+                <p class="text-sm text-amber-600 dark:text-amber-400 leading-relaxed">
+                  This post contains mature content.
+                </p>
+              <% end %>
+            </div>
+            <button
+              type="button"
+              id={"content-warning-button-#{@post.id}"}
+              phx-click={
+                JS.hide(
+                  to: "#content-warning-#{@post.id}",
+                  transition:
+                    {"ease-in duration-200", "opacity-100 translate-y-0", "opacity-0 -translate-y-4"}
+                )
+                |> JS.show(
+                  to: "#content-warning-bar-#{@post.id}",
+                  transition:
+                    {"ease-out duration-200", "opacity-0 translate-y-4", "opacity-100 translate-y-0"}
+                )
+              }
+              class={[
+                "flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-lg transition-all duration-200 ease-out transform hover:scale-105 active:scale-95",
+                if(@post.mature_content && !(@content_warning? && @content_warning),
+                  do:
+                    "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-500 dark:hover:to-orange-500 shadow-amber-500/25 dark:shadow-amber-900/40",
+                  else:
+                    "bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 dark:from-teal-600 dark:to-cyan-600 dark:hover:from-teal-500 dark:hover:to-cyan-500 shadow-teal-500/25 dark:shadow-teal-900/40"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-eye" class="h-4 w-4" />
+              <span class="hidden sm:inline">Show</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -4995,136 +5151,118 @@ defmodule MossletWeb.DesignSystem do
           </.liquid_dropdown>
         </div>
 
-        <%!-- Content Warning Display (if post has content warning) --%>
-        <%= if @content_warning? && @content_warning do %>
-          <div
-            class="mb-4 p-4 rounded-xl bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/50"
-            id={"content-warning-#{@post.id}"}
+        <%!-- Content Warning Bar (shown after reveal - click to hide content again) --%>
+        <button
+          :if={(@content_warning? && @content_warning) || @post.mature_content}
+          type="button"
+          id={"content-warning-bar-#{@post.id}"}
+          phx-click={
+            JS.hide(
+              to: "#content-warning-bar-#{@post.id}",
+              transition:
+                {"ease-in duration-150", "opacity-100 translate-y-0", "opacity-0 -translate-y-4"}
+            )
+            |> JS.show(
+              to: "#content-warning-#{@post.id}",
+              transition:
+                {"ease-out duration-200", "opacity-0 translate-y-4", "opacity-100 translate-y-0"}
+            )
+          }
+          class={[
+            "content-warning-bar hidden absolute left-4 right-4 top-0 h-1 rounded-b-lg opacity-70 hover:opacity-100 hover:h-1.5 transition-all duration-200 cursor-pointer group/cw z-30",
+            if(@post.mature_content && !(@content_warning? && @content_warning),
+              do:
+                "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 dark:from-amber-500 dark:via-orange-500 dark:to-amber-500",
+              else:
+                "bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 dark:from-teal-500 dark:via-cyan-500 dark:to-teal-500"
+            )
+          ]}
+          aria-label="Hide content"
+        >
+          <span class={[
+            "absolute left-1/2 -translate-x-1/2 top-3 opacity-60 group-hover/cw:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border",
+            if(@post.mature_content && !(@content_warning? && @content_warning),
+              do: "text-amber-600 dark:text-amber-400 border-amber-200/50 dark:border-amber-700/50",
+              else: "text-teal-600 dark:text-teal-400 border-teal-200/50 dark:border-teal-700/50"
+            )
+          ]}>
+            Hide content
+          </span>
+        </button>
+
+        <%!-- Post content --%>
+        <div class="mb-4">
+          <%!-- Legacy posts with HTML (sanitized and rendered) --%>
+          <p
+            :if={contains_html?(@content)}
+            class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
           >
-            <div class="flex items-center gap-2 mb-3">
-              <.phx_icon
-                name="hero-hand-raised"
-                class="h-4 w-4 text-teal-600 dark:text-teal-400"
-              />
-              <span class="text-sm font-semibold text-teal-700 dark:text-teal-300">
-                Please Note
-              </span>
-              <%= if @content_warning_category do %>
-                <span class="text-xs px-2 py-1 rounded-full bg-teal-100 dark:bg-teal-800/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-700">
-                  {format_content_warning_category(@content_warning_category)}
-                </span>
-              <% end %>
-            </div>
-            <p class="text-sm text-teal-700 dark:text-teal-300 mb-3">
-              {@content_warning}
-            </p>
-            <button
-              id={"content-warning-button-#{@post.id}"}
-              class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-100/50 dark:bg-teal-800/30 hover:bg-teal-200/50 dark:hover:bg-teal-700/30 border border-teal-200 dark:border-teal-700 rounded-lg transition-all duration-200 ease-out"
-              phx-hook="ContentWarningHook"
-              data-post-id={@post.id}
-            >
-              <span class="toggle-text">Show content</span>
-            </button>
+            {html_block(@content)}
+          </p>
+
+          <%!-- Modern posts with plain text (linkified and sanitized) --%>
+          <div
+            :if={!contains_html?(@content)}
+            class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+          >
+            {format_decrypted_content(@content)}
           </div>
-          <%!-- Post content (initially hidden if content warning) --%>
-          <div class="mb-4 hidden content-warning-hidden" id={"post-content-#{@post.id}"}>
-            <%!-- Legacy posts with HTML (sanitized and rendered) --%>
-            <p
-              :if={contains_html?(@content)}
-              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
-            >
-              {html_block(@content)}
-            </p>
 
-            <%!-- Modern posts with plain text (linkified and sanitized) --%>
-            <div
-              :if={!contains_html?(@content)}
-              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
-            >
-              {format_decrypted_content(@content)}
-            </div>
-
-            <%!-- Images with enhanced encrypted display system --%>
-            <div :if={@post && photos?(@post.image_urls)} class="mb-4">
-              <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
-            </div>
+          <%!-- Images with enhanced encrypted display system --%>
+          <div :if={@post && photos?(@post.image_urls)} class="mb-4">
+            <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
           </div>
-        <% else %>
-          <%!-- Post content (normal display when no content warning) --%>
-          <div class="mb-4">
-            <%!-- Legacy posts with HTML (sanitized and rendered) --%>
-            <p
-              :if={contains_html?(@content)}
-              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+
+          <%!-- URL Preview Card (if available) --%>
+          <div :if={@decrypted_url_preview} class="mb-4">
+            <a
+              href={@decrypted_url_preview["url"]}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex gap-3 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
             >
-              {html_block(@content)}
-            </p>
-
-            <%!-- Modern posts with plain text (linkified and sanitized) --%>
-            <div
-              :if={!contains_html?(@content)}
-              class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
-            >
-              {format_decrypted_content(@content)}
-            </div>
-
-            <%!-- Images with enhanced encrypted display system --%>
-            <div :if={@post && photos?(@post.image_urls)} class="mb-4">
-              <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
-            </div>
-
-            <%!-- URL Preview Card (if available) --%>
-            <div :if={@decrypted_url_preview} class="mb-4">
-              <a
-                href={@decrypted_url_preview["url"]}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex gap-3 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-200 group"
+              <div
+                :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
+                class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
+                phx-hook="URLPreviewHook"
+                id={"url-preview-#{@post.id}"}
+                data-post-id={@post.id}
+                data-image-hash={@decrypted_url_preview["image_hash"]}
+                data-url-preview-fetched-at={@post.url_preview_fetched_at}
               >
-                <div
-                  :if={@decrypted_url_preview["image"] && @decrypted_url_preview["image"] != ""}
-                  class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
-                  phx-hook="URLPreviewHook"
-                  id={"url-preview-#{@post.id}"}
-                  data-post-id={@post.id}
-                  data-image-hash={@decrypted_url_preview["image_hash"]}
-                  data-url-preview-fetched-at={@post.url_preview_fetched_at}
+                <img
+                  src={@decrypted_url_preview["image"]}
+                  alt={@decrypted_url_preview["title"] || "Preview image"}
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onerror="this.parentElement.style.display='none'"
+                />
+              </div>
+
+              <div class="flex-1 min-w-0 py-0.5">
+                <div class="flex items-center gap-1.5 mb-0.5">
+                  <.phx_icon name="hero-link" class="h-3 w-3 text-slate-400" />
+                  <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {@decrypted_url_preview["site_name"] || "External Link"}
+                  </span>
+                </div>
+
+                <p
+                  :if={@decrypted_url_preview["title"]}
+                  class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
                 >
-                  <img
-                    src={@decrypted_url_preview["image"]}
-                    alt={@decrypted_url_preview["title"] || "Preview image"}
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onerror="this.parentElement.style.display='none'"
-                  />
-                </div>
+                  {@decrypted_url_preview["title"]}
+                </p>
 
-                <div class="flex-1 min-w-0 py-0.5">
-                  <div class="flex items-center gap-1.5 mb-0.5">
-                    <.phx_icon name="hero-link" class="h-3 w-3 text-slate-400" />
-                    <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
-                      {@decrypted_url_preview["site_name"] || "External Link"}
-                    </span>
-                  </div>
-
-                  <p
-                    :if={@decrypted_url_preview["title"]}
-                    class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                  >
-                    {@decrypted_url_preview["title"]}
-                  </p>
-
-                  <p
-                    :if={@decrypted_url_preview["description"]}
-                    class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
-                  >
-                    {@decrypted_url_preview["description"]}
-                  </p>
-                </div>
-              </a>
-            </div>
+                <p
+                  :if={@decrypted_url_preview["description"]}
+                  class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
+                >
+                  {@decrypted_url_preview["description"]}
+                </p>
+              </div>
+            </a>
           </div>
-        <% end %>
+        </div>
 
         <div class="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
           <div class="flex items-center gap-1">
@@ -6970,7 +7108,13 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_dropdown(assigns) do
     ~H"""
-    <div id={@id} class={["relative", @class]} phx-click-away={JS.hide(to: "##{@id}-menu")}>
+    <div
+      id={@id}
+      class={["relative", @class]}
+      phx-click-away={JS.hide(to: "##{@id}-menu")}
+      phx-window-keydown={JS.hide(to: "##{@id}-menu")}
+      phx-key="Escape"
+    >
       <%!-- Trigger button --%>
       <button
         type="button"
@@ -9210,12 +9354,6 @@ defmodule MossletWeb.DesignSystem do
               icon="hero-clock"
               color="amber"
             />
-            <.compact_toggle
-              field={@form[:mature_content]}
-              label="18+"
-              icon="hero-exclamation-triangle"
-              color="rose"
-            />
           </div>
         </div>
 
@@ -9352,6 +9490,76 @@ defmodule MossletWeb.DesignSystem do
       />
       <.phx_icon name={@icon} class="h-3 w-3" />
       <span>{@label}</span>
+    </label>
+    """
+  end
+
+  attr :field, :any, required: true
+
+  defp mature_content_toggle(assigns) do
+    value = assigns.field.value
+    checked = value == true or value == "true" or value == "on"
+    assigns = assign(assigns, :checked, checked)
+
+    ~H"""
+    <label class={[
+      "flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200",
+      "border-2",
+      if(@checked,
+        do: [
+          "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30",
+          "border-amber-400 dark:border-amber-500",
+          "shadow-md shadow-amber-500/20"
+        ],
+        else: [
+          "bg-slate-50/50 dark:bg-slate-800/50 hover:bg-amber-50/50 dark:hover:bg-amber-900/20",
+          "border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600"
+        ]
+      )
+    ]}>
+      <input type="hidden" name={@field.name} value="false" />
+      <input
+        type="checkbox"
+        name={@field.name}
+        value="true"
+        checked={@checked}
+        class="sr-only"
+      />
+      <div class={[
+        "flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200",
+        if(@checked,
+          do: "bg-amber-500 text-white shadow-sm",
+          else: "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+        )
+      ]}>
+        <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4" />
+      </div>
+      <div class="flex flex-col">
+        <span class={[
+          "text-sm font-semibold transition-colors",
+          if(@checked,
+            do: "text-amber-700 dark:text-amber-300",
+            else: "text-slate-700 dark:text-slate-300"
+          )
+        ]}>
+          18+ Mature Content
+        </span>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400">
+          Mark as adult-only content
+        </span>
+      </div>
+      <div class={[
+        "ml-auto flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+        if(@checked,
+          do: "bg-amber-500 text-white",
+          else: "bg-slate-200 dark:bg-slate-700"
+        )
+      ]}>
+        <.phx_icon
+          name={if(@checked, do: "hero-check", else: "hero-plus")}
+          class="h-3.5 w-3.5"
+        />
+      </div>
     </label>
     """
   end

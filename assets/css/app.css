@@ -1098,3 +1098,42 @@ dialog[data-confirm] button[data-confirm-accept]:hover::before {
 .photos-loading .grid > div {
   animation: pulse 1.5s ease-in-out infinite;
 }
+
+/* ===== CONTENT WARNING OVERLAY ANIMATIONS ===== */
+.content-warning-overlay {
+  min-height: 140px;
+}
+
+.animate-slide-up-out {
+  animation: fadeOut 0.4s ease-out forwards;
+}
+
+.animate-slide-down-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-fade-in-down {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+.animate-fade-out-up {
+  animation: fadeOut 0.3s ease-out forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -74,10 +74,45 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.7"
+                  version="0.9.8"
                   date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Smart Sharing & Beautiful Redesign ✈️</:title>
+                  <:description>
+                    A refined sharing experience with elegant new sidebar indicators, improved visibility controls, and thoughtful content warnings — all wrapped in our most beautiful post design yet.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-paper-airplane" color="emerald">
+                      New share icon — the paper airplane makes sharing feel more personal and intentional
+                    </.changelog_item>
+                    <.changelog_item icon="hero-bars-3-center-left" color="teal">
+                      Smart sidebar indicators — elegant color-coded bars show visibility and sharing status at a glance
+                    </.changelog_item>
+                    <.changelog_item icon="hero-user-minus" color="rose">
+                      Remove shared users — easily revoke access from anyone you've shared a post with
+                    </.changelog_item>
+                    <.changelog_item icon="hero-user-plus" color="blue">
+                      Add more recipients — share posts with additional connections anytime from the visibility overlay
+                    </.changelog_item>
+                    <.changelog_item icon="hero-hand-raised" color="cyan">
+                      Content warnings — authors can add thoughtful warnings to help readers prepare for sensitive topics
+                    </.changelog_item>
+                    <.changelog_item icon="hero-eye" color="purple">
+                      Hide content bar — after revealing warned content, a subtle bar lets you hide it again
+                    </.changelog_item>
+                    <.changelog_item icon="hero-squares-2x2" color="amber">
+                      Smart post layout — cleaner design that surfaces the right information at the right time
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.7"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Intentional Sharing & Polished UI 🦖</:title>
                   <:description>

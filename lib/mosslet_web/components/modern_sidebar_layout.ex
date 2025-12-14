@@ -34,6 +34,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true', scrollPos: 0 }"
       x-init="$watch('sidebarCollapsed', val => localStorage.setItem('sidebarCollapsed', val))"
       x-effect="if (sidebarOpen) { scrollPos = window.scrollY; document.body.style.overflow = 'hidden'; } else { document.body.style.overflow = ''; window.scrollTo(0, scrollPos); }"
+      @keydown.escape.window="sidebarOpen = false"
     >
       <%!-- Mobile sidebar backdrop --%>
       <div
@@ -284,6 +285,7 @@ defmodule MossletWeb.ModernSidebarLayout do
       class="relative"
       x-data="{ open: false }"
       @click.away="open = false"
+      @keydown.escape.window="open = false"
       id="user-menu-dropdown"
     >
       <button

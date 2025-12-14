@@ -22,7 +22,6 @@ import TippyHook from "./tippy-hook";
 import TrixEditor from "./trix";
 import TrixContentPostHook from "./trix-content-post-hook";
 import TrixContentReplyHook from "./trix-content-reply-hook";
-import { ContentWarningHook } from "./content-warning-hook";
 import ScrollDown from "./scroll";
 import RestoreBodyScroll from "./restore-body-scroll";
 import ImageDownloadHook from "./image-download-hook";
@@ -60,7 +59,6 @@ export default {
   TrixEditor,
   TrixContentPostHook,
   TrixContentReplyHook,
-  ContentWarningHook,
   ImageDownloadHook,
   DisableContextMenu,
   ImageModalHook,
