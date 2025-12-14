@@ -1971,7 +1971,7 @@ defmodule MossletWeb.DesignSystem do
             "sm:text-sm sm:leading-6",
             "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
             "focus:bg-white dark:focus:bg-slate-800",
-            "appearance-none cursor-pointer",
+            "appearance-none cursor-pointer bg-none",
             @errors != [] && "border-rose-400 focus:border-rose-400"
           ]}
           {@rest}
@@ -2228,7 +2228,7 @@ defmodule MossletWeb.DesignSystem do
             "shadow-sm focus:shadow-lg",
             @focus_colors.focus_shadow,
             "focus:bg-white dark:focus:bg-slate-800",
-            "appearance-none cursor-pointer",
+            "appearance-none cursor-pointer bg-none",
             @errors != [] && "border-rose-400 focus:border-rose-400"
           ]}
           {@rest}
@@ -3439,10 +3439,10 @@ defmodule MossletWeb.DesignSystem do
           </div>
         </div>
 
-        <%!-- Enhanced Privacy Controls Section (conditionally shown) --%>
+        <%!-- Compact Privacy Controls Section (conditionally shown) --%>
         <%= if @privacy_controls_expanded do %>
-          <div class="mt-4 nested-reply-expand-enter max-h-[80vh] overflow-y-auto rounded-xl">
-            <.liquid_enhanced_privacy_controls
+          <div class="mt-3 nested-reply-expand-enter">
+            <.liquid_compact_privacy_controls
               form={@form}
               selector={@selector}
               current_user={@current_user}
@@ -3453,78 +3453,53 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Content Warning Section (conditionally shown) --%>
         <%= if @content_warning_enabled? do %>
-          <div class="mt-4 p-4 rounded-xl bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/50">
-            <div class="flex items-center gap-2 mb-3">
+          <div class="mt-3 p-3 rounded-lg bg-teal-50/50 dark:bg-teal-900/20 border border-teal-200/60 dark:border-teal-700/50">
+            <div class="flex items-center gap-1.5 mb-2">
               <.phx_icon
                 name="hero-hand-raised"
-                class="h-4 w-4 text-teal-600 dark:text-teal-400"
+                class="h-3.5 w-3.5 text-teal-600 dark:text-teal-400"
               />
-              <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
+              <span class="text-xs font-medium text-teal-700 dark:text-teal-300">
                 Content Warning
               </span>
             </div>
 
-            <div class="space-y-4">
-              <%!-- Content warning text input using liquid metal component --%>
+            <div class="space-y-2.5">
               <div class="relative">
-                <%!-- Custom textarea matching main composer pattern exactly --%>
-                <label
-                  for={@form[:content_warning].id}
-                  class="block text-xs font-medium text-teal-700 dark:text-teal-300 mb-2"
-                >
-                  Warning description
-                </label>
+                <textarea
+                  id="content-warning-textarea"
+                  name={@form[:content_warning].name}
+                  placeholder="e.g., Discussion of mental health, sensitive content..."
+                  rows="2"
+                  maxlength="100"
+                  class="w-full resize-none text-sm leading-relaxed rounded-lg px-3 py-2 bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-700 hover:border-teal-300 dark:hover:border-teal-600 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-1 focus:ring-teal-500/20 text-slate-900 dark:text-slate-100 placeholder:text-teal-600/60 dark:placeholder:text-teal-400/60 transition-colors duration-200"
+                  phx-hook="CharacterCounter"
+                  phx-debounce="300"
+                  data-limit="100"
+                  value={@form[:content_warning].value}
+                >{@form[:content_warning].value}</textarea>
 
-                <div class="group relative">
-                  <%!-- Liquid effects --%>
-                  <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-br from-teal-50/30 via-orange-50/40 to-teal-50/30 dark:from-teal-900/15 dark:via-orange-900/20 dark:to-teal-900/15 group-focus-within:opacity-100 rounded-xl">
-                  </div>
-                  <div class="absolute inset-0 opacity-0 transition-all duration-700 ease-out bg-gradient-to-r from-transparent via-teal-200/30 to-transparent dark:via-teal-400/15 group-focus-within:opacity-100 group-focus-within:translate-x-full -translate-x-full rounded-xl">
-                  </div>
-                  <div class="absolute -inset-1 opacity-0 transition-all duration-200 ease-out rounded-xl bg-gradient-to-r from-teal-500 via-orange-500 to-teal-500 dark:from-teal-400 dark:via-orange-400 dark:to-teal-400 group-focus-within:opacity-100 blur-sm">
-                  </div>
-                  <div class="absolute -inset-0.5 opacity-0 transition-all duration-200 ease-out rounded-xl border-2 border-teal-500 dark:border-teal-400 group-focus-within:opacity-100">
-                  </div>
-
-                  <%!-- Textarea with proper hook setup --%>
-                  <textarea
-                    id="content-warning-textarea"
-                    name={@form[:content_warning].name}
-                    placeholder="e.g., Discussion of mental health, sensitive content..."
-                    rows="2"
-                    maxlength="100"
-                    class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-teal-600/70 dark:placeholder:text-teal-400/70 text-sm leading-relaxed focus:outline-none focus:ring-0 relative block rounded-xl px-4 py-3 bg-white dark:bg-slate-800 border-2 border-teal-200 dark:border-teal-700 hover:border-teal-300 dark:hover:border-teal-600 focus:border-teal-500 dark:focus:border-teal-400 transition-all duration-200 ease-out shadow-sm focus:shadow-lg focus:shadow-teal-500/10"
-                    phx-hook="CharacterCounter"
-                    phx-debounce="300"
-                    data-limit="100"
-                    value={@form[:content_warning].value}
-                  >{@form[:content_warning].value}</textarea>
-                </div>
-
-                <%!-- Character counter with liquid metal styling --%>
-                <%!-- Character counter with unique ID matching main composer pattern --%>
                 <div
                   class={[
-                    "absolute bottom-2 right-2 transition-all duration-300 ease-out",
+                    "absolute bottom-1.5 right-1.5 transition-opacity duration-200",
                     (@form[:content_warning].value && String.trim(@form[:content_warning].value) != "" &&
                        "opacity-100") ||
                       "opacity-0"
                   ]}
                   id="char-counter-100"
                 >
-                  <span class="text-xs text-teal-600 dark:text-teal-400 bg-teal-50/95 dark:bg-teal-900/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-teal-200/60 dark:border-teal-700/60 shadow-lg">
+                  <span class="text-[10px] text-teal-600 dark:text-teal-400 bg-teal-50/90 dark:bg-teal-900/90 px-1.5 py-0.5 rounded-full">
                     <span class="js-char-count">{String.length(@form[:content_warning].value || "")}</span>/100
                   </span>
                 </div>
               </div>
 
-              <%!-- Content warning category dropdown using liquid metal component --%>
               <.liquid_select_custom
                 field={@form[:content_warning_category]}
                 label="Category (optional)"
                 prompt="Select category..."
                 color="teal"
-                class="text-sm"
+                class="text-xs"
                 options={[
                   {"Mental Health", "mental_health"},
                   {"Violence", "violence"},
@@ -3534,8 +3509,6 @@ defmodule MossletWeb.DesignSystem do
                   {"Other", "other"}
                 ]}
               />
-
-              <%!-- Mature Content Toggle (removed from here - now in Additional Options) --%>
             </div>
           </div>
         <% end %>
@@ -4582,9 +4555,13 @@ defmodule MossletWeb.DesignSystem do
                 {visibility_badge_text(@post.visibility)}
               </p>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {length(@post.shared_users)} {if length(@post.shared_users) == 1,
-                  do: "person",
-                  else: "people"}
+                <%= if @post.visibility == :private do %>
+                  Only visible to you
+                <% else %>
+                  {length(@post.shared_users)} {if length(@post.shared_users) == 1,
+                    do: "person",
+                    else: "people"}
+                <% end %>
               </p>
             </div>
             <button
@@ -4603,231 +4580,262 @@ defmodule MossletWeb.DesignSystem do
             </button>
           </div>
 
-          <div class="flex-1 min-h-0 overflow-y-auto">
-            <div class="grid grid-cols-2 gap-1.5">
-              <%= for shared_user <- @post.shared_users do %>
-                <% shared_post_user = get_shared_connection(shared_user.user_id, @post_shared_users) %>
-                <% shared_user_id_str =
-                  if is_binary(shared_user.user_id),
-                    do: Ecto.UUID.cast!(shared_user.user_id),
-                    else: shared_user.user_id %>
-                <% is_removing = @removing_shared_user_id == shared_user_id_str %>
-                <div class={[
-                  "relative flex items-center gap-2 p-1.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg transition-all duration-200",
-                  is_removing && "opacity-50 pointer-events-none"
-                ]}>
-                  <%= if shared_post_user do %>
-                    <.link
-                      :if={show_profile?(shared_post_user)}
-                      id={"profile-link-#{@post.id}-person-#{shared_user.user_id}"}
-                      phx-hook="TippyHook"
-                      data-tippy-content="View profile"
-                      navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
-                      class="flex items-center gap-2 flex-1 min-w-0"
-                    >
-                      <div class={[
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
-                        "bg-gradient-to-br transition-all duration-200",
-                        get_post_shared_user_classes(shared_post_user.color)
-                      ]}>
-                        <span class={[
-                          "text-xs font-semibold",
-                          get_post_shared_user_text_classes(shared_post_user.color)
-                        ]}>
-                          {String.first(shared_post_user.username || "?") |> String.upcase()}
-                        </span>
-                      </div>
-                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
-                        {shared_post_user.username}
-                      </span>
-                    </.link>
-                    <div
-                      :if={!show_profile?(shared_post_user)}
-                      class="flex items-center gap-2 flex-1 min-w-0"
-                    >
-                      <div class={[
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded",
-                        "bg-gradient-to-br transition-all duration-200",
-                        get_post_shared_user_classes(shared_post_user.color)
-                      ]}>
-                        <span class={[
-                          "text-xs font-semibold",
-                          get_post_shared_user_text_classes(shared_post_user.color)
-                        ]}>
-                          {String.first(shared_post_user.username || "?") |> String.upcase()}
-                        </span>
-                      </div>
-                      <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
-                        {shared_post_user.username}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      phx-click="remove_shared_user"
-                      phx-value-post-id={@post.id}
-                      phx-value-user-id={shared_user.user_id}
-                      phx-value-shared-username={shared_post_user.username}
-                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
-                      phx-hook="TippyHook"
-                      data-tippy-content="Remove access"
-                      id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
-                    >
-                      <span class="sr-only">Remove access for {shared_post_user.username}</span>
-                      <%= if is_removing do %>
-                        <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
-                      <% else %>
-                        <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
-                      <% end %>
-                    </button>
-                  <% else %>
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-200 dark:bg-slate-700">
-                        <.phx_icon
-                          name="hero-user-minus"
-                          class="w-3 h-3 text-slate-400 dark:text-slate-500"
-                        />
-                      </div>
-                      <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic">
-                        Former
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      phx-click="remove_shared_user"
-                      phx-value-post-id={@post.id}
-                      phx-value-user-id={shared_user.user_id}
-                      phx-value-shared-username=""
-                      class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
-                      title="Remove"
-                    >
-                      <%= if is_removing do %>
-                        <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
-                      <% else %>
-                        <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
-                      <% end %>
-                    </button>
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
-
-            <div :if={Enum.empty?(@post.shared_users)} class="py-2 text-center">
-              <div class="inline-flex items-center justify-center w-8 h-8 mb-1.5 rounded-full bg-slate-100 dark:bg-slate-700">
-                <.phx_icon name="hero-user-group" class="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          <%= if @post.visibility == :private do %>
+            <div class="flex-1 flex flex-col items-center justify-center text-center">
+              <div class="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600">
+                <.phx_icon name="hero-lock-closed" class="w-6 h-6 text-slate-500 dark:text-slate-400" />
               </div>
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                Not shared with anyone yet
+              <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Private post
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
+                This post is only visible to you.
               </p>
             </div>
-          </div>
-
-          <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0">
-            <% available_connections =
-              Enum.reject(@post_shared_users, fn psu ->
-                Enum.any?(@post.shared_users, &(&1.user_id == psu.user_id))
-              end) %>
-
-            <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id do %>
-              <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 animate-pulse">
-                <.phx_icon
-                  name="hero-arrow-path"
-                  class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
-                />
-                <span class="text-sm text-emerald-700 dark:text-emerald-300">
-                  Adding {@adding_shared_user.username}...
-                </span>
-              </div>
-            <% else %>
-              <%= if Enum.empty?(available_connections) do %>
-                <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-1">
-                  All connections have access
-                </p>
-              <% else %>
-                <div class="relative" id={"add-shared-user-overlay-#{@post.id}"}>
-                  <button
-                    type="button"
-                    phx-click={JS.toggle(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                    class={"w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-dashed transition-all duration-200 #{visibility_add_button_classes(@post.visibility)}"}
-                  >
-                    <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
-                  </button>
-
-                  <div
-                    id={"add-shared-user-overlay-list-#{@post.id}"}
-                    phx-click-away={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                    phx-key="escape"
-                    phx-window-keydown={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
-                    class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150"
-                  >
-                    <div class="p-1.5 space-y-0.5">
-                      <div
-                        :for={conn <- available_connections}
-                        id={"add-shared-user-item-#{@post.id}-#{conn.user_id}"}
-                        phx-click={
-                          JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")
-                          |> JS.push("add_shared_user")
-                        }
-                        phx-value-post-id={@post.id}
-                        phx-value-user-id={conn.user_id}
-                        phx-value-username={conn.username}
-                        class={[
-                          "flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150",
-                          @adding_shared_user && @adding_shared_user.post_id == @post.id &&
-                            @adding_shared_user.username == conn.username &&
-                            "opacity-50 pointer-events-none"
-                        ]}
+            <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0 flex justify-end">
+              <button
+                type="button"
+                phx-click={
+                  JS.hide(
+                    to: "#visibility-overlay-#{@post.id}",
+                    transition:
+                      {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+                  )
+                }
+                class={"inline-flex items-center gap-1.5 text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200"}
+              >
+                Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
+              </button>
+            </div>
+          <% else %>
+            <div class="flex-1 min-h-0 overflow-y-auto">
+              <div class="grid grid-cols-2 gap-1.5">
+                <%= for shared_user <- @post.shared_users do %>
+                  <% shared_post_user = get_shared_connection(shared_user.user_id, @post_shared_users) %>
+                  <% shared_user_id_str =
+                    if is_binary(shared_user.user_id),
+                      do: Ecto.UUID.cast!(shared_user.user_id),
+                      else: shared_user.user_id %>
+                  <% is_removing = @removing_shared_user_id == shared_user_id_str %>
+                  <div class={[
+                    "relative flex items-center gap-2 p-1.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-lg transition-all duration-200",
+                    is_removing && "opacity-50 pointer-events-none"
+                  ]}>
+                    <%= if shared_post_user do %>
+                      <.link
+                        :if={show_profile?(shared_post_user)}
+                        id={"profile-link-#{@post.id}-person-#{shared_user.user_id}"}
+                        phx-hook="TippyHook"
+                        data-tippy-content="View profile"
+                        navigate={~p"/app/profile/#{shared_post_user.profile_slug}"}
+                        class="flex items-center gap-2 flex-1 min-w-0"
                       >
-                        <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id && @adding_shared_user.username == conn.username do %>
-                          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                            <.phx_icon
-                              name="hero-arrow-path"
-                              class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
-                            />
-                          </div>
-                          <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                            Adding...
-                          </span>
-                        <% else %>
-                          <div class={[
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
-                            "bg-gradient-to-br",
-                            get_post_shared_user_classes(conn.color)
+                        <div class={[
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                          "bg-gradient-to-br transition-all duration-200",
+                          get_post_shared_user_classes(shared_post_user.color)
+                        ]}>
+                          <span class={[
+                            "text-xs font-semibold",
+                            get_post_shared_user_text_classes(shared_post_user.color)
                           ]}>
+                            {String.first(shared_post_user.username || "?") |> String.upcase()}
+                          </span>
+                        </div>
+                        <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {shared_post_user.username}
+                        </span>
+                      </.link>
+                      <div
+                        :if={!show_profile?(shared_post_user)}
+                        class="flex items-center gap-2 flex-1 min-w-0"
+                      >
+                        <div class={[
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded",
+                          "bg-gradient-to-br transition-all duration-200",
+                          get_post_shared_user_classes(shared_post_user.color)
+                        ]}>
+                          <span class={[
+                            "text-xs font-semibold",
+                            get_post_shared_user_text_classes(shared_post_user.color)
+                          ]}>
+                            {String.first(shared_post_user.username || "?") |> String.upcase()}
+                          </span>
+                        </div>
+                        <span class="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {shared_post_user.username}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="remove_shared_user"
+                        phx-value-post-id={@post.id}
+                        phx-value-user-id={shared_user.user_id}
+                        phx-value-shared-username={shared_post_user.username}
+                        class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                        phx-hook="TippyHook"
+                        data-tippy-content="Remove access"
+                        id={"remove-access-#{@post.id}-person-#{shared_user.user_id}"}
+                      >
+                        <span class="sr-only">Remove access for {shared_post_user.username}</span>
+                        <%= if is_removing do %>
+                          <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
+                        <% else %>
+                          <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+                        <% end %>
+                      </button>
+                    <% else %>
+                      <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-200 dark:bg-slate-700">
+                          <.phx_icon
+                            name="hero-user-minus"
+                            class="w-3 h-3 text-slate-400 dark:text-slate-500"
+                          />
+                        </div>
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400 truncate italic">
+                          Former
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="remove_shared_user"
+                        phx-value-post-id={@post.id}
+                        phx-value-user-id={shared_user.user_id}
+                        phx-value-shared-username=""
+                        class="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all duration-200 shrink-0"
+                        title="Remove"
+                      >
+                        <%= if is_removing do %>
+                          <.phx_icon name="hero-arrow-path-mini" class="w-3.5 h-3.5 animate-spin" />
+                        <% else %>
+                          <.phx_icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+                        <% end %>
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <div :if={Enum.empty?(@post.shared_users)} class="py-2 text-center">
+                <div class="inline-flex items-center justify-center w-8 h-8 mb-1.5 rounded-full bg-slate-100 dark:bg-slate-700">
+                  <.phx_icon
+                    name="hero-user-group"
+                    class="w-4 h-4 text-slate-400 dark:text-slate-500"
+                  />
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                  Not shared with anyone yet
+                </p>
+              </div>
+            </div>
+
+            <div class="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-700/60 shrink-0">
+              <% available_connections =
+                Enum.reject(@post_shared_users, fn psu ->
+                  Enum.any?(@post.shared_users, &(&1.user_id == psu.user_id))
+                end) %>
+
+              <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id do %>
+                <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 animate-pulse">
+                  <.phx_icon
+                    name="hero-arrow-path"
+                    class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                  />
+                  <span class="text-sm text-emerald-700 dark:text-emerald-300">
+                    Adding {@adding_shared_user.username}...
+                  </span>
+                </div>
+              <% else %>
+                <%= if Enum.empty?(available_connections) do %>
+                  <p class="text-xs text-slate-400 dark:text-slate-500 text-center py-1">
+                    All connections have access
+                  </p>
+                <% else %>
+                  <div class="relative" id={"add-shared-user-overlay-#{@post.id}"}>
+                    <button
+                      type="button"
+                      phx-click={JS.toggle(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                      class={"w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-dashed transition-all duration-200 #{visibility_add_button_classes(@post.visibility)}"}
+                    >
+                      <.phx_icon name="hero-plus-mini" class="w-4 h-4" /> Add someone
+                    </button>
+
+                    <div
+                      id={"add-shared-user-overlay-list-#{@post.id}"}
+                      phx-click-away={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                      phx-key="escape"
+                      phx-window-keydown={JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")}
+                      class="hidden absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150"
+                    >
+                      <div class="p-1.5 space-y-0.5">
+                        <div
+                          :for={conn <- available_connections}
+                          id={"add-shared-user-item-#{@post.id}-#{conn.user_id}"}
+                          phx-click={
+                            JS.hide(to: "#add-shared-user-overlay-list-#{@post.id}")
+                            |> JS.push("add_shared_user")
+                          }
+                          phx-value-post-id={@post.id}
+                          phx-value-user-id={conn.user_id}
+                          phx-value-username={conn.username}
+                          class={[
+                            "flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 active:bg-slate-200 dark:active:bg-slate-600/60 transition-colors duration-150",
+                            @adding_shared_user && @adding_shared_user.post_id == @post.id &&
+                              @adding_shared_user.username == conn.username &&
+                              "opacity-50 pointer-events-none"
+                          ]}
+                        >
+                          <%= if @adding_shared_user && @adding_shared_user.post_id == @post.id && @adding_shared_user.username == conn.username do %>
+                            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                              <.phx_icon
+                                name="hero-arrow-path"
+                                class="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin"
+                              />
+                            </div>
+                            <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                              Adding...
+                            </span>
+                          <% else %>
+                            <div class={[
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+                              "bg-gradient-to-br",
+                              get_post_shared_user_classes(conn.color)
+                            ]}>
+                              <span class={[
+                                "text-xs font-bold",
+                                get_post_shared_user_text_classes(conn.color)
+                              ]}>
+                                {String.first(conn.username || "?") |> String.upcase()}
+                              </span>
+                            </div>
                             <span class={[
-                              "text-xs font-bold",
+                              "text-sm font-medium truncate",
                               get_post_shared_user_text_classes(conn.color)
                             ]}>
-                              {String.first(conn.username || "?") |> String.upcase()}
+                              {conn.username}
                             </span>
-                          </div>
-                          <span class={[
-                            "text-sm font-medium truncate",
-                            get_post_shared_user_text_classes(conn.color)
-                          ]}>
-                            {conn.username}
-                          </span>
-                        <% end %>
+                          <% end %>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                <% end %>
               <% end %>
-            <% end %>
-          </div>
-
-          <button
-            type="button"
-            phx-click={
-              JS.hide(
-                to: "#visibility-overlay-#{@post.id}",
-                transition:
-                  {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
-              )
-            }
-            class={"mt-3 inline-flex items-center gap-1.5 self-end text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
-          >
-            Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
-          </button>
+            </div>
+            <button
+              type="button"
+              phx-click={
+                JS.hide(
+                  to: "#visibility-overlay-#{@post.id}",
+                  transition:
+                    {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 translate-x-4"}
+                )
+              }
+              class={"mt-3 inline-flex items-center gap-1.5 self-end text-xs font-medium #{visibility_overlay_back_button_classes(@post.visibility)} px-3 py-1.5 rounded-lg border transition-colors duration-200 shrink-0"}
+            >
+              Back to post <.phx_icon name="hero-arrow-right-mini" class="h-3.5 w-3.5" />
+            </button>
+          <% end %>
         </div>
       </div>
 
@@ -8473,7 +8481,7 @@ defmodule MossletWeb.DesignSystem do
           "sm:text-sm sm:leading-6",
           "shadow-sm focus:shadow-lg focus:shadow-emerald-500/10",
           "focus:bg-white dark:focus:bg-slate-800",
-          "appearance-none cursor-pointer",
+          "appearance-none cursor-pointer bg-none",
           "bg-no-repeat bg-right",
           "[background-image:none]"
         ]}
@@ -9085,6 +9093,361 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </div>
     </label>
+    """
+  end
+
+  @doc """
+  Compact privacy controls with horizontal pill selector and inline options.
+  More space-efficient than liquid_enhanced_privacy_controls.
+  """
+  attr :form, :any, required: true
+  attr :selector, :string, required: true
+  attr :current_user, :any, default: nil
+  attr :key, :any, default: nil
+  attr :class, :any, default: ""
+
+  def liquid_compact_privacy_controls(assigns) do
+    visibility_groups =
+      if is_map_key(assigns, :current_user) and is_map_key(assigns, :key) do
+        Mosslet.Accounts.get_user_visibility_groups_with_connections(assigns.current_user)
+      else
+        []
+      end
+
+    user_connections =
+      if is_map_key(assigns, :current_user) do
+        Mosslet.Accounts.filter_user_connections(%{}, assigns.current_user)
+      else
+        []
+      end
+
+    assigns =
+      assign(assigns, visibility_groups: visibility_groups, user_connections: user_connections)
+
+    ~H"""
+    <div class={[
+      "p-3 rounded-lg border transition-all duration-200",
+      "bg-emerald-50/30 dark:bg-emerald-900/15",
+      "border-emerald-200/50 dark:border-emerald-700/40",
+      @class
+    ]}>
+      <div class="space-y-3">
+        <%!-- Visibility Pills --%>
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-1.5">
+            <.phx_icon name="hero-eye" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">Visibility</span>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <.privacy_pill
+              value="private"
+              current={@selector}
+              icon="hero-lock-closed"
+              label="Private"
+            />
+            <.privacy_pill
+              value="connections"
+              current={@selector}
+              icon="hero-user-group"
+              label="Connections"
+            />
+            <.privacy_pill value="public" current={@selector} icon="hero-globe-alt" label="Public" />
+            <.privacy_pill
+              value="specific_groups"
+              current={@selector}
+              icon="hero-squares-2x2"
+              label="Groups"
+            />
+            <.privacy_pill
+              value="specific_users"
+              current={@selector}
+              icon="hero-users"
+              label="People"
+            />
+          </div>
+        </div>
+
+        <%!-- Group/User Selection (collapsible) --%>
+        <div
+          :if={@selector in ["specific_groups", "specific_users"]}
+          class="pt-2 border-t border-emerald-200/40 dark:border-emerald-700/30"
+        >
+          <%= if @selector == "specific_groups" do %>
+            <.compact_group_selector
+              groups={@visibility_groups}
+              form={@form}
+              current_user={@current_user}
+              key={@key}
+            />
+          <% else %>
+            <.compact_user_selector
+              connections={@user_connections}
+              form={@form}
+              current_user={@current_user}
+              key={@key}
+            />
+          <% end %>
+        </div>
+
+        <%!-- Inline Options Row --%>
+        <div class="pt-2 border-t border-emerald-200/40 dark:border-emerald-700/30">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <.compact_toggle
+              field={@form[:allow_replies]}
+              label="Replies"
+              icon="hero-chat-bubble-left"
+            />
+            <.compact_toggle
+              :if={@form[:is_ephemeral].value == false or @form[:is_ephemeral].value == "false"}
+              field={@form[:allow_shares]}
+              label="Shares"
+              icon="hero-arrow-path-rounded-square"
+            />
+            <.compact_toggle field={@form[:allow_bookmarks]} label="Saves" icon="hero-bookmark" />
+            <.compact_toggle
+              field={@form[:is_ephemeral]}
+              label="Ephemeral"
+              icon="hero-clock"
+              color="amber"
+            />
+            <.compact_toggle
+              field={@form[:mature_content]}
+              label="18+"
+              icon="hero-exclamation-triangle"
+              color="rose"
+            />
+          </div>
+        </div>
+
+        <%!-- Public post security --%>
+        <div
+          :if={@selector == "public"}
+          class="pt-2 border-t border-emerald-200/40 dark:border-emerald-700/30"
+        >
+          <.compact_toggle
+            field={@form[:require_follow_to_reply]}
+            label="Require connection to reply"
+            icon="hero-shield-check"
+          />
+        </div>
+
+        <%!-- Ephemeral settings --%>
+        <div
+          :if={@form[:is_ephemeral].value == true or @form[:is_ephemeral].value == "true"}
+          class="pt-2 border-t border-amber-200/40 dark:border-amber-700/30"
+        >
+          <div class="flex items-center gap-2">
+            <.phx_icon name="hero-clock" class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <span class="text-xs text-amber-700 dark:text-amber-300">Delete after:</span>
+            <select
+              name={@form[:expires_at_option].name}
+              id={@form[:expires_at_option].id}
+              aria-label="Delete after"
+              class="text-xs py-1 pl-2 pr-6 rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 focus:ring-1 focus:ring-amber-400"
+            >
+              <%= if @selector == "public" do %>
+                <option
+                  value="24_hours"
+                  selected={
+                    @form[:expires_at_option].value in [nil, "", "24_hours", "1_hour", "6_hours"]
+                  }
+                >
+                  24 hours
+                </option>
+                <option value="7_days" selected={@form[:expires_at_option].value == "7_days"}>
+                  7 days
+                </option>
+                <option value="30_days" selected={@form[:expires_at_option].value == "30_days"}>
+                  30 days
+                </option>
+              <% else %>
+                <option
+                  value="1_hour"
+                  selected={@form[:expires_at_option].value in [nil, "", "1_hour"]}
+                >
+                  1 hour
+                </option>
+                <option value="6_hours" selected={@form[:expires_at_option].value == "6_hours"}>
+                  6 hours
+                </option>
+                <option value="24_hours" selected={@form[:expires_at_option].value == "24_hours"}>
+                  24 hours
+                </option>
+                <option value="7_days" selected={@form[:expires_at_option].value == "7_days"}>
+                  7 days
+                </option>
+                <option value="30_days" selected={@form[:expires_at_option].value == "30_days"}>
+                  30 days
+                </option>
+              <% end %>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :value, :string, required: true
+  attr :current, :string, required: true
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+
+  defp privacy_pill(assigns) do
+    assigns = assign(assigns, :selected, assigns.value == assigns.current)
+
+    ~H"""
+    <label class={[
+      "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium cursor-pointer transition-all duration-150",
+      if(@selected,
+        do: "bg-emerald-600 text-white shadow-sm",
+        else:
+          "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-600"
+      )
+    ]}>
+      <input
+        type="radio"
+        name="visibility"
+        value={@value}
+        checked={@selected}
+        class="sr-only"
+        phx-click="update_privacy_visibility"
+        phx-value-visibility={@value}
+      />
+      <.phx_icon name={@icon} class="h-3 w-3" />
+      <span>{@label}</span>
+    </label>
+    """
+  end
+
+  attr :field, :any, required: true
+  attr :label, :string, required: true
+  attr :icon, :string, required: true
+  attr :color, :string, default: "emerald"
+
+  defp compact_toggle(assigns) do
+    value = assigns.field.value
+    checked = value == true or value == "true" or value == "on"
+    assigns = assign(assigns, :checked, checked)
+
+    ~H"""
+    <label class={[
+      "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-all duration-150",
+      if(@checked,
+        do: [
+          "bg-#{@color}-100 dark:bg-#{@color}-900/40 text-#{@color}-700 dark:text-#{@color}-300",
+          "border border-#{@color}-300 dark:border-#{@color}-600"
+        ],
+        else:
+          "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+      )
+    ]}>
+      <input type="hidden" name={@field.name} value="false" />
+      <input
+        type="checkbox"
+        name={@field.name}
+        value="true"
+        checked={@checked}
+        class="sr-only"
+      />
+      <.phx_icon name={@icon} class="h-3 w-3" />
+      <span>{@label}</span>
+    </label>
+    """
+  end
+
+  attr :groups, :list, required: true
+  attr :form, :any, required: true
+  attr :current_user, :any, required: true
+  attr :key, :any, required: true
+
+  defp compact_group_selector(assigns) do
+    ~H"""
+    <div class="space-y-2">
+      <p class="text-xs text-purple-700 dark:text-purple-300">Select groups:</p>
+      <%= if @groups != [] do %>
+        <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+          <%= for group_data <- @groups do %>
+            <% group = group_data.group %>
+            <% decrypted_name = get_decrypted_group_name(group_data, @current_user, @key) %>
+            <% selected = group.id in (@form[:visibility_groups].value || []) %>
+            <label class={[
+              "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all",
+              if(selected,
+                do: "bg-purple-600 text-white",
+                else:
+                  "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-100"
+              )
+            ]}>
+              <input
+                type="checkbox"
+                name="post[visibility_groups][]"
+                value={group.id}
+                checked={selected}
+                class="sr-only"
+              />
+              <div class={["w-2 h-2 rounded-full", get_group_color_indicator_classes(group.color)]}>
+              </div>
+              <span>{decrypted_name}</span>
+            </label>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-xs text-purple-600 dark:text-purple-400">
+          <a href="/app/users/connections" class="underline hover:no-underline">Create groups</a>
+          to share with specific groups.
+        </p>
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :connections, :list, required: true
+  attr :form, :any, required: true
+  attr :current_user, :any, required: true
+  attr :key, :any, required: true
+
+  defp compact_user_selector(assigns) do
+    ~H"""
+    <div class="space-y-2">
+      <p class="text-xs text-amber-700 dark:text-amber-300">Select people:</p>
+      <%= if @connections != [] do %>
+        <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+          <%= for connection <- @connections do %>
+            <% decrypted_name = get_decrypted_connection_name(connection, @current_user, @key) %>
+            <% user_id = get_connection_other_user_id(connection, @current_user) %>
+            <% selected = user_id in (@form[:visibility_users].value || []) %>
+            <label class={[
+              "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all",
+              if(selected,
+                do: "bg-amber-600 text-white",
+                else:
+                  "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-100"
+              )
+            ]}>
+              <input
+                type="checkbox"
+                name="post[visibility_users][]"
+                value={user_id}
+                checked={selected}
+                class="sr-only"
+              />
+              <img
+                src={get_connection_avatar_src(connection, @current_user, @key)}
+                alt={decrypted_name}
+                class="w-4 h-4 rounded-full"
+              />
+              <span>{decrypted_name}</span>
+            </label>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-xs text-amber-600 dark:text-amber-400">
+          <a href="/app/users/connections" class="underline hover:no-underline">Add connections</a>
+          to share with specific people.
+        </p>
+      <% end %>
+    </div>
     """
   end
 

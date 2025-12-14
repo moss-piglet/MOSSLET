@@ -2181,9 +2181,19 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("update_privacy_visibility", %{"visibility" => visibility}, socket) do
-    # Update the privacy visibility from the enhanced controls
-    # This handles the radio button selections in the expanded privacy controls
-    {:noreply, assign(socket, :selector, visibility)}
+    current_expires_option = socket.assigns.expires_at_option
+
+    expires_at_option =
+      if visibility == "public" and current_expires_option in ["1_hour", "6_hours"] do
+        "24_hours"
+      else
+        current_expires_option
+      end
+
+    {:noreply,
+     socket
+     |> assign(:selector, visibility)
+     |> assign(:expires_at_option, expires_at_option)}
   end
 
   def handle_event("composer_add_photo", _params, socket) do
@@ -4524,6 +4534,9 @@ defmodule MossletWeb.TimelineLive.Index do
     key = options[:key]
 
     cond do
+      visibility_setting == "private" ->
+        Map.put(post_params, "shared_users", [])
+
       # If visibility is "connections" and no specific groups/users are selected,
       # automatically use all shared_users (all connections)
       visibility_setting == "connections" &&
