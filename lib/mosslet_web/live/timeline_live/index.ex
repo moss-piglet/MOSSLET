@@ -117,6 +117,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:mature_content, false)
       |> assign(:require_follow_to_reply, false)
       |> assign(:local_only, false)
+      |> assign(:expires_at_option, nil)
       |> assign(:post_loading_count, 0)
       |> assign(:post_loading, false)
       |> assign(:post_loading_done, false)
@@ -1643,6 +1644,10 @@ defmodule MossletWeb.TimelineLive.Index do
       )
       |> Map.put_new("is_ephemeral", post_params["is_ephemeral"] || socket.assigns.is_ephemeral)
       |> Map.put_new("local_only", post_params["local_only"] || socket.assigns.local_only)
+      |> Map.put_new(
+        "expires_at_option",
+        post_params["expires_at_option"] || socket.assigns.expires_at_option
+      )
       # Handle visibility groups and users - preserve from socket if not in form params
       |> Map.put(
         "visibility_groups",
@@ -2349,6 +2354,10 @@ defmodule MossletWeb.TimelineLive.Index do
           post_params["mature_content"] || socket.assigns.mature_content
         )
         |> Map.put("local_only", post_params["local_only"] || socket.assigns.local_only)
+        |> Map.put(
+          "expires_at_option",
+          post_params["expires_at_option"] || socket.assigns.expires_at_option
+        )
         # Handle visibility groups and users - use stored values if not in form params
         |> Map.put(
           "visibility_groups",
@@ -4195,6 +4204,7 @@ defmodule MossletWeb.TimelineLive.Index do
     |> maybe_update_assign(:mature_content, post_params["mature_content"])
     |> maybe_update_assign(:require_follow_to_reply, post_params["require_follow_to_reply"])
     |> maybe_update_assign(:local_only, post_params["local_only"])
+    |> maybe_update_string_assign(:expires_at_option, post_params["expires_at_option"])
   end
 
   # Helper to update an assign only if the value is present (not nil)
@@ -4205,6 +4215,16 @@ defmodule MossletWeb.TimelineLive.Index do
       "false" -> assign(socket, assign_key, false)
       true -> assign(socket, assign_key, true)
       false -> assign(socket, assign_key, false)
+      _ -> socket
+    end
+  end
+
+  # Helper to update a string assign only if the value is present and non-empty
+  defp maybe_update_string_assign(socket, assign_key, value) do
+    case value do
+      nil -> socket
+      "" -> socket
+      val when is_binary(val) -> assign(socket, assign_key, val)
       _ -> socket
     end
   end
