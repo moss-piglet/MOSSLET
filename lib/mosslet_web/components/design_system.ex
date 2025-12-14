@@ -24,6 +24,7 @@ defmodule MossletWeb.DesignSystem do
       decr_uconn: 4,
       html_block: 1,
       is_connected_to_reply_author?: 2,
+      is_shared_recipient?: 2,
       get_reply_post_key: 2,
       get_safe_reply_author_name: 3,
       photos?: 1,
@@ -4385,6 +4386,14 @@ defmodule MossletWeb.DesignSystem do
         :if={@is_repost && @current_user_id != @post.user_id}
         id={"share-overlay-#{@post.id}"}
         class="hidden absolute inset-0 z-20 bg-white/98 dark:bg-slate-800/98 backdrop-blur-sm rounded-2xl overflow-hidden"
+        phx-window-keydown={
+          JS.hide(
+            to: "#share-overlay-#{@post.id}",
+            transition:
+              {"ease-in duration-150", "opacity-100 translate-x-0", "opacity-0 -translate-x-4"}
+          )
+        }
+        phx-key="Escape"
       >
         <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.4)] dark:shadow-[0_0_8px_rgba(52,211,153,0.3)]">
         </div>
@@ -5147,6 +5156,16 @@ defmodule MossletWeb.DesignSystem do
               color="red"
             >
               <.phx_icon name="hero-no-symbol" class="h-4 w-4" /> Block Author
+            </:item>
+
+            <:item
+              :if={@current_user_id != @post.user_id && is_shared_recipient?(@post, @current_user_id)}
+              phx_click="remove_self_from_post"
+              phx_value_post_id={@post.id}
+              data_confirm="Are you sure you want to remove yourself from this post? You will no longer be able to see it."
+              color="slate"
+            >
+              <.phx_icon name="hero-x-circle" class="h-4 w-4" /> Remove Post
             </:item>
           </.liquid_dropdown>
         </div>
@@ -7097,6 +7116,7 @@ defmodule MossletWeb.DesignSystem do
     attr :color, :string, values: ~w(slate gray red emerald blue amber purple rose)
     attr :phx_click, :string
     attr :phx_value_id, :string
+    attr :phx_value_post_id, :string
     attr :phx_value_username, :string
     attr :phx_value_user_name, :string
     attr :phx_value_item_id, :string
@@ -7165,6 +7185,7 @@ defmodule MossletWeb.DesignSystem do
             role="menuitem"
             phx-click={item[:phx_click]}
             phx-value-id={item[:phx_value_id]}
+            phx-value-post-id={item[:phx_value_post_id]}
             phx-value-username={item[:phx_value_username]}
             phx-value-user-name={item[:phx_value_user_name]}
             phx-value-item-id={item[:phx_value_item_id]}

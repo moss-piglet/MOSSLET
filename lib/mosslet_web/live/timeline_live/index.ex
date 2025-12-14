@@ -3561,6 +3561,23 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
+  def handle_event("remove_self_from_post", %{"post-id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, post_id)
+      |> start_async(:remove_self_from_post, fn ->
+        user_post = Timeline.get_user_post_by_post_id_and_user_id!(post_id, current_user.id)
+
+        Timeline.remove_self_from_shared_post(user_post,
+          user: current_user
+        )
+      end)
+
+    {:noreply, socket}
+  end
+
   def handle_event(
         "add_shared_user",
         %{"post-id" => post_id, "user-id" => user_id, "username" => username},
@@ -4103,6 +4120,33 @@ defmodule MossletWeb.TimelineLive.Index do
       socket
       |> assign(:removing_shared_user_id, nil)
       |> put_flash(:error, "Failed to remove shared user: #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:ok, {:ok, _post}}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:info, "Post removed from your timeline.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:ok, {:error, _changeset}}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:error, "Failed to remove post.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:exit, reason}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:error, "Failed to remove post: #{inspect(reason)}")
 
     {:noreply, socket}
   end

@@ -3536,6 +3536,93 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Removes the current user from a shared post (user removes themselves).
+
+  This deletes the user's user_post record and removes them from shared_users,
+  effectively removing the post from their timeline.
+
+  ## Options
+    * `:user` - The current user removing themselves (required)
+  """
+  def remove_self_from_shared_post(%UserPost{} = user_post, opts \\ []) do
+    current_user = opts[:user]
+
+    if user_post.user_id != current_user.id do
+      {:error, "You can only remove yourself from posts"}
+    else
+      case Repo.transaction_on_primary(fn ->
+             Repo.delete(user_post)
+           end) do
+        {:ok, {:error, changeset}} ->
+          {:error, changeset}
+
+        {:ok, {:ok, deleted_user_post}} ->
+          post = get_post!(deleted_user_post.post_id)
+
+          shared_user_structs =
+            Enum.reject(post.shared_users || [], fn shared_user ->
+              shared_user.user_id == current_user.id
+            end)
+
+          shared_user_map_list =
+            Enum.into(shared_user_structs, [], fn shared_user_struct ->
+              Map.from_struct(shared_user_struct)
+              |> Map.put(:sender_id, post.user_id)
+            end)
+
+          remove_post_shared_user_for_self(
+            post,
+            %{
+              shared_users: shared_user_map_list
+            },
+            user: current_user,
+            removed_user: current_user
+          )
+
+        rest ->
+          Logger.warning("Error removing self from shared post")
+          Logger.debug("Error removing self from shared post: #{inspect(rest)}")
+          {:error, "error"}
+      end
+    end
+  end
+
+  defp remove_post_shared_user_for_self(%Post{} = post, attrs, opts) do
+    removed_user = opts[:removed_user]
+
+    case Repo.transaction_on_primary(fn ->
+           Post.change_post_remove_shared_user_changeset(post, attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_post}} ->
+        updated_post =
+          updated_post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "conn_posts:#{removed_user.id}",
+          {:post_updated_user_removed, updated_post}
+        )
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "conn_posts:#{updated_post.user_id}",
+          {:post_shared_users_removed, updated_post}
+        )
+
+        {:ok, updated_post}
+
+      {:ok, {:error, changeset}} ->
+        Logger.error(
+          "There was an error remove_post_shared_user_for_self/3 in Mosslet.Timeline #{inspect(changeset)}"
+        )
+
+        Logger.debug({inspect(changeset)})
+        {:error, changeset}
+    end
+  end
+
+  @doc """
   Shares an existing post with a single user by creating a user_post record.
 
   ## Options

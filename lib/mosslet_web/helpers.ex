@@ -924,6 +924,13 @@ defmodule MossletWeb.Helpers do
     Enum.empty?(image_urls) === false
   end
 
+  def is_shared_recipient?(post, current_user_id) do
+    post.shared_users &&
+      Enum.any?(post.shared_users, fn shared_user ->
+        shared_user.user_id == current_user_id
+      end)
+  end
+
   def read?(user_post_receipt) do
     user_post_receipt && user_post_receipt.is_read?
   end
