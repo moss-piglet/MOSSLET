@@ -4215,6 +4215,20 @@ defmodule MossletWeb.TimelineLive.Index do
     |> maybe_update_assign(:require_follow_to_reply, post_params["require_follow_to_reply"])
     |> maybe_update_assign(:local_only, post_params["local_only"])
     |> maybe_update_string_assign(:expires_at_option, post_params["expires_at_option"])
+    |> maybe_set_default_expires_at_option(post_params)
+  end
+
+  defp maybe_set_default_expires_at_option(socket, post_params) do
+    is_ephemeral = post_params["is_ephemeral"] in ["true", true]
+    current_expires = socket.assigns.expires_at_option
+    visibility = socket.assigns.selector
+
+    if is_ephemeral and current_expires in [nil, ""] do
+      default = if visibility == "public", do: "24_hours", else: "1_hour"
+      assign(socket, :expires_at_option, default)
+    else
+      socket
+    end
   end
 
   # Helper to update an assign only if the value is present (not nil)
