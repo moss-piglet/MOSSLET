@@ -8,6 +8,9 @@
 @custom-variant phx-submit-loading (&.phx-submit-loading, .phx-submit-loading &);
 @custom-variant phx-change-loading (&.phx-change-loading, .phx-change-loading &);
 
+/* Touch hover variant for mobile - mirrors group-hover behavior */
+@custom-variant touch-hover (.touch-hover &);
+
 @source "../js/**/*.js";
 @source "../../lib/mosslet_web.ex";
 @source "../../lib/mosslet_web/*.*ex";

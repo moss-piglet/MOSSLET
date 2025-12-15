@@ -30,6 +30,7 @@ import ImageModalHook from "./image-modal-hook";
 import StatusIndicatorHook from "./status-indicator-hook";
 import URLPreviewHook from "./url-preview-hook";
 import ScrollableTabs from "./scrollable-tabs";
+import TouchHoverHook from "./touch-hover-hook";
 
 export default {
   CharacterCounter,
@@ -63,5 +64,6 @@ export default {
   DisableContextMenu,
   ImageModalHook,
   StatusIndicatorHook,
+  TouchHoverHook,
   URLPreviewHook,
 };

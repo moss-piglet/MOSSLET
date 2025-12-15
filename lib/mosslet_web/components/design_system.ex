@@ -4282,6 +4282,7 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <article
       id={"timeline-card-#{@post.id}"}
+      phx-hook="TouchHoverHook"
       class={
         [
           "group relative rounded-2xl transition-all duration-300 ease-out",
@@ -4307,7 +4308,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Enhanced liquid background on hover with subtle styling --%>
       <div class={[
         "absolute inset-0 opacity-0 transition-all duration-500 ease-out",
-        "group-hover:opacity-100",
+        "group-hover:opacity-100 touch-hover:opacity-100",
         "bg-gradient-to-br from-teal-50/20 via-emerald-50/10 to-cyan-50/20 dark:from-teal-900/10 dark:via-emerald-900/5 dark:to-cyan-900/10"
       ]}>
       </div>
@@ -4326,7 +4327,7 @@ defmodule MossletWeb.DesignSystem do
         class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-emerald-400 via-teal-400 to-emerald-400 dark:from-emerald-500 dark:via-teal-500 dark:to-emerald-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
         aria-label="View shared message"
       >
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-emerald-200/50 dark:border-emerald-700/50">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-emerald-200/50 dark:border-emerald-700/50">
           Shared with you
         </span>
       </button>
@@ -4345,7 +4346,7 @@ defmodule MossletWeb.DesignSystem do
         class="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-sky-400 via-blue-400 to-sky-400 dark:from-sky-500 dark:via-blue-500 dark:to-sky-500 rounded-r-full opacity-70 hover:opacity-100 hover:w-1.5 transition-all duration-200 cursor-pointer group z-10"
         aria-label="View who you shared with"
       >
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-sky-600 dark:text-sky-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-sky-200/50 dark:border-sky-700/50">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium text-sky-600 dark:text-sky-400 bg-white/90 dark:bg-slate-800/90 px-2 py-1 rounded-md shadow-sm border border-sky-200/50 dark:border-sky-700/50">
           You shared this
         </span>
       </button>
@@ -4365,7 +4366,7 @@ defmodule MossletWeb.DesignSystem do
         aria-label="View visibility settings"
         id={"visibility-indicator-#{@post.id}"}
       >
-        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
+        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
           {visibility_badge_text(@post.visibility)}
         </span>
       </button>
@@ -4376,7 +4377,7 @@ defmodule MossletWeb.DesignSystem do
         class={"absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b #{visibility_indicator_gradient(@post.visibility)} rounded-l-full opacity-50 group z-10"}
         aria-label={visibility_badge_text(@post.visibility)}
       >
-        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
+        <span class={"absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 touch-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap text-xs font-medium px-2 py-1 rounded-md shadow-sm border #{visibility_indicator_hover_text_classes(@post.visibility)}"}>
           {visibility_badge_text(@post.visibility)}
         </span>
       </div>
@@ -7771,7 +7772,7 @@ defmodule MossletWeb.DesignSystem do
     ]}>
       <%!-- Depth-aware reply accent (top bar) --%>
       <div class={[
-        "absolute left-0 right-0 top-0 rounded-b-full",
+        "absolute left-3 right-3 top-0 rounded-b-full",
         reply_top_accent_classes(@depth)
       ]}>
       </div>
