@@ -490,7 +490,12 @@
           </div>
 
           <%!-- Read posts divider and expandable section --%>
-          <% total_read_posts = max(0, Map.get(@timeline_counts, String.to_existing_atom(@active_tab || "home"), 0) - Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0)) %>
+          <% total_read_posts =
+            max(
+              0,
+              Map.get(@timeline_counts, String.to_existing_atom(@active_tab || "home"), 0) -
+                Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0)
+            ) %>
           <div :if={total_read_posts > 0}>
             <MossletWeb.DesignSystem.liquid_read_posts_divider
               count={total_read_posts}
@@ -522,7 +527,9 @@
                   end)}
                     user_avatar={get_post_author_avatar(post, @current_user, @key)}
                     user_status={get_post_author_status(post, @current_user, @key)}
-                    user_status_message={get_post_author_status_message(post, @current_user, @key)}
+                    user_status_message={
+                      get_post_author_status_message(post, @current_user, @key)
+                    }
                     show_post_author_status={
                       can_view_status?(
                         Accounts.get_user_with_preloads(post.user_id),
@@ -610,7 +617,8 @@
                     decrypted_url_preview={get_decrypted_url_preview(post, @current_user, @key)}
                     stats={
                       %{
-                        replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
+                        replies:
+                          Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                         shares: post.reposts_count || 0,
                         likes: post.favs_count || 0
                       }
@@ -641,10 +649,26 @@
             </div>
 
             <%!-- Load more read posts button --%>
-            <div :if={@read_posts_expanded && calculate_remaining_read_posts(@timeline_counts, @unread_counts, @active_tab, @loaded_read_posts_count) > 0} class="pt-4">
+            <div
+              :if={
+                @read_posts_expanded &&
+                  calculate_remaining_read_posts(
+                    @timeline_counts,
+                    @unread_counts,
+                    @active_tab,
+                    @loaded_read_posts_count
+                  ) > 0
+              }
+              class="pt-4"
+            >
               <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
                 remaining_count={
-                  calculate_remaining_read_posts(@timeline_counts, @unread_counts, @active_tab, @loaded_read_posts_count)
+                  calculate_remaining_read_posts(
+                    @timeline_counts,
+                    @unread_counts,
+                    @active_tab,
+                    @loaded_read_posts_count
+                  )
                 }
                 load_count={@options.post_per_page}
                 loading={@load_more_loading}

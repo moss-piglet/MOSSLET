@@ -6197,16 +6197,31 @@ defmodule MossletWeb.DesignSystem do
           <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-300/20 rounded-full blur-2xl" />
           <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 bg-teal-200/10 rounded-full blur-3xl rotate-12" />
           <svg
-            class="absolute inset-0 w-full h-full opacity-[0.15]"
-            viewBox="0 0 100 100"
+            class="absolute inset-0 w-full h-full"
+            viewBox="0 0 800 200"
             preserveAspectRatio="none"
           >
-            <defs>
-              <pattern id="grid-pattern" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" stroke-width="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100" height="100" fill="url(#grid-pattern)" class="text-white/40" />
+            <path
+              d="M0 120 Q200 80 400 120 T800 100"
+              fill="none"
+              stroke="white"
+              stroke-width="1"
+              opacity="0.2"
+            />
+            <path
+              d="M0 150 Q250 110 500 150 T800 130"
+              fill="none"
+              stroke="white"
+              stroke-width="0.8"
+              opacity="0.15"
+            />
+            <path
+              d="M0 80 Q150 50 350 80 T800 60"
+              fill="none"
+              stroke="white"
+              stroke-width="0.6"
+              opacity="0.1"
+            />
           </svg>
         </div>
 
@@ -12197,13 +12212,16 @@ defmodule MossletWeb.DesignSystem do
               <% end %>
             </span>
 
-            <div :if={!@expanded} class={[
-              "flex items-center justify-center w-6 h-6 rounded-full",
-              "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
-              "group-hover:from-emerald-100 group-hover:to-teal-50",
-              "dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
-              "transition-all duration-300"
-            ]}>
+            <div
+              :if={!@expanded}
+              class={[
+                "flex items-center justify-center w-6 h-6 rounded-full",
+                "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
+                "group-hover:from-emerald-100 group-hover:to-teal-50",
+                "dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
+                "transition-all duration-300"
+              ]}
+            >
               <.phx_icon
                 name="hero-eye"
                 class={[
@@ -12217,7 +12235,11 @@ defmodule MossletWeb.DesignSystem do
         </button>
       </div>
 
-      <div :if={@expanded && !@loading} class="absolute left-0 right-0 bottom-0 flex items-center" aria-hidden="true">
+      <div
+        :if={@expanded && !@loading}
+        class="absolute left-0 right-0 bottom-0 flex items-center"
+        aria-hidden="true"
+      >
         <div class="w-full h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent dark:via-emerald-600/40 animate-pulse" />
       </div>
     </div>
