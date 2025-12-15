@@ -589,6 +589,224 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Counts replies to the user's own posts that have not been read yet,
+  plus replies to the user's own replies (nested replies).
+  Used for the in-app notification count on reply buttons.
+  """
+  def count_unread_replies_for_user(user) do
+    direct_to_posts = count_unread_direct_replies_for_user(user)
+    to_user_replies = count_unread_replies_to_user_replies(user)
+    direct_to_posts + to_user_replies
+  end
+
+  defp count_unread_direct_replies_for_user(user) do
+    Reply
+    |> join(:inner, [r], p in Post, on: r.post_id == p.id)
+    |> where([r, p], p.user_id == ^user.id)
+    |> where([r, p], r.user_id != ^user.id)
+    |> where([r, p], is_nil(r.read_at))
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Returns a map of post_id => unread_reply_count for posts owned by the user.
+  Only counts replies from other users that have not been read yet.
+  Also includes replies to the user's own replies (nested replies) on any post.
+  """
+  def count_unread_replies_by_post(user) do
+    direct_replies = count_unread_direct_replies_by_post(user)
+    nested_replies = count_unread_replies_to_user_replies_by_post(user)
+    merge_reply_counts(direct_replies, nested_replies)
+  end
+
+  defp count_unread_direct_replies_by_post(user) do
+    Reply
+    |> join(:inner, [r], p in Post, on: r.post_id == p.id)
+    |> where([r, p], p.user_id == ^user.id)
+    |> where([r, p], r.user_id != ^user.id)
+    |> where([r, p], is_nil(r.read_at))
+    |> where([r, p], is_nil(r.parent_reply_id))
+    |> group_by([r, p], r.post_id)
+    |> select([r, p], {r.post_id, count(r.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  defp merge_reply_counts(map1, map2) do
+    Map.merge(map1, map2, fn _key, v1, v2 -> v1 + v2 end)
+  end
+
+  @doc """
+  Counts unread replies to the user's own replies (nested replies).
+  This notifies users when someone replies to their reply on any post.
+  """
+  def count_unread_replies_to_user_replies(user) do
+    Reply
+    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+    |> where([r, parent], parent.user_id == ^user.id)
+    |> where([r, parent], r.user_id != ^user.id)
+    |> where([r, parent], is_nil(r.read_at))
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Returns a map of parent_reply_id => unread_count for replies to the user's own replies.
+  Used to show unread indicators on nested reply toggle buttons.
+  """
+  def count_unread_nested_replies_by_parent(user) do
+    Reply
+    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+    |> where([r, parent], parent.user_id == ^user.id)
+    |> where([r, parent], r.user_id != ^user.id)
+    |> where([r, parent], is_nil(r.read_at))
+    |> group_by([r, parent], r.parent_reply_id)
+    |> select([r, parent], {r.parent_reply_id, count(r.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc """
+  Marks all unread replies to a specific parent reply as read.
+  Called when user expands a nested reply thread.
+  """
+  def mark_nested_replies_read_for_parent(parent_reply_id, user_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {count, _} =
+      Reply
+      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+      |> where([r, parent], r.parent_reply_id == ^parent_reply_id)
+      |> where([r, parent], parent.user_id == ^user_id)
+      |> where([r, parent], r.user_id != ^user_id)
+      |> where([r, parent], is_nil(r.read_at))
+      |> Repo.update_all(set: [read_at: now])
+
+    count
+  end
+
+  @doc """
+  Returns a map of post_id => unread_nested_reply_count for posts containing
+  replies by the user that have been replied to by others.
+  """
+  def count_unread_replies_to_user_replies_by_post(user) do
+    Reply
+    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+    |> where([r, parent], parent.user_id == ^user.id)
+    |> where([r, parent], r.user_id != ^user.id)
+    |> where([r, parent], is_nil(r.read_at))
+    |> group_by([r, parent], r.post_id)
+    |> select([r, parent], {r.post_id, count(r.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc """
+  Counts unread nested replies (replies to user's replies) for a specific post.
+  Returns the count of unread nested replies on that post.
+  """
+  def count_unread_nested_replies_for_post(post_id, user_id) do
+    Reply
+    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+    |> where([r, parent], r.post_id == ^post_id)
+    |> where([r, parent], parent.user_id == ^user_id)
+    |> where([r, parent], r.user_id != ^user_id)
+    |> where([r, parent], is_nil(r.read_at))
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Marks all unread replies to a specific post as read.
+  This includes:
+  - Direct replies to posts the user owns
+  - Replies to the user's own replies on that post (nested replies)
+  Returns the number of replies marked as read.
+  """
+  def mark_replies_read_for_post(post_id, user_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    direct_count = mark_direct_replies_read_for_post(post_id, user_id, now)
+    nested_count = mark_nested_replies_read_for_post(post_id, user_id, now)
+
+    direct_count + nested_count
+  end
+
+  @doc """
+  Marks only top-level (direct) unread replies to a specific post as read.
+  Does NOT mark nested replies as read.
+  Returns the number of replies marked as read.
+  """
+  def mark_top_level_replies_read_for_post(post_id, user_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    mark_direct_replies_read_for_post(post_id, user_id, now)
+  end
+
+  defp mark_direct_replies_read_for_post(post_id, user_id, now) do
+    {count, _} =
+      Reply
+      |> join(:inner, [r], p in Post, on: r.post_id == p.id)
+      |> where([r, p], r.post_id == ^post_id)
+      |> where([r, p], p.user_id == ^user_id)
+      |> where([r, p], r.user_id != ^user_id)
+      |> where([r, p], is_nil(r.read_at))
+      |> where([r, p], is_nil(r.parent_reply_id))
+      |> Repo.update_all(set: [read_at: now])
+
+    count
+  end
+
+  defp mark_nested_replies_read_for_post(post_id, user_id, now) do
+    {count, _} =
+      Reply
+      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+      |> where([r, parent], r.post_id == ^post_id)
+      |> where([r, parent], parent.user_id == ^user_id)
+      |> where([r, parent], r.user_id != ^user_id)
+      |> where([r, parent], is_nil(r.read_at))
+      |> Repo.update_all(set: [read_at: now])
+
+    count
+  end
+
+  @doc """
+  Marks all unread replies to all of a user's posts as read,
+  plus replies to the user's own replies (nested replies).
+  Used when user views their replies/notifications page.
+  Returns the number of replies marked as read.
+  """
+  def mark_all_replies_read_for_user(user_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    direct_count = mark_all_direct_replies_read_for_user(user_id, now)
+    nested_count = mark_all_nested_replies_read_for_user(user_id, now)
+
+    direct_count + nested_count
+  end
+
+  defp mark_all_direct_replies_read_for_user(user_id, now) do
+    {count, _} =
+      Reply
+      |> join(:inner, [r], p in Post, on: r.post_id == p.id)
+      |> where([r, p], p.user_id == ^user_id)
+      |> where([r, p], r.user_id != ^user_id)
+      |> where([r, p], is_nil(r.read_at))
+      |> Repo.update_all(set: [read_at: now])
+
+    count
+  end
+
+  defp mark_all_nested_replies_read_for_user(user_id, now) do
+    {count, _} =
+      Reply
+      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
+      |> where([r, parent], parent.user_id == ^user_id)
+      |> where([r, parent], r.user_id != ^user_id)
+      |> where([r, parent], is_nil(r.read_at))
+      |> Repo.update_all(set: [read_at: now])
+
+    count
+  end
+
+  @doc """
   Returns a list of posts for the current_user that
   have not been read yet.
   """
@@ -1756,6 +1974,10 @@ defmodule Mosslet.Timeline do
 
   def get_reply!(id),
     do: Repo.get!(Reply, id) |> Repo.preload([:user, :post, :parent_reply, :child_replies])
+
+  def get_reply(id) do
+    Repo.get(Reply, id)
+  end
 
   # Helper function to calculate thread depth for nested replies
   defp calculate_thread_depth(attrs) do
@@ -3243,7 +3465,6 @@ defmodule Mosslet.Timeline do
   def create_reply(attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 
-    # Calculate thread depth for nested replies
     attrs = calculate_thread_depth(attrs)
 
     case Repo.transaction_on_primary(fn ->
@@ -3254,6 +3475,10 @@ defmodule Mosslet.Timeline do
         reply = reply |> Repo.preload([:user, :post, :parent_reply])
         conn = Accounts.get_connection_from_item(reply.post, user)
 
+        update_post_last_reply_at(reply.post)
+
+        maybe_queue_reply_notification(reply, user, opts[:key])
+
         {:ok, conn, reply}
         |> broadcast_reply(:reply_created)
 
@@ -3262,6 +3487,32 @@ defmodule Mosslet.Timeline do
 
       error ->
         error
+    end
+  end
+
+  defp update_post_last_reply_at(post) do
+    Repo.transaction_on_primary(fn ->
+      from(p in Post, where: p.id == ^post.id)
+      |> Repo.update_all(set: [last_reply_at: DateTime.utc_now()])
+    end)
+  end
+
+  defp maybe_queue_reply_notification(reply, replier, session_key) do
+    post_owner_id = reply.post.user_id
+
+    if post_owner_id != replier.id && session_key do
+      case GenServer.whereis(Mosslet.Notifications.ReplyNotificationsGenServer) do
+        pid when is_pid(pid) ->
+          Mosslet.Notifications.ReplyNotificationsGenServer.queue_reply_notification(
+            post_owner_id,
+            reply.id,
+            replier.id,
+            session_key
+          )
+
+        nil ->
+          :ok
+      end
     end
   end
 
@@ -3874,21 +4125,17 @@ defmodule Mosslet.Timeline do
           end)
 
         true ->
-          # For regular connections posts, use the existing logic
-          Enum.each(conn.user_connections, fn uconn ->
-            Enum.each(post.shared_users, fn _shared_user ->
-              Phoenix.PubSub.broadcast(
-                Mosslet.PubSub,
-                "conn_posts:#{uconn.reverse_user_id}",
-                {event, post}
-              )
+          all_recipient_ids =
+            conn.user_connections
+            |> Enum.flat_map(fn uconn -> [uconn.user_id, uconn.reverse_user_id] end)
+            |> Enum.uniq()
 
-              Phoenix.PubSub.broadcast(
-                Mosslet.PubSub,
-                "conn_posts:#{uconn.user_id}",
-                {event, post}
-              )
-            end)
+          Enum.each(all_recipient_ids, fn user_id ->
+            Phoenix.PubSub.broadcast(
+              Mosslet.PubSub,
+              "conn_posts:#{user_id}",
+              {event, post}
+            )
           end)
       end
 
@@ -3918,21 +4165,17 @@ defmodule Mosslet.Timeline do
           end)
 
         true ->
-          # For regular connections posts, use the existing logic
-          Enum.each(conn.user_connections, fn uconn ->
-            Enum.each(post.shared_users, fn _shared_user ->
-              Phoenix.PubSub.broadcast(
-                Mosslet.PubSub,
-                "conn_replies:#{uconn.user_id}",
-                {event, post, reply}
-              )
+          all_recipient_ids =
+            conn.user_connections
+            |> Enum.flat_map(fn uconn -> [uconn.user_id, uconn.reverse_user_id] end)
+            |> Enum.uniq()
 
-              Phoenix.PubSub.broadcast(
-                Mosslet.PubSub,
-                "conn_replies:#{uconn.reverse_user_id}",
-                {event, post, reply}
-              )
-            end)
+          Enum.each(all_recipient_ids, fn user_id ->
+            Phoenix.PubSub.broadcast(
+              Mosslet.PubSub,
+              "conn_replies:#{user_id}",
+              {event, post, reply}
+            )
           end)
       end
 

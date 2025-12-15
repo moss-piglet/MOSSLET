@@ -33,6 +33,7 @@ defmodule Mosslet.Timeline.Post do
     field :favs_count, :integer, default: 0
     field :reposts_count, :integer, default: 0
     field :repost, :boolean, default: false
+    field :last_reply_at, :utc_datetime
 
     field :visibility, Ecto.Enum,
       values: [:public, :private, :connections, :specific_groups, :specific_users],

@@ -4265,6 +4265,9 @@ defmodule MossletWeb.DesignSystem do
   attr :share_note, :string, default: nil, doc: "Personal note from the sender when sharing"
   # New: unread state
   attr :unread?, :boolean, default: false
+  attr :unread_replies_count, :integer, default: 0
+  attr :unread_nested_replies_by_parent, :map, default: %{}
+  attr :calm_notifications, :boolean, default: false
   attr :class, :any, default: ""
   # Content warning
   attr :content_warning?, :boolean, default: false
@@ -4976,6 +4979,7 @@ defmodule MossletWeb.DesignSystem do
             <button
               type="button"
               id={"content-warning-button-#{@post.id}"}
+              aria-label="Show content"
               phx-click={
                 JS.hide(
                   to: "#content-warning-#{@post.id}",
@@ -5340,13 +5344,24 @@ defmodule MossletWeb.DesignSystem do
               icon="hero-chat-bubble-oval-left"
               active_icon="hero-chat-bubble-oval-left-solid"
               count={Map.get(@stats, :replies, 0)}
+              notification_count={
+                if @calm_notifications && @post.user_id == @current_user.id,
+                  do: @unread_replies_count,
+                  else: 0
+              }
               label="Reply"
               color="emerald"
               icon_id={"reply-icon-#{@post_id}"}
               id={"reply-button-#{@post_id}"}
               phx-hook="TippyHook"
               data-tippy-content="Toggle reply composer"
-              phx-click={toggle_reply_section(@post_id)}
+              phx-click={
+                toggle_reply_section(
+                  @post_id,
+                  (@calm_notifications && @post.user_id == @current_user.id) and
+                    @unread_replies_count > 0
+                )
+              }
             />
             <.liquid_timeline_action
               :if={@can_repost}
@@ -5503,6 +5518,8 @@ defmodule MossletWeb.DesignSystem do
       show={true}
       current_user={@current_user}
       key={@key}
+      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
+      calm_notifications={@calm_notifications}
       class="mt-3"
     />
     """
@@ -5759,6 +5776,7 @@ defmodule MossletWeb.DesignSystem do
   attr :icon, :string, required: true
   attr :active_icon, :string, default: nil
   attr :count, :integer, default: 0
+  attr :notification_count, :integer, default: 0
   attr :label, :string, required: true
   attr :active, :boolean, default: false
   attr :color, :string, default: "slate", values: ~w(slate emerald amber rose)
@@ -5769,15 +5787,18 @@ defmodule MossletWeb.DesignSystem do
   attr :icon_id, :string, default: nil
   attr :repost_post_id, :string, default: nil
 
+  attr :id, :string, default: nil
+
   attr :rest, :global,
     include:
-      ~w(phx-click phx-value-id phx-value-url data-confirm id data-composer-open data-expanded phx-hook data-tippy-content)
+      ~w(phx-click phx-value-id phx-value-url data-confirm data-composer-open data-expanded phx-hook data-tippy-content)
 
   def liquid_timeline_action(assigns) do
     assigns = assign_new(assigns, :has_active_icon, fn -> assigns[:active_icon] != nil end)
 
     ~H"""
     <button
+      id={@id}
       class={[
         "group/action relative flex items-center gap-2 px-3 py-2 rounded-xl",
         "transition-all duration-200 ease-out active:scale-95",
@@ -5798,6 +5819,20 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <div class="relative flex items-center gap-2">
+        <%!-- Notification badge for unread replies --%>
+        <span
+          :if={@notification_count > 0}
+          id={"notification-badge-#{@id}"}
+          class={[
+            "absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center",
+            "min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
+            "bg-gradient-to-r from-emerald-500 to-teal-500 text-white",
+            "shadow-sm shadow-emerald-500/30",
+            "animate-pulse"
+          ]}
+        >
+          {if @notification_count > 99, do: "99+", else: @notification_count}
+        </span>
         <%!-- Default icon (shown when not expanded) --%>
         <.phx_icon
           name={@icon}
@@ -7532,6 +7567,8 @@ defmodule MossletWeb.DesignSystem do
   attr :current_user, :map, required: true
   attr :key, :string, default: nil
   attr :reply_count, :integer, default: 0
+  attr :unread_nested_replies_by_parent, :map, default: %{}
+  attr :calm_notifications, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_collapsible_reply_thread(assigns) do
@@ -7587,6 +7624,8 @@ defmodule MossletWeb.DesignSystem do
               depth={0}
               max_depth={3}
               post_id={@post_id}
+              unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
+              calm_notifications={@calm_notifications}
             />
           </div>
 
@@ -7618,6 +7657,8 @@ defmodule MossletWeb.DesignSystem do
   attr :depth, :integer, default: 0
   attr :max_depth, :integer, default: 3
   attr :post_id, :string, default: nil
+  attr :unread_nested_replies_by_parent, :map, default: %{}
+  attr :calm_notifications, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_nested_reply_item(assigns) do
@@ -7640,17 +7681,56 @@ defmodule MossletWeb.DesignSystem do
         <button
           type="button"
           id={"nested-toggle-#{@reply.id}"}
-          phx-click={toggle_nested_replies(@reply.id)}
+          phx-click={
+            toggle_nested_replies(
+              @reply.id,
+              @post_id,
+              if(@calm_notifications,
+                do: Map.get(@unread_nested_replies_by_parent, @reply.id, 0),
+                else: 0
+              )
+            )
+          }
+          phx-click-away-mark-read={
+            if @calm_notifications && Map.get(@unread_nested_replies_by_parent, @reply.id, 0) > 0,
+              do: "mark_nested_replies_read"
+          }
+          phx-value-reply-id={@reply.id}
+          phx-value-post-id={@post_id}
           class="group flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200"
           aria-expanded="false"
           aria-controls={"nested-children-#{@reply.id}"}
         >
-          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700/50 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors duration-200">
+          <span
+            id={"collapse-indicator-#{@reply.id}"}
+            class={[
+              "flex items-center justify-center w-5 h-5 rounded-full transition-colors duration-200",
+              if(@calm_notifications && Map.get(@unread_nested_replies_by_parent, @reply.id, 0) > 0,
+                do: "bg-emerald-500 text-white",
+                else:
+                  "bg-slate-100 dark:bg-slate-700/50 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30"
+              )
+            ]}
+          >
             <.phx_icon
               name="hero-chevron-down"
-              class="w-3 h-3 transition-transform duration-200 -rotate-90"
+              class={[
+                "w-3 h-3 transition-transform duration-200 -rotate-90",
+                @calm_notifications && Map.get(@unread_nested_replies_by_parent, @reply.id, 0) > 0 &&
+                  "hidden"
+              ]}
               id={"collapse-icon-#{@reply.id}"}
             />
+            <span
+              id={"unread-badge-#{@reply.id}"}
+              class={[
+                "text-[10px] font-bold",
+                (!@calm_notifications || Map.get(@unread_nested_replies_by_parent, @reply.id, 0) == 0) &&
+                  "hidden"
+              ]}
+            >
+              {Map.get(@unread_nested_replies_by_parent, @reply.id, 0)}
+            </span>
           </span>
           <span id={"collapse-text-#{@reply.id}"} class="hidden">
             Hide {length(get_child_replies(@reply))} {if length(get_child_replies(@reply)) == 1,
@@ -7658,9 +7738,25 @@ defmodule MossletWeb.DesignSystem do
               else: "replies"}
           </span>
           <span id={"expand-text-#{@reply.id}"}>
-            Show {length(get_child_replies(@reply))} {if length(get_child_replies(@reply)) == 1,
-              do: "reply",
-              else: "replies"}
+            <span
+              id={"expand-unread-text-#{@reply.id}"}
+              class={[
+                (!@calm_notifications || Map.get(@unread_nested_replies_by_parent, @reply.id, 0) == 0) &&
+                  "hidden"
+              ]}
+            >
+              {Map.get(@unread_nested_replies_by_parent, @reply.id, 0)} new
+            </span>
+            <span
+              id={"expand-normal-text-#{@reply.id}"}
+              class={[
+                @calm_notifications && Map.get(@unread_nested_replies_by_parent, @reply.id, 0) > 0 &&
+                  "hidden"
+              ]}
+            >
+              Show {length(get_child_replies(@reply))}
+            </span>
+            {if length(get_child_replies(@reply)) == 1, do: "reply", else: "replies"}
           </span>
         </button>
       </div>
@@ -7693,6 +7789,8 @@ defmodule MossletWeb.DesignSystem do
               depth={@depth + 1}
               max_depth={@max_depth}
               post_id={@post_id}
+              unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
+              calm_notifications={@calm_notifications}
             />
           </div>
         </div>
@@ -8217,35 +8315,71 @@ defmodule MossletWeb.DesignSystem do
     end
   end
 
-  defp toggle_reply_section(post_id) do
-    JS.toggle(
-      to: "#reply-composer-#{post_id}",
-      in: {"nested-reply-expand-enter", "", ""},
-      out: {"nested-reply-expand-leave", "", ""},
-      time: 300
-    )
-    |> JS.toggle(
-      to: "#reply-thread-#{post_id}",
-      in: {"nested-reply-expand-enter", "", ""},
-      out: {"nested-reply-expand-leave", "", ""},
-      time: 300
-    )
-    |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{post_id}")
-    |> JS.toggle_class("reply-expanded", to: "#reply-button-#{post_id}")
-    |> JS.toggle_attribute({"data-expanded", "true", "false"}, to: "#reply-button-#{post_id}")
+  defp toggle_reply_section(post_id, mark_replies_read?) do
+    js =
+      JS.toggle(
+        to: "#reply-composer-#{post_id}",
+        in: {"nested-reply-expand-enter", "", ""},
+        out: {"nested-reply-expand-leave", "", ""},
+        time: 300
+      )
+      |> JS.toggle(
+        to: "#reply-thread-#{post_id}",
+        in: {"nested-reply-expand-enter", "", ""},
+        out: {"nested-reply-expand-leave", "", ""},
+        time: 300
+      )
+      |> JS.toggle_class("ring-2 ring-emerald-300", to: "#timeline-card-#{post_id}")
+      |> JS.toggle_class("reply-expanded", to: "#reply-button-#{post_id}")
+      |> JS.toggle_attribute({"data-expanded", "true", "false"}, to: "#reply-button-#{post_id}")
+
+    if mark_replies_read? do
+      js
+      |> JS.push("mark_replies_read", value: %{post_id: post_id})
+    else
+      js
+    end
   end
 
-  defp toggle_nested_replies(reply_id) do
-    JS.toggle(
-      to: "#nested-children-#{reply_id}",
-      in: {"nested-reply-expand-enter", "", ""},
-      out: {"nested-reply-expand-leave", "", ""},
-      time: 300
-    )
-    |> JS.toggle_class("hidden", to: "#collapse-text-#{reply_id}")
-    |> JS.toggle_class("hidden", to: "#expand-text-#{reply_id}")
-    |> JS.toggle_class("-rotate-90", to: "#collapse-icon-#{reply_id}")
-    |> JS.toggle_attribute({"aria-expanded", "true", "false"}, to: "#nested-toggle-#{reply_id}")
+  defp toggle_nested_replies(reply_id, post_id, unread_count) do
+    js =
+      JS.toggle(
+        to: "#nested-children-#{reply_id}",
+        in: {"nested-reply-expand-enter", "", ""},
+        out: {"nested-reply-expand-leave", "", ""},
+        time: 300
+      )
+      |> JS.toggle_class("hidden", to: "#collapse-text-#{reply_id}")
+      |> JS.toggle_class("hidden", to: "#expand-text-#{reply_id}")
+      |> JS.toggle_class("-rotate-90", to: "#collapse-icon-#{reply_id}")
+      |> JS.toggle_attribute({"aria-expanded", "true", "false"}, to: "#nested-toggle-#{reply_id}")
+
+    js =
+      if unread_count > 0 do
+        js
+        |> JS.hide(to: "#unread-badge-#{reply_id}")
+        |> JS.show(to: "#collapse-icon-#{reply_id}")
+        |> JS.remove_class("bg-emerald-500 text-white",
+          to: "#collapse-indicator-#{reply_id}"
+        )
+        |> JS.add_class(
+          "bg-slate-100 dark:bg-slate-700/50 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30",
+          to: "#collapse-indicator-#{reply_id}"
+        )
+        |> JS.hide(to: "#expand-unread-text-#{reply_id}")
+        |> JS.show(to: "#expand-normal-text-#{reply_id}")
+        |> JS.push("mark_nested_replies_read",
+          value: %{reply_id: reply_id, post_id: post_id, unread_count: unread_count}
+        )
+        |> JS.dispatch("mosslet:decrement-badge",
+          to: "#notification-badge-reply-button-#{post_id}",
+          detail: %{decrement: unread_count}
+        )
+      else
+        js
+      end
+
+    js
   end
 
   defp count_loaded_replies(replies) when is_list(replies) do

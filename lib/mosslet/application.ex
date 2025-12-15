@@ -53,6 +53,8 @@ defmodule Mosslet.Application do
         Mosslet.Notifications.EmailNotificationsProcessor,
         # Start the Email Notifications GenServer (rate-limited email processing)
         {Mosslet.Notifications.EmailNotificationsGenServer, []},
+        # Start the Reply Notifications GenServer (rate-limited reply email processing)
+        {Mosslet.Notifications.ReplyNotificationsGenServer, []},
         # Start the Timeline GenServer (background timeline processing)
         {Mosslet.Timeline.Performance.TimelineGenServer, []},
         # Start the Storj Task Supervisor,

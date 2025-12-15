@@ -24,6 +24,7 @@ defmodule Mosslet.Timeline.Reply do
     field :favs_list, {:array, :binary_id}, default: []
     field :favs_count, :integer, default: 0
     field :thread_depth, :integer, default: 0
+    field :read_at, :utc_datetime
 
     belongs_to :post, Post
     belongs_to :user, User
@@ -64,6 +65,11 @@ defmodule Mosslet.Timeline.Reply do
       :favs_list
     ])
     |> validate_required([:favs_count, :favs_list])
+  end
+
+  def read_changeset(reply, attrs \\ %{}) do
+    reply
+    |> cast(attrs, [:read_at])
   end
 
   defp add_username_hash(changeset) do

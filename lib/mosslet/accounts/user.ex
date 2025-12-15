@@ -60,6 +60,8 @@ defmodule Mosslet.Accounts.User do
     field :calm_notifications, :boolean, default: false
     field :email_notifications, :boolean, default: false
     field :last_email_notification_received_at, :utc_datetime
+    field :last_reply_notification_received_at, :utc_datetime
+    field :last_replies_seen_at, :utc_datetime
 
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
@@ -1448,6 +1450,25 @@ defmodule Mosslet.Accounts.User do
     user
     |> cast(attrs, [:last_email_notification_received_at])
     |> validate_required([:last_email_notification_received_at])
+  end
+
+  @doc """
+  A user changeset for updating when the user last received a reply email notification.
+  Used for daily email rate limiting.
+  """
+  def reply_notification_received_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:last_reply_notification_received_at])
+    |> validate_required([:last_reply_notification_received_at])
+  end
+
+  @doc """
+  A user changeset for updating when the user last viewed replies to their posts.
+  Used for in-app notification count.
+  """
+  def replies_seen_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:last_replies_seen_at])
   end
 
   @doc """

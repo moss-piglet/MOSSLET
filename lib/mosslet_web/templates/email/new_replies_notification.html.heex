@@ -1,0 +1,63 @@
+<h1>New Replies on MOSSLET 🌱</h1>
+
+<p>
+  Oh, hey! ✌️🌿 You have <strong>{@reply_count}</strong>
+  new {if @reply_count == 1, do: "reply", else: "replies"} to your posts waiting for you on MOSSLET.
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.gray_box>
+  <div style="text-align: center;">
+    <div style="font-size: 32px; margin-bottom: 12px;">💬</div>
+    <strong style="font-size: 18px; color: #065F46;">
+      {@reply_count} New {if @reply_count == 1, do: "Reply", else: "Replies"}
+    </strong>
+    <p style="margin: 8px 0 0 0; color: #6B7280; font-size: 14px;">
+      People are engaging with your posts
+    </p>
+  </div>
+</EmailComponents.gray_box>
+
+<EmailComponents.gap />
+
+<p>
+  We believe in privacy-first notifications. That's why we don't reveal who replied or
+  share any reply content in this email. Your conversations stay private until you
+  choose to check them.
+</p>
+
+<EmailComponents.status type="info">
+  <strong>🔒 Privacy-First:</strong>
+  This email only tells you that you have new replies. No personal details,
+  reply content, or replier information is included to protect everyone's privacy.
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<EmailComponents.button_centered to={@timeline_url} color="teal" size="lg">
+  View Your Timeline
+</EmailComponents.button_centered>
+
+<EmailComponents.gap />
+
+<p style="text-align: center; color: #6B7280; font-size: 14px;">
+  <strong>Calm by Design:</strong> This is your daily reply digest.
+  You'll receive a maximum of 1 reply notification per day, keeping your inbox peaceful.
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    You're receiving this because you enabled email notifications in your MOSSLET settings.
+    You can disable email notifications anytime by visiting your account settings.
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you're having trouble clicking the button above, copy and paste this URL into your web browser:
+    <a href={@timeline_url} style="color: #0D7377; text-decoration: underline;">
+      {@timeline_url}
+    </a>
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

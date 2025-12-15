@@ -1034,6 +1034,38 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  def update_user_reply_notification_received_at(user, timestamp \\ DateTime.utc_now()) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.reply_notification_received_changeset(%{
+             last_reply_notification_received_at: timestamp
+           })
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+    end
+  end
+
+  def update_user_replies_seen_at(user, timestamp \\ DateTime.utc_now()) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.replies_seen_changeset(%{
+             last_replies_seen_at: timestamp
+           })
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, updated_user}} ->
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+    end
+  end
+
   def update_user_profile(user, attrs \\ %{}, opts \\ []) do
     conn = get_connection!(user.connection.id)
     uconns = get_all_user_connections(user.id)

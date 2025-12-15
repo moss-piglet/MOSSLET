@@ -53,6 +53,15 @@
                     unread: 0
                   },
                   %{
+                    key: "invites",
+                    label: "Invites",
+                    count: @pending_groups_count,
+                    icon: "hero-gift",
+                    color: "emerald",
+                    unread:
+                      if(@current_user.calm_notifications, do: @pending_groups_count, else: 0)
+                  },
+                  %{
                     key: "discover",
                     label: "Discover",
                     count: 0,
@@ -67,20 +76,6 @@
             </div>
 
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4 xl:justify-end xl:gap-4">
-              <MossletWeb.DesignSystem.liquid_button
-                :if={!Enum.empty?(@streams.pending_groups.inserts) || @any_pending_groups?}
-                id="new-group-invites-button"
-                data-tippy-content="People have invited you to join a circle. Privately greet them to see whether you wish to join or decline."
-                phx-hook="TippyHook"
-                patch={~p"/app/circles/greet"}
-                icon="hero-gift"
-                color="emerald"
-                shimmer="page"
-                class="w-full sm:w-auto justify-center"
-              >
-                You've got Invites
-              </MossletWeb.DesignSystem.liquid_button>
-
               <MossletWeb.DesignSystem.liquid_button
                 patch={Routes.group_index_path(@socket, :new)}
                 icon="hero-circle-stack"
@@ -175,6 +170,133 @@
           />
         </div>
 
+        <div :if={@active_tab == "invites"} class="p-4 sm:p-6">
+          <div class="flex items-center gap-3 pb-4 mb-4 border-b border-slate-200/60 dark:border-slate-700/60">
+            <div class="p-2.5 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+              <.phx_icon name="hero-gift" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Circle Invitations
+              </h2>
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                Review invitations and decide which circles to join
+              </p>
+            </div>
+          </div>
+
+          <div id="groups-invites-list" phx-update="stream" class="space-y-3">
+            <%= for {id, group} <- @streams.pending_groups do %>
+              <% user_group = get_user_group(group, @current_user) %>
+              <% uconn =
+                get_current_user_connection_between_users!(group.user_id, @current_user.id) %>
+              <MossletWeb.DesignSystem.liquid_pending_group_card
+                id={id}
+                name={decr_item(group.name, @current_user, user_group.key, @key, group)}
+                description={
+                  decr_item(group.description, @current_user, user_group.key, @key, group)
+                }
+                inviter_name={
+                  decr_uconn(uconn.connection.username, @current_user, uconn.key, @key)
+                }
+                inserted_at={group.inserted_at}
+                requires_password={group.require_password?}
+              >
+                <:members>
+                  <%= for ug <- Enum.take(Enum.filter(group.user_groups, & &1.confirmed_at), 5) do %>
+                    <% member_uconn =
+                      get_uconn_for_users(
+                        get_user_from_user_group_id(ug.id),
+                        @current_user
+                      ) %>
+
+                    <.phx_avatar
+                      :if={ug.user_id != @current_user.id && member_uconn}
+                      src={get_user_avatar(member_uconn, @key)}
+                      alt="group member"
+                      class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
+                    />
+
+                    <.phx_avatar
+                      :if={ug.user_id != @current_user.id && !member_uconn}
+                      src={
+                        ~p"/images/groups/#{decr_item(ug.avatar_img, @current_user, get_user_group(group, @current_user).key, @key, group)}"
+                      }
+                      alt="group member"
+                      class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
+                    />
+
+                    <.phx_avatar
+                      :if={ug.user_id == @current_user.id}
+                      src={maybe_get_user_avatar(@current_user, @key)}
+                      alt="you"
+                      class="h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700"
+                    />
+                  <% end %>
+                  <div
+                    :if={Enum.count(group.user_groups, & &1.confirmed_at) > 5}
+                    class="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400"
+                  >
+                    +{Enum.count(group.user_groups, & &1.confirmed_at) - 5}
+                  </div>
+                </:members>
+                <:actions>
+                  <MossletWeb.DesignSystem.liquid_button
+                    :if={
+                      can_delete_user_group?(get_user_group(group, @current_user), @current_user)
+                    }
+                    phx-click={
+                      JS.push("delete-user-group",
+                        value: %{id: get_user_group(group, @current_user).id}
+                      )
+                      |> hide("##{id}")
+                    }
+                    data-confirm="Are you sure you want to decline this invitation?"
+                    size="sm"
+                    variant="secondary"
+                    color="rose"
+                  >
+                    Decline
+                  </MossletWeb.DesignSystem.liquid_button>
+
+                  <MossletWeb.DesignSystem.liquid_button
+                    :if={group.require_password?}
+                    phx-click={JS.navigate(~p"/app/circles/#{group}/join-password")}
+                    size="sm"
+                    color="emerald"
+                    icon="hero-lock-closed"
+                  >
+                    Join Circle
+                  </MossletWeb.DesignSystem.liquid_button>
+
+                  <MossletWeb.DesignSystem.liquid_button
+                    :if={!group.require_password?}
+                    phx-click={JS.patch(~p"/app/circles/#{group}/join")}
+                    size="sm"
+                    color="emerald"
+                    icon="hero-check"
+                  >
+                    Join Circle
+                  </MossletWeb.DesignSystem.liquid_button>
+                </:actions>
+              </MossletWeb.DesignSystem.liquid_pending_group_card>
+            <% end %>
+
+            <div
+              :if={@pending_groups_count == 0}
+              id="invites-empty"
+              class="only:block hidden py-8 text-center"
+            >
+              <MossletWeb.DesignSystem.liquid_empty_state
+                icon="hero-gift"
+                title="No pending invitations"
+                description="You're all caught up! When someone invites you to a circle, it will appear here."
+                color="emerald"
+              />
+            </div>
+          </div>
+        </div>
+
         <div :if={@active_tab == "discover"} class="p-4 sm:p-6">
           <div class="mb-6">
             <form phx-change="search_public_groups" phx-submit="search_public_groups">
@@ -253,31 +375,6 @@
         current_user={@current_user}
         key={@key}
         user_connections={@user_connections}
-      />
-    </MossletWeb.DesignSystem.liquid_modal>
-
-    <MossletWeb.DesignSystem.liquid_modal
-      :if={@live_action in [:greet]}
-      id="pending-group-modal"
-      show
-      size="lg"
-      on_cancel={JS.patch(~p"/app/circles")}
-    >
-      <:title>Circle Invitations</:title>
-
-      <.live_component
-        module={MossletWeb.GroupLive.PendingComponent}
-        id={:greet}
-        title={@page_title}
-        action={@live_action}
-        patch={~p"/app/circles"}
-        current_user={@current_user}
-        key={@key}
-        user_connections={@user_connections}
-        stream={@streams.pending_groups}
-        row_click={fn _any -> nil end}
-        any_pending_groups?={@any_pending_groups?}
-        live_flash={@flash}
       />
     </MossletWeb.DesignSystem.liquid_modal>
   </div>

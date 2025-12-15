@@ -639,6 +639,34 @@ window.addEventListener("phx:remove-el", (e) =>
   document.getElementById(e.detail.id).remove()
 );
 
+window.addEventListener("mosslet:decrement-badge", (e) => {
+  const badge = e.target;
+  if (!badge) return;
+  
+  const decrement = e.detail?.decrement || 1;
+  const currentCount = parseInt(badge.textContent, 10) || 0;
+  const newCount = Math.max(0, currentCount - decrement);
+  
+  if (newCount <= 0) {
+    badge.style.display = "none";
+  } else {
+    badge.textContent = newCount > 99 ? "99+" : newCount;
+  }
+});
+
+window.addEventListener("phx:update-reply-badge", (e) => {
+  const { post_id, count } = e.detail;
+  const badge = document.getElementById(`notification-badge-reply-button-${post_id}`);
+  if (!badge) return;
+  
+  if (count <= 0) {
+    badge.style.display = "none";
+  } else {
+    badge.style.display = "";
+    badge.textContent = count > 99 ? "99+" : count;
+  }
+});
+
 window.addEventListener("phx:clipcopy", (event) => {
   if ("clipboard" in navigator) {
     var text;

@@ -37,7 +37,7 @@
                     count: @arrivals_count,
                     icon: "hero-inbox-arrow-down",
                     color: "emerald",
-                    unread: @arrivals_count
+                    unread: if(@current_user.calm_notifications, do: @arrivals_count, else: 0)
                   }
                 ]}
                 active_tab={@active_tab || "connections"}

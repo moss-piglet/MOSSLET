@@ -176,6 +176,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:adding_shared_user, nil)
       |> assign(:loaded_replies_counts, %{})
       |> assign(:loaded_nested_replies, %{})
+      |> assign(:unread_replies_by_post, %{})
+      |> assign(:unread_nested_replies_by_parent, %{})
       |> assign(:upload_stages, %{})
       |> assign(:completed_uploads, [])
       |> assign(:composer_trix_key, nil)
@@ -338,6 +340,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
         timeline_counts = calculate_timeline_counts(user, options_with_content_filters)
         unread_counts = calculate_unread_counts(user, options_with_content_filters)
+        unread_replies_by_post = Timeline.count_unread_replies_by_post(user)
+        unread_nested_replies_by_parent = Timeline.count_unread_nested_replies_by_parent(user)
         post_count = Timeline.timeline_post_count(user, options)
 
         # Return synchronized data as a single unit
@@ -345,6 +349,8 @@ defmodule MossletWeb.TimelineLive.Index do
           posts: posts,
           timeline_counts: timeline_counts,
           unread_counts: unread_counts,
+          unread_replies_by_post: unread_replies_by_post,
+          unread_nested_replies_by_parent: unread_nested_replies_by_parent,
           post_count: post_count,
           loaded_posts_count: length(posts),
           current_page: options.post_page,
@@ -633,7 +639,10 @@ defmodule MossletWeb.TimelineLive.Index do
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
+      socket = update_unread_counts_for_new_reply(socket, post, reply, current_user)
+
       key = socket.assigns.key
+
       current_user = Accounts.get_user_with_preloads(current_user.id)
       reply_user = Accounts.get_user_with_preloads(reply.user_id)
       status_info = get_user_status_info(reply_user, current_user, key)
@@ -659,6 +668,7 @@ defmodule MossletWeb.TimelineLive.Index do
     else
       socket =
         socket
+        |> update_unread_counts_for_new_reply(post, reply, current_user)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_subtle_tab_indicator(current_user, options)
 
@@ -2817,12 +2827,16 @@ defmodule MossletWeb.TimelineLive.Index do
 
         timeline_counts = calculate_timeline_counts(user, options_with_content_filters)
         unread_counts = calculate_unread_counts(user, options_with_content_filters)
+        unread_replies_by_post = Timeline.count_unread_replies_by_post(user)
+        unread_nested_replies_by_parent = Timeline.count_unread_nested_replies_by_parent(user)
 
         # Return synchronized data
         %{
           posts: posts,
           timeline_counts: timeline_counts,
           unread_counts: unread_counts,
+          unread_replies_by_post: unread_replies_by_post,
+          unread_nested_replies_by_parent: unread_nested_replies_by_parent,
           post_count: Timeline.timeline_post_count(user, options),
           loaded_posts_count: length(posts),
           current_page: 1,
@@ -2897,6 +2911,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
         timeline_counts = calculate_timeline_counts(user, options_with_content_filters)
         unread_counts = calculate_unread_counts(user, options_with_content_filters)
+        unread_replies_by_post = Timeline.count_unread_replies_by_post(user)
+        unread_nested_replies_by_parent = Timeline.count_unread_nested_replies_by_parent(user)
         post_count = Timeline.timeline_post_count(user, options)
 
         # Return synchronized data
@@ -2904,6 +2920,8 @@ defmodule MossletWeb.TimelineLive.Index do
           posts: posts,
           timeline_counts: timeline_counts,
           unread_counts: unread_counts,
+          unread_replies_by_post: unread_replies_by_post,
+          unread_nested_replies_by_parent: unread_nested_replies_by_parent,
           post_count: post_count,
           loaded_posts_count: length(posts),
           current_page: options.post_page,
@@ -3968,6 +3986,69 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  def handle_event("mark_replies_read", %{"post_id" => post_id}, socket) do
+    current_user = socket.assigns.current_user
+    Timeline.mark_top_level_replies_read_for_post(post_id, current_user.id)
+
+    remaining_nested_count =
+      Timeline.count_unread_nested_replies_for_post(post_id, current_user.id)
+
+    unread_replies_by_post = socket.assigns.unread_replies_by_post
+
+    updated_map =
+      if remaining_nested_count > 0 do
+        Map.put(unread_replies_by_post, post_id, remaining_nested_count)
+      else
+        Map.delete(unread_replies_by_post, post_id)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:unread_replies_by_post, updated_map)
+     |> push_event("update-reply-badge", %{
+       post_id: post_id,
+       count: remaining_nested_count
+     })}
+  end
+
+  def handle_event(
+        "mark_nested_replies_read",
+        %{"reply_id" => reply_id, "post_id" => post_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_user
+    marked_count = Map.get(socket.assigns.unread_nested_replies_by_parent, reply_id, 0)
+    Timeline.mark_nested_replies_read_for_parent(reply_id, current_user.id)
+
+    unread_nested_replies_by_parent = socket.assigns.unread_nested_replies_by_parent
+    updated_nested_map = Map.delete(unread_nested_replies_by_parent, reply_id)
+
+    unread_replies_by_post = socket.assigns.unread_replies_by_post
+    current_post_count = Map.get(unread_replies_by_post, post_id, 0)
+    new_post_count = max(0, current_post_count - marked_count)
+
+    updated_post_map =
+      if new_post_count > 0 do
+        Map.put(unread_replies_by_post, post_id, new_post_count)
+      else
+        Map.delete(unread_replies_by_post, post_id)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:unread_nested_replies_by_parent, updated_nested_map)
+     |> assign(:unread_replies_by_post, updated_post_map)}
+  end
+
+  def handle_event("mark_nested_replies_read", %{"reply_id" => reply_id}, socket) do
+    current_user = socket.assigns.current_user
+    Timeline.mark_nested_replies_read_for_parent(reply_id, current_user.id)
+
+    unread_nested_replies_by_parent = socket.assigns.unread_nested_replies_by_parent
+    updated_map = Map.delete(unread_nested_replies_by_parent, reply_id)
+    {:noreply, assign(socket, :unread_nested_replies_by_parent, updated_map)}
+  end
+
   def handle_async(:load_timeline_data, {:ok, timeline_result}, socket) do
     # Update all assigns with synchronized data from our async operation
     # All data comes from the same query context, ensuring perfect synchronization
@@ -3981,6 +4062,11 @@ defmodule MossletWeb.TimelineLive.Index do
       post_loading_list: post_loading_list
     } = timeline_result
 
+    unread_replies_by_post = Map.get(timeline_result, :unread_replies_by_post, %{})
+
+    unread_nested_replies_by_parent =
+      Map.get(timeline_result, :unread_nested_replies_by_parent, %{})
+
     {:noreply,
      socket
      |> assign(:timeline_data, AsyncResult.ok(socket.assigns.timeline_data, timeline_result))
@@ -3989,6 +4075,8 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:post_count, post_count)
      |> assign(:timeline_counts, timeline_counts)
      |> assign(:unread_counts, unread_counts)
+     |> assign(:unread_replies_by_post, unread_replies_by_post)
+     |> assign(:unread_nested_replies_by_parent, unread_nested_replies_by_parent)
      |> assign(:loaded_posts_count, loaded_posts_count)
      |> assign(:current_page, current_page)
      |> stream(:posts, posts, reset: true)}
@@ -4843,6 +4931,45 @@ defmodule MossletWeb.TimelineLive.Index do
       assign(socket, :loaded_posts_count, socket.assigns.loaded_posts_count + 1)
     else
       socket
+    end
+  end
+
+  defp update_unread_counts_for_new_reply(socket, post, reply, current_user) do
+    if reply.user_id == current_user.id do
+      socket
+    else
+      is_nested_reply = not is_nil(reply.parent_reply_id)
+
+      if is_nested_reply do
+        parent_reply = reply.parent_reply
+
+        if parent_reply && parent_reply.user_id == current_user.id do
+          unread_nested_map = socket.assigns.unread_nested_replies_by_parent
+          current_nested_count = Map.get(unread_nested_map, reply.parent_reply_id, 0)
+
+          updated_nested_map =
+            Map.put(unread_nested_map, reply.parent_reply_id, current_nested_count + 1)
+
+          unread_replies_by_post = socket.assigns.unread_replies_by_post
+          current_post_count = Map.get(unread_replies_by_post, post.id, 0)
+          updated_post_map = Map.put(unread_replies_by_post, post.id, current_post_count + 1)
+
+          socket
+          |> assign(:unread_nested_replies_by_parent, updated_nested_map)
+          |> assign(:unread_replies_by_post, updated_post_map)
+        else
+          socket
+        end
+      else
+        if post.user_id == current_user.id do
+          unread_replies_by_post = socket.assigns.unread_replies_by_post
+          current_count = Map.get(unread_replies_by_post, post.id, 0)
+          updated_map = Map.put(unread_replies_by_post, post.id, current_count + 1)
+          assign(socket, :unread_replies_by_post, updated_map)
+        else
+          socket
+        end
+      end
     end
   end
 

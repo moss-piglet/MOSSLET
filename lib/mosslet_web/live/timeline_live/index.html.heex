@@ -476,6 +476,9 @@
                   can_reply?={can_reply?(post, @current_user)}
                   can_bookmark?={can_bookmark?(post, @current_user)}
                   unread?={get_post_unread_status(post, @current_user)}
+                  unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                  unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
+                  calm_notifications={@current_user.calm_notifications}
                   class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
                 />
               </div>

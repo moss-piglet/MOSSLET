@@ -96,6 +96,18 @@ defmodule Mosslet.Notifications.Email do
     |> premail()
   end
 
+  def new_replies_notification_with_email(email, reply_count, timeline_url) do
+    new()
+    |> to(email)
+    |> from({"Notifications @ MOSSLET", "notifications@mosslet.com"})
+    |> subject(gettext("You have %{count} new replies on MOSSLET", count: reply_count))
+    |> render_body("new_replies_notification.html", %{
+      reply_count: reply_count,
+      timeline_url: timeline_url
+    })
+    |> premail()
+  end
+
   def passwordless_pin(email, pin) do
     base_email()
     |> to(email)

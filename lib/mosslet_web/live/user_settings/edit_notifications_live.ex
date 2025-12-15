@@ -207,9 +207,9 @@ defmodule MossletWeb.EditNotificationsLive do
                   help={
                     if @current_user.email_notifications,
                       do:
-                        "You will receive up to 1 email per day when friends share posts with you and you're offline.",
+                        "You will receive up to 2 emails per day: one for new posts from friends and one for replies to your posts, only when you're offline.",
                       else:
-                        "Enable to receive up to 1 daily email when friends share posts with you and you're not actively online."
+                        "Enable to receive up to 2 daily emails: one for new posts from friends and one for replies to your posts, only when you're not actively online."
                   }
                 />
               </.form>
@@ -287,7 +287,7 @@ defmodule MossletWeb.EditNotificationsLive do
                       )
                     ]}>
                       <span :if={@current_user.email_notifications}>
-                        You will receive up to 1 email per day when friends share posts with you and you're not currently online. This gentle daily digest keeps you connected without overwhelming your inbox.
+                        You will receive up to 2 emails per day: one when friends share new posts with you, and one when someone replies to your posts. Emails are only sent when you're not currently online, keeping you connected without overwhelming your inbox.
                       </span>
                       <span :if={!@current_user.email_notifications}>
                         You won't receive any email notifications. You can always check your timeline and connections manually when you visit MOSSLET.
@@ -307,7 +307,7 @@ defmodule MossletWeb.EditNotificationsLive do
                       name="hero-calendar-days"
                       class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
                     />
-                    <span>Maximum 1 email per day (calm by design)</span>
+                    <span>Maximum 2 emails per day (one for new posts, one for replies)</span>
                   </div>
                   <div class="flex items-start gap-2">
                     <.phx_icon
@@ -322,6 +322,13 @@ defmodule MossletWeb.EditNotificationsLive do
                       class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
                     />
                     <span>When friends share posts directly with you</span>
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <.phx_icon
+                      name="hero-chat-bubble-left"
+                      class="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0"
+                    />
+                    <span>When someone replies to your posts</span>
                   </div>
                   <div class="flex items-start gap-2">
                     <.phx_icon
@@ -371,7 +378,7 @@ defmodule MossletWeb.EditNotificationsLive do
                     </span>
                   </div>
                   <p class="text-sm text-purple-700 dark:text-purple-300 ml-6">
-                    Maximum 1 email per day, never overwhelming your inbox
+                    Maximum 2 emails per day, never overwhelming your inbox
                   </p>
                 </div>
 
@@ -422,7 +429,7 @@ defmodule MossletWeb.EditNotificationsLive do
                 <p class="text-sm text-purple-700 dark:text-purple-300">
                   <span class="font-medium">Remember:</span>
                   MOSSLET calm notifications are designed to inform, not distract. They only exist within the app
-                  and respect your digital wellness. Email notifications are limited to 1 per day and are privacy-first, never revealing poster details.
+                  and respect your digital wellness. Email notifications are limited to 2 per day (one for new posts, one for replies) and are privacy-first, never revealing content details.
                 </p>
               </div>
             </div>

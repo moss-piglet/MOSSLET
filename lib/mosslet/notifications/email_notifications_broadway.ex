@@ -279,7 +279,9 @@ defmodule Mosslet.Notifications.EmailNotificationsBroadway do
 
   defp get_unread_count_for_connection(user_connection) do
     target_user = Accounts.get_user!(user_connection.reverse_user_id)
-    unread_count = Timeline.count_unread_posts_for_user(target_user)
+    unread_posts = Timeline.count_unread_posts_for_user(target_user)
+    unread_replies_to_replies = Timeline.count_unread_replies_to_user_replies(target_user)
+    unread_count = unread_posts + unread_replies_to_replies
 
     if unread_count > 0 do
       {:ok, unread_count}
