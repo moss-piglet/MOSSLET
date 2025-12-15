@@ -12165,18 +12165,26 @@ defmodule MossletWeb.DesignSystem do
             "hover:border-slate-300 dark:hover:border-slate-600",
             "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
             "transition-all duration-300 ease-out",
-            "transform hover:scale-[1.02]",
+            "transform hover:scale-[1.02] active:scale-[0.98]",
+            "phx-click-loading:cursor-wait phx-click-loading:opacity-90",
             @loading && "cursor-wait opacity-80"
           ]}
         >
-          <div :if={@loading} class="flex items-center gap-2">
+          <div class="phx-click-loading:flex hidden items-center gap-2">
+            <div class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
+              {if @expanded, do: "Hiding...", else: "Loading..."}
+            </span>
+          </div>
+
+          <div :if={@loading} class="phx-click-loading:hidden flex items-center gap-2">
             <div class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
             <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
               Loading posts...
             </span>
           </div>
 
-          <div :if={!@loading} class="flex items-center gap-2.5">
+          <div :if={!@loading} class="phx-click-loading:hidden flex items-center gap-2.5">
             <div class={[
               "flex items-center justify-center w-6 h-6 rounded-full",
               "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
