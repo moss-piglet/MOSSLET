@@ -3486,10 +3486,8 @@ defmodule Mosslet.Timeline do
             {:error, "error"}
         end
       else
-        {:error, "You do not have permission to delete this ephemeral post."}
+        {:error, "You do not have permission to delete this post."}
       end
-
-      {:error, "You do not have permission to delete this post."}
     end
   end
 
