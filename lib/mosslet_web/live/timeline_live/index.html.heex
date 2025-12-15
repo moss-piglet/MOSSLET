@@ -17,7 +17,11 @@
       max_width="lg"
       class="space-y-4 sm:space-y-6 pt-6 sm:pt-8"
     >
-      <MossletWeb.DesignSystem.liquid_timeline_header id={"timeline-header-#{@active_tab}"} />
+      <MossletWeb.DesignSystem.liquid_timeline_header
+        id={"timeline-header-#{@active_tab}"}
+        current_user={@current_user}
+        key={@key}
+      />
 
       <%!-- Sticky header group: tabs, content filter, and composer --%>
       <div class="sticky top-16 z-30 space-y-4 pb-4">

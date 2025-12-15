@@ -6138,33 +6138,113 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
-  Timeline header - minimal design focusing on content.
+  Timeline header - beautiful banner with user customization support.
+
+  Shows the user's chosen banner image if they have a profile set up,
+  otherwise displays an elegant default gradient design.
   """
   attr :class, :any, default: ""
   attr :id, :string, default: nil
+  attr :current_user, :any, default: nil
+  attr :key, :any, default: nil
 
   def liquid_timeline_header(assigns) do
+    banner_image = get_user_banner_image(assigns[:current_user])
+    assigns = assign(assigns, :banner_image, banner_image)
+
     ~H"""
     <div
       id={@id}
       class={[
-        "flex items-center gap-3 pb-2",
+        "relative overflow-hidden rounded-2xl",
         @class
       ]}
     >
-      <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 shadow-sm">
-        <.phx_icon name="hero-book-open" class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+      <div :if={@banner_image} class="relative h-32 sm:h-40 lg:h-48">
+        <img
+          src={~p"/images/profile/#{@banner_image}"}
+          alt=""
+          class="absolute inset-0 w-full h-full object-cover"
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/10" />
+        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
+              <.phx_icon
+                name="hero-book-open"
+                class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
+              />
+            </div>
+            <div>
+              <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
+                Timeline
+              </h1>
+              <p class="text-sm text-white/80 drop-shadow-sm">
+                Your private feed
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div>
-        <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          Timeline
-        </h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          Your private feed
-        </p>
+
+      <div
+        :if={!@banner_image}
+        class="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-br from-emerald-500/90 via-teal-500/80 to-cyan-500/90 dark:from-emerald-600/80 dark:via-teal-600/70 dark:to-cyan-600/80"
+      >
+        <div class="absolute inset-0 overflow-hidden">
+          <div class="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
+          <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-300/20 rounded-full blur-2xl" />
+          <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 bg-teal-200/10 rounded-full blur-3xl rotate-12" />
+          <svg
+            class="absolute inset-0 w-full h-full opacity-[0.15]"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <pattern id="grid-pattern" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" stroke-width="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#grid-pattern)" class="text-white/40" />
+          </svg>
+        </div>
+
+        <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+
+        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
+              <.phx_icon
+                name="hero-book-open"
+                class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
+              />
+            </div>
+            <div>
+              <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
+                Timeline
+              </h1>
+              <p class="text-sm text-white/80 drop-shadow-sm">
+                Your private feed
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     """
+  end
+
+  defp get_user_banner_image(nil), do: nil
+
+  defp get_user_banner_image(user) do
+    with %{connection: %{profile: %{banner_image: banner}}} when not is_nil(banner) <- user do
+      "#{banner}.jpg"
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
   end
 
   # Helper function for tab icons (mobile optimization)
