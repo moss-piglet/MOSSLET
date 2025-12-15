@@ -489,6 +489,171 @@
             </div>
           </div>
 
+          <%!-- Read posts divider and expandable section --%>
+          <% total_read_posts = max(0, Map.get(@timeline_counts, String.to_existing_atom(@active_tab || "home"), 0) - Map.get(@unread_counts, String.to_existing_atom(@active_tab || "home"), 0)) %>
+          <div :if={total_read_posts > 0}>
+            <MossletWeb.DesignSystem.liquid_read_posts_divider
+              count={total_read_posts}
+              expanded={@read_posts_expanded}
+              loading={@read_posts_loading}
+            />
+
+            <div
+              :if={@read_posts_expanded}
+              id="read-posts"
+              phx-update="stream"
+              class={[
+                "space-y-4 sm:space-y-5",
+                "animate-in fade-in-0 slide-in-from-top-4 duration-500 ease-out"
+              ]}
+            >
+              <div
+                :for={{dom_id, post} <- @streams.read_posts}
+                id={dom_id}
+                class="timeline-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
+                data-user-id={post.user_id}
+              >
+                <div id={"timeline-card-container-read-#{post.id}"} class="timeline-post-item">
+                  <MossletWeb.DesignSystem.liquid_timeline_post
+                    user_name={get_post_author_name(post, @current_user, @key)}
+                    user_handle={"@" <> (case decr_item(post.username, @current_user, get_post_key(post, @current_user), @key, post, "username") do
+                    result when is_binary(result) -> result
+                    _ -> "author"
+                  end)}
+                    user_avatar={get_post_author_avatar(post, @current_user, @key)}
+                    user_status={get_post_author_status(post, @current_user, @key)}
+                    user_status_message={get_post_author_status_message(post, @current_user, @key)}
+                    show_post_author_status={
+                      can_view_status?(
+                        Accounts.get_user_with_preloads(post.user_id),
+                        @current_user,
+                        @key
+                      )
+                    }
+                    timestamp={format_post_timestamp(post.inserted_at)}
+                    verified={false}
+                    content_warning?={post.content_warning?}
+                    content_warning={
+                      if post.content_warning? do
+                        case post.visibility do
+                          :public ->
+                            decr_item(
+                              post.content_warning,
+                              @current_user,
+                              get_post_key(post),
+                              @key,
+                              post,
+                              "body"
+                            ) || "[Could not decrypt content]"
+
+                          _ ->
+                            decr_item(
+                              post.content_warning,
+                              @current_user,
+                              get_post_key(post, @current_user),
+                              @key,
+                              post,
+                              "body"
+                            ) || "[Could not decrypt content]"
+                        end
+                      end
+                    }
+                    content_warning_category={
+                      if post.content_warning? do
+                        case post.visibility do
+                          :public ->
+                            decr_item(
+                              post.content_warning_category,
+                              @current_user,
+                              get_post_key(post),
+                              @key,
+                              post,
+                              "body"
+                            ) || "[Could not decrypt content]"
+
+                          _ ->
+                            decr_item(
+                              post.content_warning_category,
+                              @current_user,
+                              get_post_key(post, @current_user),
+                              @key,
+                              post,
+                              "body"
+                            ) || "[Could not decrypt content]"
+                        end
+                      end
+                    }
+                    content={
+                      case post.visibility do
+                        :public ->
+                          decr_item(
+                            post.body,
+                            @current_user,
+                            get_post_key(post),
+                            @key,
+                            post,
+                            "body"
+                          ) || "[Could not decrypt content]"
+
+                        _ ->
+                          decr_item(
+                            post.body,
+                            @current_user,
+                            get_post_key(post, @current_user),
+                            @key,
+                            post,
+                            "body"
+                          ) || "[Could not decrypt content]"
+                      end
+                    }
+                    images={get_decrypted_post_images(post, @current_user, @key)}
+                    decrypted_url_preview={get_decrypted_url_preview(post, @current_user, @key)}
+                    stats={
+                      %{
+                        replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
+                        shares: post.reposts_count || 0,
+                        likes: post.favs_count || 0
+                      }
+                    }
+                    post_id={post.id}
+                    current_user_id={@current_user.id}
+                    post_shared_users={@post_shared_users}
+                    removing_shared_user_id={@removing_shared_user_id}
+                    adding_shared_user={@adding_shared_user}
+                    post={post}
+                    current_user={@current_user}
+                    key={@key}
+                    is_repost={post.repost || false}
+                    share_note={get_decrypted_share_note(post, @current_user, @key)}
+                    liked={get_post_liked_status(post, @current_user, @key)}
+                    bookmarked={get_post_bookmarked_status(post, @current_user)}
+                    can_repost={can_repost_with_decryption?(post, @current_user, @key)}
+                    can_reply?={can_reply?(post, @current_user)}
+                    can_bookmark?={can_bookmark?(post, @current_user)}
+                    unread?={false}
+                    unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                    unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
+                    calm_notifications={@current_user.calm_notifications}
+                    class="shadow-lg shadow-slate-900/6 dark:shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30 transition-shadow duration-300"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <%!-- Load more read posts button --%>
+            <div :if={@read_posts_expanded && calculate_remaining_read_posts(@timeline_counts, @unread_counts, @active_tab, @loaded_read_posts_count) > 0} class="pt-4">
+              <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                remaining_count={
+                  calculate_remaining_read_posts(@timeline_counts, @unread_counts, @active_tab, @loaded_read_posts_count)
+                }
+                load_count={@options.post_per_page}
+                loading={@load_more_loading}
+                tab_color={get_tab_color(@active_tab)}
+                phx-click="load_more_posts"
+              />
+            </div>
+          </div>
+
           <%!-- Show gentle message when no posts available --%>
           <div class="hidden only:block text-center py-8 sm:py-12">
             <div class="inline-flex flex-col items-center gap-3 sm:gap-4 px-6 sm:px-8 py-5 sm:py-6 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/10 dark:via-teal-900/5 dark:to-cyan-900/10 border border-emerald-200/40 dark:border-emerald-700/30">
@@ -504,19 +669,6 @@
             </div>
           </div>
         </.async_result>
-      </div>
-
-      <%!-- Enhanced load more button with dynamic remaining count and tab colors (only show when data is loaded) --%>
-      <div :if={@timeline_data.ok?}>
-        <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
-          remaining_count={
-            calculate_remaining_posts(@timeline_counts, @active_tab, @loaded_posts_count)
-          }
-          load_count={@options.post_per_page}
-          loading={@load_more_loading}
-          tab_color={get_tab_color(@active_tab)}
-          phx-click="load_more_posts"
-        />
       </div>
 
       <%!-- Gentle end of feed message with enhanced calm messaging --%>

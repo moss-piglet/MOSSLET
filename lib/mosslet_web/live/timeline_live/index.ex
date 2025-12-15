@@ -139,6 +139,12 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:load_more_loading, false)
       # Track which tab is currently loading for UI feedback
       |> assign(:loading_tab, nil)
+      # Read posts expansion state (show only unread initially)
+      |> assign(:read_posts_expanded, false)
+      |> assign(:read_posts_loading, false)
+      |> assign(:read_posts_count, 0)
+      |> assign(:loaded_read_posts_count, 0)
+      |> assign(:cached_read_posts, [])
       # Track dynamic stream limit
       |> assign(:stream_limit, @post_per_page_default)
       # Store user token for uploads
@@ -182,6 +188,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:completed_uploads, [])
       |> assign(:composer_trix_key, nil)
       |> stream(:posts, [])
+      |> stream(:read_posts, [])
       |> assign(:timeline_data, AsyncResult.loading())
       |> allow_upload(:photos,
         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
@@ -289,51 +296,40 @@ defmodule MossletWeb.TimelineLive.Index do
     socket =
       socket
       |> assign(:timeline_data, AsyncResult.loading())
+      |> assign(:read_posts_expanded, false)
+      |> assign(:read_posts_loading, false)
+      |> stream(:read_posts, [], reset: true)
       |> start_async(:load_timeline_data, fn ->
-        # Load posts for the current active tab with content filtering
+        user = Accounts.get_user!(current_user_id)
+
         posts =
           case current_tab_for_async do
             "discover" ->
-              Timeline.list_discover_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_discover_posts(user, options_with_filters)
 
             "connections" ->
-              Timeline.list_connection_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_connection_posts(user, options_with_filters)
 
             "home" ->
-              Timeline.list_user_own_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_user_own_posts(user, options_with_filters)
 
             "bookmarks" ->
-              Timeline.list_user_bookmarks(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_user_bookmarks(user, options_with_filters)
 
             "groups" ->
-              Timeline.list_group_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_group_posts(user, options_with_filters)
 
             _ ->
               options_with_tab = Map.put(options_with_filters, :tab, current_tab_for_async)
-              user = Accounts.get_user!(current_user_id)
 
               Timeline.filter_timeline_posts(user, options_with_tab)
               |> apply_tab_filtering(current_tab_for_async, user)
           end
 
-        # Calculate all timeline counts with the SAME filtering options
-        # This ensures perfect synchronization between displayed posts and counts
-        user = Accounts.get_user!(current_user_id)
+        {unread_posts, read_posts} =
+          Enum.split_with(posts, fn post ->
+            is_post_unread?(post, user)
+          end)
 
         options_with_content_filters =
           Map.put(options_with_filters, :content_filter_prefs, content_filter_prefs)
@@ -344,21 +340,43 @@ defmodule MossletWeb.TimelineLive.Index do
         unread_nested_replies_by_parent = Timeline.count_unread_nested_replies_by_parent(user)
         post_count = Timeline.timeline_post_count(user, options)
 
-        # Return synchronized data as a single unit
         %{
-          posts: posts,
+          unread_posts: unread_posts,
+          read_posts: read_posts,
+          read_posts_count: length(read_posts),
           timeline_counts: timeline_counts,
           unread_counts: unread_counts,
           unread_replies_by_post: unread_replies_by_post,
           unread_nested_replies_by_parent: unread_nested_replies_by_parent,
           post_count: post_count,
-          loaded_posts_count: length(posts),
+          loaded_posts_count: length(unread_posts),
           current_page: options.post_page,
-          post_loading_list: Enum.with_index(posts, fn element, index -> {index, element} end)
+          post_loading_list:
+            Enum.with_index(unread_posts, fn element, index -> {index, element} end)
         }
       end)
 
     {:noreply, socket}
+  end
+
+  defp is_post_unread?(post, current_user) do
+    cond do
+      Ecto.assoc_loaded?(post.user_post_receipts) ->
+        case Enum.find(post.user_post_receipts || [], fn receipt ->
+               receipt.user_id == current_user.id
+             end) do
+          nil -> true
+          %{is_read?: is_read} -> !is_read
+        end
+
+      true ->
+        case Timeline.get_user_post_receipt(current_user, post) do
+          nil -> true
+          %{is_read?: true} -> false
+          %{is_read?: false} -> true
+          _ -> true
+        end
+    end
   end
 
   def handle_info(:complete_content_filter_toggle, socket) do
@@ -608,7 +626,7 @@ defmodule MossletWeb.TimelineLive.Index do
             socket =
               socket
               |> put_flash(:success, "Reply posted successfully!")
-              |> stream_insert(:posts, updated_post)
+              |> stream_insert_post(updated_post, current_user, at: -1)
               |> push_event("show-reply-thread", %{post_id: post_id})
 
             {:noreply, socket}
@@ -655,7 +673,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
       socket =
         socket
-        |> stream_insert(:posts, post_with_limited_replies, at: -1)
+        |> stream_insert_post(post_with_limited_replies, current_user, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_reply_notification(reply, current_user, "created")
 
@@ -699,7 +717,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
       socket =
         socket
-        |> stream_insert(:posts, post_with_limited_replies, at: -1)
+        |> stream_insert_post(post_with_limited_replies, current_user, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
 
       {:noreply,
@@ -732,7 +750,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
       socket =
         socket
-        |> stream_insert(:posts, post_with_limited_replies, at: -1)
+        |> stream_insert_post(post_with_limited_replies, current_user, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
 
       {:noreply, socket}
@@ -766,10 +784,9 @@ defmodule MossletWeb.TimelineLive.Index do
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
 
-      # Add the new post to the top of the stream - CSS animations will trigger automatically
       socket =
         socket
-        |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
+        |> stream_insert_post(post, current_user, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_new_post_notification(post, current_user)
 
@@ -810,11 +827,10 @@ defmodule MossletWeb.TimelineLive.Index do
 
       new_status = status_info.status || "offline"
       new_status_message = status_info.status_message
-      # Update the post in the stream - this will update the existing post in place
+
       socket =
         socket
-        # Update existing post
-        |> stream_insert(:posts, post, at: -1)
+        |> stream_insert_post(post, current_user, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply,
@@ -824,11 +840,9 @@ defmodule MossletWeb.TimelineLive.Index do
          status_message: new_status_message
        })}
     else
-      # Post no longer matches current tab or is now filtered out
-      # Remove it from stream and update counts
       socket =
         socket
-        |> stream_delete(:posts, post)
+        |> stream_delete_post(post)
         |> recalculate_counts_after_post_update(current_user, options)
 
       {:noreply,
@@ -844,26 +858,30 @@ defmodule MossletWeb.TimelineLive.Index do
 
     socket =
       socket
-      |> stream_delete(:posts, post)
+      |> stream_delete_post(post)
       |> recalculate_counts_after_post_update(current_user, options)
 
     {:noreply, socket}
   end
 
   def handle_info({:post_shared_users_added, post}, socket) do
+    current_user = socket.assigns.current_user
+
     {:noreply,
      socket
      |> assign(:removing_shared_user_id, nil)
      |> assign(:adding_shared_user, nil)
-     |> stream_insert(:posts, post, at: -1)}
+     |> stream_insert_post(post, current_user, at: -1)}
   end
 
   def handle_info({:post_shared_users_removed, post}, socket) do
+    current_user = socket.assigns.current_user
+
     {:noreply,
      socket
      |> assign(:removing_shared_user_id, nil)
      |> assign(:adding_shared_user, nil)
-     |> stream_insert(:posts, post, at: -1)}
+     |> stream_insert_post(post, current_user, at: -1)}
   end
 
   def handle_info({:post_updated_fav, post}, socket) do
@@ -908,14 +926,10 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     options = socket.assigns.options
 
-    # Always remove the post from the stream regardless of tab
-    # since it's been deleted and shouldn't appear anywhere
     socket =
       socket
-      |> stream_delete(:posts, post)
+      |> stream_delete_post(post)
       |> recalculate_counts_after_post_update(current_user, options)
-
-    # No notification needed for deleted posts - just remove silently
 
     {:noreply, socket}
   end
@@ -943,7 +957,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
       socket =
         socket
-        |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
+        |> stream_insert_post(post, current_user, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_new_share_post_notification(post, current_user)
 
@@ -967,11 +981,9 @@ defmodule MossletWeb.TimelineLive.Index do
     current_user = socket.assigns.current_user
     options = socket.assigns.options
 
-    # Always remove the repost from the stream regardless of tab
-    # since it's been deleted and shouldn't appear anywhere
     socket =
       socket
-      |> stream_delete(:posts, post)
+      |> stream_delete_post(post)
       |> recalculate_counts_after_post_update(current_user, options)
 
     # No notification needed for deleted reposts - just remove silently
@@ -1082,7 +1094,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
       socket =
         socket
-        |> stream_insert(:posts, updated_post, at: -1)
+        |> stream_insert_post(updated_post, current_user, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
         |> put_flash(:success, "Reply created!")
         |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply_id})
@@ -1561,7 +1573,7 @@ defmodule MossletWeb.TimelineLive.Index do
         socket =
           socket
           |> assign(:loaded_nested_replies, updated_loaded)
-          |> stream_insert(:posts, post, at: -1)
+          |> stream_insert_post(post, current_user, at: -1)
 
         {:noreply, socket}
       else
@@ -1594,7 +1606,7 @@ defmodule MossletWeb.TimelineLive.Index do
       socket =
         socket
         |> assign(:loaded_replies_counts, updated_counts)
-        |> stream_insert(:posts, post, at: -1)
+        |> stream_insert_post(post, current_user, at: -1)
         |> push_event("animate-new-replies", %{post_id: post_id, start_index: current_count})
 
       {:noreply, socket}
@@ -1606,6 +1618,22 @@ defmodule MossletWeb.TimelineLive.Index do
   def handle_event("restore-body-scroll", _params, socket) do
     socket = put_flash(socket, :success, "Download complete!")
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_read_posts", _params, socket) do
+    if socket.assigns.read_posts_expanded do
+      {:noreply,
+       socket
+       |> assign(:read_posts_expanded, false)
+       |> stream(:read_posts, [], reset: true)}
+    else
+      cached_posts = socket.assigns[:cached_read_posts] || []
+
+      {:noreply,
+       socket
+       |> assign(:read_posts_expanded, true)
+       |> stream(:read_posts, cached_posts, reset: true)}
+    end
   end
 
   def handle_event("filter", %{"user_id" => user_id}, socket) do
@@ -2105,7 +2133,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
                 socket =
                   socket
-                  |> stream_insert(:posts, updated_post, at: -1)
+                  |> move_post_between_streams(updated_post, current_user)
                   |> assign(:unread_counts, unread_counts)
                   |> put_flash(:info, flash_message)
 
@@ -2135,7 +2163,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
             socket =
               socket
-              |> stream_insert(:posts, updated_post, at: -1)
+              |> move_post_between_streams(updated_post, current_user)
               |> assign(:unread_counts, unread_counts)
               |> put_flash(:info, "Post marked as unread")
 
@@ -2161,7 +2189,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
             socket =
               socket
-              |> stream_insert(:posts, updated_post, at: -1)
+              |> move_post_between_streams(updated_post, current_user)
               |> assign(:unread_counts, unread_counts)
               |> put_flash(:info, "Post marked as read")
 
@@ -2449,12 +2477,13 @@ defmodule MossletWeb.TimelineLive.Index do
 
             socket =
               if should_show_post and passes_content_filters do
-                # Add the new post to the top of the stream - same as handle_info
                 socket
-                |> stream_insert(:posts, post, at: 0, limit: socket.assigns.stream_limit)
+                |> stream_insert_post(post, current_user,
+                  at: 0,
+                  limit: socket.assigns.stream_limit
+                )
                 |> recalculate_counts_after_new_post(current_user, options)
               else
-                # Post doesn't match current tab, just update counts
                 socket
                 |> recalculate_counts_after_new_post(current_user, options)
               end
@@ -2681,22 +2710,14 @@ defmodule MossletWeb.TimelineLive.Index do
     current_tab = socket.assigns.active_tab || "home"
     current_options = socket.assigns.options
 
-    # Set loading state
     socket = assign(socket, :load_more_loading, true)
 
-    # Calculate next page parameters
-    # CRITICAL FIX: When posts get trimmed by real-time inserts, pagination gets out of sync
-    # We need to calculate the actual page based on what we have in the stream vs total available
-    # This is what we actually have in the stream
-    actual_loaded_count = socket.assigns.stream_limit
+    loaded_read_posts_count = socket.assigns[:loaded_read_posts_count] || 0
     posts_per_page = current_options.post_per_page
 
-    # Calculate which page we should load next based on actual stream content
-    next_page = div(actual_loaded_count, posts_per_page) + 1
-    updated_options = Map.put(current_options, :post_page, next_page)
+    next_read_page = div(loaded_read_posts_count, posts_per_page) + 1
+    updated_options = Map.put(current_options, :post_page, next_read_page)
 
-    # Always use fresh filter preferences for load more
-    # Use cached content filters from socket assigns
     content_filter_prefs = socket.assigns.content_filters
     updated_options_with_filters = Map.put(updated_options, :filter_prefs, content_filter_prefs)
 
@@ -2722,29 +2743,25 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
-    # Calculate updated counts and pagination
-    new_loaded_count = actual_loaded_count + length(new_posts)
+    {_new_unread, new_read_posts} =
+      Enum.split_with(new_posts, fn post ->
+        is_post_unread?(post, current_user)
+      end)
 
-    # Increase stream limit to accommodate new posts loaded
-    # This ensures real-time posts don't prune the posts user just loaded
-    new_stream_limit = socket.assigns.stream_limit + length(new_posts)
+    new_loaded_read_count = loaded_read_posts_count + length(new_read_posts)
 
-    # CRITICAL FIX: Recalculate timeline counts to ensure accurate remaining count
-    options_with_filters = Map.put(updated_options, :content_filter_prefs, content_filter_prefs)
-    timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+    cached_read_posts = socket.assigns[:cached_read_posts] || []
+    updated_cached_read_posts = cached_read_posts ++ new_read_posts
 
-    # Add new posts to the existing stream (at the end)
     socket =
-      new_posts
+      new_read_posts
       |> Enum.reduce(socket, fn post, acc_socket ->
-        stream_insert(acc_socket, :posts, post, at: -1)
+        stream_insert(acc_socket, :read_posts, post, at: -1)
       end)
       |> assign(:options, updated_options)
-      |> assign(:timeline_counts, timeline_counts)
-      |> assign(:loaded_posts_count, new_loaded_count)
-      |> assign(:current_page, next_page)
-      # Update dynamic limit
-      |> assign(:stream_limit, new_stream_limit)
+      |> assign(:loaded_read_posts_count, new_loaded_read_count)
+      |> assign(:read_posts_count, length(updated_cached_read_posts))
+      |> assign(:cached_read_posts, updated_cached_read_posts)
       |> assign(:load_more_loading, false)
 
     {:noreply, socket}
@@ -2773,54 +2790,43 @@ defmodule MossletWeb.TimelineLive.Index do
     options_with_filters = Map.put(options, :filter_prefs, content_filter_prefs)
     tab_for_async = tab
 
-    # Start async operation to load tab data
     socket =
       socket
       |> assign(:options, options)
       |> assign(:load_more_loading, false)
+      |> assign(:read_posts_expanded, false)
+      |> assign(:read_posts_loading, false)
+      |> assign(:loaded_read_posts_count, 0)
+      |> stream(:read_posts, [], reset: true)
       |> start_async(:load_timeline_data, fn ->
-        # Load posts for the specific tab with content filtering
+        user = Accounts.get_user!(current_user_id)
+
         posts =
           case tab_for_async do
             "discover" ->
-              Timeline.list_discover_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_discover_posts(user, options_with_filters)
 
             "connections" ->
-              Timeline.list_connection_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_connection_posts(user, options_with_filters)
 
             "home" ->
-              Timeline.list_user_own_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_user_own_posts(user, options_with_filters)
 
             "bookmarks" ->
-              Timeline.list_user_bookmarks(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_user_bookmarks(user, options_with_filters)
 
             "groups" ->
-              Timeline.list_group_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_group_posts(user, options_with_filters)
 
             _ ->
-              user = Accounts.get_user!(current_user_id)
-
               Timeline.filter_timeline_posts(user, options_with_filters)
               |> apply_tab_filtering(tab_for_async, user)
           end
 
-        # Update tab counts using proper counting logic with filter support
-        user = Accounts.get_user!(current_user_id)
+        {unread_posts, read_posts} =
+          Enum.split_with(posts, fn post ->
+            is_post_unread?(post, user)
+          end)
 
         options_with_content_filters =
           Map.put(options_with_filters, :content_filter_prefs, content_filter_prefs)
@@ -2830,17 +2836,19 @@ defmodule MossletWeb.TimelineLive.Index do
         unread_replies_by_post = Timeline.count_unread_replies_by_post(user)
         unread_nested_replies_by_parent = Timeline.count_unread_nested_replies_by_parent(user)
 
-        # Return synchronized data
         %{
-          posts: posts,
+          unread_posts: unread_posts,
+          read_posts: read_posts,
+          read_posts_count: length(read_posts),
           timeline_counts: timeline_counts,
           unread_counts: unread_counts,
           unread_replies_by_post: unread_replies_by_post,
           unread_nested_replies_by_parent: unread_nested_replies_by_parent,
           post_count: Timeline.timeline_post_count(user, options),
-          loaded_posts_count: length(posts),
+          loaded_posts_count: length(unread_posts),
           current_page: 1,
-          post_loading_list: Enum.with_index(posts, fn element, index -> {index, element} end)
+          post_loading_list:
+            Enum.with_index(unread_posts, fn element, index -> {index, element} end)
         }
       end)
 
@@ -2861,50 +2869,40 @@ defmodule MossletWeb.TimelineLive.Index do
     socket =
       socket
       |> assign(:timeline_data, AsyncResult.loading())
+      |> assign(:read_posts_expanded, false)
+      |> assign(:read_posts_loading, false)
+      |> stream(:read_posts, [], reset: true)
       |> start_async(:load_timeline_data, fn ->
-        # Load posts for the current active tab with content filtering
+        user = Accounts.get_user!(current_user_id)
+
         posts =
           case current_tab_for_async do
             "discover" ->
-              Timeline.list_discover_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_discover_posts(user, options_with_filters)
 
             "connections" ->
-              Timeline.list_connection_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_connection_posts(user, options_with_filters)
 
             "home" ->
-              Timeline.list_user_own_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_user_own_posts(user, options_with_filters)
 
             "bookmarks" ->
-              Timeline.list_user_bookmarks(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_user_bookmarks(user, options_with_filters)
 
             "groups" ->
-              Timeline.list_group_posts(
-                Accounts.get_user!(current_user_id),
-                options_with_filters
-              )
+              Timeline.list_group_posts(user, options_with_filters)
 
             _ ->
               options_with_tab = Map.put(options_with_filters, :tab, current_tab_for_async)
-              user = Accounts.get_user!(current_user_id)
 
               Timeline.filter_timeline_posts(user, options_with_tab)
               |> apply_tab_filtering(current_tab_for_async, user)
           end
 
-        # Calculate all timeline counts with the SAME filtering options
-        user = Accounts.get_user!(current_user_id)
+        {unread_posts, read_posts} =
+          Enum.split_with(posts, fn post ->
+            is_post_unread?(post, user)
+          end)
 
         options_with_content_filters =
           Map.put(options_with_filters, :content_filter_prefs, content_filter_prefs)
@@ -2915,17 +2913,19 @@ defmodule MossletWeb.TimelineLive.Index do
         unread_nested_replies_by_parent = Timeline.count_unread_nested_replies_by_parent(user)
         post_count = Timeline.timeline_post_count(user, options)
 
-        # Return synchronized data
         %{
-          posts: posts,
+          unread_posts: unread_posts,
+          read_posts: read_posts,
+          read_posts_count: length(read_posts),
           timeline_counts: timeline_counts,
           unread_counts: unread_counts,
           unread_replies_by_post: unread_replies_by_post,
           unread_nested_replies_by_parent: unread_nested_replies_by_parent,
           post_count: post_count,
-          loaded_posts_count: length(posts),
+          loaded_posts_count: length(unread_posts),
           current_page: options.post_page,
-          post_loading_list: Enum.with_index(posts, fn element, index -> {index, element} end)
+          post_loading_list:
+            Enum.with_index(unread_posts, fn element, index -> {index, element} end)
         }
       end)
 
@@ -2960,7 +2960,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
               socket =
                 if current_tab == "bookmarks" do
-                  stream_delete(socket, :posts, post)
+                  stream_delete_post(socket, post)
                 else
                   socket
                 end
@@ -2993,7 +2993,7 @@ defmodule MossletWeb.TimelineLive.Index do
                   updated_post =
                     get_post_with_reply_limit(post_id, current_user.id, socket.assigns)
 
-                  stream_insert(socket, :posts, updated_post,
+                  stream_insert_post(socket, updated_post, current_user,
                     at: 0,
                     limit: @post_per_page_default
                   )
@@ -3295,12 +3295,10 @@ defmodule MossletWeb.TimelineLive.Index do
 
           socket =
             if should_show_post and passes_content_filters do
-              # Add the repost to the top of the stream - same as handle_info
               socket
-              |> stream_insert(:posts, repost, at: 0, limit: socket.assigns.stream_limit)
+              |> stream_insert_post(repost, user, at: 0, limit: socket.assigns.stream_limit)
               |> recalculate_counts_after_new_post(user, options)
             else
-              # Repost doesn't match current tab, just update counts
               socket
               |> recalculate_counts_after_new_post(user, options)
             end
@@ -3384,7 +3382,7 @@ defmodule MossletWeb.TimelineLive.Index do
               end
             )
 
-          {:noreply, socket |> stream_delete(:posts, post)}
+          {:noreply, socket |> stream_delete_post(post)}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to delete post. Please try again.")}
@@ -3457,7 +3455,7 @@ defmodule MossletWeb.TimelineLive.Index do
           socket =
             socket
             |> put_flash(:success, "Reply deleted successfully.")
-            |> stream_insert(:posts, updated_post, at: -1)
+            |> stream_insert_post(updated_post, current_user, at: -1)
             |> assign(:delete_reply_from_cloud_message, AsyncResult.loading())
             |> start_async(
               :delete_reply_from_cloud,
@@ -4050,10 +4048,10 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_async(:load_timeline_data, {:ok, timeline_result}, socket) do
-    # Update all assigns with synchronized data from our async operation
-    # All data comes from the same query context, ensuring perfect synchronization
     %{
-      posts: posts,
+      unread_posts: unread_posts,
+      read_posts: read_posts,
+      read_posts_count: read_posts_count,
       timeline_counts: timeline_counts,
       unread_counts: unread_counts,
       post_count: post_count,
@@ -4079,11 +4077,13 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:unread_nested_replies_by_parent, unread_nested_replies_by_parent)
      |> assign(:loaded_posts_count, loaded_posts_count)
      |> assign(:current_page, current_page)
-     |> stream(:posts, posts, reset: true)}
+     |> assign(:read_posts_count, read_posts_count)
+     |> assign(:loaded_read_posts_count, read_posts_count)
+     |> assign(:cached_read_posts, read_posts)
+     |> stream(:posts, unread_posts, reset: true)}
   end
 
   def handle_async(:load_timeline_data, {:exit, reason}, socket) do
-    # Handle async operation failure gracefully with beautiful error state
     Logger.error("Timeline data loading failed: #{inspect(reason)}")
 
     {:noreply,
@@ -4095,7 +4095,10 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:loaded_posts_count, 0)
      |> assign(:current_page, 1)
      |> assign(:post_count, 0)
-     |> stream(:posts, [], reset: true)}
+     |> assign(:read_posts_count, 0)
+     |> assign(:loaded_read_posts_count, 0)
+     |> stream(:posts, [], reset: true)
+     |> stream(:read_posts, [], reset: true)}
   end
 
   def handle_async(:update_post_body, {:ok, {message, _post}}, socket) do
@@ -5077,12 +5080,17 @@ defmodule MossletWeb.TimelineLive.Index do
     url |> String.split("/") |> List.last()
   end
 
-  # Helper function to calculate remaining posts for the current tab (accounts for content filtering)
-  defp calculate_remaining_posts(timeline_counts, active_tab, loaded_posts_count) do
-    # Use filtered_total_posts instead of raw database counts
-    # This ensures the "load more" button reflects actual available posts after filtering
-    filtered_total_posts = Map.get(timeline_counts, String.to_existing_atom(active_tab), 0)
-    max(0, filtered_total_posts - loaded_posts_count)
+  defp calculate_remaining_read_posts(
+         timeline_counts,
+         unread_counts,
+         active_tab,
+         loaded_read_posts_count
+       ) do
+    tab_atom = String.to_existing_atom(active_tab)
+    total_posts = Map.get(timeline_counts, tab_atom, 0)
+    unread_posts = Map.get(unread_counts, tab_atom, 0)
+    total_read_posts = max(0, total_posts - unread_posts)
+    max(0, total_read_posts - loaded_read_posts_count)
   end
 
   # Helper function to update timeline counts only when they actually change
@@ -6264,13 +6272,71 @@ defmodule MossletWeb.TimelineLive.Index do
       :ok ->
         :ok
 
-      # Already gone, that's fine
       {:error, :enoent} ->
         :ok
 
       {:error, reason} ->
         Logger.warning("Failed to cleanup temp upload at #{temp_path}: #{inspect(reason)}")
         {:error, reason}
+    end
+  end
+
+  defp stream_insert_post(socket, post, current_user, opts) do
+    if is_post_unread?(post, current_user) do
+      stream_insert(socket, :posts, post, opts)
+    else
+      cached_read_posts = socket.assigns[:cached_read_posts] || []
+      updated_cached = update_or_add_cached_post(cached_read_posts, post)
+
+      socket
+      |> assign(:cached_read_posts, updated_cached)
+      |> maybe_stream_insert_read_post(post, opts)
+    end
+  end
+
+  defp maybe_stream_insert_read_post(socket, post, opts) do
+    if socket.assigns[:read_posts_expanded] do
+      stream_insert(socket, :read_posts, post, opts)
+    else
+      socket
+    end
+  end
+
+  defp update_or_add_cached_post(cached_posts, post) do
+    if Enum.any?(cached_posts, &(&1.id == post.id)) do
+      Enum.map(cached_posts, fn p -> if p.id == post.id, do: post, else: p end)
+    else
+      [post | cached_posts]
+    end
+  end
+
+  defp stream_delete_post(socket, post) do
+    cached_read_posts = socket.assigns[:cached_read_posts] || []
+    updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+    socket
+    |> assign(:cached_read_posts, updated_cached)
+    |> stream_delete(:posts, post)
+    |> stream_delete(:read_posts, post)
+  end
+
+  defp move_post_between_streams(socket, post, current_user) do
+    if is_post_unread?(post, current_user) do
+      cached_read_posts = socket.assigns[:cached_read_posts] || []
+      updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+      socket
+      |> assign(:cached_read_posts, updated_cached)
+      |> stream_delete(:read_posts, post)
+      |> stream_insert(:posts, post, at: -1)
+    else
+      cached_read_posts = socket.assigns[:cached_read_posts] || []
+      updated_cached = update_or_add_cached_post(cached_read_posts, post)
+
+      socket
+      |> assign(:cached_read_posts, updated_cached)
+      |> stream_delete(:posts, post)
+      |> maybe_stream_insert_read_post(post, at: -1)
     end
   end
 end

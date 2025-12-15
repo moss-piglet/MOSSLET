@@ -12109,4 +12109,118 @@ defmodule MossletWeb.DesignSystem do
       true -> Calendar.strftime(date, "%B %d, %Y")
     end
   end
+
+  @doc """
+  Timeline read posts divider with expand/collapse functionality.
+
+  A beautiful animated divider that separates unread posts from read posts,
+  with smooth animations and loading states.
+
+  ## Examples
+
+      <.liquid_read_posts_divider
+        count={5}
+        expanded={false}
+        loading={false}
+      />
+  """
+  attr :count, :integer, required: true
+  attr :expanded, :boolean, default: false
+  attr :loading, :boolean, default: false
+  attr :class, :any, default: ""
+
+  def liquid_read_posts_divider(assigns) do
+    ~H"""
+    <div class={["relative py-6", @class]}>
+      <div class="absolute inset-0 flex items-center" aria-hidden="true">
+        <div class="w-full h-px bg-gradient-to-r from-transparent via-slate-300/60 to-transparent dark:via-slate-600/60" />
+      </div>
+
+      <div class="relative flex justify-center">
+        <button
+          type="button"
+          phx-click="toggle_read_posts"
+          disabled={@loading}
+          class={[
+            "group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full",
+            "bg-white dark:bg-slate-800",
+            "border border-slate-200/80 dark:border-slate-700/80",
+            "shadow-lg shadow-slate-900/5 dark:shadow-black/20",
+            "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-black/30",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
+            "transition-all duration-300 ease-out",
+            "transform hover:scale-[1.02]",
+            @loading && "cursor-wait opacity-80"
+          ]}
+        >
+          <div :if={@loading} class="flex items-center gap-2">
+            <div class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Loading posts...
+            </span>
+          </div>
+
+          <div :if={!@loading} class="flex items-center gap-2.5">
+            <div class={[
+              "flex items-center justify-center w-6 h-6 rounded-full",
+              "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
+              "group-hover:from-emerald-100 group-hover:to-teal-50",
+              "dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
+              "transition-all duration-300"
+            ]}>
+              <.phx_icon
+                name={if @expanded, do: "hero-chevron-up", else: "hero-chevron-down"}
+                class={[
+                  "w-3.5 h-3.5 text-slate-500 dark:text-slate-400",
+                  "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+                  "transition-all duration-300",
+                  @expanded && "rotate-180"
+                ]}
+              />
+            </div>
+
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">
+              <%= if @expanded do %>
+                Hide read posts
+              <% else %>
+                <span class="text-slate-500 dark:text-slate-400">Show</span>
+                <span class={[
+                  "inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 mx-1",
+                  "text-xs font-semibold rounded-full",
+                  "bg-gradient-to-br from-emerald-500 to-teal-600 text-white",
+                  "shadow-sm shadow-emerald-500/30"
+                ]}>
+                  {@count}
+                </span>
+                <span class="text-slate-500 dark:text-slate-400">read posts</span>
+              <% end %>
+            </span>
+
+            <div :if={!@expanded} class={[
+              "flex items-center justify-center w-6 h-6 rounded-full",
+              "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
+              "group-hover:from-emerald-100 group-hover:to-teal-50",
+              "dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
+              "transition-all duration-300"
+            ]}>
+              <.phx_icon
+                name="hero-eye"
+                class={[
+                  "w-3.5 h-3.5 text-slate-400 dark:text-slate-500",
+                  "group-hover:text-emerald-500 dark:group-hover:text-emerald-400",
+                  "transition-colors duration-300"
+                ]}
+              />
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div :if={@expanded && !@loading} class="absolute left-0 right-0 bottom-0 flex items-center" aria-hidden="true">
+        <div class="w-full h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent dark:via-emerald-600/40 animate-pulse" />
+      </div>
+    </div>
+    """
+  end
 end
