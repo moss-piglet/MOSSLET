@@ -99,7 +99,9 @@ jobs:
       # Compile dependencies
       - name: Compile dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: mix deps.compile
+        run: |
+          mix deps.compile zxcvbn --force
+          mix deps.compile
 
       # Check formatting
       - name: Check Formatting
