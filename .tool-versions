@@ -2,3 +2,4 @@ elixir 1.19.4-otp-28 global
 erlang 28.2 global
 postgres 15.2
 rebar3 3.24.0
+github-cli 2.42.1
