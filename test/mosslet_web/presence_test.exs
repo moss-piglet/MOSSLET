@@ -309,7 +309,7 @@ defmodule MossletWeb.PresenceTest do
 
   defp log_in_user(conn, user, key) do
     conn
-    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Test.init_test_session(%{})
     |> Plug.Conn.put_session(:user_token, Accounts.generate_user_session_token(user))
     |> Plug.Conn.put_session(:key, key)
   end
