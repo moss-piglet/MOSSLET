@@ -25,7 +25,6 @@ erl_crash.dump
 /tmp/
 
 # Implementation plan files
-/docs/
 AT_PROTOCOL_FEDERATION_GUIDE.md
 AT_PROTOCOL_PHASES_4_6.md
 IMPLEMENTATION_GUIDE.md
