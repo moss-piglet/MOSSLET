@@ -531,6 +531,11 @@ export default class LiveSocket {
       // in that case we DO NOT want to fallback to the main element
       view = this.getViewByEl(viewEl);
     } else {
+      if (!childEl.isConnected) {
+        // if the element is not part of the DOM any more
+        // there's no owner and we should not do fall back
+        return null;
+      }
       view = this.main;
     }
     return view && callback ? callback(view) : view;
@@ -863,7 +868,17 @@ export default class LiveSocket {
   dispatchClickAway(e, clickStartedAt) {
     const phxClickAway = this.binding("click-away");
     DOM.all(document, `[${phxClickAway}]`, (el) => {
-      if (!(el.isSameNode(clickStartedAt) || el.contains(clickStartedAt))) {
+      if (
+        !(
+          el.isSameNode(clickStartedAt) ||
+          el.contains(clickStartedAt) ||
+          // When clicking a link with custom method,
+          // phoenix_html triggers a click on a submit button
+          // of a hidden form appended to the body. For such cases
+          // where the clicked target is hidden, we skip click-away.
+          !JS.isVisible(clickStartedAt)
+        )
+      ) {
         this.withinOwners(el, (view) => {
           const phxEvent = el.getAttribute(phxClickAway);
           if (JS.isVisible(el) && JS.isInViewport(el)) {
