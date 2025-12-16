@@ -3318,28 +3318,6 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  def handle_event("edit_post", %{"id" => id, "url" => return_url}, socket) do
-    # we assign the post to be editted to a new variable
-    # to not interrupt the new_post_form
-    post = Timeline.get_post!(id)
-
-    image_urls =
-      if post.image_urls do
-        Enum.filter(post.image_urls, &is_binary/1)
-      else
-        []
-      end
-
-    socket =
-      socket
-      |> assign(:live_action, :edit_post)
-      |> assign(:return_url, return_url)
-      |> assign(:post, post)
-      |> assign(:image_urls, image_urls)
-
-    {:noreply, socket}
-  end
-
   def handle_event("delete_post", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user

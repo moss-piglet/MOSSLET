@@ -1,6 +1,6 @@
 const ClipboardHook = {
   mounted() {
-    this.el.addEventListener("click", (e) => {
+    this.clickHandler = (e) => {
       e.preventDefault();
       const content = this.el.dataset.content;
       if (content) {
@@ -8,7 +8,12 @@ const ClipboardHook = {
           this.pushEvent("clipboard_copied", {});
         });
       }
-    });
+    };
+    this.el.addEventListener("click", this.clickHandler);
+  },
+
+  destroyed() {
+    this.el.removeEventListener("click", this.clickHandler);
   },
 };
 

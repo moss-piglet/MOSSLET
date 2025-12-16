@@ -17,7 +17,8 @@ defmodule MossletWeb.EditProfileLive do
       socket
       |> assign(%{
         page_title: "Settings",
-        uploaded_files: []
+        uploaded_files: [],
+        profile: profile
       })
       |> assign(:banner_image, banner_image)
       |> assign_profile_about(current_user, socket.assigns.key)
@@ -169,16 +170,21 @@ defmodule MossletWeb.EditProfileLive do
                     <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
                       Profile URL
                     </label>
-                    <div class="flex rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div
+                      :if={@profile}
+                      class="flex rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    >
                       <span
                         id="mosslet-profile-url"
                         class="flex-1 px-4 py-3 text-sm text-slate-700 dark:text-slate-300 bg-transparent"
                       >
-                        https://mosslet.com/app/profile/{decr(
-                          @current_user.username,
-                          @current_user,
-                          @key
-                        )}
+                        {MossletWeb.Endpoint.url() <>
+                          "/app/profile/" <>
+                          decr(
+                            @current_user.username,
+                            @current_user,
+                            @key
+                          )}
                       </span>
                       <button
                         type="button"
@@ -192,6 +198,18 @@ defmodule MossletWeb.EditProfileLive do
                         <.phx_icon name="hero-clipboard" class="h-5 w-5" />
                         <span class="sr-only">Copy to clipboard</span>
                       </button>
+                    </div>
+                    <div
+                      :if={!@profile}
+                      class="flex items-center gap-3 rounded-xl px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600"
+                    >
+                      <.phx_icon
+                        name="hero-link"
+                        class="h-5 w-5 text-slate-400 dark:text-slate-500"
+                      />
+                      <span class="text-sm text-slate-500 dark:text-slate-400">
+                        Your profile URL will appear here once you create your profile
+                      </span>
                     </div>
                   </div>
                 </div>

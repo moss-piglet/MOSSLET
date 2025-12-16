@@ -548,21 +548,6 @@ defmodule MossletWeb.UserConnectionLive.Show do
     {:noreply, socket}
   end
 
-  def handle_event("edit_post", %{"id" => id, "url" => return_url}, socket) do
-    # we assign the post to be editted to a new variable
-    # to not interrupt the new_post_form
-    post = Timeline.get_post!(id)
-
-    socket =
-      socket
-      |> assign(:live_action, :post_edit)
-      |> assign(:return_url, return_url)
-      |> assign(:post, post)
-      |> assign(:image_urls, if(post.image_urls, do: post.image_urls, else: []))
-
-    {:noreply, socket}
-  end
-
   def handle_event("reply", %{"id" => id, "url" => return_url}, socket) do
     post = Timeline.get_post!(id)
 

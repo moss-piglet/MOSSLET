@@ -45,41 +45,6 @@
           </.async_result>
         </section>
       </div>
-
-      <div class="space-y-6 lg:col-span-2 lg:col-start-1">
-        <%!-- Posts --%>
-        <section aria-labelledby="posts-title">
-          <%!-- posts async result --%>
-          <.async_result :let={_result} assign={@posts}>
-            <:loading>
-              <div class="loading">
-                <div class="spinner"></div>
-              </div>
-            </:loading>
-            <:failed :let={{:error, reason}}>
-              <div class="failed">
-                Whoops: {reason}
-              </div>
-            </:failed>
-            <.user_connection_posts
-              current_user={@current_user}
-              post_form={@post_form}
-              key={@key}
-              posts={@streams.posts}
-              options={@options}
-              post_count={@post_count}
-              user_connection={@user_connection}
-              post_loading={@post_loading}
-              post_loading_count={@post_loading_count}
-              post_loading_list={@post_loading_list}
-              finished_loading_post_list={@finished_loading_post_list}
-              return_url={@return_url}
-              image_urls={@image_urls}
-              uploads_in_progress={@uploads_in_progress}
-            />
-          </.async_result>
-        </section>
-      </div>
     </div>
   </main>
 
