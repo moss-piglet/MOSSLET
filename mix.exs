@@ -57,6 +57,7 @@ defmodule Mosslet.MixProject do
       {:dns_cluster, "~> 0.1.3"},
       {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.12"},
+      {:ecto_sqlite3, "~> 0.22.0"},
       {:email_checker, "~> 0.2.4"},
       {:enacl, github: "aeternity/enacl"},
       {:eqrcode, "~> 0.1.10"},

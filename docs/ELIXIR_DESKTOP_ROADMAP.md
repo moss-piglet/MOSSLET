@@ -104,17 +104,17 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 
 ### Phase 1: Platform Abstraction Layer
 
-- [ ] Create `Mosslet.Platform` module for runtime detection
-- [ ] Create `Mosslet.Platform.Repo` abstraction (Postgres vs SQLite)
-- [ ] Create `Mosslet.Platform.Config` for environment-specific settings
-- [ ] Add `:desktop` Mix environment/target
+- [x] Create `Mosslet.Platform` module for runtime detection
+- [x] Create `Mosslet.Platform.Config` for environment-specific settings
+- [x] Add `:desktop` Mix environment/target (`config/desktop.exs`, `MOSSLET_DESKTOP` env var)
+- [x] Test platform detection in dev
 
 ### Phase 2: Database Compatibility
 
-- [ ] Add `{:ecto_sqlite3, "~> 0.12"}` dependency
+- [x] Add `{:ecto_sqlite3, "~> 0.22"}` dependency
+- [ ] Create `Mosslet.Repo.SQLite` module
 - [ ] Create SQLite-compatible migrations (subset of full schema)
 - [ ] Handle Postgres-specific features (jsonb, uuid, citext)
-- [ ] Create `Mosslet.Repo.SQLite` module
 
 ### Phase 3: Sync API
 

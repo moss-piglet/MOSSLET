@@ -2590,9 +2590,6 @@ defmodule MossletWeb.Helpers do
       :cyan ->
         "bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 ring-cyan-600/20"
 
-      :yellow ->
-        "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 ring-indigo-600/20"
-
       :orange ->
         "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 ring-orange-600/20"
 
