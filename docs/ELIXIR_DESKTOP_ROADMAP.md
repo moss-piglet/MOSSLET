@@ -387,47 +387,164 @@ Authenticated (requires Bearer token):
 - Deleted resources are handled gracefully
 - Local cache updated to match server state after resolution
 
-### Phase 5: Desktop App Setup
+### Phase 5: Context-Level Platform Routing 🚧 IN PROGRESS
 
-- [ ] Configure `Desktop.Endpoint` (conditional on platform)
-- [ ] Update `application.ex` supervision tree for desktop mode:
+**Goal:** Make contexts platform-aware so LiveViews work unchanged on both web and native.
 
-  ```elixir
-  def start(_type, _args) do
-    children = common_children() ++ platform_children()
-    opts = [strategy: :one_for_one, name: Mosslet.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
+**Architecture Decision:** Instead of wrapping `Mosslet.Repo` with a data gateway layer, we add platform checks at the **context level**. This preserves:
 
-  defp common_children do
-    [
-      MossletWeb.Telemetry,
-      {Phoenix.PubSub, name: Mosslet.PubSub},
-      MossletWeb.Endpoint
-    ]
-  end
+- `Fly.Repo` and `transaction_on_primary` patterns for web (multi-region writes)
+- `Ecto.Multi` transaction handling
+- All existing Repo usage in contexts
 
-  defp platform_children do
-    if Mosslet.Platform.native?() do
-      [
-        Mosslet.Repo.SQLite,      # Local cache only
-        Mosslet.Sync,             # Sync with cloud
-        Mosslet.Sync.Queue,       # Process pending changes
-        Desktop.Window            # Native window
-      ]
-    else
-      [
-        Mosslet.Repo.Local,       # Postgres (cloud)
-        {Oban, Application.fetch_env!(:mosslet, Oban)},
-        # ... other server-side services
-      ]
-    end
-  end
-  ```
+**How It Works:**
 
-- [ ] Add `Desktop.Auth` plug for native builds
-- [ ] Create `Desktop.Window` configuration
-- [ ] Test on macOS, Windows, Linux
+```
+DESKTOP APP                              FLY.IO SERVER
+───────────────────────────────────────────────────────────────────────
+LiveView calls
+  Accounts.get_user_by_email_and_password(email, password)
+    ↓
+  Platform.native?() == true
+    ↓
+  API.Client.login(email, password)  →   POST /api/auth/login
+                                               ↓
+                                          AuthController.login()
+                                               ↓
+                                          Accounts.get_user_by_email_and_password()
+                                               ↓
+                                          Platform.native?() == false (on server!)
+                                               ↓
+                                          Repo.get_by(User, email_hash: email)
+                                               ↓
+                                          Returns user via JSON API
+                                               ↓
+  ←  JSON response with user + token
+    ↓
+  Return user struct to LiveView
+```
+
+**Key Insight:** `Platform.native?()` returns `false` on Fly.io (no `MOSSLET_DESKTOP` env var), so the server always uses Repo directly. The API controllers already call context functions, which hit the real Postgres.
+
+**Implementation Checklist:**
+
+**Context Priority Matrix:**
+
+| Context | Repo Calls | Priority | Notes |
+|---------|------------|----------|-------|
+| `accounts.ex` | 173 | CRITICAL | Auth, users, connections |
+| `timeline.ex` | 236 | HIGH | Posts, feeds, reactions |
+| `groups.ex` | 43 | MEDIUM | Group management |
+| `group_messages.ex` | 15 | MEDIUM | Group chat |
+| `messages.ex` | 9 | MEDIUM | Direct messages |
+| `orgs.ex` | 25 | LOW | Organization features |
+| `statuses.ex` | 9 | LOW | User statuses |
+| `logs.ex` | 7 | SKIP | Audit logs (server-only) |
+| `memories.ex` | 57 | SKIP | Legacy - phasing out |
+| `conversations.ex` | 9 | SKIP | Legacy - phasing out |
+
+#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex`
+
+- [ ] `Mosslet.Accounts.get_user_by_email_and_password/2` - Routes to `API.Client.login/2` on native
+- [ ] `Mosslet.Accounts.register_user/2` - Routes to `API.Client.register/1` on native
+- [ ] `Mosslet.Accounts.get_user!/1` and `get_user/1` - Fetch via API or cache on native
+- [ ] `Mosslet.Accounts.UserPin` operations - Route password reset to API
+- [ ] Create `Mosslet.Session.Native` module for JWT token + session key storage
+- [ ] Update `MossletWeb.UserAuth` to handle native token-based auth
+- [ ] All other `Accounts` CRUD functions (connections, user_connections, etc.)
+
+#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex`
+
+- [ ] `Mosslet.Timeline.create_post/3` - Route to `API.Client.create_post/2` on native
+- [ ] `Mosslet.Timeline.update_post/3` - Route to API
+- [ ] `Mosslet.Timeline.delete_post/2` - Route to API
+- [ ] `Mosslet.Timeline.list_posts_for_user/2` - Fetch via API, cache locally
+- [ ] `Mosslet.Timeline.get_post!/2` - Fetch via API or cache
+- [ ] All timeline query functions
+
+#### 5.3 Groups - `groups.ex` (Priority: MEDIUM)
+
+- [ ] Group CRUD operations - Route to API
+- [ ] Group membership operations - Route to API
+- [ ] Group queries - Fetch via API, cache locally
+
+#### 5.4 Group Messages - `group_messages.ex` (Priority: MEDIUM)
+
+- [ ] Group message CRUD - Route to API
+- [ ] Group message queries - Fetch via API, cache locally
+
+#### 5.5 Messages - `messages.ex` (Priority: MEDIUM)
+
+- [ ] Direct message CRUD - Route to API
+
+#### 5.6 Organizations - `orgs.ex` (Priority: LOW)
+
+- [ ] Org CRUD operations - Route to API
+- [ ] Org membership operations - Route to API
+
+#### 5.7 Statuses - `statuses.ex` (Priority: LOW)
+
+- [ ] Status CRUD - Route to API
+
+#### 5.8 Skipped Contexts
+
+The following contexts are **not** being updated for native platform routing:
+
+- `logs.ex` - Audit logging is server-side only
+- `memories.ex` - Legacy feature, being phased out
+- `conversations.ex` - Legacy feature, being phased out
+
+#### 5.9 API Endpoints Required
+
+For each context above, corresponding API endpoints need to exist. Current API coverage:
+
+**Existing:**
+- Auth: login, register, refresh, logout, me ✅
+- Sync: user, posts, connections, groups, full ✅  
+- Posts: CRUD ✅
+
+**Need to add:**
+- [ ] `PUT /api/users/profile` - Update user profile
+- [ ] `PUT /api/users/email` - Change email
+- [ ] `PUT /api/users/password` - Change password
+- [ ] `POST /api/users/reset-password` - Request password reset
+- [ ] Connections CRUD endpoints
+- [ ] Groups CRUD endpoints
+- [ ] Group messages CRUD endpoints
+- [ ] Messages CRUD endpoints
+- [ ] Statuses CRUD endpoints
+- [ ] Orgs CRUD endpoints
+
+#### 5.10 Caching Strategy
+
+- [ ] After successful API reads, cache data in SQLite via `Mosslet.Cache`
+- [ ] On API failure (offline), fall back to cached data
+- [ ] On writes, queue in `SyncQueueItem` if offline, sync later
+
+**Files to modify:**
+
+- `lib/mosslet/accounts.ex` - Add platform routing to auth functions
+- `lib/mosslet/timeline.ex` - Add platform routing to post functions
+- `lib/mosslet/api/client.ex` - Add any missing CRUD endpoints
+- `lib/mosslet_web/user_auth.ex` - Handle native token auth
+- `lib/mosslet/session/native.ex` (new) - Native session/token management
+
+**API Endpoints to add:**
+
+- `PUT /api/users/profile` - Update user profile
+- `PUT /api/users/email` - Change email
+- `PUT /api/users/password` - Change password
+- `POST /api/users/reset-password` - Request password reset
+- `PUT /api/connections/:id` - Update connection profile
+
+### Phase 5.5: Desktop Window & Auth Setup ✅ COMPLETE
+
+The desktop-specific infrastructure is already in place:
+
+- [x] `application.ex` supervision tree handles `native_children()` vs `web_children()`
+- [x] `MossletWeb.Plugs.DesktopAuth` wraps `Desktop.Auth` for WebView token validation
+- [x] `MossletWeb.Desktop.Window` configuration exists
+- [x] `config/desktop.exs` configures desktop environment
 
 ### Phase 6: Mobile App Setup
 
@@ -533,38 +650,113 @@ Based on codebase analysis, server keys (`SERVER_PUBLIC_KEY`, `SERVER_PRIVATE_KE
 
 ### Repo Strategy
 
+**Web Platform (unchanged):**
+
 ```elixir
-# For web (current)
 defmodule Mosslet.Repo do
   use Fly.Repo, local_repo: Mosslet.Repo.Local
-  # Writes go to primary, reads from replicas
+  # Writes go to primary region, reads from replicas
+  # transaction_on_primary/1 ensures writes hit primary
 end
+```
 
-# For desktop/mobile
+**Native Platform:**
+
+```elixir
+# SQLite is for LOCAL CACHE ONLY - not for user data storage!
 defmodule Mosslet.Repo.SQLite do
   use Ecto.Repo, otp_app: :mosslet, adapter: Ecto.Adapters.SQLite3
-  # LOCAL CACHE ONLY - not for user data!
 end
+```
 
-# Desktop data access pattern
-defmodule Mosslet.Desktop.Data do
-  @moduledoc """
-  Data access for desktop apps. Routes through API to cloud.
-  """
+**Context-Level Platform Routing Pattern:**
 
-  def get_posts(user, session_key) do
-    # 1. Check cache for offline support
-    # 2. Fetch from API if online
-    # 3. Decrypt enacl layer locally
-    # 4. Return to UI
+```elixir
+defmodule Mosslet.Accounts do
+  alias Mosslet.{Platform, API.Client, Cache}
+
+  def get_user_by_email_and_password(email, password) do
+    if Platform.native?() do
+      # Native: Call API, get user + JWT token
+      case Client.login(email, password) do
+        {:ok, %{user: user_data, token: token}} ->
+          # Store token for subsequent requests
+          Mosslet.Session.Native.store_token(token)
+          # Reconstruct user struct from API response
+          deserialize_user(user_data)
+
+        {:error, _} ->
+          nil
+      end
+    else
+      # Web: Direct Repo access (existing code)
+      user = Repo.get_by(User, email_hash: email)
+      if User.valid_password?(user, password), do: user
+    end
   end
 
-  def create_post(user, session_key, content) do
-    # 1. Encrypt content locally with enacl
-    # 2. Queue for sync if offline, or send immediately
-    # 3. Server stores (adds Cloak layer)
+  def get_user(id) do
+    if Platform.native?() do
+      # Try cache first for offline support
+      case Cache.get_cached_item("user", id) do
+        %{encrypted_data: data} when not is_nil(data) ->
+          # Return cached if offline
+          if Mosslet.Sync.online?() do
+            fetch_and_cache_user(id)
+          else
+            deserialize_cached_user(data)
+          end
+
+        nil ->
+          fetch_and_cache_user(id)
+      end
+    else
+      Repo.get(User, id)
+    end
+  end
+
+  defp fetch_and_cache_user(id) do
+    token = Mosslet.Session.Native.get_token()
+
+    case Client.me(token) do
+      {:ok, %{user: user_data}} ->
+        user = deserialize_user(user_data)
+        Cache.cache_item("user", id, Jason.encode!(user_data))
+        user
+
+      {:error, _} ->
+        # Offline fallback
+        case Cache.get_cached_item("user", id) do
+          %{encrypted_data: data} -> deserialize_cached_user(data)
+          nil -> nil
+        end
+    end
   end
 end
+```
+
+**Caching Flow:**
+
+```
+READ (native):
+  Context function called
+    ↓
+  Platform.native?() == true
+    ↓
+  Check Cache.get_cached_item()
+    ↓
+  If online: API.Client.fetch() → Update cache → Return struct
+  If offline: Return cached data (may be stale)
+
+WRITE (native):
+  Context function called
+    ↓
+  Platform.native?() == true
+    ↓
+  If online: API.Client.create/update/delete() → Cache result → Return
+  If offline: Cache.queue_for_sync() → Return optimistic result
+    ↓
+  Mosslet.Sync processes queue when back online
 ```
 
 ---
@@ -644,4 +836,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-12-17 (Phase 4 completed)_
+_Last updated: 2025-01-21 (Phase 5 architecture defined - Context-Level Platform Routing)_

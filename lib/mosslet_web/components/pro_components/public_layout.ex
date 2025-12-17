@@ -47,7 +47,7 @@ defmodule MossletWeb.PublicLayout do
       ]}
     >
       <.liquid_container max_width="full">
-        <div class="flex items-center justify-between h-16 lg:h-20">
+        <div class="relative flex items-center justify-between h-16 lg:h-20">
           <%!-- Logo section with improved spacing --%>
           <div class="flex items-center flex-shrink-0">
             <.link
@@ -69,10 +69,10 @@ defmodule MossletWeb.PublicLayout do
             </.link>
           </div>
 
-          <%!-- Desktop navigation with full liquid metal effects matching footer --%>
+          <%!-- Desktop navigation - absolutely centered on desktop --%>
           <nav
             aria-label="Main"
-            class="hidden lg:flex lg:items-center lg:justify-center flex-1 max-w-3xl mx-8"
+            class="hidden lg:flex lg:items-center lg:justify-center lg:absolute lg:left-1/2 lg:-translate-x-1/2"
           >
             <div class="flex items-center space-x-1">
               <.link
