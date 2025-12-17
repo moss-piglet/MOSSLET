@@ -209,41 +209,74 @@ The **same double-encrypted data** works for both platforms - the difference is 
 - [x] Add `:desktop` Mix environment/target (`config/desktop.exs`)
 - [x] Test platform detection in dev
 
-### Phase 2: Local Cache Database
+### Phase 2: Local Cache Database ✅ COMPLETE
 
 **Goal:** SQLite for offline cache and sync queue ONLY - not for user data storage.
 
 - [x] Add `{:ecto_sqlite3, "~> 0.22"}` dependency
-- [ ] Create `Mosslet.Repo.SQLite` module (cache-only repo)
-- [ ] Design cache schema:
+- [x] Create `Mosslet.Repo.SQLite` module (cache-only repo) - `lib/mosslet/repo/sqlite.ex`
+- [x] Design cache schema:
+  - `Mosslet.Cache.CachedItem` - Stores encrypted blobs for offline viewing
+  - `Mosslet.Cache.SyncQueueItem` - Queues pending changes when offline
+  - `Mosslet.Cache.LocalSetting` - Device-specific settings
+- [x] Create SQLite migrations for cache tables - `priv/repo_sqlite/migrations/`
+- [x] Implement `Mosslet.Cache` module for local cache operations - `lib/mosslet/cache.ex`
 
-  ```elixir
-  # Only stores encrypted blobs, NOT decrypted data
-  schema "cached_items" do
-    field :resource_type, :string  # "post", "message", etc. (is this sensitive? if so then binary for cloak)
-    field :resource_id, :binary    # UUID from server
-    field :encrypted_data, :binary # The enacl-encrypted blob from server
-    field :etag, :string           # For cache invalidation (is this sensitive? if so then binary for cloak)
-    field :cached_at, :utc_datetime
-  end
+**Files created:**
+- `lib/mosslet/repo/sqlite.ex` - SQLite Ecto repo
+- `lib/mosslet/cache.ex` - Cache operations context
+- `lib/mosslet/cache/cached_item.ex` - CachedItem schema
+- `lib/mosslet/cache/sync_queue_item.ex` - SyncQueueItem schema
+- `lib/mosslet/cache/local_setting.ex` - LocalSetting schema
+- `priv/repo_sqlite/migrations/20250120000001_create_cache_tables.exs` - Migration
 
-  schema "sync_queue" do
-    field :action, :string         # "create", "update", "delete"
-    field :resource_type, :string
-    field :payload, :binary        # Encrypted payload to send
-    field :status, :string         # "pending", "syncing", "failed"
-    field :retry_count, :integer
-    field :queued_at, :utc_datetime
-  end
+### Phase 2.5: Device Keychain Cache Encryption ✅ COMPLETE
 
-  schema "local_settings" do
-    field :key, :string
-    field :value, :string
-  end
-  ```
+**Goal:** Add Cloak-style symmetric encryption layer for local cache to provide defense-in-depth and quantum-resistance at rest.
 
-- [ ] Create SQLite migrations for cache tables
-- [ ] Implement `Mosslet.Cache` module for local cache operations
+**Why:** While enacl already protects cached data, adding a device-specific AES-256-GCM layer provides:
+- Defense-in-depth (two layers to break)
+- Post-quantum resistance for data at rest (AES is quantum-resistant)
+- Consistency with cloud architecture (both use Cloak-style wrapping)
+
+**Architecture:**
+
+```
+Cloud (current):     Content → Enacl → Cloak (CLOAK_KEY) → Postgres
+Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLite
+```
+
+**Key Management:**
+- Each device generates its own unique AES-256 key on first run
+- Key stored in OS-native secure storage (never synced between devices):
+  - macOS: Keychain Services (`kSecAttrSynchronizable = false`)
+  - Windows: DPAPI / Credential Manager
+  - Linux: Secret Service API (libsecret)
+  - iOS: Keychain (device-only, not iCloud)
+  - Android: Keystore
+- No admin rotation needed - key is device-local, disposable with device
+- New device = fresh cache from cloud sync (no data loss)
+
+**Completed:**
+- [x] Create `Mosslet.Platform.Security` module for device keychain operations
+- [x] Create `Mosslet.Vault.Native` module for device-specific Cloak vault
+- [x] Create `Mosslet.Encrypted.Native.*` types (Binary, Map, Integer, HMAC, etc.)
+- [x] Update cache schemas to use `Encrypted.Native.Binary` for sensitive fields
+- [x] Add platform-specific keychain adapters (stub for now, implement per-platform later)
+
+**Files created:**
+- `lib/mosslet/platform/security.ex` - Device keychain operations (encryption key + HMAC secret)
+- `lib/mosslet/vault/native.ex` - Native Cloak vault using device keychain key
+- `lib/mosslet/encrypted/native/binary.ex` - Native encrypted binary type
+- `lib/mosslet/encrypted/native/map.ex` - Native encrypted map type
+- `lib/mosslet/encrypted/native/hmac.ex` - Native HMAC using device keychain secret
+- `lib/mosslet/encrypted/native/*.ex` - All other Native encrypted types
+
+**Security Properties:**
+- Device theft: Attacker needs OS credentials + user password to read cached data
+- Quantum attack: AES-256 layer provides post-quantum resistance
+- Cache is disposable: Cloud sync rebuilds it on any new device
+- No key rotation complexity: Device keys are independent, never transmitted
 
 ### Phase 3: API Client for Desktop
 

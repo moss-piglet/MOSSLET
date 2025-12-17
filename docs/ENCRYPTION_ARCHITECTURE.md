@@ -784,6 +784,86 @@ schema "cached_posts" do
 end
 ```
 
+### Native Cache Encryption (Device Keychain)
+
+Native apps add an additional encryption layer to locally cached data using device-specific keys stored in the OS keychain. This provides defense-in-depth and post-quantum resistance for cached data.
+
+#### Architecture
+
+```
+Cloud Storage:   Content → Enacl → Cloak (CLOAK_KEY from env) → Postgres
+Native Cache:    Content → Enacl → Cloak (device key from keychain) → SQLite
+```
+
+#### Key Management
+
+Two separate secrets are stored in the device's OS-native keychain:
+
+| Secret | Purpose | Storage |
+|--------|---------|---------|
+| **Device Encryption Key** | AES-256-GCM encryption via `Mosslet.Vault.Native` | OS Keychain |
+| **Device HMAC Secret** | Deterministic hashing via `Mosslet.Encrypted.Native.HMAC` | OS Keychain |
+
+**Platform-Specific Keychain Storage:**
+- **macOS/iOS**: Keychain Services (device-only, not synced to iCloud)
+- **Windows**: DPAPI / Credential Manager
+- **Linux**: Secret Service API (libsecret)
+- **Android**: Keystore
+
+**Key Properties:**
+- Generated once per device on first app launch
+- Never transmitted or synced between devices
+- Lost when device is wiped (cache rebuilds from cloud sync)
+- No admin rotation needed - keys are device-local and disposable
+
+#### Modules
+
+```elixir
+# Native Vault (AES-256-GCM encryption)
+Mosslet.Vault.Native              # Device-specific Cloak vault
+Mosslet.Encrypted.Native.Binary   # Encrypted binary fields
+Mosslet.Encrypted.Native.Map      # Encrypted map fields
+Mosslet.Encrypted.Native.Integer  # Encrypted integer fields
+# ... and other type modules
+
+# Native HMAC (deterministic hashing for search)
+Mosslet.Encrypted.Native.HMAC     # Device-specific HMAC hashing
+
+# Key Management
+Mosslet.Platform.Security         # Device keychain operations
+```
+
+#### Usage in Cache Schemas
+
+```elixir
+defmodule Mosslet.Cache.SomeSchema do
+  use Ecto.Schema
+
+  schema "some_cache_table" do
+    # Encrypted with device-specific key from keychain
+    field :sensitive_data, Mosslet.Encrypted.Native.Binary
+    field :sensitive_map, Mosslet.Encrypted.Native.Map
+
+    # Searchable hash using device-specific HMAC secret
+    field :resource_type_hash, Mosslet.Encrypted.Native.HMAC
+  end
+end
+```
+
+#### Security Model
+
+```
+Device theft scenario:
+  Attacker has:   Physical device + SQLite file
+  Attacker needs: OS credentials to access keychain + user password for enacl layer
+  Result:         Data protected by TWO independent encryption layers
+
+Cache is disposable:
+  - Lost device key? Cache is unreadable, but no data loss
+  - Cloud sync rebuilds cache on new device with new device key
+  - Each device has unique keys, never shared
+```
+
 ---
 
 ## 🔄 Key Rotation
