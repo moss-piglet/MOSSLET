@@ -5,11 +5,13 @@ This guide walks you through manually testing the Mosslet desktop app before rel
 ## Prerequisites
 
 1. **Elixir and Erlang installed** with wxWidgets support
+
    - On macOS: `brew install wxwidgets` (ensure Erlang was compiled with wx support)
    - On Linux: `sudo apt-get install libwxgtk3.0-gtk3-dev` or equivalent
    - On Windows: wxWidgets included with Erlang installer
 
 2. **Dependencies installed**
+
    ```bash
    mix deps.get
    ```
@@ -58,15 +60,18 @@ iex -S mix
 Test each menu item:
 
 **Mosslet Menu:**
+
 - [ ] "About Mosslet" shows notification with app description
 - [ ] "Settings..." navigates to `/app/users/edit-details`
 - [ ] "Quit Mosslet" closes the application
 
 **File Menu:**
+
 - [ ] "Home" navigates to `/`
 - [ ] "Sync Now" triggers immediate sync (check logs)
 
 **Help Menu:**
+
 - [ ] "Mosslet Support" opens `https://mosslet.com/support` in external browser
 - [ ] "Check for Updates..." opens `https://mosslet.com/updates` in external browser
 
@@ -112,17 +117,20 @@ To test offline:
 ### 7. Platform-Specific Testing
 
 #### macOS
+
 - [ ] App runs on Apple Silicon (arm64)
 - [ ] App runs on Intel (x86_64)
 - [ ] Menu bar integrates with system menu
 - [ ] Native notifications work
 
 #### Windows
+
 - [ ] App runs on Windows 10+
 - [ ] System tray icon works
 - [ ] Native notifications work
 
 #### Linux
+
 - [ ] App runs on common distros (Ubuntu, Fedora)
 - [ ] GTK integration works
 - [ ] Desktop notifications work
@@ -210,16 +218,16 @@ MIX_ENV=prod MOSSLET_DESKTOP=true mix release
 
 The desktop app uses these API endpoints (configured in `config/desktop.exs`):
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/auth/login` | User authentication |
+| Endpoint                  | Purpose               |
+| ------------------------- | --------------------- |
+| `POST /api/auth/login`    | User authentication   |
 | `POST /api/auth/register` | New user registration |
-| `POST /api/auth/refresh` | Token refresh |
-| `GET /api/sync/full` | Full data sync |
-| `GET /api/sync/posts` | Incremental post sync |
-| `POST /api/posts` | Create post |
-| `PUT /api/posts/:id` | Update post |
-| `DELETE /api/posts/:id` | Delete post |
+| `POST /api/auth/refresh`  | Token refresh         |
+| `GET /api/sync/full`      | Full data sync        |
+| `GET /api/sync/posts`     | Incremental post sync |
+| `POST /api/posts`         | Create post           |
+| `PUT /api/posts/:id`      | Update post           |
+| `DELETE /api/posts/:id`   | Delete post           |
 
 ## Test Report Template
 
@@ -231,9 +239,9 @@ Desktop App Test Report
 Date: YYYY-MM-DD
 Tester: Name
 Platform: macOS/Windows/Linux
-OS Version: 
-Erlang/OTP: 
-Elixir: 
+OS Version:
+Erlang/OTP:
+Elixir:
 
 Results:
 - [ ] Window opens correctly
@@ -244,8 +252,8 @@ Results:
 - [ ] All platform-specific features work
 
 Issues Found:
-1. 
-2. 
+1.
+2.
 
 Notes:
 
