@@ -98,10 +98,10 @@ When a user reads data:
 
 **All sensitive data uses BOTH encryption layers:**
 
-| Layer | Technology | Purpose | Where It Happens |
-|-------|-----------|---------|------------------|
-| **Enacl (Asymmetric)** | NaCl/libsodium | E2E encryption - protects content from server | Device (native) or Server (web) |
-| **Cloak (Symmetric)** | AES-256-GCM | At-rest encryption - protects DB from breaches | Always on Server (Fly.io) |
+| Layer                  | Technology     | Purpose                                        | Where It Happens                |
+| ---------------------- | -------------- | ---------------------------------------------- | ------------------------------- |
+| **Enacl (Asymmetric)** | NaCl/libsodium | E2E encryption - protects content from server  | Device (native) or Server (web) |
+| **Cloak (Symmetric)**  | AES-256-GCM    | At-rest encryption - protects DB from breaches | Always on Server (Fly.io)       |
 
 The enacl-encrypted blob gets wrapped in Cloak encryption when stored. This happens automatically via our `Encrypted.Binary`, `Encrypted.Map`, etc. schema field types.
 
@@ -128,14 +128,14 @@ Used for data that needs server access:
 
 **Cross-Platform Compatibility:** ✅ Works (server handles server-key operations)
 
-| Data Type | Enacl Encrypted With | Who Decrypts Enacl | Cloak At-Rest |
-|-----------|---------------------|-------------------|---------------|
-| Private posts/messages | Recipient's public key | Recipient's device (native) or server (web) | ✅ Server |
-| Public posts | Server's public key | Server (to serve to anyone) | ✅ Server |
-| Connection profiles | Server's public key | Server | ✅ Server |
-| Post reports | Server's public key | Server (admin access) | ✅ Server |
-| Group content | Group key → member's public keys | Members' devices/server | ✅ Server |
-| User profile data | User's public key (via user_key) | User's device/server | ✅ Server |
+| Data Type              | Enacl Encrypted With             | Who Decrypts Enacl                          | Cloak At-Rest |
+| ---------------------- | -------------------------------- | ------------------------------------------- | ------------- |
+| Private posts/messages | Recipient's public key           | Recipient's device (native) or server (web) | ✅ Server     |
+| Public posts           | Server's public key              | Server (to serve to anyone)                 | ✅ Server     |
+| Connection profiles    | Server's public key              | Server                                      | ✅ Server     |
+| Post reports           | Server's public key              | Server (admin access)                       | ✅ Server     |
+| Group content          | Group key → member's public keys | Members' devices/server                     | ✅ Server     |
+| User profile data      | User's public key (via user_key) | User's device/server                        | ✅ Server     |
 
 ### How Native Apps Achieve Zero-Knowledge
 
@@ -223,6 +223,7 @@ The **same double-encrypted data** works for both platforms - the difference is 
 - [x] Implement `Mosslet.Cache` module for local cache operations - `lib/mosslet/cache.ex`
 
 **Files created:**
+
 - `lib/mosslet/repo/sqlite.ex` - SQLite Ecto repo
 - `lib/mosslet/cache.ex` - Cache operations context
 - `lib/mosslet/cache/cached_item.ex` - CachedItem schema
@@ -235,6 +236,7 @@ The **same double-encrypted data** works for both platforms - the difference is 
 **Goal:** Add Cloak-style symmetric encryption layer for local cache to provide defense-in-depth and quantum-resistance at rest.
 
 **Why:** While enacl already protects cached data, adding a device-specific AES-256-GCM layer provides:
+
 - Defense-in-depth (two layers to break)
 - Post-quantum resistance for data at rest (AES is quantum-resistant)
 - Consistency with cloud architecture (both use Cloak-style wrapping)
@@ -247,6 +249,7 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 ```
 
 **Key Management:**
+
 - Each device generates its own unique AES-256 key on first run
 - Key stored in OS-native secure storage (never synced between devices):
   - macOS: Keychain Services (`kSecAttrSynchronizable = false`)
@@ -258,6 +261,7 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 - New device = fresh cache from cloud sync (no data loss)
 
 **Completed:**
+
 - [x] Create `Mosslet.Platform.Security` module for device keychain operations
 - [x] Create `Mosslet.Vault.Native` module for device-specific Cloak vault
 - [x] Create `Mosslet.Encrypted.Native.*` types (Binary, Map, Integer, HMAC, etc.)
@@ -265,6 +269,7 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 - [x] Add platform-specific keychain adapters (stub for now, implement per-platform later)
 
 **Files created:**
+
 - `lib/mosslet/platform/security.ex` - Device keychain operations (encryption key + HMAC secret)
 - `lib/mosslet/vault/native.ex` - Native Cloak vault using device keychain key
 - `lib/mosslet/encrypted/native/binary.ex` - Native encrypted binary type
@@ -273,6 +278,7 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 - `lib/mosslet/encrypted/native/*.ex` - All other Native encrypted types
 
 **Security Properties:**
+
 - Device theft: Attacker needs OS credentials + user password to read cached data
 - Quantum attack: AES-256 layer provides post-quantum resistance
 - Cache is disposable: Cloud sync rebuilds it on any new device
@@ -294,6 +300,7 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 - [x] Write API tests
 
 **Files created:**
+
 - `lib/mosslet/api/token.ex` - JWT token generation/verification (HS256)
 - `lib/mosslet/api/client.ex` - HTTP client using Req for native apps
 - `lib/mosslet_web/plugs/api_auth.ex` - JWT bearer token authentication plug
@@ -303,6 +310,7 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 - `lib/mosslet_web/controllers/api/fallback_controller.ex` - Error response formatting
 
 **Test files created:**
+
 - `test/mosslet_web/controllers/api/auth_controller_test.exs`
 - `test/mosslet_web/controllers/api/sync_controller_test.exs`
 - `test/mosslet_web/controllers/api/post_controller_test.exs`
@@ -310,10 +318,12 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 **API Endpoints:**
 
 Public (no auth required):
+
 - `POST /api/auth/login` - Authenticate with email/password, returns JWT + encrypted user data
 - `POST /api/auth/register` - Register new user, returns JWT + encrypted user data
 
 Authenticated (requires Bearer token):
+
 - `POST /api/auth/refresh` - Refresh JWT token
 - `POST /api/auth/logout` - Logout (client-side token invalidation)
 - `GET /api/auth/me` - Get current user data
@@ -538,9 +548,9 @@ Current setup in `lib/mosslet/vault.ex`:
 
 **For Native Apps:**
 
-- Local SQLite doesn't use Cloak (stores already-encrypted enacl blobs)
-- Cloak is a server-side protection layer for the cloud database
-- SQLite cache just holds the encrypted blobs as-is
+- `Mosslet.Vault.Native` - AES-256-GCM encryption with `Security.get_or_create_device_key/0`
+- Used for searchable hashes (if any) and at-rest encryption of SQLite cache
+- Does not require key rotation as per-device keychain storage is used and cache gets resynced from server upon new key
 
 ### Server Keys Usage
 
