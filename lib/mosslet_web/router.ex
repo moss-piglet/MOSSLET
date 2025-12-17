@@ -20,9 +20,13 @@ defmodule MossletWeb.Router do
     plug Mosslet.SetLocalePlug, gettext: MossletWeb.Gettext
   end
 
-  # pipeline :api do
-  #   plug :accepts, ["json"]
-  # end
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
+  pipeline :api_auth do
+    plug MossletWeb.Plugs.APIAuth
+  end
 
   pipeline :public_layout do
     plug :put_layout, html: {MossletWeb.Layouts, :public}
@@ -102,9 +106,28 @@ defmodule MossletWeb.Router do
   end
 
   # Other scopes may use custom stacks.
-  # scope "/api", MossletWeb do
-  #   pipe_through :api
-  # end
+  scope "/api", MossletWeb.API do
+    pipe_through :api
+
+    post "/auth/login", AuthController, :login
+    post "/auth/register", AuthController, :register
+  end
+
+  scope "/api", MossletWeb.API do
+    pipe_through [:api, :api_auth]
+
+    post "/auth/refresh", AuthController, :refresh
+    post "/auth/logout", AuthController, :logout
+    get "/auth/me", AuthController, :me
+
+    get "/sync/user", SyncController, :user
+    get "/sync/posts", SyncController, :posts
+    get "/sync/connections", SyncController, :connections
+    get "/sync/groups", SyncController, :groups
+    get "/sync/full", SyncController, :full_sync
+
+    resources "/posts", PostController, only: [:index, :show, :create, :update, :delete]
+  end
 
   ## Authentication routes
 

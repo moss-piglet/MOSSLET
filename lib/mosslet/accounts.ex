@@ -3448,4 +3448,36 @@ defmodule Mosslet.Accounts do
         end
     end
   end
+
+  @doc """
+  Returns user connections for sync with desktop/mobile apps.
+
+  Returns UserConnection records with associated connections, including encrypted
+  data blobs that native apps decrypt locally.
+
+  ## Options
+
+  - `:since` - Only return connections updated after this timestamp
+  """
+  def list_user_connections_for_sync(user, opts \\ []) do
+    since = opts[:since]
+
+    query =
+      from(uc in UserConnection,
+        join: c in assoc(uc, :connection),
+        where: uc.user_id == ^user.id,
+        where: not is_nil(uc.confirmed_at),
+        order_by: [desc: c.updated_at],
+        preload: [:connection]
+      )
+
+    query =
+      if since do
+        from([uc, c] in query, where: c.updated_at > ^since)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
 end

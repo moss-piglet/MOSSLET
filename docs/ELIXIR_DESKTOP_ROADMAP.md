@@ -278,88 +278,71 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 - Cache is disposable: Cloud sync rebuilds it on any new device
 - No key rotation complexity: Device keys are independent, never transmitted
 
-### Phase 3: API Client for Desktop
+### Phase 3: API Client for Desktop ✅ COMPLETE
 
 **Goal:** Desktop app communicates with cloud server via API (like a mobile app would).
 
-- [ ] Create `Mosslet.API.Client` module for HTTP requests to Fly.io server
+- [x] Create `Mosslet.API.Client` module for HTTP requests to Fly.io server
+- [x] Create `Mosslet.API.Token` module for JWT token generation/verification
+- [x] Create API authentication endpoints on server (`MossletWeb.API.AuthController`)
+- [x] Create sync endpoints on server (`MossletWeb.API.SyncController`)
+- [x] Add API routes with `:api` and `:api_auth` pipelines
+- [x] Add `MossletWeb.Plugs.APIAuth` for JWT bearer token authentication
+- [x] Add `MossletWeb.API.FallbackController` for error handling
+- [x] Add sync query functions to contexts (`list_user_posts_for_sync`, etc.)
+- [x] Create `MossletWeb.API.PostController` for post CRUD operations
+- [x] Write API tests
 
-  ```elixir
-  defmodule Mosslet.API.Client do
-    @moduledoc """
-    HTTP client for desktop/mobile apps to communicate with cloud server.
-    Uses the same endpoints that web LiveViews use internally.
-    """
+**Files created:**
+- `lib/mosslet/api/token.ex` - JWT token generation/verification (HS256)
+- `lib/mosslet/api/client.ex` - HTTP client using Req for native apps
+- `lib/mosslet_web/plugs/api_auth.ex` - JWT bearer token authentication plug
+- `lib/mosslet_web/controllers/api/auth_controller.ex` - Login/register/refresh endpoints
+- `lib/mosslet_web/controllers/api/sync_controller.ex` - User/posts/connections/groups sync
+- `lib/mosslet_web/controllers/api/post_controller.ex` - Post CRUD operations
+- `lib/mosslet_web/controllers/api/fallback_controller.ex` - Error response formatting
 
-    def base_url, do: Application.get_env(:mosslet, :api_base_url)
+**Test files created:**
+- `test/mosslet_web/controllers/api/auth_controller_test.exs`
+- `test/mosslet_web/controllers/api/sync_controller_test.exs`
+- `test/mosslet_web/controllers/api/post_controller_test.exs`
 
-    def authenticate(email, password) do
-      # POST /api/auth/login
-      # Returns session token + encrypted user data
-    end
+**API Endpoints:**
 
-    def fetch_user_data(token) do
-      # GET /api/sync/user
-      # Returns encrypted keypair, settings, etc.
-    end
+Public (no auth required):
+- `POST /api/auth/login` - Authenticate with email/password, returns JWT + encrypted user data
+- `POST /api/auth/register` - Register new user, returns JWT + encrypted user data
 
-    def fetch_posts(token, opts \\ []) do
-      # GET /api/sync/posts?since=timestamp
-      # Returns encrypted post blobs
-    end
+Authenticated (requires Bearer token):
+- `POST /api/auth/refresh` - Refresh JWT token
+- `POST /api/auth/logout` - Logout (client-side token invalidation)
+- `GET /api/auth/me` - Get current user data
+- `GET /api/sync/user` - Sync user data
+- `GET /api/sync/posts?since=timestamp&limit=50` - Sync posts (encrypted blobs)
+- `GET /api/sync/connections?since=timestamp` - Sync connections
+- `GET /api/sync/groups?since=timestamp` - Sync groups
+- `GET /api/sync/full?since=timestamp` - Full sync (user, posts, connections, groups)
+- `GET /api/posts` - List user's posts
+- `GET /api/posts/:id` - Get a specific post
+- `POST /api/posts` - Create a new post
+- `PUT /api/posts/:id` - Update a post
+- `DELETE /api/posts/:id` - Delete a post
 
-    def create_post(token, encrypted_payload) do
-      # POST /api/posts
-      # Sends already-encrypted data to server
-    end
+**Code Examples:**
 
-    # ... other CRUD operations
-  end
-  ```
+```elixir
+# Native app login
+{:ok, %{token: token, user: user}} = Mosslet.API.Client.login("email@example.com", "password")
 
-- [ ] Create API authentication endpoints on server
-  ```elixir
-  # lib/mosslet_web/controllers/api/auth_controller.ex
-  defmodule MossletWeb.API.AuthController do
-    def login(conn, %{"email" => email, "password" => password}) do
-      # Validate credentials
-      # Return JWT token + encrypted user keypair
-    end
-  end
-  ```
-- [ ] Create sync endpoints on server
+# Sync posts since last sync
+{:ok, %{posts: posts, synced_at: synced_at}} = Mosslet.API.Client.fetch_posts(token, since: last_sync)
 
-  ```elixir
-  # lib/mosslet_web/controllers/api/sync_controller.ex
-  defmodule MossletWeb.API.SyncController do
-    def user(conn, _params) do
-      # Return user's encrypted data
-    end
+# Full sync for new device
+{:ok, sync_data} = Mosslet.API.Client.full_sync(token)
 
-    def posts(conn, %{"since" => timestamp}) do
-      # Return posts updated since timestamp (encrypted blobs)
-    end
-  end
-  ```
-
-- [ ] Add API routes
-
-  ```elixir
-  # router.ex
-  scope "/api", MossletWeb.API do
-    pipe_through :api
-
-    post "/auth/login", AuthController, :login
-    post "/auth/register", AuthController, :register
-
-    pipe_through :api_auth  # Requires valid token
-
-    get "/sync/user", SyncController, :user
-    get "/sync/posts", SyncController, :posts
-    post "/posts", PostController, :create
-    # ... etc
-  end
-  ```
+# Create a post
+{:ok, post} = Mosslet.API.Client.create_post(token, %{post: %{body: "Hello", visibility: "private"}})
+```
 
 ### Phase 4: Sync & Offline Support
 
@@ -682,4 +665,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-20_
+_Last updated: 2025-12-17_

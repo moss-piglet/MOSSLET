@@ -1153,4 +1153,36 @@ defmodule Mosslet.Groups do
         {:ok, group}
     end
   end
+
+  @doc """
+  Returns user groups for sync with desktop/mobile apps.
+
+  Returns UserGroup records with associated groups, including encrypted
+  data blobs that native apps decrypt locally.
+
+  ## Options
+
+  - `:since` - Only return groups updated after this timestamp
+  """
+  def list_user_groups_for_sync(user, opts \\ []) do
+    since = opts[:since]
+
+    query =
+      from(ug in UserGroup,
+        join: g in assoc(ug, :group),
+        where: ug.user_id == ^user.id,
+        where: not is_nil(ug.confirmed_at),
+        order_by: [desc: g.updated_at],
+        preload: [:group]
+      )
+
+    query =
+      if since do
+        from([ug, g] in query, where: g.updated_at > ^since)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
 end

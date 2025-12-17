@@ -446,6 +446,40 @@ defmodule Mosslet.Timeline do
   end
 
   @doc """
+  Returns posts for sync with desktop/mobile apps.
+
+  Returns UserPost records with associated posts, including encrypted
+  data blobs that native apps decrypt locally.
+
+  ## Options
+
+  - `:since` - Only return posts updated after this timestamp
+  - `:limit` - Maximum number of posts to return (default 50)
+  """
+  def list_user_posts_for_sync(user, opts \\ []) do
+    since = opts[:since]
+    limit = opts[:limit] || 50
+
+    query =
+      from(up in UserPost,
+        join: p in assoc(up, :post),
+        where: up.user_id == ^user.id,
+        order_by: [desc: p.updated_at],
+        limit: ^limit,
+        preload: [:post]
+      )
+
+    query =
+      if since do
+        from([up, p] in query, where: p.updated_at > ^since)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
   Returns the list of replies for a post.
 
   Checks the user_connection_query to return only relevantly
