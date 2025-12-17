@@ -354,69 +354,38 @@ Authenticated (requires Bearer token):
 {:ok, post} = Mosslet.API.Client.create_post(token, %{post: %{body: "Hello", visibility: "private"}})
 ```
 
-### Phase 4: Sync & Offline Support
+### Phase 4: Sync & Offline Support ✅ COMPLETE
 
 **Goal:** Seamless offline experience with background sync.
 
-- [ ] Implement `Mosslet.Sync` GenServer
+- [x] Implement `Mosslet.Sync` GenServer
+- [x] Implement conflict resolution strategy (`Mosslet.Sync.ConflictResolver`)
+- [x] Add online/offline detection with exponential backoff
+- [x] Sync status broadcasting via PubSub for UI integration
 
-  ```elixir
-  defmodule Mosslet.Sync do
-    use GenServer
+**Files created:**
 
-    @moduledoc """
-    Manages synchronization between local cache and cloud server.
+- `lib/mosslet/sync.ex` - Sync GenServer with polling, queue processing, and status broadcasting
+- `lib/mosslet/sync/conflict_resolver.ex` - Last-Write-Wins conflict resolution
 
-    - Periodically polls for updates
-    - Processes sync queue (pending local changes)
-    - Handles conflict resolution
-    """
+**Features implemented:**
 
-    def start_link(opts) do
-      GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-    end
+- Periodic sync polling (5 minute intervals)
+- Exponential backoff for failed syncs (30s → 10min max)
+- Health check connectivity monitoring (10s intervals)
+- Push pending changes from sync queue before pulling updates
+- Pull updates from server since last sync
+- Cache sync data locally (posts, connections, groups)
+- Automatic cleanup of completed sync items (24 hours)
+- PubSub broadcasting of sync status for LiveView integration
+- `subscribe_and_get_status/0` helper for LiveViews
 
-    def init(_opts) do
-      schedule_sync()
-      {:ok, %{last_sync: nil, online: true}}
-    end
+**Conflict Resolution Strategy:**
 
-    def handle_info(:sync, state) do
-      case do_sync() do
-        :ok ->
-          schedule_sync()
-          {:noreply, %{state | last_sync: DateTime.utc_now()}}
-        {:error, :offline} ->
-          schedule_retry()
-          {:noreply, %{state | online: false}}
-      end
-    end
-
-    defp do_sync do
-      # 1. Push pending changes from sync_queue
-      # 2. Pull updates from server since last_sync
-      # 3. Update local cache
-    end
-  end
-  ```
-
-- [ ] Implement conflict resolution strategy
-
-  ```elixir
-  defmodule Mosslet.Sync.ConflictResolver do
-    @moduledoc """
-    Conflict resolution: Last-Write-Wins with server timestamp.
-
-    If local change conflicts with server change:
-    1. Compare timestamps
-    2. Server always wins ties (it has canonical time)
-    3. Conflicting local change is logged for user review (optional)
-    """
-  end
-  ```
-
-- [ ] Add online/offline detection
-- [ ] Show sync status in UI (syncing, offline, last synced)
+- Last-Write-Wins (LWW) with server timestamp as authoritative source
+- Server wins ties (canonical time)
+- Deleted resources are handled gracefully
+- Local cache updated to match server state after resolution
 
 ### Phase 5: Desktop App Setup
 
@@ -675,4 +644,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-12-17_
+_Last updated: 2025-12-17 (Phase 4 completed)_

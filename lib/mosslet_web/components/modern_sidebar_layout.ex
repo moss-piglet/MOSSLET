@@ -8,6 +8,7 @@ defmodule MossletWeb.ModernSidebarLayout do
 
   import MossletWeb.ModernSidebarMenu
   import MossletWeb.Helpers
+  import MossletWeb.DesignSystem, only: [liquid_sync_status: 1]
 
   alias Phoenix.LiveView.JS, as: JS
 
@@ -19,6 +20,7 @@ defmodule MossletWeb.ModernSidebarLayout do
   attr :user_menu_items, :list, default: []
   attr :sidebar_title, :string, default: nil
   attr :home_path, :string, default: "/"
+  attr :sync_status, :map, default: nil
 
   slot :inner_block, required: true
   slot :logo
@@ -254,6 +256,15 @@ defmodule MossletWeb.ModernSidebarLayout do
           <%!-- Right side content --%>
           <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end">
             <div class="flex items-center gap-x-4 lg:gap-x-6">
+              <.liquid_sync_status
+                :if={@sync_status}
+                online={@sync_status[:online]}
+                syncing={@sync_status[:syncing]}
+                last_sync={@sync_status[:last_sync]}
+                pending_count={@sync_status[:pending_count] || 0}
+                class="hidden sm:flex"
+              />
+
               {render_slot(@top_right)}
 
               <%!-- User menu --%>

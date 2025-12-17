@@ -155,7 +155,8 @@ defmodule MossletWeb.Router do
         {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
-        {MossletWeb.SubscriptionPlugs, :subscribed_entity}
+        {MossletWeb.SubscriptionPlugs, :subscribed_entity},
+        MossletWeb.SyncStatusHook
       ] do
       # Onboarding
       live "/users/onboarding", UserOnboardingLive
@@ -196,7 +197,8 @@ defmodule MossletWeb.Router do
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_confirmed},
         {MossletWeb.UserAuth, :ensure_session_key},
-        {MossletWeb.UserAuth, :maybe_ensure_connection}
+        {MossletWeb.UserAuth, :maybe_ensure_connection},
+        MossletWeb.SyncStatusHook
       ] do
       use MossletWeb.BillingRoutes
     end
@@ -217,7 +219,8 @@ defmodule MossletWeb.Router do
         {MossletWeb.UserAuth, :ensure_authenticated},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
-        {MossletWeb.SubscriptionPlugs, :subscribed_entity}
+        {MossletWeb.SubscriptionPlugs, :subscribed_entity},
+        MossletWeb.SyncStatusHook
       ] do
       live "/users/delete-account", DeleteAccountLive
     end

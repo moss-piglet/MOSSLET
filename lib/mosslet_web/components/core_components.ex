@@ -2306,6 +2306,11 @@ defmodule MossletWeb.CoreComponents do
   attr :user, :any, doc: "the current user struct"
   attr :key, :string, doc: "the session key for the current user"
   attr :socket, :any, doc: "the socket for connection"
+
+  attr :sync_status, :map,
+    default: nil,
+    doc: "sync status map with :online, :syncing, :last_sync, :pending_count keys"
+
   slot :logo_icon
   slot :inner_block
   slot :top_right

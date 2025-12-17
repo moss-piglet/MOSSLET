@@ -12253,4 +12253,92 @@ defmodule MossletWeb.DesignSystem do
     </div>
     """
   end
+
+  @doc """
+  Sync status indicator for native apps showing online/offline state, sync progress, and last synced time.
+
+  Only displayed when running on native platforms (desktop/mobile).
+
+  ## Examples
+
+      <.liquid_sync_status
+        online={true}
+        syncing={false}
+        last_sync={~U[2025-01-01 12:00:00Z]}
+        pending_count={0}
+      />
+  """
+  attr :online, :boolean, default: true
+  attr :syncing, :boolean, default: false
+  attr :last_sync, :any, default: nil
+  attr :pending_count, :integer, default: 0
+  attr :class, :string, default: nil
+
+  def liquid_sync_status(assigns) do
+    ~H"""
+    <div
+      id="sync-status-indicator"
+      class={[
+        "group relative flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
+        "transition-all duration-300 ease-out cursor-default",
+        cond do
+          @syncing ->
+            "bg-gradient-to-r from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 border border-blue-200/60 dark:border-blue-700/60"
+
+          not @online ->
+            "bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200/60 dark:border-amber-700/60"
+
+          true ->
+            "bg-gradient-to-r from-emerald-50/60 to-teal-50/60 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/40 dark:border-emerald-700/40"
+        end,
+        @class
+      ]}
+    >
+      <div class="flex items-center gap-1.5">
+        <%= cond do %>
+          <% @syncing -> %>
+            <div class="relative">
+              <.phx_icon
+                name="hero-arrow-path"
+                class="h-4 w-4 text-blue-500 dark:text-blue-400 animate-spin"
+              />
+            </div>
+            <span class="text-xs font-medium text-blue-700 dark:text-blue-300">
+              Syncing{if @pending_count > 0, do: " (#{@pending_count})"}
+            </span>
+          <% not @online -> %>
+            <div class="relative flex items-center justify-center">
+              <span class="absolute w-2 h-2 bg-amber-400 dark:bg-amber-500 rounded-full animate-ping opacity-75" />
+              <span class="relative w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-full" />
+            </div>
+            <span class="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Offline
+            </span>
+          <% true -> %>
+            <div class="relative flex items-center justify-center">
+              <span class="w-2 h-2 bg-emerald-500 dark:bg-emerald-400 rounded-full" />
+            </div>
+            <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              Synced
+            </span>
+        <% end %>
+      </div>
+
+      <div
+        :if={@last_sync && @online && !@syncing}
+        class="text-xs text-slate-500 dark:text-slate-400 pl-1.5 border-l border-slate-200/60 dark:border-slate-700/60"
+      >
+        <.local_time_ago id="sync-last-sync-time" at={@last_sync} />
+      </div>
+
+      <div
+        :if={@pending_count > 0 && !@syncing}
+        class="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 pl-1.5 border-l border-slate-200/60 dark:border-slate-700/60"
+      >
+        <.phx_icon name="hero-clock" class="h-3 w-3" />
+        <span>{@pending_count} pending</span>
+      </div>
+    </div>
+    """
+  end
 end

@@ -46,7 +46,7 @@ defmodule MossletWeb.PublicLayout do
         @header_class
       ]}
     >
-      <.liquid_container max_width={@max_width}>
+      <.liquid_container max_width="full">
         <div class="flex items-center justify-between h-16 lg:h-20">
           <%!-- Logo section with improved spacing --%>
           <div class="flex items-center flex-shrink-0">
