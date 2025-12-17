@@ -6,14 +6,14 @@ defmodule MossletWeb.BillingLive do
   alias Mosslet.Repo
   alias MossletWeb.DesignSystem
 
-  @billing_provider Application.compile_env(:mosslet, :billing_provider)
+  defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   @impl true
   def mount(_params, _session, socket) do
     socket =
       socket
       |> assign(:source, socket.assigns.live_action)
-      |> assign(:billing_provider, @billing_provider)
+      |> assign(:billing_provider, billing_provider())
 
     {:ok, socket}
   end
@@ -83,9 +83,9 @@ defmodule MossletWeb.BillingLive do
 
         payment_intent ->
           {:ok, provider_payment_intent} =
-            @billing_provider.retrieve_payment_intent(payment_intent.provider_payment_intent_id)
+            billing_provider().retrieve_payment_intent(payment_intent.provider_payment_intent_id)
 
-          case @billing_provider.retrieve_charge(payment_intent.provider_latest_charge_id) do
+          case billing_provider().retrieve_charge(payment_intent.provider_latest_charge_id) do
             {:ok, provider_charge} ->
               {:ok,
                %{

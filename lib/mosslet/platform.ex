@@ -171,11 +171,11 @@ defmodule Mosslet.Platform do
 
   defp normalize_desktop_type(type) do
     case type do
-      :MacOS -> :macos
-      :Windows -> :windows
-      :Linux -> :linux
-      :IOS -> :ios
-      :Android -> :android
+      MacOS -> :macos
+      Windows -> :windows
+      Linux -> :linux
+      IOS -> :ios
+      Android -> :android
       other -> other
     end
   end

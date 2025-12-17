@@ -6,7 +6,7 @@ defmodule MossletWeb.SubscribeController do
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
-  @billing_provider Application.compile_env(:mosslet, :billing_provider)
+  defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   @doc """
   Redirect here when someone wants to purchase a subscription.
@@ -52,7 +52,7 @@ defmodule MossletWeb.SubscribeController do
   defp handle_checkout(conn, plan, source, source_id) do
     user = conn.assigns.current_user
 
-    case @billing_provider.checkout(
+    case billing_provider().checkout(
            user,
            plan,
            source,
@@ -60,7 +60,7 @@ defmodule MossletWeb.SubscribeController do
            conn.private.plug_session["key"]
          ) do
       {:ok, _customer, session} ->
-        redirect(conn, external: @billing_provider.checkout_url(session))
+        redirect(conn, external: billing_provider().checkout_url(session))
     end
   end
 

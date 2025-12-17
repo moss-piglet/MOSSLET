@@ -1,5 +1,8 @@
 # Desktop-specific configuration for native app builds
 # This config is used when building for macOS, Windows, Linux, iOS, or Android
+#
+# Note: Runtime configuration (database path, secret keys) is handled in runtime.exs
+# because config provider tuples don't work in development mode.
 
 import Config
 
@@ -11,26 +14,6 @@ config :mosslet,
 
 config :mosslet,
   sync_api_url: "https://mosslet.com/api"
-
-config :mosslet, Mosslet.Repo.SQLite,
-  database: {:mosslet, Mosslet.Platform.Config, :sqlite_database_path, []},
-  pool_size: 5,
-  journal_mode: :wal,
-  cache_size: -64_000,
-  temp_store: :memory,
-  synchronous: :normal
-
-config :mosslet, MossletWeb.Endpoint,
-  adapter: Bandit.PhoenixAdapter,
-  http: [port: 0],
-  server: true,
-  secret_key_base: {:mosslet, Mosslet.Platform.Config, :generate_secret, []},
-  render_errors: [
-    formats: [html: MossletWeb.ErrorHTML, json: MossletWeb.ErrorJSON],
-    layout: false
-  ],
-  pubsub_server: Mosslet.PubSub,
-  live_view: [signing_salt: {:mosslet, Mosslet.Platform.Config, :generate_salt, []}]
 
 config :mosslet, :billing_provider, Mosslet.Billing.Providers.DesktopStripe
 

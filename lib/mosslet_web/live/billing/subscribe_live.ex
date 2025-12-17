@@ -12,7 +12,7 @@ defmodule MossletWeb.SubscribeLive do
   alias MossletWeb.BillingComponents
   alias MossletWeb.BillingLive
 
-  @billing_provider Application.compile_env(:mosslet, :billing_provider)
+  defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -284,9 +284,9 @@ defmodule MossletWeb.SubscribeLive do
       ) do
     plan = Plans.get_plan_by_id!(plan_id)
 
-    case @billing_provider.change_plan(customer, payment_intent, plan) do
+    case billing_provider().change_plan(customer, payment_intent, plan) do
       {:ok, session} ->
-        url = @billing_provider.checkout_url(session)
+        url = billing_provider().checkout_url(session)
         {:noreply, redirect(socket, external: url)}
 
       {:error, reason} ->

@@ -27,6 +27,9 @@ This guide walks you through manually testing the Mosslet desktop app before rel
 ```bash
 # Set environment variable and run
 MOSSLET_DESKTOP=true iex -S mix
+
+# If encountering issues with above command try:
+MOSSLET_DESKTOP=true mix compile --force && MOSSLET_DESKTOP=true iex -S mix
 ```
 
 Or create a script:

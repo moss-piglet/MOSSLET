@@ -12,7 +12,7 @@ defmodule MossletWeb.Desktop.MenuBar do
 
   @impl true
   def mount(menu) do
-    menu = assign(menu, app_name: "Mosslet")
+    menu = assign(menu, app_name: "MOSSLET")
     {:ok, menu}
   end
 

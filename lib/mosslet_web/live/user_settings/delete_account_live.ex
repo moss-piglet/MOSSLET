@@ -12,7 +12,7 @@ defmodule MossletWeb.DeleteAccountLive do
   alias Mosslet.Billing.Subscriptions.Subscription
   alias MossletWeb.DesignSystem
 
-  @billing_provider Application.compile_env(:mosslet, :billing_provider)
+  defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
   def render(assigns) do
     ~H"""
@@ -373,7 +373,7 @@ defmodule MossletWeb.DeleteAccountLive do
        page_title: "Settings",
        current_password: nil,
        source: socket.assigns.live_action,
-       billing_provider: @billing_provider,
+       billing_provider: billing_provider(),
        form: to_form(Accounts.change_user_delete_account(current_user))
      )}
   end
@@ -672,7 +672,7 @@ defmodule MossletWeb.DeleteAccountLive do
       # Subscription doesn't exist, or is already canceled.
       :canceled
     else
-      with {:ok, provider_subscription} <- @billing_provider.cancel_subscription(provider_sub.id),
+      with {:ok, provider_subscription} <- billing_provider().cancel_subscription(provider_sub.id),
            %Subscription{} = subscription <-
              Subscriptions.get_subscription_by_provider_subscription_id(provider_subscription.id),
            {:ok, _suscription} <- Subscriptions.cancel_subscription(subscription) do
@@ -706,12 +706,12 @@ defmodule MossletWeb.DeleteAccountLive do
 
         subscription ->
           {:ok, provider_subscription} =
-            @billing_provider.retrieve_subscription(subscription.provider_subscription_id)
+            billing_provider().retrieve_subscription(subscription.provider_subscription_id)
 
           {:ok, provider_product} =
             provider_subscription
-            |> @billing_provider.get_subscription_product()
-            |> @billing_provider.retrieve_product()
+            |> billing_provider().get_subscription_product()
+            |> billing_provider().retrieve_product()
 
           {:ok,
            %{

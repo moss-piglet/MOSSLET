@@ -29,6 +29,9 @@ defmodule MossletWeb.Plugs.BotDefense do
 
   def call(conn, opts) do
     cond do
+      Mosslet.Platform.native?() ->
+        conn
+
       BotDefense.banned?(conn.remote_ip) ->
         BotDefense.increment_blocked_request(conn.remote_ip)
         block_request(conn, opts)

@@ -128,9 +128,9 @@ config :phoenix, :stacktrace_depth, 20
 config :phoenix, :plug_init_mode, :runtime
 
 config :phoenix_live_view,
-  debug_heex_annotations: true,
-  debug_tags_location: true,
-  debug_attributes: true,
+  debug_heex_annotations: System.get_env("MOSSLET_DESKTOP") != "true",
+  debug_tags_location: System.get_env("MOSSLET_DESKTOP") != "true",
+  debug_attributes: System.get_env("MOSSLET_DESKTOP") != "true",
   enable_expensive_runtime_checks: true
 
 # Disable swoosh api client as it is only required for production adapters.

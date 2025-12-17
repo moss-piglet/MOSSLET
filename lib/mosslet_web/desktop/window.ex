@@ -14,12 +14,12 @@ defmodule MossletWeb.Desktop.Window do
      [
        app: :mosslet,
        id: MossletWindow,
-       title: "Mosslet",
+       title: "MOSSLET",
        size: {1200, 800},
        min_size: {800, 600},
        icon: icon_path(),
        menubar: MossletWeb.Desktop.MenuBar,
-       url: &MossletWeb.Endpoint.url/0
+       url: &base_url/0
      ]}
   end
 
@@ -30,13 +30,18 @@ defmodule MossletWeb.Desktop.Window do
     [
       app: :mosslet,
       id: MossletWindow,
-      title: "Mosslet",
+      title: "MOSSLET",
       size: {1200, 800},
       min_size: {800, 600},
       icon: icon_path(),
       menubar: MossletWeb.Desktop.MenuBar,
-      url: &MossletWeb.Endpoint.url/0
+      url: &base_url/0
     ]
+  end
+
+  defp base_url do
+    {:ok, {_ip, port}} = MossletWeb.Endpoint.server_info(:http)
+    "http://localhost:#{port}"
   end
 
   defp icon_path do
