@@ -18,6 +18,15 @@ defmodule MossletWeb.Router do
     plug :fetch_current_user
     plug :kick_user_if_suspended_or_deleted
     plug Mosslet.SetLocalePlug, gettext: MossletWeb.Gettext
+    plug :maybe_desktop_auth
+  end
+
+  defp maybe_desktop_auth(conn, _opts) do
+    if Mosslet.Platform.native?() do
+      MossletWeb.Plugs.DesktopAuth.call(conn, [])
+    else
+      conn
+    end
   end
 
   pipeline :api do

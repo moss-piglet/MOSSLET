@@ -284,12 +284,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
       {:error, reason} ->
         {:error, reason}
-
-      {:nsfw, message} ->
-        {:nsfw, message}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 

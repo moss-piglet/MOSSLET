@@ -9,6 +9,9 @@ config :mosslet,
 config :mosslet,
   ecto_repos: [Mosslet.Repo.SQLite]
 
+config :mosslet,
+  sync_api_url: "https://mosslet.com/api"
+
 config :mosslet, Mosslet.Repo.SQLite,
   database: {:mosslet, Mosslet.Platform.Config, :sqlite_database_path, []},
   pool_size: 5,
