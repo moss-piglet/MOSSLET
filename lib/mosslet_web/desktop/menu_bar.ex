@@ -23,26 +23,22 @@ defmodule MossletWeb.Desktop.MenuBar do
         Desktop.Window.quit()
 
       "about" ->
-        Desktop.Window.show_notification(MossletWindow, "Mosslet",
-          body: "A private social network for close relationships."
-        )
+        Desktop.Window.show(MossletWindow, base_url() <> "/about")
 
       "help" ->
-        Desktop.OS.launch_default_browser("https://mosslet.com/support")
+        Desktop.Window.show(MossletWindow, base_url() <> "/support")
 
       "home" ->
-        url = MossletWeb.Endpoint.url() <> "/"
-        Desktop.Window.show(MossletWindow, url)
+        Desktop.Window.show(MossletWindow, base_url() <> "/")
 
       "settings" ->
-        url = MossletWeb.Endpoint.url() <> "/app/users/edit-details"
-        Desktop.Window.show(MossletWindow, url)
+        Desktop.Window.show(MossletWindow, base_url() <> "/app/users/edit-details")
 
       "sync_now" ->
         Mosslet.Sync.sync_now()
 
       "check_updates" ->
-        Desktop.OS.launch_default_browser("https://mosslet.com/updates")
+        Desktop.Window.show(MossletWindow, base_url() <> "/updates")
 
       _ ->
         :ok
@@ -78,5 +74,10 @@ defmodule MossletWeb.Desktop.MenuBar do
       </menu>
     </menubar>
     """
+  end
+
+  defp base_url do
+    {:ok, {_ip, port}} = MossletWeb.Endpoint.server_info(:http)
+    "http://localhost:#{port}"
   end
 end
