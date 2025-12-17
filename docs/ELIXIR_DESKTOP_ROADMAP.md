@@ -6,51 +6,148 @@ This document tracks the migration of Mosslet to support native desktop and mobi
 
 ### Architecture Goals
 
-| Platform           | Where enacl Runs | Database              | Zero-Knowledge?                    |
-| ------------------ | ---------------- | --------------------- | ---------------------------------- |
-| **Web**            | Fly.io server    | Postgres (remote)     | No (server sees plaintext briefly) |
-| **Native Desktop** | User's device    | SQLite (local) + Sync | **Yes**                            |
-| **Native Mobile**  | User's device    | SQLite (local) + Sync | **Yes**                            |
+| Platform           | Where enacl Runs | Primary Database  | Local Cache    | Zero-Knowledge?                    |
+| ------------------ | ---------------- | ----------------- | -------------- | ---------------------------------- |
+| **Web**            | Fly.io server    | Postgres (Fly.io) | Browser cache  | No (server sees plaintext briefly) |
+| **Native Desktop** | User's device    | Postgres (Fly.io) | SQLite (local) | **Yes**                            |
+| **Native Mobile**  | User's device    | Postgres (Fly.io) | SQLite (local) | **Yes**                            |
 
 ### Key Insight
 
-Same Phoenix/LiveView codebase, different deployment modes. The enacl encryption happens wherever the BEAM runs—on Fly.io for web, on the user's device for native apps.
+Same Phoenix/LiveView codebase, different deployment modes. The enacl encryption happens wherever the BEAM runs—on Fly.io for web, on the user's device for native apps. **All platforms use the same cloud database as the source of truth.**
+
+---
+
+## Critical Architecture Decision: Single Source of Truth
+
+### Why Cloud Database (Not Local SQLite) for User Data
+
+We use **two layers of encryption**:
+
+1. **Cloak (symmetric AES-256-GCM)** - Server-side at-rest encryption using `CLOAK_KEY`
+
+   - Encrypts data in Postgres before storage
+   - Protects against database-level breaches
+   - Key is per-environment (different in dev/staging/prod)
+
+2. **Enacl (asymmetric)** - User-side E2E encryption
+   - Data encrypted with user's public key
+   - Only decryptable with user's private key (protected by their password)
+   - This encrypted blob is what's stored in the Cloak-encrypted field
+
+**The Problem with Local SQLite for User Data:**
+
+```
+❌ WRONG: Separate databases with different Cloak keys
+
+Web App (Fly.io):
+  User data → Enacl encrypt → Cloak encrypt (CLOAK_KEY_PROD) → Postgres
+
+Desktop App (Local):
+  User data → Enacl encrypt → Cloak encrypt (CLOAK_KEY_LOCAL) → SQLite
+
+Result: Data encrypted on desktop CAN'T be read on web (different Cloak keys!)
+```
+
+**The Correct Architecture:**
+
+```
+✅ CORRECT: Single cloud database, local cache only
+
+Web App:
+  Browser → Phoenix API → Fly.io Postgres (Cloak + Enacl encrypted)
+                              ↓
+  User's session decrypts enacl layer with password-derived key
+
+Desktop App:
+  Desktop → Phoenix API → Same Fly.io Postgres (same encrypted data)
+                              ↓
+  User's session decrypts enacl layer locally (true zero-knowledge!)
+
+Local SQLite is ONLY for:
+  - Offline cache of encrypted blobs
+  - Sync queue for pending changes
+  - Local-only preferences/settings
+```
+
+### How Zero-Knowledge Works with Cloud DB
+
+The server stores data that is **double-encrypted**:
+
+1. Cloak layer (server can decrypt for storage operations)
+2. Enacl layer inside (server CANNOT decrypt - no user's private key)
+
+When a user reads data:
+
+- Server decrypts Cloak layer, returns enacl-encrypted blob
+- User's device decrypts enacl layer with their password-derived session key
+
+**For Desktop/Mobile:**
+
+- The enacl decryption happens ON DEVICE
+- Server only ever sees the enacl-encrypted blob
+- True zero-knowledge for the actual content!
 
 ---
 
 ## Encryption Compatibility
+
+> **See also:** `ENCRYPTION_ARCHITECTURE.md` for the complete encryption reference.
+
+### Two-Layer Encryption System
+
+**All sensitive data uses BOTH encryption layers:**
+
+| Layer | Technology | Purpose | Where It Happens |
+|-------|-----------|---------|------------------|
+| **Enacl (Asymmetric)** | NaCl/libsodium | E2E encryption - protects content from server | Device (native) or Server (web) |
+| **Cloak (Symmetric)** | AES-256-GCM | At-rest encryption - protects DB from breaches | Always on Server (Fly.io) |
+
+The enacl-encrypted blob gets wrapped in Cloak encryption when stored. This happens automatically via our `Encrypted.Binary`, `Encrypted.Map`, etc. schema field types.
 
 ### User Keys (Per-User E2E Encryption)
 
 Each user has their own keypair stored in `user.key_pair`:
 
 - `public` - Used by others to encrypt messages TO this user
-- `private` - Encrypted with user's password-derived key, used to decrypt
+- `private` - Encrypted with user's password-derived key
 
 **Cross-Platform Compatibility:** ✅ Works seamlessly
 
-- User signs up on web → keypair generated, stored in Postgres
-- User downloads native app → syncs keypair from server
-- User enters password → derives key → decrypts private key locally
-- All future encryption/decryption happens on device
+- User signs up (web or native) → keypair generated
+- Keypair stored in cloud Postgres (Cloak at-rest, private key also enacl encrypted)
+- User enters password on ANY device → derives same session key → decrypts private key
+- All encryption/decryption of content uses this keypair
 
 ### Server Keys (Public/Shared Data)
 
-Used for data that needs server access (admin reports, connection profiles, etc.):
+Used for data that needs server access:
 
 - `SERVER_PUBLIC_KEY` - Encrypt data server can access
 - `SERVER_PRIVATE_KEY` - Server decrypts when needed
 
-**Cross-Platform Compatibility:** ⚠️ Requires hybrid approach
+**Cross-Platform Compatibility:** ✅ Works (server handles server-key operations)
 
-| Data Type           | Web                 | Native App          | Solution                               |
-| ------------------- | ------------------- | ------------------- | -------------------------------------- |
-| Private messages    | Server encrypts     | Device encrypts     | User's keypair (compatible)            |
-| Connection profiles | Server key          | Server key          | Keep using server key (sync encrypted) |
-| Post reports        | Server key          | Server key          | Keep using server key                  |
-| Group keys          | Server key fallback | Server key fallback | Keep for compatibility                 |
+| Data Type | Enacl Encrypted With | Who Decrypts Enacl | Cloak At-Rest |
+|-----------|---------------------|-------------------|---------------|
+| Private posts/messages | Recipient's public key | Recipient's device (native) or server (web) | ✅ Server |
+| Public posts | Server's public key | Server (to serve to anyone) | ✅ Server |
+| Connection profiles | Server's public key | Server | ✅ Server |
+| Post reports | Server's public key | Server (admin access) | ✅ Server |
+| Group content | Group key → member's public keys | Members' devices/server | ✅ Server |
+| User profile data | User's public key (via user_key) | User's device/server | ✅ Server |
 
-**Decision:** Data encrypted with server keys stays encrypted with server keys. Native apps sync this encrypted data and let the server handle it when needed (e.g., admin viewing reports).
+### How Native Apps Achieve Zero-Knowledge
+
+```
+WEB USER (server sees plaintext briefly during session):
+  Postgres → Cloak decrypt (server) → Enacl decrypt (server) → User sees content
+
+NATIVE USER (server never sees plaintext):
+  Postgres → Cloak decrypt (server) → API returns enacl blob → Device decrypts → User sees content
+```
+
+The **same double-encrypted data** works for both platforms - the difference is WHERE the enacl decryption happens. Native apps decrypt on-device, achieving true zero-knowledge.
 
 ---
 
@@ -61,21 +158,23 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 ```
 1. User signs up on web (mosslet.com)
    └─► Postgres stores: user record, encrypted key_pair, key_hash
+   └─► Cloak encrypts at rest, enacl layer protects private key
 
 2. User downloads native app, enters email + password
-   └─► App calls sync API: GET /api/sync/account
-   └─► Server returns: encrypted key_pair, key_hash, user data
+   └─► App authenticates via API (same auth flow)
+   └─► App receives: encrypted key_pair, key_hash, user data
+   └─► (Data still has enacl encryption intact)
 
-3. App stores in local SQLite
-   └─► User enters password
-   └─► App derives key from password (same algorithm)
-   └─► App decrypts private key locally
-   └─► User can now decrypt all their data!
+3. On device
+   └─► User's password derives session key (same algorithm everywhere)
+   └─► App decrypts private key LOCALLY
+   └─► User can now decrypt all their data ON DEVICE!
 
-4. Ongoing sync
-   └─► New messages encrypted locally with recipient's public key
-   └─► Synced to server as encrypted blobs
-   └─► Server CANNOT read (no private keys)
+4. Reading/Writing data
+   └─► All CRUD operations go to cloud Postgres via API
+   └─► Enacl encryption/decryption happens on device
+   └─► Server only sees encrypted blobs
+   └─► Local SQLite caches encrypted blobs for offline viewing
 ```
 
 ### Scenario: User creates account on native app first
@@ -83,56 +182,259 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 ```
 1. User signs up on native app
    └─► Keypair generated LOCALLY (true zero-knowledge!)
-   └─► SQLite stores: user record, encrypted key_pair, key_hash
+   └─► App calls registration API
+   └─► Server stores encrypted keypair in Postgres
 
-2. App syncs to server
-   └─► POST /api/sync/account
-   └─► Server stores encrypted data (cannot decrypt)
+2. Data operations
+   └─► User creates content, encrypted locally with their keys
+   └─► Encrypted data sent to server via API
+   └─► Server stores (Cloak layer added) - cannot read content
 
 3. User later logs in on web
-   └─► Server has encrypted private key
-   └─► User enters password on web
-   └─► Server derives key, decrypts private key
-   └─► User can access messages (but server saw plaintext during this session)
+   └─► Server returns encrypted data
+   └─► Web app decrypts with user's password
+   └─► (Web decryption happens server-side, so not zero-knowledge for web)
 ```
 
-**Key Point:** Users who ONLY use native apps achieve true zero-knowledge. Users who use web have server-side encryption (still encrypted at rest with Cloak, but server can access during session).
+**Key Point:** Users on native apps achieve true zero-knowledge. The same data works on web too, just with server-side decryption (the "server" is the client device when native, desktop/phone, and the "server" is in the cloud when on the web). While the server has temporary access to plaintext before encrypting with people's asymmetric encryption (or decrypting to serve in the browser), we don't log or send that plaintext anywhere — it is garbage collected and cleared from memory by Elixir/BEAM.
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Platform Abstraction Layer
+### Phase 1: Platform Abstraction Layer ✅ COMPLETE
 
 - [x] Create `Mosslet.Platform` module for runtime detection
 - [x] Create `Mosslet.Platform.Config` for environment-specific settings
-- [x] Add `:desktop` Mix environment/target (`config/desktop.exs`, `MOSSLET_DESKTOP` env var)
+- [x] Add `:desktop` Mix environment/target (`config/desktop.exs`)
 - [x] Test platform detection in dev
 
-### Phase 2: Database Compatibility
+### Phase 2: Local Cache Database
+
+**Goal:** SQLite for offline cache and sync queue ONLY - not for user data storage.
 
 - [x] Add `{:ecto_sqlite3, "~> 0.22"}` dependency
-- [ ] Create `Mosslet.Repo.SQLite` module
-- [ ] Create SQLite-compatible migrations (subset of full schema)
-- [ ] Handle Postgres-specific features (jsonb, uuid, citext)
+- [ ] Create `Mosslet.Repo.SQLite` module (cache-only repo)
+- [ ] Design cache schema:
 
-### Phase 3: Sync API
+  ```elixir
+  # Only stores encrypted blobs, NOT decrypted data
+  schema "cached_items" do
+    field :resource_type, :string  # "post", "message", etc. (is this sensitive? if so then binary for cloak)
+    field :resource_id, :binary    # UUID from server
+    field :encrypted_data, :binary # The enacl-encrypted blob from server
+    field :etag, :string           # For cache invalidation (is this sensitive? if so then binary for cloak)
+    field :cached_at, :utc_datetime
+  end
 
-- [ ] Design sync protocol (conflict resolution, versioning)
-- [ ] Create `/api/sync/*` endpoints on server
-- [ ] Implement `Mosslet.Sync` module for native apps
-- [ ] Handle initial account sync (keypair, user data)
-- [ ] Handle incremental data sync (messages, posts, etc.)
+  schema "sync_queue" do
+    field :action, :string         # "create", "update", "delete"
+    field :resource_type, :string
+    field :payload, :binary        # Encrypted payload to send
+    field :status, :string         # "pending", "syncing", "failed"
+    field :retry_count, :integer
+    field :queued_at, :utc_datetime
+  end
 
-### Phase 4: Desktop App Setup
+  schema "local_settings" do
+    field :key, :string
+    field :value, :string
+  end
+  ```
+
+- [ ] Create SQLite migrations for cache tables
+- [ ] Implement `Mosslet.Cache` module for local cache operations
+
+### Phase 3: API Client for Desktop
+
+**Goal:** Desktop app communicates with cloud server via API (like a mobile app would).
+
+- [ ] Create `Mosslet.API.Client` module for HTTP requests to Fly.io server
+
+  ```elixir
+  defmodule Mosslet.API.Client do
+    @moduledoc """
+    HTTP client for desktop/mobile apps to communicate with cloud server.
+    Uses the same endpoints that web LiveViews use internally.
+    """
+
+    def base_url, do: Application.get_env(:mosslet, :api_base_url)
+
+    def authenticate(email, password) do
+      # POST /api/auth/login
+      # Returns session token + encrypted user data
+    end
+
+    def fetch_user_data(token) do
+      # GET /api/sync/user
+      # Returns encrypted keypair, settings, etc.
+    end
+
+    def fetch_posts(token, opts \\ []) do
+      # GET /api/sync/posts?since=timestamp
+      # Returns encrypted post blobs
+    end
+
+    def create_post(token, encrypted_payload) do
+      # POST /api/posts
+      # Sends already-encrypted data to server
+    end
+
+    # ... other CRUD operations
+  end
+  ```
+
+- [ ] Create API authentication endpoints on server
+  ```elixir
+  # lib/mosslet_web/controllers/api/auth_controller.ex
+  defmodule MossletWeb.API.AuthController do
+    def login(conn, %{"email" => email, "password" => password}) do
+      # Validate credentials
+      # Return JWT token + encrypted user keypair
+    end
+  end
+  ```
+- [ ] Create sync endpoints on server
+
+  ```elixir
+  # lib/mosslet_web/controllers/api/sync_controller.ex
+  defmodule MossletWeb.API.SyncController do
+    def user(conn, _params) do
+      # Return user's encrypted data
+    end
+
+    def posts(conn, %{"since" => timestamp}) do
+      # Return posts updated since timestamp (encrypted blobs)
+    end
+  end
+  ```
+
+- [ ] Add API routes
+
+  ```elixir
+  # router.ex
+  scope "/api", MossletWeb.API do
+    pipe_through :api
+
+    post "/auth/login", AuthController, :login
+    post "/auth/register", AuthController, :register
+
+    pipe_through :api_auth  # Requires valid token
+
+    get "/sync/user", SyncController, :user
+    get "/sync/posts", SyncController, :posts
+    post "/posts", PostController, :create
+    # ... etc
+  end
+  ```
+
+### Phase 4: Sync & Offline Support
+
+**Goal:** Seamless offline experience with background sync.
+
+- [ ] Implement `Mosslet.Sync` GenServer
+
+  ```elixir
+  defmodule Mosslet.Sync do
+    use GenServer
+
+    @moduledoc """
+    Manages synchronization between local cache and cloud server.
+
+    - Periodically polls for updates
+    - Processes sync queue (pending local changes)
+    - Handles conflict resolution
+    """
+
+    def start_link(opts) do
+      GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    end
+
+    def init(_opts) do
+      schedule_sync()
+      {:ok, %{last_sync: nil, online: true}}
+    end
+
+    def handle_info(:sync, state) do
+      case do_sync() do
+        :ok ->
+          schedule_sync()
+          {:noreply, %{state | last_sync: DateTime.utc_now()}}
+        {:error, :offline} ->
+          schedule_retry()
+          {:noreply, %{state | online: false}}
+      end
+    end
+
+    defp do_sync do
+      # 1. Push pending changes from sync_queue
+      # 2. Pull updates from server since last_sync
+      # 3. Update local cache
+    end
+  end
+  ```
+
+- [ ] Implement conflict resolution strategy
+
+  ```elixir
+  defmodule Mosslet.Sync.ConflictResolver do
+    @moduledoc """
+    Conflict resolution: Last-Write-Wins with server timestamp.
+
+    If local change conflicts with server change:
+    1. Compare timestamps
+    2. Server always wins ties (it has canonical time)
+    3. Conflicting local change is logged for user review (optional)
+    """
+  end
+  ```
+
+- [ ] Add online/offline detection
+- [ ] Show sync status in UI (syncing, offline, last synced)
+
+### Phase 5: Desktop App Setup
 
 - [ ] Configure `Desktop.Endpoint` (conditional on platform)
+- [ ] Update `application.ex` supervision tree for desktop mode:
+
+  ```elixir
+  def start(_type, _args) do
+    children = common_children() ++ platform_children()
+    opts = [strategy: :one_for_one, name: Mosslet.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+
+  defp common_children do
+    [
+      MossletWeb.Telemetry,
+      {Phoenix.PubSub, name: Mosslet.PubSub},
+      MossletWeb.Endpoint
+    ]
+  end
+
+  defp platform_children do
+    if Mosslet.Platform.native?() do
+      [
+        Mosslet.Repo.SQLite,      # Local cache only
+        Mosslet.Sync,             # Sync with cloud
+        Mosslet.Sync.Queue,       # Process pending changes
+        Desktop.Window            # Native window
+      ]
+    else
+      [
+        Mosslet.Repo.Local,       # Postgres (cloud)
+        {Oban, Application.fetch_env!(:mosslet, Oban)},
+        # ... other server-side services
+      ]
+    end
+  end
+  ```
+
 - [ ] Add `Desktop.Auth` plug for native builds
 - [ ] Create `Desktop.Window` configuration
-- [ ] Update `application.ex` supervision tree for desktop mode
 - [ ] Test on macOS, Windows, Linux
 
-### Phase 5: Mobile App Setup
+### Phase 6: Mobile App Setup
 
 - [ ] Create iOS wrapper project (Xcode)
 - [ ] Create Android wrapper project (Android Studio)
@@ -140,7 +442,7 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 - [ ] Handle app lifecycle events
 - [ ] Test on iOS simulator and Android emulator
 
-### Phase 6: Mobile Billing
+### Phase 7: Mobile Billing
 
 - [ ] Create `Mosslet.Billing.Providers.AppleIAP` module
 - [ ] Create `Mosslet.Billing.Providers.GooglePlay` module
@@ -148,7 +450,7 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 - [ ] Handle subscription sync across platforms
 - [ ] Update billing UI for platform-specific flows
 
-### Phase 7: Native Features
+### Phase 8: Native Features
 
 - [ ] Push notifications (APNs, FCM)
 - [ ] Deep linking / Universal links
@@ -156,7 +458,7 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 - [ ] Offline mode indicators
 - [ ] Native file picker integration
 
-### Phase 8: Packaging & Distribution
+### Phase 9: Packaging & Distribution
 
 - [ ] macOS app signing and notarization
 - [ ] Windows installer (NSIS)
@@ -169,79 +471,170 @@ Used for data that needs server access (admin reports, connection profiles, etc.
 
 ## Technical Details
 
-### Server Keys Usage (Must Stay Server-Side)
+### Data Flow Diagram
 
-Based on codebase analysis, server keys are used for:
-
-```elixir
-# lib/mosslet/encrypted/session.ex
-def server_public_key, do: System.fetch_env!("SERVER_PUBLIC_KEY")
-def server_private_key, do: System.fetch_env!("SERVER_PRIVATE_KEY")
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           DESKTOP/MOBILE APP                            │
+│                                                                         │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────┐ │
+│  │   LiveView  │───►│   Enacl     │───►│  Encrypted Payload          │ │
+│  │     UI      │◄───│ Encrypt/    │◄───│  (ready for server)         │ │
+│  │             │    │ Decrypt     │    │                             │ │
+│  └─────────────┘    └─────────────┘    └──────────────┬──────────────┘ │
+│         │                                              │                │
+│         ▼                                              ▼                │
+│  ┌─────────────┐                              ┌─────────────────┐      │
+│  │   SQLite    │ ◄─── Cache encrypted ────────│  API Client     │      │
+│  │   Cache     │      blobs for offline       │  (Req)          │      │
+│  └─────────────┘                              └────────┬────────┘      │
+│                                                        │                │
+└────────────────────────────────────────────────────────┼────────────────┘
+                                                         │
+                                                    HTTPS/WSS
+                                                         │
+┌────────────────────────────────────────────────────────┼────────────────┐
+│                        FLY.IO SERVER                   │                │
+│                                                        ▼                │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                     Phoenix API Endpoints                        │   │
+│  │   /api/auth/login  /api/sync/*  /api/posts  /api/messages       │   │
+│  └──────────────────────────────────┬──────────────────────────────┘   │
+│                                     │                                   │
+│                                     ▼                                   │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    │
+│  │   Cloak Vault   │───►│    Postgres     │───►│  Encrypted at   │    │
+│  │   (CLOAK_KEY)   │◄───│    (Fly.io)     │◄───│  Rest Storage   │    │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘    │
+│                                                                         │
+│  Server sees: Cloak layer (can decrypt) + Enacl layer (CANNOT decrypt) │
+│  Server stores: Double-encrypted data                                   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-Used in:
+### Cloak/Cloak Ecto (At-Rest Encryption)
+
+Current setup in `lib/mosslet/vault.ex`:
+
+- `Mosslet.Vault` - AES-256-GCM encryption with `CLOAK_KEY`
+- Used for searchable hashes and at-rest encryption in Postgres
+- Supports key rotation via `CLOAK_KEY_NEW` and `CLOAK_KEY_RETIRED`
+
+**For Native Apps:**
+
+- Local SQLite doesn't use Cloak (stores already-encrypted enacl blobs)
+- Cloak is a server-side protection layer for the cloud database
+- SQLite cache just holds the encrypted blobs as-is
+
+### Server Keys Usage
+
+Based on codebase analysis, server keys (`SERVER_PUBLIC_KEY`, `SERVER_PRIVATE_KEY`) are used for:
 
 - `lib/mosslet/groups/user_group.ex` - Group key fallback encryption
 - `lib/mosslet/accounts/connection.ex` - Connection profile encryption
 - `lib/mosslet/timeline.ex` - Post reports (admin access)
 
-**Strategy:** These stay encrypted with server keys. Native apps sync encrypted blobs; server handles decryption when admin access is needed.
+**Strategy:** These operations happen server-side. Native apps send requests, server handles server-key encryption/decryption.
 
-### Cloak/Cloak Ecto (At-Rest Encryption)
-
-Current setup adds a second encryption layer:
-
-- `Mosslet.Vault` - AES-256-GCM encryption with `CLOAK_KEY`
-- Used for searchable hashes and at-rest encryption in Postgres
-
-**For Native Apps:**
-
-- Local SQLite doesn't need Cloak (data already E2E encrypted)
-- Cloak is a server-side protection layer
-- Can optionally add device-level encryption (OS keychain)
-
-### Conditional Endpoint Configuration
+### Repo Strategy
 
 ```elixir
-# lib/mosslet_web/endpoint.ex (future)
-defmodule MossletWeb.Endpoint do
-  if Mosslet.Platform.native?() do
-    use Desktop.Endpoint, otp_app: :mosslet
-  else
-    use Phoenix.Endpoint, otp_app: :mosslet
+# For web (current)
+defmodule Mosslet.Repo do
+  use Fly.Repo, local_repo: Mosslet.Repo.Local
+  # Writes go to primary, reads from replicas
+end
+
+# For desktop/mobile
+defmodule Mosslet.Repo.SQLite do
+  use Ecto.Repo, otp_app: :mosslet, adapter: Ecto.Adapters.SQLite3
+  # LOCAL CACHE ONLY - not for user data!
+end
+
+# Desktop data access pattern
+defmodule Mosslet.Desktop.Data do
+  @moduledoc """
+  Data access for desktop apps. Routes through API to cloud.
+  """
+
+  def get_posts(user, session_key) do
+    # 1. Check cache for offline support
+    # 2. Fetch from API if online
+    # 3. Decrypt enacl layer locally
+    # 4. Return to UI
   end
 
-  # ... rest of config
-
-  if Mosslet.Platform.native?() do
-    plug Desktop.Auth
+  def create_post(user, session_key, content) do
+    # 1. Encrypt content locally with enacl
+    # 2. Queue for sync if offline, or send immediately
+    # 3. Server stores (adds Cloak layer)
   end
 end
 ```
 
-### Supervision Tree Changes (Native Mode)
+---
 
-Remove for native:
+## Agent Implementation Guide
 
-- `Fly.RPC`
-- `Fly.Postgres.LSN.Supervisor`
-- `DNSCluster`
-- `Oban` (or run locally)
-- `FLAME.Pool`
+When implementing Phase 2-4, follow this order:
 
-Add for native:
+### Step 2.1: Create SQLite Repo
 
-- `Desktop.Window`
-- `Mosslet.Sync.Supervisor`
+```bash
+# File: lib/mosslet/repo/sqlite.ex
+```
+
+Create a minimal SQLite repo for cache tables only. Reference `config/desktop.exs` for configuration.
+
+### Step 2.2: Create Cache Migrations
+
+```bash
+# Run: mix ecto.gen.migration create_cache_tables --migrations-path priv/repo_sqlite/migrations
+```
+
+Create tables: `cached_items`, `sync_queue`, `local_settings`
+
+### Step 2.3: Create Cache Module
+
+```bash
+# File: lib/mosslet/cache.ex
+```
+
+Implement functions to store/retrieve encrypted blobs from SQLite.
+
+### Step 3.1: Create API Routes
+
+Add `/api` scope to router with authentication pipeline.
+
+### Step 3.2: Create API Controllers
+
+Start with `AuthController` for login/register, then `SyncController` for data sync.
+
+### Step 3.3: Create API Client
+
+```bash
+# File: lib/mosslet/api/client.ex
+```
+
+Use `Req` library for HTTP requests. Configure base URL from `Application.get_env(:mosslet, :api_base_url)`.
+
+### Step 4.1: Create Sync GenServer
+
+```bash
+# File: lib/mosslet/sync.ex
+```
+
+Implement polling sync with exponential backoff for failures.
 
 ---
 
 ## Questions to Resolve
 
-- [ ] Conflict resolution strategy when same data edited on multiple devices?
-- [ ] How long to keep data on server for users who only use native apps?
-- [ ] Should native-only users have option to NOT sync to server at all?
-- [ ] Pricing strategy: same price across platforms despite Apple/Google 30% cut?
+- [ ] Conflict resolution: Currently planning Last-Write-Wins. Need to decide if user review of conflicts is needed.
+- [ ] Cache expiration: How long to keep cached data? Implement LRU eviction?
+- [ ] Offline duration: How much data to cache for offline? Last N days? Size limit?
+- [ ] API rate limiting: Protect sync endpoints from abuse
+- [ ] Pricing strategy: Same price across platforms despite Apple/Google 30% cut?
 
 ---
 
@@ -250,9 +643,10 @@ Add for native:
 - [elixir-desktop GitHub](https://github.com/elixir-desktop/desktop)
 - [elixir-desktop example app](https://github.com/elixir-desktop/desktop-example-app)
 - [ecto_sqlite3](https://github.com/elixir-sqlite/ecto_sqlite3)
+- [Req HTTP Client](https://hexdocs.pm/req)
 - [Apple In-App Purchase docs](https://developer.apple.com/in-app-purchase/)
 - [Google Play Billing](https://developer.android.com/google/play/billing)
 
 ---
 
-_Last updated: 2025_
+_Last updated: 2025-01-20_
