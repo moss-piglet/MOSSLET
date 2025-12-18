@@ -1400,6 +1400,12 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
+  def delete_all_bookmarks(_user_id) do
+    Logger.warning("delete_all_bookmarks must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
   def cleanup_shared_users_from_posts(_uconn_user_id, _uconn_reverse_user_id) do
     Logger.warning("cleanup_shared_users_from_posts must be done via web interface")
     {:ok, :cleaned}

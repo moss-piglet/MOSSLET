@@ -3833,6 +3833,8 @@ defmodule Mosslet.Timeline do
     if user_post.user_id != current_user.id do
       {:error, "You can only remove yourself from posts"}
     else
+      delete_user_bookmark_for_post(current_user.id, user_post.post_id)
+
       case Repo.transaction_on_primary(fn ->
              Repo.delete(user_post)
            end) do
@@ -5350,10 +5352,21 @@ defmodule Mosslet.Timeline do
   Used during ephemeral post cleanup.
   """
   def delete_post_bookmarks(post_id) do
-    from(b in Bookmark,
-      where: b.post_id == ^post_id
-    )
-    |> Repo.delete_all()
+    Repo.transaction_on_primary(fn ->
+      from(b in Bookmark,
+        where: b.post_id == ^post_id
+      )
+      |> Repo.delete_all()
+    end)
+  end
+
+  defp delete_user_bookmark_for_post(user_id, post_id) do
+    Repo.transaction_on_primary(fn ->
+      from(b in Bookmark,
+        where: b.user_id == ^user_id and b.post_id == ^post_id
+      )
+      |> Repo.delete_all()
+    end)
   end
 
   # Helper function to schedule ephemeral post deletion

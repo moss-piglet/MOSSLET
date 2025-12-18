@@ -201,8 +201,17 @@ defmodule MossletWeb.ManageDataLive do
                     name="user[data][posts]"
                     icon="hero-book-open"
                     label="Posts"
-                    description="Remove all posts you've shared on your timeline"
+                    description="Remove all posts you've shared on your timeline (also deletes associated bookmarks)"
                     checked={data_checked?(@form, "posts")}
+                  />
+
+                  <.data_checkbox
+                    id="user_data_bookmarks"
+                    name="user[data][bookmarks]"
+                    icon="hero-bookmark"
+                    label="Bookmarks"
+                    description="Remove all your saved bookmarks and bookmark notes"
+                    checked={data_checked?(@form, "bookmarks")}
                   />
 
                   <.data_checkbox
@@ -421,7 +430,22 @@ defmodule MossletWeb.ManageDataLive do
                     </span>
                   </div>
                   <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
-                    Erases all timeline posts and shared content
+                    Erases all timeline posts, shared content, and associated bookmarks
+                  </p>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-bookmark"
+                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                    />
+                    <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                      Bookmarks
+                    </span>
+                  </div>
+                  <p class="text-sm text-blue-700 dark:text-blue-300 ml-6">
+                    Removes all saved bookmarks and your private notes
                   </p>
                 </div>
 

@@ -20,7 +20,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
   alias Mosslet.Encrypted
   alias Mosslet.Groups.Group
   alias Mosslet.Memories.{Memory, Remark, UserMemory}
-  alias Mosslet.Timeline.{Post, Reply, UserPost}
+  alias Mosslet.Timeline.{Bookmark, Post, Reply, UserPost}
 
   alias Mosslet.Accounts.{
     Connection,
@@ -1616,6 +1616,19 @@ defmodule Mosslet.Accounts.Adapters.Web do
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, %{delete_all_replies: {count, _}}} -> {:ok, count}
+      {:error, _op, reason, _changes} -> {:error, reason}
+    end
+  end
+
+  @impl true
+  def delete_all_bookmarks(user_id) do
+    query = from(b in Bookmark, where: b.user_id == ^user_id)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.delete_all(:delete_all_bookmarks, query)
+    |> Repo.transaction_on_primary()
+    |> case do
+      {:ok, %{delete_all_bookmarks: {count, _}}} -> {:ok, count}
       {:error, _op, reason, _changes} -> {:error, reason}
     end
   end

@@ -799,6 +799,12 @@ defmodule Mosslet.Accounts.Adapter do
               {:ok, integer()} | {:error, any()}
 
   @doc """
+  Deletes all bookmarks for a user.
+  """
+  @callback delete_all_bookmarks(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
   Cleans up shared_users embeds from posts when a connection is deleted.
   """
   @callback cleanup_shared_users_from_posts(
