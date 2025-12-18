@@ -421,52 +421,48 @@ Authenticated (requires Bearer token):
 
 **Goal:** Make contexts platform-aware so LiveViews work unchanged on both web and native.
 
-**Architecture Decision: Thin Adapters (Repo-Only)**
+**Architecture Decision: Thin Adapters**
 
 We use a **thin adapter pattern** where:
 
 1. **Business logic stays in the context** (e.g., `accounts.ex`) - changesets, validations, broadcasts, multi-step operations
 2. **Adapters only handle data access** - Repo calls for web, API+cache for native
 3. **Context orchestrates** - calls adapter for data, then applies business logic
+4. **Same function names** - adapters use the same function names as the context (different signatures)
 
 This avoids duplicating complex business logic across adapters and keeps a single source of truth.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        CONTEXT (accounts.ex)                            │
-│                                                                         │
-│   def update_user_name(user, attrs, opts) do                           │
-│     # 1. Build changeset (business logic)                               │
-│     changeset = User.name_changeset(user, attrs, opts)                 │
-│     c_attrs = changeset.changes.connection_map                         │
-│                                                                         │
-│     # 2. Delegate data persistence to adapter                           │
-│     case adapter().update_user_and_connection_name(...) do             │
-│       {:ok, user, conn} ->                                             │
-│         # 3. Post-persistence business logic                            │
-│         Groups.maybe_update_name_for_user_groups(user, ...)            │
-│         broadcast_connection(conn, :uconn_name_updated)                │
-│         {:ok, user}                                                    │
-│       {:error, changeset} -> {:error, changeset}                       │
-│     end                                                                │
-│   end                                                                  │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    ▼                               ▼
-┌─────────────────────────────┐   ┌─────────────────────────────────────┐
-│   WEB ADAPTER (thin)        │   │   NATIVE ADAPTER (thin)             │
-│                             │   │                                     │
-│ def update_user_and_        │   │ def update_user_and_                │
-│   connection_name(...) do   │   │   connection_name(...) do           │
-│                             │   │                                     │
-│   Ecto.Multi.new()          │   │   if Sync.online?() do              │
-│   |> Multi.update(:user,..) │   │     API.Client.update_name(...)     │
-│   |> Multi.update(:conn,..) │   │   else                              │
-│   |> Repo.transaction_on_   │   │     Cache.queue_for_sync(...)       │
-│        primary()            │   │   end                               │
-│ end                         │   │ end                                 │
-└─────────────────────────────┘   └─────────────────────────────────────┘
+CONTEXT (accounts.ex)
+---------------------
+def update_user_name(user, attrs, opts) do
+  # 1. Build changeset (business logic)
+  changeset = User.name_changeset(user, attrs, opts)
+  c_attrs = changeset.changes.connection_map
+
+  # 2. Delegate data persistence to adapter (SAME function name)
+  case adapter().update_user_name(user, conn, changeset, c_attrs) do
+    {:ok, user, conn} ->
+      # 3. Post-persistence business logic
+      Groups.maybe_update_name_for_user_groups(user, ...)
+      broadcast_connection(conn, :uconn_name_updated)
+      {:ok, user}
+    {:error, changeset} -> {:error, changeset}
+  end
+end
+
+WEB ADAPTER (thin)                    NATIVE ADAPTER (thin)
+------------------                    --------------------
+def update_user_name(                 def update_user_name(
+  user, conn, changeset,                user, conn, changeset,
+  c_attrs) do                           c_attrs) do
+
+  Ecto.Multi.new()                      if Sync.online?() do
+  |> Multi.update(:user,..)               API.Client.update_name(...)
+  |> Multi.update(:conn,..)             else
+  |> Repo.transaction_on_                 Cache.queue_for_sync(...)
+       primary()                        end
+end                                   end
 ```
 
 **Why Thin Adapters?**
@@ -553,15 +549,17 @@ LiveView calls
    - Query functions: `filter_user_connections/2`, `search_user_connections/2`, etc.
 
 2. **Move business logic back to context** - Functions with changesets, broadcasts, or multi-step logic:
-   - `update_user_name/3` → context builds changeset, calls `adapter().persist_user_name/4`
-   - `update_user_profile/3` → context handles profile preview jobs, calls `adapter().persist_profile/3`
+   - `update_user_name/3` → context builds changeset, calls `adapter().update_user_name/4` (same name, different signature)
+   - `update_user_profile/3` → context handles profile preview jobs, calls `adapter().update_user_profile/3`
    - `confirm_user_connection/3` → context orchestrates bidirectional confirmation
    - All `update_*` functions that involve changesets + side effects
 
-3. **Simplify adapter behaviour** - New callbacks focus on data persistence:
-   - `persist_user_name(user, conn, user_changeset, conn_changeset)` → returns `{:ok, user, conn}` or `{:error, changeset}`
-   - `persist_user_profile(conn, changeset)` → returns `{:ok, conn}` or `{:error, changeset}`
-   - `persist_user_connection_confirmation(uconn, reverse_attrs)` → handles the Multi
+3. **Simplify adapter callbacks** - Keep same function names, but adapters only do data persistence:
+   - `update_user_name(user, conn, changeset, c_attrs)` → returns `{:ok, user, conn}` or `{:error, changeset}`
+   - `update_user_profile(conn, changeset)` → returns `{:ok, conn}` or `{:error, changeset}`
+   - `confirm_user_connection(uconn, reverse_attrs)` → handles the Multi
+   
+   **Note:** We keep the same function names in adapters for clarity and easier grep/search. The distinction between "full function" and "data-only function" is implicit from the module (context vs adapter).
 
 **Example Refactor - `update_user_name/3`:**
 
@@ -580,7 +578,8 @@ def update_user_name(user, attrs, opts) do
   conn = adapter().get_connection!(user.connection.id)
   c_attrs = Map.get(changeset.changes, :connection_map, %{})
 
-  case adapter().persist_user_name(user, conn, changeset, c_attrs, opts) do
+  # Call adapter with SAME function name, just different args
+  case adapter().update_user_name(user, conn, changeset, c_attrs, opts) do
     {:ok, updated_user, updated_conn} ->
       # Business logic stays in context
       Groups.maybe_update_name_for_user_groups(updated_user, %{encrypted_name: c_attrs.c_name}, key: opts[:key])
@@ -597,8 +596,8 @@ def update_user_name(user, attrs, opts) do
   end
 end
 
-# AFTER (in web.ex - thin, ~15 lines)
-def persist_user_name(user, conn, changeset, c_attrs, _opts) do
+# AFTER (in web.ex - thin, ~15 lines, SAME function name)
+def update_user_name(_user, conn, changeset, c_attrs, _opts) do
   Ecto.Multi.new()
   |> Ecto.Multi.update(:update_user, changeset)
   |> Ecto.Multi.update(:update_connection, Connection.update_name_changeset(conn, %{
@@ -612,8 +611,8 @@ def persist_user_name(user, conn, changeset, c_attrs, _opts) do
   end
 end
 
-# AFTER (in native.ex - thin, ~10 lines)
-def persist_user_name(_user, _conn, _changeset, attrs, _opts) do
+# AFTER (in native.ex - thin, ~10 lines, SAME function name)
+def update_user_name(_user, _conn, _changeset, attrs, _opts) do
   if Sync.online?() do
     case API.Client.update_user_name(attrs) do
       {:ok, %{user: user, connection: conn}} -> {:ok, user, conn}
@@ -647,19 +646,21 @@ end
 - `get_user_totp/1`, `two_factor_auth_enabled?/1`, `validate_user_totp/2`
 - All `get_*` and `list_*` functions
 
-**Callbacks to refactor (move business logic to context):**
+**Callbacks to refactor (move business logic to context, keep same names):**
 
-- `register_user/2` → `persist_user_registration/2`
-- `update_user_name/3` → `persist_user_name/5`
-- `update_user_username/3` → `persist_user_username/5`
-- `update_user_profile/3` → `persist_user_profile/3`
-- `update_user_visibility/3` → `persist_user_visibility/3`
-- `update_user_password/4` → `persist_user_password/3`
-- `update_user_avatar/3` → `persist_user_avatar/4`
-- `confirm_user_connection/3` → `persist_user_connection_confirmation/3`
-- `block_user/4` → `persist_user_block/3`
-- `delete_user_account/4` → `persist_user_deletion/2`
+- `register_user/2` - adapter signature changes to receive changeset
+- `update_user_name/3` - adapter receives changeset + c_attrs instead of raw attrs
+- `update_user_username/3` - adapter receives changeset + c_attrs
+- `update_user_profile/3` - adapter receives changeset
+- `update_user_visibility/3` - adapter receives changeset
+- `update_user_password/4` - adapter receives changeset
+- `update_user_avatar/3` - adapter receives changeset + c_attrs
+- `confirm_user_connection/3` - adapter handles Multi only
+- `block_user/4` - adapter handles persistence only
+- `delete_user_account/4` - adapter handles deletion only
 - All `update_*`, `create_*`, `delete_*` functions with side effects
+
+**Key principle:** Same function names, different signatures. Context calls `adapter().update_user_name(user, conn, changeset, c_attrs)` instead of `adapter().update_user_name(user, attrs, opts)`. The adapter no longer builds changesets or does broadcasts.
 
 **Files created (initial implementation, needs refactoring):**
 
@@ -684,12 +685,12 @@ end
 - `count_*` functions, `get_*` functions
 - `bookmarked?/2`, `post_hidden?/2`
 
-**Callbacks to refactor (move business logic to context):**
-- `create_post/2` → `persist_post/2` (context handles broadcasts, UserPost creation)
-- `update_post/3` → `persist_post_update/3`
-- `delete_post/2` → `persist_post_deletion/2` (context handles cascade logic)
-- `create_reply/2` → `persist_reply/2`
-- `share_post_with_user/4` → `persist_post_share/4`
+**Callbacks to refactor (move business logic to context, keep same names):**
+- `create_post/2` - adapter receives changeset (context handles broadcasts, UserPost creation)
+- `update_post/3` - adapter receives changeset
+- `delete_post/2` - adapter handles deletion only (context handles cascade logic)
+- `create_reply/2` - adapter receives changeset
+- `share_post_with_user/4` - adapter handles persistence only
 - All `update_*`, `create_*`, `delete_*` with broadcasts or side effects
 
 **Files created/modified:**
@@ -1082,4 +1083,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-22 (Phase 5.2 Timeline adapters complete)_
+_Last updated: 2025-01-23 (Phase 5 thin adapter pattern clarified - same function names, no persist_ prefix)_
