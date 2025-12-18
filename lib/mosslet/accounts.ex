@@ -12,25 +12,18 @@ defmodule Mosslet.Accounts do
 
   import Ecto.Query, warn: false
 
-  alias Mosslet.Repo
   alias Mosslet.Platform
 
   alias Mosslet.Accounts.{
     Connection,
     User,
-    UserBlock,
     UserConnection,
     UserToken,
-    UserNotifier,
-    UserTOTP
+    UserNotifier
   }
 
   alias Mosslet.Encrypted
   alias Mosslet.Groups
-  alias Mosslet.Groups.Group
-  alias Mosslet.Memories.{Memory, Remark, UserMemory}
-  alias Mosslet.Timeline.{Post, Reply, UserPost}
-  alias Mosslet.Timeline
   alias Mosslet.Logs
 
   @doc """
@@ -249,12 +242,7 @@ defmodule Mosslet.Accounts do
   end
 
   def get_all_user_connections_from_shared_item(item, current_user) do
-    Repo.all(
-      from uc in UserConnection,
-        join: c in Connection,
-        on: c.user_id == ^item.user_id,
-        where: uc.user_id == ^current_user.id
-    )
+    adapter().get_all_user_connections_from_shared_item(item, current_user)
   end
 
   def get_user_from_post(post) do
@@ -656,22 +644,19 @@ defmodule Mosslet.Accounts do
   end
 
   def create_user_profile(user, attrs \\ %{}, opts \\ []) do
-    conn = get_connection!(user.connection.id)
+    case adapter().create_user_profile(user, attrs, opts) do
+      {:ok, conn} ->
+        if conn.profile && conn.profile.website_url != nil && conn.profile.website_url != "" do
+          Mosslet.Accounts.Jobs.ProfilePreviewFetchJob.schedule_fetch(conn.id)
+        end
 
-    {:ok, {:ok, conn}} =
-      Repo.transaction_on_primary(fn ->
-        conn
-        |> Connection.profile_changeset(attrs, opts)
-        |> Repo.update()
-      end)
+        broadcast_connection(conn, :uconn_updated)
 
-    if conn.profile && conn.profile.website_url != nil && conn.profile.website_url != "" do
-      Mosslet.Accounts.Jobs.ProfilePreviewFetchJob.schedule_fetch(conn.id)
+        {:ok, conn}
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
-
-    broadcast_connection(conn, :uconn_updated)
-
-    {:ok, conn}
   end
 
   def update_user_name(user, attrs \\ %{}, opts \\ []) do
@@ -821,31 +806,11 @@ defmodule Mosslet.Accounts do
   end
 
   def update_user_oban_reset_token_id(user, attrs \\ %{}, opts \\ []) do
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        user
-        |> User.oban_reset_token_id_changeset(attrs, opts)
-        |> Repo.update()
-      end)
-
-    case return do
-      {:ok, user} ->
-        {:ok, user}
-
-      {:error, changeset} ->
-        {:error, changeset}
-    end
+    adapter().update_user_oban_reset_token_id(user, attrs, opts)
   end
 
   def update_user_visibility(user, attrs \\ %{}, opts \\ []) do
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        user
-        |> User.visibility_changeset(attrs, opts)
-        |> Repo.update()
-      end)
-
-    case return do
+    case adapter().update_user_visibility(user, attrs, opts) do
       {:ok, user} ->
         if user.connection.profile do
           profile_attrs = Map.put(attrs, "id", user.connection.id)
@@ -912,25 +877,12 @@ defmodule Mosslet.Accounts do
     end
   end
 
-  def update_user_admin(user, _attrs \\ %{}, _opts \\ []) do
+  def update_user_admin(user, attrs \\ %{}, opts \\ []) do
     admin_email = Encrypted.Session.admin_email()
     admin = get_user_by_email(admin_email)
 
-    if user.id == admin.id do
-      {:ok, return} =
-        Repo.transaction_on_primary(fn ->
-          user
-          |> User.toggle_admin_status_changeset()
-          |> Repo.update()
-        end)
-
-      case return do
-        {:ok, user} ->
-          {:ok, user}
-
-        {:error, changeset} ->
-          {:error, changeset}
-      end
+    if admin && user.id == admin.id do
+      adapter().update_user_admin(user, attrs, opts)
     else
       nil
     end
@@ -1088,9 +1040,6 @@ defmodule Mosslet.Accounts do
   end
 
   defp delete_data_filter(user, attrs, key, "user_connections") do
-    query =
-      from(uc in UserConnection, where: uc.user_id == ^user.id or uc.reverse_user_id == ^user.id)
-
     uconns = get_all_user_connections(user.id)
 
     Enum.each(uconns, fn uconn ->
@@ -1098,254 +1047,117 @@ defmodule Mosslet.Accounts do
       delete_data_filter(uconn, attrs, key, "user_posts")
     end)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_user_connections, query)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _return} ->
-        uconns
-        |> broadcast_user_connections(:uconn_deleted)
-
-        uconns
-        |> broadcast_public_user_connections(:public_uconn_deleted)
+    case adapter().delete_all_user_connections(user.id) do
+      {:ok, _count} ->
+        broadcast_user_connections(uconns, :uconn_deleted)
+        broadcast_public_user_connections(uconns, :public_uconn_deleted)
 
       {:error, error} ->
         {:error, error}
-
-      _rest ->
-        {:error, "There was an error deleting all user connections."}
     end
   end
 
   defp delete_data_filter(user, _attrs, _key, "groups") do
-    query = from(g in Group, where: g.user_id == ^user.id)
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_group, query)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _return} ->
+    case adapter().delete_all_groups(user.id) do
+      {:ok, _count} ->
         Phoenix.PubSub.broadcast(Mosslet.PubSub, "groups", {:groups_deleted, nil})
 
-      _rest ->
+      {:error, _reason} ->
         {:error, "There was an error deleting all groups."}
     end
   end
 
   defp delete_data_filter(user, _attrs, key, "memories") do
-    query = from(m in Memory, where: m.user_id == ^user.id)
-    memories = Repo.all(query)
+    memories = adapter().get_all_memories_for_user(user.id)
     urls = get_urls_from_deleted_memories(user, key, memories)
-    # TODO: update to be an Oban.Job
     Mosslet.Memories.make_async_aws_requests(urls)
     uconns = get_all_user_connections(user.id)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_memories, query)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _return} ->
-        uconns
-        |> broadcast_user_connections(:memories_deleted)
+    case adapter().delete_all_memories(user.id) do
+      {:ok, _count} ->
+        broadcast_user_connections(uconns, :memories_deleted)
 
-      _rest ->
+      {:error, _reason} ->
         {:error, "There was an error deleting all memories."}
     end
   end
 
-  # when deleting all posts, we also get the relevant reply_urls
-  # to delete those from the cloud as well. The actual replies will
-  # be deleted from the db based on their association to the post
   defp delete_data_filter(user, _attrs, key, "posts") do
-    query = from(p in Post, where: p.user_id == ^user.id, preload: [replies: :post])
-    posts = Repo.all(query)
+    posts = adapter().get_all_posts_for_user(user.id)
     uconns = get_all_user_connections(user.id)
     replies = get_all_replies_from_posts(posts)
     reply_urls = get_urls_from_deleted_replies(user, key, replies)
-
     urls = get_urls_from_deleted_posts(user, key, posts)
 
     case delete_object_storage_post_worker(%{"urls" => urls}) do
       {:ok, %Oban.Job{conflict?: false} = _oban_job} ->
-        # delete the reply urls related to the posts from the cloud
         delete_object_storage_reply_worker(%{"urls" => reply_urls})
-        del_query = from(p in Post, where: p.user_id == ^user.id)
 
-        Ecto.Multi.new()
-        |> Ecto.Multi.delete_all(:delete_all_post, del_query)
-        |> Repo.transaction_on_primary()
-        |> case do
-          {:ok, _return} ->
-            uconns
-            |> broadcast_user_connections(:posts_deleted)
+        case adapter().delete_all_posts(user.id) do
+          {:ok, _count} ->
+            broadcast_user_connections(uconns, :posts_deleted)
 
-          rest ->
+          {:error, reason} ->
             Logger.info("Error deleting all Posts in Accounts context.")
-            Logger.info(inspect(rest))
-            Logger.error(rest)
+            Logger.info(inspect(reason))
             {:error, "There was an error deleting all posts."}
         end
 
       rest ->
         Logger.info("Error deleting all Post data from the cloud in Accounts context.")
         Logger.info(inspect(rest))
-        Logger.error(rest)
         {:error, "There was an error deleting post data from the cloud."}
     end
   end
 
   defp delete_data_filter(uconn, _attrs, _key, "user_memories") do
-    query =
-      from(
-        um in UserMemory,
-        inner_join: m in Memory,
-        on: um.memory_id == m.id,
-        where: m.user_id == ^uconn.reverse_user_id and ^uconn.user_id == um.user_id
-      )
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_user_memories, query)
-    |> Ecto.Multi.run(:cleanup_memory_shared_users, fn _repo, _changes ->
-      cleanup_shared_users_from_memories(uconn.user_id, uconn.reverse_user_id)
-    end)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _return} ->
-        :ok
-
-      _rest ->
-        {:error, "There was an error deleting all user memories."}
+    case adapter().delete_all_user_memories(uconn) do
+      {:ok, _} -> :ok
+      {:error, _reason} -> {:error, "There was an error deleting all user memories."}
     end
   end
 
   defp delete_data_filter(uconn, _attrs, _key, "user_posts") do
-    query =
-      from(
-        up in UserPost,
-        inner_join: p in Post,
-        on: up.post_id == p.id,
-        where: p.user_id == ^uconn.reverse_user_id and ^uconn.user_id == up.user_id
-      )
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_user_post, query)
-    |> Ecto.Multi.run(:cleanup_post_shared_users, fn _repo, _changes ->
-      cleanup_shared_users_from_posts(uconn.user_id, uconn.reverse_user_id)
-    end)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _return} ->
-        :ok
-
-      _rest ->
-        {:error, "There was an error deleting all user posts."}
+    case adapter().delete_all_user_posts(uconn) do
+      {:ok, _} -> :ok
+      {:error, _reason} -> {:error, "There was an error deleting all user posts."}
     end
   end
 
   defp delete_data_filter(user, _attrs, _key, "remarks") do
-    query = from(r in Remark, where: r.user_id == ^user.id)
     uconns = get_all_user_connections(user.id)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete_all(:delete_all_remark, query)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, _return} ->
-        uconns
-        |> broadcast_user_connections(:remarks_deleted)
+    case adapter().delete_all_remarks(user.id) do
+      {:ok, _count} ->
+        broadcast_user_connections(uconns, :remarks_deleted)
 
-      _rest ->
+      {:error, _reason} ->
         {:error, "There was an error deleting all remarks."}
     end
   end
 
   defp delete_data_filter(user, _attrs, key, "replies") do
-    query = from(r in Reply, where: r.user_id == ^user.id, preload: [:post])
-    replies = Repo.all(query)
+    replies = adapter().get_all_replies_for_user(user.id)
     uconns = get_all_user_connections(user.id)
     urls = get_urls_from_deleted_replies(user, key, replies)
 
     case delete_object_storage_reply_worker(%{"urls" => urls}) do
       {:ok, %Oban.Job{conflict?: false} = _oban_job} ->
-        del_query = from(r in Reply, where: r.user_id == ^user.id)
+        case adapter().delete_all_replies(user.id) do
+          {:ok, _count} ->
+            broadcast_user_connections(uconns, :replies_deleted)
 
-        Ecto.Multi.new()
-        |> Ecto.Multi.delete_all(:delete_all_reply, del_query)
-        |> Repo.transaction_on_primary()
-        |> case do
-          {:ok, _return} ->
-            uconns
-            |> broadcast_user_connections(:replies_deleted)
-
-          rest ->
+          {:error, reason} ->
             Logger.info("Error deleting all Replies in Accounts context.")
-            Logger.info(inspect(rest))
-            Logger.error(rest)
+            Logger.info(inspect(reason))
             {:error, "There was an error deleting all Replies."}
         end
 
       rest ->
         Logger.info("Error deleting all Reply data from the cloud in Accounts context.")
         Logger.info(inspect(rest))
-        Logger.error(rest)
         {:error, "There was an error deleting reply data from the cloud."}
     end
-  end
-
-  defp cleanup_shared_users_from_posts(uconn_user_id, uconn_reverse_user_id) do
-    posts_to_clean =
-      from(p in Post,
-        where: p.user_id == ^uconn_reverse_user_id
-      )
-      |> Repo.all()
-
-    posts_to_clean
-    |> Enum.filter(fn post ->
-      Enum.any?(post.shared_users, fn shared_user ->
-        shared_user.user_id == uconn_user_id
-      end)
-    end)
-    |> Enum.each(fn post ->
-      updated_shared_users =
-        Enum.reject(post.shared_users, fn shared_user ->
-          shared_user.user_id == uconn_user_id
-        end)
-
-      post
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_embed(:shared_users, updated_shared_users)
-      |> Repo.update()
-    end)
-
-    {:ok, :cleaned}
-  end
-
-  defp cleanup_shared_users_from_memories(uconn_user_id, uconn_reverse_user_id) do
-    memories_to_clean =
-      from(m in Memory,
-        where: m.user_id == ^uconn_reverse_user_id
-      )
-      |> Repo.all()
-
-    memories_to_clean
-    |> Enum.filter(fn memory ->
-      Enum.any?(memory.shared_users, fn shared_user ->
-        shared_user.user_id == uconn_user_id
-      end)
-    end)
-    |> Enum.each(fn memory ->
-      updated_shared_users =
-        Enum.reject(memory.shared_users, fn shared_user ->
-          shared_user.user_id == uconn_user_id
-        end)
-
-      memory
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.put_embed(:shared_users, updated_shared_users)
-      |> Repo.update()
-    end)
-
-    {:ok, :cleaned}
   end
 
   defp get_urls_from_deleted_posts(user, key, posts) when is_list(posts) do
@@ -1439,18 +1251,11 @@ defmodule Mosslet.Accounts do
 
   def delete_user_profile(user, conn) do
     has_website_url = conn.profile && conn.profile.website_url != nil
-
-    changeset =
-      conn
-      |> Connection.profile_changeset(%{profile: nil})
-
     uconns = get_all_user_connections(user.id)
+    changeset = Connection.profile_changeset(conn, %{profile: nil})
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:conn, changeset)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, %{conn: updated_conn}} ->
+    case adapter().delete_user_profile(changeset) do
+      {:ok, updated_conn} ->
         if has_website_url do
           Mosslet.Extensions.URLPreviewServer.delete_cached_previews_for_connection(conn.id)
           Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
@@ -1467,7 +1272,7 @@ defmodule Mosslet.Accounts do
 
         {:ok, updated_conn}
 
-      {:error, :user, changeset, _} ->
+      {:error, changeset} ->
         {:error, changeset}
     end
   end
@@ -1582,113 +1387,32 @@ defmodule Mosslet.Accounts do
   Updates the user ai tokens.
   """
   def update_user_tokens(user, attrs) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.tokens_changeset(attrs)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, user}} ->
-        {:ok, user}
-
-      {:error, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_tokens(user, attrs)
   end
 
   @doc """
   Updates the user avatar.
   """
   def update_user_avatar(user, attrs, opts \\ []) do
-    conn = get_connection!(user.connection.id)
+    conn = adapter().get_connection!(user.connection.id)
 
     changeset =
-      cond do
-        opts[:delete_avatar] ->
-          user
-          |> User.delete_avatar_changeset(%{avatar_url: attrs[:avatar_url]}, opts)
-
-        true ->
-          user
-          |> User.avatar_changeset(%{avatar_url: attrs[:avatar_url]}, opts)
+      if opts[:delete_avatar] do
+        User.delete_avatar_changeset(user, %{avatar_url: attrs[:avatar_url]}, opts)
+      else
+        User.avatar_changeset(user, %{avatar_url: attrs[:avatar_url]}, opts)
       end
 
     c_attrs = changeset.changes.connection_map
 
-    case maybe_delete_existing_avatar(user, attrs, conn, c_attrs, opts) do
-      {:ok, %{update_user: user, update_connection: conn}} ->
+    case adapter().update_user_avatar(user, conn, changeset, c_attrs, opts) do
+      {:ok, user, conn} ->
         broadcast_connection(conn, :uconn_avatar_updated)
         {:ok, user, conn}
 
-      {:error, :update_user, changeset, _map} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      {:error, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      {:error, :update_user, _, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user avatar")
-        Logger.debug("Error updating user avatar: #{inspect(rest)}")
-        {:error, "error"}
     end
-  end
-
-  defp maybe_delete_existing_avatar(user, attrs, conn, c_attrs, opts) do
-    cond do
-      opts[:delete_avatar] ->
-        Ecto.Multi.new()
-        |> Ecto.Multi.update(:update_user, fn _ ->
-          User.delete_avatar_changeset(user, attrs, opts)
-        end)
-        |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-          Connection.update_avatar_changeset(
-            conn,
-            %{
-              avatar_url: c_attrs.c_avatar_url,
-              avatar_url_hash: c_attrs.c_avatar_url_hash
-            },
-            opts
-          )
-        end)
-        |> Repo.transaction_on_primary()
-
-      true ->
-        Ecto.Multi.new()
-        |> Ecto.Multi.update(:update_user, fn _ ->
-          User.avatar_changeset(user, attrs, opts)
-        end)
-        |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-          Connection.update_avatar_changeset(conn, %{
-            avatar_url: c_attrs.c_avatar_url,
-            avatar_url_hash: c_attrs.c_avatar_url_hash
-          })
-        end)
-        |> Repo.transaction_on_primary()
-    end
-  end
-
-  defp user_email_multi(user, email, context, key) do
-    conn = get_connection!(user.connection.id)
-    opts = [key: key, user: user]
-
-    changeset =
-      user
-      |> User.email_changeset(%{email: email}, opts)
-      |> User.confirm_changeset()
-
-    c_attrs = changeset.changes.connection_map
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.update(:connection, fn %{user: _user} ->
-      Connection.update_email_changeset(conn, %{
-        email: c_attrs.c_email,
-        email_hash: c_attrs.c_email_hash
-      })
-    end)
-    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, [context]))
   end
 
   @doc ~S"""
@@ -1711,23 +1435,25 @@ defmodule Mosslet.Accounts do
     {encoded_token, user_token} =
       UserToken.build_email_token(user, new_email, "change:#{current_email}")
 
-    Repo.transaction_on_primary(fn ->
-      Repo.insert!(user_token)
-    end)
+    case adapter().insert_user_email_change_token(user_token) do
+      {:ok, _user_token} ->
+        UserNotifier.deliver_update_email_notification(
+          user,
+          current_email,
+          new_email,
+          update_email_url_fun.(encoded_token)
+        )
 
-    UserNotifier.deliver_update_email_notification(
-      user,
-      current_email,
-      new_email,
-      update_email_url_fun.(encoded_token)
-    )
+        UserNotifier.deliver_update_email_instructions(
+          user,
+          current_email,
+          new_email,
+          update_email_url_fun.(encoded_token)
+        )
 
-    UserNotifier.deliver_update_email_instructions(
-      user,
-      current_email,
-      new_email,
-      update_email_url_fun.(encoded_token)
-    )
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -1761,27 +1487,20 @@ defmodule Mosslet.Accounts do
       |> User.password_changeset(attrs, opts)
       |> User.validate_current_password(password)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, :all))
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
-    end
+    adapter().update_user_password(user, changeset)
   end
 
   ## 2FA / TOTP (Time based One Time Password)
 
   def two_factor_auth_enabled?(user) do
-    !!get_user_totp(user)
+    adapter().two_factor_auth_enabled?(user)
   end
 
   @doc """
   Gets the %UserTOTP{} entry, if any.
   """
   def get_user_totp(user) do
-    Repo.get_by(UserTOTP, user_id: user.id)
+    adapter().get_user_totp(user)
   end
 
   @doc """
@@ -1794,7 +1513,7 @@ defmodule Mosslet.Accounts do
 
   """
   def change_user_totp(totp, attrs \\ %{}) do
-    UserTOTP.changeset(totp, attrs)
+    adapter().change_user_totp(totp, attrs)
   end
 
   @doc """
@@ -1811,23 +1530,7 @@ defmodule Mosslet.Accounts do
 
   """
   def upsert_user_totp(totp, attrs) do
-    totp_changeset =
-      totp
-      |> UserTOTP.changeset(attrs)
-      |> UserTOTP.ensure_backup_codes()
-      # If we are updating, let's make sure the secret
-      # in the struct propagates to the changeset.
-      |> Ecto.Changeset.force_change(:secret, totp.secret)
-
-    return =
-      Repo.transaction_on_primary(fn ->
-        Repo.insert_or_update(totp_changeset)
-      end)
-
-    case return do
-      {:ok, {:ok, user_totp}} -> {:ok, user_totp}
-      {:ok, {:error, changeset}} -> {:error, changeset}
-    end
+    adapter().upsert_user_totp(totp, attrs)
   end
 
   @doc """
@@ -1840,52 +1543,21 @@ defmodule Mosslet.Accounts do
 
   """
   def regenerate_user_totp_backup_codes(totp) do
-    return =
-      Repo.transaction_on_primary(fn ->
-        totp
-        |> Ecto.Changeset.change()
-        |> UserTOTP.regenerate_backup_codes()
-        |> Repo.update!()
-      end)
-
-    case return do
-      {:ok, user_totp} -> {:ok, user_totp}
-      {:error, changeset} -> {:error, changeset}
-    end
+    adapter().regenerate_user_totp_backup_codes(totp)
   end
 
   @doc """
   Disables the TOTP configuration for the given user.
   """
   def delete_user_totp(user_totp) do
-    return =
-      Repo.transaction_on_primary(fn ->
-        Repo.delete!(user_totp)
-      end)
-
-    case return do
-      {:ok, user_totp} -> {:ok, user_totp}
-      {:error, changeset} -> {:error, changeset}
-    end
+    adapter().delete_user_totp(user_totp)
   end
 
   @doc """
   Validates if the given TOTP code is valid.
   """
   def validate_user_totp(user, code) do
-    totp = Repo.get_by!(UserTOTP, user_id: user.id)
-
-    cond do
-      UserTOTP.valid_totp?(totp, code) ->
-        :valid_totp
-
-      changeset = UserTOTP.validate_backup_code(totp, code) ->
-        {:ok, {:ok, totp}} = Repo.transaction_on_primary(fn -> Repo.update!(changeset) end)
-        {:valid_backup_code, Enum.count(totp.backup_codes, &is_nil(&1.used_at))}
-
-      true ->
-        :invalid
-    end
+    adapter().validate_user_totp(user, code)
   end
 
   ## Session
@@ -1932,15 +1604,17 @@ defmodule Mosslet.Accounts do
     else
       {encoded_token, user_token} = UserToken.build_email_token(user, email, "confirm")
 
-      Repo.transaction_on_primary(fn ->
-        Repo.insert!(user_token)
-      end)
+      case adapter().insert_user_confirmation_token(user_token) do
+        {:ok, _user_token} ->
+          UserNotifier.deliver_confirmation_instructions(
+            user,
+            email,
+            confirmation_url_fun.(encoded_token)
+          )
 
-      UserNotifier.deliver_confirmation_instructions(
-        user,
-        email,
-        confirmation_url_fun.(encoded_token)
-      )
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
@@ -2019,7 +1693,7 @@ defmodule Mosslet.Accounts do
     {encoded_token, user_token} = UserToken.build_email_token(user, email, "reset_password")
 
     case adapter().deliver_user_reset_password_instructions(user_token) do
-      {:ok, user_token} ->
+      {:ok, _user_token} ->
         UserNotifier.deliver_reset_password_instructions(
           user,
           email,
@@ -2174,16 +1848,14 @@ defmodule Mosslet.Accounts do
 
   defp broadcast_user_connections(uconns, event) when is_list(uconns) do
     Enum.each(uconns, fn uconn ->
-      {:ok, uconn |> Repo.preload([:user, :connection])}
+      {:ok, adapter().preload_user_connection(uconn, [:user, :connection])}
       |> broadcast(event)
     end)
   end
 
   defp broadcast_connection(conn, event) do
-    conn = conn |> Repo.preload([:user_connections])
-    # filter out the user who belongs to the connection as they are
-    # the user who made the update (and we only want to broadcast to
-    # their connections to avoid unnecessary broadcasts)
+    conn = adapter().preload_connection_assocs(conn, [:user_connections])
+
     filtered_user_connections =
       Enum.filter(conn.user_connections, fn uconn -> uconn.user_id != conn.user_id end)
 
@@ -2199,7 +1871,7 @@ defmodule Mosslet.Accounts do
 
   defp broadcast_public_user_connections(uconns, event) when is_list(uconns) do
     Enum.each(uconns, fn uconn ->
-      {:ok, uconn |> Repo.preload([:user, :connection])}
+      {:ok, adapter().preload_user_connection(uconn, [:user, :connection])}
       |> broadcast_public(event)
     end)
   end
@@ -2244,21 +1916,11 @@ defmodule Mosslet.Accounts do
 
   # from Mosslet
   def update_last_signed_in_info(user, ip, key) do
-    Repo.transaction_on_primary(fn ->
-      user
-      |> User.last_signed_in_changeset(ip, key)
-      |> Repo.update!()
-    end)
+    adapter().update_last_signed_in_info(user, ip, key)
   end
 
   def preload_org_data(user, current_org_slug \\ nil) do
-    user = Repo.preload(user, :orgs)
-
-    if current_org_slug do
-      %{user | current_org: Enum.find(user.orgs, &(&1.slug == current_org_slug))}
-    else
-      user
-    end
+    adapter().preload_org_data(user, current_org_slug)
   end
 
   @doc """
@@ -2547,31 +2209,21 @@ defmodule Mosslet.Accounts do
   Gets a specific user block if it exists.
   """
   def get_user_block(blocker, blocked_user_id) when is_binary(blocked_user_id) do
-    Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user_id)
+    adapter().get_user_block(blocker, blocked_user_id)
   end
 
   @doc """
   Checks if a user has blocked another user.
   """
   def user_blocked?(blocker, blocked_user) do
-    query =
-      from b in UserBlock,
-        where: b.blocker_id == ^blocker.id and b.blocked_id == ^blocked_user.id
-
-    Repo.exists?(query)
+    adapter().user_blocked?(blocker, blocked_user)
   end
 
   @doc """
   Gets all users blocked by a user.
   """
   def list_blocked_users(user) do
-    query =
-      from b in UserBlock,
-        where: b.blocker_id == ^user.id,
-        preload: [:blocked],
-        order_by: [desc: b.inserted_at]
-
-    Repo.all(query)
+    adapter().list_blocked_users(user)
   end
 
   ## Status Management
@@ -2601,13 +2253,8 @@ defmodule Mosslet.Accounts do
   Suspends a user account (admin function).
   """
   def suspend_user(%User{} = user, %User{} = admin_user) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.admin_suspension_changeset(%{"is_suspended?" => true}, admin_user)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, suspended_user}} ->
-        # Broadcast suspension for real-time updates
+    case adapter().suspend_user(user, admin_user) do
+      {:ok, suspended_user} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "user:#{user.id}",
@@ -2616,7 +2263,7 @@ defmodule Mosslet.Accounts do
 
         {:ok, suspended_user}
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
 
       error ->
@@ -2632,7 +2279,6 @@ defmodule Mosslet.Accounts do
   Creates a visibility group for a user.
   """
   def create_visibility_group(user, group_params, opts \\ []) do
-    # Prepare the group data for encryption
     group_attrs = %{
       "temp_name" => group_params["name"],
       "temp_description" => group_params["description"] || "",
@@ -2640,16 +2286,8 @@ defmodule Mosslet.Accounts do
       "temp_connection_ids" => group_params["connection_ids"] || []
     }
 
-    case Repo.transaction_on_primary(fn ->
-           # CRITICAL: Get fresh user data from DB to avoid stale embedded data
-           fresh_user = Repo.get(User, user.id)
-
-           fresh_user
-           |> User.add_visibility_group_changeset(group_attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
-        # Broadcast update for real-time UI updates
+    case adapter().create_visibility_group(user, group_attrs, opts) do
+      {:ok, updated_user} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "user:#{user.id}",
@@ -2658,11 +2296,8 @@ defmodule Mosslet.Accounts do
 
         {:ok, updated_user}
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      error ->
-        error
     end
   end
 
@@ -2670,38 +2305,15 @@ defmodule Mosslet.Accounts do
   Updates an existing visibility group for a user.
   """
   def update_visibility_group(user, group_id, group_params, opts \\ []) do
-    case Repo.transaction_on_primary(fn ->
-           # Get fresh user data from DB to avoid stale embedded data
-           fresh_user = Repo.get(User, user.id)
+    group_attrs = %{
+      "temp_name" => group_params["name"],
+      "temp_description" => group_params["description"] || "",
+      "color" => String.to_existing_atom(group_params["color"] || "teal"),
+      "temp_connection_ids" => group_params["connection_ids"] || []
+    }
 
-           # Find the group to update and create changesets for all groups
-           group_changesets =
-             Enum.map(fresh_user.visibility_groups || [], fn group ->
-               if group.id == group_id do
-                 # Prepare the group data for encryption
-                 group_attrs = %{
-                   "temp_name" => group_params["name"],
-                   "temp_description" => group_params["description"] || "",
-                   "color" => String.to_existing_atom(group_params["color"] || "teal"),
-                   "temp_connection_ids" => group_params["connection_ids"] || []
-                 }
-
-                 # Create a changeset for the group being updated
-                 User.visibility_group_changeset(group, group_attrs, opts)
-               else
-                 # For groups not being updated, pass them through unchanged
-                 group
-               end
-             end)
-
-           # Update user with the group changesets using put_embed
-           fresh_user
-           |> Ecto.Changeset.change()
-           |> Ecto.Changeset.put_embed(:visibility_groups, group_changesets)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
-        # Broadcast update for real-time UI updates
+    case adapter().update_visibility_group(user, group_id, group_attrs, opts) do
+      {:ok, updated_user} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "user:#{user.id}",
@@ -2710,11 +2322,8 @@ defmodule Mosslet.Accounts do
 
         {:ok, updated_user}
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      error ->
-        error
     end
   end
 
@@ -2722,24 +2331,8 @@ defmodule Mosslet.Accounts do
   Deletes a visibility group from a user.
   """
   def delete_visibility_group(user, group_id) do
-    case Repo.transaction_on_primary(fn ->
-           # Get user with current visibility groups
-           user_with_groups = Repo.get(User, user.id)
-
-           # Filter out the group to delete
-           updated_groups =
-             Enum.reject(user_with_groups.visibility_groups || [], fn group ->
-               group.id == group_id
-             end)
-
-           # Update user with remaining groups
-           user_with_groups
-           |> Ecto.Changeset.change()
-           |> Ecto.Changeset.put_embed(:visibility_groups, updated_groups)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
-        # Broadcast update for real-time UI updates
+    case adapter().delete_visibility_group(user, group_id) do
+      {:ok, updated_user} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "user:#{user.id}",
@@ -2748,11 +2341,8 @@ defmodule Mosslet.Accounts do
 
         {:ok, updated_user}
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      error ->
-        error
     end
   end
 
@@ -2761,7 +2351,7 @@ defmodule Mosslet.Accounts do
   Returns the user's visibility groups with connection details for proper decryption.
   """
   def get_user_visibility_groups_with_connections(user) do
-    user_with_groups = Repo.get(User, user.id)
+    user_with_groups = adapter().get_user_visibility_groups_with_connections(user)
 
     Enum.map(user_with_groups.visibility_groups || [], fn group ->
       %{group: group, user: user_with_groups, user_connections: []}
@@ -2819,24 +2409,6 @@ defmodule Mosslet.Accounts do
   - `:since` - Only return connections updated after this timestamp
   """
   def list_user_connections_for_sync(user, opts \\ []) do
-    since = opts[:since]
-
-    query =
-      from(uc in UserConnection,
-        join: c in assoc(uc, :connection),
-        where: uc.user_id == ^user.id,
-        where: not is_nil(uc.confirmed_at),
-        order_by: [desc: c.updated_at],
-        preload: [:connection]
-      )
-
-    query =
-      if since do
-        from([uc, c] in query, where: c.updated_at > ^since)
-      else
-        query
-      end
-
-    Repo.all(query)
+    adapter().list_user_connections_for_sync(user, opts)
   end
 end

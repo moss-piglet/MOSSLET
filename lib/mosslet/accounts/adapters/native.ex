@@ -670,12 +670,12 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_password(_user, _password, attrs, _opts) do
+  def update_user_password(_user, changeset) do
     if Sync.online?() do
       Logger.warning("update_user_password via API not yet implemented")
       {:error, "Not implemented for native yet"}
     else
-      Cache.queue_for_sync("user", "update_password", attrs)
+      Cache.queue_for_sync("user", "update_password", changeset)
       {:error, "Offline - queued for sync"}
     end
   end
@@ -692,7 +692,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_avatar(_user, attrs, _opts) do
+  def update_user_avatar(_user, _conn, _user_changeset, attrs, _opts) do
     if Sync.online?() do
       Logger.warning("update_user_avatar via API not yet implemented")
       {:error, "Not implemented for native yet"}
@@ -786,8 +786,8 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def deliver_user_confirmation_instructions(_user, _email, _confirmation_url_fun) do
-    Logger.warning("deliver_user_confirmation_instructions via API not yet implemented")
+  def insert_user_confirmation_token(_user_token) do
+    Logger.warning("insert_user_confirmation_token via API not yet implemented")
     {:error, "Confirmation must be done via web interface"}
   end
 
@@ -949,7 +949,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def delete_user_profile(_user, _conn) do
+  def delete_user_profile(_changeset) do
     if Sync.online?() do
       Logger.warning("delete_user_profile via API not yet implemented")
       {:error, "Not implemented for native yet"}
@@ -1053,14 +1053,14 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_email(_user, _d_email, _token, _key) do
-    Logger.warning("update_user_email must be done via web interface")
+  def insert_user_email_change_token(_user_token) do
+    Logger.warning("insert_user_email_change_token must be done via web interface")
     {:error, "Email change must be done via web interface"}
   end
 
   @impl true
-  def deliver_user_update_email_instructions(_user, _current_email, _new_email, _url_fun) do
-    Logger.warning("deliver_user_update_email_instructions must be done via web interface")
+  def update_user_email(_user, _d_email, _token, _key) do
+    Logger.warning("update_user_email must be done via web interface")
     {:error, "Email change must be done via web interface"}
   end
 
@@ -1109,9 +1109,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
         []
 
       cached_user ->
-        Enum.map(cached_user.visibility_groups || [], fn group ->
-          %{group: group, user: cached_user, user_connections: []}
-        end)
+        cached_user
     end
   end
 
@@ -1255,4 +1253,179 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   defp deserialize_user_totp(_), do: nil
+
+  @impl true
+  def update_last_signed_in_info(user, _ip, _key) do
+    {:ok, user}
+  end
+
+  @impl true
+  def preload_org_data(user, current_org_slug) do
+    user = preload_user_orgs(user)
+
+    if current_org_slug do
+      %{user | current_org: Enum.find(user.orgs || [], &(&1.slug == current_org_slug))}
+    else
+      user
+    end
+  end
+
+  defp preload_user_orgs(user) do
+    case Cache.list_cached_items("org") do
+      items when is_list(items) ->
+        orgs =
+          items
+          |> Enum.map(fn item -> deserialize_org(item.encrypted_data) end)
+          |> Enum.filter(fn org -> org && org.user_id == user.id end)
+
+        %{user | orgs: orgs}
+
+      _ ->
+        %{user | orgs: []}
+    end
+  end
+
+  defp deserialize_org(data) when is_binary(data) do
+    case Jason.decode(data) do
+      {:ok, map} -> deserialize_org(map)
+      _ -> nil
+    end
+  end
+
+  defp deserialize_org(data) when is_map(data) do
+    struct(Mosslet.Orgs.Org, atomize_keys(data))
+  rescue
+    _ -> nil
+  end
+
+  defp deserialize_org(_), do: nil
+
+  @impl true
+  def preload_user_connection(user_connection, preloads) do
+    Enum.reduce(preloads, user_connection, fn
+      :user, uc ->
+        case uc.user_id do
+          nil -> uc
+          user_id -> %{uc | user: get_user(user_id)}
+        end
+
+      :connection, uc ->
+        case uc.connection_id do
+          nil -> uc
+          conn_id -> %{uc | connection: get_connection(conn_id)}
+        end
+
+      :reverse_user, uc ->
+        case uc.reverse_user_id do
+          nil -> uc
+          user_id -> %{uc | reverse_user: get_user(user_id)}
+        end
+
+      _, uc ->
+        uc
+    end)
+  end
+
+  @impl true
+  def preload_connection_assocs(connection, preloads) do
+    Enum.reduce(preloads, connection, fn
+      :user, conn ->
+        case conn.user_id do
+          nil -> conn
+          user_id -> %{conn | user: get_user(user_id)}
+        end
+
+      :user_connections, conn ->
+        uconns =
+          get_all_cached_user_connections()
+          |> Enum.filter(fn uc -> uc.connection_id == conn.id end)
+
+        %{conn | user_connections: uconns}
+
+      _, conn ->
+        conn
+    end)
+  end
+
+  # ============================================================================
+  # Delete User Data Functions (stubs - must be done via web interface)
+  # ============================================================================
+
+  @impl true
+  def delete_all_user_connections(_user_id) do
+    Logger.warning("delete_all_user_connections must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_groups(_user_id) do
+    Logger.warning("delete_all_groups must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_memories(_user_id) do
+    Logger.warning("delete_all_memories must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_posts(_user_id) do
+    Logger.warning("delete_all_posts must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_user_memories(_uconn) do
+    Logger.warning("delete_all_user_memories must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_user_posts(_uconn) do
+    Logger.warning("delete_all_user_posts must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_remarks(_user_id) do
+    Logger.warning("delete_all_remarks must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def delete_all_replies(_user_id) do
+    Logger.warning("delete_all_replies must be done via web interface")
+    {:error, :not_supported}
+  end
+
+  @impl true
+  def cleanup_shared_users_from_posts(_uconn_user_id, _uconn_reverse_user_id) do
+    Logger.warning("cleanup_shared_users_from_posts must be done via web interface")
+    {:ok, :cleaned}
+  end
+
+  @impl true
+  def cleanup_shared_users_from_memories(_uconn_user_id, _uconn_reverse_user_id) do
+    Logger.warning("cleanup_shared_users_from_memories must be done via web interface")
+    {:ok, :cleaned}
+  end
+
+  @impl true
+  def get_all_memories_for_user(_user_id) do
+    Logger.warning("get_all_memories_for_user must be done via web interface")
+    []
+  end
+
+  @impl true
+  def get_all_posts_for_user(_user_id) do
+    Logger.warning("get_all_posts_for_user must be done via web interface")
+    []
+  end
+
+  @impl true
+  def get_all_replies_for_user(_user_id) do
+    Logger.warning("get_all_replies_for_user must be done via web interface")
+    []
+  end
 end

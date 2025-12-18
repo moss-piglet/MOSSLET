@@ -330,9 +330,7 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback update_user_password(
               user :: User.t(),
-              current_password :: String.t(),
-              attrs :: map(),
-              opts :: keyword()
+              changeset :: Ecto.Changeset.t()
             ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 
   @doc """
@@ -343,8 +341,17 @@ defmodule Mosslet.Accounts.Adapter do
 
   @doc """
   Updates user avatar.
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
+  Takes the user, connection, user changeset and connection attributes already computed by the context.
+  Returns {:ok, user, connection} or {:error, changeset}.
   """
-  @callback update_user_avatar(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+  @callback update_user_avatar(
+              user :: User.t(),
+              conn :: Connection.t(),
+              user_changeset :: Ecto.Changeset.t(),
+              c_attrs :: map(),
+              opts :: keyword()
+            ) ::
               {:ok, User.t(), Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
 
   @doc """
@@ -403,13 +410,11 @@ defmodule Mosslet.Accounts.Adapter do
   @callback get_user_by_reset_password_token(token :: String.t()) :: User.t() | nil
 
   @doc """
-  Delivers confirmation email instructions.
+  Inserts a user confirmation token.
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
   """
-  @callback deliver_user_confirmation_instructions(
-              user :: User.t(),
-              email :: String.t(),
-              confirmation_url_fun :: (String.t() -> String.t())
-            ) :: {:ok, map()} | {:error, :already_confirmed}
+  @callback insert_user_confirmation_token(user_token :: any()) ::
+              {:ok, any()} | {:error, any()}
 
   @doc """
   Gets a user from a shared item by username.
@@ -511,7 +516,7 @@ defmodule Mosslet.Accounts.Adapter do
   @doc """
   Deletes a user profile.
   """
-  @callback delete_user_profile(user :: User.t(), conn :: Connection.t()) ::
+  @callback delete_user_profile(changeset :: Ecto.Changeset.t()) ::
               {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
 
   @doc """
@@ -600,14 +605,11 @@ defmodule Mosslet.Accounts.Adapter do
             ) :: :ok | :error
 
   @doc """
-  Delivers update email instructions.
+  Inserts a user email change token.
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
   """
-  @callback deliver_user_update_email_instructions(
-              user :: User.t(),
-              current_email :: String.t(),
-              new_email :: String.t(),
-              update_email_url_fun :: (String.t() -> String.t())
-            ) :: {:ok, map()}
+  @callback insert_user_email_change_token(user_token :: any()) ::
+              {:ok, any()} | {:error, any()}
 
   @doc """
   Suspends a user account (admin function).
@@ -618,7 +620,7 @@ defmodule Mosslet.Accounts.Adapter do
   @doc """
   Creates a visibility group for a user.
   """
-  @callback create_visibility_group(user :: User.t(), group_params :: map(), opts :: keyword()) ::
+  @callback create_visibility_group(user :: User.t(), group_attrs :: map(), opts :: keyword()) ::
               {:ok, User.t()} | {:error, Ecto.Changeset.t() | any()}
 
   @doc """
@@ -627,7 +629,7 @@ defmodule Mosslet.Accounts.Adapter do
   @callback update_visibility_group(
               user :: User.t(),
               group_id :: String.t(),
-              group_params :: map(),
+              group_attrs :: map(),
               opts :: keyword()
             ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t() | any()}
 
@@ -720,4 +722,110 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback update_user_admin(user :: User.t(), attrs :: map(), opts :: keyword()) ::
               {:ok, User.t()} | nil
+
+  @doc """
+  Updates when a user last signed in with IP address.
+  """
+  @callback update_last_signed_in_info(user :: User.t(), ip :: String.t(), key :: binary()) ::
+              {:ok, User.t()} | {:error, any()}
+
+  @doc """
+  Preloads user's organization data.
+  """
+  @callback preload_org_data(user :: User.t(), current_org_slug :: String.t() | nil) :: User.t()
+
+  @doc """
+  Preloads associations on a user connection.
+  """
+  @callback preload_user_connection(user_connection :: UserConnection.t(), preloads :: list()) ::
+              UserConnection.t()
+
+  @doc """
+  Preloads associations on a connection.
+  """
+  @callback preload_connection_assocs(connection :: Connection.t(), preloads :: list()) ::
+              Connection.t()
+
+  # ============================================================================
+  # Delete User Data Functions (thin wrappers for delete_user_data orchestration)
+  # ============================================================================
+
+  @doc """
+  Deletes all user connections for a user.
+  """
+  @callback delete_all_user_connections(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
+  Deletes all groups for a user.
+  """
+  @callback delete_all_groups(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
+  Deletes all memories for a user.
+  """
+  @callback delete_all_memories(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
+  Deletes all posts for a user.
+  """
+  @callback delete_all_posts(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
+  Deletes all user_memories for a user connection.
+  """
+  @callback delete_all_user_memories(uconn :: UserConnection.t()) ::
+              {:ok, any()} | {:error, any()}
+
+  @doc """
+  Deletes all user_posts for a user connection.
+  """
+  @callback delete_all_user_posts(uconn :: UserConnection.t()) ::
+              {:ok, any()} | {:error, any()}
+
+  @doc """
+  Deletes all remarks for a user.
+  """
+  @callback delete_all_remarks(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
+  Deletes all replies for a user.
+  """
+  @callback delete_all_replies(user_id :: String.t()) ::
+              {:ok, integer()} | {:error, any()}
+
+  @doc """
+  Cleans up shared_users embeds from posts when a connection is deleted.
+  """
+  @callback cleanup_shared_users_from_posts(
+              uconn_user_id :: String.t(),
+              uconn_reverse_user_id :: String.t()
+            ) :: {:ok, :cleaned}
+
+  @doc """
+  Cleans up shared_users embeds from memories when a connection is deleted.
+  """
+  @callback cleanup_shared_users_from_memories(
+              uconn_user_id :: String.t(),
+              uconn_reverse_user_id :: String.t()
+            ) :: {:ok, :cleaned}
+
+  @doc """
+  Gets all memories for a user (for extracting URLs before deletion).
+  """
+  @callback get_all_memories_for_user(user_id :: String.t()) :: [any()]
+
+  @doc """
+  Gets all posts for a user with replies preloaded (for extracting URLs before deletion).
+  """
+  @callback get_all_posts_for_user(user_id :: String.t()) :: [any()]
+
+  @doc """
+  Gets all replies for a user with post preloaded (for extracting URLs before deletion).
+  """
+  @callback get_all_replies_for_user(user_id :: String.t()) :: [any()]
 end
