@@ -320,13 +320,24 @@ Native (proposed):   Content → Enacl → Cloak (device keychain key) → SQLit
 Public (no auth required):
 
 - `POST /api/auth/login` - Authenticate with email/password, returns JWT + encrypted user data
+  - If 2FA enabled, returns `{totp_required: true, totp_token: "..."}` instead
+  - Supports `remember_me: true` to get long-lived remember_me_token
+  - Supports `totp_code` param to complete 2FA in single request
 - `POST /api/auth/register` - Register new user, returns JWT + encrypted user data
+  - Supports `remember_me: true` to get long-lived remember_me_token
+- `POST /api/auth/totp/verify` - Complete 2FA login with totp_token + code
+- `POST /api/auth/remember-me/refresh` - Get fresh access token using remember_me_token (no password needed)
 
 Authenticated (requires Bearer token):
 
 - `POST /api/auth/refresh` - Refresh JWT token
-- `POST /api/auth/logout` - Logout (client-side token invalidation)
+- `POST /api/auth/logout` - Logout (revokes remember_me_token if provided)
 - `GET /api/auth/me` - Get current user data
+- `GET /api/auth/totp/status` - Check if 2FA is enabled and backup codes remaining
+- `POST /api/auth/totp/setup` - Get TOTP secret and otpauth URL for QR code
+- `POST /api/auth/totp/enable` - Enable 2FA with secret + code, returns backup codes
+- `POST /api/auth/totp/disable` - Disable 2FA (requires password or TOTP code)
+- `POST /api/auth/totp/backup-codes/regenerate` - Regenerate backup codes (requires TOTP code)
 - `GET /api/sync/user` - Sync user data
 - `GET /api/sync/posts?since=timestamp&limit=50` - Sync posts (encrypted blobs)
 - `GET /api/sync/connections?since=timestamp` - Sync connections
@@ -337,6 +348,25 @@ Authenticated (requires Bearer token):
 - `POST /api/posts` - Create a new post
 - `PUT /api/posts/:id` - Update a post
 - `DELETE /api/posts/:id` - Delete a post
+
+**TOTP/2FA Flow for Native Clients:**
+
+```
+1. Client: POST /api/auth/login {email, password}
+2. Server: {totp_required: true, totp_token: "eyJ..."} (if 2FA enabled)
+3. Client: Prompt user for TOTP code
+4. Client: POST /api/auth/totp/verify {totp_token, code}
+5. Server: {token: "eyJ...", user: {...}, remember_me_token: "eyJ..."} (if remember_me requested)
+```
+
+**Remember Me Flow for Native Clients:**
+
+```
+1. Client: Store remember_me_token securely (Keychain/Keystore)
+2. On app launch: POST /api/auth/remember-me/refresh {remember_me_token}
+3. Server: Validates token against DB session, returns fresh access token
+4. If expired/revoked: Client prompts for password again
+```
 
 **Code Examples:**
 
@@ -430,37 +460,214 @@ LiveView calls
 
 **Context Priority Matrix:**
 
-| Context | Repo Calls | Priority | Notes |
-|---------|------------|----------|-------|
-| `accounts.ex` | 173 | CRITICAL | Auth, users, connections |
-| `timeline.ex` | 236 | HIGH | Posts, feeds, reactions |
-| `groups.ex` | 43 | MEDIUM | Group management |
-| `group_messages.ex` | 15 | MEDIUM | Group chat |
-| `messages.ex` | 9 | MEDIUM | Direct messages |
-| `orgs.ex` | 25 | LOW | Organization features |
-| `statuses.ex` | 9 | LOW | User statuses |
-| `logs.ex` | 7 | SKIP | Audit logs (server-only) |
-| `memories.ex` | 57 | SKIP | Legacy - phasing out |
-| `conversations.ex` | 9 | SKIP | Legacy - phasing out |
+| Context             | Repo Calls | Priority | Notes                    |
+| ------------------- | ---------- | -------- | ------------------------ |
+| `accounts.ex`       | 173        | CRITICAL | Auth, users, connections |
+| `timeline.ex`       | 236        | HIGH     | Posts, feeds, reactions  |
+| `groups.ex`         | 43         | MEDIUM   | Group management         |
+| `group_messages.ex` | 15         | MEDIUM   | Group chat               |
+| `messages.ex`       | 9          | MEDIUM   | Direct messages          |
+| `orgs.ex`           | 25         | LOW      | Organization features    |
+| `statuses.ex`       | 9          | LOW      | User statuses            |
+| `logs.ex`           | 7          | SKIP     | Audit logs (server-only) |
+| `memories.ex`       | 57         | SKIP     | Legacy - phasing out     |
+| `conversations.ex`  | 9          | SKIP     | Legacy - phasing out     |
 
-#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex`
+#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` ✅ COMPLETE
 
-- [ ] `Mosslet.Accounts.get_user_by_email_and_password/2` - Routes to `API.Client.login/2` on native
-- [ ] `Mosslet.Accounts.register_user/2` - Routes to `API.Client.register/1` on native
-- [ ] `Mosslet.Accounts.get_user!/1` and `get_user/1` - Fetch via API or cache on native
-- [ ] `Mosslet.Accounts.UserPin` operations - Route password reset to API
-- [ ] Create `Mosslet.Session.Native` module for JWT token + session key storage
-- [ ] Update `MossletWeb.UserAuth` to handle native token-based auth
-- [ ] All other `Accounts` CRUD functions (connections, user_connections, etc.)
+The Accounts context now uses a platform adapter pattern:
 
-#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex`
+- `Mosslet.Accounts.Adapter` - Behaviour defining 50+ callbacks for all account operations
+- `Mosslet.Accounts.Adapters.Web` - Direct Postgres access via Repo
+- `Mosslet.Accounts.Adapters.Native` - API client + SQLite cache
 
-- [ ] `Mosslet.Timeline.create_post/3` - Route to `API.Client.create_post/2` on native
-- [ ] `Mosslet.Timeline.update_post/3` - Route to API
-- [ ] `Mosslet.Timeline.delete_post/2` - Route to API
-- [ ] `Mosslet.Timeline.list_posts_for_user/2` - Fetch via API, cache locally
-- [ ] `Mosslet.Timeline.get_post!/2` - Fetch via API or cache
-- [ ] All timeline query functions
+**Implemented callbacks (50+):**
+
+Authentication & Users:
+
+- [x] `get_user_by_email_and_password/2` - Routes to `API.Client.login/2` on native
+- [x] `register_user/2` - Routes to `API.Client.register/1` on native
+- [x] `get_user!/1` and `get_user/1` - Fetch via API or cache on native
+- [x] `get_user_by_email/1`, `get_user_by_username/1`
+- [x] `get_user_by_session_token/1`, `generate_user_session_token/1`, `delete_user_session_token/1`
+- [x] `get_user_with_preloads/1`, `get_user_from_profile_slug/1`, `get_user_from_profile_slug!/1`
+- [x] `confirm_user/1`
+
+User Connections:
+
+- [x] `get_connection/1`, `get_connection!/1`
+- [x] `get_user_connection/1`, `get_user_connection!/1`
+- [x] `create_user_connection/2`, `update_user_connection/3`, `delete_user_connection/1`
+- [x] `confirm_user_connection/3`
+- [x] `filter_user_connections/2`, `filter_user_arrivals/2`
+- [x] `list_user_connections_for_sync/2`
+- [x] `get_all_user_connections/1`, `get_all_confirmed_user_connections/1`
+- [x] `search_user_connections/2`
+- [x] `has_user_connection?/2`, `has_confirmed_user_connection?/2`, `has_any_user_connections?/1`
+- [x] `arrivals_count/1`, `list_user_arrivals_connections/2`
+- [x] `delete_both_user_connections/1`
+- [x] `get_user_by_username_for_connection/2`, `get_user_by_email_for_connection/2`
+- [x] `get_both_user_connections_between_users!/2`
+- [x] `get_user_connection_between_users/2`, `get_user_connection_between_users!/2`
+- [x] `get_current_user_connection_between_users!/2`
+- [x] `get_user_connection_for_user_group/2`, `get_user_connection_for_reply_shared_users/2`
+- [x] `get_user_connection_from_shared_item/2`, `get_post_author_permissions_for_viewer/2`
+- [x] `validate_users_in_connection/2`
+- [x] `update_user_connection_label/3`, `update_user_connection_zen/3`, `update_user_connection_photos/3`
+- [x] `preload_connection/1`
+
+User Updates:
+
+- [x] `update_user_profile/3`, `create_user_profile/3`, `delete_user_profile/2`
+- [x] `update_user_name/3`, `update_user_username/3`
+- [x] `update_user_visibility/3`
+- [x] `update_user_password/4`, `reset_user_password/3`
+- [x] `update_user_avatar/3`
+- [x] `update_user_onboarding/3`, `update_user_onboarding_profile/3`
+- [x] `update_user_notifications/3`
+- [x] `update_user_tokens/2`
+- [x] `update_user_email_notification_received_at/2`, `update_user_reply_notification_received_at/2`
+- [x] `update_user_replies_seen_at/2`
+- [x] `apply_user_email/4`, `check_if_can_change_user_email/3`, `update_user_email/4`
+
+Blocking:
+
+- [x] `block_user/4`, `unblock_user/2`, `user_blocked?/2`
+- [x] `list_blocked_users/1`, `get_user_block/2`
+
+Item Lookups:
+
+- [x] `get_user_from_post/1`, `get_user_from_item/1`, `get_user_from_item!/1`
+- [x] `get_connection_from_item/2`
+- [x] `get_shared_user_by_username/2`
+
+Admin & Stats:
+
+- [x] `list_all_users/0`, `count_all_users/0`
+- [x] `list_all_confirmed_users/0`, `count_all_confirmed_users/0`
+- [x] `suspend_user/2`
+
+Email & Password:
+
+- [x] `deliver_user_reset_password_instructions/3`
+- [x] `get_user_by_reset_password_token/1`
+- [x] `deliver_user_confirmation_instructions/3`
+- [x] `deliver_user_update_email_instructions/4`
+- [x] `delete_user_account/4`, `delete_user_data/5`
+
+Visibility Groups:
+
+- [x] `create_visibility_group/3`, `update_visibility_group/4`, `delete_visibility_group/2`
+- [x] `get_user_visibility_groups_with_connections/1`
+
+TOTP / 2FA:
+
+- [x] `two_factor_auth_enabled?/1`
+- [x] `get_user_totp/1`
+- [x] `change_user_totp/2`
+- [x] `upsert_user_totp/2`
+- [x] `regenerate_user_totp_backup_codes/1`
+- [x] `delete_user_totp/1`
+- [x] `validate_user_totp/2`
+
+**Files created/modified:**
+
+- `lib/mosslet/accounts/adapter.ex` - Behaviour with 50+ callbacks
+- `lib/mosslet/accounts/adapters/web.ex` - Web adapter (direct Repo)
+- `lib/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache)
+- `lib/mosslet/session/native.ex` - JWT token + session key storage (from Phase 3)
+
+#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` ✅ COMPLETE
+
+The Timeline context now uses a platform adapter pattern:
+
+- `Mosslet.Timeline.Adapter` - Behaviour defining 60+ callbacks for all timeline operations
+- `Mosslet.Timeline.Adapters.Web` - Direct Postgres access via Repo
+- `Mosslet.Timeline.Adapters.Native` - API client + SQLite cache
+
+**Implemented callbacks (60+):**
+
+Post CRUD:
+
+- [x] `get_post/1`, `get_post!/1`, `get_post_with_nested_replies/2`
+- [x] `create_post/2`, `create_public_post/2`
+- [x] `update_post/3`, `update_public_post/3`
+- [x] `delete_post/2`, `delete_group_post/2`
+
+Reply Operations:
+
+- [x] `get_reply/1`, `get_reply!/1`
+- [x] `create_reply/2`, `update_reply/3`, `delete_reply/2`
+- [x] `get_nested_replies_for_post/2`, `get_child_replies_for_reply/2`
+- [x] `list_replies/2`, `list_public_replies/2`
+
+Post Listings:
+
+- [x] `list_posts/2`, `list_user_posts_for_sync/2`
+- [x] `list_user_own_posts/2`, `list_connection_posts/2`
+- [x] `list_group_posts/2`, `list_discover_posts/2`
+- [x] `filter_timeline_posts/2`, `fetch_timeline_posts_from_db/2`
+
+Favorites/Reactions:
+
+- [x] `inc_favs/1`, `decr_favs/1`
+- [x] `inc_reply_favs/1`, `decr_reply_favs/1`
+- [x] `update_post_fav/3`, `update_reply_fav/3`
+
+Bookmarks:
+
+- [x] `create_bookmark/3`, `update_bookmark/3`, `delete_bookmark/2`
+- [x] `get_bookmark/2`, `bookmarked?/2`
+- [x] `list_user_bookmarks/2`, `list_user_bookmark_categories/1`
+- [x] `create_bookmark_category/2`, `update_bookmark_category/2`, `delete_bookmark_category/1`
+- [x] `get_user_bookmark_category/2`
+
+Counts:
+
+- [x] `count_all_posts/0`, `post_count/2`
+- [x] `count_user_own_posts/2`, `count_user_group_posts/2`
+- [x] `count_user_connection_posts/2`, `count_discover_posts/2`
+- [x] `count_unread_posts_for_user/1`, `count_unread_replies_for_user/1`
+- [x] `count_replies_for_post/2`, `count_user_bookmarks/2`
+
+Timeline Data:
+
+- [x] `get_timeline_data/3`, `get_timeline_counts/1`
+- [x] `get_user_timeline_preference/1`, `update_user_timeline_preference/3`
+- [x] `change_user_timeline_preference/3`
+
+User Posts & Sharing:
+
+- [x] `get_user_post_by_post_id_and_user_id/2`, `get_user_post_by_post_id_and_user_id!/2`
+- [x] `share_post_with_user/4`, `remove_self_from_shared_post/2`
+- [x] `delete_user_post/2`, `get_user_post/2`
+- [x] `get_or_create_user_post_for_public/2`
+- [x] `create_or_update_user_post_receipt/3`
+
+Reposts & Sharing:
+
+- [x] `inc_reposts/1`
+- [x] `create_public_repost/2`, `create_repost/2`
+- [x] `create_targeted_share/2`
+- [x] `update_post_shared_users/3`, `remove_post_shared_user/3`
+
+Misc:
+
+- [x] `get_blocked_user_ids/1`
+- [x] `hide_post/3`, `unhide_post/2`, `post_hidden?/2`
+- [x] `report_post/4`
+- [x] `mark_top_level_replies_read_for_post/2`, `mark_nested_replies_read_for_parent/2`
+- [x] `mark_all_replies_read_for_user/1`
+- [x] `preload_group/1`
+- [x] `change_post/3`, `change_reply/3`
+- [x] `invalidate_timeline_cache_for_user/2`
+- [x] `get_expired_ephemeral_posts/1`, `get_user_ephemeral_posts/1`
+
+**Files created/modified:**
+
+- `lib/mosslet/timeline/adapter.ex` - Behaviour with 60+ callbacks
+- `lib/mosslet/timeline/adapters/web.ex` - Web adapter (direct Repo)
+- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache)
 
 #### 5.3 Groups - `groups.ex` (Priority: MEDIUM)
 
@@ -499,11 +706,21 @@ The following contexts are **not** being updated for native platform routing:
 For each context above, corresponding API endpoints need to exist. Current API coverage:
 
 **Existing:**
+
 - Auth: login, register, refresh, logout, me ✅
-- Sync: user, posts, connections, groups, full ✅  
+- Sync: user, posts, connections, groups, full ✅
+- Posts: CRUD ✅
+
+**Existing (✅ Complete):**
+
+- Auth: login, register, refresh, logout, me ✅
+- Auth TOTP/2FA: status, setup, enable, disable, verify, backup-codes/regenerate ✅
+- Auth Remember Me: remember-me/refresh ✅
+- Sync: user, posts, connections, groups, full ✅
 - Posts: CRUD ✅
 
 **Need to add:**
+
 - [ ] `PUT /api/users/profile` - Update user profile
 - [ ] `PUT /api/users/email` - Change email
 - [ ] `PUT /api/users/password` - Change password
@@ -836,4 +1053,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-21 (Phase 5 architecture defined - Context-Level Platform Routing)_
+_Last updated: 2025-01-22 (Phase 5.2 Timeline adapters complete)_

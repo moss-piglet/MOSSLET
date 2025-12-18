@@ -530,4 +530,695 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   defp maybe_paginate(list, _options), do: list
+
+  @impl true
+  def get_user_by_username_for_connection(user, username) when is_binary(username) do
+    case get_cached_user_by_field(:username_hash, username) do
+      nil ->
+        nil
+
+      found_user ->
+        if found_user.id != user.id && !has_user_connection?(found_user, user) do
+          found_user
+        else
+          nil
+        end
+    end
+  end
+
+  @impl true
+  def get_user_by_email_for_connection(user, email) when is_binary(email) do
+    case get_cached_user_by_field(:email_hash, email) do
+      nil ->
+        nil
+
+      found_user ->
+        if found_user.id != user.id && !has_user_connection?(found_user, user) do
+          found_user
+        else
+          nil
+        end
+    end
+  end
+
+  @impl true
+  def get_both_user_connections_between_users!(user_id, reverse_user_id) do
+    get_all_cached_user_connections()
+    |> Enum.filter(fn uc ->
+      (uc.user_id == user_id && uc.reverse_user_id == reverse_user_id) ||
+        (uc.user_id == reverse_user_id && uc.reverse_user_id == user_id)
+    end)
+  end
+
+  @impl true
+  def get_user_connection_between_users(user_id, current_user_id) do
+    unless is_nil(user_id) do
+      get_all_cached_user_connections()
+      |> Enum.find(fn uc ->
+        uc.user_id == current_user_id && uc.reverse_user_id == user_id
+      end)
+    end
+  end
+
+  @impl true
+  def get_user_connection_between_users!(user_id, current_user_id) do
+    case get_user_connection_between_users(user_id, current_user_id) do
+      nil -> raise Ecto.NoResultsError, queryable: Mosslet.Accounts.UserConnection
+      uconn -> uconn
+    end
+  end
+
+  @impl true
+  def update_user_connection_label(_uconn, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_connection_label via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user_connection", "update_label", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_connection_zen(_uconn, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_connection_zen via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user_connection", "update_zen", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_connection_photos(_uconn, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_connection_photos via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user_connection", "update_photos", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_profile(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_profile via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_profile", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_name(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_name via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_name", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_username(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_username via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_username", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_visibility(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_visibility via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_visibility", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_password(_user, _password, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_password via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_password", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def reset_user_password(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("reset_user_password via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "reset_password", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_avatar(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_avatar via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_avatar", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def block_user(_blocker, _blocked_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("block_user via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user_block", "create", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def unblock_user(_blocker, _blocked_user) do
+    if Sync.online?() do
+      Logger.warning("unblock_user via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - cannot unblock"}
+    end
+  end
+
+  @impl true
+  def user_blocked?(blocker, blocked_user) do
+    case Cache.list_cached_items("user_block") do
+      items when is_list(items) ->
+        Enum.any?(items, fn item ->
+          block = deserialize_user_block(item.encrypted_data)
+          block && block.blocker_id == blocker.id && block.blocked_id == blocked_user.id
+        end)
+
+      _ ->
+        false
+    end
+  end
+
+  @impl true
+  def list_blocked_users(user) do
+    case Cache.list_cached_items("user_block") do
+      items when is_list(items) ->
+        items
+        |> Enum.map(fn item -> deserialize_user_block(item.encrypted_data) end)
+        |> Enum.filter(fn block -> block && block.blocker_id == user.id end)
+        |> Enum.reject(&is_nil/1)
+
+      _ ->
+        []
+    end
+  end
+
+  @impl true
+  def get_user_block(blocker, blocked_user_id) when is_binary(blocked_user_id) do
+    case Cache.list_cached_items("user_block") do
+      items when is_list(items) ->
+        Enum.find_value(items, fn item ->
+          block = deserialize_user_block(item.encrypted_data)
+
+          if block && block.blocker_id == blocker.id && block.blocked_id == blocked_user_id do
+            block
+          end
+        end)
+
+      _ ->
+        nil
+    end
+  end
+
+  @impl true
+  def delete_user_account(_user, _password, _attrs, _opts) do
+    Logger.warning("delete_user_account via API not yet implemented - requires confirmation flow")
+    {:error, "Account deletion must be done via web interface"}
+  end
+
+  @impl true
+  def deliver_user_reset_password_instructions(_user, _email, _reset_password_url_fun) do
+    Logger.warning("deliver_user_reset_password_instructions via API not yet implemented")
+    {:error, "Password reset must be done via web interface"}
+  end
+
+  @impl true
+  def get_user_by_reset_password_token(_token) do
+    Logger.warning("get_user_by_reset_password_token not available on native")
+    nil
+  end
+
+  @impl true
+  def deliver_user_confirmation_instructions(_user, _email, _confirmation_url_fun) do
+    Logger.warning("deliver_user_confirmation_instructions via API not yet implemented")
+    {:error, "Confirmation must be done via web interface"}
+  end
+
+  defp deserialize_user_block(data) when is_binary(data) do
+    case Jason.decode(data) do
+      {:ok, map} -> deserialize_user_block(map)
+      _ -> nil
+    end
+  end
+
+  defp deserialize_user_block(data) when is_map(data) do
+    struct(Mosslet.Accounts.UserBlock, atomize_keys(data))
+  rescue
+    _ -> nil
+  end
+
+  defp deserialize_user_block(_), do: nil
+
+  @impl true
+  def get_shared_user_by_username(user_id, username) when is_binary(username) do
+    case get_cached_user_by_field(:username_hash, username) do
+      nil ->
+        nil
+
+      found_user ->
+        if found_user.id != user_id && has_confirmed_user_connection?(found_user, user_id) do
+          found_user
+        else
+          nil
+        end
+    end
+  end
+
+  def get_shared_user_by_username(_, _), do: nil
+
+  @impl true
+  def get_user_connection_for_user_group(user_id, current_user_id) do
+    get_all_cached_user_connections()
+    |> Enum.find(fn uc ->
+      uc.user_id == user_id && uc.reverse_user_id == current_user_id
+    end)
+  end
+
+  @impl true
+  def get_user_connection_for_reply_shared_users(reply_user_id, current_user_id) do
+    get_all_cached_user_connections()
+    |> Enum.find(fn uc ->
+      uc.user_id == current_user_id &&
+        uc.reverse_user_id == reply_user_id &&
+        uc.confirmed_at != nil
+    end)
+  end
+
+  @impl true
+  def get_current_user_connection_between_users!(user_id, current_user_id) do
+    case get_all_cached_user_connections()
+         |> Enum.find(fn uc ->
+           uc.user_id == current_user_id && uc.reverse_user_id == user_id
+         end) do
+      nil -> raise Ecto.NoResultsError, queryable: Mosslet.Accounts.UserConnection
+      uconn -> uconn
+    end
+  end
+
+  @impl true
+  def validate_users_in_connection(user_connection_id, current_user_id) do
+    case get_user_connection(user_connection_id) do
+      nil -> false
+      uc -> current_user_id in [uc.user_id, uc.reverse_user_id]
+    end
+  end
+
+  @impl true
+  def get_user_connection_from_shared_item(item, current_user) do
+    get_all_cached_user_connections()
+    |> Enum.find(fn uc ->
+      uc.connection && uc.connection.user_id == item.user_id && uc.user_id == current_user.id
+    end)
+  end
+
+  @impl true
+  def get_post_author_permissions_for_viewer(item, current_user) do
+    get_all_cached_user_connections()
+    |> Enum.find(fn uc ->
+      uc.connection && uc.connection.user_id == current_user.id && uc.user_id == item.user_id
+    end)
+  end
+
+  @impl true
+  def get_user_from_post(post) do
+    get_user(post.user_id)
+  end
+
+  @impl true
+  def get_user_from_item(item) do
+    get_user(item.user_id)
+  end
+
+  @impl true
+  def get_user_from_item!(item) do
+    case get_user(item.user_id) do
+      nil -> raise Ecto.NoResultsError, queryable: User
+      user -> user
+    end
+  end
+
+  @impl true
+  def get_connection_from_item(item, _current_user) do
+    case Cache.list_cached_items("connection") do
+      items when is_list(items) ->
+        Enum.find_value(items, fn cache_item ->
+          conn = deserialize_connection(cache_item.encrypted_data)
+          if conn && conn.user_id == item.user_id, do: conn
+        end)
+
+      _ ->
+        nil
+    end
+  end
+
+  @impl true
+  def list_all_users do
+    case Cache.list_cached_items("user") do
+      items when is_list(items) ->
+        items
+        |> Enum.map(fn item -> deserialize_user(item.encrypted_data) end)
+        |> Enum.reject(&is_nil/1)
+
+      _ ->
+        []
+    end
+  end
+
+  @impl true
+  def count_all_users do
+    list_all_users() |> Enum.count()
+  end
+
+  @impl true
+  def list_all_confirmed_users do
+    list_all_users()
+    |> Enum.filter(fn u -> u.confirmed_at != nil end)
+  end
+
+  @impl true
+  def count_all_confirmed_users do
+    list_all_confirmed_users() |> Enum.count()
+  end
+
+  @impl true
+  def create_user_profile(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("create_user_profile via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("connection", "create_profile", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def delete_user_profile(_user, _conn) do
+    if Sync.online?() do
+      Logger.warning("delete_user_profile via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - cannot delete profile"}
+    end
+  end
+
+  @impl true
+  def update_user_onboarding(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_onboarding via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_onboarding", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_onboarding_profile(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_onboarding_profile via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_onboarding_profile", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_notifications(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_notifications via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_notifications", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_tokens(_user, attrs) do
+    if Sync.online?() do
+      Logger.warning("update_user_tokens via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_tokens", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_user_email_notification_received_at(_user, _timestamp) do
+    if Sync.online?() do
+      Logger.warning("update_user_email_notification_received_at via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - skipping notification timestamp update"}
+    end
+  end
+
+  @impl true
+  def update_user_reply_notification_received_at(_user, _timestamp) do
+    if Sync.online?() do
+      Logger.warning("update_user_reply_notification_received_at via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - skipping notification timestamp update"}
+    end
+  end
+
+  @impl true
+  def update_user_replies_seen_at(_user, _timestamp) do
+    if Sync.online?() do
+      Logger.warning("update_user_replies_seen_at via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - skipping replies seen timestamp update"}
+    end
+  end
+
+  @impl true
+  def apply_user_email(user, password, attrs, _opts) do
+    changeset =
+      user
+      |> User.email_changeset(attrs, [])
+      |> User.validate_current_password(password)
+
+    Ecto.Changeset.apply_action(changeset, :update)
+  end
+
+  @impl true
+  def check_if_can_change_user_email(user, password, attrs) do
+    changeset =
+      user
+      |> User.email_changeset(attrs)
+      |> User.validate_current_password(password)
+
+    Ecto.Changeset.apply_action(changeset, :update)
+  end
+
+  @impl true
+  def update_user_email(_user, _d_email, _token, _key) do
+    Logger.warning("update_user_email must be done via web interface")
+    :error
+  end
+
+  @impl true
+  def deliver_user_update_email_instructions(_user, _current_email, _new_email, _url_fun) do
+    Logger.warning("deliver_user_update_email_instructions must be done via web interface")
+    {:error, "Email change must be done via web interface"}
+  end
+
+  @impl true
+  def suspend_user(_user, _admin_user) do
+    Logger.warning("suspend_user must be done via web interface")
+    {:error, :unauthorized}
+  end
+
+  @impl true
+  def create_visibility_group(_user, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("create_visibility_group via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "create_visibility_group", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_visibility_group(_user, _group_id, attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_visibility_group via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      Cache.queue_for_sync("user", "update_visibility_group", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def delete_visibility_group(_user, _group_id) do
+    if Sync.online?() do
+      Logger.warning("delete_visibility_group via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - cannot delete visibility group"}
+    end
+  end
+
+  @impl true
+  def get_user_visibility_groups_with_connections(user) do
+    case get_user(user.id) do
+      nil ->
+        []
+
+      cached_user ->
+        Enum.map(cached_user.visibility_groups || [], fn group ->
+          %{group: group, user: cached_user, user_connections: []}
+        end)
+    end
+  end
+
+  @impl true
+  def delete_user_data(_user, _password, _key, _attrs, _opts) do
+    Logger.warning("delete_user_data must be done via web interface")
+    {:error, "Data deletion must be done via web interface"}
+  end
+
+  # ============================================================================
+  # TOTP / 2FA Functions
+  # ============================================================================
+
+  alias Mosslet.Accounts.UserTOTP
+
+  @impl true
+  def two_factor_auth_enabled?(user) do
+    case get_user_totp(user) do
+      nil -> false
+      _ -> true
+    end
+  end
+
+  @impl true
+  def get_user_totp(user) do
+    case Cache.get_cached_item("user_totp", user.id) do
+      %{encrypted_data: data} when not is_nil(data) ->
+        deserialize_user_totp(data)
+
+      _ ->
+        nil
+    end
+  end
+
+  @impl true
+  def change_user_totp(totp, attrs \\ %{}) do
+    UserTOTP.changeset(totp, attrs)
+  end
+
+  @impl true
+  def upsert_user_totp(_totp, _attrs) do
+    if Sync.online?() do
+      Logger.warning(
+        "upsert_user_totp via API not yet implemented - 2FA setup must be done via web"
+      )
+
+      {:error, "2FA setup must be done via web interface"}
+    else
+      {:error, "Offline - 2FA setup requires network connection"}
+    end
+  end
+
+  @impl true
+  def regenerate_user_totp_backup_codes(_totp) do
+    if Sync.online?() do
+      Logger.warning("regenerate_user_totp_backup_codes via API not yet implemented")
+      {:error, "Backup code regeneration must be done via web interface"}
+    else
+      {:error, "Offline - backup code regeneration requires network connection"}
+    end
+  end
+
+  @impl true
+  def delete_user_totp(_user_totp) do
+    if Sync.online?() do
+      Logger.warning("delete_user_totp via API not yet implemented")
+      {:error, "2FA deletion must be done via web interface"}
+    else
+      {:error, "Offline - 2FA deletion requires network connection"}
+    end
+  end
+
+  @impl true
+  def validate_user_totp(user, code) do
+    case get_user_totp(user) do
+      nil ->
+        :invalid
+
+      totp ->
+        cond do
+          UserTOTP.valid_totp?(totp, code) ->
+            :valid_totp
+
+          changeset = UserTOTP.validate_backup_code(totp, code) ->
+            remaining =
+              Enum.count(
+                Ecto.Changeset.get_field(changeset, :backup_codes, []),
+                &is_nil(&1.used_at)
+              )
+
+            {:valid_backup_code, remaining}
+
+          true ->
+            :invalid
+        end
+    end
+  end
+
+  defp deserialize_user_totp(data) when is_binary(data) do
+    case Jason.decode(data) do
+      {:ok, map} -> deserialize_user_totp(map)
+      _ -> nil
+    end
+  end
+
+  defp deserialize_user_totp(data) when is_map(data) do
+    struct(UserTOTP, atomize_keys(data))
+  rescue
+    _ -> nil
+  end
+
+  defp deserialize_user_totp(_), do: nil
 end

@@ -208,4 +208,457 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback search_user_connections(user :: User.t(), search_query :: String.t()) ::
               [UserConnection.t()]
+
+  @doc """
+  Gets a user by username, excluding current user and users with pending connections.
+  Used for sending connection requests.
+  """
+  @callback get_user_by_username_for_connection(user :: User.t(), username :: String.t()) ::
+              User.t() | nil
+
+  @doc """
+  Gets a user by email, excluding current user and users with pending connections.
+  Used for sending connection requests.
+  """
+  @callback get_user_by_email_for_connection(user :: User.t(), email :: String.t()) ::
+              User.t() | nil
+
+  @doc """
+  Gets both user connections between two users (bidirectional).
+  """
+  @callback get_both_user_connections_between_users!(
+              user_id :: String.t(),
+              reverse_user_id :: String.t()
+            ) :: [UserConnection.t()]
+
+  @doc """
+  Gets the user connection between two users where the first user is the owner.
+  """
+  @callback get_user_connection_between_users(
+              user_id :: String.t(),
+              current_user_id :: String.t()
+            ) :: UserConnection.t() | nil
+
+  @doc """
+  Gets the user connection between two users, raises if not found.
+  """
+  @callback get_user_connection_between_users!(
+              user_id :: String.t(),
+              current_user_id :: String.t()
+            ) :: UserConnection.t()
+
+  @doc """
+  Updates the label on a user connection.
+  """
+  @callback update_user_connection_label(
+              user_connection :: UserConnection.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, UserConnection.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates the zen (mute) status on a user connection.
+  """
+  @callback update_user_connection_zen(
+              user_connection :: UserConnection.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, UserConnection.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates the photos permission on a user connection.
+  """
+  @callback update_user_connection_photos(
+              user_connection :: UserConnection.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, UserConnection.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates user profile on their connection.
+  """
+  @callback update_user_profile(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates user name (on both user and connection).
+  """
+  @callback update_user_name(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates user username (on both user and connection).
+  """
+  @callback update_user_username(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates user visibility setting.
+  """
+  @callback update_user_visibility(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates user password.
+  """
+  @callback update_user_password(
+              user :: User.t(),
+              current_password :: String.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Resets user password using a token.
+  """
+  @callback reset_user_password(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates user avatar.
+  """
+  @callback update_user_avatar(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t(), Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Blocks a user.
+  """
+  @callback block_user(
+              blocker :: User.t(),
+              blocked_user :: User.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, any()} | {:error, any()}
+
+  @doc """
+  Unblocks a user.
+  """
+  @callback unblock_user(blocker :: User.t(), blocked_user :: User.t()) ::
+              {:ok, any()} | {:error, atom() | any()}
+
+  @doc """
+  Checks if a user has blocked another user.
+  """
+  @callback user_blocked?(blocker :: User.t(), blocked_user :: User.t()) :: boolean()
+
+  @doc """
+  Lists all users blocked by a user.
+  """
+  @callback list_blocked_users(user :: User.t()) :: [any()]
+
+  @doc """
+  Gets a specific user block if it exists.
+  """
+  @callback get_user_block(blocker :: User.t(), blocked_user_id :: String.t()) :: any() | nil
+
+  @doc """
+  Deletes a user account.
+  """
+  @callback delete_user_account(
+              user :: User.t(),
+              password :: String.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Delivers password reset instructions via email.
+  """
+  @callback deliver_user_reset_password_instructions(
+              user :: User.t(),
+              email :: String.t(),
+              reset_password_url_fun :: (String.t() -> String.t())
+            ) :: {:ok, map()} | {:error, any()}
+
+  @doc """
+  Gets a user by reset password token.
+  """
+  @callback get_user_by_reset_password_token(token :: String.t()) :: User.t() | nil
+
+  @doc """
+  Delivers confirmation email instructions.
+  """
+  @callback deliver_user_confirmation_instructions(
+              user :: User.t(),
+              email :: String.t(),
+              confirmation_url_fun :: (String.t() -> String.t())
+            ) :: {:ok, map()} | {:error, :already_confirmed}
+
+  @doc """
+  Gets a user from a shared item by username.
+  """
+  @callback get_shared_user_by_username(user_id :: String.t(), username :: String.t()) ::
+              User.t() | nil
+
+  @doc """
+  Gets a user connection for a user group relationship.
+  """
+  @callback get_user_connection_for_user_group(
+              user_id :: String.t(),
+              current_user_id :: String.t()
+            ) :: UserConnection.t() | nil
+
+  @doc """
+  Gets a user connection for reply shared users.
+  """
+  @callback get_user_connection_for_reply_shared_users(
+              reply_user_id :: String.t(),
+              current_user_id :: String.t()
+            ) :: UserConnection.t() | nil
+
+  @doc """
+  Gets the current user's connection to another user (where current user owns the connection).
+  """
+  @callback get_current_user_connection_between_users!(
+              user_id :: String.t(),
+              current_user_id :: String.t()
+            ) :: UserConnection.t()
+
+  @doc """
+  Validates if a user is part of a connection.
+  """
+  @callback validate_users_in_connection(
+              user_connection_id :: String.t(),
+              current_user_id :: String.t()
+            ) :: boolean()
+
+  @doc """
+  Gets a user connection from a shared item context.
+  """
+  @callback get_user_connection_from_shared_item(item :: any(), current_user :: User.t()) ::
+              UserConnection.t() | nil
+
+  @doc """
+  Gets the permissions the post author has granted to the viewer.
+  """
+  @callback get_post_author_permissions_for_viewer(item :: any(), current_user :: User.t()) ::
+              UserConnection.t() | nil
+
+  @doc """
+  Gets the user from a post.
+  """
+  @callback get_user_from_post(post :: any()) :: User.t() | nil
+
+  @doc """
+  Gets the user from an item.
+  """
+  @callback get_user_from_item(item :: any()) :: User.t() | nil
+
+  @doc """
+  Gets the user from an item, raises if not found.
+  """
+  @callback get_user_from_item!(item :: any()) :: User.t()
+
+  @doc """
+  Gets the connection from an item.
+  """
+  @callback get_connection_from_item(item :: any(), current_user :: User.t()) ::
+              Connection.t() | nil
+
+  @doc """
+  Lists all users (admin function).
+  """
+  @callback list_all_users() :: [User.t()]
+
+  @doc """
+  Counts all users.
+  """
+  @callback count_all_users() :: non_neg_integer()
+
+  @doc """
+  Lists all confirmed users.
+  """
+  @callback list_all_confirmed_users() :: [User.t()]
+
+  @doc """
+  Counts all confirmed users.
+  """
+  @callback count_all_confirmed_users() :: non_neg_integer()
+
+  @doc """
+  Creates a user profile on their connection.
+  """
+  @callback create_user_profile(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Deletes a user profile.
+  """
+  @callback delete_user_profile(user :: User.t(), conn :: Connection.t()) ::
+              {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates user onboarding settings.
+  """
+  @callback update_user_onboarding(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates user onboarding profile (name and marketing notifications).
+  """
+  @callback update_user_onboarding_profile(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t() | String.t()}
+
+  @doc """
+  Updates user notifications settings.
+  """
+  @callback update_user_notifications(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates the user's AI tokens.
+  """
+  @callback update_user_tokens(user :: User.t(), attrs :: map()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates when a user last received an email notification.
+  """
+  @callback update_user_email_notification_received_at(
+              user :: User.t(),
+              timestamp :: DateTime.t()
+            ) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates when a user last received a reply notification.
+  """
+  @callback update_user_reply_notification_received_at(
+              user :: User.t(),
+              timestamp :: DateTime.t()
+            ) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates when a user last viewed their replies.
+  """
+  @callback update_user_replies_seen_at(user :: User.t(), timestamp :: DateTime.t()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Emulates email change without actually changing (validates).
+  """
+  @callback apply_user_email(
+              user :: User.t(),
+              password :: String.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Checks if user can change their email.
+  """
+  @callback check_if_can_change_user_email(
+              user :: User.t(),
+              password :: String.t(),
+              attrs :: map()
+            ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates the user email using a verification token.
+  """
+  @callback update_user_email(
+              user :: User.t(),
+              decrypted_email :: String.t(),
+              token :: String.t(),
+              key :: binary()
+            ) :: :ok | :error
+
+  @doc """
+  Delivers update email instructions.
+  """
+  @callback deliver_user_update_email_instructions(
+              user :: User.t(),
+              current_email :: String.t(),
+              new_email :: String.t(),
+              update_email_url_fun :: (String.t() -> String.t())
+            ) :: {:ok, map()}
+
+  @doc """
+  Suspends a user account (admin function).
+  """
+  @callback suspend_user(user :: User.t(), admin_user :: User.t()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t() | :unauthorized}
+
+  @doc """
+  Creates a visibility group for a user.
+  """
+  @callback create_visibility_group(user :: User.t(), group_params :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t() | any()}
+
+  @doc """
+  Updates a visibility group for a user.
+  """
+  @callback update_visibility_group(
+              user :: User.t(),
+              group_id :: String.t(),
+              group_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t() | any()}
+
+  @doc """
+  Deletes a visibility group from a user.
+  """
+  @callback delete_visibility_group(user :: User.t(), group_id :: String.t()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t() | any()}
+
+  @doc """
+  Gets all visibility groups with connection details.
+  """
+  @callback get_user_visibility_groups_with_connections(user :: User.t()) :: [map()]
+
+  @doc """
+  Deletes user data (not the account).
+  """
+  @callback delete_user_data(
+              user :: User.t(),
+              password :: String.t(),
+              key :: binary(),
+              attrs :: map(),
+              opts :: keyword()
+            ) :: {:ok, nil} | {:error, Ecto.Changeset.t()}
+
+  # ============================================================================
+  # TOTP / 2FA Functions
+  # ============================================================================
+
+  @doc """
+  Checks if two-factor authentication is enabled for the user.
+  """
+  @callback two_factor_auth_enabled?(user :: User.t()) :: boolean()
+
+  @doc """
+  Gets the UserTOTP entry for a user, if any.
+  """
+  @callback get_user_totp(user :: User.t()) :: any() | nil
+
+  @doc """
+  Returns an Ecto.Changeset for changing user TOTP settings.
+  """
+  @callback change_user_totp(totp :: any(), attrs :: map()) :: Ecto.Changeset.t()
+
+  @doc """
+  Creates or updates the TOTP configuration for a user.
+  The secret is validated against the provided OTP code.
+  """
+  @callback upsert_user_totp(totp :: any(), attrs :: map()) ::
+              {:ok, any()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Regenerates backup codes for the user's TOTP configuration.
+  """
+  @callback regenerate_user_totp_backup_codes(totp :: any()) ::
+              {:ok, any()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Deletes the TOTP configuration for a user.
+  """
+  @callback delete_user_totp(user_totp :: any()) :: {:ok, any()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Validates a TOTP code for a user.
+  Returns :valid_totp, {:valid_backup_code, remaining_count}, or :invalid.
+  """
+  @callback validate_user_totp(user :: User.t(), code :: String.t()) ::
+              :valid_totp | {:valid_backup_code, non_neg_integer()} | :invalid
 end

@@ -120,6 +120,8 @@ defmodule MossletWeb.Router do
 
     post "/auth/login", AuthController, :login
     post "/auth/register", AuthController, :register
+    post "/auth/totp/verify", AuthController, :verify_totp
+    post "/auth/remember-me/refresh", AuthController, :refresh_from_remember_me
   end
 
   scope "/api", MossletWeb.API do
@@ -128,6 +130,12 @@ defmodule MossletWeb.Router do
     post "/auth/refresh", AuthController, :refresh
     post "/auth/logout", AuthController, :logout
     get "/auth/me", AuthController, :me
+
+    get "/auth/totp/status", AuthController, :totp_status
+    post "/auth/totp/setup", AuthController, :setup_totp
+    post "/auth/totp/enable", AuthController, :enable_totp
+    post "/auth/totp/disable", AuthController, :disable_totp
+    post "/auth/totp/backup-codes/regenerate", AuthController, :regenerate_backup_codes
 
     get "/sync/user", SyncController, :user
     get "/sync/posts", SyncController, :posts

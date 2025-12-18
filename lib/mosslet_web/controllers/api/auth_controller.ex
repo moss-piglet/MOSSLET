@@ -4,6 +4,27 @@ defmodule MossletWeb.API.AuthController do
 
   Handles login and registration, returning JWT tokens and encrypted user data
   that native apps can decrypt locally for true zero-knowledge operation.
+
+  ## TOTP/2FA Support
+
+  When a user has 2FA enabled, the login flow works as follows:
+
+  1. Client sends `POST /api/auth/login` with email + password
+  2. If 2FA is enabled, server returns `{totp_required: true, totp_token: "..."}`
+  3. Client prompts user for TOTP code
+  4. Client sends `POST /api/auth/totp/verify` with totp_token + code
+  5. Server validates code and returns full auth token + user data
+
+  The `totp_token` is a short-lived JWT (5 minutes) that proves the user
+  successfully authenticated with email/password.
+
+  ## Remember Me Support
+
+  Native clients can request a long-lived remember_me token by passing
+  `remember_me: true` in the login request. This token:
+  - Is stored in the DB like web session tokens (can be revoked)
+  - Lasts 60 days (same as web remember_me cookie)
+  - Can be used to get a fresh access token without re-entering password
   """
   use MossletWeb, :controller
 
@@ -13,24 +34,16 @@ defmodule MossletWeb.API.AuthController do
 
   action_fallback MossletWeb.API.FallbackController
 
-  def login(conn, %{"email" => email, "password" => password}) do
+  def login(conn, %{"email" => email, "password" => password} = params) do
     with %User{} = user <- Accounts.get_user_by_email_and_password(email, password),
          false <- user.is_suspended?,
          false <- user.is_deleted?,
-         {:ok, session_key} <- User.valid_key_hash?(user, password),
-         {:ok, token} <- Token.generate(user, session_key) do
-      Accounts.user_lifecycle_action("after_sign_in", user, %{
-        ip: get_ip(conn),
-        key: session_key,
-        platform: "api"
-      })
-
-      conn
-      |> put_status(:ok)
-      |> json(%{
-        token: token,
-        user: serialize_user(user, session_key)
-      })
+         {:ok, session_key} <- User.valid_key_hash?(user, password) do
+      if Accounts.two_factor_auth_enabled?(user) do
+        handle_totp_login(conn, user, session_key, params)
+      else
+        complete_login(conn, user, session_key, params)
+      end
     else
       nil ->
         {:error, :invalid_credentials}
@@ -43,6 +56,288 @@ defmodule MossletWeb.API.AuthController do
     end
   end
 
+  defp handle_totp_login(conn, user, session_key, params) do
+    case Map.get(params, "totp_code") do
+      nil ->
+        {:ok, totp_token} = Token.generate_totp_pending(user, session_key)
+
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          totp_required: true,
+          totp_token: totp_token
+        })
+
+      code when is_binary(code) ->
+        case Accounts.validate_user_totp(user, code) do
+          :valid_totp ->
+            complete_login(conn, user, session_key, params)
+
+          {:valid_backup_code, remaining} ->
+            complete_login(conn, user, session_key, params, backup_codes_remaining: remaining)
+
+          :invalid ->
+            {:error, :invalid_totp_code}
+        end
+    end
+  end
+
+  def verify_totp(conn, %{"totp_token" => totp_token, "code" => code} = params) do
+    with {:ok, %{user_id: user_id, session_key: session_key}} <-
+           Token.verify_totp_pending(totp_token),
+         user when not is_nil(user) <- Accounts.get_user(user_id),
+         false <- user.is_suspended?,
+         false <- user.is_deleted? do
+      case Accounts.validate_user_totp(user, code) do
+        :valid_totp ->
+          complete_login(conn, user, session_key, params)
+
+        {:valid_backup_code, remaining} ->
+          complete_login(conn, user, session_key, params, backup_codes_remaining: remaining)
+
+        :invalid ->
+          {:error, :invalid_totp_code}
+      end
+    else
+      {:error, :expired} ->
+        {:error, :totp_token_expired}
+
+      {:error, _} ->
+        {:error, :invalid_totp_token}
+
+      nil ->
+        {:error, :invalid_totp_token}
+
+      true ->
+        {:error, :account_unavailable}
+    end
+  end
+
+  def verify_totp(_conn, _params) do
+    {:error, :missing_params}
+  end
+
+  def refresh_from_remember_me(conn, %{"remember_me_token" => remember_token}) do
+    with {:ok, %{user: user, session_token: _session_token}} <-
+           Token.verify_remember_me(remember_token),
+         false <- user.is_suspended?,
+         false <- user.is_deleted?,
+         {:ok, session_key} <- derive_session_key_from_user(user) do
+      {:ok, token} = Token.generate(user, session_key)
+
+      conn
+      |> put_status(:ok)
+      |> json(%{
+        token: token,
+        user: serialize_user(user, session_key)
+      })
+    else
+      {:error, :invalid_session} ->
+        {:error, :invalid_remember_token}
+
+      {:error, :expired} ->
+        {:error, :remember_token_expired}
+
+      {:error, _} ->
+        {:error, :invalid_remember_token}
+
+      true ->
+        {:error, :account_unavailable}
+    end
+  end
+
+  def refresh_from_remember_me(_conn, _params) do
+    {:error, :missing_params}
+  end
+
+  defp derive_session_key_from_user(_user) do
+    {:ok, nil}
+  end
+
+  def totp_status(conn, _params) do
+    user = conn.assigns.current_user
+    totp = Accounts.get_user_totp(user)
+
+    conn
+    |> put_status(:ok)
+    |> json(%{
+      enabled: not is_nil(totp),
+      backup_codes_remaining:
+        if(totp, do: Enum.count(totp.backup_codes, &is_nil(&1.used_at)), else: nil)
+    })
+  end
+
+  def setup_totp(conn, _params) do
+    user = conn.assigns.current_user
+    secret = NimbleTOTP.secret()
+
+    otpauth_url =
+      NimbleTOTP.otpauth_uri("Mosslet:#{user.id}", secret, issuer: "Mosslet")
+
+    conn
+    |> put_status(:ok)
+    |> json(%{
+      secret: Base.encode32(secret, padding: false),
+      otpauth_url: otpauth_url
+    })
+  end
+
+  def enable_totp(conn, %{"secret" => secret_b32, "code" => code}) do
+    user = conn.assigns.current_user
+
+    with {:ok, secret} <- Base.decode32(secret_b32, padding: false),
+         true <- NimbleTOTP.valid?(secret, code) do
+      totp = %Mosslet.Accounts.UserTOTP{user_id: user.id, secret: secret}
+
+      case Accounts.upsert_user_totp(totp, %{code: code}) do
+        {:ok, user_totp} ->
+          backup_codes =
+            user_totp.backup_codes
+            |> Enum.filter(&is_nil(&1.used_at))
+            |> Enum.map(& &1.code)
+
+          conn
+          |> put_status(:created)
+          |> json(%{
+            enabled: true,
+            backup_codes: backup_codes
+          })
+
+        {:error, changeset} ->
+          {:error, changeset}
+      end
+    else
+      :error ->
+        {:error, :invalid_secret}
+
+      false ->
+        {:error, :invalid_totp_code}
+    end
+  end
+
+  def enable_totp(_conn, _params) do
+    {:error, :missing_params}
+  end
+
+  def disable_totp(conn, %{"password" => password}) do
+    user = conn.assigns.current_user
+
+    with true <- User.valid_password?(user, password),
+         totp when not is_nil(totp) <- Accounts.get_user_totp(user),
+         {:ok, _} <- Accounts.delete_user_totp(totp) do
+      conn
+      |> put_status(:ok)
+      |> json(%{enabled: false})
+    else
+      false ->
+        {:error, :invalid_credentials}
+
+      nil ->
+        {:error, :totp_not_enabled}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def disable_totp(conn, %{"code" => code}) do
+    user = conn.assigns.current_user
+
+    with totp when not is_nil(totp) <- Accounts.get_user_totp(user),
+         result when result in [:valid_totp] or is_tuple(result) <-
+           Accounts.validate_user_totp(user, code),
+         true <- result == :valid_totp or match?({:valid_backup_code, _}, result),
+         {:ok, _} <- Accounts.delete_user_totp(totp) do
+      conn
+      |> put_status(:ok)
+      |> json(%{enabled: false})
+    else
+      nil ->
+        {:error, :totp_not_enabled}
+
+      :invalid ->
+        {:error, :invalid_totp_code}
+
+      false ->
+        {:error, :invalid_totp_code}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def disable_totp(_conn, _params) do
+    {:error, :missing_params}
+  end
+
+  def regenerate_backup_codes(conn, %{"code" => code}) do
+    user = conn.assigns.current_user
+
+    with totp when not is_nil(totp) <- Accounts.get_user_totp(user),
+         result when result == :valid_totp or is_tuple(result) <-
+           Accounts.validate_user_totp(user, code),
+         true <- result == :valid_totp or match?({:valid_backup_code, _}, result),
+         {:ok, updated_totp} <- Accounts.regenerate_user_totp_backup_codes(totp) do
+      backup_codes =
+        updated_totp.backup_codes
+        |> Enum.filter(&is_nil(&1.used_at))
+        |> Enum.map(& &1.code)
+
+      conn
+      |> put_status(:ok)
+      |> json(%{backup_codes: backup_codes})
+    else
+      nil ->
+        {:error, :totp_not_enabled}
+
+      :invalid ->
+        {:error, :invalid_totp_code}
+
+      false ->
+        {:error, :invalid_totp_code}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def regenerate_backup_codes(_conn, _params) do
+    {:error, :missing_params}
+  end
+
+  defp complete_login(conn, user, session_key, params, opts \\ []) do
+    {:ok, token} = Token.generate(user, session_key)
+
+    Accounts.user_lifecycle_action("after_sign_in", user, %{
+      ip: get_ip(conn),
+      key: session_key,
+      platform: "api"
+    })
+
+    response = %{
+      token: token,
+      user: serialize_user(user, session_key)
+    }
+
+    response =
+      if params["remember_me"] == true or params["remember_me"] == "true" do
+        {:ok, remember_token} = Token.generate_remember_me(user)
+        Map.put(response, :remember_me_token, remember_token)
+      else
+        response
+      end
+
+    response =
+      case Keyword.get(opts, :backup_codes_remaining) do
+        nil -> response
+        remaining -> Map.put(response, :backup_codes_remaining, remaining)
+      end
+
+    conn
+    |> put_status(:ok)
+    |> json(response)
+  end
+
   def register(conn, %{"user" => user_params}) do
     changeset = User.registration_changeset(%User{}, user_params)
 
@@ -52,12 +347,22 @@ defmodule MossletWeb.API.AuthController do
       with {:ok, user} <- Accounts.register_user(changeset, c_attrs),
            {:ok, session_key} <- User.valid_key_hash?(user, user_params["password"]),
            {:ok, token} <- Token.generate(user, session_key) do
-        conn
-        |> put_status(:created)
-        |> json(%{
+        response = %{
           token: token,
           user: serialize_user(user, session_key)
-        })
+        }
+
+        response =
+          if user_params["remember_me"] == true or user_params["remember_me"] == "true" do
+            {:ok, remember_token} = Token.generate_remember_me(user)
+            Map.put(response, :remember_me_token, remember_token)
+          else
+            response
+          end
+
+        conn
+        |> put_status(:created)
+        |> json(response)
       end
     else
       {:error, changeset}
@@ -82,6 +387,14 @@ defmodule MossletWeb.API.AuthController do
     conn
     |> put_status(:ok)
     |> json(%{user: user_data})
+  end
+
+  def logout(conn, %{"remember_me_token" => remember_token}) do
+    Token.revoke_remember_me(remember_token)
+
+    conn
+    |> put_status(:ok)
+    |> json(%{message: "Logged out successfully"})
   end
 
   def logout(conn, _params) do

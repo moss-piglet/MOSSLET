@@ -34,6 +34,60 @@ defmodule MossletWeb.API.FallbackController do
     |> json(%{error: "forbidden", message: "Access denied"})
   end
 
+  def call(conn, {:error, :invalid_totp_code}) do
+    conn
+    |> put_status(:unauthorized)
+    |> json(%{error: "invalid_totp_code", message: "Invalid two-factor authentication code"})
+  end
+
+  def call(conn, {:error, :totp_token_expired}) do
+    conn
+    |> put_status(:unauthorized)
+    |> json(%{
+      error: "totp_token_expired",
+      message: "TOTP verification token has expired, please login again"
+    })
+  end
+
+  def call(conn, {:error, :invalid_totp_token}) do
+    conn
+    |> put_status(:unauthorized)
+    |> json(%{error: "invalid_totp_token", message: "Invalid TOTP verification token"})
+  end
+
+  def call(conn, {:error, :totp_not_enabled}) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "totp_not_enabled", message: "Two-factor authentication is not enabled"})
+  end
+
+  def call(conn, {:error, :invalid_secret}) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "invalid_secret", message: "Invalid TOTP secret"})
+  end
+
+  def call(conn, {:error, :invalid_remember_token}) do
+    conn
+    |> put_status(:unauthorized)
+    |> json(%{error: "invalid_remember_token", message: "Invalid or revoked remember me token"})
+  end
+
+  def call(conn, {:error, :remember_token_expired}) do
+    conn
+    |> put_status(:unauthorized)
+    |> json(%{
+      error: "remember_token_expired",
+      message: "Remember me token has expired, please login again"
+    })
+  end
+
+  def call(conn, {:error, :missing_params}) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "missing_params", message: "Required parameters are missing"})
+  end
+
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     conn
     |> put_status(:unprocessable_entity)
