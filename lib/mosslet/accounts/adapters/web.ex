@@ -319,23 +319,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
     Repo.all(query)
   end
 
-  defp broadcast({:ok, %UserConnection{} = uconn}, event) do
-    Phoenix.PubSub.broadcast(Mosslet.PubSub, "accounts:#{uconn.user_id}", {event, uconn})
-    {:ok, uconn}
-  end
-
-  defp broadcast_admin({:ok, struct}, event) do
-    Phoenix.PubSub.broadcast(Mosslet.PubSub, "admin:accounts", {event, struct})
-    {:ok, struct}
-  end
-
-  defp broadcast_user_connections(uconns, event) when is_list(uconns) do
-    Enum.each(uconns, fn uconn ->
-      {:ok, uconn |> Repo.preload([:user, :connection])}
-      |> broadcast(event)
-    end)
-  end
-
   @impl true
   def preload_connection(%User{} = user) do
     user |> Repo.preload([:connection])
@@ -626,15 +609,9 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def update_user_name(user, attrs, opts) do
-    changeset = User.name_changeset(user, attrs, opts)
-    conn = get_connection!(user.connection.id)
-    c_attrs = Map.get(changeset.changes, :connection_map, %{c_name: nil, c_name_hash: nil})
-
+  def update_user_name(_user, conn, user_changeset, c_attrs) do
     case Ecto.Multi.new()
-         |> Ecto.Multi.update(:update_user, fn _ ->
-           User.name_changeset(user, attrs, opts)
-         end)
+         |> Ecto.Multi.update(:update_user, fn _ -> user_changeset end)
          |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
            Connection.update_name_changeset(conn, %{
              name: c_attrs.c_name,
@@ -643,8 +620,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_user: user, update_connection: conn}} ->
-        broadcast_connection(conn, :uconn_name_updated)
-        {:ok, user}
+        {:ok, user, conn}
 
       {:error, :update_user, changeset, _map} ->
         {:error, changeset}
@@ -658,15 +634,9 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def update_user_username(user, attrs, opts) do
-    changeset = User.username_changeset(user, attrs, opts)
-    conn = get_connection!(user.connection.id)
-    c_attrs = changeset.changes.connection_map
-
+  def update_user_username(_user, conn, user_changeset, c_attrs) do
     case Ecto.Multi.new()
-         |> Ecto.Multi.update(:update_user, fn _ ->
-           User.username_changeset(user, attrs, opts)
-         end)
+         |> Ecto.Multi.update(:update_user, fn _ -> user_changeset end)
          |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
            Connection.update_username_changeset(conn, %{
              username: c_attrs.c_username,
@@ -675,8 +645,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_user: user, update_connection: conn}} ->
-        broadcast_connection(conn, :uconn_username_updated)
-        {:ok, user}
+        {:ok, user, conn}
 
       {:error, :update_user, changeset, _map} ->
         {:error, changeset}
@@ -700,7 +669,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
     case return do
       {:ok, user} ->
-        broadcast_connection(user.connection, :uconn_visibility_updated)
         {:ok, user}
 
       {:error, changeset} ->
@@ -783,7 +751,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
     case result do
       {:ok, %{update_user: user, update_connection: conn}} ->
-        broadcast_connection(conn, :uconn_avatar_updated)
         {:ok, user, conn}
 
       {:error, :update_user, changeset, _map} ->
@@ -911,15 +878,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
         confirmation_url_fun.(encoded_token)
       )
     end
-  end
-
-  defp broadcast_connection(conn, event) do
-    conn = conn |> Repo.preload([:user_connections])
-
-    filtered_user_connections =
-      Enum.filter(conn.user_connections, fn uconn -> uconn.user_id != conn.user_id end)
-
-    broadcast_user_connections(filtered_user_connections, event)
   end
 
   @impl true
@@ -1064,23 +1022,18 @@ defmodule Mosslet.Accounts.Adapters.Web do
         |> Repo.update()
       end)
 
-    uconns = get_all_user_connections(user.id)
-    broadcast_user_connections(uconns, :uconn_updated)
-
     {:ok, conn}
   end
 
   @impl true
   def delete_user_profile(user, conn) do
     changeset = Connection.profile_changeset(conn, %{profile: nil})
-    uconns = get_all_user_connections(user.id)
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:conn, changeset)
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, %{conn: updated_conn}} ->
-        broadcast_user_connections(uconns, :uconn_updated)
         {:ok, updated_conn}
 
       {:error, :user, changeset, _} ->
@@ -1101,15 +1054,9 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def update_user_onboarding_profile(user, attrs, opts) do
-    changeset = User.profile_changeset(user, attrs, opts)
-    conn = get_connection!(user.connection.id)
-    c_attrs = Map.get(changeset.changes, :connection_map, %{c_name: nil, c_name_hash: nil})
-
+  def update_user_onboarding_profile(_user, conn, user_changeset, c_attrs) do
     case Ecto.Multi.new()
-         |> Ecto.Multi.update(:update_user, fn _ ->
-           User.profile_changeset(user, attrs, opts)
-         end)
+         |> Ecto.Multi.update(:update_user, fn _ -> user_changeset end)
          |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
            Connection.update_name_changeset(conn, %{
              name: c_attrs.c_name,
@@ -1118,8 +1065,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_user: user, update_connection: conn}} ->
-        broadcast_connection(conn, :uconn_name_updated)
-        {:ok, user}
+        {:ok, user, conn}
 
       {:error, :update_user, changeset, _map} ->
         {:error, changeset}
@@ -1296,12 +1242,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
            |> Repo.update()
          end) do
       {:ok, {:ok, suspended_user}} ->
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "user:#{user.id}",
-          {:user_suspended, suspended_user}
-        )
-
         {:ok, suspended_user}
 
       {:ok, {:error, changeset}} ->
@@ -1331,12 +1271,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_user}} ->
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "user:#{user.id}",
-          {:visibility_group_created, updated_user}
-        )
-
         {:ok, updated_user}
 
       {:ok, {:error, changeset}} ->
@@ -1374,12 +1308,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_user}} ->
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "user:#{user.id}",
-          {:visibility_group_updated, updated_user}
-        )
-
         {:ok, updated_user}
 
       {:ok, {:error, changeset}} ->
@@ -1406,12 +1334,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
            |> Repo.update()
          end) do
       {:ok, {:ok, updated_user}} ->
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "user:#{user.id}",
-          {:visibility_group_deleted, updated_user}
-        )
-
         {:ok, updated_user}
 
       {:ok, {:error, changeset}} ->

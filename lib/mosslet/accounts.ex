@@ -676,40 +676,33 @@ defmodule Mosslet.Accounts do
 
   def update_user_name(user, attrs \\ %{}, opts \\ []) do
     changeset = User.name_changeset(user, attrs, opts)
-    conn = get_connection!(user.connection.id)
+    conn = adapter().get_connection!(user.connection.id)
     c_attrs = Map.get(changeset.changes, :connection_map, %{c_name: nil, c_name_hash: nil})
 
-    case Ecto.Multi.new()
-         |> Ecto.Multi.update(:update_user, fn _ ->
-           User.name_changeset(user, attrs, opts)
-         end)
-         |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-           Connection.update_name_changeset(conn, %{
-             name: c_attrs.c_name,
-             name_hash: c_attrs.c_name_hash
-           })
-         end)
-         |> Repo.transaction_on_primary() do
-      {:ok, %{update_user: user, update_connection: conn}} ->
-        Groups.maybe_update_name_for_user_groups(user, %{encrypted_name: c_attrs.c_name},
+    case adapter().update_user_name(user, conn, changeset, c_attrs) do
+      {:ok, updated_user, updated_conn} ->
+        Groups.maybe_update_name_for_user_groups(updated_user, %{encrypted_name: c_attrs.c_name},
           key: opts[:key]
         )
 
-        if user.connection.profile do
-          profile_attrs = Map.put(attrs, "id", user.connection.id)
+        if updated_user.connection.profile do
+          profile_attrs = Map.put(attrs, "id", updated_user.connection.id)
 
           profile_attrs =
             profile_attrs
             |> Map.put("profile", %{
-              "username" => MossletWeb.Helpers.decr(user.username, user, opts[:key]),
-              "temp_username" => MossletWeb.Helpers.decr(user.username, user, opts[:key]),
+              "username" =>
+                MossletWeb.Helpers.decr(updated_user.username, updated_user, opts[:key]),
+              "temp_username" =>
+                MossletWeb.Helpers.decr(updated_user.username, updated_user, opts[:key]),
               "name" => attrs["name"],
-              "email" => MossletWeb.Helpers.decr(user.email, user, opts[:key]),
-              "visibility" => user.visibility,
-              "about" => decrypt_profile_about(user, opts[:key]),
-              "alternate_email" => decrypt_profile_field(user, opts[:key], :alternate_email),
-              "website_url" => decrypt_profile_field(user, opts[:key], :website_url),
-              "website_label" => decrypt_profile_field(user, opts[:key], :website_label)
+              "email" => MossletWeb.Helpers.decr(updated_user.email, updated_user, opts[:key]),
+              "visibility" => updated_user.visibility,
+              "about" => decrypt_profile_about(updated_user, opts[:key]),
+              "alternate_email" =>
+                decrypt_profile_field(updated_user, opts[:key], :alternate_email),
+              "website_url" => decrypt_profile_field(updated_user, opts[:key], :website_url),
+              "website_label" => decrypt_profile_field(updated_user, opts[:key], :website_label)
             })
 
           profile_attrs =
@@ -724,36 +717,25 @@ defmodule Mosslet.Accounts do
               })
             )
 
-          with {:ok, conn} <-
-                 update_user_profile(user, profile_attrs,
+          with {:ok, profile_conn} <-
+                 update_user_profile(updated_user, profile_attrs,
                    key: opts[:key],
                    user: opts[:user],
                    update_profile: true,
                    encrypt: true
                  ) do
-            broadcast_connection(conn, :uconn_name_updated)
+            broadcast_connection(profile_conn, :uconn_name_updated)
 
-            {:ok, user}
+            {:ok, updated_user}
           end
         else
-          broadcast_connection(conn, :uconn_name_updated)
+          broadcast_connection(updated_conn, :uconn_name_updated)
 
-          {:ok, user}
+          {:ok, updated_user}
         end
 
-      {:error, :update_user, changeset, _map} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      {:error, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      {:error, :update_user, _, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user name")
-        Logger.debug("Error updating user name: #{inspect(rest)}")
-        {:error, "error"}
     end
   end
 
@@ -761,81 +743,47 @@ defmodule Mosslet.Accounts do
   # for onboarding
   def update_user_onboarding_profile(user, attrs \\ %{}, opts \\ []) do
     changeset = User.profile_changeset(user, attrs, opts)
-    conn = get_connection!(user.connection.id)
+    conn = adapter().get_connection!(user.connection.id)
     c_attrs = Map.get(changeset.changes, :connection_map, %{c_name: nil, c_name_hash: nil})
 
-    case Ecto.Multi.new()
-         |> Ecto.Multi.update(:update_user, fn _ ->
-           User.profile_changeset(user, attrs, opts)
-         end)
-         |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-           Connection.update_name_changeset(conn, %{
-             name: c_attrs.c_name,
-             name_hash: c_attrs.c_name_hash
-           })
-         end)
-         |> Repo.transaction_on_primary() do
-      {:ok, %{update_user: user, update_connection: conn}} ->
-        # we broadcast
-        broadcast_connection(conn, :uconn_name_updated)
+    case adapter().update_user_onboarding_profile(user, conn, changeset, c_attrs) do
+      {:ok, updated_user, updated_conn} ->
+        broadcast_connection(updated_conn, :uconn_name_updated)
 
-        Groups.maybe_update_name_for_user_groups(user, %{encrypted_name: c_attrs.c_name},
+        Groups.maybe_update_name_for_user_groups(updated_user, %{encrypted_name: c_attrs.c_name},
           key: opts[:key]
         )
 
-        # return {:ok, user}
-        {:ok, user}
+        {:ok, updated_user}
 
-      {:error, :update_user, changeset, _map} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      {:error, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      {:error, :update_user, _, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user onboarding profile")
-        Logger.debug("Error updating user onboarding profile: #{inspect(rest)}")
-        {:error, "error"}
     end
   end
 
   def update_user_username(user, attrs \\ %{}, opts \\ []) do
     changeset = User.username_changeset(user, attrs, opts)
-    conn = get_connection!(user.connection.id)
+    conn = adapter().get_connection!(user.connection.id)
+    c_attrs = changeset.changes.connection_map
 
-    c_attrs =
-      changeset.changes.connection_map
-
-    case Ecto.Multi.new()
-         |> Ecto.Multi.update(:update_user, fn _ ->
-           User.username_changeset(user, attrs, opts)
-         end)
-         |> Ecto.Multi.update(:update_connection, fn %{update_user: _user} ->
-           Connection.update_username_changeset(conn, %{
-             username: c_attrs.c_username,
-             username_hash: c_attrs.c_username_hash
-           })
-         end)
-         |> Repo.transaction_on_primary() do
-      {:ok, %{update_user: user, update_connection: conn}} ->
-        if user.connection.profile do
-          profile_attrs = Map.put(attrs, "id", user.connection.id)
+    case adapter().update_user_username(user, conn, changeset, c_attrs) do
+      {:ok, updated_user, updated_conn} ->
+        if updated_user.connection.profile do
+          profile_attrs = Map.put(attrs, "id", updated_user.connection.id)
 
           profile_attrs =
             profile_attrs
             |> Map.put("profile", %{
               "username" => attrs["username"],
               "temp_username" => attrs["username"],
-              "name" => MossletWeb.Helpers.decr(user.name, user, opts[:key]),
-              "email" => MossletWeb.Helpers.decr(user.email, user, opts[:key]),
-              "visibility" => user.visibility,
-              "about" => decrypt_profile_about(user, opts[:key]),
-              "alternate_email" => decrypt_profile_field(user, opts[:key], :alternate_email),
-              "website_url" => decrypt_profile_field(user, opts[:key], :website_url),
-              "website_label" => decrypt_profile_field(user, opts[:key], :website_label)
+              "name" => MossletWeb.Helpers.decr(updated_user.name, updated_user, opts[:key]),
+              "email" => MossletWeb.Helpers.decr(updated_user.email, updated_user, opts[:key]),
+              "visibility" => updated_user.visibility,
+              "about" => decrypt_profile_about(updated_user, opts[:key]),
+              "alternate_email" =>
+                decrypt_profile_field(updated_user, opts[:key], :alternate_email),
+              "website_url" => decrypt_profile_field(updated_user, opts[:key], :website_url),
+              "website_label" => decrypt_profile_field(updated_user, opts[:key], :website_label)
             })
 
           profile_attrs =
@@ -850,36 +798,25 @@ defmodule Mosslet.Accounts do
               })
             )
 
-          with {:ok, conn} <-
-                 update_user_profile(user, profile_attrs,
+          with {:ok, profile_conn} <-
+                 update_user_profile(updated_user, profile_attrs,
                    key: opts[:key],
                    user: opts[:user],
                    update_profile: true,
                    encrypt: true
                  ) do
-            broadcast_connection(conn, :uconn_username_updated)
+            broadcast_connection(profile_conn, :uconn_username_updated)
 
-            {:ok, user}
+            {:ok, updated_user}
           end
         else
-          broadcast_connection(conn, :uconn_username_updated)
+          broadcast_connection(updated_conn, :uconn_username_updated)
 
-          {:ok, user}
+          {:ok, updated_user}
         end
 
-      {:error, :update_user, changeset, _map} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      {:error, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      {:error, :update_user, _, :update_connection, changeset, _map} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user username")
-        Logger.debug("Error updating user username: #{inspect(rest)}")
-        {:error, "error"}
     end
   end
 

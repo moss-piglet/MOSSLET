@@ -293,15 +293,31 @@ defmodule Mosslet.Accounts.Adapter do
 
   @doc """
   Updates user name (on both user and connection).
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
+  Takes the user changeset and connection attributes already computed by the context.
+  Returns {:ok, user, connection} or {:error, changeset}.
   """
-  @callback update_user_name(user :: User.t(), attrs :: map(), opts :: keyword()) ::
-              {:ok, User.t()} | {:error, Ecto.Changeset.t() | String.t()}
+  @callback update_user_name(
+              user :: User.t(),
+              conn :: Connection.t(),
+              user_changeset :: Ecto.Changeset.t(),
+              c_attrs :: map()
+            ) ::
+              {:ok, User.t(), Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
 
   @doc """
   Updates user username (on both user and connection).
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
+  Takes the user changeset and connection attributes already computed by the context.
+  Returns {:ok, user, connection} or {:error, changeset}.
   """
-  @callback update_user_username(user :: User.t(), attrs :: map(), opts :: keyword()) ::
-              {:ok, User.t()} | {:error, Ecto.Changeset.t() | String.t()}
+  @callback update_user_username(
+              user :: User.t(),
+              conn :: Connection.t(),
+              user_changeset :: Ecto.Changeset.t(),
+              c_attrs :: map()
+            ) ::
+              {:ok, User.t(), Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
 
   @doc """
   Updates user visibility setting.
@@ -506,9 +522,17 @@ defmodule Mosslet.Accounts.Adapter do
 
   @doc """
   Updates user onboarding profile (name and marketing notifications).
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
+  Takes the user changeset and connection attributes already computed by the context.
+  Returns {:ok, user, connection} or {:error, changeset}.
   """
-  @callback update_user_onboarding_profile(user :: User.t(), attrs :: map(), opts :: keyword()) ::
-              {:ok, User.t()} | {:error, Ecto.Changeset.t() | String.t()}
+  @callback update_user_onboarding_profile(
+              user :: User.t(),
+              conn :: Connection.t(),
+              user_changeset :: Ecto.Changeset.t(),
+              c_attrs :: map()
+            ) ::
+              {:ok, User.t(), Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
 
   @doc """
   Updates user notifications settings.

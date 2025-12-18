@@ -637,7 +637,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_name(_user, attrs, _opts) do
+  def update_user_name(_user, _conn, _user_changeset, attrs) do
     if Sync.online?() do
       Logger.warning("update_user_name via API not yet implemented")
       {:error, "Not implemented for native yet"}
@@ -648,7 +648,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_username(_user, attrs, _opts) do
+  def update_user_username(_user, _conn, _user_changeset, attrs) do
     if Sync.online?() do
       Logger.warning("update_user_username via API not yet implemented")
       {:error, "Not implemented for native yet"}
@@ -970,7 +970,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_onboarding_profile(_user, attrs, _opts) do
+  def update_user_onboarding_profile(_user, _conn, _user_changeset, attrs) do
     if Sync.online?() do
       Logger.warning("update_user_onboarding_profile via API not yet implemented")
       {:error, "Not implemented for native yet"}
