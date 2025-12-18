@@ -661,4 +661,28 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback validate_user_totp(user :: User.t(), code :: String.t()) ::
               :valid_totp | {:valid_backup_code, non_neg_integer()} | :invalid
+
+  @doc """
+  Gets all user connections from a shared item.
+  """
+  @callback get_all_user_connections_from_shared_item(item :: any(), current_user :: User.t()) ::
+              [UserConnection.t()]
+
+  @doc """
+  Updates a user's forgot password flag.
+  """
+  @callback update_user_forgot_password(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates a user's Oban reset token ID.
+  """
+  @callback update_user_oban_reset_token_id(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates a user's admin status.
+  """
+  @callback update_user_admin(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+              {:ok, User.t()} | nil
 end

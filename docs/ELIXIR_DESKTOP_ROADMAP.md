@@ -473,7 +473,7 @@ LiveView calls
 | `memories.ex`       | 57         | SKIP     | Legacy - phasing out     |
 | `conversations.ex`  | 9          | SKIP     | Legacy - phasing out     |
 
-#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` ✅ COMPLETE
+#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - Adapter In progress
 
 The Accounts context now uses a platform adapter pattern:
 
@@ -577,7 +577,7 @@ TOTP / 2FA:
 - `lib/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache)
 - `lib/mosslet/session/native.ex` - JWT token + session key storage (from Phase 3)
 
-#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` ✅ COMPLETE
+#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex`
 
 The Timeline context now uses a platform adapter pattern:
 

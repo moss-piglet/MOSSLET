@@ -1597,4 +1597,74 @@ defmodule Mosslet.Accounts.Adapters.Web do
         :invalid
     end
   end
+
+  @impl true
+  def get_all_user_connections_from_shared_item(item, current_user) do
+    Repo.all(
+      from uc in UserConnection,
+        join: c in Connection,
+        on: c.user_id == ^item.user_id,
+        where: uc.user_id == ^current_user.id
+    )
+  end
+
+  @impl true
+  def update_user_forgot_password(user, attrs, opts) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.forgot_password_changeset(attrs, opts)
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, user}} ->
+        {:ok, user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+    end
+  end
+
+  @impl true
+  def update_user_oban_reset_token_id(user, attrs, opts) do
+    {:ok, return} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.oban_reset_token_id_changeset(attrs, opts)
+        |> Repo.update()
+      end)
+
+    case return do
+      {:ok, user} ->
+        {:ok, user}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @impl true
+  def update_user_admin(user, _attrs, _opts) do
+    alias Mosslet.Encrypted
+
+    admin_email = Encrypted.Session.admin_email()
+    admin = Repo.get_by(User, email_hash: admin_email)
+
+    if admin && user.id == admin.id do
+      {:ok, return} =
+        Repo.transaction_on_primary(fn ->
+          user
+          |> User.toggle_admin_status_changeset()
+          |> Repo.update()
+        end)
+
+      case return do
+        {:ok, user} ->
+          {:ok, user}
+
+        {:error, changeset} ->
+          {:error, changeset}
+      end
+    else
+      nil
+    end
+  end
 end

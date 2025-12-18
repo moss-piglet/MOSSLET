@@ -1,12 +1,19 @@
 defmodule Mosslet.Accounts do
   @moduledoc """
   The Accounts context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Accounts.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Accounts.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
   """
   require Logger
 
   import Ecto.Query, warn: false
 
   alias Mosslet.Repo
+  alias Mosslet.Platform
 
   alias Mosslet.Accounts.{
     Connection,
@@ -25,10 +32,22 @@ defmodule Mosslet.Accounts do
   alias Mosslet.Timeline.{Post, Reply, UserPost}
   alias Mosslet.Timeline
   alias Mosslet.Logs
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Accounts.Adapters.Native
+    else
+      Mosslet.Accounts.Adapters.Web
+    end
+  end
+
   ## Preloads
 
   def preload_connection(%User{} = user) do
-    user |> Repo.preload([:connection])
+    adapter().preload_connection(user)
   end
 
   ## Database getters
@@ -46,11 +65,11 @@ defmodule Mosslet.Accounts do
 
   """
   def get_user_by_email(email) when is_binary(email) do
-    Repo.get_by(User, email_hash: email)
+    adapter().get_user_by_email(email)
   end
 
   def get_user_by_username(username) when is_binary(username) do
-    Repo.get_by(User, username_hash: username)
+    adapter().get_user_by_username(username)
   end
 
   @doc """
@@ -62,20 +81,7 @@ defmodule Mosslet.Accounts do
   don't want people to send themselves requests.
   """
   def get_user_by_username(user, username) when is_binary(username) and is_struct(user) do
-    new_user =
-      from(u in User,
-        where: u.id != ^user.id,
-        where: u.visibility == :public or u.visibility == :connections
-      )
-      |> Repo.get_by(username_hash: username)
-
-    cond do
-      not is_nil(new_user) && !has_user_connection?(new_user, user) ->
-        new_user
-
-      true ->
-        nil
-    end
+    adapter().get_user_by_username_for_connection(user, username)
   end
 
   @doc """
@@ -86,19 +92,7 @@ defmodule Mosslet.Accounts do
   """
   def get_shared_user_by_username(user_id, username)
       when is_binary(username) do
-    new_user =
-      from(u in User,
-        where: u.id != ^user_id
-      )
-      |> Repo.get_by(username_hash: username)
-
-    cond do
-      not is_nil(new_user) && has_confirmed_user_connection?(new_user, user_id) ->
-        new_user
-
-      true ->
-        nil
-    end
+    adapter().get_shared_user_by_username(user_id, username)
   end
 
   def get_shared_user_by_username(_, _username), do: nil
@@ -111,77 +105,19 @@ defmodule Mosslet.Accounts do
   don't want people to send themselves requests.
   """
   def get_user_by_email(user, email) when is_binary(email) do
-    new_user =
-      from(u in User,
-        where: u.id != ^user.id,
-        where: u.visibility == :public or u.visibility == :connections
-      )
-      |> Repo.get_by(email_hash: email)
-
-    cond do
-      not is_nil(new_user) && !has_user_connection?(new_user, user) ->
-        new_user
-
-      true ->
-        nil
-    end
+    adapter().get_user_by_email_for_connection(user, email)
   end
 
   def has_user_connection?(%User{} = user, current_user) do
-    query =
-      Repo.all(
-        from uc in UserConnection,
-          where: uc.user_id == ^user.id and uc.reverse_user_id == ^current_user.id,
-          or_where: uc.reverse_user_id == ^user.id and uc.user_id == ^current_user.id
-      )
-
-    cond do
-      Enum.empty?(query) ->
-        false
-
-      !Enum.empty?(query) ->
-        true
-    end
+    adapter().has_user_connection?(user, current_user)
   end
 
   def has_confirmed_user_connection?(%User{} = user, current_user_id) do
-    query =
-      Repo.all(
-        from uc in UserConnection,
-          where:
-            uc.user_id == ^user.id and uc.reverse_user_id == ^current_user_id and
-              not is_nil(uc.confirmed_at),
-          or_where:
-            uc.reverse_user_id == ^user.id and uc.user_id == ^current_user_id and
-              not is_nil(uc.confirmed_at)
-      )
-
-    cond do
-      Enum.empty?(query) ->
-        false
-
-      !Enum.empty?(query) ->
-        true
-    end
+    adapter().has_confirmed_user_connection?(user, current_user_id)
   end
 
   def has_any_user_connections?(user) do
-    unless is_nil(user) do
-      uconns =
-        Repo.all(
-          from uc in UserConnection,
-            where: uc.user_id == ^user.id or uc.reverse_user_id == ^user.id,
-            where: not is_nil(uc.confirmed_at)
-        )
-
-      cond do
-        Enum.empty?(uconns) ->
-          false
-
-        !Enum.empty?(uconns) ->
-          true
-      end
-    end
+    adapter().has_any_user_connections?(user)
   end
 
   @doc """
@@ -198,8 +134,7 @@ defmodule Mosslet.Accounts do
   """
   def get_user_by_email_and_password(email, password)
       when is_binary(email) and is_binary(password) do
-    user = Repo.get_by(User, email_hash: email)
-    if User.valid_password?(user, password), do: user
+    adapter().get_user_by_email_and_password(email, password)
   end
 
   @doc """
@@ -216,41 +151,29 @@ defmodule Mosslet.Accounts do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user!(id), do: Repo.get!(User, id)
-  def get_user(id), do: Repo.get(User, id)
+  def get_user!(id), do: adapter().get_user!(id)
+  def get_user(id), do: adapter().get_user(id)
 
   def get_user_with_preloads(id) do
-    Repo.one(from u in User, where: u.id == ^id, preload: [:connection, :user_connections])
+    adapter().get_user_with_preloads(id)
   end
 
   def get_user_from_profile_slug!(slug) do
-    Repo.one!(
-      from u in User, where: u.username_hash == ^slug, preload: [:connection, :user_connections]
-    )
+    adapter().get_user_from_profile_slug!(slug)
   end
 
   def get_user_from_profile_slug(slug) do
-    Repo.one(
-      from u in User, where: u.username_hash == ^slug, preload: [:connection, :user_connections]
-    )
+    adapter().get_user_from_profile_slug(slug)
   end
 
-  def get_connection!(id), do: Repo.get!(Connection, id)
-  def get_connection(id), do: Repo.get(Connection, id)
+  def get_connection!(id), do: adapter().get_connection!(id)
+  def get_connection(id), do: adapter().get_connection(id)
 
-  def get_user_connection(id),
-    do: Repo.get(UserConnection, id) |> Repo.preload([:connection, :user])
-
-  def get_user_connection!(id),
-    do: Repo.get!(UserConnection, id) |> Repo.preload([:connection, :user])
+  def get_user_connection(id), do: adapter().get_user_connection(id)
+  def get_user_connection!(id), do: adapter().get_user_connection!(id)
 
   def get_both_user_connections_between_users!(user_id, reverse_user_id) do
-    Repo.all(
-      from uc in UserConnection,
-        where: uc.user_id == ^user_id and uc.reverse_user_id == ^reverse_user_id,
-        or_where: uc.user_id == ^reverse_user_id and uc.reverse_user_id == ^user_id,
-        preload: [:user, :connection]
-    )
+    adapter().get_both_user_connections_between_users!(user_id, reverse_user_id)
   end
 
   @doc """
@@ -262,17 +185,11 @@ defmodule Mosslet.Accounts do
   may not be connected to each other.
   """
   def get_user_connection_for_user_group(user_id, current_user_id) do
-    UserConnection
-    |> where([uc], uc.user_id == ^user_id and uc.reverse_user_id == ^current_user_id)
-    |> Repo.one()
+    adapter().get_user_connection_for_user_group(user_id, current_user_id)
   end
 
   def get_user_connection_for_reply_shared_users(reply_user_id, current_user_id) do
-    UserConnection
-    |> where([uc], uc.user_id == ^current_user_id and uc.reverse_user_id == ^reply_user_id)
-    |> where([uc], not is_nil(uc.confirmed_at))
-    |> preload([:connection])
-    |> Repo.one()
+    adapter().get_user_connection_for_reply_shared_users(reply_user_id, current_user_id)
   end
 
   @doc """
@@ -280,11 +197,7 @@ defmodule Mosslet.Accounts do
   connected to the `user_id` as the reverse user.
   """
   def get_current_user_connection_between_users!(user_id, current_user_id) do
-    Repo.one!(
-      from uc in UserConnection,
-        where: uc.user_id == ^current_user_id and uc.reverse_user_id == ^user_id,
-        preload: [:user, :connection]
-    )
+    adapter().get_current_user_connection_between_users!(user_id, current_user_id)
   end
 
   @doc """
@@ -293,13 +206,7 @@ defmodule Mosslet.Accounts do
   user_id == the user_connection.reverse_user_id.
   """
   def get_user_connection_between_users!(user_id, current_user_id) do
-    unless is_nil(user_id) do
-      Repo.one!(
-        from uc in UserConnection,
-          where: uc.user_id == ^current_user_id and uc.reverse_user_id == ^user_id,
-          preload: [:user, :connection]
-      )
-    end
+    adapter().get_user_connection_between_users!(user_id, current_user_id)
   end
 
   @doc """
@@ -308,45 +215,23 @@ defmodule Mosslet.Accounts do
   user_id == the user_connection.reverse_user_id.
   """
   def get_user_connection_between_users(user_id, current_user_id) do
-    unless is_nil(user_id) do
-      UserConnection
-      |> where([uc], uc.user_id == ^current_user_id and uc.reverse_user_id == ^user_id)
-      |> preload([:user, :connection])
-      |> Repo.one()
-    end
+    adapter().get_user_connection_between_users(user_id, current_user_id)
   end
 
   def validate_users_in_connection(user_connection_id, current_user_id) do
-    user_connection = get_user_connection!(user_connection_id)
-    current_user_id in [user_connection.user_id, user_connection.reverse_user_id]
+    adapter().validate_users_in_connection(user_connection_id, current_user_id)
   end
 
   def get_all_user_connections(id) do
-    Repo.all(
-      from uc in UserConnection,
-        where: uc.user_id == ^id or uc.reverse_user_id == ^id
-    )
-    |> Repo.preload([:connection])
-    |> Enum.filter(fn uconn -> uconn.connection.user_id != id end)
+    adapter().get_all_user_connections(id)
   end
 
   def get_all_confirmed_user_connections(id) do
-    Repo.all(
-      from uc in UserConnection,
-        where: uc.user_id == ^id or uc.reverse_user_id == ^id,
-        where: not is_nil(uc.confirmed_at)
-    )
-    |> Repo.preload([:user, :connection])
-    |> Enum.filter(fn uconn -> uconn.connection.user_id != id end)
+    adapter().get_all_confirmed_user_connections(id)
   end
 
   def get_user_connection_from_shared_item(item, current_user) do
-    UserConnection
-    |> join(:inner, [uc], c in Connection, on: uc.connection_id == c.id)
-    |> where([uc, c], c.user_id == ^item.user_id)
-    |> where([uc, c], uc.user_id == ^current_user.id)
-    |> preload([:connection, :user, :reverse_user])
-    |> Repo.one()
+    adapter().get_user_connection_from_shared_item(item, current_user)
   end
 
   @doc """
@@ -360,14 +245,7 @@ defmodule Mosslet.Accounts do
   - Check if Isabella has enabled photos?: true for Dino
   """
   def get_post_author_permissions_for_viewer(item, current_user) do
-    UserConnection
-    |> join(:inner, [uc], c in Connection, on: uc.connection_id == c.id)
-    # Current user's connection
-    |> where([uc, c], c.user_id == ^current_user.id)
-    # Post author's user_connection
-    |> where([uc, c], uc.user_id == ^item.user_id)
-    |> preload([:connection, :user, :reverse_user])
-    |> Repo.one()
+    adapter().get_post_author_permissions_for_viewer(item, current_user)
   end
 
   def get_all_user_connections_from_shared_item(item, current_user) do
@@ -380,71 +258,47 @@ defmodule Mosslet.Accounts do
   end
 
   def get_user_from_post(post) do
-    Repo.one(
-      from u in User,
-        where: ^post.user_id == u.id,
-        preload: [:connection]
-    )
+    adapter().get_user_from_post(post)
   end
 
   def get_user_from_item(item) do
-    Repo.one(
-      from u in User,
-        where: ^item.user_id == u.id,
-        preload: [:connection]
-    )
+    adapter().get_user_from_item(item)
   end
 
   def get_user_from_item!(item) do
-    Repo.one!(
-      from u in User,
-        where: ^item.user_id == u.id,
-        preload: [:connection]
-    )
+    adapter().get_user_from_item!(item)
   end
 
-  def get_connection_from_item(item, _current_user) do
-    Repo.one(
-      from c in Connection,
-        join: u in User,
-        on: u.id == c.user_id,
-        where: c.user_id == ^item.user_id,
-        preload: [:user_connections]
-    )
+  def get_connection_from_item(item, current_user) do
+    adapter().get_connection_from_item(item, current_user)
   end
 
   @doc """
   Lists all users.
   """
   def list_all_users() do
-    Repo.all(User)
+    adapter().list_all_users()
   end
 
   @doc """
   Counts all users.
   """
   def count_all_users() do
-    query = from u in User, where: not u.is_admin?
-    Repo.aggregate(query, :count)
+    adapter().count_all_users()
   end
 
   @doc """
   Lists all confirmed users.
   """
   def list_all_confirmed_users() do
-    Repo.all(from u in User, where: not is_nil(u.confirmed_at))
+    adapter().list_all_confirmed_users()
   end
 
   @doc """
   Counts all confirmed users.
   """
   def count_all_confirmed_users() do
-    query =
-      from u in User,
-        where: not u.is_admin?,
-        where: not is_nil(u.confirmed_at)
-
-    Repo.aggregate(query, :count)
+    adapter().count_all_confirmed_users()
   end
 
   @doc """
@@ -452,20 +306,8 @@ defmodule Mosslet.Accounts do
   on the selected filters. TODO: complete
   additional filter options.
   """
-  def filter_user_connections(_filter, user) do
-    # Get list of blocked user IDs to exclude from connections
-    blocked_user_ids =
-      user
-      |> list_blocked_users()
-      |> Enum.map(& &1.blocked_id)
-
-    UserConnection
-    |> where_user(user)
-    |> where_confirmed()
-    |> where_not_blocked(blocked_user_ids)
-    |> order_by([uc], desc: uc.confirmed_at)
-    |> preload([:connection])
-    |> Repo.all()
+  def filter_user_connections(filter, user) do
+    adapter().filter_user_connections(filter, user)
   end
 
   @doc """
@@ -473,13 +315,8 @@ defmodule Mosslet.Accounts do
   on the selected filters. TODO: complete
   additional filter options.
   """
-  def filter_user_arrivals(_filter, user) do
-    UserConnection
-    |> where_user(user)
-    |> where_not_confirmed()
-    |> order_by([uc], desc: uc.inserted_at)
-    |> preload([:connection])
-    |> Repo.all()
+  def filter_user_arrivals(filter, user) do
+    adapter().filter_user_arrivals(filter, user)
   end
 
   @doc """
@@ -488,28 +325,7 @@ defmodule Mosslet.Accounts do
   the search query (case-insensitive exact match).
   """
   def search_user_connections(user, search_query) when is_binary(search_query) do
-    # Normalize the search query for comparison with label_hash
-    normalized_query = String.downcase(String.trim(search_query))
-
-    if String.length(normalized_query) > 0 do
-      # Get list of blocked user IDs to exclude from search results
-      blocked_user_ids =
-        user
-        |> list_blocked_users()
-        |> Enum.map(& &1.blocked_id)
-
-      UserConnection
-      |> where_user(user)
-      |> where_confirmed()
-      |> where_not_blocked(blocked_user_ids)
-      |> where([uc], uc.label_hash == ^normalized_query)
-      |> order_by([uc], desc: uc.confirmed_at)
-      |> preload([:connection])
-      |> Repo.all()
-    else
-      # If search query is empty, return all connections
-      filter_user_connections(%{}, user)
-    end
+    adapter().search_user_connections(user, search_query)
   end
 
   # query that scopes a UserConnection to a User.
@@ -522,91 +338,20 @@ defmodule Mosslet.Accounts do
   # current_user's `id` matches the `user_id` of the UserConnection.
   #
   # This is taking a %User{}.
-  defp where_user(query, %User{} = user) do
-    from(uc in query,
-      where: uc.user_id == ^user.id
-    )
-  end
-
-  defp where_user(query, _user), do: query
-
-  # makes sure the UserConnection has been confirmed
-  defp where_confirmed(query) do
-    from(uc in query,
-      where: not is_nil(uc.confirmed_at)
-    )
-  end
-
-  # makes sure the UserConnection has been confirmed
-  defp where_not_confirmed(query) do
-    from(uc in query,
-      where: is_nil(uc.confirmed_at)
-    )
-  end
-
-  # excludes connections to blocked users
-  defp where_not_blocked(query, blocked_user_ids) when is_list(blocked_user_ids) do
-    case blocked_user_ids do
-      [] ->
-        query
-
-      ids ->
-        from(uc in query,
-          where: uc.reverse_user_id not in ^ids
-        )
-    end
-  end
-
   @doc """
   Starting query for listing user_connections arrivals for
   a current_user.
   """
   def list_user_arrivals_connections(user, options) do
-    from(uc in UserConnection,
-      where: uc.user_id == ^user.id,
-      where: is_nil(uc.confirmed_at),
-      preload: [:user, :connection]
-    )
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
+    adapter().list_user_arrivals_connections(user, options)
   end
 
   @doc """
   Gets the total count of a user's user_connection arrivals.
   """
   def arrivals_count(user) do
-    query =
-      from uc in UserConnection,
-        where: uc.user_id == ^user.id,
-        where: is_nil(uc.confirmed_at)
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
+    adapter().arrivals_count(user)
   end
-
-  defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, _options), do: query
-
-  defp paginate(query, %{page: page, per_page: per_page}) do
-    offset = max((page - 1) * per_page, 0)
-
-    query
-    |> limit(^per_page)
-    |> offset(^offset)
-  end
-
-  defp paginate(query, _options), do: query
 
   ## User registration
 
@@ -624,213 +369,27 @@ defmodule Mosslet.Accounts do
 
   """
   def register_user(%Ecto.Changeset{} = user, c_attrs \\ %{}) do
-    case Repo.transaction_on_primary(fn ->
-           Ecto.Multi.new()
-           |> Ecto.Multi.insert(:insert_user, user)
-           |> Ecto.Multi.insert(:insert_connection, fn %{insert_user: user} ->
-             Connection.register_changeset(%Connection{}, %{
-               email: c_attrs.c_email,
-               email_hash: c_attrs.c_email_hash,
-               username: c_attrs.c_username,
-               username_hash: c_attrs.c_username_hash
-             })
-             |> Ecto.Changeset.put_assoc(:user, user)
-           end)
-           |> Repo.transaction_on_primary()
-         end) do
-      {:ok, {:ok, %{insert_user: user, insert_connection: _conn}}} ->
-        {:ok, user}
-        |> broadcast_admin(:account_registered)
-
-        {:ok, user}
-
-      {:ok, {:error, :insert_user, changeset, _map}} ->
-        {:error, changeset}
-
-      {:ok, error} ->
-        {:error, error}
-    end
+    adapter().register_user(user, c_attrs)
   end
 
   def create_user_connection(attrs, opts) do
-    case Repo.transaction_on_primary(fn ->
-           %UserConnection{}
-           |> UserConnection.changeset(attrs, opts)
-           |> Repo.insert()
-         end) do
-      {:ok, {:ok, uconn}} ->
-        {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_created)
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().create_user_connection(attrs, opts)
   end
 
   def update_user_connection(uconn, attrs, opts) do
-    case Repo.transaction_on_primary(fn ->
-           uconn
-           |> UserConnection.changeset(attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, uconn}} ->
-        {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user connection")
-        Logger.debug("Error updating user connection: #{inspect(rest)}")
-        {:error, "error"}
-    end
+    adapter().update_user_connection(uconn, attrs, opts)
   end
 
   def update_user_connection_label(uconn, attrs, opts) do
-    case Repo.transaction_on_primary(fn ->
-           uconn
-           |> UserConnection.label_changeset(attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, uconn}} ->
-        {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user connection")
-        Logger.debug("Error updating user connection: #{inspect(rest)}")
-        {:error, "error"}
-    end
+    adapter().update_user_connection_label(uconn, attrs, opts)
   end
 
   def update_user_connection_zen(uconn, attrs, opts) do
-    current_user = Keyword.get(opts, :user) || uconn.user
-    key = Keyword.get(opts, :key)
-    new_zen_value = Map.get(attrs, :zen?, Map.get(attrs, "zen?"))
-
-    # Get the target user ID (the person being muted/unmuted)
-    target_user_id =
-      if uconn.user_id == current_user.id,
-        do: uconn.reverse_user_id,
-        else: uconn.user_id
-
-    case Repo.transaction_on_primary(fn ->
-           Ecto.Multi.new()
-           |> Ecto.Multi.update(:update_connection, fn _ ->
-             uconn
-             |> UserConnection.zen_changeset(attrs)
-           end)
-           |> Ecto.Multi.run(:update_timeline_prefs, fn _repo,
-                                                        %{update_connection: _updated_uconn} ->
-             if current_user && key do
-               # Get or create timeline preferences
-               timeline_prefs =
-                 Timeline.get_user_timeline_preference(current_user) ||
-                   %Timeline.UserTimelinePreference{user_id: current_user.id}
-
-               # Get current decrypted muted users
-               current_muted_users =
-                 if timeline_prefs.muted_users != [] do
-                   Enum.map(timeline_prefs.muted_users, fn encrypted_user_id ->
-                     Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-                       encrypted_user_id,
-                       current_user,
-                       key
-                     )
-                   end)
-                   |> Enum.reject(&is_nil/1)
-                 else
-                   []
-                 end
-
-               # Update muted users list based on zen status
-               new_muted_users =
-                 if new_zen_value do
-                   # Muting - add target user if not already muted
-                   if target_user_id not in current_muted_users do
-                     [target_user_id | current_muted_users]
-                   else
-                     current_muted_users
-                   end
-                 else
-                   # Unmuting - remove target user
-                   List.delete(current_muted_users, target_user_id)
-                 end
-
-               # Encrypt the updated muted users list
-               encrypted_muted_users =
-                 Enum.map(new_muted_users, fn user_id ->
-                   Mosslet.Encrypted.Users.Utils.encrypt_user_data(user_id, current_user, key)
-                 end)
-
-               # Update timeline preferences
-               attrs = %{muted_users: encrypted_muted_users}
-               changeset = Timeline.UserTimelinePreference.changeset(timeline_prefs, attrs)
-
-               case timeline_prefs do
-                 %{id: nil} -> Repo.insert(changeset)
-                 _ -> Repo.update(changeset)
-               end
-             else
-               {:ok, :skipped}
-             end
-           end)
-           |> Repo.transaction_on_primary()
-         end) do
-      {:ok, {:ok, %{update_connection: uconn, update_timeline_prefs: _}}} ->
-        {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
-
-      {:ok, {:error, :update_connection, changeset, _}} ->
-        {:error, changeset}
-
-      {:ok, {:error, :update_timeline_prefs, reason, _}} ->
-        Logger.warning("Failed to update timeline preferences: #{inspect(reason)}")
-        {:error, "Failed to sync mute status with content filters"}
-
-      rest ->
-        Logger.warning("Error updating user connection zen status")
-        Logger.debug("Error updating user connection zen: #{inspect(rest)}")
-        {:error, "error"}
-    end
+    adapter().update_user_connection_zen(uconn, attrs, opts)
   end
 
-  def update_user_connection_photos(uconn, attrs, _opts) do
-    case Repo.transaction_on_primary(fn ->
-           uconn
-           |> UserConnection.photos_changeset(attrs)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, uconn}} ->
-        updated_uconn = uconn |> Repo.preload([:user, :connection])
-
-        # Broadcast to both the user who owns the connection AND the user whose permissions changed
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "accounts:#{updated_uconn.user_id}",
-          {:uconn_updated, updated_uconn}
-        )
-
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "accounts:#{updated_uconn.reverse_user_id}",
-          {:uconn_updated, updated_uconn}
-        )
-
-        {:ok, updated_uconn}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error updating user connection")
-        Logger.debug("Error updating user connection: #{inspect(rest)}")
-        {:error, "error"}
-    end
+  def update_user_connection_photos(uconn, attrs, opts) do
+    adapter().update_user_connection_photos(uconn, attrs, opts)
   end
 
   @doc """
@@ -847,17 +406,7 @@ defmodule Mosslet.Accounts do
   end
 
   def update_user_onboarding(user, attrs \\ %{}, opts \\ []) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.onboarding_changeset(attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, user}} ->
-        {:ok, user}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_onboarding(user, attrs, opts)
   end
 
   @doc """
@@ -974,17 +523,7 @@ defmodule Mosslet.Accounts do
   end
 
   def update_user_forgot_password(user, attrs \\ %{}, opts \\ []) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.forgot_password_changeset(attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, user}} ->
-        {:ok, user}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_forgot_password(user, attrs, opts)
   end
 
   @doc """
@@ -1001,17 +540,7 @@ defmodule Mosslet.Accounts do
   end
 
   def update_user_notifications(user, attrs \\ %{}, opts \\ []) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.notifications_changeset(attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, user}} ->
-        {:ok, user}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_notifications(user, attrs, opts)
   end
 
   @doc """
@@ -1019,51 +548,15 @@ defmodule Mosslet.Accounts do
   Used for daily email rate limiting.
   """
   def update_user_email_notification_received_at(user, timestamp \\ DateTime.utc_now()) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.email_notification_received_changeset(%{
-             last_email_notification_received_at: timestamp
-           })
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
-        {:ok, updated_user}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_email_notification_received_at(user, timestamp)
   end
 
   def update_user_reply_notification_received_at(user, timestamp \\ DateTime.utc_now()) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.reply_notification_received_changeset(%{
-             last_reply_notification_received_at: timestamp
-           })
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
-        {:ok, updated_user}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_reply_notification_received_at(user, timestamp)
   end
 
   def update_user_replies_seen_at(user, timestamp \\ DateTime.utc_now()) do
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.replies_seen_changeset(%{
-             last_replies_seen_at: timestamp
-           })
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
-        {:ok, updated_user}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_user_replies_seen_at(user, timestamp)
   end
 
   def update_user_profile(user, attrs \\ %{}, opts \\ []) do
@@ -2412,35 +1905,21 @@ defmodule Mosslet.Accounts do
   Generates a session token.
   """
   def generate_user_session_token(user) do
-    {token, user_token} = UserToken.build_session_token(user)
-
-    Repo.transaction_on_primary(fn ->
-      Repo.insert!(user_token)
-    end)
-
-    token
+    adapter().generate_user_session_token(user)
   end
 
   @doc """
   Gets the user with the given signed token.
   """
   def get_user_by_session_token(token) do
-    {:ok, query} = UserToken.verify_session_token_query(token)
-
-    Repo.one(query)
-    |> Repo.preload([:connection, :customer])
+    adapter().get_user_by_session_token(token)
   end
 
   @doc """
   Deletes the signed token with the given context.
   """
   def delete_user_session_token(token) do
-    {:ok, {_count, _user_tokens}} =
-      Repo.transaction_on_primary(fn ->
-        Repo.delete_all(UserToken.token_and_context_query(token, "session"))
-      end)
-
-    :ok
+    adapter().delete_user_session_token(token)
   end
 
   ## Confirmation
@@ -2496,115 +1975,19 @@ defmodule Mosslet.Accounts do
   and the token is deleted.
   """
   def confirm_user(token) do
-    with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
-         %User{} = user <- Repo.one(query),
-         {:ok, %{user: user}} <- Repo.transaction_on_primary(confirm_user_multi(user)) do
-      broadcast_admin({:ok, user}, :account_confirmed)
-      {:ok, user}
-    else
-      _ -> :error
-    end
-  end
-
-  defp confirm_user_multi(user) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, User.confirm_changeset(user))
-    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, ["confirm"]))
+    adapter().confirm_user(token)
   end
 
   def confirm_user_connection(uconn, attrs, opts \\ []) do
-    case Repo.transaction_on_primary(fn ->
-           Ecto.Multi.new()
-           |> Ecto.Multi.update(:update_uconn, UserConnection.confirm_changeset(uconn))
-           |> Ecto.Multi.insert(
-             :insert_uconn,
-             UserConnection.changeset(%UserConnection{}, attrs, opts)
-           )
-           |> Repo.transaction_on_primary()
-         end) do
-      {:ok, {:ok, %{update_uconn: upd_uconn, insert_uconn: ins_uconn}}} ->
-        case Ecto.Multi.new()
-             |> Ecto.Multi.update(
-               :upd_insert_uconn,
-               UserConnection.confirm_changeset(ins_uconn)
-             )
-             |> Repo.transaction_on_primary() do
-          {:ok, %{upd_insert_uconn: ins_uconn}} ->
-            broadcast_user_connections([upd_uconn, ins_uconn], :uconn_confirmed)
-
-            {:ok, upd_uconn, ins_uconn}
-
-          {:ok, {:error, changeset}} ->
-            {:error, changeset}
-
-          rest ->
-            Logger.warning("Error confirming user_connection second level")
-            Logger.debug("Error confirming user_connection second level: #{inspect(rest)}")
-            {:error, "error"}
-        end
-
-      {:ok, {:ok, {:error, changeset}}} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error confirming user_connection first level")
-        Logger.debug("Error confirming user_connection first level: #{inspect(rest)}")
-        {:error, "error"}
-    end
+    adapter().confirm_user_connection(uconn, attrs, opts)
   end
 
   def delete_user_connection(%UserConnection{} = uconn) do
-    case Repo.transaction_on_primary(fn ->
-           Repo.delete(uconn)
-         end) do
-      {:ok, {:ok, uconn}} ->
-        delete_data_filter(uconn, %{}, nil, "user_memories")
-        delete_data_filter(uconn, %{}, nil, "user_posts")
-
-        {:ok, uconn}
-        |> broadcast(:uconn_deleted)
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error deleting user_connection")
-        Logger.debug("Error deleting user_connection: #{inspect(rest)}")
-        {:error, "error"}
-    end
+    adapter().delete_user_connection(uconn)
   end
 
   def delete_both_user_connections(%UserConnection{} = uconn) do
-    case Repo.transaction_on_primary(fn ->
-           Repo.delete_all(
-             from uc in UserConnection,
-               where: uc.id == ^uconn.id,
-               or_where:
-                 uc.reverse_user_id == ^uconn.user_id and uc.user_id == ^uconn.reverse_user_id,
-               or_where:
-                 uc.user_id == ^uconn.reverse_user_id and uc.reverse_user_id == ^uconn.user_id,
-               select: uc
-           )
-         end) do
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      {:ok, {_count, uconns}} ->
-        Enum.each(uconns, fn uconn ->
-          delete_data_filter(uconn, %{}, nil, "user_memories")
-          delete_data_filter(uconn, %{}, nil, "user_posts")
-        end)
-
-        uconns
-        |> broadcast_user_connections(:uconn_deleted)
-
-        {:ok, uconns}
-
-      rest ->
-        Logger.warning("Error deleting user_connection")
-        Logger.debug("Error deleting user_connection: #{inspect(rest)}")
-        {:error, "error"}
-    end
+    adapter().delete_both_user_connections(uconn)
   end
 
   ## Reset password
