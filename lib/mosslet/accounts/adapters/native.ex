@@ -215,8 +215,14 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def create_user_connection(attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("create_user_connection via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data}} <- Client.create_connection(token, attrs) do
+        Cache.cache_item("user_connection", conn_data.id, conn_data)
+        {:ok, deserialize_user_connection(conn_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       Cache.queue_for_sync("user_connection", "create", attrs)
       {:error, "Offline - queued for sync"}
@@ -224,12 +230,18 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_connection(_uconn, attrs, _opts) do
+  def update_user_connection(uconn, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_connection via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data}} <- Client.update_connection(token, uconn.id, attrs) do
+        Cache.cache_item("user_connection", conn_data.id, conn_data)
+        {:ok, deserialize_user_connection(conn_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user_connection", "update", attrs)
+      Cache.queue_for_sync("user_connection", "update", Map.put(attrs, :id, uconn.id))
       {:error, "Offline - queued for sync"}
     end
   end
@@ -237,8 +249,14 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def delete_user_connection(uconn) do
     if Sync.online?() do
-      Logger.warning("delete_user_connection via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _} <- Client.delete_connection(token, uconn.id) do
+        Cache.delete_cached_item("user_connection", uconn.id)
+        {:ok, uconn}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       Cache.queue_for_sync("user_connection", "delete", %{id: uconn.id})
       {:error, "Offline - queued for sync"}
@@ -246,8 +264,21 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def confirm_user_connection(_uconn, _attrs, _opts) do
-    {:error, "Not implemented for native yet"}
+  def confirm_user_connection(uconn, attrs, _opts) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data, reverse_connection: reverse_data}} <-
+             Client.confirm_connection(token, uconn.id, attrs) do
+        Cache.cache_item("user_connection", conn_data.id, conn_data)
+        Cache.cache_item("user_connection", reverse_data.id, reverse_data)
+        {:ok, deserialize_user_connection(conn_data), deserialize_user_connection(reverse_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - cannot confirm connection"}
+    end
   end
 
   @impl true
@@ -401,6 +432,18 @@ defmodule Mosslet.Accounts.Adapters.Native do
     _ -> changeset
   end
 
+  defp encode_binary(nil), do: nil
+  defp encode_binary(data) when is_binary(data), do: Base.encode64(data)
+
+  defp serialize_profile(nil), do: nil
+
+  defp serialize_profile(profile) when is_map(profile) do
+    Map.new(profile, fn
+      {k, v} when is_binary(v) and byte_size(v) > 100 -> {k, Base.encode64(v)}
+      {k, v} -> {k, v}
+    end)
+  end
+
   @impl true
   def preload_connection(%User{} = user) do
     case Cache.get_cached_item("connection", user.id) do
@@ -471,9 +514,19 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def delete_both_user_connections(_uconn) do
-    Logger.warning("delete_both_user_connections via API not yet implemented")
-    {:error, "Not implemented for native yet"}
+  def delete_both_user_connections(uconn) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _} <- Client.delete_both_connections(token, uconn.id) do
+        Cache.delete_cached_item("user_connection", uconn.id)
+        {:ok, [uconn]}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - cannot delete connections"}
+    end
   end
 
   @impl true
@@ -594,129 +647,311 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_connection_label(_uconn, attrs, _opts) do
+  def update_user_connection_label(uconn, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_connection_label via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           label <- Map.get(attrs, "label") || Map.get(attrs, :label),
+           label_hash <- Map.get(attrs, "label_hash") || Map.get(attrs, :label_hash),
+           {:ok, %{connection: conn_data}} <-
+             Client.update_connection_label(
+               token,
+               uconn.id,
+               encode_binary(label),
+               encode_binary(label_hash)
+             ) do
+        Cache.cache_item("user_connection", conn_data.id, conn_data)
+        {:ok, deserialize_user_connection(conn_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user_connection", "update_label", attrs)
+      Cache.queue_for_sync("user_connection", "update_label", Map.put(attrs, :id, uconn.id))
       {:error, "Offline - queued for sync"}
     end
   end
 
   @impl true
-  def update_user_connection_zen(_uconn, attrs, _opts) do
+  def update_user_connection_zen(uconn, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_connection_zen via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      zen = Map.get(attrs, "zen?") || Map.get(attrs, :zen?)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data}} <- Client.update_connection_zen(token, uconn.id, zen) do
+        Cache.cache_item("user_connection", conn_data.id, conn_data)
+        {:ok, deserialize_user_connection(conn_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user_connection", "update_zen", attrs)
+      Cache.queue_for_sync("user_connection", "update_zen", Map.put(attrs, :id, uconn.id))
       {:error, "Offline - queued for sync"}
     end
   end
 
   @impl true
-  def update_user_connection_photos(_uconn, attrs, _opts) do
+  def update_user_connection_photos(uconn, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_connection_photos via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      photos = Map.get(attrs, "photos?") || Map.get(attrs, :photos?)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data}} <-
+             Client.update_connection_photos(token, uconn.id, photos) do
+        Cache.cache_item("user_connection", conn_data.id, conn_data)
+        {:ok, deserialize_user_connection(conn_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user_connection", "update_photos", attrs)
+      Cache.queue_for_sync("user_connection", "update_photos", Map.put(attrs, :id, uconn.id))
       {:error, "Offline - queued for sync"}
     end
   end
 
   @impl true
-  def update_user_profile(_user, _conn, _changeset) do
+  def update_user_profile(user, _conn, changeset) do
     if Sync.online?() do
-      Logger.warning("update_user_profile via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      profile_attrs = Ecto.Changeset.get_field(changeset, :profile)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data}} <-
+             Client.update_user_profile(token, %{profile: serialize_profile(profile_attrs)}) do
+        Cache.cache_item("connection", user.connection.id, conn_data)
+        {:ok, deserialize_connection(conn_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
+      {:error, "Offline - profile update requires network"}
+    end
+  end
+
+  @impl true
+  def update_user_name(_user, _conn, user_changeset, c_attrs) do
+    if Sync.online?() do
+      name = Ecto.Changeset.get_field(user_changeset, :name)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_name(token, %{
+               name: encode_binary(name),
+               connection_map: %{
+                 c_name: encode_binary(c_attrs.c_name),
+                 c_name_hash: encode_binary(c_attrs.c_name_hash)
+               }
+             }) do
+        cache_user(user_data)
+        user = deserialize_user(user_data)
+        conn = user.connection || %Mosslet.Accounts.Connection{}
+        {:ok, user, conn}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          {:error, apply_api_errors(user_changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      Cache.queue_for_sync("user", "update_name", %{
+        name: Ecto.Changeset.get_field(user_changeset, :name)
+      })
+
       {:error, "Offline - queued for sync"}
     end
   end
 
   @impl true
-  def update_user_name(_user, _conn, _user_changeset, attrs) do
+  def update_user_username(_user, _conn, user_changeset, c_attrs) do
     if Sync.online?() do
-      Logger.warning("update_user_name via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      username = Ecto.Changeset.get_field(user_changeset, :username)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_username(token, %{
+               username: encode_binary(username),
+               connection_map: %{
+                 c_username: encode_binary(c_attrs.c_username),
+                 c_username_hash: encode_binary(c_attrs.c_username_hash)
+               }
+             }) do
+        cache_user(user_data)
+        user = deserialize_user(user_data)
+        conn = user.connection || %Mosslet.Accounts.Connection{}
+        {:ok, user, conn}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          {:error, apply_api_errors(user_changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user", "update_name", attrs)
+      Cache.queue_for_sync("user", "update_username", %{
+        username: Ecto.Changeset.get_field(user_changeset, :username)
+      })
+
       {:error, "Offline - queued for sync"}
     end
   end
 
   @impl true
-  def update_user_username(_user, _conn, _user_changeset, attrs) do
+  def update_user_visibility(user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_username via API not yet implemented")
-      {:error, "Not implemented for native yet"}
-    else
-      Cache.queue_for_sync("user", "update_username", attrs)
-      {:error, "Offline - queued for sync"}
-    end
-  end
+      visibility = Map.get(attrs, "visibility") || Map.get(attrs, :visibility)
 
-  @impl true
-  def update_user_visibility(_user, attrs, _opts) do
-    if Sync.online?() do
-      Logger.warning("update_user_visibility via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <- Client.update_user_visibility(token, visibility) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       Cache.queue_for_sync("user", "update_visibility", attrs)
-      {:error, "Offline - queued for sync"}
+      {:error, "Offline - visibility update requires network"}
     end
   end
 
   @impl true
   def update_user_password(_user, changeset) do
     if Sync.online?() do
-      Logger.warning("update_user_password via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      password = Ecto.Changeset.get_field(changeset, :password)
+      password_confirmation = Ecto.Changeset.get_field(changeset, :password_confirmation)
+      current_password = Ecto.Changeset.get_field(changeset, :current_password)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_password(token, current_password, password, password_confirmation) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user", "update_password", changeset)
-      {:error, "Offline - queued for sync"}
+      {:error, "Offline - password update requires network"}
     end
   end
 
   @impl true
-  def reset_user_password(_user, attrs, _opts) do
+  def reset_user_password(user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("reset_user_password via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      current_password = Map.get(attrs, "current_password") || Map.get(attrs, :current_password)
+      password = Map.get(attrs, "password") || Map.get(attrs, :password)
+
+      password_confirmation =
+        Map.get(attrs, "password_confirmation") || Map.get(attrs, :password_confirmation)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.reset_user_password(token, current_password, password, password_confirmation) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          changeset = User.password_changeset(user, attrs)
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user", "reset_password", attrs)
-      {:error, "Offline - queued for sync"}
+      {:error, "Offline - password reset requires network"}
     end
   end
 
   @impl true
-  def update_user_avatar(_user, _conn, _user_changeset, attrs, _opts) do
+  def update_user_avatar(_user, _conn, user_changeset, c_attrs, opts) do
     if Sync.online?() do
-      Logger.warning("update_user_avatar via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      avatar_url = c_attrs.c_avatar_url || Map.get(c_attrs, :c_avatar_url)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data, connection: conn_data}} <-
+             Client.update_user_avatar(token, encode_binary(avatar_url),
+               delete: opts[:delete_avatar]
+             ) do
+        cache_user(user_data)
+        user = deserialize_user(user_data)
+        conn = deserialize_connection(conn_data)
+        {:ok, user, conn}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          {:error, apply_api_errors(user_changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user", "update_avatar", attrs)
-      {:error, "Offline - queued for sync"}
+      {:error, "Offline - avatar update requires network"}
     end
   end
 
   @impl true
-  def block_user(_blocker, _blocked_user, _attrs, _opts) do
+  def block_user(_blocker, blocked_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("block_user via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      reason = Map.get(attrs, "reason") || Map.get(attrs, :reason)
+      note = Map.get(attrs, "note") || Map.get(attrs, :note)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{block: block_data}} <-
+             Client.block_user(token, blocked_user.id, reason: reason, note: note) do
+        Cache.cache_item("user_block", block_data.id, block_data)
+        {:ok, deserialize_user_block(block_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - cannot block user"}
     end
   end
 
   @impl true
-  def unblock_user(_blocker, _blocked_user) do
+  def unblock_user(_blocker, blocked_user) do
     if Sync.online?() do
-      Logger.warning("unblock_user via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _response} <- Client.unblock_user(token, blocked_user.id) do
+        case Cache.list_cached_items("user_block") do
+          items when is_list(items) ->
+            Enum.each(items, fn item ->
+              block = deserialize_user_block(item.encrypted_data)
+
+              if block && block.blocked_id == blocked_user.id do
+                Cache.delete_cached_item("user_block", block.id)
+              end
+            end)
+
+          _ ->
+            :ok
+        end
+
+        {:ok, blocked_user}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - cannot unblock"}
     end
@@ -940,19 +1175,43 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def create_user_profile(_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("create_user_profile via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{connection: conn_data}} <- Client.create_user_profile(token, attrs) do
+        Cache.cache_item("connection", conn_data.id, conn_data)
+        {:ok, deserialize_connection(conn_data)}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          changeset = Ecto.Changeset.change(%Mosslet.Accounts.Connection{})
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("connection", "create_profile", attrs)
-      {:error, "Offline - queued for sync"}
+      {:error, "Offline - profile creation requires network"}
     end
   end
 
   @impl true
   def delete_user_profile(_changeset) do
     if Sync.online?() do
-      Logger.warning("delete_user_profile via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _response} <- Client.delete_user_profile(token) do
+        {:ok, %Mosslet.Accounts.Connection{}}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          changeset = Ecto.Changeset.change(%Mosslet.Accounts.Connection{})
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
       {:error, "Offline - cannot delete profile"}
     end
@@ -961,8 +1220,14 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def update_user_onboarding(_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_onboarding via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <- Client.update_user_onboarding(token, attrs) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       Cache.queue_for_sync("user", "update_onboarding", attrs)
       {:error, "Offline - queued for sync"}
@@ -970,12 +1235,38 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_onboarding_profile(_user, _conn, _user_changeset, attrs) do
+  def update_user_onboarding_profile(_user, _conn, user_changeset, c_attrs) do
     if Sync.online?() do
-      Logger.warning("update_user_onboarding_profile via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      name = Ecto.Changeset.get_field(user_changeset, :name)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data, connection: conn_data}} <-
+             Client.update_user_onboarding_profile(token, %{
+               name: encode_binary(name),
+               connection_map: %{
+                 c_name: encode_binary(c_attrs[:c_name] || c_attrs["c_name"]),
+                 c_name_hash: encode_binary(c_attrs[:c_name_hash] || c_attrs["c_name_hash"])
+               }
+             }) do
+        cache_user(user_data)
+        user = deserialize_user(user_data)
+        conn = deserialize_connection(conn_data)
+        {:ok, user, conn}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          {:error, apply_api_errors(user_changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user", "update_onboarding_profile", attrs)
+      Cache.queue_for_sync("user", "update_onboarding_profile", %{
+        name: Ecto.Changeset.get_field(user_changeset, :name)
+      })
+
       {:error, "Offline - queued for sync"}
     end
   end
@@ -983,8 +1274,16 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def update_user_notifications(_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_notifications via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      notifications = Map.get(attrs, "notifications?") || Map.get(attrs, :notifications?)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <- Client.update_user_notifications(token, notifications) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       Cache.queue_for_sync("user", "update_notifications", attrs)
       {:error, "Offline - queued for sync"}
@@ -994,8 +1293,16 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def update_user_tokens(_user, attrs) do
     if Sync.online?() do
-      Logger.warning("update_user_tokens via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      tokens = Map.get(attrs, "tokens") || Map.get(attrs, :tokens)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <- Client.update_user_tokens(token, tokens) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       Cache.queue_for_sync("user", "update_tokens", attrs)
       {:error, "Offline - queued for sync"}
@@ -1003,30 +1310,59 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_email_notification_received_at(_user, _timestamp) do
+  def update_user_email_notification_received_at(_user, timestamp) do
     if Sync.online?() do
-      Logger.warning("update_user_email_notification_received_at via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      ts_string =
+        if is_struct(timestamp, DateTime), do: DateTime.to_iso8601(timestamp), else: timestamp
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_email_notification_received_at(token, ts_string) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - skipping notification timestamp update"}
     end
   end
 
   @impl true
-  def update_user_reply_notification_received_at(_user, _timestamp) do
+  def update_user_reply_notification_received_at(_user, timestamp) do
     if Sync.online?() do
-      Logger.warning("update_user_reply_notification_received_at via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      ts_string =
+        if is_struct(timestamp, DateTime), do: DateTime.to_iso8601(timestamp), else: timestamp
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_reply_notification_received_at(token, ts_string) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - skipping notification timestamp update"}
     end
   end
 
   @impl true
-  def update_user_replies_seen_at(_user, _timestamp) do
+  def update_user_replies_seen_at(_user, timestamp) do
     if Sync.online?() do
-      Logger.warning("update_user_replies_seen_at via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      ts_string =
+        if is_struct(timestamp, DateTime), do: DateTime.to_iso8601(timestamp), else: timestamp
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <- Client.update_user_replies_seen_at(token, ts_string) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - skipping replies seen timestamp update"}
     end
@@ -1073,8 +1409,22 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def create_visibility_group(_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("create_visibility_group via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data, visibility_groups: _groups}} <-
+             Client.create_visibility_group(token, attrs) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          changeset = Ecto.Changeset.change(%User{})
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
       Cache.queue_for_sync("user", "create_visibility_group", attrs)
       {:error, "Offline - queued for sync"}
@@ -1082,21 +1432,42 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_visibility_group(_user, _group_id, attrs, _opts) do
+  def update_visibility_group(_user, group_id, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_visibility_group via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data, visibility_groups: _groups}} <-
+             Client.update_visibility_group(token, group_id, attrs) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          changeset = Ecto.Changeset.change(%User{})
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
-      Cache.queue_for_sync("user", "update_visibility_group", attrs)
+      Cache.queue_for_sync("user", "update_visibility_group", Map.put(attrs, :id, group_id))
       {:error, "Offline - queued for sync"}
     end
   end
 
   @impl true
-  def delete_visibility_group(_user, _group_id) do
+  def delete_visibility_group(_user, group_id) do
     if Sync.online?() do
-      Logger.warning("delete_visibility_group via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data, visibility_groups: _groups}} <-
+             Client.delete_visibility_group(token, group_id) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - cannot delete visibility group"}
     end
@@ -1114,9 +1485,27 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def delete_user_data(_user, _password, _key, _attrs, _opts) do
-    Logger.warning("delete_user_data must be done via web interface")
-    {:error, "Data deletion must be done via web interface"}
+  def delete_user_data(_user, password, _key, attrs, _opts) do
+    if Sync.online?() do
+      data = Map.get(attrs, "data", %{})
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _response} <- Client.delete_user_data(token, password, data) do
+        :ok
+      else
+        {:error, {_status, %{errors: errors}}} when is_map(errors) ->
+          changeset = Ecto.Changeset.change(%User{})
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, %{error: error}}} ->
+          {:error, error}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:error, "Offline - data deletion requires network connection"}
+    end
   end
 
   @impl true
@@ -1125,20 +1514,38 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_forgot_password(_user, _attrs, _opts) do
+  def update_user_forgot_password(_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_forgot_password via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      forgot_password = Map.get(attrs, "forgot_password?") || Map.get(attrs, :forgot_password?)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <- Client.update_user_forgot_password(token, forgot_password) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - cannot update forgot password status"}
     end
   end
 
   @impl true
-  def update_user_oban_reset_token_id(_user, _attrs, _opts) do
+  def update_user_oban_reset_token_id(_user, attrs, _opts) do
     if Sync.online?() do
-      Logger.warning("update_user_oban_reset_token_id via API not yet implemented")
-      {:error, "Not implemented for native yet"}
+      oban_reset_token_id =
+        Map.get(attrs, "oban_reset_token_id") || Map.get(attrs, :oban_reset_token_id)
+
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_user_oban_reset_token_id(token, oban_reset_token_id) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, "Offline - cannot update oban reset token"}
     end

@@ -109,7 +109,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Is there a mobile app?",
             a:
-              "Not yet, but you can add MOSSLET to your phone's home screen directly from your mobile browser for a native app-like experience. A dedicated mobile app is in development."
+              "Not yet, but you can add MOSSLET to your phone's home screen directly from your mobile browser for a native app-like experience. Dedicated apps for mobile and desktop are in development."
           },
           %{
             q: "Can I make public posts?",

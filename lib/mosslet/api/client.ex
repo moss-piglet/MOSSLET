@@ -88,6 +88,198 @@ defmodule Mosslet.API.Client do
     request(:delete, "/api/posts/#{post_id}", %{}, auth: token)
   end
 
+  # User account operations
+  def update_user_name(token, attrs) do
+    request(:put, "/api/users/name", attrs, auth: token)
+  end
+
+  def update_user_username(token, attrs) do
+    request(:put, "/api/users/username", attrs, auth: token)
+  end
+
+  def update_user_profile(token, attrs) do
+    request(:put, "/api/users/profile", attrs, auth: token)
+  end
+
+  def update_user_visibility(token, visibility) do
+    request(:put, "/api/users/visibility", %{visibility: visibility}, auth: token)
+  end
+
+  def update_user_password(token, current_password, new_password, password_confirmation) do
+    request(
+      :put,
+      "/api/users/password",
+      %{
+        current_password: current_password,
+        password: new_password,
+        password_confirmation: password_confirmation
+      },
+      auth: token
+    )
+  end
+
+  def update_user_avatar(token, avatar_url, opts \\ []) do
+    request(
+      :put,
+      "/api/users/avatar",
+      %{
+        avatar_url: avatar_url,
+        delete_avatar: Keyword.get(opts, :delete, false)
+      },
+      auth: token
+    )
+  end
+
+  def update_user_notifications(token, enabled) do
+    request(:put, "/api/users/notifications", %{notifications: enabled}, auth: token)
+  end
+
+  def update_user_onboarding(token, attrs) do
+    request(:put, "/api/users/onboarding", attrs, auth: token)
+  end
+
+  def delete_user_data(token, password, data) do
+    request(:post, "/api/users/delete-data", %{current_password: password, data: data},
+      auth: token
+    )
+  end
+
+  def create_user_profile(token, profile_attrs) do
+    request(:post, "/api/users/profile", %{profile: profile_attrs}, auth: token)
+  end
+
+  def delete_user_profile(token) do
+    request(:delete, "/api/users/profile", %{}, auth: token)
+  end
+
+  def update_user_onboarding_profile(token, attrs) do
+    request(:put, "/api/users/onboarding-profile", attrs, auth: token)
+  end
+
+  def update_user_tokens(token, tokens) do
+    request(:put, "/api/users/tokens", %{tokens: tokens}, auth: token)
+  end
+
+  def update_user_email_notification_received_at(token, timestamp) do
+    request(:put, "/api/users/email-notification-received-at", %{timestamp: timestamp},
+      auth: token
+    )
+  end
+
+  def update_user_reply_notification_received_at(token, timestamp) do
+    request(:put, "/api/users/reply-notification-received-at", %{timestamp: timestamp},
+      auth: token
+    )
+  end
+
+  def update_user_replies_seen_at(token, timestamp) do
+    request(:put, "/api/users/replies-seen-at", %{timestamp: timestamp}, auth: token)
+  end
+
+  def create_visibility_group(token, group_attrs) do
+    request(:post, "/api/users/visibility-groups", %{group: group_attrs}, auth: token)
+  end
+
+  def update_visibility_group(token, group_id, group_attrs) do
+    request(:put, "/api/users/visibility-groups/#{group_id}", %{group: group_attrs}, auth: token)
+  end
+
+  def delete_visibility_group(token, group_id) do
+    request(:delete, "/api/users/visibility-groups/#{group_id}", %{}, auth: token)
+  end
+
+  def update_user_forgot_password(token, forgot_password) do
+    request(:put, "/api/users/forgot-password", %{forgot_password: forgot_password}, auth: token)
+  end
+
+  def update_user_oban_reset_token_id(token, oban_reset_token_id) do
+    request(:put, "/api/users/oban-reset-token-id", %{oban_reset_token_id: oban_reset_token_id},
+      auth: token
+    )
+  end
+
+  def reset_user_password(token, current_password, password, password_confirmation) do
+    request(
+      :post,
+      "/api/users/reset-password",
+      %{
+        current_password: current_password,
+        password: password,
+        password_confirmation: password_confirmation
+      },
+      auth: token
+    )
+  end
+
+  def block_user(token, user_id, opts \\ []) do
+    request(
+      :post,
+      "/api/users/block",
+      %{
+        user_id: user_id,
+        reason: Keyword.get(opts, :reason),
+        note: Keyword.get(opts, :note)
+      },
+      auth: token
+    )
+  end
+
+  def unblock_user(token, user_id) do
+    request(:delete, "/api/users/block/#{user_id}", %{}, auth: token)
+  end
+
+  def list_blocked_users(token) do
+    request(:get, "/api/users/blocked", %{}, auth: token)
+  end
+
+  # Connection operations
+  def list_connections(token, opts \\ []) do
+    params = build_sync_params(opts)
+    request(:get, "/api/connections", params, auth: token)
+  end
+
+  def get_connection(token, id) do
+    request(:get, "/api/connections/#{id}", %{}, auth: token)
+  end
+
+  def create_connection(token, attrs) do
+    request(:post, "/api/connections", %{connection: attrs}, auth: token)
+  end
+
+  def update_connection(token, id, attrs) do
+    request(:put, "/api/connections/#{id}", %{connection: attrs}, auth: token)
+  end
+
+  def update_connection_label(token, id, label, label_hash) do
+    request(:put, "/api/connections/#{id}/label", %{label: label, label_hash: label_hash},
+      auth: token
+    )
+  end
+
+  def update_connection_zen(token, id, zen) do
+    request(:put, "/api/connections/#{id}/zen", %{zen: zen}, auth: token)
+  end
+
+  def update_connection_photos(token, id, photos) do
+    request(:put, "/api/connections/#{id}/photos", %{photos: photos}, auth: token)
+  end
+
+  def confirm_connection(token, id, attrs \\ %{}) do
+    request(:post, "/api/connections/#{id}/confirm", %{connection: attrs}, auth: token)
+  end
+
+  def delete_connection(token, id) do
+    request(:delete, "/api/connections/#{id}", %{}, auth: token)
+  end
+
+  def delete_both_connections(token, id) do
+    request(:delete, "/api/connections/#{id}/both", %{}, auth: token)
+  end
+
+  def list_arrivals(token) do
+    request(:get, "/api/connections/arrivals", %{}, auth: token)
+  end
+
   defp request(method, path, body_or_params, opts \\ []) do
     url = base_url() <> path
     headers = build_headers(opts)

@@ -144,6 +144,53 @@ defmodule MossletWeb.Router do
     get "/sync/full", SyncController, :full_sync
 
     resources "/posts", PostController, only: [:index, :show, :create, :update, :delete]
+
+    # User account management
+    put "/users/name", UserController, :update_name
+    put "/users/username", UserController, :update_username
+    put "/users/profile", UserController, :update_profile
+    put "/users/visibility", UserController, :update_visibility
+    put "/users/password", UserController, :update_password
+    put "/users/avatar", UserController, :update_avatar
+    put "/users/notifications", UserController, :update_notifications
+    put "/users/onboarding", UserController, :update_onboarding
+    post "/users/profile", UserController, :create_profile
+    delete "/users/profile", UserController, :delete_profile
+    post "/users/delete-data", UserController, :delete_data
+    post "/users/reset-password", UserController, :reset_password
+    put "/users/onboarding-profile", UserController, :update_onboarding_profile
+    put "/users/tokens", UserController, :update_tokens
+
+    put "/users/email-notification-received-at",
+        UserController,
+        :update_email_notification_received_at
+
+    put "/users/reply-notification-received-at",
+        UserController,
+        :update_reply_notification_received_at
+
+    put "/users/replies-seen-at", UserController, :update_replies_seen_at
+    post "/users/visibility-groups", UserController, :create_visibility_group
+    put "/users/visibility-groups/:id", UserController, :update_visibility_group
+    delete "/users/visibility-groups/:id", UserController, :delete_visibility_group
+    put "/users/forgot-password", UserController, :update_forgot_password
+    put "/users/oban-reset-token-id", UserController, :update_oban_reset_token_id
+    post "/users/block", UserController, :block_user
+    delete "/users/block/:user_id", UserController, :unblock_user
+    get "/users/blocked", UserController, :list_blocked
+
+    # User connections (friends)
+    get "/connections", ConnectionController, :index
+    get "/connections/arrivals", ConnectionController, :arrivals
+    get "/connections/:id", ConnectionController, :show
+    post "/connections", ConnectionController, :create
+    put "/connections/:id", ConnectionController, :update
+    put "/connections/:id/label", ConnectionController, :update_label
+    put "/connections/:id/zen", ConnectionController, :update_zen
+    put "/connections/:id/photos", ConnectionController, :update_photos
+    post "/connections/:id/confirm", ConnectionController, :confirm
+    delete "/connections/:id", ConnectionController, :delete
+    delete "/connections/:id/both", ConnectionController, :delete_both
   end
 
   ## Authentication routes
