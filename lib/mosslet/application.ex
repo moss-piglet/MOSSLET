@@ -51,6 +51,7 @@ defmodule Mosslet.Application do
       Mosslet.Extensions.MemoryProcessor,
       Mosslet.Repo.SQLite,
       Mosslet.Vault.Native,
+      Mosslet.Session.Native,
       Mosslet.Sync,
       MossletWeb.Endpoint,
       MossletWeb.Desktop.Window.child_spec()
