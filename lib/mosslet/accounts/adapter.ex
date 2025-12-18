@@ -83,6 +83,12 @@ defmodule Mosslet.Accounts.Adapter do
   @callback get_user_from_profile_slug!(slug :: String.t()) :: User.t()
 
   @doc """
+  Confirms a user without checking any tokens. Used
+  in tests.
+  """
+  @callback confirm_user!(user :: User.t()) :: User.t()
+
+  @doc """
   Confirms a user by token.
   """
   @callback confirm_user(token :: String.t()) :: {:ok, User.t()} | :error

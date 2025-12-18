@@ -334,7 +334,10 @@ defmodule MossletWeb.UserHomeLive do
                 <%!-- Enhanced Avatar with built-in status support --%>
                 <div class="relative flex-shrink-0">
                   <MossletWeb.DesignSystem.liquid_avatar
-                    src={maybe_get_user_avatar(@current_user, @key)}
+                    src={
+                      if @profile_user.connection.profile.show_avatar?,
+                        do: maybe_get_user_avatar(@current_user, @key)
+                    }
                     name={
                       decr_item(
                         @current_user.connection.profile.name,
@@ -507,7 +510,10 @@ defmodule MossletWeb.UserHomeLive do
                 @current_user.connection.profile
               )
             }
-            user_avatar={maybe_get_user_avatar(@current_user, @key)}
+            user_avatar={
+              if @profile_user.connection.profile.show_avatar?,
+                do: maybe_get_user_avatar(@current_user, @key)
+            }
             placeholder="Share something meaningful with your community..."
             current_user={@current_user}
             session_key={@key}

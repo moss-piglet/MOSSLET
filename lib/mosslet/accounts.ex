@@ -1957,13 +1957,10 @@ defmodule Mosslet.Accounts do
 
   @doc """
   Confirms a user without checking any tokens. Used
-  with passwordless / Ueberauth.
+  in tests.
   """
-
   def confirm_user!(%User{confirmed_at: nil} = user) do
-    with {:ok, %{user: user}} <- Repo.transaction(confirm_user_multi(user)) do
-      user
-    end
+    adapter().confirm_user!(user)
   end
 
   def confirm_user!(user), do: user
@@ -2003,17 +2000,7 @@ defmodule Mosslet.Accounts do
   """
   def deliver_user_reset_password_instructions(%User{} = user, email, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, email, "reset_password")
-
-    Repo.transaction_on_primary(fn ->
-      Repo.insert!(user_token)
-    end)
-
-    UserNotifier.deliver_reset_password_instructions(
-      user,
-      email,
-      reset_password_url_fun.(encoded_token)
-    )
+    adapter().deliver_user_reset_password_instructions(user, email, reset_password_url_fun)
   end
 
   @doc """
@@ -2029,12 +2016,7 @@ defmodule Mosslet.Accounts do
 
   """
   def get_user_by_reset_password_token(token) do
-    with {:ok, query} <- UserToken.verify_email_token_query(token, "reset_password"),
-         %User{} = user <- Repo.one(query) do
-      user
-    else
-      _rest -> nil
-    end
+    adapter().get_user_by_reset_password_token(token)
   end
 
   @doc """
@@ -2050,14 +2032,7 @@ defmodule Mosslet.Accounts do
 
   """
   def reset_user_password(user, attrs, opts \\ []) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, User.password_changeset(user, attrs, opts))
-    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, :all))
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
-    end
+    adapter().reset_user_password
   end
 
   # Status broadcasting functions
@@ -2244,6 +2219,7 @@ defmodule Mosslet.Accounts do
     user
     |> User.last_signed_in_changeset(ip, key)
     |> Repo.update()
+    |> Repo.transaction_on_primary()
   end
 
   def preload_org_data(user, current_org_slug \\ nil) do

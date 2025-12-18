@@ -122,6 +122,17 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def confirm_user!(user) do
+    if Application.get_env(:mosslet, :env) in [:dev, :test] do
+      with {:ok, %{user: user}} <- Repo.transaction(confirm_user_multi(user)) do
+        user
+      end
+    else
+      user
+    end
+  end
+
+  @impl true
   def confirm_user(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
          %User{} = user <- Repo.one(query),
