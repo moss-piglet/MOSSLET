@@ -691,11 +691,12 @@ defmodule MossletWeb.API.UserController do
   defp decode_connection_map(nil), do: %{}
 
   defp decode_connection_map(map) when is_map(map) do
-    Map.new(map, fn {k, v} ->
-      key = if is_binary(k), do: String.to_existing_atom(k), else: k
-      {key, decode_binary(v)}
+    Enum.reduce(map, %{}, fn
+      {"email", v}, acc -> Map.put(acc, :email, decode_binary(v))
+      {"username", v}, acc -> Map.put(acc, :username, decode_binary(v))
+      {"name", v}, acc -> Map.put(acc, :name, decode_binary(v))
+      {"avatar_url", v}, acc -> Map.put(acc, :avatar_url, decode_binary(v))
+      _, acc -> acc
     end)
-  rescue
-    _ -> %{}
   end
 end

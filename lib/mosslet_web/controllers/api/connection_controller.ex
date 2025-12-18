@@ -27,14 +27,20 @@ defmodule MossletWeb.API.ConnectionController do
   end
 
   def show(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
     case Accounts.get_user_connection(id) do
       nil ->
         {:error, :not_found}
 
       user_connection ->
-        conn
-        |> put_status(:ok)
-        |> json(%{connection: serialize_user_connection(user_connection)})
+        if user_connection.user_id != user.id do
+          {:error, :forbidden}
+        else
+          conn
+          |> put_status(:ok)
+          |> json(%{connection: serialize_user_connection(user_connection)})
+        end
     end
   end
 

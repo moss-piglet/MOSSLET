@@ -30,6 +30,7 @@ defmodule MossletWeb.Router do
   end
 
   pipeline :api do
+    plug PlugAttack
     plug :accepts, ["json"]
   end
 

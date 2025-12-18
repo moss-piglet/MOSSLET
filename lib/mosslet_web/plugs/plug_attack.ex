@@ -75,6 +75,71 @@ defmodule MossletWeb.Plugs.PlugAttack do
     end
   end
 
+  rule "throttle API login requests", conn do
+    if conn.method == "POST" and conn.path_info == ["api", "auth", "login"] and conn.remote_ip do
+      throttle("api_login:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 10,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "throttle API register requests", conn do
+    if conn.method == "POST" and conn.path_info == ["api", "auth", "register"] and conn.remote_ip do
+      throttle("api_register:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 5,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "fail2ban on API login by ip", conn do
+    if conn.method == "POST" and conn.path_info == ["api", "auth", "login"] and conn.remote_ip do
+      fail2ban("api_login_ban:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 50,
+        ban_for: @week,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "throttle API TOTP verify requests", conn do
+    if conn.method == "POST" and conn.path_info == ["api", "auth", "totp", "verify"] and
+         conn.remote_ip do
+      throttle("api_totp:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 10,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "fail2ban on API TOTP verify", conn do
+    if conn.method == "POST" and conn.path_info == ["api", "auth", "totp", "verify"] and
+         conn.remote_ip do
+      fail2ban("api_totp_ban:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 20,
+        ban_for: @week,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "throttle API remember-me refresh", conn do
+    if conn.method == "POST" and conn.path_info == ["api", "auth", "remember-me", "refresh"] and
+         conn.remote_ip do
+      throttle("api_remember:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 10,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
   def allow_action(conn, {:throttle, data}, opts) do
     conn
     |> add_throttling_headers(data)

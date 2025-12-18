@@ -16,6 +16,15 @@ defmodule MossletWeb.API.FallbackController do
     |> json(%{error: "account_unavailable", message: "Account is suspended or deleted"})
   end
 
+  def call(conn, {:error, :email_not_confirmed}) do
+    conn
+    |> put_status(:forbidden)
+    |> json(%{
+      error: "email_not_confirmed",
+      message: "Please confirm your email address before logging in"
+    })
+  end
+
   def call(conn, {:error, :not_found}) do
     conn
     |> put_status(:not_found)

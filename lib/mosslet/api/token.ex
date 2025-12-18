@@ -31,7 +31,7 @@ defmodule Mosslet.API.Token do
 
   alias Mosslet.Accounts
 
-  @access_token_validity_seconds 60 * 60 * 24 * 30
+  @access_token_validity_seconds 60 * 60
   @remember_token_validity_seconds 60 * 60 * 24 * 60
   @totp_pending_validity_seconds 60 * 5
 

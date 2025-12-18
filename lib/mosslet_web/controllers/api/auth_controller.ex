@@ -38,6 +38,7 @@ defmodule MossletWeb.API.AuthController do
     with %User{} = user <- Accounts.get_user_by_email_and_password(email, password),
          false <- user.is_suspended?,
          false <- user.is_deleted?,
+         true <- not is_nil(user.confirmed_at),
          {:ok, session_key} <- User.valid_key_hash?(user, password) do
       if Accounts.two_factor_auth_enabled?(user) do
         handle_totp_login(conn, user, session_key, params)
@@ -50,6 +51,9 @@ defmodule MossletWeb.API.AuthController do
 
       true ->
         {:error, :account_unavailable}
+
+      false ->
+        {:error, :email_not_confirmed}
 
       {:error, _} ->
         {:error, :invalid_credentials}
