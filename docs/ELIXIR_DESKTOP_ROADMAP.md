@@ -421,11 +421,66 @@ Authenticated (requires Bearer token):
 
 **Goal:** Make contexts platform-aware so LiveViews work unchanged on both web and native.
 
-**Architecture Decision:** Instead of wrapping `Mosslet.Repo` with a data gateway layer, we add platform checks at the **context level**. This preserves:
+**Architecture Decision: Thin Adapters (Repo-Only)**
 
-- `Fly.Repo` and `transaction_on_primary` patterns for web (multi-region writes)
-- `Ecto.Multi` transaction handling
-- All existing Repo usage in contexts
+We use a **thin adapter pattern** where:
+
+1. **Business logic stays in the context** (e.g., `accounts.ex`) - changesets, validations, broadcasts, multi-step operations
+2. **Adapters only handle data access** - Repo calls for web, API+cache for native
+3. **Context orchestrates** - calls adapter for data, then applies business logic
+
+This avoids duplicating complex business logic across adapters and keeps a single source of truth.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        CONTEXT (accounts.ex)                            │
+│                                                                         │
+│   def update_user_name(user, attrs, opts) do                           │
+│     # 1. Build changeset (business logic)                               │
+│     changeset = User.name_changeset(user, attrs, opts)                 │
+│     c_attrs = changeset.changes.connection_map                         │
+│                                                                         │
+│     # 2. Delegate data persistence to adapter                           │
+│     case adapter().update_user_and_connection_name(...) do             │
+│       {:ok, user, conn} ->                                             │
+│         # 3. Post-persistence business logic                            │
+│         Groups.maybe_update_name_for_user_groups(user, ...)            │
+│         broadcast_connection(conn, :uconn_name_updated)                │
+│         {:ok, user}                                                    │
+│       {:error, changeset} -> {:error, changeset}                       │
+│     end                                                                │
+│   end                                                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+┌─────────────────────────────┐   ┌─────────────────────────────────────┐
+│   WEB ADAPTER (thin)        │   │   NATIVE ADAPTER (thin)             │
+│                             │   │                                     │
+│ def update_user_and_        │   │ def update_user_and_                │
+│   connection_name(...) do   │   │   connection_name(...) do           │
+│                             │   │                                     │
+│   Ecto.Multi.new()          │   │   if Sync.online?() do              │
+│   |> Multi.update(:user,..) │   │     API.Client.update_name(...)     │
+│   |> Multi.update(:conn,..) │   │   else                              │
+│   |> Repo.transaction_on_   │   │     Cache.queue_for_sync(...)       │
+│        primary()            │   │   end                               │
+│ end                         │   │ end                                 │
+└─────────────────────────────┘   └─────────────────────────────────────┘
+```
+
+**Why Thin Adapters?**
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Full copy to adapters** | Clear separation | Duplicates business logic, hard to maintain |
+| **Thin adapters (chosen)** | Single source of truth, DRY | Adapter callbacks are more granular |
+
+**Adapter Callback Categories:**
+
+1. **Simple CRUD** - `get_user/1`, `get_connection/1`, etc. (adapter handles fully)
+2. **Queries** - `filter_user_connections/2`, `search_user_connections/2` (adapter handles fully)
+3. **Writes with business logic** - `update_user_name/3`, `confirm_user_connection/3` (context orchestrates, adapter persists)
 
 **How It Works:**
 
@@ -473,201 +528,175 @@ LiveView calls
 | `memories.ex`       | 57         | SKIP     | Legacy - phasing out     |
 | `conversations.ex`  | 9          | SKIP     | Legacy - phasing out     |
 
-#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - Adapter In progress
+#### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - 🔄 REFACTORING
 
-The Accounts context now uses a platform adapter pattern:
+**Status:** Initial implementation complete, but needs refactoring to thin adapter pattern.
 
-- `Mosslet.Accounts.Adapter` - Behaviour defining 50+ callbacks for all account operations
-- `Mosslet.Accounts.Adapters.Web` - Direct Postgres access via Repo
-- `Mosslet.Accounts.Adapters.Native` - API client + SQLite cache
+**Current State (needs refactoring):**
+- ❌ `web.ex` contains ~1900 lines with full business logic copied from `accounts.ex`
+- ❌ `native.ex` contains full business logic duplicated
+- ❌ Business logic duplicated across adapters
 
-**Implemented callbacks (50+):**
+**Target State (thin adapters):**
+- ✅ `accounts.ex` contains all business logic (changesets, broadcasts, multi-step operations)
+- ✅ `web.ex` contains only Repo calls (~200-300 lines)
+- ✅ `native.ex` contains only API/cache calls (~200-300 lines)
+- ✅ Adapters are thin data access layers
 
-Authentication & Users:
+**Refactoring Approach:**
 
-- [x] `get_user_by_email_and_password/2` - Routes to `API.Client.login/2` on native
-- [x] `register_user/2` - Routes to `API.Client.register/1` on native
-- [x] `get_user!/1` and `get_user/1` - Fetch via API or cache on native
-- [x] `get_user_by_email/1`, `get_user_by_username/1`
-- [x] `get_user_by_session_token/1`, `generate_user_session_token/1`, `delete_user_session_token/1`
-- [x] `get_user_with_preloads/1`, `get_user_from_profile_slug/1`, `get_user_from_profile_slug!/1`
-- [x] `confirm_user/1`
+1. **Keep simple CRUD in adapters** - Functions that are purely data access:
+   - `get_user/1`, `get_user!/1`, `get_user_by_email/1`, `get_user_by_username/1`
+   - `get_connection/1`, `get_connection!/1`
+   - `get_user_connection/1`, `get_user_connection!/1`
+   - `preload_connection/1`
+   - Query functions: `filter_user_connections/2`, `search_user_connections/2`, etc.
 
-User Connections:
+2. **Move business logic back to context** - Functions with changesets, broadcasts, or multi-step logic:
+   - `update_user_name/3` → context builds changeset, calls `adapter().persist_user_name/4`
+   - `update_user_profile/3` → context handles profile preview jobs, calls `adapter().persist_profile/3`
+   - `confirm_user_connection/3` → context orchestrates bidirectional confirmation
+   - All `update_*` functions that involve changesets + side effects
 
-- [x] `get_connection/1`, `get_connection!/1`
-- [x] `get_user_connection/1`, `get_user_connection!/1`
-- [x] `create_user_connection/2`, `update_user_connection/3`, `delete_user_connection/1`
-- [x] `confirm_user_connection/3`
-- [x] `filter_user_connections/2`, `filter_user_arrivals/2`
-- [x] `list_user_connections_for_sync/2`
-- [x] `get_all_user_connections/1`, `get_all_confirmed_user_connections/1`
-- [x] `search_user_connections/2`
-- [x] `has_user_connection?/2`, `has_confirmed_user_connection?/2`, `has_any_user_connections?/1`
-- [x] `arrivals_count/1`, `list_user_arrivals_connections/2`
-- [x] `delete_both_user_connections/1`
-- [x] `get_user_by_username_for_connection/2`, `get_user_by_email_for_connection/2`
-- [x] `get_both_user_connections_between_users!/2`
-- [x] `get_user_connection_between_users/2`, `get_user_connection_between_users!/2`
-- [x] `get_current_user_connection_between_users!/2`
-- [x] `get_user_connection_for_user_group/2`, `get_user_connection_for_reply_shared_users/2`
-- [x] `get_user_connection_from_shared_item/2`, `get_post_author_permissions_for_viewer/2`
-- [x] `validate_users_in_connection/2`
-- [x] `update_user_connection_label/3`, `update_user_connection_zen/3`, `update_user_connection_photos/3`
-- [x] `preload_connection/1`
+3. **Simplify adapter behaviour** - New callbacks focus on data persistence:
+   - `persist_user_name(user, conn, user_changeset, conn_changeset)` → returns `{:ok, user, conn}` or `{:error, changeset}`
+   - `persist_user_profile(conn, changeset)` → returns `{:ok, conn}` or `{:error, changeset}`
+   - `persist_user_connection_confirmation(uconn, reverse_attrs)` → handles the Multi
 
-User Updates:
+**Example Refactor - `update_user_name/3`:**
 
-- [x] `update_user_profile/3`, `create_user_profile/3`, `delete_user_profile/2`
-- [x] `update_user_name/3`, `update_user_username/3`
-- [x] `update_user_visibility/3`
-- [x] `update_user_password/4`, `reset_user_password/3`
-- [x] `update_user_avatar/3`
-- [x] `update_user_onboarding/3`, `update_user_onboarding_profile/3`
-- [x] `update_user_notifications/3`
-- [x] `update_user_tokens/2`
-- [x] `update_user_email_notification_received_at/2`, `update_user_reply_notification_received_at/2`
-- [x] `update_user_replies_seen_at/2`
-- [x] `apply_user_email/4`, `check_if_can_change_user_email/3`, `update_user_email/4`
+```elixir
+# BEFORE (in web.ex - ~80 lines of business logic)
+def update_user_name(user, attrs, opts) do
+  changeset = User.name_changeset(user, attrs, opts)
+  conn = get_connection!(user.connection.id)
+  c_attrs = changeset.changes.connection_map
+  # ... 60+ more lines of Multi, broadcasts, profile updates
+end
 
-Blocking:
+# AFTER (in accounts.ex - business logic stays here)
+def update_user_name(user, attrs, opts) do
+  changeset = User.name_changeset(user, attrs, opts)
+  conn = adapter().get_connection!(user.connection.id)
+  c_attrs = Map.get(changeset.changes, :connection_map, %{})
 
-- [x] `block_user/4`, `unblock_user/2`, `user_blocked?/2`
-- [x] `list_blocked_users/1`, `get_user_block/2`
+  case adapter().persist_user_name(user, conn, changeset, c_attrs, opts) do
+    {:ok, updated_user, updated_conn} ->
+      # Business logic stays in context
+      Groups.maybe_update_name_for_user_groups(updated_user, %{encrypted_name: c_attrs.c_name}, key: opts[:key])
 
-Item Lookups:
+      if updated_user.connection.profile do
+        update_profile_with_new_name(updated_user, attrs, opts)
+      else
+        broadcast_connection(updated_conn, :uconn_name_updated)
+        {:ok, updated_user}
+      end
 
-- [x] `get_user_from_post/1`, `get_user_from_item/1`, `get_user_from_item!/1`
-- [x] `get_connection_from_item/2`
-- [x] `get_shared_user_by_username/2`
+    {:error, changeset} ->
+      {:error, changeset}
+  end
+end
 
-Admin & Stats:
+# AFTER (in web.ex - thin, ~15 lines)
+def persist_user_name(user, conn, changeset, c_attrs, _opts) do
+  Ecto.Multi.new()
+  |> Ecto.Multi.update(:update_user, changeset)
+  |> Ecto.Multi.update(:update_connection, Connection.update_name_changeset(conn, %{
+    name: c_attrs.c_name,
+    name_hash: c_attrs.c_name_hash
+  }))
+  |> Repo.transaction_on_primary()
+  |> case do
+    {:ok, %{update_user: user, update_connection: conn}} -> {:ok, user, conn}
+    {:error, _, changeset, _} -> {:error, changeset}
+  end
+end
 
-- [x] `list_all_users/0`, `count_all_users/0`
-- [x] `list_all_confirmed_users/0`, `count_all_confirmed_users/0`
-- [x] `suspend_user/2`
+# AFTER (in native.ex - thin, ~10 lines)
+def persist_user_name(_user, _conn, _changeset, attrs, _opts) do
+  if Sync.online?() do
+    case API.Client.update_user_name(attrs) do
+      {:ok, %{user: user, connection: conn}} -> {:ok, user, conn}
+      {:error, reason} -> {:error, reason}
+    end
+  else
+    Cache.queue_for_sync("user", "update_name", attrs)
+    {:error, "Offline - queued for sync"}
+  end
+end
+```
 
-Email & Password:
+**Files to modify:**
 
-- [x] `deliver_user_reset_password_instructions/3`
-- [x] `get_user_by_reset_password_token/1`
-- [x] `deliver_user_confirmation_instructions/3`
-- [x] `deliver_user_update_email_instructions/4`
-- [x] `delete_user_account/4`, `delete_user_data/5`
+- `lib/mosslet/accounts.ex` - Move business logic back from adapters
+- `lib/mosslet/accounts/adapter.ex` - Simplify to thin data-access callbacks
+- `lib/mosslet/accounts/adapters/web.ex` - Reduce to ~200-300 lines of Repo calls
+- `lib/mosslet/accounts/adapters/native.ex` - Reduce to ~200-300 lines of API/cache calls
 
-Visibility Groups:
+**Callbacks to keep as-is (simple CRUD/queries):**
 
-- [x] `create_visibility_group/3`, `update_visibility_group/4`, `delete_visibility_group/2`
-- [x] `get_user_visibility_groups_with_connections/1`
+- `get_user/1`, `get_user!/1`, `get_user_by_email/1`, `get_user_by_username/1`
+- `get_user_by_session_token/1`, `generate_user_session_token/1`, `delete_user_session_token/1`
+- `get_connection/1`, `get_connection!/1`
+- `get_user_connection/1`, `get_user_connection!/1`
+- `filter_user_connections/2`, `filter_user_arrivals/2`, `search_user_connections/2`
+- `has_user_connection?/2`, `has_confirmed_user_connection?/2`, `has_any_user_connections?/1`
+- `arrivals_count/1`, `list_user_arrivals_connections/2`
+- `list_blocked_users/1`, `user_blocked?/2`, `get_user_block/2`
+- `list_all_users/0`, `count_all_users/0`, etc.
+- `get_user_totp/1`, `two_factor_auth_enabled?/1`, `validate_user_totp/2`
+- All `get_*` and `list_*` functions
 
-TOTP / 2FA:
+**Callbacks to refactor (move business logic to context):**
 
-- [x] `two_factor_auth_enabled?/1`
-- [x] `get_user_totp/1`
-- [x] `change_user_totp/2`
-- [x] `upsert_user_totp/2`
-- [x] `regenerate_user_totp_backup_codes/1`
-- [x] `delete_user_totp/1`
-- [x] `validate_user_totp/2`
+- `register_user/2` → `persist_user_registration/2`
+- `update_user_name/3` → `persist_user_name/5`
+- `update_user_username/3` → `persist_user_username/5`
+- `update_user_profile/3` → `persist_user_profile/3`
+- `update_user_visibility/3` → `persist_user_visibility/3`
+- `update_user_password/4` → `persist_user_password/3`
+- `update_user_avatar/3` → `persist_user_avatar/4`
+- `confirm_user_connection/3` → `persist_user_connection_confirmation/3`
+- `block_user/4` → `persist_user_block/3`
+- `delete_user_account/4` → `persist_user_deletion/2`
+- All `update_*`, `create_*`, `delete_*` functions with side effects
 
-**Files created/modified:**
+**Files created (initial implementation, needs refactoring):**
 
 - `lib/mosslet/accounts/adapter.ex` - Behaviour with 50+ callbacks
-- `lib/mosslet/accounts/adapters/web.ex` - Web adapter (direct Repo)
-- `lib/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache)
+- `lib/mosslet/accounts/adapters/web.ex` - Web adapter (currently has full business logic - needs thinning)
+- `lib/mosslet/accounts/adapters/native.ex` - Native adapter (currently has full business logic - needs thinning)
 - `lib/mosslet/session/native.ex` - JWT token + session key storage (from Phase 3)
 
-#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex`
+#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` - 🔄 NEEDS REFACTORING
 
-The Timeline context now uses a platform adapter pattern:
+**Status:** If timeline adapters were created with full business logic like accounts, they need the same thin adapter refactoring.
 
-- `Mosslet.Timeline.Adapter` - Behaviour defining 60+ callbacks for all timeline operations
-- `Mosslet.Timeline.Adapters.Web` - Direct Postgres access via Repo
-- `Mosslet.Timeline.Adapters.Native` - API client + SQLite cache
+**Target State (thin adapters):**
+- ✅ `timeline.ex` contains all business logic (changesets, broadcasts, PubSub, cache invalidation)
+- ✅ `web.ex` contains only Repo calls
+- ✅ `native.ex` contains only API/cache calls
 
-**Implemented callbacks (60+):**
+**Callbacks to keep as-is (simple CRUD/queries):**
+- `get_post/1`, `get_post!/1`, `get_reply/1`, `get_reply!/1`
+- `list_posts/2`, `list_user_posts_for_sync/2`, `list_user_own_posts/2`
+- `filter_timeline_posts/2`, `fetch_timeline_posts_from_db/2`
+- `count_*` functions, `get_*` functions
+- `bookmarked?/2`, `post_hidden?/2`
 
-Post CRUD:
-
-- [x] `get_post/1`, `get_post!/1`, `get_post_with_nested_replies/2`
-- [x] `create_post/2`, `create_public_post/2`
-- [x] `update_post/3`, `update_public_post/3`
-- [x] `delete_post/2`, `delete_group_post/2`
-
-Reply Operations:
-
-- [x] `get_reply/1`, `get_reply!/1`
-- [x] `create_reply/2`, `update_reply/3`, `delete_reply/2`
-- [x] `get_nested_replies_for_post/2`, `get_child_replies_for_reply/2`
-- [x] `list_replies/2`, `list_public_replies/2`
-
-Post Listings:
-
-- [x] `list_posts/2`, `list_user_posts_for_sync/2`
-- [x] `list_user_own_posts/2`, `list_connection_posts/2`
-- [x] `list_group_posts/2`, `list_discover_posts/2`
-- [x] `filter_timeline_posts/2`, `fetch_timeline_posts_from_db/2`
-
-Favorites/Reactions:
-
-- [x] `inc_favs/1`, `decr_favs/1`
-- [x] `inc_reply_favs/1`, `decr_reply_favs/1`
-- [x] `update_post_fav/3`, `update_reply_fav/3`
-
-Bookmarks:
-
-- [x] `create_bookmark/3`, `update_bookmark/3`, `delete_bookmark/2`
-- [x] `get_bookmark/2`, `bookmarked?/2`
-- [x] `list_user_bookmarks/2`, `list_user_bookmark_categories/1`
-- [x] `create_bookmark_category/2`, `update_bookmark_category/2`, `delete_bookmark_category/1`
-- [x] `get_user_bookmark_category/2`
-
-Counts:
-
-- [x] `count_all_posts/0`, `post_count/2`
-- [x] `count_user_own_posts/2`, `count_user_group_posts/2`
-- [x] `count_user_connection_posts/2`, `count_discover_posts/2`
-- [x] `count_unread_posts_for_user/1`, `count_unread_replies_for_user/1`
-- [x] `count_replies_for_post/2`, `count_user_bookmarks/2`
-
-Timeline Data:
-
-- [x] `get_timeline_data/3`, `get_timeline_counts/1`
-- [x] `get_user_timeline_preference/1`, `update_user_timeline_preference/3`
-- [x] `change_user_timeline_preference/3`
-
-User Posts & Sharing:
-
-- [x] `get_user_post_by_post_id_and_user_id/2`, `get_user_post_by_post_id_and_user_id!/2`
-- [x] `share_post_with_user/4`, `remove_self_from_shared_post/2`
-- [x] `delete_user_post/2`, `get_user_post/2`
-- [x] `get_or_create_user_post_for_public/2`
-- [x] `create_or_update_user_post_receipt/3`
-
-Reposts & Sharing:
-
-- [x] `inc_reposts/1`
-- [x] `create_public_repost/2`, `create_repost/2`
-- [x] `create_targeted_share/2`
-- [x] `update_post_shared_users/3`, `remove_post_shared_user/3`
-
-Misc:
-
-- [x] `get_blocked_user_ids/1`
-- [x] `hide_post/3`, `unhide_post/2`, `post_hidden?/2`
-- [x] `report_post/4`
-- [x] `mark_top_level_replies_read_for_post/2`, `mark_nested_replies_read_for_parent/2`
-- [x] `mark_all_replies_read_for_user/1`
-- [x] `preload_group/1`
-- [x] `change_post/3`, `change_reply/3`
-- [x] `invalidate_timeline_cache_for_user/2`
-- [x] `get_expired_ephemeral_posts/1`, `get_user_ephemeral_posts/1`
+**Callbacks to refactor (move business logic to context):**
+- `create_post/2` → `persist_post/2` (context handles broadcasts, UserPost creation)
+- `update_post/3` → `persist_post_update/3`
+- `delete_post/2` → `persist_post_deletion/2` (context handles cascade logic)
+- `create_reply/2` → `persist_reply/2`
+- `share_post_with_user/4` → `persist_post_share/4`
+- All `update_*`, `create_*`, `delete_*` with broadcasts or side effects
 
 **Files created/modified:**
 
-- `lib/mosslet/timeline/adapter.ex` - Behaviour with 60+ callbacks
-- `lib/mosslet/timeline/adapters/web.ex` - Web adapter (direct Repo)
-- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache)
+- `lib/mosslet/timeline/adapter.ex` - Behaviour with 60+ callbacks (needs thinning)
+- `lib/mosslet/timeline/adapters/web.ex` - Web adapter (needs thinning if has business logic)
+- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (needs thinning if has business logic)
 
 #### 5.3 Groups - `groups.ex` (Priority: MEDIUM)
 
