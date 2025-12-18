@@ -874,19 +874,13 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def deliver_user_reset_password_instructions(user, email, reset_password_url_fun)
-      when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, email, "reset_password")
-
-    Repo.transaction_on_primary(fn ->
-      Repo.insert!(user_token)
-    end)
-
-    UserNotifier.deliver_reset_password_instructions(
-      user,
-      email,
-      reset_password_url_fun.(encoded_token)
-    )
+  def deliver_user_reset_password_instructions(user_token) do
+    case Repo.transaction_on_primary(fn ->
+           Repo.insert!(user_token)
+         end) do
+      {:ok, user_token} -> {:ok, user_token}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
@@ -1225,11 +1219,23 @@ defmodule Mosslet.Accounts.Adapters.Web do
     context = "change:#{d_email}"
 
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
-         %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, %{user: _user, tokens: _tokens, connection: conn}} <-
-           Repo.transaction_on_primary(user_email_multi(user, email, context, key)) do
-      broadcast_connection(conn, :uconn_email_updated)
-      :ok
+         {:ok, result} <-
+           Repo.transaction_on_primary(fn ->
+             case Repo.one(query) do
+               %UserToken{sent_to: email} ->
+                 case user_email_multi(user, email, context, key) |> Repo.transaction() do
+                   {:ok, %{connection: conn}} -> {:ok, conn}
+                   {:error, _} -> {:error, :transaction_failed}
+                 end
+
+               nil ->
+                 {:error, :token_not_found}
+             end
+           end) do
+      case result do
+        {:ok, conn} -> {:ok, conn}
+        {:error, reason} -> {:error, reason}
+      end
     else
       _rest -> :error
     end

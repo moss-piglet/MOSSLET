@@ -774,7 +774,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def deliver_user_reset_password_instructions(_user, _email, _reset_password_url_fun) do
+  def deliver_user_reset_password_instructions(_user_token) do
     Logger.warning("deliver_user_reset_password_instructions via API not yet implemented")
     {:error, "Password reset must be done via web interface"}
   end
@@ -1055,7 +1055,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   @impl true
   def update_user_email(_user, _d_email, _token, _key) do
     Logger.warning("update_user_email must be done via web interface")
-    :error
+    {:error, "Email change must be done via web interface"}
   end
 
   @impl true

@@ -378,11 +378,8 @@ defmodule Mosslet.Accounts.Adapter do
   @doc """
   Delivers password reset instructions via email.
   """
-  @callback deliver_user_reset_password_instructions(
-              user :: User.t(),
-              email :: String.t(),
-              reset_password_url_fun :: (String.t() -> String.t())
-            ) :: {:ok, map()} | {:error, any()}
+  @callback deliver_user_reset_password_instructions(user_token :: UserToken.t()) ::
+              {:ok, map()} | {:error, any()}
 
   @doc """
   Gets a user by reset password token.

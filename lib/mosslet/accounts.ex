@@ -1585,57 +1585,59 @@ defmodule Mosslet.Accounts do
   The confirmed_at date is also updated to the current time.
   """
   def update_user_email(user, d_email, token, key) do
-    context = "change:#{d_email}"
+    case adapter().update_user_email(user, d_email, token, key) do
+      {:ok, conn} ->
+        if user.connection.profile do
+          email = MossletWeb.Helpers.decr(conn.email, user, key)
 
-    with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
-         %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, %{user: _user, tokens: _tokens, connection: conn}} <-
-           Repo.transaction_on_primary(user_email_multi(user, email, context, key)) do
-      if user.connection.profile do
-        profile_attrs = Map.put(%{}, "id", user.connection.id)
+          profile_attrs = Map.put(%{}, "id", user.connection.id)
 
-        profile_attrs =
-          profile_attrs
-          |> Map.put("profile", %{
-            "username" => MossletWeb.Helpers.decr(user.username, user, key),
-            "temp_username" => MossletWeb.Helpers.decr(user.username, user, key),
-            "name" => MossletWeb.Helpers.decr(user.username, user, key),
-            "email" => email,
-            "visibility" => user.visibility,
-            "about" => decrypt_profile_about(user, key),
-            "alternate_email" => decrypt_profile_field(user, key, :alternate_email),
-            "website_url" => decrypt_profile_field(user, key, :website_url),
-            "website_label" => decrypt_profile_field(user, key, :website_label)
-          })
-
-        profile_attrs =
-          Map.put(
-            profile_attrs,
-            "profile",
-            Map.put(profile_attrs["profile"], "opts_map", %{
-              user: user,
-              key: key,
-              update_profile: true,
-              encrypt: true
+          profile_attrs =
+            profile_attrs
+            |> Map.put("profile", %{
+              "username" => MossletWeb.Helpers.decr(user.username, user, key),
+              "temp_username" => MossletWeb.Helpers.decr(user.username, user, key),
+              "name" => MossletWeb.Helpers.decr(user.username, user, key),
+              "email" => email,
+              "visibility" => user.visibility,
+              "about" => decrypt_profile_about(user, key),
+              "alternate_email" => decrypt_profile_field(user, key, :alternate_email),
+              "website_url" => decrypt_profile_field(user, key, :website_url),
+              "website_label" => decrypt_profile_field(user, key, :website_label)
             })
-          )
 
-        with {:ok, conn} <-
-               update_user_profile(user, profile_attrs,
-                 key: key,
-                 user: user,
-                 update_profile: true,
-                 encrypt: true
-               ) do
+          profile_attrs =
+            Map.put(
+              profile_attrs,
+              "profile",
+              Map.put(profile_attrs["profile"], "opts_map", %{
+                user: user,
+                key: key,
+                update_profile: true,
+                encrypt: true
+              })
+            )
+
+          with {:ok, conn} <-
+                 update_user_profile(user, profile_attrs,
+                   key: key,
+                   user: user,
+                   update_profile: true,
+                   encrypt: true
+                 ) do
+            broadcast_connection(conn, :uconn_email_updated)
+            :ok
+          end
+        else
           broadcast_connection(conn, :uconn_email_updated)
           :ok
         end
-      else
-        broadcast_connection(conn, :uconn_email_updated)
-        :ok
-      end
-    else
-      _rest -> :error
+
+      :error ->
+        :error
+
+      {:error, _reason} ->
+        :error
     end
   end
 
@@ -2077,7 +2079,19 @@ defmodule Mosslet.Accounts do
   """
   def deliver_user_reset_password_instructions(%User{} = user, email, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    adapter().deliver_user_reset_password_instructions(user, email, reset_password_url_fun)
+    {encoded_token, user_token} = UserToken.build_email_token(user, email, "reset_password")
+
+    case adapter().deliver_user_reset_password_instructions(user_token) do
+      {:ok, user_token} ->
+        UserNotifier.deliver_reset_password_instructions(
+          user,
+          email,
+          reset_password_url_fun.(encoded_token)
+        )
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   @doc """
@@ -2293,10 +2307,11 @@ defmodule Mosslet.Accounts do
 
   # from Mosslet
   def update_last_signed_in_info(user, ip, key) do
-    user
-    |> User.last_signed_in_changeset(ip, key)
-    |> Repo.update()
-    |> Repo.transaction_on_primary()
+    Repo.transaction_on_primary(fn ->
+      user
+      |> User.last_signed_in_changeset(ip, key)
+      |> Repo.update!()
+    end)
   end
 
   def preload_org_data(user, current_org_slug \\ nil) do
