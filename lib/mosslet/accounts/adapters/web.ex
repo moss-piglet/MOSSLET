@@ -18,8 +18,11 @@ defmodule Mosslet.Accounts.Adapters.Web do
   alias Mosslet.Accounts.{
     Connection,
     User,
+    UserBlock,
     UserConnection,
-    UserToken
+    UserNotifier,
+    UserToken,
+    UserTOTP
   }
 
   @impl true
@@ -31,29 +34,27 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def register_user(%Ecto.Changeset{} = user_changeset, c_attrs \\ %{}) do
-    case Repo.transaction_on_primary(fn ->
-           Ecto.Multi.new()
-           |> Ecto.Multi.insert(:insert_user, user_changeset)
-           |> Ecto.Multi.insert(:insert_connection, fn %{insert_user: user} ->
-             Connection.register_changeset(%Connection{}, %{
-               email: c_attrs.c_email,
-               email_hash: c_attrs.c_email_hash,
-               username: c_attrs.c_username,
-               username_hash: c_attrs.c_username_hash
-             })
-             |> Ecto.Changeset.put_assoc(:user, user)
-           end)
-           |> Repo.transaction_on_primary()
-         end) do
-      {:ok, {:ok, %{insert_user: user, insert_connection: _conn}}} ->
-        broadcast_admin({:ok, user}, :account_registered)
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:insert_user, user_changeset)
+    |> Ecto.Multi.insert(:insert_connection, fn %{insert_user: user} ->
+      Connection.register_changeset(%Connection{}, %{
+        email: c_attrs.c_email,
+        email_hash: c_attrs.c_email_hash,
+        username: c_attrs.c_username,
+        username_hash: c_attrs.c_username_hash
+      })
+      |> Ecto.Changeset.put_assoc(:user, user)
+    end)
+    |> Repo.transaction_on_primary()
+    |> case do
+      {:ok, %{insert_user: user, insert_connection: _conn}} ->
         {:ok, user}
 
-      {:ok, {:error, :insert_user, changeset, _map}} ->
+      {:error, :insert_user, changeset, _map} ->
         {:error, changeset}
 
-      {:ok, error} ->
-        {:error, error}
+      {:error, :insert_connection, changeset, _map} ->
+        {:error, changeset}
     end
   end
 
@@ -137,7 +138,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
          %User{} = user <- Repo.one(query),
          {:ok, %{user: user}} <- Repo.transaction_on_primary(confirm_user_multi(user)) do
-      broadcast_admin({:ok, user}, :account_confirmed)
       {:ok, user}
     else
       _ -> :error
@@ -175,7 +175,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end) do
       {:ok, {:ok, uconn}} ->
         {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_created)
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -191,7 +190,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end) do
       {:ok, {:ok, uconn}} ->
         {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -208,7 +206,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end) do
       {:ok, {:ok, uconn}} ->
         {:ok, uconn}
-        |> broadcast(:uconn_deleted)
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -237,8 +234,8 @@ defmodule Mosslet.Accounts.Adapters.Web do
              )
              |> Repo.transaction_on_primary() do
           {:ok, %{upd_insert_uconn: ins_uconn}} ->
-            broadcast_user_connections([upd_uconn, ins_uconn], :uconn_confirmed)
-            {:ok, upd_uconn, ins_uconn}
+            {:ok, upd_uconn |> Repo.preload([:user, :connection]),
+             ins_uconn |> Repo.preload([:user, :connection])}
 
           {:ok, {:error, changeset}} ->
             {:error, changeset}
@@ -313,8 +310,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def list_blocked_users(user) do
-    alias Mosslet.Accounts.UserBlock
-
     query =
       from b in UserBlock,
         where: b.blocker_id == ^user.id,
@@ -431,8 +426,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
         {:error, changeset}
 
       {:ok, {_count, uconns}} ->
-        broadcast_user_connections(uconns, :uconn_deleted)
-        {:ok, uconns}
+        {:ok, Enum.map(uconns, fn uc -> Repo.preload(uc, [:user, :connection]) end)}
 
       _rest ->
         {:error, "error"}
@@ -573,7 +567,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end) do
       {:ok, {:ok, uconn}} ->
         {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -592,7 +585,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
          end) do
       {:ok, {:ok, uconn}} ->
         {:ok, uconn |> Repo.preload([:user, :connection])}
-        |> broadcast(:uconn_updated)
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -610,21 +602,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
            |> Repo.update()
          end) do
       {:ok, {:ok, uconn}} ->
-        updated_uconn = uconn |> Repo.preload([:user, :connection])
-
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "accounts:#{updated_uconn.user_id}",
-          {:uconn_updated, updated_uconn}
-        )
-
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "accounts:#{updated_uconn.reverse_user_id}",
-          {:uconn_updated, updated_uconn}
-        )
-
-        {:ok, updated_uconn}
+        {:ok, uconn |> Repo.preload([:user, :connection])}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -635,17 +613,11 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def update_user_profile(user, attrs, opts) do
-    conn = get_connection!(user.connection.id)
-
-    changeset = Connection.profile_changeset(conn, attrs, opts)
-
+  def update_user_profile(_user, conn, changeset) do
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)
          |> Repo.transaction_on_primary() do
       {:ok, %{update_connection: updated_conn}} ->
-        uconns = get_all_user_connections(user.id)
-        broadcast_user_connections(uconns, :uconn_updated)
         {:ok, updated_conn}
 
       {:error, :update_connection, changeset, _} ->
@@ -827,13 +799,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def block_user(blocker, blocked_user, attrs, opts) do
-    alias Mosslet.Accounts.UserBlock
-
-    attrs =
-      attrs
-      |> Map.put("blocker_id", blocker.id)
-      |> Map.put("blocked_id", blocked_user.id)
-
     existing_block = Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
 
     case Repo.transaction_on_primary(fn ->
@@ -848,21 +813,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
            end
          end) do
       {:ok, {:ok, block}} ->
-        event = if existing_block, do: :user_block_updated, else: :user_blocked
-
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "blocks:#{blocker.id}",
-          {event, block}
-        )
-
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "blocks:#{blocked_user.id}",
-          {event, block}
-        )
-
-        {:ok, block}
+        {:ok, block, existing_block != nil}
 
       {:ok, {:error, changeset}} ->
         {:error, changeset}
@@ -874,8 +825,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def unblock_user(blocker, blocked_user) do
-    alias Mosslet.Accounts.UserBlock
-
     block = Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
 
     if block do
@@ -883,18 +832,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
              Repo.delete(block)
            end) do
         {:ok, {:ok, deleted_block}} ->
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "blocks:#{blocker.id}",
-            {:user_unblocked, deleted_block}
-          )
-
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "blocks:#{blocked_user.id}",
-            {:user_unblocked, deleted_block}
-          )
-
           {:ok, deleted_block}
 
         {:ok, {:error, changeset}} ->
@@ -910,8 +847,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def user_blocked?(blocker, blocked_user) do
-    alias Mosslet.Accounts.UserBlock
-
     query =
       from b in UserBlock,
         where: b.blocker_id == ^blocker.id and b.blocked_id == ^blocked_user.id
@@ -921,26 +856,16 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def get_user_block(blocker, blocked_user_id) when is_binary(blocked_user_id) do
-    alias Mosslet.Accounts.UserBlock
     Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user_id)
   end
 
   @impl true
-  def delete_user_account(user, password, attrs, opts) do
-    changeset =
-      user
-      |> User.delete_account_changeset(attrs, opts)
-      |> User.validate_current_password(password)
-
-    uconns = get_all_user_connections(user.id)
-
+  def delete_user_account(_user, _password, changeset) do
     Ecto.Multi.new()
     |> Ecto.Multi.delete(:user, changeset)
     |> Repo.transaction_on_primary()
     |> case do
       {:ok, %{user: user}} ->
-        broadcast_admin({:ok, user}, :account_deleted)
-        broadcast_user_connections(uconns, :uconn_deleted)
         {:ok, user}
 
       {:error, :user, changeset, _} ->
@@ -951,8 +876,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
   @impl true
   def deliver_user_reset_password_instructions(user, email, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    alias Mosslet.Accounts.UserNotifier
-
     {encoded_token, user_token} = UserToken.build_email_token(user, email, "reset_password")
 
     Repo.transaction_on_primary(fn ->
@@ -979,8 +902,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
   @impl true
   def deliver_user_confirmation_instructions(user, email, confirmation_url_fun)
       when is_function(confirmation_url_fun, 1) do
-    alias Mosslet.Accounts.UserNotifier
-
     if user.confirmed_at do
       {:error, :already_confirmed}
     else
@@ -1301,8 +1222,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
   @impl true
   def update_user_email(user, d_email, token, key) do
-    alias Mosslet.Accounts.UserNotifier
-
     context = "change:#{d_email}"
 
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
@@ -1341,8 +1260,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
   @impl true
   def deliver_user_update_email_instructions(user, current_email, new_email, update_email_url_fun)
       when is_function(update_email_url_fun, 1) do
-    alias Mosslet.Accounts.UserNotifier
-
     {encoded_token, user_token} =
       UserToken.build_email_token(user, new_email, "change:#{current_email}")
 
@@ -1526,8 +1443,6 @@ defmodule Mosslet.Accounts.Adapters.Web do
   # ============================================================================
   # TOTP / 2FA Functions
   # ============================================================================
-
-  alias Mosslet.Accounts.UserTOTP
 
   @impl true
   def two_factor_auth_enabled?(user) do

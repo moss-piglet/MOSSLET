@@ -2,7 +2,6 @@ defmodule MossletWeb.UserSessionController do
   use MossletWeb, :controller
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.User
   alias MossletWeb.UserAuth
 
   plug :redirect_if_passwordless_disabled when action in [:create_from_token]

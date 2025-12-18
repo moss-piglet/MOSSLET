@@ -369,27 +369,79 @@ defmodule Mosslet.Accounts do
 
   """
   def register_user(%Ecto.Changeset{} = user, c_attrs \\ %{}) do
-    adapter().register_user(user, c_attrs)
+    case adapter().register_user(user, c_attrs) do
+      {:ok, user} ->
+        broadcast_admin({:ok, user}, :account_registered)
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def create_user_connection(attrs, opts) do
-    adapter().create_user_connection(attrs, opts)
+    case adapter().create_user_connection(attrs, opts) do
+      {:ok, uconn} ->
+        {:ok, uconn}
+        |> broadcast(:uconn_created)
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def update_user_connection(uconn, attrs, opts) do
-    adapter().update_user_connection(uconn, attrs, opts)
+    case adapter().update_user_connection(uconn, attrs, opts) do
+      {:ok, uconn} ->
+        {:ok, uconn}
+        |> broadcast(:uconn_updated)
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def update_user_connection_label(uconn, attrs, opts) do
-    adapter().update_user_connection_label(uconn, attrs, opts)
+    case adapter().update_user_connection_label(uconn, attrs, opts) do
+      {:ok, uconn} ->
+        {:ok, uconn}
+        |> broadcast(:uconn_updated)
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   def update_user_connection_zen(uconn, attrs, opts) do
-    adapter().update_user_connection_zen(uconn, attrs, opts)
+    case adapter().update_user_connection_zen(uconn, attrs, opts) do
+      {:ok, uconn} ->
+        {:ok, uconn}
+        |> broadcast(:uconn_updated)
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   def update_user_connection_photos(uconn, attrs, opts) do
-    adapter().update_user_connection_photos(uconn, attrs, opts)
+    case adapter().update_user_connection_photos(uconn, attrs, opts) do
+      {:ok, updated_uconn} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "accounts:#{updated_uconn.user_id}",
+          {:uconn_updated, updated_uconn}
+        )
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "accounts:#{updated_uconn.reverse_user_id}",
+          {:uconn_updated, updated_uconn}
+        )
+
+        {:ok, updated_uconn}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   @doc """
@@ -567,38 +619,39 @@ defmodule Mosslet.Accounts do
     old_website_url =
       if conn.profile, do: conn.profile.website_url, else: nil
 
-    {:ok, %{update_connection: updated_conn}} =
-      Ecto.Multi.new()
-      |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)
-      |> Repo.transaction_on_primary()
+    case adapter().update_user_profile(user, conn, changeset) do
+      {:ok, updated_conn} ->
+        new_website_url =
+          if updated_conn.profile, do: updated_conn.profile.website_url, else: nil
 
-    new_website_url =
-      if updated_conn.profile, do: updated_conn.profile.website_url, else: nil
+        unless opts[:visibility_changed] do
+          if old_website_url != new_website_url do
+            if old_website_url != nil do
+              clear_profile_preview_cache(conn, opts[:key])
+              Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
+            end
 
-    unless opts[:visibility_changed] do
-      if old_website_url != new_website_url do
-        if old_website_url != nil do
-          clear_profile_preview_cache(conn, opts[:key])
-          Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
+            if new_website_url != nil && new_website_url != "" do
+              Mosslet.Accounts.Jobs.ProfilePreviewFetchJob.schedule_fetch(conn.id)
+            end
+          end
         end
 
-        if new_website_url != nil && new_website_url != "" do
-          Mosslet.Accounts.Jobs.ProfilePreviewFetchJob.schedule_fetch(conn.id)
+        cond do
+          updated_conn.profile.visibility == :public ->
+            broadcast_public_connection(updated_conn, :conn_updated)
+            broadcast_connection(updated_conn, :uconn_updated)
+            broadcast_public_user_connections(uconns, :uconn_updated)
+            {:ok, updated_conn}
+
+          true ->
+            broadcast_connection(updated_conn, :uconn_updated)
+            broadcast_public_user_connections(uconns, :uconn_updated)
+            {:ok, updated_conn}
         end
-      end
-    end
 
-    cond do
-      updated_conn.profile.visibility == :public ->
-        broadcast_public_connection(updated_conn, :conn_updated)
-        broadcast_connection(updated_conn, :uconn_updated)
-        broadcast_public_user_connections(uconns, :uconn_updated)
-        {:ok, updated_conn}
-
-      true ->
-        broadcast_connection(updated_conn, :uconn_updated)
-        broadcast_public_user_connections(uconns, :uconn_updated)
-        {:ok, updated_conn}
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -1039,11 +1092,8 @@ defmodule Mosslet.Accounts do
     has_profile_website_url =
       conn && conn.profile && conn.profile.website_url != nil
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.delete(:user, changeset)
-    |> Repo.transaction_on_primary()
-    |> case do
-      {:ok, %{user: user}} ->
+    case adapter().delete_user_account(user, password, changeset) do
+      {:ok, user} ->
         if has_profile_website_url do
           Mosslet.Extensions.URLPreviewServer.delete_cached_previews_for_connection(conn.id)
           Mosslet.Accounts.Jobs.ProfilePreviewCleanupJob.schedule_cleanup(conn.id)
@@ -1061,7 +1111,7 @@ defmodule Mosslet.Accounts do
         {:ok, user}
         |> broadcast_account_deleted(:account_deleted)
 
-      {:error, :user, changeset, _} ->
+      {:error, changeset} ->
         {:error, changeset}
     end
   end
@@ -1972,19 +2022,46 @@ defmodule Mosslet.Accounts do
   and the token is deleted.
   """
   def confirm_user(token) do
-    adapter().confirm_user(token)
+    case adapter().confirm_user(token) do
+      {:ok, user} ->
+        broadcast_admin({:ok, user}, :account_confirmed)
+
+      :error ->
+        :error
+    end
   end
 
   def confirm_user_connection(uconn, attrs, opts \\ []) do
-    adapter().confirm_user_connection(uconn, attrs, opts)
+    case adapter().confirm_user_connection(uconn, attrs, opts) do
+      {:ok, upd_uconn, ins_uconn} ->
+        broadcast_user_connections([upd_uconn, ins_uconn], :uconn_confirmed)
+        {:ok, upd_uconn, ins_uconn}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   def delete_user_connection(%UserConnection{} = uconn) do
-    adapter().delete_user_connection(uconn)
+    case adapter().delete_user_connection(uconn) do
+      {:ok, uconn} ->
+        {:ok, uconn}
+        |> broadcast(:uconn_deleted)
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   def delete_both_user_connections(%UserConnection{} = uconn) do
-    adapter().delete_both_user_connections(uconn)
+    case adapter().delete_both_user_connections(uconn) do
+      {:ok, uconns} ->
+        broadcast_user_connections(uconns, :uconn_deleted)
+        {:ok, uconns}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   ## Reset password
@@ -2032,7 +2109,7 @@ defmodule Mosslet.Accounts do
 
   """
   def reset_user_password(user, attrs, opts \\ []) do
-    adapter().reset_user_password
+    adapter().reset_user_password(user, attrs, opts)
   end
 
   # Status broadcasting functions
@@ -2463,27 +2540,10 @@ defmodule Mosslet.Accounts do
       |> Map.put("blocker_id", blocker.id)
       |> Map.put("blocked_id", blocked_user.id)
 
-    # Check if block already exists
-    existing_block = Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
+    case adapter().block_user(blocker, blocked_user, attrs, opts) do
+      {:ok, block, was_update?} ->
+        event = if was_update?, do: :user_block_updated, else: :user_blocked
 
-    case Repo.transaction_on_primary(fn ->
-           if existing_block do
-             # Update existing block
-             existing_block
-             |> UserBlock.changeset(attrs, opts)
-             |> Repo.update()
-           else
-             # Create new block
-             %UserBlock{}
-             |> UserBlock.changeset(attrs, opts)
-             |> Repo.insert()
-           end
-         end) do
-      {:ok, {:ok, block}} ->
-        # Broadcast block creation/update for real-time filtering
-        event = if existing_block, do: :user_block_updated, else: :user_blocked
-
-        # Broadcast to both the blocker AND the blocked user for bidirectional real-time updates
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "blocks:#{blocker.id}",
@@ -2498,7 +2558,7 @@ defmodule Mosslet.Accounts do
 
         {:ok, block}
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
 
       error ->
@@ -2510,36 +2570,24 @@ defmodule Mosslet.Accounts do
   Unblocks a user.
   """
   def unblock_user(blocker, blocked_user) do
-    block = Repo.get_by(UserBlock, blocker_id: blocker.id, blocked_id: blocked_user.id)
+    case adapter().unblock_user(blocker, blocked_user) do
+      {:ok, deleted_block} ->
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "blocks:#{blocker.id}",
+          {:user_unblocked, deleted_block}
+        )
 
-    if block do
-      case Repo.transaction_on_primary(fn ->
-             Repo.delete(block)
-           end) do
-        {:ok, {:ok, deleted_block}} ->
-          # Broadcast to both the blocker AND the blocked user for bidirectional real-time updates
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "blocks:#{blocker.id}",
-            {:user_unblocked, deleted_block}
-          )
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "blocks:#{blocked_user.id}",
+          {:user_unblocked, deleted_block}
+        )
 
-          Phoenix.PubSub.broadcast(
-            Mosslet.PubSub,
-            "blocks:#{blocked_user.id}",
-            {:user_unblocked, deleted_block}
-          )
+        {:ok, deleted_block}
 
-          {:ok, deleted_block}
-
-        {:ok, {:error, changeset}} ->
-          {:error, changeset}
-
-        error ->
-          error
-      end
-    else
-      {:error, :not_blocked}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

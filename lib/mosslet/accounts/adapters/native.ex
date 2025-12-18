@@ -165,6 +165,11 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
+  def confirm_user!(%User{} = user) do
+    user
+  end
+
+  @impl true
   def confirm_user(_token) do
     :error
   end
@@ -622,12 +627,11 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_profile(_user, attrs, _opts) do
+  def update_user_profile(_user, _conn, _changeset) do
     if Sync.online?() do
       Logger.warning("update_user_profile via API not yet implemented")
       {:error, "Not implemented for native yet"}
     else
-      Cache.queue_for_sync("user", "update_profile", attrs)
       {:error, "Offline - queued for sync"}
     end
   end
@@ -699,13 +703,12 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def block_user(_blocker, _blocked_user, attrs, _opts) do
+  def block_user(_blocker, _blocked_user, _attrs, _opts) do
     if Sync.online?() do
       Logger.warning("block_user via API not yet implemented")
       {:error, "Not implemented for native yet"}
     else
-      Cache.queue_for_sync("user_block", "create", attrs)
-      {:error, "Offline - queued for sync"}
+      {:error, "Offline - cannot block user"}
     end
   end
 
@@ -765,7 +768,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def delete_user_account(_user, _password, _attrs, _opts) do
+  def delete_user_account(_user, _password, _changeset) do
     Logger.warning("delete_user_account via API not yet implemented - requires confirmation flow")
     {:error, "Account deletion must be done via web interface"}
   end
@@ -1116,6 +1119,37 @@ defmodule Mosslet.Accounts.Adapters.Native do
   def delete_user_data(_user, _password, _key, _attrs, _opts) do
     Logger.warning("delete_user_data must be done via web interface")
     {:error, "Data deletion must be done via web interface"}
+  end
+
+  @impl true
+  def get_all_user_connections_from_shared_item(_item, _current_user) do
+    []
+  end
+
+  @impl true
+  def update_user_forgot_password(_user, _attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_forgot_password via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - cannot update forgot password status"}
+    end
+  end
+
+  @impl true
+  def update_user_oban_reset_token_id(_user, _attrs, _opts) do
+    if Sync.online?() do
+      Logger.warning("update_user_oban_reset_token_id via API not yet implemented")
+      {:error, "Not implemented for native yet"}
+    else
+      {:error, "Offline - cannot update oban reset token"}
+    end
+  end
+
+  @impl true
+  def update_user_admin(_user, _attrs, _opts) do
+    Logger.warning("update_user_admin must be done via web interface")
+    nil
   end
 
   # ============================================================================

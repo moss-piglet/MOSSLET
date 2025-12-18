@@ -282,8 +282,13 @@ defmodule Mosslet.Accounts.Adapter do
 
   @doc """
   Updates user profile on their connection.
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
   """
-  @callback update_user_profile(user :: User.t(), attrs :: map(), opts :: keyword()) ::
+  @callback update_user_profile(
+              user :: User.t(),
+              conn :: Connection.t(),
+              changeset :: Ecto.Changeset.t()
+            ) ::
               {:ok, Connection.t()} | {:error, Ecto.Changeset.t() | String.t()}
 
   @doc """
@@ -328,13 +333,15 @@ defmodule Mosslet.Accounts.Adapter do
 
   @doc """
   Blocks a user.
+  Thin wrapper - only handles Repo transaction, returns whether it was an update.
+  Returns {:ok, block, was_update?} or {:error, reason}.
   """
   @callback block_user(
               blocker :: User.t(),
               blocked_user :: User.t(),
               attrs :: map(),
               opts :: keyword()
-            ) :: {:ok, any()} | {:error, any()}
+            ) :: {:ok, any(), boolean()} | {:error, any()}
 
   @doc """
   Unblocks a user.
@@ -359,12 +366,13 @@ defmodule Mosslet.Accounts.Adapter do
 
   @doc """
   Deletes a user account.
+  Thin wrapper - only handles Repo transaction, business logic stays in context.
+  Takes the already-built changeset with password validation.
   """
   @callback delete_user_account(
               user :: User.t(),
               password :: String.t(),
-              attrs :: map(),
-              opts :: keyword()
+              changeset :: Ecto.Changeset.t()
             ) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 
   @doc """
