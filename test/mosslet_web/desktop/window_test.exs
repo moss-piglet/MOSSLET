@@ -10,7 +10,7 @@ defmodule MossletWeb.Desktop.WindowTest do
       assert module == Desktop.Window
       assert Keyword.get(opts, :app) == :mosslet
       assert Keyword.get(opts, :id) == MossletWindow
-      assert Keyword.get(opts, :title) == "Mosslet"
+      assert Keyword.get(opts, :title) == "MOSSLET"
       assert Keyword.get(opts, :size) == {1200, 800}
       assert Keyword.get(opts, :min_size) == {800, 600}
       assert Keyword.get(opts, :menubar) == MossletWeb.Desktop.MenuBar
