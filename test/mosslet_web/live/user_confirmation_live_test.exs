@@ -10,7 +10,7 @@ defmodule MossletWeb.UserConfirmationLiveTest do
   @valid_email "confirmation@example.com"
 
   setup do
-    %{user: user = user_fixture(%{email: @valid_email})}
+    %{user: user = user_fixture(%{email: @valid_email, confirm: false})}
 
     %{email: @valid_email, user: user}
   end

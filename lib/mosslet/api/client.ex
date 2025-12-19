@@ -280,6 +280,79 @@ defmodule Mosslet.API.Client do
     request(:get, "/api/connections/arrivals", %{}, auth: token)
   end
 
+  def totp_status(token) do
+    request(:get, "/api/auth/totp/status", %{}, auth: token)
+  end
+
+  def setup_totp(token) do
+    request(:post, "/api/auth/totp/setup", %{}, auth: token)
+  end
+
+  def enable_totp(token, secret, code) do
+    request(:post, "/api/auth/totp/enable", %{secret: secret, code: code}, auth: token)
+  end
+
+  def disable_totp(token, opts) do
+    params =
+      cond do
+        Keyword.has_key?(opts, :password) -> %{password: opts[:password]}
+        Keyword.has_key?(opts, :code) -> %{code: opts[:code]}
+        true -> %{}
+      end
+
+    request(:post, "/api/auth/totp/disable", params, auth: token)
+  end
+
+  def regenerate_backup_codes(token, code) do
+    request(:post, "/api/auth/totp/backup-codes/regenerate", %{code: code}, auth: token)
+  end
+
+  def login_with_totp(email, password, totp_code) do
+    request(:post, "/api/auth/login", %{email: email, password: password, totp_code: totp_code})
+  end
+
+  def verify_totp_token(totp_token, code) do
+    request(:post, "/api/auth/totp/verify", %{totp_token: totp_token, code: code})
+  end
+
+  def request_password_reset(email) do
+    request(:post, "/api/auth/password/reset-request", %{email: email})
+  end
+
+  def verify_password_reset_token(token) do
+    request(:post, "/api/auth/password/verify-token", %{token: token})
+  end
+
+  def reset_password_with_token(token, password, password_confirmation) do
+    request(:post, "/api/auth/password/reset", %{
+      token: token,
+      password: password,
+      password_confirmation: password_confirmation
+    })
+  end
+
+  def resend_confirmation_email(email) do
+    request(:post, "/api/auth/confirmation/resend", %{email: email})
+  end
+
+  def confirm_email_with_token(token) do
+    request(:post, "/api/auth/confirmation/confirm", %{token: token})
+  end
+
+  def request_email_change(token, email, password) do
+    request(:post, "/api/users/email/change-request", %{email: email, current_password: password},
+      auth: token
+    )
+  end
+
+  def confirm_email_change(token, change_token) do
+    request(:post, "/api/users/email/change-confirm", %{token: change_token}, auth: token)
+  end
+
+  def delete_account(token, password) do
+    request(:delete, "/api/users/account", %{current_password: password}, auth: token)
+  end
+
   defp request(method, path, body_or_params, opts \\ []) do
     url = base_url() <> path
     headers = build_headers(opts)

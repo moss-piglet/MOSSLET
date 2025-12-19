@@ -20,6 +20,8 @@ defmodule Mosslet.AccountsFixtures do
   end
 
   def user_fixture(attrs \\ %{}) do
+    {confirm, attrs} = Map.pop(attrs, :confirm, true)
+
     attrs =
       attrs
       |> valid_user_attributes()
@@ -37,8 +39,11 @@ defmodule Mosslet.AccountsFixtures do
     # the user needs to be reloaded to get the hashed email/username attrs
     user = Mosslet.Accounts.get_user_with_preloads(user.id)
 
-    # Confirm the user by default so tests don't fail on email confirmation checks
-    Mosslet.Accounts.confirm_user!(user)
+    if confirm do
+      Mosslet.Accounts.confirm_user!(user)
+    else
+      user
+    end
   end
 
   def extract_user_token(fun) do

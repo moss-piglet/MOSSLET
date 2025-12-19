@@ -123,6 +123,13 @@ defmodule MossletWeb.Router do
     post "/auth/register", AuthController, :register
     post "/auth/totp/verify", AuthController, :verify_totp
     post "/auth/remember-me/refresh", AuthController, :refresh_from_remember_me
+
+    post "/auth/password/reset-request", AuthController, :request_password_reset
+    post "/auth/password/verify-token", AuthController, :verify_password_reset_token
+    post "/auth/password/reset", AuthController, :reset_password_with_token
+
+    post "/auth/confirmation/resend", AuthController, :resend_confirmation
+    post "/auth/confirmation/confirm", AuthController, :confirm_email
   end
 
   scope "/api", MossletWeb.API do
@@ -179,6 +186,10 @@ defmodule MossletWeb.Router do
     post "/users/block", UserController, :block_user
     delete "/users/block/:user_id", UserController, :unblock_user
     get "/users/blocked", UserController, :list_blocked
+
+    delete "/users/account", UserController, :delete_account
+    post "/users/email/change-request", UserController, :request_email_change
+    post "/users/email/change-confirm", UserController, :confirm_email_change
 
     # User connections (friends)
     get "/connections", ConnectionController, :index

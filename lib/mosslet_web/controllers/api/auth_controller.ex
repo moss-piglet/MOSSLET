@@ -407,6 +407,116 @@ defmodule MossletWeb.API.AuthController do
     |> json(%{message: "Logged out successfully"})
   end
 
+  def request_password_reset(conn, %{"email" => email}) do
+    if user = Accounts.get_user_by_email(email) do
+      if user.is_forgot_pwd? do
+        Accounts.deliver_user_reset_password_instructions(
+          user,
+          email,
+          &(MossletWeb.Endpoint.url() <> "/auth/reset-password/#{&1}")
+        )
+      end
+    end
+
+    conn
+    |> put_status(:ok)
+    |> json(%{
+      message:
+        "If your email is in our system and password reset is enabled, you will receive instructions shortly."
+    })
+  end
+
+  def request_password_reset(_conn, _params), do: {:error, :missing_params}
+
+  def verify_password_reset_token(conn, %{"token" => token}) do
+    case Accounts.get_user_by_reset_password_token(token) do
+      nil ->
+        {:error, :invalid_token}
+
+      user ->
+        if user.is_forgot_pwd? && user.key do
+          conn
+          |> put_status(:ok)
+          |> json(%{valid: true, user_id: user.id})
+        else
+          {:error, :password_reset_disabled}
+        end
+    end
+  end
+
+  def verify_password_reset_token(_conn, _params), do: {:error, :missing_params}
+
+  def reset_password_with_token(
+        conn,
+        %{"token" => token, "password" => password} = params
+      ) do
+    case Accounts.get_user_by_reset_password_token(token) do
+      nil ->
+        {:error, :invalid_token}
+
+      user ->
+        if user.is_forgot_pwd? && user.key do
+          attrs = %{
+            "password" => password,
+            "password_confirmation" => params["password_confirmation"] || password
+          }
+
+          case Accounts.reset_user_password(user, attrs,
+                 user: user,
+                 key: user.key,
+                 reset_password: true
+               ) do
+            {:ok, _user} ->
+              conn
+              |> put_status(:ok)
+              |> json(%{message: "Password reset successfully"})
+
+            {:error, changeset} ->
+              {:error, changeset}
+          end
+        else
+          {:error, :password_reset_disabled}
+        end
+    end
+  end
+
+  def reset_password_with_token(_conn, _params), do: {:error, :missing_params}
+
+  def resend_confirmation(conn, %{"email" => email}) do
+    if user = Accounts.get_user_by_email(email) do
+      if is_nil(user.confirmed_at) do
+        Accounts.deliver_user_confirmation_instructions(
+          user,
+          email,
+          &(MossletWeb.Endpoint.url() <> "/auth/confirm/#{&1}")
+        )
+      end
+    end
+
+    conn
+    |> put_status(:ok)
+    |> json(%{
+      message:
+        "If your email is in our system and has not been confirmed yet, you will receive instructions shortly."
+    })
+  end
+
+  def resend_confirmation(_conn, _params), do: {:error, :missing_params}
+
+  def confirm_email(conn, %{"token" => token}) do
+    case Accounts.confirm_user(token) do
+      {:ok, _user} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{message: "Email confirmed successfully"})
+
+      :error ->
+        {:error, :invalid_token}
+    end
+  end
+
+  def confirm_email(_conn, _params), do: {:error, :missing_params}
+
   defp serialize_user(user, _session_key) do
     %{
       id: user.id,

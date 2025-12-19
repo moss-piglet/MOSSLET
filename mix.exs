@@ -36,8 +36,6 @@ defmodule Mosslet.MixProject do
     shared_deps() ++ target_deps(Mix.target())
   end
 
-  defp target_deps(:host), do: []
-
   defp target_deps(:native) do
     [
       {:desktop, "~> 1.5"},
@@ -45,7 +43,13 @@ defmodule Mosslet.MixProject do
     ]
   end
 
-  defp target_deps(_other), do: []
+  defp target_deps(_other) do
+    if Mix.env() == :test do
+      [{:desktop, "~> 1.5"}]
+    else
+      []
+    end
+  end
 
   defp shared_deps do
     [

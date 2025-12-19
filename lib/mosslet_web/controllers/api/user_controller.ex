@@ -9,6 +9,7 @@ defmodule MossletWeb.API.UserController do
   use MossletWeb, :controller
 
   alias Mosslet.Accounts
+  alias Mosslet.Encrypted.Users.Utils
 
   action_fallback MossletWeb.API.FallbackController
 
@@ -602,6 +603,68 @@ defmodule MossletWeb.API.UserController do
         {:error, changeset}
     end
   end
+
+  def delete_account(conn, %{"current_password" => password}) do
+    user = conn.assigns.current_user
+    session_key = conn.assigns.session_key
+
+    case Accounts.delete_user_account(user, password, key: session_key) do
+      {:ok, _user} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{message: "Account deleted successfully"})
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def delete_account(_conn, _params), do: {:error, :missing_params}
+
+  def request_email_change(conn, %{"email" => email, "current_password" => password}) do
+    user = conn.assigns.current_user
+    _session_key = conn.assigns.session_key
+
+    decoded_email = decode_binary(email)
+    attrs = %{"email" => decoded_email}
+
+    case Accounts.check_if_can_change_user_email(user, password, attrs) do
+      {:ok, _applied_user} ->
+        Accounts.deliver_user_update_email_instructions(
+          user,
+          user.email,
+          decoded_email,
+          &(MossletWeb.Endpoint.url() <> "/app/users/settings/confirm-email/#{&1}")
+        )
+
+        conn
+        |> put_status(:ok)
+        |> json(%{message: "Email change instructions sent to your new email address"})
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def request_email_change(_conn, _params), do: {:error, :missing_params}
+
+  def confirm_email_change(conn, %{"token" => token}) do
+    user = conn.assigns.current_user
+    session_key = conn.assigns.session_key
+    email = Utils.decrypt_user_data(user.email, user, session_key)
+
+    case Accounts.update_user_email(user, email, token, session_key) do
+      :ok ->
+        conn
+        |> put_status(:ok)
+        |> json(%{message: "Email changed successfully"})
+
+      :error ->
+        {:error, :invalid_token}
+    end
+  end
+
+  def confirm_email_change(_conn, _params), do: {:error, :missing_params}
 
   defp parse_timestamp(timestamp) when is_binary(timestamp) do
     case DateTime.from_iso8601(timestamp) do

@@ -558,7 +558,10 @@ defmodule Mosslet.AccountsTest do
 
   describe "deliver_user_confirmation_instructions/2" do
     setup do
-      %{user: user_fixture(%{email: @valid_email}), conn: Phoenix.ConnTest.build_conn()}
+      %{
+        user: user_fixture(%{email: @valid_email, confirm: false}),
+        conn: Phoenix.ConnTest.build_conn()
+      }
     end
 
     test "sends token through notification", %{user: user, conn: conn} do
@@ -585,7 +588,7 @@ defmodule Mosslet.AccountsTest do
 
   describe "confirm_user/1" do
     setup do
-      user = user_fixture(%{email: @valid_email})
+      user = user_fixture(%{email: @valid_email, confirm: false})
 
       token =
         extract_user_token(fn _url ->

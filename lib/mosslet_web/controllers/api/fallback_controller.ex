@@ -97,6 +97,21 @@ defmodule MossletWeb.API.FallbackController do
     |> json(%{error: "missing_params", message: "Required parameters are missing"})
   end
 
+  def call(conn, {:error, :invalid_token}) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "invalid_token", message: "Token is invalid or has expired"})
+  end
+
+  def call(conn, {:error, :password_reset_disabled}) do
+    conn
+    |> put_status(:forbidden)
+    |> json(%{
+      error: "password_reset_disabled",
+      message: "Password reset is not enabled for this account"
+    })
+  end
+
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     conn
     |> put_status(:unprocessable_entity)

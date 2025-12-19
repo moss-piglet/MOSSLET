@@ -170,11 +170,6 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def confirm_user(_token) do
-    :error
-  end
-
-  @impl true
   def get_connection(id) do
     case Cache.get_cached_item("connection", id) do
       %{encrypted_data: data} when not is_nil(data) ->
@@ -251,7 +246,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, _} <- Client.delete_connection(token, uconn.id) do
-        Cache.delete_cached_item("user_connection", uconn.id)
+        Cache.invalidate_cache("user_connection", uconn.id)
         {:ok, uconn}
       else
         {:error, {_status, error}} -> {:error, error}
@@ -518,7 +513,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, _} <- Client.delete_both_connections(token, uconn.id) do
-        Cache.delete_cached_item("user_connection", uconn.id)
+        Cache.invalidate_cache("user_connection", uconn.id)
         {:ok, [uconn]}
       else
         {:error, {_status, error}} -> {:error, error}
@@ -804,7 +799,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_user_visibility(user, attrs, _opts) do
+  def update_user_visibility(_user, attrs, _opts) do
     if Sync.online?() do
       visibility = Map.get(attrs, "visibility") || Map.get(attrs, :visibility)
 
@@ -939,7 +934,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
               block = deserialize_user_block(item.encrypted_data)
 
               if block && block.blocked_id == blocked_user.id do
-                Cache.delete_cached_item("user_block", block.id)
+                Cache.invalidate_cache("user_block", block.id)
               end
             end)
 
@@ -1003,27 +998,104 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def delete_user_account(_user, _password, _changeset) do
-    Logger.warning("delete_user_account via API not yet implemented - requires confirmation flow")
-    {:error, "Account deletion must be done via web interface"}
+  def delete_user_account(user, password, _changeset) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, _response} <- Client.delete_account(token, password) do
+        NativeSession.clear_session()
+        Cache.invalidate_cache("user", user.id)
+        {:ok, user}
+      else
+        {:error, {_status, %{errors: errors}}} ->
+          changeset = User.password_changeset(user, %{})
+          {:error, apply_api_errors(changeset, errors)}
+
+        {:error, {_status, error}} ->
+          changeset = User.password_changeset(user, %{})
+          {:error, Ecto.Changeset.add_error(changeset, :current_password, inspect(error))}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:error, "Offline - account deletion requires network connection"}
+    end
   end
 
   @impl true
+  def deliver_user_reset_password_instructions(email) when is_binary(email) do
+    if Sync.online?() do
+      case Client.request_password_reset(email) do
+        {:ok, _response} ->
+          {:ok, %{message: "Password reset instructions sent if email exists"}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:error, "Offline - password reset requires network connection"}
+    end
+  end
+
   def deliver_user_reset_password_instructions(_user_token) do
     Logger.warning("deliver_user_reset_password_instructions via API not yet implemented")
     {:error, "Password reset must be done via web interface"}
   end
 
   @impl true
-  def get_user_by_reset_password_token(_token) do
-    Logger.warning("get_user_by_reset_password_token not available on native")
-    nil
+  def get_user_by_reset_password_token(token) do
+    if Sync.online?() do
+      case Client.verify_password_reset_token(token) do
+        {:ok, %{valid: true, user_id: user_id}} ->
+          get_user(user_id)
+
+        _ ->
+          nil
+      end
+    else
+      nil
+    end
   end
 
   @impl true
   def insert_user_confirmation_token(_user_token) do
     Logger.warning("insert_user_confirmation_token via API not yet implemented")
     {:error, "Confirmation must be done via web interface"}
+  end
+
+  @impl true
+  def confirm_user(token) do
+    if Sync.online?() do
+      case Client.confirm_email_with_token(token) do
+        {:ok, _response} ->
+          {:ok, %User{}}
+
+        {:error, _reason} ->
+          :error
+      end
+    else
+      :error
+    end
+  end
+
+  @impl true
+  def insert_user_email_change_token(_user_token) do
+    Logger.warning("insert_user_email_change_token via API - use request_email_change instead")
+    {:error, "Use request_email_change API endpoint"}
+  end
+
+  @impl true
+  def update_user_email(_user, _d_email, token, _key) do
+    if Sync.online?() do
+      with {:ok, api_token} <- NativeSession.get_token(),
+           {:ok, _response} <- Client.confirm_email_change(api_token, token) do
+        :ok
+      else
+        _ -> :error
+      end
+    else
+      :error
+    end
   end
 
   defp deserialize_user_block(data) when is_binary(data) do
@@ -1389,18 +1461,6 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def insert_user_email_change_token(_user_token) do
-    Logger.warning("insert_user_email_change_token must be done via web interface")
-    {:error, "Email change must be done via web interface"}
-  end
-
-  @impl true
-  def update_user_email(_user, _d_email, _token, _key) do
-    Logger.warning("update_user_email must be done via web interface")
-    {:error, "Email change must be done via web interface"}
-  end
-
-  @impl true
   def suspend_user(_user, _admin_user) do
     Logger.warning("suspend_user must be done via web interface")
     {:error, :unauthorized}
@@ -1588,33 +1648,94 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def upsert_user_totp(_totp, _attrs) do
+  def upsert_user_totp(totp, attrs) do
     if Sync.online?() do
-      Logger.warning(
-        "upsert_user_totp via API not yet implemented - 2FA setup must be done via web"
-      )
+      code = Map.get(attrs, :code) || Map.get(attrs, "code")
+      secret = Base.encode32(totp.secret, padding: false)
 
-      {:error, "2FA setup must be done via web interface"}
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{enabled: true, backup_codes: backup_codes}} <-
+             Client.enable_totp(token, secret, code) do
+        updated_totp = %{
+          totp
+          | backup_codes: Enum.map(backup_codes, fn code -> %{code: code, used_at: nil} end)
+        }
+
+        Cache.cache_item("user_totp", totp.user_id, updated_totp)
+        {:ok, updated_totp}
+      else
+        {:error, {_status, %{error: error}}} ->
+          changeset =
+            UserTOTP.changeset(totp, attrs)
+            |> Ecto.Changeset.add_error(:code, error)
+
+          {:error, changeset}
+
+        {:error, reason} ->
+          changeset =
+            UserTOTP.changeset(totp, attrs)
+            |> Ecto.Changeset.add_error(:base, inspect(reason))
+
+          {:error, changeset}
+      end
     else
       {:error, "Offline - 2FA setup requires network connection"}
     end
   end
 
   @impl true
-  def regenerate_user_totp_backup_codes(_totp) do
+  def regenerate_user_totp_backup_codes(totp) do
     if Sync.online?() do
-      Logger.warning("regenerate_user_totp_backup_codes via API not yet implemented")
-      {:error, "Backup code regeneration must be done via web interface"}
+      with {:ok, token} <- NativeSession.get_token(),
+           current_code <- get_current_totp_code(totp),
+           {:ok, %{backup_codes: backup_codes}} <-
+             Client.regenerate_backup_codes(token, current_code) do
+        updated_totp = %{
+          totp
+          | backup_codes: Enum.map(backup_codes, fn code -> %{code: code, used_at: nil} end)
+        }
+
+        Cache.cache_item("user_totp", totp.user_id, updated_totp)
+        {:ok, updated_totp}
+      else
+        {:error, {_status, %{error: error}}} ->
+          changeset =
+            UserTOTP.changeset(totp, %{})
+            |> Ecto.Changeset.add_error(:code, error)
+
+          {:error, changeset}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
       {:error, "Offline - backup code regeneration requires network connection"}
     end
   end
 
+  defp get_current_totp_code(totp) do
+    NimbleTOTP.verification_code(totp.secret)
+  end
+
   @impl true
-  def delete_user_totp(_user_totp) do
+  def delete_user_totp(user_totp) do
     if Sync.online?() do
-      Logger.warning("delete_user_totp via API not yet implemented")
-      {:error, "2FA deletion must be done via web interface"}
+      with {:ok, token} <- NativeSession.get_token(),
+           current_code <- get_current_totp_code(user_totp),
+           {:ok, %{enabled: false}} <- Client.disable_totp(token, code: current_code) do
+        Cache.invalidate_cache("user_totp", user_totp.user_id)
+        {:ok, user_totp}
+      else
+        {:error, {_status, %{error: error}}} ->
+          changeset =
+            UserTOTP.changeset(user_totp, %{})
+            |> Ecto.Changeset.add_error(:base, error)
+
+          {:error, changeset}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     else
       {:error, "Offline - 2FA deletion requires network connection"}
     end
