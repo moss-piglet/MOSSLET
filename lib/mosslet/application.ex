@@ -109,7 +109,7 @@ defmodule Mosslet.Application do
       Application.fetch_env!(:mosslet, Oban)
     else
       Logger.info("Oban disabled when running in non-primary region.")
-      [repo: Mosslet.Repo, queues: false, plugins: false, peer: false]
+      [repo: Mosslet.Repo, queues: false, plugins: false, peer: false, notifier: Oban.Notifiers.PG]
     end
   end
 end
