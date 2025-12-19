@@ -58,3 +58,6 @@ config :argon2_elixir,
 
 # Stop Oban from running jobs during tests
 config :mosslet, Oban, testing: :manual
+
+# Disable bot detection during tests
+config :mosslet, Mosslet.Security.BotDetector, auto_ban_enabled: false
