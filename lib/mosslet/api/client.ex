@@ -76,6 +76,11 @@ defmodule Mosslet.API.Client do
     request(:get, "/api/sync/full", params, auth: token)
   end
 
+  # Post operations
+  def get_post(token, post_id) do
+    request(:get, "/api/posts/#{post_id}", %{}, auth: token)
+  end
+
   def create_post(token, encrypted_payload) do
     request(:post, "/api/posts", encrypted_payload, auth: token)
   end
@@ -86,6 +91,75 @@ defmodule Mosslet.API.Client do
 
   def delete_post(token, post_id) do
     request(:delete, "/api/posts/#{post_id}", %{}, auth: token)
+  end
+
+  def get_user_posts(token, user_id) do
+    request(:get, "/api/users/#{user_id}/posts", %{}, auth: token)
+  end
+
+  def count_all_posts(token) do
+    request(:get, "/api/posts/count", %{}, auth: token)
+  end
+
+  def post_count(token, user_id, options) do
+    params = %{user_id: user_id, options: options}
+    request(:get, "/api/posts/user-count", params, auth: token)
+  end
+
+  def shared_between_users_post_count(token, user_id, current_user_id) do
+    request(
+      :get,
+      "/api/posts/shared-count",
+      %{user_id: user_id, current_user_id: current_user_id}, auth: token)
+  end
+
+  def timeline_post_count(token, user_id, options) do
+    request(:get, "/api/posts/timeline-count", %{user_id: user_id, options: options}, auth: token)
+  end
+
+  def reply_count(token, post_id, options) do
+    request(:get, "/api/replies/count", %{post_id: post_id, options: options}, auth: token)
+  end
+
+  def public_reply_count(token, post_id, options) do
+    request(:get, "/api/replies/public-count", %{post_id: post_id, options: options}, auth: token)
+  end
+
+  def group_post_count(token, group_id) do
+    request(:get, "/api/groups/#{group_id}/post-count", %{}, auth: token)
+  end
+
+  def public_post_count_filtered(token, options) do
+    request(:get, "/api/posts/public-count", %{options: options}, auth: token)
+  end
+
+  def public_post_count(token, user_id) do
+    request(:get, "/api/users/#{user_id}/public-post-count", %{}, auth: token)
+  end
+
+  def get_shared_posts(token, user_id) do
+    request(:get, "/api/users/#{user_id}/shared-posts", %{}, auth: token)
+  end
+
+  # Reply operations
+  def get_reply(token, reply_id) do
+    request(:get, "/api/replies/#{reply_id}", %{}, auth: token)
+  end
+
+  # UserPost operations
+  def get_user_post(token, user_post_id) do
+    request(:get, "/api/user-posts/#{user_post_id}", %{}, auth: token)
+  end
+
+  def get_user_post_by_post_and_user(token, post_id, user_id) do
+    request(:get, "/api/user-posts/by-post-user", %{post_id: post_id, user_id: user_id},
+      auth: token
+    )
+  end
+
+  # UserPostReceipt operations
+  def get_user_post_receipt(token, receipt_id) do
+    request(:get, "/api/user-post-receipts/#{receipt_id}", %{}, auth: token)
   end
 
   # User account operations

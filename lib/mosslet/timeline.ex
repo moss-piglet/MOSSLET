@@ -1,6 +1,12 @@
 defmodule Mosslet.Timeline do
   @moduledoc """
   The Timeline context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Timeline.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Timeline.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
   """
   require Logger
 
@@ -9,6 +15,7 @@ defmodule Mosslet.Timeline do
   alias Mosslet.Accounts
   alias Mosslet.Accounts.{User, UserConnection}
   alias Mosslet.Groups
+  alias Mosslet.Platform
   alias Mosslet.Repo
 
   alias Mosslet.Timeline.{
@@ -28,6 +35,17 @@ defmodule Mosslet.Timeline do
 
   alias Mosslet.Accounts.UserBlock
   alias Mosslet.Timeline.Performance.TimelineCache
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Timeline.Adapters.Native
+    else
+      Mosslet.Timeline.Adapters.Web
+    end
+  end
 
   @doc """
   Gets recently active users for cache warming.
@@ -51,83 +69,28 @@ defmodule Mosslet.Timeline do
   @doc """
   Counts all posts for admin dashboard.
   """
-  def count_all_posts() do
-    from(p in Post)
-    |> Repo.aggregate(:count)
-  end
+  def count_all_posts, do: adapter().count_all_posts()
 
   @doc """
   Gets the total count of a user's Posts. An
   optional filter can be applied.
   """
-  def post_count(user, options) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: up.user_id == ^user.id and p.visibility != :public
-      )
-      |> filter_by_user_id(options)
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def post_count(user, options), do: adapter().post_count(user, options)
 
   @doc """
   Gets the total count of a user's Posts that have
   been shared with the current_user by another user.
   Does not include group Posts.
   """
-  def shared_between_users_post_count(user_id, current_user_id) do
-    query =
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> join(:inner, [p, up], up2 in UserPost, on: up2.post_id == p.id)
-      |> where([p, up, up2], up.user_id == ^user_id and up2.user_id == ^current_user_id)
-      |> where([p, up, up2], p.visibility == :connections)
-      |> where([p, up, up2], is_nil(p.group_id))
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def shared_between_users_post_count(user_id, current_user_id),
+    do: adapter().shared_between_users_post_count(user_id, current_user_id)
 
   @doc """
   Gets the total count of a current_user's posts
   on their timeline page.
   """
-  def timeline_post_count(current_user, options) do
-    query =
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> where([p, up], up.user_id == ^current_user.id)
-      |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
-      |> filter_by_user_id(options)
-      |> preload([:user_posts])
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def timeline_post_count(current_user, options),
+    do: adapter().timeline_post_count(current_user, options)
 
   @doc """
   Gets the total count of a post's Replies. An
@@ -136,29 +99,7 @@ defmodule Mosslet.Timeline do
   Subquery on the user_connection to ensure
   only connections are viewing their connections' replies.
   """
-  def reply_count(post, options) do
-    user_connection_query = user_connection_subquery(options.current_user_id)
-
-    query =
-      Reply
-      |> join(:inner, [r], p in assoc(r, :post))
-      |> where([r, p], r.post_id == ^post.id)
-      |> filter_by_user_id(options)
-      |> where(
-        [r, p],
-        r.user_id in subquery(user_connection_query) or r.user_id == ^options.current_user_id
-      )
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def reply_count(post, options), do: adapter().reply_count(post, options)
 
   @doc """
   Gets the total count of a public post's public Replies. An
@@ -166,28 +107,9 @@ defmodule Mosslet.Timeline do
 
   This does not apply a current user check.
   """
-  def public_reply_count(post, options) do
-    query =
-      Reply
-      |> join(:inner, [r], p in assoc(r, :post))
-      |> where([r, p], r.post_id == ^post.id)
-      |> where([r, p], r.visibility == :public and p.visibility == :public)
-      |> filter_by_user_id(options)
+  def public_reply_count(post, options), do: adapter().public_reply_count(post, options)
 
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
-
-  def preload_group(post) do
-    post |> Repo.preload([:group])
-  end
+  def preload_group(post), do: adapter().preload_group(post)
 
   # we use this subquery to fetch user connections
   # to check them against a main query
@@ -200,72 +122,20 @@ defmodule Mosslet.Timeline do
   @doc """
   Gets the total count of a group's Posts.
   """
-  def group_post_count(group) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.group_id == ^group.id,
-        where: p.visibility == :connections
-      )
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def group_post_count(group), do: adapter().group_post_count(group)
 
   @doc """
   Gets the total count of Public Posts. An
   optional filter can be applied.
   """
-  def public_post_count(_user, options) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.visibility == :public
-      )
-      |> filter_by_user_id(options)
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def public_post_count_filtered(user, options),
+    do: adapter().public_post_count_filtered(user, options)
 
   @doc """
   Gets the total count of a profile_user's
   Public Posts.
   """
-  def public_post_count(user) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.user_id == ^user.id and p.visibility == :public
-      )
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def public_post_count(user), do: adapter().public_post_count(user)
 
   @doc """
   Gets the total count of posts created BY the current user (for Home tab).
@@ -409,12 +279,7 @@ defmodule Mosslet.Timeline do
   Returns all post for a user. Used when
   deleting data in settings.
   """
-  def get_all_posts(user) do
-    from(p in Post,
-      where: p.user_id == ^user.id
-    )
-    |> Repo.all()
-  end
+  def get_all_posts(user), do: adapter().get_all_posts(user)
 
   @doc """
   Returns the list of non-public posts for
@@ -456,28 +321,8 @@ defmodule Mosslet.Timeline do
   - `:since` - Only return posts updated after this timestamp
   - `:limit` - Maximum number of posts to return (default 50)
   """
-  def list_user_posts_for_sync(user, opts \\ []) do
-    since = opts[:since]
-    limit = opts[:limit] || 50
-
-    query =
-      from(up in UserPost,
-        join: p in assoc(up, :post),
-        where: up.user_id == ^user.id,
-        order_by: [desc: p.updated_at],
-        limit: ^limit,
-        preload: [:post]
-      )
-
-    query =
-      if since do
-        from([up, p] in query, where: p.updated_at > ^since)
-      else
-        query
-      end
-
-    Repo.all(query)
-  end
+  def list_user_posts_for_sync(user, opts \\ []),
+    do: adapter().list_user_posts_for_sync(user, opts)
 
   @doc """
   Returns the list of replies for a post.
@@ -2006,12 +1851,9 @@ defmodule Mosslet.Timeline do
     end
   end
 
-  def get_reply!(id),
-    do: Repo.get!(Reply, id) |> Repo.preload([:user, :post, :parent_reply, :child_replies])
+  def get_reply!(id), do: adapter().get_reply!(id)
 
-  def get_reply(id) do
-    Repo.get(Reply, id)
-  end
+  def get_reply(id), do: adapter().get_reply(id)
 
   # Helper function to calculate thread depth for nested replies
   defp calculate_thread_depth(attrs) do
@@ -2241,55 +2083,21 @@ defmodule Mosslet.Timeline do
     end)
   end
 
-  def get_post(id) do
-    if :new == id || "new" == id do
-      nil
-    else
-      Repo.get(Post, id)
-      |> Repo.preload([
-        :user_posts,
-        :replies,
-        :group,
-        :user,
-        :replies,
-        :user_group,
-        :user_post_receipts
-      ])
-    end
-  end
+  def get_post(id), do: adapter().get_post(id)
 
-  def get_user_post!(id),
-    do: Repo.get!(UserPost, id) |> Repo.preload([:user, :post, :user_post_receipt])
+  def get_user_post!(id), do: adapter().get_user_post!(id)
 
-  def get_user_post_receipt!(id),
-    do: Repo.get!(UserPostReceipt, id) |> Repo.preload([:user, :user_post])
+  def get_user_post_receipt!(id), do: adapter().get_user_post_receipt!(id)
 
   def get_user_post_by_post_id_and_user_id!(post_id, user_id) do
-    Repo.one!(
-      from up in UserPost,
-        where: up.post_id == ^post_id,
-        where: up.user_id == ^user_id,
-        preload: [:post, :user, :user_post_receipt]
-    )
+    adapter().get_user_post_by_post_id_and_user_id!(post_id, user_id)
   end
 
   def get_user_post_by_post_id_and_user_id(post_id, user_id) do
-    Repo.one(
-      from up in UserPost,
-        where: up.post_id == ^post_id,
-        where: up.user_id == ^user_id,
-        preload: [:post, :user, :user_post_receipt]
-    )
+    adapter().get_user_post_by_post_id_and_user_id(post_id, user_id)
   end
 
-  def get_all_shared_posts(user_id) do
-    Repo.all(
-      from p in Post,
-        where: p.user_id == ^user_id,
-        where: p.visibility == :connections,
-        preload: [:user_posts]
-    )
-  end
+  def get_all_shared_posts(user_id), do: adapter().get_all_shared_posts(user_id)
 
   def get_all_public_user_posts do
     Repo.all(

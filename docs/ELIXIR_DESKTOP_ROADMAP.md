@@ -511,18 +511,18 @@ LiveView calls
 
 **Context Priority Matrix:**
 
-| Context             | Repo Calls | Priority     | Status      | Notes                        |
-| ------------------- | ---------- | ------------ | ----------- | ---------------------------- |
-| ~~`accounts.ex`~~   | ~~173~~    | ~~CRITICAL~~ | ✅ COMPLETE | ~~Auth, users, connections~~ |
-| `timeline.ex`       | 236        | HIGH         | ⏳ PENDING  | Posts, feeds, reactions      |
-| `groups.ex`         | 43         | MEDIUM       | ⏳ PENDING  | Group management             |
-| `group_messages.ex` | 15         | MEDIUM       | ⏳ PENDING  | Group chat                   |
-| `messages.ex`       | 9          | MEDIUM       | ⏳ PENDING  | Direct messages              |
-| `orgs.ex`           | 25         | LOW          | ⏳ PENDING  | Organization features        |
-| `statuses.ex`       | 9          | LOW          | ⏳ PENDING  | User statuses                |
-| `logs.ex`           | 7          | SKIP         | —           | Audit logs (server-only)     |
-| `memories.ex`       | 57         | SKIP         | —           | Legacy - phasing out         |
-| `conversations.ex`  | 9          | SKIP         | —           | Legacy - phasing out         |
+| Context             | Repo Calls | Priority     | Status         | Notes                        |
+| ------------------- | ---------- | ------------ | -------------- | ---------------------------- |
+| ~~`accounts.ex`~~   | ~~173~~    | ~~CRITICAL~~ | ✅ COMPLETE    | ~~Auth, users, connections~~ |
+| `timeline.ex`       | 236        | HIGH         | 🚧 IN PROGRESS | Posts, feeds, reactions      |
+| `groups.ex`         | 43         | MEDIUM       | ⏳ PENDING     | Group management             |
+| `group_messages.ex` | 15         | MEDIUM       | ⏳ PENDING     | Group chat                   |
+| `messages.ex`       | 9          | MEDIUM       | ⏳ PENDING     | Direct messages              |
+| `orgs.ex`           | 25         | LOW          | ⏳ PENDING     | Organization features        |
+| `statuses.ex`       | 9          | LOW          | ⏳ PENDING     | User statuses                |
+| `logs.ex`           | 7          | SKIP         | —              | Audit logs (server-only)     |
+| `memories.ex`       | 57         | SKIP         | —              | Legacy - phasing out         |
+| `conversations.ex`  | 9          | SKIP         | —              | Legacy - phasing out         |
 
 #### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - ✅ COMPLETE
 
@@ -619,20 +619,100 @@ end
 - `lib/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache + zero-knowledge decryption)
 - `lib/mosslet/session/native.ex` - JWT token + session key storage (from Phase 3)
 
-#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` - ⏳ NOT STARTED
+#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` - 🚧 IN PROGRESS
 
-**Status:** Needs adapter pattern implementation following same approach as accounts.
+**Status:** Adapter pattern implementation started. Basic getters and count functions partially complete.
 
 **Target State:**
 - `timeline.ex` contains all business logic (changesets, broadcasts, PubSub, cache invalidation)
 - `web.ex` contains Repo calls + query logic
 - `native.ex` contains API/cache calls + any zero-knowledge decryption needed
 
-**Files to create:**
+**Files created:**
 
-- `lib/mosslet/timeline/adapter.ex` - Behaviour definition
-- `lib/mosslet/timeline/adapters/web.ex` - Web adapter
-- `lib/mosslet/timeline/adapters/native.ex` - Native adapter
+- `lib/mosslet/timeline/adapter.ex` - Behaviour definition with callbacks
+- `lib/mosslet/timeline/adapters/web.ex` - Web adapter (Repo calls)
+- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache)
+
+**Completed Functions (delegated to adapters):**
+
+Basic Getters (12 functions) - ✅ COMPLETE:
+- `get_post/1`, `get_post!/1`
+- `get_reply/1`, `get_reply!/1`
+- `get_user_post!/1`, `get_user_post_receipt!/1`
+- `get_user_post_by_post_id_and_user_id/2`, `get_user_post_by_post_id_and_user_id!/2`
+- `get_all_posts/1`, `get_all_shared_posts/1`
+- `list_user_posts_for_sync/2`, `preload_group/1`
+
+Count Functions (8 of ~24 functions) - ✅ COMPLETE:
+- `count_all_posts/0`
+- `post_count/2`
+- `shared_between_users_post_count/2`
+- `timeline_post_count/2`
+- `reply_count/2`
+- `public_reply_count/2`
+- `group_post_count/1`
+- `public_post_count_filtered/2`, `public_post_count/1`
+
+**Remaining Count Functions (~16 functions) - ⏳ PENDING:**
+
+These functions use `apply_database_filters/2` which is complex business logic for content filtering (muted keywords, content warnings, muted users, blocked users, reposts). Two approaches:
+
+1. Copy filtering helpers to web.ex (cleaner adapter separation, more duplication)
+2. Keep functions in timeline.ex as orchestration (simpler, less adapter coverage)
+
+Functions pending:
+- `count_user_own_posts/2` - Uses apply_database_filters
+- `count_user_group_posts/2` - Uses apply_database_filters
+- `count_user_connection_posts/2` - Uses apply_database_filters
+- `count_unread_user_own_posts/2` - Uses apply_database_filters
+- `count_unread_bookmarked_posts/2` - Uses apply_bookmark_unread_database_filters
+- `count_unread_posts_for_user/1`
+- `count_unread_replies_for_user/1`
+- `count_unread_replies_by_post/1`
+- `count_unread_replies_to_user_replies/1`
+- `count_unread_nested_replies_by_parent/1`
+- `count_unread_replies_to_user_replies_by_post/1`
+- `count_unread_nested_replies_for_post/2`
+- `count_unread_connection_posts/2`
+- `count_group_posts/2`
+- `count_unread_group_posts/2`
+- `count_discover_posts/2`, `count_unread_discover_posts/2`
+- `count_replies_for_post/2`, `count_top_level_replies/2`, `count_child_replies/2`
+- `count_user_bookmarks/2`
+
+**Remaining Categories - ⏳ NOT STARTED:**
+
+Listings (~20+ functions):
+- `list_posts/2`, `list_replies/2`, `list_shared_posts/3`
+- `filter_timeline_posts/2`, `list_connection_posts/2`
+- `list_group_posts/2`, `list_discover_posts/2`
+- `list_user_own_posts/2`, `list_public_posts/1`
+- And more...
+
+CRUD (~15+ functions):
+- `create_post/3`, `update_post/3`, `delete_post/1`
+- `create_reply/3`, `update_reply/3`, `delete_reply/1`
+- `mark_post_read/2`, `mark_replies_read_for_post/2`
+- And more...
+
+Bookmarks (~10+ functions):
+- `create_bookmark/2`, `delete_bookmark/1`
+- `list_user_bookmarks/2`, `get_bookmark_for_post/2`
+- And more...
+
+**API Client Functions Added:**
+- `count_all_posts/1`
+- `post_count/3`
+- `shared_between_users_post_count/3`
+- `timeline_post_count/3`
+- `reply_count/3`
+- `public_reply_count/3`
+- `group_post_count/2`
+- `public_post_count_filtered/2`
+- `public_post_count/2`
+
+**Tests:** All 9 timeline tests and 18 timeline_live tests pass ✅
 
 #### 5.3 Groups - `groups.ex` (Priority: MEDIUM)
 
@@ -1020,4 +1100,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-24 (Phase 5.1 accounts marked COMPLETE - thin adapter pattern verified in implementation)_
+_Last updated: 2025-02-17 (Phase 5.2 timeline IN PROGRESS - basic getters complete, 8/24 count functions complete)_
