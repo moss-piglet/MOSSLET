@@ -467,10 +467,10 @@ end                                   end
 
 **Why Thin Adapters?**
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| **Full copy to adapters** | Clear separation | Duplicates business logic, hard to maintain |
-| **Thin adapters (chosen)** | Single source of truth, DRY | Adapter callbacks are more granular |
+| Approach                   | Pros                        | Cons                                        |
+| -------------------------- | --------------------------- | ------------------------------------------- |
+| **Full copy to adapters**  | Clear separation            | Duplicates business logic, hard to maintain |
+| **Thin adapters (chosen)** | Single source of truth, DRY | Adapter callbacks are more granular         |
 
 **Adapter Callback Categories:**
 
@@ -511,45 +511,48 @@ LiveView calls
 
 **Context Priority Matrix:**
 
-| Context             | Repo Calls | Priority | Notes                    |
-| ------------------- | ---------- | -------- | ------------------------ |
-| `accounts.ex`       | 173        | CRITICAL | Auth, users, connections |
-| `timeline.ex`       | 236        | HIGH     | Posts, feeds, reactions  |
-| `groups.ex`         | 43         | MEDIUM   | Group management         |
-| `group_messages.ex` | 15         | MEDIUM   | Group chat               |
-| `messages.ex`       | 9          | MEDIUM   | Direct messages          |
-| `orgs.ex`           | 25         | LOW      | Organization features    |
-| `statuses.ex`       | 9          | LOW      | User statuses            |
-| `logs.ex`           | 7          | SKIP     | Audit logs (server-only) |
-| `memories.ex`       | 57         | SKIP     | Legacy - phasing out     |
-| `conversations.ex`  | 9          | SKIP     | Legacy - phasing out     |
+| Context             | Repo Calls | Priority     | Status      | Notes                        |
+| ------------------- | ---------- | ------------ | ----------- | ---------------------------- |
+| ~~`accounts.ex`~~   | ~~173~~    | ~~CRITICAL~~ | ✅ COMPLETE | ~~Auth, users, connections~~ |
+| `timeline.ex`       | 236        | HIGH         | ⏳ PENDING  | Posts, feeds, reactions      |
+| `groups.ex`         | 43         | MEDIUM       | ⏳ PENDING  | Group management             |
+| `group_messages.ex` | 15         | MEDIUM       | ⏳ PENDING  | Group chat                   |
+| `messages.ex`       | 9          | MEDIUM       | ⏳ PENDING  | Direct messages              |
+| `orgs.ex`           | 25         | LOW          | ⏳ PENDING  | Organization features        |
+| `statuses.ex`       | 9          | LOW          | ⏳ PENDING  | User statuses                |
+| `logs.ex`           | 7          | SKIP         | —           | Audit logs (server-only)     |
+| `memories.ex`       | 57         | SKIP         | —           | Legacy - phasing out         |
+| `conversations.ex`  | 9          | SKIP         | —           | Legacy - phasing out         |
 
 #### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - ✅ COMPLETE
 
 **Status:** Thin adapter pattern implemented. Business logic lives in `accounts.ex`, adapters handle data access only.
 
 **Current Implementation:**
+
 - ✅ `accounts.ex` (~2500 lines) - Contains all business logic (changesets, broadcasts, multi-step operations)
 - ✅ `web.ex` (~1700 lines) - Repo calls + query logic (larger due to many query functions)
 - ✅ `native.ex` (~2200 lines) - API + cache calls (larger due to zero-knowledge decryption for `delete_user_data`)
 
 **Why adapters are larger than 200-300 lines:**
+
 1. **Query functions** - Functions like `filter_user_connections/2`, `search_user_connections/2` require platform-specific query logic
 2. **Native-specific decryption** - `delete_user_data` in native.ex includes ~150 lines of URL decryption logic that MUST run on-device (zero-knowledge requirement)
 3. **Deserialization helpers** - Native adapter needs JSON→struct conversion for API responses
 
 **Architecture Pattern (working as designed):**
 
-| Function Type | accounts.ex | web.ex | native.ex |
-|---------------|-------------|--------|-----------|
-| `update_user_name` | Builds changeset, calls adapter, handles Groups/profile updates, broadcasts | Ecto.Multi (~20 lines) | API call (~25 lines) |
-| `update_user_profile` | Profile preview jobs, broadcasts | Repo.update (~10 lines) | API call (~15 lines) |
-| `delete_user_data` | Password validation, orchestration | Repo deletes + URL cleanup | API calls + **on-device URL decryption** (~150 lines) |
-| `get_user/1` | Delegates to adapter | `Repo.get(User, id)` | Cache + API fallback |
-| `filter_user_connections/2` | Delegates to adapter | Full Ecto query (~30 lines) | Cache filtering (~20 lines) |
+| Function Type               | accounts.ex                                                                 | web.ex                      | native.ex                                             |
+| --------------------------- | --------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------- |
+| `update_user_name`          | Builds changeset, calls adapter, handles Groups/profile updates, broadcasts | Ecto.Multi (~20 lines)      | API call (~25 lines)                                  |
+| `update_user_profile`       | Profile preview jobs, broadcasts                                            | Repo.update (~10 lines)     | API call (~15 lines)                                  |
+| `delete_user_data`          | Password validation, orchestration                                          | Repo deletes + URL cleanup  | API calls + **on-device URL decryption** (~150 lines) |
+| `get_user/1`                | Delegates to adapter                                                        | `Repo.get(User, id)`        | Cache + API fallback                                  |
+| `filter_user_connections/2` | Delegates to adapter                                                        | Full Ecto query (~30 lines) | Cache filtering (~20 lines)                           |
 
 **Zero-Knowledge Exception:**
 The `delete_user_data` function in `native.ex` legitimately contains more logic because:
+
 - URLs must be decrypted **on-device** before deletion (server never sees plaintext URLs)
 - This is core to the zero-knowledge architecture - not duplicated business logic
 
@@ -599,7 +602,9 @@ def update_user_name(_user, _conn, changeset, c_attrs) do
   end
 end
 ```
+
 end
+
 ```
 
 **Files to modify:**
@@ -763,43 +768,45 @@ The desktop-specific infrastructure is already in place:
 ### Data Flow Diagram
 
 ```
+
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           DESKTOP/MOBILE APP                            │
-│                                                                         │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────┐ │
-│  │   LiveView  │───►│   Enacl     │───►│  Encrypted Payload          │ │
-│  │     UI      │◄───│ Encrypt/    │◄───│  (ready for server)         │ │
-│  │             │    │ Decrypt     │    │                             │ │
-│  └─────────────┘    └─────────────┘    └──────────────┬──────────────┘ │
-│         │                                              │                │
-│         ▼                                              ▼                │
-│  ┌─────────────┐                              ┌─────────────────┐      │
-│  │   SQLite    │ ◄─── Cache encrypted ────────│  API Client     │      │
-│  │   Cache     │      blobs for offline       │  (Req)          │      │
-│  └─────────────┘                              └────────┬────────┘      │
-│                                                        │                │
+│ DESKTOP/MOBILE APP │
+│ │
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────────┐ │
+│ │ LiveView │───►│ Enacl │───►│ Encrypted Payload │ │
+│ │ UI │◄───│ Encrypt/ │◄───│ (ready for server) │ │
+│ │ │ │ Decrypt │ │ │ │
+│ └─────────────┘ └─────────────┘ └──────────────┬──────────────┘ │
+│ │ │ │
+│ ▼ ▼ │
+│ ┌─────────────┐ ┌─────────────────┐ │
+│ │ SQLite │ ◄─── Cache encrypted ────────│ API Client │ │
+│ │ Cache │ blobs for offline │ (Req) │ │
+│ └─────────────┘ └────────┬────────┘ │
+│ │ │
 └────────────────────────────────────────────────────────┼────────────────┘
-                                                         │
-                                                    HTTPS/WSS
-                                                         │
+│
+HTTPS/WSS
+│
 ┌────────────────────────────────────────────────────────┼────────────────┐
-│                        FLY.IO SERVER                   │                │
-│                                                        ▼                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                     Phoenix API Endpoints                        │   │
-│  │   /api/auth/login  /api/sync/*  /api/posts  /api/messages       │   │
-│  └──────────────────────────────────┬──────────────────────────────┘   │
-│                                     │                                   │
-│                                     ▼                                   │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    │
-│  │   Cloak Vault   │───►│    Postgres     │───►│  Encrypted at   │    │
-│  │   (CLOAK_KEY)   │◄───│    (Fly.io)     │◄───│  Rest Storage   │    │
-│  └─────────────────┘    └─────────────────┘    └─────────────────┘    │
-│                                                                         │
-│  Server sees: Cloak layer (can decrypt) + Enacl layer (CANNOT decrypt) │
-│  Server stores: Double-encrypted data                                   │
+│ FLY.IO SERVER │ │
+│ ▼ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ Phoenix API Endpoints │ │
+│ │ /api/auth/login /api/sync/\* /api/posts /api/messages │ │
+│ └──────────────────────────────────┬──────────────────────────────┘ │
+│ │ │
+│ ▼ │
+│ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│ │ Cloak Vault │───►│ Postgres │───►│ Encrypted at │ │
+│ │ (CLOAK_KEY) │◄───│ (Fly.io) │◄───│ Rest Storage │ │
+│ └─────────────────┘ └─────────────────┘ └─────────────────┘ │
+│ │
+│ Server sees: Cloak layer (can decrypt) + Enacl layer (CANNOT decrypt) │
+│ Server stores: Double-encrypted data │
 └─────────────────────────────────────────────────────────────────────────┘
-```
+
+````
 
 ### Cloak/Cloak Ecto (At-Rest Encryption)
 
@@ -835,7 +842,7 @@ defmodule Mosslet.Repo do
   # Writes go to primary region, reads from replicas
   # transaction_on_primary/1 ensures writes hit primary
 end
-```
+````
 
 **Native Platform:**
 
