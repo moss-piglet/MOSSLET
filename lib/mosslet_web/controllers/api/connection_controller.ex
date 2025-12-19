@@ -355,4 +355,60 @@ defmodule MossletWeb.API.ConnectionController do
   end
 
   defp parse_filter(filter) when is_map(filter), do: filter
+
+  # ============================================================================
+  # Bulk Delete Operations (for zero-knowledge user data management)
+  # ============================================================================
+
+  def delete_all_memories(conn, %{"id" => uconn_id}) do
+    user = conn.assigns.current_user
+
+    case Accounts.get_user_connection(uconn_id) do
+      nil ->
+        {:error, :not_found}
+
+      uconn ->
+        if uconn.user_id == user.id do
+          case Accounts.bulk_delete_user_connection_memories(uconn) do
+            {:ok, :deleted} ->
+              conn
+              |> put_status(:ok)
+              |> json(%{message: "All user memories deleted"})
+
+            {:error, reason} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: inspect(reason)})
+          end
+        else
+          {:error, :unauthorized}
+        end
+    end
+  end
+
+  def delete_all_posts(conn, %{"id" => uconn_id}) do
+    user = conn.assigns.current_user
+
+    case Accounts.get_user_connection(uconn_id) do
+      nil ->
+        {:error, :not_found}
+
+      uconn ->
+        if uconn.user_id == user.id do
+          case Accounts.bulk_delete_user_connection_posts(uconn) do
+            {:ok, :deleted} ->
+              conn
+              |> put_status(:ok)
+              |> json(%{message: "All user posts deleted"})
+
+            {:error, reason} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: inspect(reason)})
+          end
+        else
+          {:error, :unauthorized}
+        end
+    end
+  end
 end

@@ -1545,12 +1545,15 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def delete_user_data(_user, password, _key, attrs, _opts) do
+  def delete_user_data(user, password, key, attrs, _opts) do
     if Sync.online?() do
       data = Map.get(attrs, "data", %{})
 
       with {:ok, token} <- NativeSession.get_token(),
-           {:ok, _response} <- Client.delete_user_data(token, password, data) do
+           {:ok, deletable_data} <- Client.get_deletable_data(token, data),
+           :ok <- delete_storage_files(user, key, deletable_data),
+           {:ok, _response} <- Client.delete_data_records(token, password, data) do
+        invalidate_local_caches(data)
         :ok
       else
         {:error, {_status, %{errors: errors}}} when is_map(errors) ->
@@ -1566,6 +1569,140 @@ defmodule Mosslet.Accounts.Adapters.Native do
     else
       {:error, "Offline - data deletion requires network connection"}
     end
+  end
+
+  defp delete_storage_files(user, key, deletable_data) do
+    urls = collect_all_urls(user, key, deletable_data)
+
+    case urls do
+      [] -> :ok
+      urls -> delete_urls_from_storage(urls)
+    end
+  end
+
+  defp collect_all_urls(user, key, data) do
+    post_urls = collect_post_urls(user, key, Map.get(data, "posts", []))
+    memory_urls = collect_memory_urls(user, key, Map.get(data, "memories", []))
+    reply_urls = collect_reply_urls(user, key, Map.get(data, "replies", []))
+    post_reply_urls = collect_reply_urls(user, key, Map.get(data, "post_replies", []))
+
+    (post_urls ++ memory_urls ++ reply_urls ++ post_reply_urls)
+    |> List.flatten()
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp collect_post_urls(user, key, posts) when is_list(posts) do
+    Enum.flat_map(posts, fn post ->
+      with false <- post["repost"] || false,
+           image_urls when is_list(image_urls) <- post["image_urls"],
+           {:ok, post_key} <- decode_key(post["e_key"]) do
+        image_urls
+        |> Enum.map(&decode_image_url/1)
+        |> Enum.map(&decrypt_url(&1, user, post_key, key, post["visibility"]))
+      else
+        _ -> []
+      end
+    end)
+  end
+
+  defp collect_post_urls(_user, _key, _), do: []
+
+  defp collect_memory_urls(user, key, memories) when is_list(memories) do
+    Enum.flat_map(memories, fn memory ->
+      with {:ok, memory_key} <- decode_key(memory["e_key"]),
+           url when is_binary(url) <- memory["image_url"],
+           decoded_url <- decode_image_url(url) do
+        [decrypt_url(decoded_url, user, memory_key, key, nil)]
+      else
+        _ -> []
+      end
+    end)
+  end
+
+  defp collect_memory_urls(_user, _key, _), do: []
+
+  defp collect_reply_urls(user, key, replies) when is_list(replies) do
+    Enum.flat_map(replies, fn reply ->
+      with image_urls when is_list(image_urls) and image_urls != [] <- reply["image_urls"],
+           %{"e_key" => e_key, "visibility" => visibility} <- reply["post"],
+           {:ok, post_key} <- decode_key(e_key) do
+        image_urls
+        |> Enum.map(&decode_image_url/1)
+        |> Enum.map(&decrypt_url(&1, user, post_key, key, visibility))
+      else
+        _ -> []
+      end
+    end)
+  end
+
+  defp collect_reply_urls(_user, _key, _), do: []
+
+  defp decode_image_url(nil), do: nil
+
+  defp decode_image_url(url) when is_binary(url) do
+    case Base.decode64(url) do
+      {:ok, decoded} -> decoded
+      :error -> url
+    end
+  end
+
+  defp decrypt_url(encrypted_url, user, item_key, session_key, visibility)
+       when is_binary(encrypted_url) and is_binary(item_key) do
+    case visibility do
+      "public" ->
+        Mosslet.Encrypted.Users.Utils.decrypt_public_item(encrypted_url, item_key)
+
+      _ ->
+        Mosslet.Encrypted.Users.Utils.decrypt_user_item(
+          encrypted_url,
+          user,
+          item_key,
+          session_key
+        )
+    end
+  end
+
+  defp decrypt_url(_, _, _, _, _), do: nil
+
+  defp decode_key(nil), do: {:error, :no_key}
+
+  defp decode_key(data) when is_binary(data) do
+    case Base.decode64(data) do
+      {:ok, decoded} -> {:ok, decoded}
+      :error -> {:ok, data}
+    end
+  end
+
+  defp delete_urls_from_storage(urls) when is_list(urls) do
+    bucket = Mosslet.Encrypted.Session.memories_bucket()
+
+    results =
+      urls
+      |> Enum.chunk_every(100)
+      |> Enum.map(fn chunk ->
+        ExAws.S3.delete_multiple_objects(bucket, chunk)
+        |> ExAws.request()
+      end)
+
+    case Enum.find(results, &match?({:error, _}, &1)) do
+      nil ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to delete storage files: #{inspect(reason)}")
+        {:error, "Failed to delete storage files"}
+    end
+  end
+
+  defp invalidate_local_caches(data) do
+    if data["posts"] == "true", do: Cache.clear_cache("post")
+    if data["memories"] == "true", do: Cache.clear_cache("memory")
+    if data["replies"] == "true", do: Cache.clear_cache("reply")
+    if data["user_connections"] == "true", do: Cache.clear_cache("user_connection")
+    if data["groups"] == "true", do: Cache.clear_cache("group")
+    if data["remarks"] == "true", do: Cache.clear_cache("remark")
+    :ok
   end
 
   @impl true
@@ -1876,90 +2013,209 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   # ============================================================================
-  # Delete User Data Functions (stubs - must be done via web interface)
+  # Delete User Data Functions
+  # These call API endpoints to perform deletions on the server.
+  # The context handles business logic like URL decryption for S3 deletion
+  # locally (zero-knowledge), then calls these to do the DB deletions.
   # ============================================================================
 
   @impl true
-  def delete_all_user_connections(_user_id) do
-    Logger.warning("delete_all_user_connections must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_user_connections(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_user_connections(token, user_id) do
+      Cache.clear_cache("user_connection")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_groups(_user_id) do
-    Logger.warning("delete_all_groups must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_groups(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_groups(token, user_id) do
+      Cache.clear_cache("group")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_memories(_user_id) do
-    Logger.warning("delete_all_memories must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_memories(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_memories(token, user_id) do
+      Cache.clear_cache("memory")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_posts(_user_id) do
-    Logger.warning("delete_all_posts must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_posts(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_posts(token, user_id) do
+      Cache.clear_cache("post")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_user_memories(_uconn) do
-    Logger.warning("delete_all_user_memories must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_user_memories(uconn) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, _response} <- Client.delete_all_user_memories(token, uconn.id) do
+      {:ok, :deleted}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_user_posts(_uconn) do
-    Logger.warning("delete_all_user_posts must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_user_posts(uconn) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, _response} <- Client.delete_all_user_posts(token, uconn.id) do
+      {:ok, :deleted}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_remarks(_user_id) do
-    Logger.warning("delete_all_remarks must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_remarks(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_remarks(token, user_id) do
+      Cache.clear_cache("remark")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_replies(_user_id) do
-    Logger.warning("delete_all_replies must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_replies(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_replies(token, user_id) do
+      Cache.clear_cache("reply")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def delete_all_bookmarks(_user_id) do
-    Logger.warning("delete_all_bookmarks must be done via web interface")
-    {:error, :not_supported}
+  def delete_all_bookmarks(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{count: count}} <- Client.delete_all_bookmarks(token, user_id) do
+      Cache.clear_cache("bookmark")
+      {:ok, count}
+    else
+      {:error, {_status, error}} -> {:error, error}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
-  def cleanup_shared_users_from_posts(_uconn_user_id, _uconn_reverse_user_id) do
-    Logger.warning("cleanup_shared_users_from_posts must be done via web interface")
-    {:ok, :cleaned}
+  def cleanup_shared_users_from_posts(uconn_user_id, uconn_reverse_user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, _response} <-
+           Client.cleanup_shared_users_from_posts(token, uconn_user_id, uconn_reverse_user_id) do
+      {:ok, :cleaned}
+    else
+      {:error, {_status, _error}} -> {:ok, :cleaned}
+      {:error, _reason} -> {:ok, :cleaned}
+    end
   end
 
   @impl true
-  def cleanup_shared_users_from_memories(_uconn_user_id, _uconn_reverse_user_id) do
-    Logger.warning("cleanup_shared_users_from_memories must be done via web interface")
-    {:ok, :cleaned}
+  def cleanup_shared_users_from_memories(uconn_user_id, uconn_reverse_user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, _response} <-
+           Client.cleanup_shared_users_from_memories(token, uconn_user_id, uconn_reverse_user_id) do
+      {:ok, :cleaned}
+    else
+      {:error, {_status, _error}} -> {:ok, :cleaned}
+      {:error, _reason} -> {:ok, :cleaned}
+    end
   end
 
   @impl true
-  def get_all_memories_for_user(_user_id) do
-    Logger.warning("get_all_memories_for_user must be done via web interface")
-    []
+  def get_all_memories_for_user(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{memories: memories}} <- Client.get_all_memories_for_user(token, user_id) do
+      Enum.map(memories, &deserialize_memory/1)
+    else
+      _ -> []
+    end
   end
 
   @impl true
-  def get_all_posts_for_user(_user_id) do
-    Logger.warning("get_all_posts_for_user must be done via web interface")
-    []
+  def get_all_posts_for_user(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{posts: posts}} <- Client.get_all_posts_for_user(token, user_id) do
+      Enum.map(posts, &deserialize_post/1)
+    else
+      _ -> []
+    end
   end
 
   @impl true
-  def get_all_replies_for_user(_user_id) do
-    Logger.warning("get_all_replies_for_user must be done via web interface")
-    []
+  def get_all_replies_for_user(user_id) do
+    with {:ok, token} <- NativeSession.get_token(),
+         {:ok, %{replies: replies}} <- Client.get_all_replies_for_user(token, user_id) do
+      Enum.map(replies, &deserialize_reply/1)
+    else
+      _ -> []
+    end
   end
+
+  defp deserialize_memory(data) when is_map(data) do
+    struct(Mosslet.Memories.Memory, atomize_keys(data))
+  rescue
+    _ -> nil
+  end
+
+  defp deserialize_memory(_), do: nil
+
+  defp deserialize_post(data) when is_map(data) do
+    post = struct(Mosslet.Timeline.Post, atomize_keys(data))
+
+    replies =
+      case data[:replies] || data["replies"] do
+        nil -> []
+        replies -> Enum.map(replies, &deserialize_reply/1) |> Enum.reject(&is_nil/1)
+      end
+
+    %{post | replies: replies}
+  rescue
+    _ -> nil
+  end
+
+  defp deserialize_post(_), do: nil
+
+  defp deserialize_reply(data) when is_map(data) do
+    reply = struct(Mosslet.Timeline.Reply, atomize_keys(data))
+
+    post =
+      case data[:post] || data["post"] do
+        nil -> nil
+        post_data -> struct(Mosslet.Timeline.Post, atomize_keys(post_data))
+      end
+
+    %{reply | post: post}
+  rescue
+    _ -> nil
+  end
+
+  defp deserialize_reply(_), do: nil
 end

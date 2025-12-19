@@ -237,6 +237,90 @@ defmodule MossletWeb.API.UserController do
 
   def delete_data(_conn, _params), do: {:error, :missing_params}
 
+  def get_deletable_data(conn, %{"data" => data}) do
+    user = conn.assigns.current_user
+
+    result = %{}
+
+    result =
+      if data["posts"] == "true" do
+        posts = Accounts.adapter().get_all_posts_for_user(user.id)
+        replies = get_all_replies_from_posts(posts)
+
+        Map.merge(result, %{
+          posts: Enum.map(posts, &serialize_deletable_post/1),
+          post_replies: Enum.map(replies, &serialize_deletable_reply/1)
+        })
+      else
+        result
+      end
+
+    result =
+      if data["memories"] == "true" do
+        memories = Accounts.adapter().get_all_memories_for_user(user.id)
+        Map.put(result, :memories, Enum.map(memories, &serialize_deletable_memory/1))
+      else
+        result
+      end
+
+    result =
+      if data["replies"] == "true" do
+        replies = Accounts.adapter().get_all_replies_for_user(user.id)
+        Map.put(result, :replies, Enum.map(replies, &serialize_deletable_reply/1))
+      else
+        result
+      end
+
+    conn
+    |> put_status(:ok)
+    |> json(result)
+  end
+
+  def get_deletable_data(conn, _params) do
+    conn
+    |> put_status(:ok)
+    |> json(%{})
+  end
+
+  defp get_all_replies_from_posts(posts) when is_list(posts) do
+    posts
+    |> Enum.flat_map(fn post -> post.replies || [] end)
+  end
+
+  defp serialize_deletable_post(post) do
+    %{
+      id: post.id,
+      user_id: post.user_id,
+      repost: post.repost,
+      visibility: to_string(post.visibility),
+      image_urls: encode_image_urls(post.image_urls),
+      e_key: encode_binary(post.e_key)
+    }
+  end
+
+  defp serialize_deletable_memory(memory) do
+    %{
+      id: memory.id,
+      user_id: memory.user_id,
+      image_url: encode_binary(memory.image_url),
+      e_key: encode_binary(memory.e_key)
+    }
+  end
+
+  defp serialize_deletable_reply(reply) do
+    %{
+      id: reply.id,
+      user_id: reply.user_id,
+      post_id: reply.post_id,
+      image_urls: encode_image_urls(reply.image_urls),
+      post: if(reply.post, do: serialize_deletable_post(reply.post), else: nil)
+    }
+  end
+
+  defp encode_image_urls(nil), do: []
+  defp encode_image_urls(urls) when is_list(urls), do: Enum.map(urls, &encode_binary/1)
+  defp encode_image_urls(_), do: []
+
   def block_user(conn, %{"user_id" => blocked_user_id} = params) do
     user = conn.assigns.current_user
     session_key = conn.assigns.session_key
@@ -761,5 +845,243 @@ defmodule MossletWeb.API.UserController do
       {"avatar_url", v}, acc -> Map.put(acc, :avatar_url, decode_binary(v))
       _, acc -> acc
     end)
+  end
+
+  # ============================================================================
+  # Bulk Delete Operations (for zero-knowledge user data management)
+  # These endpoints are called by native apps to perform DB deletions.
+  # The native app handles URL decryption locally for S3 deletion (zero-knowledge).
+  # ============================================================================
+
+  def delete_all_connections(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_user_connections(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All connections deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def delete_all_groups(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_groups(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All groups deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def delete_all_memories(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_memories(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All memories deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def delete_all_posts(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_posts(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All posts deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def delete_all_remarks(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_remarks(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All remarks deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def delete_all_replies(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_replies(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All replies deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def delete_all_bookmarks(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      case Accounts.bulk_delete_all_bookmarks(user.id) do
+        {:ok, count} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{count: count, message: "All bookmarks deleted"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def get_all_memories(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      memories = Accounts.adapter().get_all_memories_for_user(user.id)
+
+      conn
+      |> put_status(:ok)
+      |> json(%{memories: Enum.map(memories, &serialize_deletable_memory/1)})
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def get_all_posts(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      posts = Accounts.adapter().get_all_posts_for_user(user.id)
+
+      conn
+      |> put_status(:ok)
+      |> json(%{posts: Enum.map(posts, &serialize_deletable_post_with_replies/1)})
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def get_all_replies(conn, %{"user_id" => user_id}) do
+    user = conn.assigns.current_user
+
+    if user.id == user_id do
+      replies = Accounts.adapter().get_all_replies_for_user(user.id)
+
+      conn
+      |> put_status(:ok)
+      |> json(%{replies: Enum.map(replies, &serialize_deletable_reply/1)})
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def cleanup_shared_users(conn, %{
+        "type" => type,
+        "user_id" => user_id,
+        "reverse_user_id" => reverse_user_id
+      }) do
+    user = conn.assigns.current_user
+
+    if user.id in [user_id, reverse_user_id] do
+      result =
+        case type do
+          "posts" ->
+            Accounts.adapter().cleanup_shared_users_from_posts(user_id, reverse_user_id)
+
+          "memories" ->
+            Accounts.adapter().cleanup_shared_users_from_memories(user_id, reverse_user_id)
+
+          _ ->
+            {:ok, :cleaned}
+        end
+
+      case result do
+        {:ok, :cleaned} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{message: "Shared users cleaned up"})
+
+        {:error, reason} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: inspect(reason)})
+      end
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  def cleanup_shared_users(_conn, _params), do: {:error, :missing_params}
+
+  defp serialize_deletable_post_with_replies(post) do
+    base = serialize_deletable_post(post)
+
+    replies =
+      case post.replies do
+        nil -> []
+        replies -> Enum.map(replies, &serialize_deletable_reply/1)
+      end
+
+    Map.put(base, :replies, replies)
   end
 end

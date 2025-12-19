@@ -1160,6 +1160,16 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  defp delete_data_filter(user, _attrs, _key, "bookmarks") do
+    case adapter().delete_all_bookmarks(user.id) do
+      {:ok, _count} ->
+        :ok
+
+      {:error, _reason} ->
+        {:error, "There was an error deleting all bookmarks."}
+    end
+  end
+
   defp get_urls_from_deleted_posts(user, key, posts) when is_list(posts) do
     # loop through each post
     Enum.map(posts, fn post ->
@@ -1874,6 +1884,100 @@ defmodule Mosslet.Accounts do
       {:ok, adapter().preload_user_connection(uconn, [:user, :connection])}
       |> broadcast_public(event)
     end)
+  end
+
+  def bulk_delete_all_user_connections(user_id) do
+    uconns = get_all_user_connections(user_id)
+
+    Enum.each(uconns, fn uconn ->
+      adapter().delete_all_user_memories(uconn)
+      adapter().delete_all_user_posts(uconn)
+    end)
+
+    case adapter().delete_all_user_connections(user_id) do
+      {:ok, count} ->
+        broadcast_user_connections(uconns, :uconn_deleted)
+        broadcast_public_user_connections(uconns, :public_uconn_deleted)
+        {:ok, count}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def bulk_delete_all_groups(user_id) do
+    case adapter().delete_all_groups(user_id) do
+      {:ok, count} ->
+        Phoenix.PubSub.broadcast(Mosslet.PubSub, "groups", {:groups_deleted, nil})
+        {:ok, count}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def bulk_delete_all_memories(user_id) do
+    uconns = get_all_user_connections(user_id)
+
+    case adapter().delete_all_memories(user_id) do
+      {:ok, count} ->
+        broadcast_user_connections(uconns, :memories_deleted)
+        {:ok, count}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def bulk_delete_all_posts(user_id) do
+    uconns = get_all_user_connections(user_id)
+
+    case adapter().delete_all_posts(user_id) do
+      {:ok, count} ->
+        broadcast_user_connections(uconns, :posts_deleted)
+        {:ok, count}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def bulk_delete_all_remarks(user_id) do
+    uconns = get_all_user_connections(user_id)
+
+    case adapter().delete_all_remarks(user_id) do
+      {:ok, count} ->
+        broadcast_user_connections(uconns, :remarks_deleted)
+        {:ok, count}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def bulk_delete_all_replies(user_id) do
+    uconns = get_all_user_connections(user_id)
+
+    case adapter().delete_all_replies(user_id) do
+      {:ok, count} ->
+        broadcast_user_connections(uconns, :replies_deleted)
+        {:ok, count}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def bulk_delete_all_bookmarks(user_id) do
+    adapter().delete_all_bookmarks(user_id)
+  end
+
+  def bulk_delete_user_connection_memories(uconn) do
+    adapter().delete_all_user_memories(uconn)
+  end
+
+  def bulk_delete_user_connection_posts(uconn) do
+    adapter().delete_all_user_posts(uconn)
   end
 
   def private_subscribe(user) do

@@ -295,6 +295,7 @@ defmodule MossletWeb.ManageDataLive do
                     id="current-password"
                     name="current_password"
                     required
+                    phx-debounce="200"
                     class={[
                       "relative block w-full rounded-xl px-4 py-3 pr-12 text-slate-900 dark:text-slate-100",
                       "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",

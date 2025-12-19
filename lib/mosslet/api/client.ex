@@ -144,6 +144,16 @@ defmodule Mosslet.API.Client do
     )
   end
 
+  def get_deletable_data(token, data) do
+    request(:get, "/api/users/deletable-data", %{data: data}, auth: token)
+  end
+
+  def delete_data_records(token, password, data) do
+    request(:post, "/api/users/delete-data-records", %{current_password: password, data: data},
+      auth: token
+    )
+  end
+
   def create_user_profile(token, profile_attrs) do
     request(:post, "/api/users/profile", %{profile: profile_attrs}, auth: token)
   end
@@ -351,6 +361,72 @@ defmodule Mosslet.API.Client do
 
   def delete_account(token, password) do
     request(:delete, "/api/users/account", %{current_password: password}, auth: token)
+  end
+
+  def delete_all_user_connections(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/connections", %{}, auth: token)
+  end
+
+  def delete_all_groups(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/groups", %{}, auth: token)
+  end
+
+  def delete_all_memories(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/memories", %{}, auth: token)
+  end
+
+  def delete_all_posts(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/posts", %{}, auth: token)
+  end
+
+  def delete_all_user_memories(token, uconn_id) do
+    request(:delete, "/api/connections/#{uconn_id}/memories", %{}, auth: token)
+  end
+
+  def delete_all_user_posts(token, uconn_id) do
+    request(:delete, "/api/connections/#{uconn_id}/posts", %{}, auth: token)
+  end
+
+  def delete_all_remarks(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/remarks", %{}, auth: token)
+  end
+
+  def delete_all_replies(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/replies", %{}, auth: token)
+  end
+
+  def delete_all_bookmarks(token, user_id) do
+    request(:delete, "/api/users/#{user_id}/bookmarks", %{}, auth: token)
+  end
+
+  def cleanup_shared_users_from_posts(token, uconn_user_id, uconn_reverse_user_id) do
+    request(
+      :post,
+      "/api/users/cleanup-shared-users",
+      %{type: "posts", user_id: uconn_user_id, reverse_user_id: uconn_reverse_user_id},
+      auth: token
+    )
+  end
+
+  def cleanup_shared_users_from_memories(token, uconn_user_id, uconn_reverse_user_id) do
+    request(
+      :post,
+      "/api/users/cleanup-shared-users",
+      %{type: "memories", user_id: uconn_user_id, reverse_user_id: uconn_reverse_user_id},
+      auth: token
+    )
+  end
+
+  def get_all_memories_for_user(token, user_id) do
+    request(:get, "/api/users/#{user_id}/all-memories", %{}, auth: token)
+  end
+
+  def get_all_posts_for_user(token, user_id) do
+    request(:get, "/api/users/#{user_id}/all-posts", %{}, auth: token)
+  end
+
+  def get_all_replies_for_user(token, user_id) do
+    request(:get, "/api/users/#{user_id}/all-replies", %{}, auth: token)
   end
 
   defp request(method, path, body_or_params, opts \\ []) do
