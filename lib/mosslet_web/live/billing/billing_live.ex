@@ -491,13 +491,13 @@ defmodule MossletWeb.BillingLive do
 
   defp subscription_info(assigns) do
     cancellation_pending = assigns.subscription.cancel_at != nil
-    plan = Mosslet.Billing.Plans.get_plan_by_id!(assigns.subscription.plan_id)
+    plan = Mosslet.Billing.Plans.get_plan_by_id(assigns.subscription.plan_id)
 
     billing_cycle =
-      case plan.interval do
-        :month -> "Monthly"
-        :year -> "Yearly"
-        _ -> nil
+      case plan do
+        %{interval: :month} -> "Monthly"
+        %{interval: :year} -> "Yearly"
+        _ -> infer_billing_cycle_from_plan_id(assigns.subscription.plan_id)
       end
 
     available_years =
@@ -1354,5 +1354,17 @@ defmodule MossletWeb.BillingLive do
       current_user,
       key
     )
+  end
+
+  defp infer_billing_cycle_from_plan_id(nil), do: nil
+
+  defp infer_billing_cycle_from_plan_id(plan_id) do
+    plan_id_lower = String.downcase(plan_id)
+
+    cond do
+      String.contains?(plan_id_lower, "year") -> "Yearly"
+      String.contains?(plan_id_lower, "month") -> "Monthly"
+      true -> nil
+    end
   end
 end

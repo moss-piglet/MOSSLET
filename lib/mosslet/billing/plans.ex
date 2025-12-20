@@ -59,8 +59,12 @@ defmodule Mosslet.Billing.Plans do
     end
   end
 
+  def get_plan_by_id(id) do
+    Enum.find(plans(), &(&1.id == id))
+  end
+
   def get_plan_by_id!(id) do
-    Enum.find(plans(), &(&1.id == id)) || raise "No plan found for id #{id}"
+    get_plan_by_id(id) || raise "No plan found for id #{id}"
   end
 
   def get_plan_by_subscription!(%Subscription{plan_id: plan_id}) do
