@@ -13,7 +13,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
     :provider_customer_id,
     :allow_promotion_codes,
     :trial_period_days,
-    :line_items
+    :line_items,
+    :mode
   ]
 
   defstruct [
@@ -26,6 +27,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
     :allow_promotion_codes,
     :trial_period_days,
     :line_items,
+    :mode,
     checkout_session_options_overrides: %{}
   ]
 
@@ -68,33 +70,29 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
          provider_customer_id: provider_customer_id,
          allow_promotion_codes: allow_promotion_codes,
          trial_period_days: trial_period_days,
-         line_items: line_items
+         line_items: line_items,
+         mode: mode
        }) do
-    if trial_period_days do
-      %{
-        trial_period_days: trial_period_days,
-        metadata: %{
-          source: source,
-          source_id: source_id
-        }
-      }
-    else
-      %{
-        metadata: %{
-          source: source,
-          source_id: source_id
-        }
-      }
-    end
-
-    %{
+    base_options = %{
       client_reference_id: customer_id,
       customer: provider_customer_id,
       success_url: success_url,
       cancel_url: cancel_url,
-      mode: "payment",
+      mode: mode,
       allow_promotion_codes: allow_promotion_codes,
-      line_items: line_items
+      line_items: line_items,
+      metadata: %{
+        source: source,
+        source_id: source_id
+      }
     }
+
+    if mode == "subscription" && trial_period_days && trial_period_days > 0 do
+      Map.put(base_options, :subscription_data, %{
+        trial_period_days: trial_period_days
+      })
+    else
+      base_options
+    end
   end
 end

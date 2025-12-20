@@ -15,6 +15,8 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Subscriptions.Subscription
 
   def checkout(%User{} = user, plan, source, source_id, session_key) do
+    mode = determine_checkout_mode(plan)
+
     with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key),
          {:ok, session} <-
            CreateCheckoutSession.call(%CreateCheckoutSession{
@@ -29,9 +31,10 @@ defmodule Mosslet.Billing.Providers.Stripe do
                ),
              success_url: success_url(source, source_id, customer.id),
              cancel_url: cancel_url(source, source_id),
-             allow_promotion_codes: plan.allow_promotion_codes,
+             allow_promotion_codes: Map.get(plan, :allow_promotion_codes, false),
              trial_period_days: Map.get(plan, :trial_days),
-             line_items: update_plan_items_for_one_time_payment(plan)
+             line_items: format_line_items(plan, mode),
+             mode: mode
            }) do
       {:ok, customer, session}
     else
@@ -42,8 +45,17 @@ defmodule Mosslet.Billing.Providers.Stripe do
     end
   end
 
-  defp update_plan_items_for_one_time_payment(plan) do
-    plan = Map.drop(plan, [:id, :interval, :amount, :allow_promotion_codes])
+  defp determine_checkout_mode(plan) do
+    case plan.interval do
+      :one_time -> "payment"
+      :month -> "subscription"
+      :year -> "subscription"
+      _ -> "payment"
+    end
+  end
+
+  defp format_line_items(plan, _mode) do
+    plan = Map.drop(plan, [:id, :interval, :amount, :allow_promotion_codes, :trial_days])
     [plan]
   end
 

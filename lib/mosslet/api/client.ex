@@ -110,7 +110,9 @@ defmodule Mosslet.API.Client do
     request(
       :get,
       "/api/posts/shared-count",
-      %{user_id: user_id, current_user_id: current_user_id}, auth: token)
+      %{user_id: user_id, current_user_id: current_user_id},
+      auth: token
+    )
   end
 
   def timeline_post_count(token, user_id, options) do

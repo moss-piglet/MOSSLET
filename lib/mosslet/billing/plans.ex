@@ -20,8 +20,7 @@ defmodule Mosslet.Billing.Plans do
   end
 
   @doc """
-  We're updating this for one-time payments. There
-  no longer is a :plans id.
+  Returns all plans across all products.
 
   ## Examples
 
@@ -30,6 +29,20 @@ defmodule Mosslet.Billing.Plans do
   """
   def plans do
     Enum.flat_map(products(), & &1.line_items)
+  end
+
+  @doc """
+  Returns only one-time payment plans.
+  """
+  def one_time_plans do
+    Enum.filter(plans(), &(&1.interval == :one_time))
+  end
+
+  @doc """
+  Returns only subscription plans.
+  """
+  def subscription_plans do
+    Enum.filter(plans(), &(&1.interval in [:month, :year]))
   end
 
   @doc """
@@ -51,18 +64,31 @@ defmodule Mosslet.Billing.Plans do
   end
 
   def get_plan_by_stripe_subscription(%Stripe.Subscription{items: %{data: data}}) do
-    Enum.find_value(products(), fn product ->
-      Enum.find(product.plans, fn plan ->
-        items =
-          plan
-          |> plan_items()
-          |> MapSet.new()
+    price_ids =
+      data
+      |> Enum.map(& &1.price.id)
+      |> MapSet.new()
 
-        data
-        |> Enum.map(& &1.price.id)
-        |> MapSet.new()
-        |> MapSet.subset?(items)
-      end)
+    Enum.find(plans(), fn plan ->
+      plan.price in price_ids
+    end)
+  end
+
+  def get_plan_by_price_id(price_id) do
+    Enum.find(plans(), &(&1.price == price_id))
+  end
+
+  def is_subscription_plan?(plan) do
+    plan.interval in [:month, :year]
+  end
+
+  def is_one_time_plan?(plan) do
+    plan.interval == :one_time
+  end
+
+  def get_product_by_plan_id(plan_id) do
+    Enum.find(products(), fn product ->
+      Enum.any?(product.line_items, &(&1.id == plan_id))
     end)
   end
 end

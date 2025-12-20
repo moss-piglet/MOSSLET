@@ -2,6 +2,7 @@ defmodule MossletWeb.PublicLive.Pricing do
   @moduledoc false
   use MossletWeb, :live_view
 
+  alias Mosslet.Billing.Plans
   import MossletWeb.DesignSystem
 
   @impl true
@@ -17,201 +18,36 @@ defmodule MossletWeb.PublicLive.Pricing do
     >
       <div class="bg-white dark:bg-slate-950">
         <div class="isolate">
-          <%!-- Hero section with liquid metal background --%>
-          <div class="relative isolate -z-10">
-            <%!-- Liquid metal background gradient --%>
-            <div
-              class="absolute left-1/2 right-0 top-0 -z-10 -ml-24 transform-gpu overflow-hidden blur-3xl lg:ml-24 xl:ml-48"
-              aria-hidden="true"
-            >
+          <div class="relative overflow-hidden">
+            <div class="absolute inset-0 pointer-events-none">
+              <div class="absolute -top-40 -right-32 h-96 w-96 rounded-full bg-gradient-to-br from-teal-400/20 via-emerald-500/15 to-cyan-400/20 blur-3xl animate-pulse">
+              </div>
               <div
-                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tr from-teal-400/30 via-emerald-300/40 to-cyan-400/30 opacity-40 dark:opacity-20"
-                style="clip-path: polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)"
+                class="absolute top-1/3 -left-32 h-96 w-96 rounded-full bg-gradient-to-tr from-emerald-400/15 via-teal-500/10 to-cyan-400/15 blur-3xl animate-pulse"
+                style="animation-delay: -2s;"
+              >
+              </div>
+              <div
+                class="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-gradient-to-tl from-cyan-400/10 via-teal-500/10 to-emerald-400/15 blur-3xl animate-pulse"
+                style="animation-delay: -4s;"
               >
               </div>
             </div>
 
-            <%!-- Additional liquid background effect --%>
-            <div
-              class="absolute right-1/2 left-0 top-0 -z-10 ml-24 transform-gpu overflow-hidden blur-3xl lg:-ml-24 xl:-ml-48"
-              aria-hidden="true"
-            >
-              <div
-                class="aspect-[801/1036] w-[50.0625rem] bg-gradient-to-tl from-cyan-400/20 via-teal-300/30 to-emerald-400/25 opacity-30 dark:opacity-15"
-                style="clip-path: polygon(36.9% 70.5%, 0% 82.9%, 23.4% 97%, 51.6% 100%, 55.4% 95.3%, 45.5% 74.7%, 40.2% 51%, 44.8% 42.2%, 55.6% 42.8%, 72.2% 52.1%, 64.9% 18.5%, 100% 2.3%, 60.8% 0%, 64.8% 18.6%, 2.8% 47.2%, 36.9% 70.5%)"
-              >
+            <div class="relative z-10 px-4 py-12 sm:px-6 lg:px-8 sm:py-16 lg:py-20">
+              <.pricing_header />
+
+              <div class="mx-auto max-w-6xl">
+                <.pricing_cards
+                  one_time_products={@one_time_products}
+                  subscription_products={@subscription_products}
+                />
               </div>
+
+              <.pricing_footer />
             </div>
-
-            <.liquid_container max_width="xl" class="pb-32 pt-36 sm:pt-60 lg:pt-32">
-              <div class="mx-auto max-w-2xl text-center">
-                <h1 class="text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent transition-all duration-300 ease-out">
-                  Simple, pay once pricing
-                </h1>
-
-                <p class="mt-8 text-pretty text-lg font-medium sm:text-xl/8 text-slate-600 dark:text-slate-400 transition-colors duration-300 ease-out">
-                  Say goodbye to never-ending subscription fees. One simple payment gives you lifetime access—no hidden costs, no surprises.
-                </p>
-
-                <%!-- Decorative accent line matching support/FAQ style --%>
-                <div class="mt-8 flex justify-center">
-                  <div class="h-1 w-24 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-teal-400 to-emerald-400 shadow-sm shadow-emerald-500/30">
-                  </div>
-                </div>
-              </div>
-            </.liquid_container>
           </div>
 
-          <%!-- Pricing card section --%>
-          <.liquid_container max_width="xl" class="-mt-12 sm:mt-0 xl:-mt-8">
-            <div class="mx-auto max-w-lg">
-              <.liquid_card padding="lg" class="overflow-hidden">
-                <div class="flex items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
-                      Personal
-                    </h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Lifetime access
-                    </p>
-                  </div>
-                  <div
-                    id="pricing-beta-badge"
-                    phx-hook="TippyHook"
-                    data-tippy-content="Special price while we're in beta"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-700/30"
-                  >
-                    <.phx_icon name="hero-fire" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                      Save 40%
-                    </span>
-                  </div>
-                </div>
-
-                <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
-                  Own your privacy forever with one simple payment. No subscriptions, no recurring fees – just pure digital freedom.
-                </p>
-
-                <div class="flex items-baseline gap-2 mb-8">
-                  <span class="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    $59
-                  </span>
-                  <span class="text-lg text-slate-500 dark:text-slate-400">/ once</span>
-                </div>
-
-                <.liquid_button
-                  href="/auth/register"
-                  size="lg"
-                  class="w-full justify-center mb-8"
-                  color="teal"
-                  variant="primary"
-                  icon="hero-rocket-launch"
-                >
-                  Get Lifetime Access
-                </.liquid_button>
-
-                <div class="pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
-                  <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-                    <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" />
-                    Everything included
-                  </h3>
-                  <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check"
-                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                      />
-                      <span class="text-sm text-slate-600 dark:text-slate-400">
-                        Unlimited Connections, Circles, and Posts
-                      </span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check"
-                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                      />
-                      <span class="text-sm text-slate-600 dark:text-slate-400">
-                        Unlimited new features
-                      </span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check"
-                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                      />
-                      <span class="text-sm text-slate-600 dark:text-slate-400">
-                        Streamlined settings
-                      </span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check"
-                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                      />
-                      <span class="text-sm text-slate-600 dark:text-slate-400">
-                        Own your data
-                      </span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check"
-                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                      />
-                      <span class="text-sm text-slate-600 dark:text-slate-400">
-                        Advanced asymmetric encryption
-                      </span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                      <.phx_icon
-                        name="hero-check"
-                        class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
-                      />
-                      <span class="text-sm text-slate-600 dark:text-slate-400">
-                        Email support
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div class="mt-6 p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/10 dark:to-cyan-900/10 border border-blue-200/30 dark:border-blue-700/20">
-                  <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40">
-                      <.phx_icon
-                        name="hero-credit-card"
-                        class="w-5 h-5 text-blue-600 dark:text-blue-400"
-                      />
-                    </div>
-                    <div
-                      id="affirm-disclosure"
-                      phx-hook="TippyHook"
-                      data-tippy-content="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders. CA residents: Loans by Affirm Loan Services, LLC are made or arranged pursuant to a California Finance Lenders Law license."
-                      class="cursor-help flex-1"
-                    >
-                      <div class="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        Flexible payments available
-                      </div>
-                      <div class="text-sm text-blue-700 dark:text-blue-300">
-                        Split into monthly payments with Affirm
-                      </div>
-                    </div>
-                    <.phx_icon
-                      name="hero-information-circle"
-                      class="w-5 h-5 text-blue-400 dark:text-blue-500 flex-shrink-0"
-                    />
-                  </div>
-                </div>
-              </.liquid_card>
-
-              <div class="mt-8 text-center">
-                <p class="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
-                  <.phx_icon name="hero-shield-check" class="w-4 h-4 text-emerald-500" />
-                  Secure payment powered by Stripe
-                </p>
-              </div>
-            </div>
-          </.liquid_container>
-
-          <%!-- Comparison section --%>
           <.liquid_container max_width="xl" class="mt-32 sm:mt-40">
             <div class="text-center mb-16">
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl text-slate-900 dark:text-white">
@@ -227,7 +63,6 @@ defmodule MossletWeb.PublicLive.Pricing do
             <.liquid_comparison_table />
           </.liquid_container>
 
-          <%!-- Call to action section with liquid metal design --%>
           <.liquid_container max_width="xl" class="mt-32 sm:mt-48">
             <div class="mx-auto max-w-4xl">
               <.liquid_card
@@ -243,7 +78,6 @@ defmodule MossletWeb.PublicLive.Pricing do
                   Join thousands who've chosen privacy over profit. One payment, lifetime protection. No subscriptions, no recurring fees, no surprises.
                 </p>
 
-                <%!-- Action buttons with enhanced spacing and layout --%>
                 <div class="mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-6">
                   <.liquid_button
                     navigate="/auth/register"
@@ -267,7 +101,6 @@ defmodule MossletWeb.PublicLive.Pricing do
                   </.liquid_button>
                 </div>
 
-                <%!-- Trust indicator --%>
                 <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
                   <p class="text-sm text-slate-600 dark:text-slate-400">
                     30-day money-back guarantee • Human support team • No hidden fees
@@ -278,19 +111,403 @@ defmodule MossletWeb.PublicLive.Pricing do
           </.liquid_container>
         </div>
 
-        <%!-- Spacer for proper footer separation --%>
         <div class="pb-24"></div>
       </div>
     </.layout>
     """
   end
 
+  defp pricing_header(assigns) do
+    ~H"""
+    <div class="mx-auto max-w-3xl text-center mb-12 sm:mb-16">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border border-emerald-200/50 dark:border-emerald-700/30 mb-6">
+        <.phx_icon name="hero-sparkles" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+        <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          Privacy-first social
+        </span>
+      </div>
+
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
+        <span class="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
+          Simple,
+        </span>
+        <br class="sm:hidden" />
+        <span class="bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
+          transparent pricing
+        </span>
+      </h1>
+
+      <p class="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        Choose the plan that works best for you. Start with a free trial or pay once for lifetime access.
+      </p>
+    </div>
+    """
+  end
+
+  attr :one_time_products, :list, required: true
+  attr :subscription_products, :list, required: true
+
+  defp pricing_cards(assigns) do
+    ~H"""
+    <div :if={@subscription_products != []} class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <%= for product <- @subscription_products do %>
+        <.pricing_card product={product} />
+      <% end %>
+    </div>
+
+    <div :if={@one_time_products != []} class="mt-16 lg:mt-20">
+      <div class="relative">
+        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+          <div class="w-full border-t border-slate-200 dark:border-slate-700/50"></div>
+        </div>
+        <div class="relative flex justify-center">
+          <div class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-amber-100 via-orange-100 to-amber-100 dark:from-amber-900/40 dark:via-orange-900/30 dark:to-amber-900/40 border border-amber-300/60 dark:border-amber-600/40 shadow-sm">
+            <.phx_icon name="hero-fire" class="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <span class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              Or pay once, own forever
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-10 mx-auto max-w-4xl">
+        <%= for product <- @one_time_products do %>
+          <.one_time_card product={product} />
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :product, :map, required: true
+
+  defp one_time_card(assigns) do
+    item = List.first(assigns.product.line_items)
+
+    assigns =
+      assigns
+      |> assign(:item, item)
+
+    ~H"""
+    <div class="relative group">
+      <div class="absolute -inset-1 bg-gradient-to-r from-amber-400/20 via-orange-400/20 to-yellow-400/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+      </div>
+
+      <.liquid_card
+        padding="lg"
+        class="relative overflow-hidden bg-gradient-to-br from-white via-amber-50/30 to-orange-50/40 dark:from-slate-800/90 dark:via-amber-900/10 dark:to-orange-900/10 border-amber-200/70 dark:border-amber-700/40 shadow-xl shadow-amber-500/5"
+      >
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-amber-200/30 via-orange-200/20 to-transparent dark:from-amber-500/10 dark:via-orange-500/5 rounded-bl-full pointer-events-none">
+        </div>
+
+        <div class="relative">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-12">
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-3 mb-4">
+                <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
+                  <.phx_icon name="hero-bolt" class="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {@product.name}
+                  </h2>
+                  <p class="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                    Lifetime Access • No Subscriptions
+                  </p>
+                </div>
+              </div>
+
+              <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                {@product.description}
+              </p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <%= for feature <- @product.features do %>
+                  <div class="flex items-start gap-2.5">
+                    <div class="flex-shrink-0 mt-0.5">
+                      <div class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50">
+                        <.phx_icon
+                          name="hero-check"
+                          class="w-3 h-3 text-emerald-600 dark:text-emerald-400"
+                        />
+                      </div>
+                    </div>
+                    <span class="text-sm text-slate-600 dark:text-slate-400">{feature}</span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="lg:w-72 flex-shrink-0">
+              <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-amber-200/50 dark:border-amber-700/30 shadow-lg">
+                <div class="text-center mb-6">
+                  <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-3">
+                    <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> Beta Pricing
+                  </div>
+                  <div class="flex items-baseline justify-center gap-1">
+                    <span class="text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
+                      {Util.format_money(@item.amount)}
+                    </span>
+                  </div>
+                  <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">one-time payment</p>
+                </div>
+
+                <.liquid_button
+                  navigate="/auth/register"
+                  variant="primary"
+                  color="amber"
+                  size="lg"
+                  icon="hero-credit-card"
+                  class="w-full mb-4"
+                >
+                  Get Lifetime Access
+                </.liquid_button>
+
+                <div
+                  id="affirm-disclosure-one-time"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders."
+                  class="flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 cursor-help hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                >
+                  <.phx_icon name="hero-credit-card" class="w-3.5 h-3.5" />
+                  <span>Split payments with Affirm</span>
+                  <.phx_icon name="hero-information-circle" class="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              <div class="mt-4 flex items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-1.5">
+                  <.phx_icon name="hero-shield-check" class="w-4 h-4 text-emerald-500" />
+                  <span>30-day guarantee</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <.phx_icon name="hero-lock-closed" class="w-4 h-4 text-emerald-500" />
+                  <span>Secure checkout</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </.liquid_card>
+    </div>
+    """
+  end
+
+  attr :product, :map, required: true
+
+  defp pricing_card(assigns) do
+    item = List.first(assigns.product.line_items)
+    is_most_popular = assigns.product.most_popular
+    is_one_time = item.interval == :one_time
+
+    assigns =
+      assigns
+      |> assign(:item, item)
+      |> assign(:is_most_popular, is_most_popular)
+      |> assign(:is_one_time, is_one_time)
+
+    ~H"""
+    <div class={[
+      "relative group",
+      @is_most_popular && "lg:-mt-4 lg:mb-4"
+    ]}>
+      <div
+        :if={@is_most_popular}
+        class="absolute -top-4 left-1/2 -translate-x-1/2 z-10"
+      >
+        <.liquid_badge variant="solid" color="emerald" size="md">
+          <.phx_icon name="hero-star" class="w-3.5 h-3.5 mr-1" /> Most Popular
+        </.liquid_badge>
+      </div>
+
+      <.liquid_card
+        padding="lg"
+        class={[
+          "h-full flex flex-col transition-all duration-300 ease-out",
+          @is_most_popular &&
+            "ring-2 ring-emerald-500 dark:ring-emerald-400 shadow-2xl shadow-emerald-500/20",
+          !@is_most_popular &&
+            "hover:ring-1 hover:ring-emerald-200 dark:hover:ring-emerald-800 hover:shadow-xl"
+        ]}
+      >
+        <div class="flex-1">
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {@product.name}
+              </h3>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {@product.description}
+              </p>
+            </div>
+          </div>
+
+          <.price_display item={@item} is_one_time={@is_one_time} />
+
+          <.trial_badge :if={Map.get(@item, :trial_days)} trial_days={@item.trial_days} />
+
+          <div class="mt-6">
+            <.action_button item={@item} is_most_popular={@is_most_popular} />
+          </div>
+
+          <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
+            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+              <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" /> What's included
+            </h4>
+            <ul class="space-y-3">
+              <%= for feature <- @product.features do %>
+                <li class="flex items-start gap-3">
+                  <div class="flex-shrink-0 mt-0.5">
+                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40">
+                      <.phx_icon
+                        name="hero-check"
+                        class="w-3 h-3 text-emerald-600 dark:text-emerald-400"
+                      />
+                    </div>
+                  </div>
+                  <span class="text-sm text-slate-600 dark:text-slate-400">{feature}</span>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </div>
+      </.liquid_card>
+    </div>
+    """
+  end
+
+  attr :item, :map, required: true
+  attr :is_one_time, :boolean, required: true
+
+  defp price_display(assigns) do
+    ~H"""
+    <div class="mt-6 mb-2">
+      <div class="flex items-baseline gap-2">
+        <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+          <%= if @is_one_time do %>
+            {Util.format_money(@item.amount)}
+          <% else %>
+            <%= if Map.get(@item, :monthly_equivalent) do %>
+              {Util.format_money(@item.monthly_equivalent)}
+            <% else %>
+              {Util.format_money(@item.amount)}
+            <% end %>
+          <% end %>
+        </span>
+        <div class="flex flex-col">
+          <span class="text-base font-medium text-slate-600 dark:text-slate-400">
+            <%= cond do %>
+              <% @is_one_time -> %>
+                once
+              <% @item.interval == :year -> %>
+                /mo
+              <% true -> %>
+                /month
+            <% end %>
+          </span>
+          <span
+            :if={@item.interval == :year}
+            class="text-xs text-slate-500 dark:text-slate-500"
+          >
+            billed annually ({Util.format_money(@item.amount)})
+          </span>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :trial_days, :integer, required: true
+
+  defp trial_badge(assigns) do
+    ~H"""
+    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 border border-blue-200/50 dark:border-blue-700/30">
+      <.phx_icon name="hero-clock" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+      <span class="text-xs font-semibold text-blue-700 dark:text-blue-300">
+        {ngettext("%{count}-day free trial", "%{count}-day free trial", @trial_days,
+          count: @trial_days
+        )}
+      </span>
+    </div>
+    """
+  end
+
+  attr :item, :map, required: true
+  attr :is_most_popular, :boolean, required: true
+
+  defp action_button(assigns) do
+    ~H"""
+    <.liquid_button
+      navigate="/auth/register"
+      variant={if @is_most_popular, do: "primary", else: "secondary"}
+      size="lg"
+      class="w-full"
+      icon={button_icon(@item)}
+    >
+      {button_label(@item)}
+    </.liquid_button>
+    """
+  end
+
+  defp button_icon(%{interval: :one_time}), do: "hero-credit-card"
+  defp button_icon(%{trial_days: days}) when is_integer(days) and days > 0, do: "hero-play"
+  defp button_icon(_), do: "hero-arrow-right"
+
+  defp button_label(%{interval: :one_time}), do: "Pay Once"
+
+  defp button_label(%{trial_days: days}) when is_integer(days) and days > 0,
+    do: "Start Free Trial"
+
+  defp button_label(_), do: "Subscribe"
+
+  defp pricing_footer(assigns) do
+    ~H"""
+    <div class="mt-16 text-center space-y-4">
+      <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500 dark:text-slate-400">
+        <div class="flex items-center gap-2">
+          <.phx_icon name="hero-shield-check" class="w-4 h-4 text-emerald-500" />
+          <span>Secure payment</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <.phx_icon name="hero-lock-closed" class="w-4 h-4 text-emerald-500" />
+          <span>End-to-end encrypted</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <.phx_icon name="hero-heart" class="w-4 h-4 text-emerald-500" />
+          <span>Cancel anytime</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-400 dark:text-slate-500">
+        Powered by Stripe. Your payment information is never stored on our servers.
+      </p>
+    </div>
+    """
+  end
+
   @impl true
   def mount(_params, _session, socket) do
+    products = Plans.products()
+
+    one_time_products =
+      Enum.filter(products, fn product ->
+        item = List.first(product.line_items)
+        item && item.interval == :one_time
+      end)
+
+    subscription_products =
+      Enum.filter(products, fn product ->
+        item = List.first(product.line_items)
+        item && item.interval in [:month, :year]
+      end)
+
     {:ok,
      socket
      |> assign_new(:max_width, fn -> "full" end)
      |> assign(:page_title, "Pricing")
+     |> assign(:products, products)
+     |> assign(:one_time_products, one_time_products)
+     |> assign(:subscription_products, subscription_products)
      |> assign_new(:meta_description, fn ->
        "Simple, pay-once pricing. Say goodbye to never-ending subscription fees. Pay once and forget about it. With one, simple payment you get access to our service forever. No hidden fees, no subscriptions, no surprises. We also support lowering your upfront payment with Affirm."
      end)

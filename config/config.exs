@@ -237,20 +237,20 @@ config :mosslet,
        "https://dashboard.stripe.com/test/subscriptions/"
 
 # Configures Stripe billing products (Live mode)
+# Note: You need to create the subscription prices in Stripe and replace the placeholder price IDs
 config :mosslet, :billing_products, [
   %{
     id: "prod_QCKH8FgOWQC8QK",
-    name: "MOSSLET (Personal)",
-    description:
-      "Enjoy lifetime access with a one-time payment. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
+    name: "Lifetime",
+    description: "Pay once, own forever. No recurring charges.",
     most_popular: false,
+    type: :one_time,
     features: [
       "Unlimited Connections, Circles, and Posts",
-      "Unlimited new features",
-      "Streamlined settings",
-      "Own your data",
+      "All current and future features",
+      "Own your data forever",
       "Advanced asymmetric encryption",
-      "Email support",
+      "Priority email support",
       "Supports Affirm Payment Plans"
     ],
     line_items: [
@@ -264,6 +264,66 @@ config :mosslet, :billing_products, [
       }
     ],
     mode: "payment",
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_subscription_monthly",
+    name: "Monthly",
+    description: "Flexible monthly billing with free trial.",
+    most_popular: false,
+    type: :subscription,
+    features: [
+      "7-day free trial",
+      "Unlimited Connections, Circles, and Posts",
+      "All current and future features",
+      "Own your data",
+      "Advanced asymmetric encryption",
+      "Email support",
+      "Cancel anytime"
+    ],
+    line_items: [
+      %{
+        id: "monthly",
+        interval: :month,
+        price: "price_REPLACE_WITH_YOUR_MONTHLY_PRICE_ID",
+        quantity: 1,
+        amount: 999,
+        allow_promotion_codes: true,
+        trial_days: 7
+      }
+    ],
+    mode: "subscription",
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_subscription_yearly",
+    name: "Yearly",
+    description: "Best value. Save 2 months with annual billing.",
+    most_popular: true,
+    type: :subscription,
+    features: [
+      "14-day free trial",
+      "Save 17% vs monthly",
+      "Unlimited Connections, Circles, and Posts",
+      "All current and future features",
+      "Own your data",
+      "Advanced asymmetric encryption",
+      "Priority email support",
+      "Cancel anytime"
+    ],
+    line_items: [
+      %{
+        id: "yearly",
+        interval: :year,
+        price: "price_REPLACE_WITH_YOUR_YEARLY_PRICE_ID",
+        quantity: 1,
+        amount: 9900,
+        monthly_equivalent: 825,
+        allow_promotion_codes: true,
+        trial_days: 14
+      }
+    ],
+    mode: "subscription",
     automatic_tax: %{enabled: true}
   }
 ]
