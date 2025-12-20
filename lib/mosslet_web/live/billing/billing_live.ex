@@ -157,7 +157,7 @@ defmodule MossletWeb.BillingLive do
   defp fetch_invoices(subscription, starting_after \\ nil) do
     params = %{
       subscription: subscription.provider_subscription_id,
-      limit: 10
+      limit: 24
     }
 
     params = if starting_after, do: Map.put(params, :starting_after, starting_after), else: params
@@ -296,7 +296,7 @@ defmodule MossletWeb.BillingLive do
     {:noreply, socket}
   end
 
-  def handle_event("filter_invoices_by_year", %{"year" => year}, socket) do
+  def handle_event("filter_invoices_by_year", %{"filter" => %{"year" => year}}, socket) do
     year_filter =
       case year do
         "" -> nil
@@ -909,7 +909,15 @@ defmodule MossletWeb.BillingLive do
           <p class="text-sm text-slate-600 dark:text-slate-400">
             {gettext("View your past payments and download receipts.")}
           </p>
-          <div :if={length(@available_years) > 1} class="flex items-center gap-2">
+          <.form
+            :if={length(@available_years) > 1}
+            for={%{}}
+            as={:filter}
+            id="invoice-year-filter-form"
+            phx-change="filter_invoices_by_year"
+            class="flex items-center gap-2"
+            aria-label={gettext("Filter payment history by year")}
+          >
             <label
               for="invoice-year-filter"
               class="text-sm font-medium text-slate-600 dark:text-slate-400"
@@ -918,8 +926,8 @@ defmodule MossletWeb.BillingLive do
             </label>
             <select
               id="invoice-year-filter"
-              name="year"
-              phx-change="filter_invoices_by_year"
+              name="filter[year]"
+              aria-describedby="invoice-filter-description"
               class="text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-purple-500 focus:border-purple-500"
             >
               <option value="">{gettext("All")}</option>
@@ -931,7 +939,10 @@ defmodule MossletWeb.BillingLive do
                 {year}
               </option>
             </select>
-          </div>
+            <span id="invoice-filter-description" class="sr-only">
+              {gettext("Select a year to filter payment history")}
+            </span>
+          </.form>
         </div>
 
         <div
@@ -961,7 +972,7 @@ defmodule MossletWeb.BillingLive do
 
         <div
           :if={@filtered_invoices != []}
-          class="divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"
+          class="divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden max-h-[32rem] overflow-y-auto"
         >
           <div
             :for={invoice <- @filtered_invoices}
