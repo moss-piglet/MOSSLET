@@ -5,6 +5,7 @@ defmodule Mosslet.Billing.Providers.Stripe do
   use Mosslet.Billing.Providers.Behaviour
 
   alias Mosslet.Accounts.User
+  alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.Providers.Stripe.Provider
@@ -17,9 +18,10 @@ defmodule Mosslet.Billing.Providers.Stripe do
   def checkout(%User{} = user, plan, source, source_id, session_key) do
     mode = determine_checkout_mode(plan)
 
-    with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key),
-         {:ok, session} <-
-           CreateCheckoutSession.call(%CreateCheckoutSession{
+    with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key) do
+      trial_days = determine_trial_days(plan, customer)
+
+      case CreateCheckoutSession.call(%CreateCheckoutSession{
              customer_id: customer.id,
              source: source,
              source_id: source_id,
@@ -32,16 +34,28 @@ defmodule Mosslet.Billing.Providers.Stripe do
              success_url: success_url(source, source_id, customer.id),
              cancel_url: cancel_url(source, source_id),
              allow_promotion_codes: Map.get(plan, :allow_promotion_codes, false),
-             trial_period_days: Map.get(plan, :trial_days),
+             trial_period_days: trial_days,
              line_items: format_line_items(plan, mode),
              mode: mode
            }) do
-      {:ok, customer, session}
+        {:ok, session} -> {:ok, customer, session}
+        {:error, error} -> {:error, error}
+      end
     else
       {:error, error} ->
         Logger.error("Failed to create Stripe Customer")
         Logger.debug("Failed to create Stripe Customer: #{inspect(error)}")
         raise "Failed to create Stripe Customer"
+    end
+  end
+
+  defp determine_trial_days(plan, customer) do
+    plan_trial_days = Map.get(plan, :trial_days)
+
+    if plan_trial_days && Customers.trial_used?(customer) do
+      nil
+    else
+      plan_trial_days
     end
   end
 
@@ -129,4 +143,5 @@ defmodule Mosslet.Billing.Providers.Stripe do
   defdelegate cancel_subscription(id), to: Provider
   defdelegate cancel_subscription_immediately(id), to: Provider
   defdelegate resume_subscription(id), to: Provider
+  defdelegate upcoming_invoice(params), to: Provider
 end

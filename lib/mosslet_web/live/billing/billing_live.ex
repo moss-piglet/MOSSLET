@@ -31,7 +31,12 @@ defmodule MossletWeb.BillingLive do
 
     assign_async(
       socket,
-      [:provider_payment_intent_async, :provider_charge_async, :subscription_async],
+      [
+        :provider_payment_intent_async,
+        :provider_charge_async,
+        :subscription_async,
+        :upcoming_invoice_async
+      ],
       fn ->
         case payment_intent do
           nil ->
@@ -41,6 +46,8 @@ defmodule MossletWeb.BillingLive do
 
               subscription =
                 Subscriptions.get_active_subscription_by_customer_id(user.customer.id)
+
+              upcoming_invoice = fetch_upcoming_invoice(subscription)
 
               if payment_intent do
                 provider_charge =
@@ -59,14 +66,16 @@ defmodule MossletWeb.BillingLive do
                  %{
                    provider_payment_intent_async: payment_intent,
                    provider_charge_async: provider_charge,
-                   subscription_async: subscription
+                   subscription_async: subscription,
+                   upcoming_invoice_async: upcoming_invoice
                  }}
               else
                 {:ok,
                  %{
                    provider_payment_intent_async: nil,
                    provider_charge_async: nil,
-                   subscription_async: subscription
+                   subscription_async: subscription,
+                   upcoming_invoice_async: upcoming_invoice
                  }}
               end
             else
@@ -74,7 +83,8 @@ defmodule MossletWeb.BillingLive do
                %{
                  provider_payment_intent_async: nil,
                  provider_charge_async: nil,
-                 subscription_async: nil
+                 subscription_async: nil,
+                 upcoming_invoice_async: nil
                }}
             end
 
@@ -89,13 +99,16 @@ defmodule MossletWeb.BillingLive do
                 Subscriptions.get_active_subscription_by_customer_id(user.customer.id)
               end
 
+            upcoming_invoice = fetch_upcoming_invoice(subscription)
+
             case billing_provider().retrieve_charge(payment_intent.provider_latest_charge_id) do
               {:ok, provider_charge} ->
                 {:ok,
                  %{
                    provider_payment_intent_async: provider_payment_intent,
                    provider_charge_async: provider_charge,
-                   subscription_async: subscription
+                   subscription_async: subscription,
+                   upcoming_invoice_async: upcoming_invoice
                  }}
 
               _rest ->
@@ -103,12 +116,24 @@ defmodule MossletWeb.BillingLive do
                  %{
                    provider_payment_intent_async: provider_payment_intent,
                    provider_charge_async: nil,
-                   subscription_async: subscription
+                   subscription_async: subscription,
+                   upcoming_invoice_async: upcoming_invoice
                  }}
             end
         end
       end
     )
+  end
+
+  defp fetch_upcoming_invoice(nil), do: nil
+
+  defp fetch_upcoming_invoice(subscription) do
+    case billing_provider().upcoming_invoice(%{
+           subscription: subscription.provider_subscription_id
+         }) do
+      {:ok, invoice} -> invoice
+      _error -> nil
+    end
   end
 
   def billing_path(:user, _assigns), do: ~p"/app/billing"
@@ -240,6 +265,7 @@ defmodule MossletWeb.BillingLive do
                 provider_charge_async={@provider_charge_async}
                 provider_payment_intent_async={@provider_payment_intent_async}
                 subscription_async={@subscription_async}
+                upcoming_invoice_async={@upcoming_invoice_async}
                 current_user={@current_user}
                 key={@key}
               />
@@ -254,6 +280,7 @@ defmodule MossletWeb.BillingLive do
   attr :provider_payment_intent_async, :map
   attr :provider_charge_async, :map
   attr :subscription_async, :map
+  attr :upcoming_invoice_async, :map
   attr :subscribe_path, :string
   attr :current_user, Mosslet.Accounts.User, required: true
   attr :key, :string, required: true
@@ -345,6 +372,7 @@ defmodule MossletWeb.BillingLive do
     >
       <.subscription_info
         subscription={@subscription_async.result}
+        upcoming_invoice={@upcoming_invoice_async.result}
         subscribe_path={@subscribe_path}
         current_user={@current_user}
         key={@key}
@@ -370,6 +398,7 @@ defmodule MossletWeb.BillingLive do
   end
 
   attr :subscription, :map, required: true
+  attr :upcoming_invoice, :map, default: nil
   attr :subscribe_path, :string, required: true
   attr :current_user, Mosslet.Accounts.User, required: true
   attr :key, :string, required: true
@@ -468,8 +497,8 @@ defmodule MossletWeb.BillingLive do
               <p class={[
                 "text-xs font-medium uppercase tracking-wide",
                 if(@cancellation_pending,
-                  do: "text-amber-600 dark:text-amber-400",
-                  else: "text-emerald-600 dark:text-emerald-400"
+                  do: "text-amber-700 dark:text-amber-300",
+                  else: "text-emerald-700 dark:text-emerald-300"
                 )
               ]}>
                 {gettext("Status")}
@@ -492,8 +521,8 @@ defmodule MossletWeb.BillingLive do
               <p class={[
                 "text-xs font-medium uppercase tracking-wide",
                 if(@cancellation_pending,
-                  do: "text-amber-600 dark:text-amber-400",
-                  else: "text-emerald-600 dark:text-emerald-400"
+                  do: "text-amber-700 dark:text-amber-300",
+                  else: "text-emerald-700 dark:text-emerald-300"
                 )
               ]}>
                 <%= cond do %>
@@ -517,6 +546,44 @@ defmodule MossletWeb.BillingLive do
                   at={@subscription.current_period_end_at}
                 />
               </p>
+            </div>
+            <div :if={@upcoming_invoice && !@cancellation_pending}>
+              <p class="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                {gettext("Next Charge")}
+              </p>
+              <p class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+                {Util.format_money(@upcoming_invoice.amount_due, @upcoming_invoice.currency)}
+                <span class="text-sm uppercase ml-1">{@upcoming_invoice.currency}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          :if={@upcoming_invoice && @upcoming_invoice.hosted_invoice_url && !@cancellation_pending}
+          class="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-100 dark:border-emerald-800"
+        >
+          <div class="flex items-start gap-3">
+            <.phx_icon
+              name="hero-document-text"
+              class="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0"
+            />
+            <div class="flex-1">
+              <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                {gettext("View Invoice")}
+              </p>
+              <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                {gettext("Preview your upcoming invoice or view past receipts.")}
+              </p>
+              <a
+                href={@upcoming_invoice.hosted_invoice_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors"
+              >
+                <.phx_icon name="hero-arrow-top-right-on-square" class="h-4 w-4" />
+                {gettext("View Invoice")}
+              </a>
             </div>
           </div>
         </div>

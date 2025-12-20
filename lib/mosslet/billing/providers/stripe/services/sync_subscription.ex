@@ -28,7 +28,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
       case Subscriptions.get_subscription_by_provider_subscription_id(stripe_subscription.id) do
         nil ->
           case Subscriptions.create_subscription(subscription_attrs) do
-            {:ok, _subscription} ->
+            {:ok, subscription} ->
+              maybe_mark_trial_used(customer, subscription)
               :ok
 
             rest ->
@@ -39,7 +40,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
 
         subscription ->
           case Subscriptions.update_subscription(subscription, subscription_attrs) do
-            {:ok, _subscription} ->
+            {:ok, updated_subscription} ->
+              maybe_mark_trial_used(customer, updated_subscription)
               :ok
 
             rest ->
@@ -50,6 +52,12 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
       end
     else
       error -> {:error, error}
+    end
+  end
+
+  defp maybe_mark_trial_used(customer, subscription) do
+    if subscription.status == "trialing" && !Customers.trial_used?(customer) do
+      Customers.mark_trial_used(customer)
     end
   end
 

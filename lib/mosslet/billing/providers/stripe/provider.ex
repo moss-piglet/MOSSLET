@@ -84,4 +84,9 @@ defmodule Mosslet.Billing.Providers.Stripe.Provider do
   def resume_subscription(id) do
     Stripe.Subscription.update(id, %{cancel_at_period_end: false})
   end
+
+  @impl true
+  def upcoming_invoice(params) do
+    Stripe.Invoice.upcoming(params)
+  end
 end

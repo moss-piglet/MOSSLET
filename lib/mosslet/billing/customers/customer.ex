@@ -19,6 +19,7 @@ defmodule Mosslet.Billing.Customers.Customer do
     field :provider_customer_id, Encrypted.Binary
     field :provider_hash, Encrypted.HMAC
     field :provider_customer_id_hash, Encrypted.HMAC
+    field :trial_used_at, :utc_datetime
 
     belongs_to :user, Mosslet.Accounts.User
     belongs_to :org, Mosslet.Orgs.Org

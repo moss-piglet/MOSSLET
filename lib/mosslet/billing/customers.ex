@@ -108,4 +108,21 @@ defmodule Mosslet.Billing.Customers do
       end
     end)
   end
+
+  def trial_used?(%Customer{trial_used_at: nil}), do: false
+  def trial_used?(%Customer{trial_used_at: _}), do: true
+  def trial_used?(nil), do: false
+
+  def mark_trial_used(%Customer{} = customer) do
+    Repo.transaction_on_primary(fn ->
+      customer
+      |> Ecto.Changeset.change(trial_used_at: DateTime.utc_now())
+      |> Repo.update()
+    end)
+    |> case do
+      {:ok, {:ok, customer}} -> {:ok, customer}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 end
