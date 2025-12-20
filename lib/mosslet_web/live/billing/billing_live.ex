@@ -6,6 +6,7 @@ defmodule MossletWeb.BillingLive do
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Repo
   alias MossletWeb.DesignSystem
+  alias Phoenix.LiveView.AsyncResult
 
   defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
 
@@ -15,6 +16,7 @@ defmodule MossletWeb.BillingLive do
       socket
       |> assign(:source, socket.assigns.live_action)
       |> assign(:billing_provider, billing_provider())
+      |> assign(:invoice_year_filter, nil)
 
     {:ok, socket}
   end
@@ -35,7 +37,9 @@ defmodule MossletWeb.BillingLive do
         :provider_payment_intent_async,
         :provider_charge_async,
         :subscription_async,
-        :upcoming_invoice_async
+        :upcoming_invoice_async,
+        :invoices_async,
+        :invoices_has_more_async
       ],
       fn ->
         case payment_intent do
@@ -48,6 +52,7 @@ defmodule MossletWeb.BillingLive do
                 Subscriptions.get_active_subscription_by_customer_id(user.customer.id)
 
               upcoming_invoice = fetch_upcoming_invoice(subscription)
+              %{invoices: invoices, has_more: invoices_has_more} = fetch_invoices(subscription)
 
               if payment_intent do
                 provider_charge =
@@ -67,7 +72,9 @@ defmodule MossletWeb.BillingLive do
                    provider_payment_intent_async: payment_intent,
                    provider_charge_async: provider_charge,
                    subscription_async: subscription,
-                   upcoming_invoice_async: upcoming_invoice
+                   upcoming_invoice_async: upcoming_invoice,
+                   invoices_async: invoices,
+                   invoices_has_more_async: invoices_has_more
                  }}
               else
                 {:ok,
@@ -75,7 +82,9 @@ defmodule MossletWeb.BillingLive do
                    provider_payment_intent_async: nil,
                    provider_charge_async: nil,
                    subscription_async: subscription,
-                   upcoming_invoice_async: upcoming_invoice
+                   upcoming_invoice_async: upcoming_invoice,
+                   invoices_async: invoices,
+                   invoices_has_more_async: invoices_has_more
                  }}
               end
             else
@@ -84,7 +93,9 @@ defmodule MossletWeb.BillingLive do
                  provider_payment_intent_async: nil,
                  provider_charge_async: nil,
                  subscription_async: nil,
-                 upcoming_invoice_async: nil
+                 upcoming_invoice_async: nil,
+                 invoices_async: [],
+                 invoices_has_more_async: false
                }}
             end
 
@@ -100,6 +111,7 @@ defmodule MossletWeb.BillingLive do
               end
 
             upcoming_invoice = fetch_upcoming_invoice(subscription)
+            %{invoices: invoices, has_more: invoices_has_more} = fetch_invoices(subscription)
 
             case billing_provider().retrieve_charge(payment_intent.provider_latest_charge_id) do
               {:ok, provider_charge} ->
@@ -108,7 +120,9 @@ defmodule MossletWeb.BillingLive do
                    provider_payment_intent_async: provider_payment_intent,
                    provider_charge_async: provider_charge,
                    subscription_async: subscription,
-                   upcoming_invoice_async: upcoming_invoice
+                   upcoming_invoice_async: upcoming_invoice,
+                   invoices_async: invoices,
+                   invoices_has_more_async: invoices_has_more
                  }}
 
               _rest ->
@@ -117,7 +131,9 @@ defmodule MossletWeb.BillingLive do
                    provider_payment_intent_async: provider_payment_intent,
                    provider_charge_async: nil,
                    subscription_async: subscription,
-                   upcoming_invoice_async: upcoming_invoice
+                   upcoming_invoice_async: upcoming_invoice,
+                   invoices_async: invoices,
+                   invoices_has_more_async: invoices_has_more
                  }}
             end
         end
@@ -133,6 +149,25 @@ defmodule MossletWeb.BillingLive do
          }) do
       {:ok, invoice} -> invoice
       _error -> nil
+    end
+  end
+
+  defp fetch_invoices(nil), do: %{invoices: [], has_more: false}
+
+  defp fetch_invoices(subscription, starting_after \\ nil) do
+    params = %{
+      subscription: subscription.provider_subscription_id,
+      limit: 10
+    }
+
+    params = if starting_after, do: Map.put(params, :starting_after, starting_after), else: params
+
+    case billing_provider().list_invoices(params) do
+      {:ok, %{data: invoices, has_more: has_more}} ->
+        %{invoices: invoices, has_more: has_more}
+
+      _error ->
+        %{invoices: [], has_more: false}
     end
   end
 
@@ -232,6 +267,45 @@ defmodule MossletWeb.BillingLive do
     end
   end
 
+  def handle_event("load_more_invoices", _params, socket) do
+    subscription = socket.assigns.subscription_async.result
+    current_invoices = socket.assigns.invoices_async.result
+
+    last_invoice_id =
+      case List.last(current_invoices) do
+        nil -> nil
+        invoice -> invoice.id
+      end
+
+    %{invoices: new_invoices, has_more: has_more} =
+      fetch_invoices(subscription, last_invoice_id)
+
+    updated_invoices = current_invoices ++ new_invoices
+
+    socket =
+      socket
+      |> assign(
+        :invoices_async,
+        AsyncResult.ok(%{invoices_async: updated_invoices}, updated_invoices)
+      )
+      |> assign(
+        :invoices_has_more_async,
+        AsyncResult.ok(%{invoices_has_more_async: has_more}, has_more)
+      )
+
+    {:noreply, socket}
+  end
+
+  def handle_event("filter_invoices_by_year", %{"year" => year}, socket) do
+    year_filter =
+      case year do
+        "" -> nil
+        year_str -> String.to_integer(year_str)
+      end
+
+    {:noreply, assign(socket, :invoice_year_filter, year_filter)}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -266,8 +340,11 @@ defmodule MossletWeb.BillingLive do
                 provider_payment_intent_async={@provider_payment_intent_async}
                 subscription_async={@subscription_async}
                 upcoming_invoice_async={@upcoming_invoice_async}
+                invoices_async={@invoices_async}
+                invoices_has_more_async={@invoices_has_more_async}
                 current_user={@current_user}
                 key={@key}
+                invoice_year_filter={@invoice_year_filter}
               />
             </div>
           </DesignSystem.liquid_container>
@@ -281,9 +358,12 @@ defmodule MossletWeb.BillingLive do
   attr :provider_charge_async, :map
   attr :subscription_async, :map
   attr :upcoming_invoice_async, :map
+  attr :invoices_async, :map
+  attr :invoices_has_more_async, :map
   attr :subscribe_path, :string
   attr :current_user, Mosslet.Accounts.User, required: true
   attr :key, :string, required: true
+  attr :invoice_year_filter, :integer, default: nil
 
   def billing_info(assigns) do
     ~H"""
@@ -373,9 +453,12 @@ defmodule MossletWeb.BillingLive do
       <.subscription_info
         subscription={@subscription_async.result}
         upcoming_invoice={@upcoming_invoice_async.result}
+        invoices={@invoices_async.result}
+        invoices_has_more={@invoices_has_more_async.result}
         subscribe_path={@subscribe_path}
         current_user={@current_user}
         key={@key}
+        invoice_year_filter={@invoice_year_filter}
       />
     </div>
 
@@ -399,13 +482,68 @@ defmodule MossletWeb.BillingLive do
 
   attr :subscription, :map, required: true
   attr :upcoming_invoice, :map, default: nil
+  attr :invoices, :list, default: []
+  attr :invoices_has_more, :boolean, default: false
   attr :subscribe_path, :string, required: true
   attr :current_user, Mosslet.Accounts.User, required: true
   attr :key, :string, required: true
+  attr :invoice_year_filter, :integer, default: nil
 
   defp subscription_info(assigns) do
     cancellation_pending = assigns.subscription.cancel_at != nil
-    assigns = assign(assigns, :cancellation_pending, cancellation_pending)
+    plan = Mosslet.Billing.Plans.get_plan_by_id!(assigns.subscription.plan_id)
+
+    billing_cycle =
+      case plan.interval do
+        :month -> "Monthly"
+        :year -> "Yearly"
+        _ -> nil
+      end
+
+    available_years =
+      assigns.invoices
+      |> Enum.map(fn invoice ->
+        invoice.created
+        |> Util.unix_to_naive_datetime()
+        |> Map.get(:year)
+      end)
+      |> Enum.uniq()
+      |> Enum.sort(:desc)
+
+    filtered_invoices =
+      case assigns.invoice_year_filter do
+        nil ->
+          assigns.invoices
+
+        year ->
+          Enum.filter(assigns.invoices, fn invoice ->
+            invoice.created
+            |> Util.unix_to_naive_datetime()
+            |> Map.get(:year) == year
+          end)
+      end
+
+    year_total =
+      if assigns.invoice_year_filter do
+        Enum.reduce(filtered_invoices, 0, fn invoice, acc ->
+          acc + invoice.amount_paid
+        end)
+      end
+
+    year_currency =
+      case filtered_invoices do
+        [first | _] -> first.currency
+        [] -> nil
+      end
+
+    assigns =
+      assigns
+      |> assign(:cancellation_pending, cancellation_pending)
+      |> assign(:billing_cycle, billing_cycle)
+      |> assign(:available_years, available_years)
+      |> assign(:filtered_invoices, filtered_invoices)
+      |> assign(:year_total, year_total)
+      |> assign(:year_currency, year_currency)
 
     ~H"""
     <DesignSystem.liquid_card class={[
@@ -554,6 +692,12 @@ defmodule MossletWeb.BillingLive do
               <p class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">
                 {Util.format_money(@upcoming_invoice.amount_due, @upcoming_invoice.currency)}
                 <span class="text-sm uppercase ml-1">{@upcoming_invoice.currency}</span>
+                <span
+                  :if={@billing_cycle}
+                  class="text-sm font-normal text-emerald-700 dark:text-emerald-300 ml-1"
+                >
+                  ({@billing_cycle})
+                </span>
               </p>
             </div>
           </div>
@@ -731,6 +875,158 @@ defmodule MossletWeb.BillingLive do
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </DesignSystem.liquid_card>
+
+    <DesignSystem.liquid_card :if={@invoices != []}>
+      <:title>
+        <div class="flex items-center gap-3">
+          <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 via-violet-50 to-purple-100 dark:from-purple-900/30 dark:via-violet-900/25 dark:to-purple-900/30">
+            <.phx_icon name="hero-clock" class="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          </div>
+          <span>Payment History</span>
+          <span
+            :if={@invoices_has_more && @invoice_year_filter == nil}
+            class="text-sm font-normal text-slate-500 dark:text-slate-400"
+          >
+            ({gettext("showing %{count} most recent", count: length(@invoices))})
+          </span>
+          <span
+            :if={@invoice_year_filter != nil}
+            class="text-sm font-normal text-slate-500 dark:text-slate-400"
+          >
+            ({gettext("%{count} in %{year}",
+              count: length(@filtered_invoices),
+              year: @invoice_year_filter
+            )})
+          </span>
+        </div>
+      </:title>
+
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            {gettext("View your past payments and download receipts.")}
+          </p>
+          <div :if={length(@available_years) > 1} class="flex items-center gap-2">
+            <label
+              for="invoice-year-filter"
+              class="text-sm font-medium text-slate-600 dark:text-slate-400"
+            >
+              {gettext("Year:")}
+            </label>
+            <select
+              id="invoice-year-filter"
+              name="year"
+              phx-change="filter_invoices_by_year"
+              class="text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="">{gettext("All")}</option>
+              <option
+                :for={year <- @available_years}
+                value={year}
+                selected={@invoice_year_filter == year}
+              >
+                {year}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div
+          :if={@invoice_year_filter && @year_total && @filtered_invoices != []}
+          class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-100 dark:border-purple-800"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-purple-700 dark:text-purple-300">
+              {gettext("Total for %{year}", year: @invoice_year_filter)}
+            </span>
+            <span class="text-lg font-semibold text-purple-800 dark:text-purple-200">
+              {Util.format_money(@year_total, @year_currency)}
+              <span class="text-sm uppercase ml-1">{@year_currency}</span>
+            </span>
+          </div>
+        </div>
+
+        <div
+          :if={@filtered_invoices == []}
+          class="text-center py-8 text-slate-500 dark:text-slate-400"
+        >
+          <.phx_icon name="hero-document-magnifying-glass" class="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p class="text-sm">
+            {gettext("No payments found for %{year}", year: @invoice_year_filter)}
+          </p>
+        </div>
+
+        <div
+          :if={@filtered_invoices != []}
+          class="divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"
+        >
+          <div
+            :for={invoice <- @filtered_invoices}
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <div class={[
+                "flex items-center justify-center w-8 h-8 rounded-full",
+                if(invoice.status == "paid",
+                  do: "bg-emerald-100 dark:bg-emerald-900/30",
+                  else: "bg-amber-100 dark:bg-amber-900/30"
+                )
+              ]}>
+                <.phx_icon
+                  name={if(invoice.status == "paid", do: "hero-check", else: "hero-clock")}
+                  class={[
+                    "h-4 w-4",
+                    if(invoice.status == "paid",
+                      do: "text-emerald-600 dark:text-emerald-400",
+                      else: "text-amber-600 dark:text-amber-400"
+                    )
+                  ]}
+                />
+              </div>
+              <div>
+                <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {Util.format_money(invoice.amount_paid, invoice.currency)}
+                  <span class="text-xs uppercase ml-1 text-slate-500 dark:text-slate-400">
+                    {invoice.currency}
+                  </span>
+                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                  <.local_time_med
+                    id={"invoice-#{invoice.id}"}
+                    at={Util.unix_to_naive_datetime(invoice.created)}
+                  />
+                  <span class="mx-1">•</span>
+                  <span class="capitalize">{invoice.status}</span>
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 sm:ml-auto">
+              <a
+                :if={invoice.hosted_invoice_url}
+                href={invoice.hosted_invoice_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+              >
+                <.phx_icon name="hero-document-text" class="h-3.5 w-3.5" />
+                {gettext("View Receipt")}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div :if={@invoices_has_more} class="pt-2">
+          <button
+            type="button"
+            phx-click="load_more_invoices"
+            class="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800 transition-colors"
+          >
+            <.phx_icon name="hero-arrow-down" class="h-4 w-4" />
+            {gettext("Load More Payments")}
+          </button>
         </div>
       </div>
     </DesignSystem.liquid_card>

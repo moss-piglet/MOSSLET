@@ -25,4 +25,5 @@ defmodule Mosslet.Billing.Providers.Stripe.ProviderBehaviour do
   @callback cancel_subscription_immediately(id) :: {:ok, subscription} | {:error, error}
   @callback resume_subscription(id) :: {:ok, subscription} | {:error, error}
   @callback upcoming_invoice(params) :: {:ok, Stripe.Invoice.t()} | {:error, error}
+  @callback list_invoices(params) :: {:ok, Stripe.List.t(Stripe.Invoice.t())} | {:error, error}
 end

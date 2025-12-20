@@ -144,4 +144,5 @@ defmodule Mosslet.Billing.Providers.Stripe do
   defdelegate cancel_subscription_immediately(id), to: Provider
   defdelegate resume_subscription(id), to: Provider
   defdelegate upcoming_invoice(params), to: Provider
+  defdelegate list_invoices(params), to: Provider
 end
