@@ -422,9 +422,9 @@ defmodule MossletWeb.Menus do
     if Customers.entity() == :user && not MossletWeb.Helpers.user_has_paid?(current_user) do
       %{
         name: name,
-        label: gettext("Pay Once"),
+        label: gettext("Plans"),
         path: ~p"/app/subscribe",
-        icon: "hero-shopping-bag"
+        icon: "hero-credit-card"
       }
     end
   end

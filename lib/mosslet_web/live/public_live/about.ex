@@ -305,7 +305,7 @@ defmodule MossletWeb.PublicLive.About do
                 Privacy is our business model
               </h3>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">
-                It's simple, you pay us <em>once</em>
+                It's simple, you pay us
                 and we provide you with a service that respects and protects your digital privacy. That's it. We're not in this to get-rich-quick or take the big exit — we're here for the long haul, for you (and us!).
               </p>
               <p class="mt-6 text-lg/8 text-slate-600 dark:text-slate-400">

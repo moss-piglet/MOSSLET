@@ -50,5 +50,11 @@ defmodule Mosslet.Billing.Providers.Stripe.WebhookHandler do
     |> Oban.insert()
   end
 
+  @impl true
+  def handle_event(%Stripe.Event{type: "customer.deleted", data: %{object: object}}) do
+    Mosslet.Billing.Customers.delete_customer_by_provider_customer_id(object.id)
+    :ok
+  end
+
   def handle_event(_), do: :ok
 end

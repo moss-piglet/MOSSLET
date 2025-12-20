@@ -55,17 +55,21 @@ defmodule Mosslet.Billing.Providers.Stripe do
   end
 
   defp format_line_items(plan, _mode) do
-    plan = Map.drop(plan, [:id, :interval, :amount, :allow_promotion_codes, :trial_days])
+    plan =
+      Map.drop(plan, [:id, :interval, :amount, :allow_promotion_codes, :trial_days, :save_percent])
+
     [plan]
   end
 
   def checkout_url(session), do: session.url
 
-  def change_plan(%Customer{} = customer, %Subscription{} = subscription, plan) do
+  def change_plan(%Customer{} = customer, %Subscription{} = subscription, plan, user, session_key) do
     CreatePortalSession.call(
       customer,
       subscription,
-      Plans.plan_items(plan)
+      Plans.plan_items(plan),
+      user,
+      session_key
     )
   end
 
@@ -123,4 +127,6 @@ defmodule Mosslet.Billing.Providers.Stripe do
   defdelegate retrieve_product(id), to: Provider
   defdelegate retrieve_subscription(id), to: Provider
   defdelegate cancel_subscription(id), to: Provider
+  defdelegate cancel_subscription_immediately(id), to: Provider
+  defdelegate resume_subscription(id), to: Provider
 end

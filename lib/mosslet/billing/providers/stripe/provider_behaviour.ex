@@ -11,6 +11,7 @@ defmodule Mosslet.Billing.Providers.Stripe.ProviderBehaviour do
   @type error :: Stripe.Error.t()
 
   @callback create_customer(params) :: {:ok, customer} | {:error, error}
+  @callback retrieve_customer(id) :: {:ok, customer} | {:error, error}
   @callback create_portal_session(params) :: {:ok, session} | {:error, error}
   @callback create_checkout_session(params) :: {:ok, session} | {:error, error}
   @callback retrieve_product(id) :: {:ok, product} | {:error, error}
@@ -21,4 +22,6 @@ defmodule Mosslet.Billing.Providers.Stripe.ProviderBehaviour do
   @callback list_payment_intents(params) :: {:ok, [payment_intent]} | {:error, error}
   @callback retrieve_subscription(id) :: {:ok, subscription} | {:error, error}
   @callback cancel_subscription(id) :: {:ok, subscription} | {:error, error}
+  @callback cancel_subscription_immediately(id) :: {:ok, subscription} | {:error, error}
+  @callback resume_subscription(id) :: {:ok, subscription} | {:error, error}
 end

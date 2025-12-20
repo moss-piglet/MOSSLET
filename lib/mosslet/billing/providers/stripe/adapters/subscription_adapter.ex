@@ -6,18 +6,16 @@ defmodule Mosslet.Billing.Providers.Stripe.Adapters.SubscriptionAdapter do
   alias Mosslet.Billing.Plans
 
   def attrs_from_stripe_subscription(stripe_subscription) do
-    attrs = %{
+    %{
       provider_subscription_id: stripe_subscription.id,
       provider_subscription_items: provider_subscription_items(stripe_subscription),
-      status: stripe_subscription.status
+      status: stripe_subscription.status,
+      cancel_at: cancel_at(stripe_subscription),
+      canceled_at: canceled_at(stripe_subscription)
     }
-
-    attrs
     |> Util.maybe_put(:plan_id, plan_id(stripe_subscription))
     |> Util.maybe_put(:current_period_start, current_period_start(stripe_subscription))
     |> Util.maybe_put(:current_period_end_at, current_period_end_at(stripe_subscription))
-    |> Util.maybe_put(:cancel_at, cancel_at(stripe_subscription))
-    |> Util.maybe_put(:canceled_at, canceled_at(stripe_subscription))
   end
 
   def plan_id(stripe_subscription) do

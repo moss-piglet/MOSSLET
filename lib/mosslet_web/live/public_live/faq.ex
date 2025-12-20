@@ -39,7 +39,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "How is MOSSLET different from other social networks?",
             a:
-              "Unlike traditional social networks that rely on advertising and data exploitation, MOSSLET uses a one-time payment model. This means we don't spy on you, sell your data, or manipulate you with algorithms designed to capture your attention."
+              "Unlike traditional social networks that rely on advertising and data exploitation, MOSSLET is funded directly by our users. This means we don't spy on you, sell your data, or manipulate you with algorithms designed to capture your attention."
           },
           %{
             q: "Who can use MOSSLET?",
@@ -79,7 +79,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "How much does MOSSLET cost?",
             a:
-              "MOSSLET uses a simple one-time payment model. During our beta phase, lifetime access costs $59. This single payment gives you permanent access to all current and future features."
+              "MOSSLET offers flexible pricing options: a monthly subscription, an annual plan at a discounted rate, or a one-time lifetime access payment. All plans include a free trial so you can try before you commit."
           },
           %{
             q: "Why do you charge a fee instead of being 'free'?",
@@ -87,9 +87,9 @@ defmodule MossletWeb.PublicLive.Faq do
               "Nothing is truly free. Other social networks make money by harvesting and selling your personal data, which can be worth $500-700+ per year. We believe in honest pricing - you pay us directly, so we work for you, not advertisers."
           },
           %{
-            q: "Are there any recurring fees or subscriptions?",
+            q: "What payment options do you offer?",
             a:
-              "No! One payment, lifetime access. We don't believe in subscription fatigue or holding your data hostage with monthly fees."
+              "You can choose from monthly, yearly, or lifetime access. Monthly gives you flexibility, yearly offers a better rate, and lifetime means one payment for permanent access. We also support Affirm for splitting larger payments."
           },
           %{
             q: "What if I'm not satisfied?",

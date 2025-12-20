@@ -118,6 +118,96 @@ defmodule MossletWeb.BillingLive do
   defp subscribe_path(:org, assigns), do: ~p"/app/org/#{assigns.current_org.slug}/subscribe"
 
   @impl true
+  def handle_event("cancel_subscription", %{"subscription-id" => subscription_id}, socket) do
+    subscription = Subscriptions.get_subscription!(subscription_id)
+
+    if subscription.status == "trialing" do
+      cancel_subscription_immediately(subscription, socket)
+    else
+      cancel_subscription_at_period_end(subscription, socket)
+    end
+  end
+
+  defp cancel_subscription_immediately(subscription, socket) do
+    case billing_provider().cancel_subscription_immediately(subscription.provider_subscription_id) do
+      {:ok, _cancelled} ->
+        Subscriptions.cancel_subscription_immediately(subscription)
+
+        socket =
+          socket
+          |> put_flash(:info, gettext("Your free trial has been cancelled."))
+          |> push_navigate(to: billing_path(socket.assigns.source, socket.assigns))
+
+        {:noreply, socket}
+
+      {:error, error} ->
+        socket =
+          socket
+          |> put_flash(
+            :error,
+            gettext("Failed to cancel subscription: %{error}", error: inspect(error))
+          )
+
+        {:noreply, socket}
+    end
+  end
+
+  defp cancel_subscription_at_period_end(subscription, socket) do
+    case billing_provider().cancel_subscription(subscription.provider_subscription_id) do
+      {:ok, _updated} ->
+        Subscriptions.cancel_subscription(subscription)
+
+        socket =
+          socket
+          |> put_flash(
+            :info,
+            gettext(
+              "Your subscription has been cancelled. You will retain access until the end of your billing period."
+            )
+          )
+          |> push_navigate(to: billing_path(socket.assigns.source, socket.assigns))
+
+        {:noreply, socket}
+
+      {:error, error} ->
+        socket =
+          socket
+          |> put_flash(
+            :error,
+            gettext("Failed to cancel subscription: %{error}", error: inspect(error))
+          )
+
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("resume_subscription", %{"subscription-id" => subscription_id}, socket) do
+    subscription = Subscriptions.get_subscription!(subscription_id)
+
+    case billing_provider().resume_subscription(subscription.provider_subscription_id) do
+      {:ok, _updated} ->
+        Subscriptions.resume_subscription(subscription)
+
+        socket =
+          socket
+          |> put_flash(:info, gettext("Your subscription has been resumed."))
+          |> push_navigate(to: billing_path(socket.assigns.source, socket.assigns))
+
+        {:noreply, socket}
+
+      {:error, error} ->
+        socket =
+          socket
+          |> put_flash(
+            :error,
+            gettext("Failed to resume subscription: %{error}", error: inspect(error))
+          )
+
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <%= case @source do %>
@@ -253,7 +343,12 @@ defmodule MossletWeb.BillingLive do
       :if={@subscription_async.ok? && @subscription_async.result}
       class="space-y-8"
     >
-      <.subscription_info subscription={@subscription_async.result} subscribe_path={@subscribe_path} />
+      <.subscription_info
+        subscription={@subscription_async.result}
+        subscribe_path={@subscribe_path}
+        current_user={@current_user}
+        key={@key}
+      />
     </div>
 
     <div
@@ -276,59 +371,147 @@ defmodule MossletWeb.BillingLive do
 
   attr :subscription, :map, required: true
   attr :subscribe_path, :string, required: true
+  attr :current_user, Mosslet.Accounts.User, required: true
+  attr :key, :string, required: true
 
   defp subscription_info(assigns) do
+    cancellation_pending = assigns.subscription.cancel_at != nil
+    assigns = assign(assigns, :cancellation_pending, cancellation_pending)
+
     ~H"""
-    <DesignSystem.liquid_card class="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10">
+    <DesignSystem.liquid_card class={[
+      "bg-gradient-to-br",
+      if(@cancellation_pending,
+        do: "from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10",
+        else: "from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10"
+      )
+    ]}>
       <:title>
         <div class="flex items-center gap-3">
-          <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30">
+          <div class={[
+            "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br",
+            if(@cancellation_pending,
+              do:
+                "from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30",
+              else:
+                "from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30"
+            )
+          ]}>
             <.phx_icon
-              name="hero-check-circle"
-              class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+              name={if(@cancellation_pending, do: "hero-clock", else: "hero-check-circle")}
+              class={[
+                "h-4 w-4",
+                if(@cancellation_pending,
+                  do: "text-amber-600 dark:text-amber-400",
+                  else: "text-emerald-600 dark:text-emerald-400"
+                )
+              ]}
             />
           </div>
-          <span class="text-emerald-800 dark:text-emerald-200">
-            <%= if @subscription.status == "trialing" do %>
-              {gettext("Free Trial Active")}
-            <% else %>
-              {gettext("Subscription Active")}
+          <span class={
+            if(@cancellation_pending,
+              do: "text-amber-800 dark:text-amber-200",
+              else: "text-emerald-800 dark:text-emerald-200"
+            )
+          }>
+            <%= cond do %>
+              <% @cancellation_pending -> %>
+                {gettext("Subscription Ending")}
+              <% @subscription.status == "trialing" -> %>
+                {gettext("Free Trial Active")}
+              <% true -> %>
+                {gettext("Subscription Active")}
             <% end %>
           </span>
-          <DesignSystem.liquid_badge variant="solid" color="emerald" size="sm">
-            {@subscription.status}
+          <DesignSystem.liquid_badge
+            variant="solid"
+            color={if(@cancellation_pending, do: "amber", else: "emerald")}
+            size="sm"
+          >
+            <%= if @cancellation_pending do %>
+              {gettext("cancelling")}
+            <% else %>
+              {@subscription.status}
+            <% end %>
           </DesignSystem.liquid_badge>
         </div>
       </:title>
 
       <div class="space-y-6">
-        <p class="text-emerald-700 dark:text-emerald-300">
-          <%= if @subscription.status == "trialing" do %>
-            {gettext("You're currently on a free trial. Enjoy exploring all of MOSSLET's features!")}
-          <% else %>
-            {gettext("Your subscription is active. Thank you for being a MOSSLET member!")}
+        <p class={
+          if(@cancellation_pending,
+            do: "text-amber-700 dark:text-amber-300",
+            else: "text-emerald-700 dark:text-emerald-300"
+          )
+        }>
+          <%= cond do %>
+            <% @cancellation_pending -> %>
+              {gettext(
+                "Your subscription has been cancelled. You will retain access until the end of your billing period."
+              )}
+            <% @subscription.status == "trialing" -> %>
+              {gettext("You're currently on a free trial. Enjoy exploring all of MOSSLET's features!")}
+            <% true -> %>
+              {gettext("Your subscription is active. Thank you for being a MOSSLET member!")}
           <% end %>
         </p>
 
-        <div class="bg-emerald-100 dark:bg-emerald-900/30 rounded-lg p-6 border border-emerald-200 dark:border-emerald-700">
+        <div class={[
+          "rounded-lg p-6 border",
+          if(@cancellation_pending,
+            do: "bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700",
+            else: "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700"
+          )
+        ]}>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <p class="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+              <p class={[
+                "text-xs font-medium uppercase tracking-wide",
+                if(@cancellation_pending,
+                  do: "text-amber-600 dark:text-amber-400",
+                  else: "text-emerald-600 dark:text-emerald-400"
+                )
+              ]}>
                 {gettext("Status")}
               </p>
-              <p class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200 capitalize">
-                {@subscription.status}
+              <p class={[
+                "mt-1 text-lg font-semibold capitalize",
+                if(@cancellation_pending,
+                  do: "text-amber-800 dark:text-amber-200",
+                  else: "text-emerald-800 dark:text-emerald-200"
+                )
+              ]}>
+                <%= if @cancellation_pending do %>
+                  {gettext("Cancelling")}
+                <% else %>
+                  {@subscription.status}
+                <% end %>
               </p>
             </div>
             <div :if={@subscription.current_period_end_at}>
-              <p class="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-                <%= if @subscription.status == "trialing" do %>
-                  {gettext("Trial Ends")}
-                <% else %>
-                  {gettext("Next Billing Date")}
+              <p class={[
+                "text-xs font-medium uppercase tracking-wide",
+                if(@cancellation_pending,
+                  do: "text-amber-600 dark:text-amber-400",
+                  else: "text-emerald-600 dark:text-emerald-400"
+                )
+              ]}>
+                <%= cond do %>
+                  <% @cancellation_pending -> %>
+                    {gettext("Access Ends")}
+                  <% @subscription.status == "trialing" -> %>
+                    {gettext("Trial Ends")}
+                  <% true -> %>
+                    {gettext("Next Billing Date")}
                 <% end %>
               </p>
-              <p class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+              <p class={[
+                "mt-1 text-lg font-semibold",
+                if(@cancellation_pending,
+                  do: "text-amber-800 dark:text-amber-200",
+                  else: "text-emerald-800 dark:text-emerald-200"
+                )
+              ]}>
                 <.local_time_full
                   id={"subscription-#{@subscription.id}"}
                   at={@subscription.current_period_end_at}
@@ -341,12 +524,146 @@ defmodule MossletWeb.BillingLive do
         <div class="flex flex-col sm:flex-row gap-4">
           <DesignSystem.liquid_button
             href={@subscribe_path}
-            color="emerald"
+            color={if(@cancellation_pending, do: "amber", else: "emerald")}
             icon="hero-eye"
             variant="secondary"
           >
             {gettext("View Plans")}
           </DesignSystem.liquid_button>
+
+          <DesignSystem.liquid_button
+            :if={@subscription.status in ["trialing", "active"] && !@cancellation_pending}
+            phx-click="cancel_subscription"
+            phx-value-subscription-id={@subscription.id}
+            color="rose"
+            icon="hero-x-circle"
+            variant="ghost"
+            data-confirm={
+              if @subscription.status == "trialing",
+                do:
+                  gettext(
+                    "Are you sure you want to cancel your free trial? You will lose access immediately."
+                  ),
+                else:
+                  gettext(
+                    "Are you sure you want to cancel your subscription? You will retain access until the end of your billing period."
+                  )
+            }
+          >
+            {gettext("Cancel Subscription")}
+          </DesignSystem.liquid_button>
+
+          <DesignSystem.liquid_button
+            :if={@cancellation_pending}
+            phx-click="resume_subscription"
+            phx-value-subscription-id={@subscription.id}
+            color="emerald"
+            icon="hero-arrow-path"
+            variant="secondary"
+            data-confirm={gettext("Are you sure you want to resume your subscription?")}
+          >
+            {gettext("Resume Plan")}
+          </DesignSystem.liquid_button>
+        </div>
+      </div>
+    </DesignSystem.liquid_card>
+
+    <DesignSystem.liquid_card>
+      <:title>
+        <div class="flex items-center gap-3">
+          <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30">
+            <.phx_icon name="hero-document-text" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <span>Subscription Details</span>
+        </div>
+      </:title>
+
+      <div class="space-y-6">
+        <div class="space-y-4">
+          <h3 class="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
+            <.phx_icon name="hero-credit-card" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            Account Information
+          </h3>
+
+          <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+            <div class="space-y-4">
+              <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
+                  Subscription ID:
+                </span>
+                <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
+                  {@subscription.provider_subscription_id}
+                </code>
+              </div>
+
+              <div class="h-px bg-slate-200 dark:bg-slate-700"></div>
+
+              <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
+                  Customer ID:
+                </span>
+                <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
+                  {maybe_update_customer_provider_info_encryption(
+                    @current_user.customer,
+                    @current_user,
+                    @key
+                  )}
+                </code>
+              </div>
+
+              <div class="h-px bg-slate-200 dark:bg-slate-700"></div>
+
+              <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
+                  Payment Email:
+                </span>
+                <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
+                  {maybe_update_customer_email_encryption(
+                    @current_user.customer.email,
+                    @current_user,
+                    @key
+                  )}
+                </code>
+              </div>
+
+              <div class="h-px bg-slate-200 dark:bg-slate-700"></div>
+
+              <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
+                  Plan:
+                </span>
+                <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
+                  {@subscription.plan_id}
+                </code>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div :if={@subscription.current_period_start} class="space-y-4">
+          <h4 class="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
+            <.phx_icon name="hero-calendar-days" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            Billing Period
+          </h4>
+
+          <div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                <.phx_icon name="hero-clock" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  <.local_time_full
+                    id={"subscription-start-#{@subscription.id}"}
+                    at={@subscription.current_period_start}
+                  />
+                </p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  Current billing period started
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </DesignSystem.liquid_card>
@@ -653,7 +970,7 @@ defmodule MossletWeb.BillingLive do
       :user,
       current_user.id,
       %{
-        email: email,
+        email: maybe_decrypt_user_data(email, current_user, key),
         provider: "stripe",
         provider_customer_id:
           maybe_decrypt_user_data(current_user.customer.provider_customer_id, current_user, key)

@@ -8,7 +8,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
   alias Mosslet.Billing.Providers.Stripe.Provider
   alias Mosslet.Billing.Subscriptions.Subscription
 
-  def call(%Customer{} = customer, %Subscription{} = subscription, items) do
+  def call(%Customer{} = customer, %Subscription{} = subscription, items, user, session_key) do
     subscription_item_id =
       subscription.provider_subscription_id
       |> Stripe.Subscription.retrieve()
@@ -16,7 +16,12 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession do
       |> get_subscription_item()
 
     Provider.create_portal_session(%{
-      customer: customer.provider_customer_id,
+      customer:
+        MossletWeb.Helpers.maybe_decrypt_user_data(
+          customer.provider_customer_id,
+          user,
+          session_key
+        ),
       flow_data: %{
         type: :subscription_update_confirm,
         subscription_update_confirm: %{

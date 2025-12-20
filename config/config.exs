@@ -240,90 +240,93 @@ config :mosslet,
 # Note: You need to create the subscription prices in Stripe and replace the placeholder price IDs
 config :mosslet, :billing_products, [
   %{
-    id: "prod_QCKH8FgOWQC8QK",
-    name: "Lifetime",
-    description: "Pay once, own forever. No recurring charges.",
+    id: "prod_SRGuwheF0yyKvy",
+    name: "MOSSLET (Personal)",
+    description:
+      "Join month-to-month with the freedom to stay as long as you need. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and share meaningful experiences in a safe and supportive environment.",
     most_popular: false,
-    type: :one_time,
     features: [
       "Unlimited Connections, Circles, and Posts",
-      "All current and future features",
-      "Own your data forever",
+      "Unlimited new features",
+      "Streamlined settings",
+      "Own your data",
       "Advanced asymmetric encryption",
-      "Priority email support",
+      "Email support"
+    ],
+    line_items: [
+      %{
+        id: "personal-monthly",
+        interval: :month,
+        price: "price_1SgKEmJhDwcSIdON79ioytdO",
+        quantity: 1,
+        amount: 1000,
+        save_percent: 50,
+        trial_days: 14,
+        allow_promotion_codes: false
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_SRGuwheF0yyKvy",
+    name: "MOSSLET (Personal)",
+    description:
+      "Get a full year of access at our best rate. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
+    most_popular: true,
+    features: [
+      "Unlimited Connections, Circles, and Posts",
+      "Unlimited new features",
+      "Streamlined settings",
+      "Own your data",
+      "Advanced asymmetric encryption",
+      "Email support",
       "Supports Affirm Payment Plans"
     ],
     line_items: [
       %{
-        id: "personal",
-        interval: :one_time,
-        price: "price_1RWOMUJhDwcSIdONXefktbNO",
+        id: "personal-yearly",
+        interval: :year,
+        price: "price_1SgKFFJhDwcSIdONBVVpZeAB",
         quantity: 1,
-        amount: 5900,
-        allow_promotion_codes: true
+        amount: 8000,
+        save_percent: 50,
+        trial_days: 14,
+        allow_promotion_codes: false
       }
     ],
-    mode: "payment",
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
     automatic_tax: %{enabled: true}
   },
   %{
-    id: "prod_subscription_monthly",
-    name: "Monthly",
-    description: "Flexible monthly billing with free trial.",
+    id: "prod_SRGuwheF0yyKvy",
+    name: "MOSSLET (Personal)",
+    description:
+      "Enjoy lifetime access with a one-time payment—your best value. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
     most_popular: false,
-    type: :subscription,
     features: [
-      "7-day free trial",
       "Unlimited Connections, Circles, and Posts",
-      "All current and future features",
+      "Unlimited new features",
+      "Streamlined settings",
       "Own your data",
       "Advanced asymmetric encryption",
       "Email support",
-      "Cancel anytime"
+      "Supports Affirm Payment Plans"
     ],
     line_items: [
       %{
-        id: "monthly",
-        interval: :month,
-        price: "price_REPLACE_WITH_YOUR_MONTHLY_PRICE_ID",
+        id: "personal-lifetime",
+        interval: :one_time,
+        price: "price_1SgKE6JhDwcSIdONJTIsshiX",
         quantity: 1,
-        amount: 999,
-        allow_promotion_codes: true,
-        trial_days: 7
+        amount: 17500,
+        save_percent: 50,
+        allow_promotion_codes: false
       }
     ],
-    mode: "subscription",
-    automatic_tax: %{enabled: true}
-  },
-  %{
-    id: "prod_subscription_yearly",
-    name: "Yearly",
-    description: "Best value. Save 2 months with annual billing.",
-    most_popular: true,
-    type: :subscription,
-    features: [
-      "14-day free trial",
-      "Save 17% vs monthly",
-      "Unlimited Connections, Circles, and Posts",
-      "All current and future features",
-      "Own your data",
-      "Advanced asymmetric encryption",
-      "Priority email support",
-      "Cancel anytime"
-    ],
-    line_items: [
-      %{
-        id: "yearly",
-        interval: :year,
-        price: "price_REPLACE_WITH_YOUR_YEARLY_PRICE_ID",
-        quantity: 1,
-        amount: 9900,
-        monthly_equivalent: 825,
-        allow_promotion_codes: true,
-        trial_days: 14
-      }
-    ],
-    mode: "subscription",
+    mode: "payment",
     automatic_tax: %{enabled: true}
   }
 ]

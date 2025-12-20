@@ -87,6 +87,7 @@ defmodule MossletWeb.SubscriptionPlugs do
     socket =
       socket
       |> assign_customer(:org)
+      |> assign_customer_payment_intent()
       |> assign_customer_subscription()
 
     {:cont, socket}
@@ -96,6 +97,7 @@ defmodule MossletWeb.SubscriptionPlugs do
     socket =
       socket
       |> assign_customer(:user)
+      |> assign_customer_payment_intent()
       |> assign_customer_subscription()
 
     {:cont, socket}
@@ -121,6 +123,14 @@ defmodule MossletWeb.SubscriptionPlugs do
     Phoenix.Component.assign_new(socket, :subscription, fn ->
       if socket.assigns.customer do
         Subscriptions.get_active_subscription_by_customer_id(socket.assigns.customer.id)
+      end
+    end)
+  end
+
+  defp assign_customer_payment_intent(socket) do
+    Phoenix.Component.assign_new(socket, :payment_intent, fn ->
+      if socket.assigns.customer do
+        PaymentIntents.get_active_payment_intent_by_customer_id(socket.assigns.customer.id)
       end
     end)
   end

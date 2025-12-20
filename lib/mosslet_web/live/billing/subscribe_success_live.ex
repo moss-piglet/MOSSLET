@@ -4,6 +4,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Billing.PaymentIntents
+  alias Mosslet.Billing.Subscriptions
   alias Mosslet.Repo
 
   @impl true
@@ -11,12 +12,13 @@ defmodule MossletWeb.SubscribeSuccessLive do
     socket =
       socket
       |> assign(:page_title, gettext("Payment Success"))
-      |> assign(:payment_intent_status, :loading)
+      |> assign(:billing_status, :loading)
       |> assign(:payment_intent, nil)
+      |> assign(:subscription, nil)
       |> assign(:customer_id, customer_id)
       |> assign(:source, socket.assigns.live_action)
       |> assign(:pings, 0)
-      |> assign_payment_intent()
+      |> assign_billing_status()
 
     {:ok, socket}
   end
@@ -29,12 +31,13 @@ defmodule MossletWeb.SubscribeSuccessLive do
       socket =
         socket
         |> assign(:page_title, gettext("Payment Success"))
-        |> assign(:payment_intent_status, :loading)
+        |> assign(:billing_status, :loading)
         |> assign(:payment_intent, nil)
+        |> assign(:subscription, nil)
         |> assign(:customer_id, user.customer.id)
         |> assign(:source, socket.assigns.live_action)
         |> assign(:pings, 0)
-        |> assign_payment_intent()
+        |> assign_billing_status()
 
       {:ok, socket}
     else
@@ -47,8 +50,8 @@ defmodule MossletWeb.SubscribeSuccessLive do
   end
 
   @impl true
-  def handle_info(:check_payment_intent, socket) do
-    {:noreply, assign_payment_intent(socket)}
+  def handle_info(:check_billing_status, socket) do
+    {:noreply, assign_billing_status(socket)}
   end
 
   @impl true
@@ -67,34 +70,45 @@ defmodule MossletWeb.SubscribeSuccessLive do
     {:noreply, socket}
   end
 
-  defp assign_payment_intent(%{assigns: %{pings: 10}} = socket) do
-    assign(socket, :payment_intent_status, :failed)
+  defp assign_billing_status(%{assigns: %{pings: 10}} = socket) do
+    assign(socket, :billing_status, :failed)
   end
 
-  defp assign_payment_intent(socket) do
+  defp assign_billing_status(socket) do
+    customer_id = socket.assigns.customer_id
+
     payment_intent =
       PaymentIntents.get_all_payment_intents_by(%{
         status: "succeeded",
-        billing_customer_id: socket.assigns.customer_id
+        billing_customer_id: customer_id
       })
       |> List.first()
 
-    case payment_intent do
-      nil ->
-        schedule_membership_check()
-        assign(socket, :pings, socket.assigns.pings + 1)
+    subscription = Subscriptions.get_active_subscription_by_customer_id(customer_id)
 
-      payment_intent ->
+    cond do
+      payment_intent != nil ->
         schedule_redirect()
 
         socket
         |> assign(:payment_intent, payment_intent)
-        |> assign(:payment_intent_status, :success)
+        |> assign(:billing_status, :success)
+
+      subscription != nil ->
+        schedule_redirect()
+
+        socket
+        |> assign(:subscription, subscription)
+        |> assign(:billing_status, :success)
+
+      true ->
+        schedule_billing_check()
+        assign(socket, :pings, socket.assigns.pings + 1)
     end
   end
 
-  defp schedule_membership_check do
-    Process.send_after(self(), :check_payment_intent, 1500)
+  defp schedule_billing_check do
+    Process.send_after(self(), :check_billing_status, 1500)
   end
 
   defp schedule_redirect do
@@ -107,26 +121,31 @@ defmodule MossletWeb.SubscribeSuccessLive do
     <%= case @source do %>
       <% :user -> %>
         <.layout current_page={:subscribe} current_user={@current_user} key={@key}>
-          <.payment_intent_status
-            payment_intent_status={@payment_intent_status}
+          <.billing_status
+            billing_status={@billing_status}
             payment_intent={@payment_intent}
+            subscription={@subscription}
           />
         </.layout>
     <% end %>
     """
   end
 
-  def payment_intent_status(assigns) do
+  attr :billing_status, :atom, required: true
+  attr :payment_intent, :any, default: nil
+  attr :subscription, :any, default: nil
+
+  def billing_status(assigns) do
     ~H"""
-    <.container class="my-12" id="payment_intent-status">
-      <.spinner show={@payment_intent_status == :loading} size="lg" />
-      <.h2 :if={@payment_intent_status == :failed}>
+    <.container class="my-12" id="billing-status">
+      <.spinner show={@billing_status == :loading} size="lg" />
+      <.h2 :if={@billing_status == :failed}>
         {gettext(
           "There was a failure to communicate with our payment provider (this could be an internet speed/connection issue). Please refresh your browser. If this error continues, then please contact support@mosslet.com."
         )}
       </.h2>
-      <.h2 :if={@payment_intent} class="text-center">
-        {gettext("Woohoo! Thank you for joining us, you will be redirected shortly.")}
+      <.h2 :if={@billing_status == :success} class="text-center">
+        {gettext("Success! You will be redirected shortly.")}
       </.h2>
     </.container>
     """

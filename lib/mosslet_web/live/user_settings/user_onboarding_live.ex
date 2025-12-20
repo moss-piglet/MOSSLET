@@ -269,7 +269,7 @@ defmodule MossletWeb.UserOnboardingLive do
                       )}
                     </p>
                     <p>
-                      {gettext("By charging a fair, one-time fee, we can:")}
+                      {gettext("By charging a fair price, we can:")}
                     </p>
                     <ul class="space-y-2">
                       <li class="flex items-start gap-2">
@@ -311,10 +311,12 @@ defmodule MossletWeb.UserOnboardingLive do
                         </div>
                         <div>
                           <div class="font-semibold text-emerald-800 dark:text-emerald-200 text-sm">
-                            {gettext("Pay once, own forever")}
+                            {gettext("Flexible pricing options")}
                           </div>
                           <div class="text-sm text-emerald-700 dark:text-emerald-300">
-                            {gettext("No subscriptions, no recurring fees")}
+                            {gettext(
+                              "Subscribe monthly, yearly, or pay once for lifetime access and own forever."
+                            )}
                           </div>
                         </div>
                       </div>

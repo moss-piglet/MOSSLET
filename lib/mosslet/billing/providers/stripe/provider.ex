@@ -21,6 +21,11 @@ defmodule Mosslet.Billing.Providers.Stripe.Provider do
   end
 
   @impl true
+  def retrieve_customer(customer_id) do
+    Stripe.Customer.retrieve(customer_id)
+  end
+
+  @impl true
   def create_portal_session(params) do
     Stripe.BillingPortal.Session.create(params)
   end
@@ -67,6 +72,16 @@ defmodule Mosslet.Billing.Providers.Stripe.Provider do
 
   @impl true
   def cancel_subscription(id) do
+    Stripe.Subscription.update(id, %{cancel_at_period_end: true})
+  end
+
+  @impl true
+  def cancel_subscription_immediately(id) do
     Stripe.Subscription.cancel(id)
+  end
+
+  @impl true
+  def resume_subscription(id) do
+    Stripe.Subscription.update(id, %{cancel_at_period_end: false})
   end
 end

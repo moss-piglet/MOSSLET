@@ -1179,8 +1179,19 @@ defmodule MossletWeb.DesignSystem do
                   </.liquid_tracking_indicator>
                 </td>
                 <td class="py-4 px-2 text-right">
-                  <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">$59 once</div>
-                  <div class="text-xs text-emerald-600 dark:text-emerald-400">Lifetime</div>
+                  <div
+                    id="comparison-beta-pricing"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Beta pricing - 50% off regular price"
+                    class="inline-block cursor-help"
+                  >
+                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      From $80/yr
+                    </div>
+                    <div class="text-xs text-emerald-600 dark:text-emerald-400">
+                      Or lifetime • Beta
+                    </div>
+                  </div>
                 </td>
                 <td class="hidden md:table-cell py-4 pl-2">
                   <.liquid_badge variant="solid" color="emerald" size="sm">

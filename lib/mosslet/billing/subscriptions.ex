@@ -33,34 +33,46 @@ defmodule Mosslet.Billing.Subscriptions do
     |> Repo.count()
   end
 
-  def create_subscription!(attrs \\ %{}) do
-    {:ok, {:ok, subscription}} =
-      Repo.transaction_on_primary(fn ->
-        %Subscription{}
-        |> Subscription.changeset(attrs)
-        |> Repo.insert!()
-      end)
-
-    {:ok, subscription}
+  def create_subscription(attrs \\ %{}) do
+    Repo.transaction_on_primary(fn ->
+      %Subscription{}
+      |> Subscription.changeset(attrs)
+      |> Repo.insert()
+    end)
+    |> handle_transaction_result()
   end
 
   def cancel_subscription(%Subscription{} = subscription) do
+    update_subscription(subscription, %{
+      cancel_at: subscription.current_period_end_at
+    })
+  end
+
+  def cancel_subscription_immediately(%Subscription{} = subscription) do
     update_subscription(subscription, %{
       status: "canceled",
       canceled_at: NaiveDateTime.utc_now()
     })
   end
 
-  def update_subscription(%Subscription{} = subscription, attrs) do
-    {:ok, {:ok, subscription}} =
-      Repo.transaction_on_primary(fn ->
-        subscription
-        |> Subscription.changeset(attrs)
-        |> Repo.update()
-      end)
-
-    {:ok, subscription}
+  def resume_subscription(%Subscription{} = subscription) do
+    update_subscription(subscription, %{
+      cancel_at: nil
+    })
   end
+
+  def update_subscription(%Subscription{} = subscription, attrs) do
+    Repo.transaction_on_primary(fn ->
+      subscription
+      |> Subscription.changeset(attrs)
+      |> Repo.update()
+    end)
+    |> handle_transaction_result()
+  end
+
+  defp handle_transaction_result({:ok, {:ok, result}}), do: {:ok, result}
+  defp handle_transaction_result({:ok, {:error, changeset}}), do: {:error, changeset}
+  defp handle_transaction_result({:error, _reason} = error), do: error
 
   defp by_customer_id(query, customer_id) do
     from s in query, where: s.billing_customer_id == ^customer_id

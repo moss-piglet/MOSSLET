@@ -181,7 +181,7 @@ defmodule MossletWeb.SubscribeLive do
             </div>
           </div>
           <div class="flex-1 min-w-0">
-            <h3 class="text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+            <h2 class="text-lg font-semibold text-emerald-800 dark:text-emerald-200">
               <%= cond do %>
                 <% @current_payment_intent -> %>
                   {gettext("Lifetime Member")}
@@ -192,7 +192,7 @@ defmodule MossletWeb.SubscribeLive do
                 <% true -> %>
                   {gettext("Active Member")}
               <% end %>
-            </h3>
+            </h2>
             <p class="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
               <%= cond do %>
                 <% @current_payment_intent -> %>
@@ -233,7 +233,10 @@ defmodule MossletWeb.SubscribeLive do
 
   defp pricing_cards(assigns) do
     ~H"""
-    <div :if={@subscription_products != []} class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+    <div
+      :if={@subscription_products != []}
+      class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto"
+    >
       <%= for product <- @subscription_products do %>
         <.pricing_card
           product={product}
@@ -266,7 +269,7 @@ defmodule MossletWeb.SubscribeLive do
           <.one_time_card
             product={product}
             current_payment_intent={@current_payment_intent}
-            has_active_billing={@has_active_billing}
+            current_subscription={@current_subscription}
             key={@key}
           />
         <% end %>
@@ -277,17 +280,19 @@ defmodule MossletWeb.SubscribeLive do
 
   attr :product, :map, required: true
   attr :current_payment_intent, :any, default: nil
-  attr :has_active_billing, :boolean, default: false
+  attr :current_subscription, :any, default: nil
   attr :key, :string, required: true
 
   defp one_time_card(assigns) do
     item = List.first(assigns.product.line_items)
     is_current = assigns.current_payment_intent != nil
+    has_subscription = assigns.current_subscription != nil
 
     assigns =
       assigns
       |> assign(:item, item)
       |> assign(:is_current, is_current)
+      |> assign(:has_subscription, has_subscription)
 
     ~H"""
     <div class="relative group">
@@ -342,7 +347,13 @@ defmodule MossletWeb.SubscribeLive do
             <div class="lg:w-72 flex-shrink-0">
               <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-amber-200/50 dark:border-amber-700/30 shadow-lg">
                 <div class="text-center mb-6">
-                  <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-3">
+                  <div
+                    :if={Map.get(@item, :save_percent)}
+                    id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+                    phx-hook="TippyHook"
+                    data-tippy-content={gettext("Save %{percent}% off", percent: @item.save_percent)}
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help mb-3"
+                  >
                     <.phx_icon name="hero-tag" class="w-3.5 h-3.5" />
                     {gettext("Beta Pricing")}
                   </div>
@@ -367,14 +378,18 @@ defmodule MossletWeb.SubscribeLive do
                     {gettext("Current Plan")}
                   </DesignSystem.liquid_button>
                 <% else %>
-                  <%= if @has_active_billing do %>
+                  <%= if @has_subscription do %>
                     <DesignSystem.liquid_button
-                      variant="secondary"
+                      variant="primary"
+                      color="amber"
                       size="lg"
+                      icon="hero-arrow-up-circle"
                       class="w-full mb-4"
-                      disabled
+                      phx-click="checkout"
+                      phx-value-plan={@item.id}
+                      phx-value-key={@key}
                     >
-                      {gettext("Already a Member")}
+                      {gettext("Upgrade to Lifetime")}
                     </DesignSystem.liquid_button>
                   <% else %>
                     <DesignSystem.liquid_button
@@ -438,10 +453,22 @@ defmodule MossletWeb.SubscribeLive do
     is_most_popular = assigns.product.most_popular
     is_one_time = item.interval == :one_time
 
+    current_subscription = assigns.current_subscription
+
+    cancellation_pending =
+      current_subscription != nil && current_subscription.cancel_at != nil
+
     is_current =
       cond do
         assigns.current_payment_intent && is_one_time -> true
-        assigns.current_subscription && !is_one_time -> true
+        current_subscription && !is_one_time && current_subscription.plan_id == item.id -> true
+        true -> false
+      end
+
+    can_upgrade =
+      cond do
+        is_current -> false
+        current_subscription && !is_one_time && current_subscription.plan_id != item.id -> true
         true -> false
       end
 
@@ -451,6 +478,8 @@ defmodule MossletWeb.SubscribeLive do
       |> assign(:is_most_popular, is_most_popular)
       |> assign(:is_one_time, is_one_time)
       |> assign(:is_current, is_current)
+      |> assign(:can_upgrade, can_upgrade)
+      |> assign(:cancellation_pending, cancellation_pending)
 
     ~H"""
     <div class={[
@@ -480,9 +509,9 @@ defmodule MossletWeb.SubscribeLive do
         <div class="flex-1">
           <div class="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
                 {@product.name}
-              </h3>
+              </h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {@product.description}
               </p>
@@ -498,16 +527,19 @@ defmodule MossletWeb.SubscribeLive do
               item={@item}
               is_current={@is_current}
               has_active_billing={@has_active_billing}
+              can_upgrade={@can_upgrade}
               is_most_popular={@is_most_popular}
+              cancellation_pending={@cancellation_pending}
+              current_subscription={@current_subscription}
               key={@key}
             />
           </div>
 
           <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
-            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
               <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" />
               {gettext("What's included")}
-            </h4>
+            </h3>
             <ul class="space-y-3">
               <%= for feature <- @product.features do %>
                 <li class="flex items-start gap-3">
@@ -536,6 +568,17 @@ defmodule MossletWeb.SubscribeLive do
   defp price_display(assigns) do
     ~H"""
     <div class="mt-6 mb-2">
+      <div class="flex items-center gap-3 mb-2">
+        <div
+          :if={Map.get(@item, :save_percent)}
+          id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+          phx-hook="TippyHook"
+          data-tippy-content={gettext("Save %{percent}% off", percent: @item.save_percent)}
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help"
+        >
+          <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> {gettext("Beta Pricing")}
+        </div>
+      </div>
       <div class="flex items-baseline gap-2">
         <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
           <%= if @is_one_time do %>
@@ -554,16 +597,10 @@ defmodule MossletWeb.SubscribeLive do
               <% @is_one_time -> %>
                 {gettext("once")}
               <% @item.interval == :year -> %>
-                {gettext("/mo")}
+                {gettext("/year")}
               <% true -> %>
                 {gettext("/month")}
             <% end %>
-          </span>
-          <span
-            :if={@item.interval == :year}
-            class="text-xs text-slate-500 dark:text-slate-500"
-          >
-            {gettext("billed annually")} ({Util.format_money(@item.amount)})
           </span>
         </div>
       </div>
@@ -589,23 +626,50 @@ defmodule MossletWeb.SubscribeLive do
   attr :item, :map, required: true
   attr :is_current, :boolean, required: true
   attr :has_active_billing, :boolean, required: true
+  attr :can_upgrade, :boolean, required: true
   attr :is_most_popular, :boolean, required: true
+  attr :cancellation_pending, :boolean, required: true
+  attr :current_subscription, :any, default: nil
   attr :key, :string, required: true
 
   defp action_button(assigns) do
     ~H"""
-    <%= if @is_current do %>
-      <DesignSystem.liquid_button
-        variant="secondary"
-        size="lg"
-        class="w-full"
-        icon="hero-check-circle"
-        disabled
-      >
-        {gettext("Current Plan")}
-      </DesignSystem.liquid_button>
-    <% else %>
-      <%= if @has_active_billing do %>
+    <%= cond do %>
+      <% @is_current && @cancellation_pending -> %>
+        <DesignSystem.liquid_button
+          variant="primary"
+          size="lg"
+          class="w-full"
+          icon="hero-arrow-path"
+          phx-click="resume_subscription"
+          phx-value-subscription-id={@current_subscription.id}
+          data-confirm={gettext("Are you sure you want to resume your subscription?")}
+        >
+          {gettext("Resume Plan")}
+        </DesignSystem.liquid_button>
+      <% @is_current -> %>
+        <DesignSystem.liquid_button
+          variant="secondary"
+          size="lg"
+          class="w-full"
+          icon="hero-check-circle"
+          disabled
+        >
+          {gettext("Current Plan")}
+        </DesignSystem.liquid_button>
+      <% @can_upgrade -> %>
+        <DesignSystem.liquid_button
+          variant={if @is_most_popular, do: "primary", else: "secondary"}
+          size="lg"
+          class="w-full"
+          icon="hero-arrow-up-circle"
+          phx-click="switch_subscription"
+          phx-value-plan={@item.id}
+          phx-value-key={@key}
+        >
+          {gettext("Switch Plan")}
+        </DesignSystem.liquid_button>
+      <% @has_active_billing -> %>
         <DesignSystem.liquid_button
           variant="secondary"
           size="lg"
@@ -614,7 +678,7 @@ defmodule MossletWeb.SubscribeLive do
         >
           {gettext("Already a Member")}
         </DesignSystem.liquid_button>
-      <% else %>
+      <% true -> %>
         <DesignSystem.liquid_button
           variant={if @is_most_popular, do: "primary", else: "secondary"}
           size="lg"
@@ -626,7 +690,6 @@ defmodule MossletWeb.SubscribeLive do
         >
           {button_label(@item)}
         </DesignSystem.liquid_button>
-      <% end %>
     <% end %>
     """
   end
@@ -716,13 +779,18 @@ defmodule MossletWeb.SubscribeLive do
         "switch_plan",
         %{"plan" => plan_id, "key" => key},
         %{
-          assigns: %{current_customer: customer, current_payment_intent: payment_intent, key: key}
+          assigns: %{
+            current_customer: customer,
+            current_payment_intent: payment_intent,
+            current_user: user,
+            key: key
+          }
         } =
           socket
       ) do
     plan = Plans.get_plan_by_id!(plan_id)
 
-    case billing_provider().change_plan(customer, payment_intent, plan) do
+    case billing_provider().change_plan(customer, payment_intent, plan, user, key) do
       {:ok, session} ->
         url = billing_provider().checkout_url(session)
         {:noreply, redirect(socket, external: url)}
@@ -736,6 +804,64 @@ defmodule MossletWeb.SubscribeLive do
             gettext("Something went wrong with our payment portal. ") <> inspect(reason)
           )
         }
+    end
+  end
+
+  def handle_event(
+        "switch_subscription",
+        %{"plan" => plan_id, "key" => key},
+        %{
+          assigns: %{
+            current_customer: customer,
+            current_subscription: subscription,
+            current_user: user,
+            key: key
+          }
+        } =
+          socket
+      ) do
+    plan = Plans.get_plan_by_id!(plan_id)
+
+    case billing_provider().change_plan(customer, subscription, plan, user, key) do
+      {:ok, session} ->
+        url = billing_provider().checkout_url(session)
+        {:noreply, redirect(socket, external: url)}
+
+      {:error, reason} ->
+        {
+          :noreply,
+          put_flash(
+            socket,
+            :error,
+            gettext("Something went wrong with our payment portal. ") <> inspect(reason)
+          )
+        }
+    end
+  end
+
+  def handle_event("resume_subscription", %{"subscription-id" => subscription_id}, socket) do
+    subscription = Subscriptions.get_subscription!(subscription_id)
+
+    case billing_provider().resume_subscription(subscription.provider_subscription_id) do
+      {:ok, _updated} ->
+        Subscriptions.resume_subscription(subscription)
+
+        socket =
+          socket
+          |> put_flash(:info, gettext("Your subscription has been resumed."))
+          |> assign_billing_status()
+
+        {:noreply, socket}
+
+      {:error, error} ->
+        socket =
+          socket
+          |> put_flash(
+            :error,
+            gettext("Failed to resume subscription: %{error}", error: inspect(error))
+          )
+
+        {:noreply, socket}
     end
   end
 

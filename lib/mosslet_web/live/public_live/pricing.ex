@@ -75,7 +75,7 @@ defmodule MossletWeb.PublicLive.Pricing do
                   </span>
                 </:title>
                 <p class="mt-6 text-lg leading-8 text-slate-700 dark:text-slate-300 max-w-2xl mx-auto">
-                  Join thousands who've chosen privacy over profit. One payment, lifetime protection. No subscriptions, no recurring fees, no surprises.
+                  Join others who've chosen privacy over profit. Start with a free trial, go month-to-month, or pay once for lifetime access.
                 </p>
 
                 <div class="mt-10 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-6">
@@ -149,7 +149,10 @@ defmodule MossletWeb.PublicLive.Pricing do
 
   defp pricing_cards(assigns) do
     ~H"""
-    <div :if={@subscription_products != []} class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+    <div
+      :if={@subscription_products != []}
+      class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto"
+    >
       <%= for product <- @subscription_products do %>
         <.pricing_card product={product} />
       <% end %>
@@ -241,7 +244,13 @@ defmodule MossletWeb.PublicLive.Pricing do
             <div class="lg:w-72 flex-shrink-0">
               <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-amber-200/50 dark:border-amber-700/30 shadow-lg">
                 <div class="text-center mb-6">
-                  <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-3">
+                  <div
+                    :if={Map.get(@item, :save_percent)}
+                    id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+                    phx-hook="TippyHook"
+                    data-tippy-content={"Save #{@item.save_percent}% off"}
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help mb-3"
+                  >
                     <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> Beta Pricing
                   </div>
                   <div class="flex items-baseline justify-center gap-1">
@@ -257,10 +266,10 @@ defmodule MossletWeb.PublicLive.Pricing do
                   variant="primary"
                   color="amber"
                   size="lg"
-                  icon="hero-credit-card"
+                  icon="hero-rocket-launch"
                   class="w-full mb-4"
                 >
-                  Get Lifetime Access
+                  Get Started
                 </.liquid_button>
 
                 <div
@@ -333,9 +342,9 @@ defmodule MossletWeb.PublicLive.Pricing do
         <div class="flex-1">
           <div class="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">
                 {@product.name}
-              </h3>
+              </h2>
               <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {@product.description}
               </p>
@@ -350,10 +359,22 @@ defmodule MossletWeb.PublicLive.Pricing do
             <.action_button item={@item} is_most_popular={@is_most_popular} />
           </div>
 
+          <div
+            :if={@item.interval == :year}
+            id={"affirm-disclosure-#{@item.id}-#{@item.interval}"}
+            phx-hook="TippyHook"
+            data-tippy-content="Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders."
+            class="mt-3 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 cursor-help hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          >
+            <.phx_icon name="hero-credit-card" class="w-3.5 h-3.5" />
+            <span>Split payments with Affirm</span>
+            <.phx_icon name="hero-information-circle" class="w-3.5 h-3.5" />
+          </div>
+
           <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
-            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
               <.phx_icon name="hero-check-badge" class="w-4 h-4 text-emerald-500" /> What's included
-            </h4>
+            </h3>
             <ul class="space-y-3">
               <%= for feature <- @product.features do %>
                 <li class="flex items-start gap-3">
@@ -382,6 +403,17 @@ defmodule MossletWeb.PublicLive.Pricing do
   defp price_display(assigns) do
     ~H"""
     <div class="mt-6 mb-2">
+      <div class="flex items-center gap-3 mb-2">
+        <div
+          :if={Map.get(@item, :save_percent)}
+          id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+          phx-hook="TippyHook"
+          data-tippy-content={"Save #{@item.save_percent}% off"}
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help"
+        >
+          <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> Beta Pricing
+        </div>
+      </div>
       <div class="flex items-baseline gap-2">
         <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
           <%= if @is_one_time do %>
@@ -400,16 +432,10 @@ defmodule MossletWeb.PublicLive.Pricing do
               <% @is_one_time -> %>
                 once
               <% @item.interval == :year -> %>
-                /mo
+                /year
               <% true -> %>
                 /month
             <% end %>
-          </span>
-          <span
-            :if={@item.interval == :year}
-            class="text-xs text-slate-500 dark:text-slate-500"
-          >
-            billed annually ({Util.format_money(@item.amount)})
           </span>
         </div>
       </div>
@@ -421,13 +447,22 @@ defmodule MossletWeb.PublicLive.Pricing do
 
   defp trial_badge(assigns) do
     ~H"""
-    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 border border-blue-200/50 dark:border-blue-700/30">
-      <.phx_icon name="hero-clock" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-      <span class="text-xs font-semibold text-blue-700 dark:text-blue-300">
-        {ngettext("%{count}-day free trial", "%{count}-day free trial", @trial_days,
-          count: @trial_days
-        )}
-      </span>
+    <div class="mt-4 p-3 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/15 dark:to-cyan-900/20 border border-emerald-200/60 dark:border-emerald-700/30">
+      <div class="flex items-center gap-2">
+        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 shadow-sm">
+          <.phx_icon name="hero-gift" class="w-4 h-4 text-white" />
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+            {ngettext("%{count}-day free trial", "%{count}-day free trial", @trial_days,
+              count: @trial_days
+            )}
+          </p>
+          <p class="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+            No charge until trial ends • Cancel anytime
+          </p>
+        </div>
+      </div>
     </div>
     """
   end
@@ -449,16 +484,20 @@ defmodule MossletWeb.PublicLive.Pricing do
     """
   end
 
-  defp button_icon(%{interval: :one_time}), do: "hero-credit-card"
-  defp button_icon(%{trial_days: days}) when is_integer(days) and days > 0, do: "hero-play"
+  defp button_icon(%{interval: :one_time}), do: "hero-rocket-launch"
+
+  defp button_icon(%{trial_days: days}) when is_integer(days) and days > 0,
+    do: "hero-rocket-launch"
+
   defp button_icon(_), do: "hero-arrow-right"
 
-  defp button_label(%{interval: :one_time}), do: "Pay Once"
+  defp button_label(%{interval: :one_time}), do: "Get Started"
 
-  defp button_label(%{trial_days: days}) when is_integer(days) and days > 0,
-    do: "Start Free Trial"
+  defp button_label(%{trial_days: _days}), do: "Get Started Free"
 
-  defp button_label(_), do: "Subscribe"
+  defp button_label(%{interval: :month}), do: "Get Started"
+  defp button_label(%{interval: :year}), do: "Get Started"
+  defp button_label(_), do: "Get Started"
 
   defp pricing_footer(assigns) do
     ~H"""
@@ -478,7 +517,7 @@ defmodule MossletWeb.PublicLive.Pricing do
         </div>
       </div>
 
-      <p class="text-xs text-slate-400 dark:text-slate-500">
+      <p class="text-xs text-slate-500 dark:text-slate-400">
         Powered by Stripe. Your payment information is never stored on our servers.
       </p>
     </div>

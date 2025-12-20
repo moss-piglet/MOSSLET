@@ -15,7 +15,8 @@ defmodule Mosslet.Billing.Providers.Behaviour do
 
   @callback checkout(user, plan, source, source_id, session_key) ::
               {:ok, customer, session} | {:error, term()}
-  @callback change_plan(customer, subscription, plan) :: {:ok, session} | {:error, term()}
+  @callback change_plan(customer, subscription, plan, user, session_key) ::
+              {:ok, session} | {:error, term()}
   @callback checkout_url(session) :: String.t()
   @callback retrieve_charge(id) :: {:ok, term()} | {:error, term()}
   @callback retrieve_payment_intent(id) :: {:ok, term()} | {:error, term()}
@@ -30,6 +31,8 @@ defmodule Mosslet.Billing.Providers.Behaviour do
   @callback get_subscription_next_charge(term()) :: String.t() | Calendar.calendar()
   @callback retrieve_subscription(id) :: {:ok, term()} | {:error, term()}
   @callback cancel_subscription(id) :: {:ok, term()} | {:error, term()}
+  @callback cancel_subscription_immediately(id) :: {:ok, term()} | {:error, term()}
+  @callback resume_subscription(id) :: {:ok, term()} | {:error, term()}
   @callback sync_subscription(customer, user, session_key) :: :ok
   @callback sync_payment_intent(customer, user, session_key) :: :ok
 

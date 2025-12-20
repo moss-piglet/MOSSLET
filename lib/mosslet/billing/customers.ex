@@ -99,4 +99,13 @@ defmodule Mosslet.Billing.Customers do
 
     {:ok, customer}
   end
+
+  def delete_customer_by_provider_customer_id(provider_customer_id) do
+    Repo.transaction_on_primary(fn ->
+      case Repo.get_by(Customer, provider_customer_id_hash: provider_customer_id) do
+        nil -> {:error, :not_found}
+        customer -> Repo.delete(customer)
+      end
+    end)
+  end
 end

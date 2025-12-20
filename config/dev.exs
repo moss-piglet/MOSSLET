@@ -87,7 +87,68 @@ config :mosslet, :billing_products, [
     id: "prod_QGgvzwUKNoslru",
     name: "MOSSLET (Personal)",
     description:
-      "Enjoy lifetime access with a one-time payment. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
+      "Join month-to-month with the freedom to stay as long as you need. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and share meaningful experiences in a safe and supportive environment.",
+    most_popular: false,
+    features: [
+      "Unlimited Connections, Circles, and Posts",
+      "Unlimited new features",
+      "Streamlined settings",
+      "Own your data",
+      "Advanced asymmetric encryption",
+      "Email support"
+    ],
+    line_items: [
+      %{
+        id: "personal-monthly",
+        interval: :month,
+        price: "price_1SgHFIJhDwcSIdONg4zrI9Hy",
+        quantity: 1,
+        amount: 1000,
+        save_percent: 50,
+        trial_days: 14,
+        allow_promotion_codes: false
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_QGgvzwUKNoslru",
+    name: "MOSSLET (Personal)",
+    description:
+      "Get a full year of access at our best rate. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
+    most_popular: true,
+    features: [
+      "Unlimited Connections, Circles, and Posts",
+      "Unlimited new features",
+      "Streamlined settings",
+      "Own your data",
+      "Advanced asymmetric encryption",
+      "Email support",
+      "Supports Affirm Payment Plans"
+    ],
+    line_items: [
+      %{
+        id: "personal-yearly",
+        interval: :year,
+        price: "price_1SgHLZJhDwcSIdONoTj6Rbac",
+        quantity: 1,
+        amount: 8000,
+        save_percent: 50,
+        trial_days: 14,
+        allow_promotion_codes: false
+      }
+    ],
+    mode: "subscription",
+    subscription_data: %{trial_period_days: 14},
+    automatic_tax: %{enabled: true}
+  },
+  %{
+    id: "prod_QGgvzwUKNoslru",
+    name: "MOSSLET (Personal)",
+    description:
+      "Enjoy lifetime access with a one-time payment—your best value. MOSSLET (Personal) is designed for individuals who value peace of mind and privacy. Bring a friend and join today to share meaningful experiences in a safe and supportive environment.",
     most_popular: false,
     features: [
       "Unlimited Connections, Circles, and Posts",
@@ -100,12 +161,13 @@ config :mosslet, :billing_products, [
     ],
     line_items: [
       %{
-        id: "personal",
+        id: "personal-lifetime",
         interval: :one_time,
-        price: "price_1RWO5tJhDwcSIdONr8n3SS1X",
+        price: "price_1SgHABJhDwcSIdONe78x35dK",
         quantity: 1,
-        amount: 5900,
-        allow_promotion_codes: true
+        amount: 17500,
+        save_percent: 50,
+        allow_promotion_codes: false
       }
     ],
     mode: "payment",

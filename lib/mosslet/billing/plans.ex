@@ -52,7 +52,11 @@ defmodule Mosslet.Billing.Plans do
       ["item2-1-1", "item2-1-2"]
   """
   def plan_items(plan) do
-    Enum.map(plan.items, & &1.price)
+    if Map.has_key?(plan, :items) do
+      Enum.map(plan.items, & &1.price)
+    else
+      [plan.price]
+    end
   end
 
   def get_plan_by_id!(id) do

@@ -1316,7 +1316,7 @@ defmodule MossletWeb.Components.LandingPage do
             Ready for a better social experience?
           </h3>
           <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Join thousands who've already discovered what social media feels like without the stress, tracking, and manipulation.
+            Join others who've already discovered what social media feels like without the stress, tracking, and manipulation.
           </p>
           <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-y-4 gap-x-6">
             <.button

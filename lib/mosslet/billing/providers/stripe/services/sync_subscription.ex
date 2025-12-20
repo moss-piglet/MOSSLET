@@ -27,7 +27,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
 
       case Subscriptions.get_subscription_by_provider_subscription_id(stripe_subscription.id) do
         nil ->
-          case Subscriptions.create_subscription!(subscription_attrs) do
+          case Subscriptions.create_subscription(subscription_attrs) do
             {:ok, _subscription} ->
               :ok
 
