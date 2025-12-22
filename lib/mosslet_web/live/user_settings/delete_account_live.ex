@@ -410,9 +410,9 @@ defmodule MossletWeb.DeleteAccountLive do
 
     # if a stripe account hasn't been created yet
     stripe_customer_id =
-      if user.customer[:provider_customer_id] do
+      if user.customer && user.customer.provider_customer_id do
         Mosslet.Encrypted.Users.Utils.decrypt_user_data(
-          user.customer[:provider_customer_id],
+          user.customer.provider_customer_id,
           user,
           key
         )

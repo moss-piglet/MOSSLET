@@ -244,6 +244,13 @@ defmodule MossletWeb.Menus do
           icon: "hero-credit-card"
         },
         %{
+          name: :referrals,
+          label: gettext("Referrals"),
+          description: gettext("Earn rewards by inviting friends"),
+          path: ~p"/app/referrals",
+          icon: "hero-banknotes"
+        },
+        %{
           name: :delete_account,
           label: gettext("Delete Account"),
           description: gettext("Permanently delete your account"),
@@ -447,6 +454,15 @@ defmodule MossletWeb.Menus do
         icon: "hero-credit-card"
       }
     end
+  end
+
+  def get_link(:referrals = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Referrals"),
+      path: ~p"/app/referrals",
+      icon: "hero-banknotes"
+    }
   end
 
   def get_link(:dev_email_templates = name, _current_user) do

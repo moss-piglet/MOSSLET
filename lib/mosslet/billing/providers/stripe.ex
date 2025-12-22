@@ -13,9 +13,10 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession
   alias Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer
   alias Mosslet.Billing.Providers.Stripe.Services.SyncCustomer
+  alias Mosslet.Billing.Referrals.Referral
   alias Mosslet.Billing.Subscriptions.Subscription
 
-  def checkout(%User{} = user, plan, source, source_id, session_key) do
+  def checkout(%User{} = user, plan, source, source_id, session_key, referral \\ nil) do
     mode = determine_checkout_mode(plan)
 
     with {:ok, customer} <- FindOrCreateCustomer.call(user, source, source_id, session_key) do
@@ -36,7 +37,8 @@ defmodule Mosslet.Billing.Providers.Stripe do
              allow_promotion_codes: Map.get(plan, :allow_promotion_codes, false),
              trial_period_days: trial_days,
              line_items: format_line_items(plan, mode),
-             mode: mode
+             mode: mode,
+             referral: referral
            }) do
         {:ok, session} -> {:ok, customer, session}
         {:error, error} -> {:error, error}

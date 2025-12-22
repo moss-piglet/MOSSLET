@@ -4,6 +4,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Billing.PaymentIntents
+  alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Repo
 
@@ -89,6 +90,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
     cond do
       payment_intent != nil ->
         schedule_redirect()
+        maybe_broadcast_referral_update(socket.assigns[:current_user])
 
         socket
         |> assign(:payment_intent, payment_intent)
@@ -96,6 +98,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
 
       subscription != nil ->
         schedule_redirect()
+        maybe_broadcast_referral_update(socket.assigns[:current_user])
 
         socket
         |> assign(:subscription, subscription)
@@ -106,6 +109,25 @@ defmodule MossletWeb.SubscribeSuccessLive do
         assign(socket, :pings, socket.assigns.pings + 1)
     end
   end
+
+  defp maybe_broadcast_referral_update(%{id: user_id}) when is_binary(user_id) do
+    case Referrals.get_referral_by_user(user_id) do
+      nil ->
+        :ok
+
+      referral ->
+        referral = Repo.preload(referral, :referral_code)
+
+        if referral.referral_code do
+          Referrals.broadcast_referral_update(
+            referral.referral_code.user_id,
+            :referral_updated
+          )
+        end
+    end
+  end
+
+  defp maybe_broadcast_referral_update(_), do: :ok
 
   defp schedule_billing_check do
     Process.send_after(self(), :check_billing_status, 1500)

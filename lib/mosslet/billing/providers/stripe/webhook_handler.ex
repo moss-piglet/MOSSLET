@@ -48,6 +48,45 @@ defmodule Mosslet.Billing.Providers.Stripe.WebhookHandler do
     %{provider_payment_intent_id: object.id}
     |> Mosslet.Billing.Providers.Stripe.Workers.PaymentIntentSyncWorker.new()
     |> Oban.insert()
+
+    unless object.invoice do
+      %{
+        provider_payment_intent_id: object.id,
+        provider_customer_id: object.customer,
+        amount: object.amount_received
+      }
+      |> Mosslet.Billing.Workers.OneTimePaymentCommissionWorker.new()
+      |> Oban.insert()
+    end
+
+    :ok
+  end
+
+  @impl true
+  def handle_event(%Stripe.Event{type: "invoice.paid", data: %{object: invoice}}) do
+    if invoice.subscription do
+      %{
+        stripe_invoice_id: invoice.id,
+        stripe_subscription_id: invoice.subscription,
+        amount_paid: invoice.amount_paid,
+        period_start: invoice.period_start,
+        period_end: invoice.period_end
+      }
+      |> Mosslet.Billing.Workers.ReferralCommissionWorker.new()
+      |> Oban.insert()
+    end
+
+    :ok
+  end
+
+  @impl true
+  def handle_event(%Stripe.Event{type: "account.updated", data: %{object: account}}) do
+    if account.charges_enabled && account.payouts_enabled do
+      Logger.info("Stripe Connect account #{account.id} onboarding complete")
+      Mosslet.Billing.Referrals.mark_connect_onboarding_complete(account.id)
+    end
+
+    :ok
   end
 
   @impl true

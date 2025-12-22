@@ -9,6 +9,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
   alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Billing.Providers.Stripe.Adapters.SubscriptionAdapter
+  alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
@@ -30,6 +31,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
           case Subscriptions.create_subscription(subscription_attrs) do
             {:ok, subscription} ->
               maybe_mark_trial_used(customer, subscription)
+              maybe_broadcast_referral_update(customer.user_id)
               :ok
 
             rest ->
@@ -39,9 +41,19 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
           end
 
         subscription ->
+          old_status = subscription.status
+
           case Subscriptions.update_subscription(subscription, subscription_attrs) do
             {:ok, updated_subscription} ->
               maybe_mark_trial_used(customer, updated_subscription)
+              maybe_handle_cancellation(customer, old_status, updated_subscription)
+
+              maybe_broadcast_referral_status_change(
+                customer.user_id,
+                old_status,
+                updated_subscription.status
+              )
+
               :ok
 
             rest ->
@@ -60,6 +72,61 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
       Customers.mark_trial_used(customer)
     end
   end
+
+  defp maybe_handle_cancellation(customer, old_status, subscription) do
+    if subscription.status == "canceled" && old_status != "canceled" do
+      handle_referral_cancellation(customer.user_id)
+    end
+  end
+
+  defp handle_referral_cancellation(user_id) when is_binary(user_id) do
+    case Referrals.get_referral_by_user(user_id) do
+      nil ->
+        :ok
+
+      referral ->
+        Logger.info("Cancelling referral for user #{user_id} due to subscription cancellation")
+        Referrals.cancel_referral(referral)
+        Referrals.void_pending_commissions(referral)
+
+        referral = Mosslet.Repo.preload(referral, :referral_code)
+
+        if referral.referral_code do
+          Referrals.broadcast_referral_update(
+            referral.referral_code.user_id,
+            :referral_updated
+          )
+        end
+    end
+  end
+
+  defp handle_referral_cancellation(_), do: :ok
+
+  defp maybe_broadcast_referral_update(user_id) when is_binary(user_id) do
+    case Referrals.get_referral_by_user(user_id) do
+      nil ->
+        :ok
+
+      referral ->
+        referral = Mosslet.Repo.preload(referral, :referral_code)
+
+        if referral.referral_code do
+          Referrals.broadcast_referral_update(
+            referral.referral_code.user_id,
+            :referral_updated
+          )
+        end
+    end
+  end
+
+  defp maybe_broadcast_referral_update(_), do: :ok
+
+  defp maybe_broadcast_referral_status_change(user_id, old_status, new_status)
+       when old_status != new_status do
+    maybe_broadcast_referral_update(user_id)
+  end
+
+  defp maybe_broadcast_referral_status_change(_, _, _), do: :ok
 
   defp get_source(%Customer{org_id: nil, user_id: user_id}) do
     Accounts.get_user!(user_id)

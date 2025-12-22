@@ -8,6 +8,7 @@ defmodule MossletWeb.SubscribeLive do
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.PaymentIntents
   alias Mosslet.Billing.PaymentIntents.PaymentIntent
+  alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Billing.Subscriptions.Subscription
   alias Mosslet.Logs
@@ -32,6 +33,8 @@ defmodule MossletWeb.SubscribeLive do
         item && item.interval in [:month, :year]
       end)
 
+    referral_discount = get_referral_discount(socket.assigns.current_user)
+
     socket =
       socket
       |> assign(:page_title, gettext("Pricing"))
@@ -40,6 +43,7 @@ defmodule MossletWeb.SubscribeLive do
       |> assign(:products, products)
       |> assign(:one_time_products, one_time_products)
       |> assign(:subscription_products, subscription_products)
+      |> assign(:referral_discount, referral_discount)
 
     socket = assign_billing_status(socket)
 
@@ -100,6 +104,8 @@ defmodule MossletWeb.SubscribeLive do
         <.pricing_header has_active_billing={@has_active_billing} />
 
         <div class="mx-auto max-w-6xl">
+          <.referral_banner :if={@referral_discount} discount={@referral_discount} />
+
           <.active_billing_notice
             :if={@has_active_billing}
             current_payment_intent={@current_payment_intent}
@@ -115,6 +121,7 @@ defmodule MossletWeb.SubscribeLive do
             has_active_billing={@has_active_billing}
             source={@source}
             key={@key}
+            referral_discount={@referral_discount}
           />
         </div>
 
@@ -152,6 +159,32 @@ defmodule MossletWeb.SubscribeLive do
           {gettext("Start your free trial today—cancel anytime before it ends.")}
         <% end %>
       </p>
+    </div>
+    """
+  end
+
+  attr :discount, :integer, required: true
+
+  defp referral_banner(assigns) do
+    ~H"""
+    <div class="mb-10 max-w-2xl mx-auto">
+      <div class="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/50 dark:border-amber-700/30">
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0">
+            <.phx_icon name="hero-gift" class="w-6 h-6 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              🎉 {gettext("You've been referred!")}
+            </p>
+            <p class="text-sm text-amber-700 dark:text-amber-300">
+              {gettext("You'll get %{discount}% off your first payment—subscription or one-time.",
+                discount: @discount
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end
@@ -220,6 +253,7 @@ defmodule MossletWeb.SubscribeLive do
   attr :has_active_billing, :boolean, default: false
   attr :source, :atom, required: true
   attr :key, :string, required: true
+  attr :referral_discount, :integer, default: nil
 
   defp pricing_cards(assigns) do
     ~H"""
@@ -235,6 +269,7 @@ defmodule MossletWeb.SubscribeLive do
           has_active_billing={@has_active_billing}
           source={@source}
           key={@key}
+          referral_discount={@referral_discount}
         />
       <% end %>
     </div>
@@ -261,6 +296,7 @@ defmodule MossletWeb.SubscribeLive do
             current_payment_intent={@current_payment_intent}
             current_subscription={@current_subscription}
             key={@key}
+            referral_discount={@referral_discount}
           />
         <% end %>
       </div>
@@ -272,17 +308,26 @@ defmodule MossletWeb.SubscribeLive do
   attr :current_payment_intent, :any, default: nil
   attr :current_subscription, :any, default: nil
   attr :key, :string, required: true
+  attr :referral_discount, :integer, default: nil
 
   defp one_time_card(assigns) do
     item = List.first(assigns.product.line_items)
     is_current = assigns.current_payment_intent != nil
     has_subscription = assigns.current_subscription != nil
 
+    discounted_amount =
+      if assigns.referral_discount do
+        trunc(item.amount * (100 - assigns.referral_discount) / 100)
+      else
+        nil
+      end
+
     assigns =
       assigns
       |> assign(:item, item)
       |> assign(:is_current, is_current)
       |> assign(:has_subscription, has_subscription)
+      |> assign(:discounted_amount, discounted_amount)
 
     ~H"""
     <div class="relative group">
@@ -337,20 +382,40 @@ defmodule MossletWeb.SubscribeLive do
             <div class="lg:w-72 flex-shrink-0">
               <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-amber-200/50 dark:border-amber-700/30 shadow-lg">
                 <div class="text-center mb-6">
-                  <div
-                    :if={Map.get(@item, :save_percent)}
-                    id={"beta-pricing-#{@item.id}-#{@item.interval}"}
-                    phx-hook="TippyHook"
-                    data-tippy-content={gettext("Save %{percent}% off", percent: @item.save_percent)}
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help mb-3"
-                  >
-                    <.phx_icon name="hero-tag" class="w-3.5 h-3.5" />
-                    {gettext("Beta Pricing")}
+                  <div class="flex flex-wrap items-center justify-center gap-2 mb-3">
+                    <div
+                      :if={Map.get(@item, :save_percent)}
+                      id={"beta-pricing-#{@item.id}-#{@item.interval}"}
+                      phx-hook="TippyHook"
+                      data-tippy-content={
+                        gettext("Save %{percent}% off", percent: @item.save_percent)
+                      }
+                      class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold cursor-help"
+                    >
+                      <.phx_icon name="hero-tag" class="w-3.5 h-3.5" />
+                      {gettext("Beta Pricing")}
+                    </div>
+                    <div
+                      :if={@discounted_amount}
+                      class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold"
+                    >
+                      <.phx_icon name="hero-gift" class="w-3.5 h-3.5" />
+                      {gettext("%{percent}% off", percent: @referral_discount)}
+                    </div>
                   </div>
-                  <div class="flex items-baseline justify-center gap-1">
-                    <span class="text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
-                      {Util.format_money(@item.amount)}
-                    </span>
+                  <div class="flex items-baseline justify-center gap-2">
+                    <%= if @discounted_amount do %>
+                      <span class="text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
+                        {Util.format_money(@discounted_amount)}
+                      </span>
+                      <span class="text-xl line-through text-slate-400 dark:text-slate-500">
+                        {Util.format_money(@item.amount)}
+                      </span>
+                    <% else %>
+                      <span class="text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">
+                        {Util.format_money(@item.amount)}
+                      </span>
+                    <% end %>
                   </div>
                   <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     {gettext("one-time payment")}
@@ -437,6 +502,7 @@ defmodule MossletWeb.SubscribeLive do
   attr :has_active_billing, :boolean, default: false
   attr :source, :atom, required: true
   attr :key, :string, required: true
+  attr :referral_discount, :integer, default: nil
 
   defp pricing_card(assigns) do
     item = List.first(assigns.product.line_items)
@@ -508,7 +574,11 @@ defmodule MossletWeb.SubscribeLive do
             </div>
           </div>
 
-          <.price_display item={@item} is_one_time={@is_one_time} />
+          <.price_display
+            item={@item}
+            is_one_time={@is_one_time}
+            referral_discount={@referral_discount}
+          />
 
           <.trial_badge :if={Map.get(@item, :trial_days)} trial_days={@item.trial_days} />
 
@@ -554,8 +624,28 @@ defmodule MossletWeb.SubscribeLive do
 
   attr :item, :map, required: true
   attr :is_one_time, :boolean, required: true
+  attr :referral_discount, :integer, default: nil
 
   defp price_display(assigns) do
+    original_amount =
+      if assigns.is_one_time do
+        assigns.item.amount
+      else
+        Map.get(assigns.item, :monthly_equivalent) || assigns.item.amount
+      end
+
+    discounted_amount =
+      if assigns.referral_discount && !assigns.is_one_time do
+        trunc(original_amount * (100 - assigns.referral_discount) / 100)
+      else
+        nil
+      end
+
+    assigns =
+      assigns
+      |> assign(:original_amount, original_amount)
+      |> assign(:discounted_amount, discounted_amount)
+
     ~H"""
     <div class="mt-6 mb-2">
       <div class="flex items-center gap-3 mb-2">
@@ -568,19 +658,28 @@ defmodule MossletWeb.SubscribeLive do
         >
           <.phx_icon name="hero-tag" class="w-3.5 h-3.5" /> {gettext("Beta Pricing")}
         </div>
+        <div
+          :if={@discounted_amount}
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold"
+        >
+          <.phx_icon name="hero-gift" class="w-3.5 h-3.5" /> {gettext("%{percent}% off first payment",
+            percent: @referral_discount
+          )}
+        </div>
       </div>
       <div class="flex items-baseline gap-2">
-        <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
-          <%= if @is_one_time do %>
-            {Util.format_money(@item.amount)}
-          <% else %>
-            <%= if Map.get(@item, :monthly_equivalent) do %>
-              {Util.format_money(@item.monthly_equivalent)}
-            <% else %>
-              {Util.format_money(@item.amount)}
-            <% end %>
-          <% end %>
-        </span>
+        <%= if @discounted_amount do %>
+          <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+            {Util.format_money(@discounted_amount)}
+          </span>
+          <span class="text-xl line-through text-slate-400 dark:text-slate-500">
+            {Util.format_money(@original_amount)}
+          </span>
+        <% else %>
+          <span class="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+            {Util.format_money(@original_amount)}
+          </span>
+        <% end %>
         <div class="flex flex-col">
           <span class="text-base font-medium text-slate-600 dark:text-slate-400">
             <%= cond do %>
@@ -880,5 +979,12 @@ defmodule MossletWeb.SubscribeLive do
 
   defp get_customer(:user, socket) do
     Customers.get_customer_by_source(:user, socket.assigns[:current_user].id)
+  end
+
+  defp get_referral_discount(user) do
+    case Referrals.get_pending_referral_for_user(user.id) do
+      %{discount_percent: discount} -> discount
+      _ -> nil
+    end
   end
 end

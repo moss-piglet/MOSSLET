@@ -3,6 +3,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
   use MossletWeb, :verified_routes
 
   alias Mosslet.Billing.Providers.Stripe.Provider
+  alias Mosslet.Billing.Referrals.Referral
 
   @enforce_keys [
     :customer_id,
@@ -28,6 +29,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
     :trial_period_days,
     :line_items,
     :mode,
+    :referral,
     checkout_session_options_overrides: %{}
   ]
 
@@ -57,6 +59,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
   def call(%__MODULE__{} = session) do
     session
     |> checkout_session_options()
+    |> maybe_add_referral_discount(session.referral)
     |> Map.merge(session.checkout_session_options_overrides)
     |> Provider.create_checkout_session()
   end
@@ -71,7 +74,8 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
          allow_promotion_codes: allow_promotion_codes,
          trial_period_days: trial_period_days,
          line_items: line_items,
-         mode: mode
+         mode: mode,
+         referral: referral
        }) do
     base_options = %{
       client_reference_id: customer_id,
@@ -81,10 +85,12 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
       mode: mode,
       allow_promotion_codes: allow_promotion_codes,
       line_items: line_items,
-      metadata: %{
-        source: source,
-        source_id: source_id
-      }
+      metadata:
+        %{
+          source: source,
+          source_id: source_id
+        }
+        |> maybe_add_referral_metadata(referral)
     }
 
     if mode == "subscription" && trial_period_days && trial_period_days > 0 do
@@ -94,5 +100,34 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.CreateCheckoutSession do
     else
       base_options
     end
+  end
+
+  defp maybe_add_referral_discount(options, nil), do: options
+
+  defp maybe_add_referral_discount(options, %Referral{discount_percent: discount_percent})
+       when discount_percent > 0 do
+    coupon_params = %{
+      percent_off: discount_percent,
+      duration: "once",
+      name: "Referral Discount"
+    }
+
+    case Stripe.Coupon.create(coupon_params) do
+      {:ok, coupon} ->
+        options
+        |> Map.put(:discounts, [%{coupon: coupon.id}])
+        |> Map.delete(:allow_promotion_codes)
+
+      {:error, _} ->
+        options
+    end
+  end
+
+  defp maybe_add_referral_discount(options, _), do: options
+
+  defp maybe_add_referral_metadata(metadata, nil), do: metadata
+
+  defp maybe_add_referral_metadata(metadata, %Referral{id: referral_id}) do
+    Map.put(metadata, :referral_id, referral_id)
   end
 end

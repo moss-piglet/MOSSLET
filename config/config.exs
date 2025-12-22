@@ -132,7 +132,11 @@ config :mosslet, Oban,
        # Key rotation monitoring - weekly check on Sundays at 3 AM UTC
        {"0 3 * * 0", Mosslet.Security.KeyRotationOrchestratorJob, args: %{"action" => "monitor"}},
        # Prune old IP bans weekly on Sundays at 4 AM UTC (90-day retention)
-       {"0 4 * * 0", Mosslet.Workers.BanPruneWorker, args: %{"retention_days" => 90}}
+       {"0 4 * * 0", Mosslet.Workers.BanPruneWorker, args: %{"retention_days" => 90}},
+       # Process referral payouts on 1st of each month at 9 AM UTC
+       {"0 9 1 * *", Mosslet.Billing.Workers.MonthlyPayoutOrchestratorWorker},
+       # Check for commissions that became available (hold period expired) daily at 6 AM UTC
+       {"0 6 * * *", Mosslet.Billing.Workers.CommissionAvailabilityWorker}
      ]}
   ],
   queues: [
@@ -262,7 +266,7 @@ config :mosslet, :billing_products, [
         amount: 1000,
         save_percent: 50,
         trial_days: 14,
-        allow_promotion_codes: false
+        allow_promotion_codes: true
       }
     ],
     mode: "subscription",
@@ -293,7 +297,7 @@ config :mosslet, :billing_products, [
         amount: 8000,
         save_percent: 50,
         trial_days: 14,
-        allow_promotion_codes: false
+        allow_promotion_codes: true
       }
     ],
     mode: "subscription",
@@ -321,15 +325,35 @@ config :mosslet, :billing_products, [
         interval: :one_time,
         price: "price_1SgKE6JhDwcSIdONJTIsshiX",
         quantity: 1,
-        amount: 17500,
+        amount: 25000,
         save_percent: 50,
-        allow_promotion_codes: false
+        allow_promotion_codes: true
       }
     ],
     mode: "payment",
     automatic_tax: %{enabled: true}
   }
 ]
+
+# Referral Program Configuration
+config :mosslet, :referral_program,
+  enabled: true,
+  beta_mode: true,
+  code_prefix: "MOSS",
+  beta: %{
+    commission_rate: "0.35",
+    one_time_commission_rate: "0.25",
+    referee_discount_percent: 20,
+    min_payout_cents: 1500,
+    payout_schedule: :monthly
+  },
+  production: %{
+    commission_rate: "0.15",
+    one_time_commission_rate: "0.10",
+    referee_discount_percent: 20,
+    min_payout_cents: 2000,
+    payout_schedule: :monthly
+  }
 
 # Used in Util.email_valid?
 # In prod.ex MX checking is enabled

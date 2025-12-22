@@ -3,6 +3,7 @@ defmodule MossletWeb.SubscribeController do
 
   alias Mosslet.Billing.Customers
   alias Mosslet.Billing.Plans
+  alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Orgs
 
@@ -51,13 +52,15 @@ defmodule MossletWeb.SubscribeController do
 
   defp handle_checkout(conn, plan, source, source_id) do
     user = conn.assigns.current_user
+    referral = Referrals.get_pending_referral_for_user(user.id)
 
     case billing_provider().checkout(
            user,
            plan,
            source,
            source_id,
-           conn.private.plug_session["key"]
+           conn.private.plug_session["key"],
+           referral
          ) do
       {:ok, _customer, session} ->
         redirect(conn, external: billing_provider().checkout_url(session))

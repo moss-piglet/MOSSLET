@@ -239,7 +239,7 @@ defmodule MossletWeb.DesignSystem do
       </.liquid_card>
   """
   attr :class, :any, default: ""
-  attr :padding, :string, default: "md", values: ~w(sm md lg)
+  attr :padding, :string, default: "md", values: ~w(none sm md lg)
   attr :heading_level, :integer, default: 2, values: 1..6
   slot :title
   slot :inner_block, required: true
@@ -900,6 +900,7 @@ defmodule MossletWeb.DesignSystem do
   # fallback
   defp secondary_color_for(_), do: "emerald"
 
+  defp card_padding_classes("none"), do: "p-0"
   defp card_padding_classes("sm"), do: "p-4"
   defp card_padding_classes("md"), do: "p-6"
   defp card_padding_classes("lg"), do: "p-8"

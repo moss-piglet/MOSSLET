@@ -106,7 +106,7 @@ config :mosslet, :billing_products, [
         amount: 1000,
         save_percent: 50,
         trial_days: 14,
-        allow_promotion_codes: false
+        allow_promotion_codes: true
       }
     ],
     mode: "subscription",
@@ -137,7 +137,7 @@ config :mosslet, :billing_products, [
         amount: 8000,
         save_percent: 50,
         trial_days: 14,
-        allow_promotion_codes: false
+        allow_promotion_codes: true
       }
     ],
     mode: "subscription",
@@ -163,11 +163,11 @@ config :mosslet, :billing_products, [
       %{
         id: "personal-lifetime",
         interval: :one_time,
-        price: "price_1SgHABJhDwcSIdONe78x35dK",
+        price: "price_1ShDNPJhDwcSIdONwXyTMB2J",
         quantity: 1,
-        amount: 17500,
+        amount: 25000,
         save_percent: 50,
-        allow_promotion_codes: false
+        allow_promotion_codes: true
       }
     ],
     mode: "payment",

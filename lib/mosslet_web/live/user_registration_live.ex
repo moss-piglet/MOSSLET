@@ -4,10 +4,12 @@ defmodule MossletWeb.UserRegistrationLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
+  alias Mosslet.Billing.Referrals
   alias Mosslet.Extensions.PasswordGenerator.PassphraseGenerator
 
-  def mount(_params, _session, socket) do
+  def mount(params, session, socket) do
     changeset = Accounts.change_user_registration(%User{})
+    referral_code = get_referral_code(params, session)
 
     {:ok,
      socket
@@ -18,6 +20,8 @@ defmodule MossletWeb.UserRegistrationLive do
      |> assign(:temp_email, nil)
      |> assign(:error_message, nil)
      |> assign(:loading, false)
+     |> assign(:referral_code, referral_code)
+     |> assign(:referral_discount, get_referral_discount(referral_code))
      |> assign(trigger_submit: false, check_errors: false)
      |> assign_new(:meta_description, fn ->
        "Let's get started. Enter your email to create your private space for connecting with friends and family. No ads, no algorithms, just people."
@@ -60,6 +64,25 @@ defmodule MossletWeb.UserRegistrationLive do
                 • {Atom.to_string(atom) |> String.split("_") |> List.first() |> String.capitalize()} {msg}
               </li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      <div
+        :if={@referral_discount}
+        class="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/50 dark:border-amber-700/30"
+      >
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0">
+            <.icon name="hero-gift" class="w-6 h-6 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              🎉 You've been referred!
+            </p>
+            <p class="text-sm text-amber-700 dark:text-amber-300">
+              You'll get {@referral_discount}% off your first subscription payment.
+            </p>
           </div>
         </div>
       </div>
@@ -558,7 +581,8 @@ defmodule MossletWeb.UserRegistrationLive do
     with user_changeset <- User.registration_changeset(%User{}, user_params),
          true <- user_changeset.valid?,
          %{} = c_attrs <- user_changeset.changes.connection_map,
-         {:ok, user} <- Accounts.register_user(user_changeset, c_attrs) do
+         {:ok, user} <- Accounts.register_user(user_changeset, c_attrs),
+         :ok <- maybe_create_pending_referral(user, socket.assigns.referral_code) do
       {:ok, _} =
         Accounts.deliver_user_confirmation_instructions(
           user,
@@ -685,6 +709,37 @@ defmodule MossletWeb.UserRegistrationLive do
       assign(socket, form: form, check_errors: false, changeset: changeset)
     else
       assign(socket, form: form, changeset: changeset)
+    end
+  end
+
+  defp get_referral_code(params, session) do
+    code = params["ref"] || session["referral_code"]
+
+    if code && Referrals.valid_code?(code) do
+      code
+    else
+      nil
+    end
+  end
+
+  defp get_referral_discount(nil), do: nil
+
+  defp get_referral_discount(_code) do
+    Referrals.referee_discount_percent()
+  end
+
+  defp maybe_create_pending_referral(_user, nil), do: :ok
+
+  defp maybe_create_pending_referral(user, referral_code) do
+    case Referrals.get_referral_code_by_hash(referral_code) do
+      %Referrals.ReferralCode{id: code_id, user_id: referrer_id} when referrer_id != user.id ->
+        case Referrals.create_pending_referral(code_id, user.id) do
+          {:ok, _referral} -> :ok
+          {:error, _} -> :ok
+        end
+
+      _ ->
+        :ok
     end
   end
 end
