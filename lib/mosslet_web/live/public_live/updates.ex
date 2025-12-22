@@ -74,10 +74,42 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.9.8"
+                  version="0.10.0"
                   date="December 2025"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Referral Program & New Pricing 💸</:title>
+                  <:description>
+                    Get paid for sharing MOSSLET with friends and family. Real money, not points — plus a refreshed pricing structure with more options.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-banknotes" color="emerald">
+                      Referral program — earn 24% recurring on subscriptions and 30% on lifetime purchases (beta rates)
+                    </.changelog_item>
+                    <.changelog_item icon="hero-gift" color="amber">
+                      Friend discount — your referrals get 20% off their first payment
+                    </.changelog_item>
+                    <.changelog_item icon="hero-credit-card" color="blue">
+                      Direct payouts via Stripe — real cash to your bank, not confusing points
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="purple">
+                      Privacy-first referrals — encrypted tracking with no creepy pixels or third-party data sharing
+                    </.changelog_item>
+                    <.changelog_item icon="hero-currency-dollar" color="teal">
+                      New pricing tiers — monthly, annual, and lifetime options to fit your needs
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="rose">
+                      Beta bonus — lock in higher commission rates by joining during beta
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.9.8"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Smart Sharing & Beautiful Redesign ✈️</:title>
                   <:description>
