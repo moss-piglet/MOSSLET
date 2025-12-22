@@ -41,7 +41,8 @@ defmodule MossletWeb.UserAuth do
     "Privacy",
     "Terms",
     "Features",
-    "Updates"
+    "Updates",
+    "Referrals"
   ]
 
   @doc """
