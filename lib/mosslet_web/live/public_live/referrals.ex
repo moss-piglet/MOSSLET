@@ -426,6 +426,12 @@ defmodule MossletWeb.PublicLive.Referrals do
      |> assign(:discount, discount)
      |> assign_new(:meta_description, fn ->
        "Earn real money sharing MOSSLET with friends. Beta bonus: #{subscription_commission}% recurring commissions on subscriptions (normally #{prod_subscription_commission}%) and #{one_time_commission}% on lifetime purchases. Privacy-first referral program with direct bank payouts."
-     end)}
+     end)
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/referrals/referrals_og.png")
+     |> assign(:og_image_type, "image/png")
+     |> assign(
+       :og_image_alt,
+       "Share the love, get paid."
+     )}
   end
 end
