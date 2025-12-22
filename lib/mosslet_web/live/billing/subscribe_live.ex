@@ -77,57 +77,50 @@ defmodule MossletWeb.SubscribeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.source_layout
-      source={@source}
-      current_user={@current_user}
-      current_membership={@current_membership}
-      socket={@socket}
-      key={@key}
+    <main
+      role="main"
+      class="fixed inset-0 z-10 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
     >
-      <div class="min-h-screen">
-        <div class="relative overflow-hidden">
-          <div class="absolute inset-0 pointer-events-none">
-            <div class="absolute -top-40 -right-32 h-96 w-96 rounded-full bg-gradient-to-br from-teal-400/20 via-emerald-500/15 to-cyan-400/20 blur-3xl animate-pulse">
-            </div>
-            <div
-              class="absolute top-1/3 -left-32 h-96 w-96 rounded-full bg-gradient-to-tr from-emerald-400/15 via-teal-500/10 to-cyan-400/15 blur-3xl animate-pulse"
-              style="animation-delay: -2s;"
-            >
-            </div>
-            <div
-              class="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-gradient-to-tl from-cyan-400/10 via-teal-500/10 to-emerald-400/15 blur-3xl animate-pulse"
-              style="animation-delay: -4s;"
-            >
-            </div>
-          </div>
-
-          <div class="relative z-10 px-4 py-12 sm:px-6 lg:px-8 sm:py-16 lg:py-20">
-            <.pricing_header has_active_billing={@has_active_billing} />
-
-            <div class="mx-auto max-w-6xl">
-              <.active_billing_notice
-                :if={@has_active_billing}
-                current_payment_intent={@current_payment_intent}
-                current_subscription={@current_subscription}
-                source={@source}
-              />
-
-              <.pricing_cards
-                one_time_products={@one_time_products}
-                subscription_products={@subscription_products}
-                current_payment_intent={@current_payment_intent}
-                current_subscription={@current_subscription}
-                has_active_billing={@has_active_billing}
-                source={@source}
-                key={@key}
-              />
-            </div>
-
-            <.pricing_footer />
-          </div>
+      <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-32 h-96 w-96 rounded-full bg-gradient-to-br from-teal-400/20 via-emerald-500/15 to-cyan-400/20 blur-3xl animate-pulse">
+        </div>
+        <div
+          class="absolute top-1/3 -left-32 h-96 w-96 rounded-full bg-gradient-to-tr from-emerald-400/15 via-teal-500/10 to-cyan-400/15 blur-3xl animate-pulse"
+          style="animation-delay: -2s;"
+        >
+        </div>
+        <div
+          class="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-gradient-to-tl from-cyan-400/10 via-teal-500/10 to-emerald-400/15 blur-3xl animate-pulse"
+          style="animation-delay: -4s;"
+        >
         </div>
       </div>
-    </.source_layout>
+
+      <div class="relative z-10 px-4 py-12 sm:px-6 lg:px-8 sm:py-16 lg:py-20">
+        <.pricing_header has_active_billing={@has_active_billing} />
+
+        <div class="mx-auto max-w-6xl">
+          <.active_billing_notice
+            :if={@has_active_billing}
+            current_payment_intent={@current_payment_intent}
+            current_subscription={@current_subscription}
+            source={@source}
+          />
+
+          <.pricing_cards
+            one_time_products={@one_time_products}
+            subscription_products={@subscription_products}
+            current_payment_intent={@current_payment_intent}
+            current_subscription={@current_subscription}
+            has_active_billing={@has_active_billing}
+            source={@source}
+            key={@key}
+          />
+        </div>
+
+        <.pricing_footer />
+      </div>
+    </main>
     """
   end
 
@@ -135,31 +128,28 @@ defmodule MossletWeb.SubscribeLive do
 
   defp pricing_header(assigns) do
     ~H"""
-    <div class="mx-auto max-w-3xl text-center mb-12 sm:mb-16">
-      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border border-emerald-200/50 dark:border-emerald-700/30 mb-6">
-        <.phx_icon name="hero-sparkles" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-        <span class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          {gettext("Privacy-first social")}
+    <div class="mx-auto max-w-3xl text-center mb-10 sm:mb-12">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30 border border-teal-200/50 dark:border-teal-700/30 mb-6">
+        <span class="text-xl">🎉</span>
+        <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
+          {gettext("Final step")}
         </span>
       </div>
 
-      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-        <span class="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
-          {gettext("Simple,")}
-        </span>
-        <br class="sm:hidden" />
-        <span class="bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 dark:from-teal-400 dark:via-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
-          {gettext("transparent pricing")}
-        </span>
+      <h1 class={[
+        "text-2xl sm:text-3xl font-bold tracking-tight leading-tight mb-3",
+        "bg-gradient-to-r from-teal-600 via-emerald-500 to-teal-500",
+        "dark:from-teal-400 dark:via-emerald-400 dark:to-teal-300",
+        "bg-clip-text text-transparent"
+      ]}>
+        {gettext("Choose your plan")}
       </h1>
 
-      <p class="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+      <p class="text-base text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
         <%= if @has_active_billing do %>
-          {gettext("You're already a member! Here's an overview of our plans.")}
+          {gettext("You're already a member! Manage your subscription below.")}
         <% else %>
-          {gettext(
-            "Choose the plan that works best for you. Start with a free trial or pay once for lifetime access."
-          )}
+          {gettext("Start your free trial today—cancel anytime before it ends.")}
         <% end %>
       </p>
     </div>
@@ -707,44 +697,42 @@ defmodule MossletWeb.SubscribeLive do
 
   defp pricing_footer(assigns) do
     ~H"""
-    <div class="mt-16 text-center space-y-4">
-      <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500 dark:text-slate-400">
-        <div class="flex items-center gap-2">
-          <.phx_icon name="hero-shield-check" class="w-4 h-4 text-emerald-500" />
+    <div class="mt-12 text-center space-y-6">
+      <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+        <div class="flex items-center gap-1.5">
+          <.phx_icon name="hero-shield-check" class="w-3.5 h-3.5 text-emerald-500" />
           <span>{gettext("Secure payment")}</span>
         </div>
-        <div class="flex items-center gap-2">
-          <.phx_icon name="hero-lock-closed" class="w-4 h-4 text-emerald-500" />
-          <span>{gettext("End-to-end encrypted")}</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <.phx_icon name="hero-heart" class="w-4 h-4 text-emerald-500" />
+        <div class="flex items-center gap-1.5">
+          <.phx_icon name="hero-heart" class="w-3.5 h-3.5 text-emerald-500" />
           <span>{gettext("Cancel anytime")}</span>
         </div>
       </div>
 
-      <p class="text-xs text-slate-400 dark:text-slate-500">
-        {gettext("Powered by Stripe. Your payment information is never stored on our servers.")}
-      </p>
+      <div class="pt-4 border-t border-slate-200/60 dark:border-slate-700/50">
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+          {gettext("Not ready to start? You can always come back later.")}
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-4">
+          <.link
+            navigate={~p"/app/users/edit-details"}
+            class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors duration-200"
+          >
+            <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4" />
+            {gettext("Account settings")}
+          </.link>
+          <span class="text-slate-300 dark:text-slate-600">•</span>
+          <.link
+            class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 transition-colors duration-200"
+            href={~p"/auth/sign_out"}
+            method="delete"
+          >
+            <.phx_icon name="hero-arrow-left-on-rectangle" class="w-4 h-4" />
+            {gettext("Sign out")}
+          </.link>
+        </div>
+      </div>
     </div>
-    """
-  end
-
-  attr :source, :atom, default: :user
-  attr :current_user, :map, default: nil
-  attr :current_membership, :map, default: nil
-  attr :socket, :map, default: nil
-  attr :key, :string, default: nil
-  slot :inner_block
-
-  defp source_layout(assigns) do
-    ~H"""
-    <%= case @source do %>
-      <% :user -> %>
-        <.layout current_page={:subscribe} current_user={@current_user} key={@key}>
-          {render_slot(@inner_block)}
-        </.layout>
-    <% end %>
     """
   end
 
