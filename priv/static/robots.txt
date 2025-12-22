@@ -22,6 +22,12 @@ Allow: /
 User-agent: LinkedInBot
 Allow: /
 
+User-agent: Discourse Forum Onebox
+Allow: /
+
+User-agent: Ruby
+Allow: /
+
 User-agent: AdsBot-Google
 Disallow: /
 
