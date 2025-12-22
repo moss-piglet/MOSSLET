@@ -90,6 +90,7 @@ defmodule MossletWeb.Router do
       live "/blog/articles/08", PublicLive.Blog.Blog08
       live "/blog/articles/09", PublicLive.Blog.Blog09
       live "/blog/articles/10", PublicLive.Blog.Blog10
+      live "/blog/articles/11", PublicLive.Blog.Blog11
       live "/faq", PublicLive.Faq, :faq
       live "/support", PublicLive.Support, :support
       live "/features", PublicLive.Features, :features
@@ -97,6 +98,7 @@ defmodule MossletWeb.Router do
       live "/privacy", PublicLive.Privacy, :privacy
       live "/terms", PublicLive.Terms, :terms
       live "/updates", PublicLive.Updates, :updates
+      live "/referrals", PublicLive.Referrals, :referrals
     end
   end
 

@@ -374,6 +374,15 @@ defmodule MossletWeb.PublicLive.About do
             </div>
             <div class="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
               <.article_preview
+                id="blogPostSTLGP"
+                img_source={~p"/images/blog/dec_22_2025_stlgp.jpg"}
+                date="December 22, 2025"
+                title="Introducing Our Referral Program: Share the Love, Get Paid"
+                author_mark?={true}
+                author_isabella?={false}
+                link={~p"/blog/articles/11"}
+              />
+              <.article_preview
                 id="blogPostUSPMCTHS"
                 img_source={~p"/images/blog/dec_8_2025_hsrsm.jpg"}
                 date="December 8, 2025"

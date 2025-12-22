@@ -356,26 +356,24 @@ defmodule MossletWeb.DesignSystem do
           </.link>
         </div>
 
-        <%!-- Navigation links with enhanced liquid styling and improved mobile layout --%>
+        <%!-- Navigation links with enhanced liquid styling and improved responsive layout --%>
         <nav class="mb-16">
-          <div class="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-4xl mx-auto">
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 max-w-4xl mx-auto">
             <.link
               :for={item <- footer_menu_items(@current_user)}
               href={item.path}
               class={[
-                "group relative px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
+                "group relative px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
                 "text-slate-600 dark:text-slate-400",
                 "hover:text-emerald-600 dark:hover:text-emerald-400",
                 "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
-                "overflow-hidden backdrop-blur-sm flex-shrink-0",
-                "min-w-0 text-center whitespace-nowrap"
+                "overflow-hidden backdrop-blur-sm",
+                "text-center"
               ]}
               method={if item[:method], do: item[:method], else: nil}
             >
-              <%!-- Enhanced liquid background effect --%>
               <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 group-hover:opacity-100 rounded-xl">
               </div>
-              <%!-- Shimmer effect --%>
               <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-xl">
               </div>
               <span class="relative">{item.label}</span>
@@ -393,15 +391,6 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
           <%!-- Social links with enhanced styling --%>
           <div class="flex items-center justify-center lg:justify-start gap-4">
-            <.footer_social_link
-              href={~p"/terms"}
-              navigate={true}
-              aria_label="MOSSLET Terms and Conditions"
-              tooltip="MOSSLET Terms and Conditions"
-            >
-              <MossletWeb.CoreComponents.phx_icon name="hero-document-text" class="h-5 w-5" />
-            </.footer_social_link>
-
             <.footer_social_link
               href="https://podcast.mosslet.com"
               external={true}
@@ -513,7 +502,9 @@ defmodule MossletWeb.DesignSystem do
       %{path: "/features", label: "Features"},
       %{path: "/pricing", label: "Pricing"},
       %{path: "/privacy", label: "Privacy"},
+      %{path: "/referrals", label: "Referrals"},
       %{path: "/support", label: "Support"},
+      %{path: "/terms", label: "Terms"},
       %{path: "/updates", label: "Updates"}
     ]
 

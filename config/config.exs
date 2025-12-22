@@ -341,15 +341,15 @@ config :mosslet, :referral_program,
   beta_mode: true,
   code_prefix: "MOSS",
   beta: %{
-    commission_rate: "0.35",
-    one_time_commission_rate: "0.25",
+    commission_rate: "0.30",
+    one_time_commission_rate: "0.35",
     referee_discount_percent: 20,
     min_payout_cents: 1500,
     payout_schedule: :monthly
   },
   production: %{
     commission_rate: "0.15",
-    one_time_commission_rate: "0.10",
+    one_time_commission_rate: "0.20",
     referee_discount_percent: 20,
     min_payout_cents: 2000,
     payout_schedule: :monthly

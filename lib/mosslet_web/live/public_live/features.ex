@@ -1007,6 +1007,63 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
+          <%!-- Referral Program Section --%>
+          <.liquid_container max_width="xl" class="mt-24">
+            <div class="mx-auto max-w-4xl">
+              <.liquid_card
+                padding="lg"
+                class="bg-gradient-to-br from-emerald-50/40 via-teal-50/30 to-cyan-50/40 dark:from-emerald-900/15 dark:via-teal-900/10 dark:to-cyan-900/15 border-emerald-200/60 dark:border-emerald-700/30"
+              >
+                <div class="flex flex-col lg:flex-row lg:items-center gap-8">
+                  <div class="flex-shrink-0">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30">
+                      <.phx_icon name="hero-banknotes" class="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex flex-wrap items-center gap-3 mb-2">
+                      <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                        Get paid to share what you love
+                      </h3>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold">
+                        <.phx_icon name="hero-sparkles" class="w-3.5 h-3.5" /> Beta Bonus
+                      </span>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                      When's the last time your social network paid you? With MOSSLET's referral program, you earn real money when friends join — all while maintaining our privacy-first encryption architecture.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-4 text-sm">
+                      <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                        <.phx_icon name="hero-arrow-path" class="h-4 w-4" />
+                        <span>
+                          <span class="line-through text-slate-400 mr-1">15%</span>
+                          <span class="font-semibold">30%</span> recurring on subscriptions
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                        <.phx_icon name="hero-bolt" class="h-4 w-4" />
+                        <span>
+                          <span class="line-through text-slate-400 mr-1">20%</span>
+                          <span class="font-semibold">35%</span> on lifetime purchases
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <.liquid_button
+                      navigate="/referrals"
+                      variant="primary"
+                      color="emerald"
+                      icon="hero-arrow-right"
+                    >
+                      Learn More
+                    </.liquid_button>
+                  </div>
+                </div>
+              </.liquid_card>
+            </div>
+          </.liquid_container>
+
           <%!-- Call to action section matching pricing and in-the-know style --%>
           <.liquid_container max_width="xl" class="mt-32 sm:mt-48">
             <div class="mx-auto max-w-4xl">

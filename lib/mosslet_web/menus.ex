@@ -30,6 +30,7 @@ defmodule MossletWeb.Menus do
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Pricing"), path: "/pricing"},
       %{label: gettext("Privacy"), path: "/privacy"},
+      %{label: gettext("Referrals"), path: "/referrals"},
       %{label: gettext("Support"), path: "/support"},
       %{label: gettext("Updates"), path: "/updates"}
     ]
