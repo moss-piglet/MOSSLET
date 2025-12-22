@@ -82,11 +82,11 @@ defmodule MossletWeb.PublicLive.Blog.Blog11 do
           <li>You share your unique referral link with people you care about</li>
           <li>They get 20% off their first payment (because everyone wins)</li>
           <li>
-            You earn 24% on their subscription payments — and this is <em>recurring</em>, not just a one-time thing
+            You earn 30% on their subscription payments — and this is <em>recurring</em>, not just a one-time thing
           </li>
         </ol>
         <p>
-          For lifetime purchases, you get 30% of what they pay. That's a meaningful amount of money for simply sharing something you believe in.
+          For lifetime purchases, you get 35% of what they pay. That's a meaningful amount of money for simply sharing something you believe in.
         </p>
 
         <div class="my-8 p-6 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -95,7 +95,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog11 do
           </h3>
           <div class="text-sm text-slate-700 dark:text-slate-300 space-y-2">
             <p>
-              Right now, during our beta period, we're offering significantly higher commission rates to early supporters. The 24% subscription rate will drop to 12% after beta, and the 30% lifetime rate will drop to 15%.
+              Right now, during our beta period, we're offering significantly higher commission rates to early supporters. The 30% subscription rate will drop to 15% after beta, and the 35% lifetime rate will drop to 20%.
             </p>
             <p>
               If you join during beta and start referring, you lock in the higher rates. It's our way of saying thank you to the people who believed in us early.
@@ -127,7 +127,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog11 do
           </a>
         </h2>
         <p>
-          Here's a concrete example: if 10 of your friends subscribe monthly at $10/month, you'd earn about $24/month in recurring commissions. That's $288 a year — just for sharing something you already love with people you care about.
+          Here's a concrete example: if 10 of your friends subscribe monthly at $10/month, you'd earn about $30/month in recurring commissions. That's $360 a year — just for sharing something you already love with people you care about.
         </p>
         <p>
           And the key word there is <em>recurring</em>. You don't earn once and forget about it. Every month your referrals stay subscribed, you keep earning. The gift that keeps on giving.
@@ -230,7 +230,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog11 do
        "Blog | Introducing Our Referral Program: Share the Love, Get Paid"
      )
      |> assign_new(:meta_description, fn ->
-       "MOSSLET's new referral program pays you real money for sharing privacy-first social media with friends. Earn 24% recurring on subscriptions and 30% on lifetime purchases during beta. No tracking pixels, no data sharing — just honest rewards for honest referrals."
+       "MOSSLET's new referral program pays you real money for sharing privacy-first social media with friends. Earn 30% recurring on subscriptions and 35% on lifetime purchases during beta. No tracking pixels, no data sharing — just honest rewards for honest referrals."
      end)
      |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/blog/dec_22_2025_stlgp.jpg")
      |> assign(:og_image_type, "image/jpeg")
