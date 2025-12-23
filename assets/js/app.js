@@ -667,6 +667,13 @@ window.addEventListener("phx:update-reply-badge", (e) => {
   }
 });
 
+window.addEventListener("phx:open_external_url", (event) => {
+  const url = event.detail.url;
+  if (url) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+});
+
 window.addEventListener("phx:clipcopy", (event) => {
   if ("clipboard" in navigator) {
     var text;

@@ -1049,7 +1049,7 @@ defmodule MossletWeb.ReferralsLive do
 
     case StripeConnect.create_login_link(referral_code, user, session_key) do
       {:ok, url} ->
-        {:noreply, redirect(socket, external: url)}
+        {:noreply, push_event(socket, "open_external_url", %{url: url})}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to open Stripe dashboard."))}
