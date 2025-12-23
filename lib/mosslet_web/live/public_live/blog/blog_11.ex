@@ -149,7 +149,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog11 do
               <span class="text-emerald-500 font-bold">✓</span>
               <span>
                 <strong>Fast payouts:</strong>
-                Monthly automatic deposits when you hit $15 (there's a 35-day initial hold for fraud protection)
+                Monthly automatic deposits when you hit $15 (there's a 35-day initial hold to allow for cancellations and refunds)
               </span>
             </div>
             <div class="flex items-start space-x-2">

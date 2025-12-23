@@ -323,7 +323,7 @@ defmodule MossletWeb.PublicLive.Referrals do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  After an initial 35-day hold for fraud protection, earnings are available immediately. Monthly automatic payouts when you reach $15.
+                  After an initial 35-day hold to allow for cancellations and refunds, earnings are available immediately. Monthly automatic payouts when you reach $15.
                 </p>
               </.liquid_card>
             </div>
