@@ -2,7 +2,6 @@ defmodule MossletWeb.PublicLive.Referrals do
   @moduledoc false
   use MossletWeb, :live_view
 
-  alias Mosslet.Billing.Referrals
   import MossletWeb.DesignSystem
 
   @impl true

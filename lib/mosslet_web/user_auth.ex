@@ -7,6 +7,7 @@ defmodule MossletWeb.UserAuth do
   use Gettext, backend: MossletWeb.Gettext
 
   alias Mosslet.Accounts
+  alias Mosslet.Accounts.Scope
   alias Mosslet.Timeline
 
   alias Mosslet.Repo
@@ -210,7 +211,12 @@ defmodule MossletWeb.UserAuth do
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = if user_token, do: Accounts.get_user_by_session_token(user_token), else: nil
-    assign(conn, :current_user, user)
+    key = get_session(conn, :key)
+
+    conn
+    |> assign(:current_user, user)
+    |> assign(:key, key)
+    |> assign(:current_scope, Scope.for_user(user, key: key))
   end
 
   defp ensure_user_token(conn) do
@@ -564,10 +570,13 @@ defmodule MossletWeb.UserAuth do
   end
 
   defp mount_current_user_session_key(socket, session) do
-    Phoenix.Component.assign_new(socket, :key, fn ->
-      if key = session["key"] do
-        key
-      end
+    socket =
+      Phoenix.Component.assign_new(socket, :key, fn ->
+        session["key"]
+      end)
+
+    Phoenix.Component.assign_new(socket, :current_scope, fn ->
+      Scope.for_user(socket.assigns.current_user, key: socket.assigns.key)
     end)
   end
 
