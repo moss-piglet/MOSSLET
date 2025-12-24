@@ -28,14 +28,6 @@ primary_region = 'ewr'
     hard_limit = 500
     soft_limit = 400
 
-  [http_service.checks]
-    [http_service.checks.liveness]
-      port = 8080
-      type = "tcp"
-      interval = "10s"
-      timeout = "3s"
-      grace_period = "30s"
-
 [[vm]]
   memory = '4gb'
   cpu_kind = 'shared'
