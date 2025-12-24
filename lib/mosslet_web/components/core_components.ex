@@ -2287,11 +2287,18 @@ defmodule MossletWeb.CoreComponents do
 
   Ideally you should modify this file a lot and not touch the actual layout components like "sidebar_layout" and "stacked_layout".
   If you're creating a new layout then duplicate "sidebar_layout" or "stacked_layout" and give it a new name. Then modify this file to allow your new layout. This way live views can keep using this component and simply switch the "type" attribute to your new layout.
+
+  ## Migration to scopes
+
+  This component now accepts `current_scope` as the preferred way to pass user/key info.
+  For backwards compatibility, `current_user` and `key` are still accepted.
+  When `current_scope` is provided, `current_user` and `key` are derived from it.
   """
   attr :type, :string, default: "sidebar", values: ["sidebar", "stacked", "public"]
   attr :current_page, :atom, required: true
   attr :sidebar_current_page, :atom, default: nil
-  attr :current_user, :map, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, default: nil, doc: "deprecated: use current_scope instead"
   attr :public_menu_items, :list
   attr :main_menu_items, :list
   attr :user_menu_items, :list
@@ -2303,8 +2310,8 @@ defmodule MossletWeb.CoreComponents do
   attr :collapsible, :boolean, default: false
   attr :collapsed_only, :boolean, default: false
   attr :default_collapsed, :boolean, default: false
-  attr :user, :any, doc: "the current user struct"
-  attr :key, :string, doc: "the session key for the current user"
+  attr :user, :any, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :socket, :any, doc: "the socket for connection"
 
   attr :sync_status, :map,
@@ -2317,11 +2324,21 @@ defmodule MossletWeb.CoreComponents do
   slot :logo
 
   def layout(assigns) do
-    # Safely get current_user from either user or current_user assigns
-    current_user = assigns[:user] || assigns[:current_user]
+    current_user =
+      case assigns[:current_scope] do
+        %{user: user} -> user
+        _ -> assigns[:user] || assigns[:current_user]
+      end
+
+    key =
+      case assigns[:current_scope] do
+        %{key: k} -> k
+        _ -> assigns[:key]
+      end
 
     assigns =
       assigns
+      |> assign(:key, key)
       |> assign_new(:current_user, fn -> current_user end)
       |> assign_new(:public_menu_items, fn -> public_menu_items(current_user) end)
       |> assign_new(:public_menu_footer_items, fn ->
@@ -2330,16 +2347,15 @@ defmodule MossletWeb.CoreComponents do
       |> assign_new(:main_menu_items, fn -> main_menu_items(current_user) end)
       |> assign_new(:user_menu_items, fn -> user_menu_items(current_user) end)
       |> assign_new(:current_user_name, fn ->
-        # Only decrypt username if we have both user and session key
-        if current_user && assigns[:key] do
-          user_name(current_user, assigns[:key])
+        if current_user && key do
+          user_name(current_user, key)
         else
           nil
         end
       end)
       |> assign_new(:avatar_src, fn -> user_avatar_url(current_user) end)
       |> assign_new(:home_path, fn -> home_path(current_user) end)
-      |> assign_new(:session_locked, fn -> current_user && !assigns[:key] end)
+      |> assign_new(:session_locked, fn -> current_user && !key end)
 
     ~H"""
     <%= case @type do %>

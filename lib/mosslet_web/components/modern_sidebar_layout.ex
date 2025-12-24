@@ -13,7 +13,7 @@ defmodule MossletWeb.ModernSidebarLayout do
 
   attr :current_page, :atom, required: true
   attr :sidebar_current_page, :atom, default: nil
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :key, :string, required: true
   attr :main_menu_items, :list, default: []
   attr :user_menu_items, :list, default: []
@@ -270,10 +270,9 @@ defmodule MossletWeb.ModernSidebarLayout do
 
               <.modern_user_menu
                 :if={@user_menu_items != []}
-                id={"modern-user-menu-#{@current_user.id}"}
+                id={"modern-user-menu-#{@current_scope.user.id}"}
                 user_menu_items={@user_menu_items}
-                current_user={@current_user}
-                key={@key}
+                current_scope={@current_scope}
               />
             </div>
           </div>
@@ -325,7 +324,7 @@ defmodule MossletWeb.ModernSidebarLayout do
         ]}>
         </div>
         <MossletWeb.CoreComponents.phx_avatar
-          src={maybe_get_user_avatar(@current_user, @key)}
+          src={maybe_get_user_avatar(@current_scope.user, @current_scope.key)}
           class="h-8 w-8 rounded-full transition-all duration-300 ring-2 ring-transparent group-hover:ring-emerald-300 dark:group-hover:ring-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
           alt="User avatar"
         />

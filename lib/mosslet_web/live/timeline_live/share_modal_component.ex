@@ -6,15 +6,30 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
   import MossletWeb.DesignSystem,
     only: [liquid_button: 1, liquid_modal: 1, liquid_avatar: 1, get_connection_avatar_src: 3]
 
+  alias Mosslet.Accounts.Scope
   alias Mosslet.Timeline.UserPost
   alias Phoenix.LiveView.JS
 
   @max_note_length UserPost.share_note_max_length()
 
   def update(assigns, socket) do
+    current_user =
+      case assigns[:current_scope] do
+        %Scope{user: user} -> user
+        _ -> assigns[:current_user]
+      end
+
+    key =
+      case assigns[:current_scope] do
+        %Scope{key: k} -> k
+        _ -> assigns[:key]
+      end
+
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(:current_user, current_user)
+     |> assign(:key, key)
      |> assign_new(:selected_user_ids, fn -> MapSet.new() end)
      |> assign_new(:search_query, fn -> "" end)
      |> assign_new(:form, fn -> build_form(%{}) end)}
@@ -249,8 +264,7 @@ defmodule MossletWeb.TimelineLive.ShareModalComponent do
                     <% user_connection = find_user_connection(@user_connections, conn.user_id) %>
                     <% avatar_src =
                       if user_connection,
-                        do:
-                          get_connection_avatar_src(user_connection, @current_user, @encryption_key),
+                        do: get_connection_avatar_src(user_connection, @current_user, @key),
                         else: nil %>
                     <button
                       type="button"

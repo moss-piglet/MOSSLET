@@ -1,4 +1,4 @@
-<.layout current_page={:timeline} current_user={@current_user} key={@key} type="sidebar">
+<.layout current_page={:timeline} current_scope={@current_scope} type="sidebar">
   <.container class="py-16">
     <.page_header title="Viewing Post" class="ml-2 sm:ml-6">
       <div class="inline-flex space-x-2">
@@ -30,8 +30,7 @@
       :if={@post}
       stream={@streams.replies}
       post={@post}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       color={get_uconn_color_for_shared_item(@post, @current_user) || :purple}
       id={"post-card-#{@post.id}"}
       options={@options}

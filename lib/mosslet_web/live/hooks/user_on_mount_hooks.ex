@@ -10,6 +10,7 @@ defmodule MossletWeb.UserOnMountHooks do
   import Phoenix.LiveView
 
   alias Mosslet.Accounts
+  alias Mosslet.Accounts.Scope
 
   def on_mount(:require_authenticated_user, _params, session, socket) do
     socket = maybe_assign_user(socket, session)
@@ -76,14 +77,6 @@ defmodule MossletWeb.UserOnMountHooks do
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = maybe_assign_user(socket, session)
 
-    # Also assign the session key like in UserAuth
-    socket =
-      assign_new(socket, :key, fn ->
-        if key = session["key"] do
-          key
-        end
-      end)
-
     totp_pending = session["user_totp_pending"]
 
     if socket.assigns.current_user && socket.assigns.key && !totp_pending do
@@ -105,8 +98,18 @@ defmodule MossletWeb.UserOnMountHooks do
   end
 
   defp maybe_assign_user(socket, session) do
-    assign_new(socket, :current_user, fn ->
-      get_user(session["user_token"])
+    socket =
+      assign_new(socket, :current_user, fn ->
+        get_user(session["user_token"])
+      end)
+
+    socket =
+      assign_new(socket, :key, fn ->
+        session["key"]
+      end)
+
+    assign_new(socket, :current_scope, fn ->
+      Scope.for_user(socket.assigns.current_user, key: socket.assigns.key)
     end)
   end
 

@@ -8,7 +8,7 @@ defmodule MossletWeb.UserHomeLive do
   alias MossletWeb.Helpers.URLPreviewHelpers
 
   def mount(%{"slug" => slug} = _params, _session, socket) do
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
     profile_user = Accounts.get_user_from_profile_slug!(slug)
     profile_owner? = current_user.id === profile_user.id
 
@@ -232,7 +232,7 @@ defmodule MossletWeb.UserHomeLive do
 
   defp get_profile_key_for_preview(socket) do
     profile_user = socket.assigns.profile_user
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
     session_key = socket.assigns.key
     encrypted_profile_key = profile_user.connection.profile.profile_key
 
@@ -301,8 +301,7 @@ defmodule MossletWeb.UserHomeLive do
     <.layout
       current_page={:home}
       sidebar_current_page={:home}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       type="sidebar"
     >
       <%!-- Hero Section with responsive design --%>
@@ -336,23 +335,31 @@ defmodule MossletWeb.UserHomeLive do
                   <MossletWeb.DesignSystem.liquid_avatar
                     src={
                       if @profile_user.connection.profile.show_avatar?,
-                        do: maybe_get_user_avatar(@current_user, @key)
+                        do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
                     }
                     name={
                       decr_item(
-                        @current_user.connection.profile.name,
-                        @current_user,
-                        @current_user.conn_key,
-                        @key,
-                        @current_user.connection.profile
+                        @current_scope.user.connection.profile.name,
+                        @current_scope.user,
+                        @current_scope.user.conn_key,
+                        @current_scope.key,
+                        @current_scope.user.connection.profile
                       )
                     }
                     size="xxl"
-                    status={to_string(@current_user.status)}
-                    status_message={get_user_status_message(@current_user, @current_user, @key)}
-                    show_status={can_view_status?(@current_user, @current_user, @key)}
-                    user_id={@current_user.id}
-                    verified={@current_user.connection.profile.visibility == "public"}
+                    status={to_string(@current_scope.user.status)}
+                    status_message={
+                      get_user_status_message(
+                        @current_scope.user,
+                        @current_scope.user,
+                        @current_scope.key
+                      )
+                    }
+                    show_status={
+                      can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
+                    }
+                    user_id={@current_scope.user.id}
+                    verified={@current_scope.user.connection.profile.visibility == "public"}
                   />
                 </div>
 
@@ -361,18 +368,18 @@ defmodule MossletWeb.UserHomeLive do
                   <%!-- Name and username --%>
                   <div class="space-y-1">
                     <h1
-                      :if={@current_user.connection.profile.show_name?}
+                      :if={@current_scope.user.connection.profile.show_name?}
                       class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
-                      {"#{decr_item(@current_user.connection.profile.name,
-                      @current_user,
-                      @current_user.connection.profile.profile_key,
-                      @key,
-                      @current_user.connection.profile)}"}
+                      {"#{decr_item(@current_scope.user.connection.profile.name,
+                      @current_scope.user,
+                      @current_scope.user.connection.profile.profile_key,
+                      @current_scope.key,
+                      @current_scope.user.connection.profile)}"}
                     </h1>
 
                     <h1
-                      :if={!@current_user.connection.profile.show_name?}
+                      :if={!@current_scope.user.connection.profile.show_name?}
                       class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
                       {"Profile 🌿"}
@@ -382,7 +389,7 @@ defmodule MossletWeb.UserHomeLive do
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color={
-                          if(@current_user.connection.profile.visibility == "public",
+                          if(@current_scope.user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -390,23 +397,23 @@ defmodule MossletWeb.UserHomeLive do
                         size="sm"
                       >
                         @{decr_item(
-                          @current_user.connection.profile.username,
-                          @current_user,
-                          @current_user.connection.profile.profile_key,
-                          @key,
-                          @current_user.connection.profile
+                          @current_scope.user.connection.profile.username,
+                          @current_scope.user,
+                          @current_scope.user.connection.profile.profile_key,
+                          @current_scope.key,
+                          @current_scope.user.connection.profile
                         )}
                       </MossletWeb.DesignSystem.liquid_badge>
 
                       <%!-- Email badge if show_email? is true --%>
                       <MossletWeb.DesignSystem.liquid_badge
                         :if={
-                          @current_user.connection.profile.show_email? &&
-                            @current_user.connection.profile.email
+                          @current_scope.user.connection.profile.show_email? &&
+                            @current_scope.user.connection.profile.email
                         }
                         variant="soft"
                         color={
-                          if(@current_user.connection.profile.visibility == "public",
+                          if(@current_scope.user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -415,11 +422,11 @@ defmodule MossletWeb.UserHomeLive do
                       >
                         <.phx_icon name="hero-envelope" class="size-3 mr-1" />
                         {decr_item(
-                          @current_user.connection.profile.email,
-                          @current_user,
-                          @current_user.connection.profile.profile_key,
-                          @key,
-                          @current_user.connection.profile
+                          @current_scope.user.connection.profile.email,
+                          @current_scope.user,
+                          @current_scope.user.connection.profile.profile_key,
+                          @current_scope.key,
+                          @current_scope.user.connection.profile
                         )}
                       </MossletWeb.DesignSystem.liquid_badge>
 
@@ -427,7 +434,7 @@ defmodule MossletWeb.UserHomeLive do
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color={
-                          if(@current_user.connection.profile.visibility == "public",
+                          if(@current_scope.user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -436,14 +443,16 @@ defmodule MossletWeb.UserHomeLive do
                       >
                         <.phx_icon
                           name={
-                            if(@current_user.connection.profile.visibility == "public",
+                            if(@current_scope.user.connection.profile.visibility == "public",
                               do: "hero-globe-alt",
                               else: "hero-lock-closed"
                             )
                           }
                           class="size-3 mr-1"
                         />
-                        {String.capitalize(to_string(@current_user.connection.profile.visibility))}
+                        {String.capitalize(
+                          to_string(@current_scope.user.connection.profile.visibility)
+                        )}
                       </MossletWeb.DesignSystem.liquid_badge>
                     </div>
                   </div>
@@ -503,22 +512,23 @@ defmodule MossletWeb.UserHomeLive do
             id="home-new-post-prompt"
             user_name={
               decr_item(
-                @current_user.connection.profile.name,
-                @current_user,
-                @current_user.conn_key,
-                @key,
-                @current_user.connection.profile
+                @current_scope.user.connection.profile.name,
+                @current_scope.user,
+                @current_scope.user.conn_key,
+                @current_scope.key,
+                @current_scope.user.connection.profile
               )
             }
             user_avatar={
               if @profile_user.connection.profile.show_avatar?,
-                do: maybe_get_user_avatar(@current_user, @key)
+                do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
             }
             placeholder="Share something meaningful with your community..."
-            current_user={@current_user}
-            session_key={@key}
-            show_status={can_view_status?(@current_user, @current_user, @key)}
-            status_message={get_current_user_status_message(@current_user, @key)}
+            current_scope={@current_scope}
+            show_status={
+              can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
+            }
+            status_message={get_current_user_status_message(@current_scope.user, @current_scope.key)}
           />
         </div>
 
@@ -527,7 +537,7 @@ defmodule MossletWeb.UserHomeLive do
           <div class="lg:col-span-2 space-y-8">
             <%!-- Contact & Links Section --%>
             <MossletWeb.DesignSystem.liquid_card
-              :if={has_contact_links?(@current_user.connection.profile)}
+              :if={has_contact_links?(@current_scope.user.connection.profile)}
               heading_level={2}
             >
               <:title>
@@ -538,7 +548,7 @@ defmodule MossletWeb.UserHomeLive do
               </:title>
               <div class="space-y-4">
                 <div
-                  :if={@current_user.connection.profile.alternate_email}
+                  :if={@current_scope.user.connection.profile.alternate_email}
                   class="flex items-center gap-3"
                 >
                   <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
@@ -547,41 +557,41 @@ defmodule MossletWeb.UserHomeLive do
                   <div>
                     <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
                     <a
-                      href={"mailto:#{decr_item(@current_user.connection.profile.alternate_email, @current_user, @current_user.connection.profile.profile_key, @key, @current_user.connection.profile)}"}
+                      href={"mailto:#{decr_item(@current_scope.user.connection.profile.alternate_email, @current_scope.user, @current_scope.user.connection.profile.profile_key, @current_scope.key, @current_scope.user.connection.profile)}"}
                       class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                     >
                       {decr_item(
-                        @current_user.connection.profile.alternate_email,
-                        @current_user,
-                        @current_user.connection.profile.profile_key,
-                        @key,
-                        @current_user.connection.profile
+                        @current_scope.user.connection.profile.alternate_email,
+                        @current_scope.user,
+                        @current_scope.user.connection.profile.profile_key,
+                        @current_scope.key,
+                        @current_scope.user.connection.profile
                       )}
                     </a>
                   </div>
                 </div>
 
                 <MossletWeb.DesignSystem.website_url_preview
-                  :if={@current_user.connection.profile.website_url}
+                  :if={@current_scope.user.connection.profile.website_url}
                   preview={@website_url_preview}
                   loading={@website_url_preview_loading}
                   url={
                     decr_item(
-                      @current_user.connection.profile.website_url,
-                      @current_user,
-                      @current_user.connection.profile.profile_key,
-                      @key,
-                      @current_user.connection.profile
+                      @current_scope.user.connection.profile.website_url,
+                      @current_scope.user,
+                      @current_scope.user.connection.profile.profile_key,
+                      @current_scope.key,
+                      @current_scope.user.connection.profile
                     )
                   }
                   label={
-                    if @current_user.connection.profile.website_label do
+                    if @current_scope.user.connection.profile.website_label do
                       decr_item(
-                        @current_user.connection.profile.website_label,
-                        @current_user,
-                        @current_user.connection.profile.profile_key,
-                        @key,
-                        @current_user.connection.profile
+                        @current_scope.user.connection.profile.website_label,
+                        @current_scope.user,
+                        @current_scope.user.connection.profile.profile_key,
+                        @current_scope.key,
+                        @current_scope.user.connection.profile
                       )
                     else
                       "Website"
@@ -599,21 +609,21 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </:title>
               <div
-                :if={@current_user.connection.profile.about}
+                :if={@current_scope.user.connection.profile.about}
                 class="prose prose-slate dark:prose-invert max-w-none"
               >
                 <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
                   {decr_item(
-                    @current_user.connection.profile.about,
-                    @current_user,
-                    @current_user.connection.profile.profile_key,
-                    @key,
-                    @current_user.connection.profile
+                    @current_scope.user.connection.profile.about,
+                    @current_scope.user,
+                    @current_scope.user.connection.profile.profile_key,
+                    @current_scope.key,
+                    @current_scope.user.connection.profile
                   )}
                 </p>
               </div>
               <div
-                :if={!@current_user.connection.profile.about}
+                :if={!@current_scope.user.connection.profile.about}
                 class="text-center py-8"
               >
                 <div class="mb-4">
@@ -640,7 +650,7 @@ defmodule MossletWeb.UserHomeLive do
 
           <%!-- Right Column: Quick Actions & Profile Management --%>
           <div
-            :if={@current_user && @current_user.id == @profile_user.id}
+            :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
             class="lg:col-span-1 space-y-6"
           >
             <%!-- Quick Actions --%>
@@ -723,7 +733,7 @@ defmodule MossletWeb.UserHomeLive do
 
             <%!-- Privacy & Security --%>
             <MossletWeb.DesignSystem.liquid_card
-              :if={@current_user && @current_user.id == @profile_user.id}
+              :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
               heading_level={2}
               class="border-emerald-200/40 dark:border-emerald-700/40"
             >
@@ -782,8 +792,7 @@ defmodule MossletWeb.UserHomeLive do
     <.layout
       current_page={:home}
       sidebar_current_page={:home}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       type="sidebar"
     >
       <div class="relative overflow-hidden">
@@ -810,7 +819,7 @@ defmodule MossletWeb.UserHomeLive do
                   <MossletWeb.DesignSystem.liquid_avatar
                     src={
                       if @profile_user.connection.profile.show_avatar?,
-                        do: get_public_avatar(@profile_user, @current_user)
+                        do: get_public_avatar(@profile_user, @current_scope.user)
                     }
                     name={
                       decrypt_public_field(
@@ -821,7 +830,9 @@ defmodule MossletWeb.UserHomeLive do
                     size="xxl"
                     status={get_public_status(@profile_user)}
                     status_message={get_public_status_message(@profile_user)}
-                    show_status={can_view_status?(@profile_user, @current_user, @key)}
+                    show_status={
+                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                    }
                     user_id={@profile_user.id}
                     verified={false}
                   />
@@ -885,7 +896,7 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
 
                   <div
-                    :if={@current_user && !@current_user_is_profile_owner? && !@user_connection}
+                    :if={@current_scope.user && !@current_user_is_profile_owner? && !@user_connection}
                     class="flex flex-col sm:flex-row items-center gap-3"
                   >
                     <MossletWeb.DesignSystem.liquid_button
@@ -1081,8 +1092,7 @@ defmodule MossletWeb.UserHomeLive do
     <.layout
       current_page={:home}
       sidebar_current_page={:home}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       type="sidebar"
     >
       <%!-- Hero Section with responsive design --%>
@@ -1116,21 +1126,30 @@ defmodule MossletWeb.UserHomeLive do
                   <MossletWeb.DesignSystem.liquid_avatar
                     src={
                       if @profile_user.connection.profile.show_avatar?,
-                        do: get_connection_avatar_src(@user_connection, @current_user, @key)
+                        do:
+                          get_connection_avatar_src(
+                            @user_connection,
+                            @current_scope.user,
+                            @current_scope.key
+                          )
                     }
                     name={
                       decr_item(
                         @profile_user.connection.profile.name,
-                        @current_user,
+                        @current_scope.user,
                         @user_connection.key,
-                        @key,
+                        @current_scope.key,
                         @profile_user.connection.profile
                       )
                     }
                     size="xxl"
                     status={to_string(@profile_user.status)}
-                    status_message={get_user_status_message(@profile_user, @current_user, @key)}
-                    show_status={can_view_status?(@profile_user, @current_user, @key)}
+                    status_message={
+                      get_user_status_message(@profile_user, @current_scope.user, @current_scope.key)
+                    }
+                    show_status={
+                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                    }
                     user_id={@profile_user.id}
                     verified={false}
                   />
@@ -1145,9 +1164,9 @@ defmodule MossletWeb.UserHomeLive do
                       class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                     >
                       {"#{decr_item(@profile_user.connection.profile.name,
-                      @current_user,
+                      @current_scope.user,
                       @user_connection.key,
-                      @key,
+                      @current_scope.key,
                       @profile_user.connection.profile)}"}
                     </h1>
                     <h1
@@ -1161,7 +1180,7 @@ defmodule MossletWeb.UserHomeLive do
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color={
-                          if(@current_user.connection.profile.visibility == "public",
+                          if(@current_scope.user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -1170,9 +1189,9 @@ defmodule MossletWeb.UserHomeLive do
                       >
                         @{decr_item(
                           @profile_user.connection.profile.username,
-                          @current_user,
+                          @current_scope.user,
                           @user_connection.key,
-                          @key,
+                          @current_scope.key,
                           @profile_user.connection.profile
                         )}
                       </MossletWeb.DesignSystem.liquid_badge>
@@ -1185,7 +1204,7 @@ defmodule MossletWeb.UserHomeLive do
                         }
                         variant="soft"
                         color={
-                          if(@current_user.connection.profile.visibility == "public",
+                          if(@current_scope.user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -1195,9 +1214,9 @@ defmodule MossletWeb.UserHomeLive do
                         <.phx_icon name="hero-envelope" class="size-3 mr-1" />
                         {decr_item(
                           @profile_user.connection.profile.email,
-                          @current_user,
+                          @current_scope.user,
                           @user_connection.key,
-                          @key,
+                          @current_scope.key,
                           @profile_user.connection.profile
                         )}
                       </MossletWeb.DesignSystem.liquid_badge>
@@ -1249,14 +1268,14 @@ defmodule MossletWeb.UserHomeLive do
                   <div>
                     <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
                     <a
-                      href={"mailto:#{decr_uconn(@profile_user.connection.profile.alternate_email, @current_user, @user_connection.key, @key)}"}
+                      href={"mailto:#{decr_uconn(@profile_user.connection.profile.alternate_email, @current_scope.user, @user_connection.key, @current_scope.key)}"}
                       class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                     >
                       {decr_uconn(
                         @profile_user.connection.profile.alternate_email,
-                        @current_user,
+                        @current_scope.user,
                         @user_connection.key,
-                        @key
+                        @current_scope.key
                       )}
                     </a>
                   </div>
@@ -1269,18 +1288,18 @@ defmodule MossletWeb.UserHomeLive do
                   url={
                     decr_uconn(
                       @profile_user.connection.profile.website_url,
-                      @current_user,
+                      @current_scope.user,
                       @user_connection.key,
-                      @key
+                      @current_scope.key
                     )
                   }
                   label={
                     if @profile_user.connection.profile.website_label do
                       decr_uconn(
                         @profile_user.connection.profile.website_label,
-                        @current_user,
+                        @current_scope.user,
                         @user_connection.key,
-                        @key
+                        @current_scope.key
                       )
                     else
                       "Website"
@@ -1304,9 +1323,9 @@ defmodule MossletWeb.UserHomeLive do
                 <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
                   {decr_uconn(
                     @profile_user.connection.profile.about,
-                    @current_user,
+                    @current_scope.user,
                     @user_connection.key,
-                    @key
+                    @current_scope.key
                   )}
                 </p>
               </div>

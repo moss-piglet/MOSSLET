@@ -70,6 +70,11 @@ defmodule MossletWeb.SidebarLayout do
   attr :sidebar_border_class, :string, default: "border-background-100 dark:border-gray-700"
   attr :header_bg_class, :string, default: "bg-background-50 dark:bg-gray-950"
   attr :header_border_class, :string, default: "border-background-100 dark:border-gray-700"
+
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
+
   slot :inner_block, required: true, doc: "The main content of the page."
 
   slot :adjacent,
@@ -95,6 +100,23 @@ defmodule MossletWeb.SidebarLayout do
       "Optionally add whatever you like to the sidebar. If main_menu_items is present, this will sit under that. Or you can leave main_menu_items as empty and create your own menu."
 
   def sidebar_layout(assigns) do
+    current_user =
+      case assigns[:current_scope] do
+        %{user: user} -> user
+        _ -> assigns[:current_user]
+      end
+
+    key =
+      case assigns[:current_scope] do
+        %{key: k} -> k
+        _ -> assigns[:key]
+      end
+
+    assigns =
+      assigns
+      |> assign(:current_user, current_user)
+      |> assign(:key, key)
+
     ~H"""
     <div
       class="flex h-screen overflow-hidden dark:bg-gray-950"

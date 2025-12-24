@@ -20,10 +20,9 @@ defmodule MossletWeb.GroupLive.GroupMessages do
           <div :for={{dom_id, message} <- @messages} id={dom_id}>
             <.message_details
               message={message}
-              current_user={@current_user}
+              current_scope={@current_scope}
               user_group_key={@user_group_key}
               group={@group}
-              key={@key}
               user_group={@user_group}
               messages_list={@messages_list}
             />
@@ -35,7 +34,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   end
 
   attr :message, :map, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :user_group_key, :string, required: true
   attr :group, :map, required: true
   attr :key, :string, required: true
@@ -46,23 +45,23 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.message.sender_id),
-        assigns.current_user
+        assigns.current_scope.user
       )
 
     avatar_src =
       if assigns.user_group.id == assigns.message.sender_id do
-        maybe_get_user_avatar(assigns.current_user, assigns.key) ||
-          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_user, assigns.user_group.key, assigns.key, assigns.group)}"
+        maybe_get_user_avatar(assigns.current_scope.user, assigns.current_scope.key) ||
+          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_scope.user, assigns.user_group.key, assigns.current_scope.key, assigns.group)}"
       else
         if uconn do
           maybe_get_avatar_src(
             uconn,
-            assigns.current_user,
-            assigns.key,
+            assigns.current_scope.user,
+            assigns.current_scope.key,
             assigns.messages_list
           )
         else
-          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_user, assigns.user_group.key, assigns.key, assigns.group)}"
+          ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_scope.user, assigns.user_group.key, assigns.current_scope.key, assigns.group)}"
         end
       end
 
@@ -75,17 +74,17 @@ defmodule MossletWeb.GroupLive.GroupMessages do
           initials(
             decr_item(
               assigns.message.sender.name,
-              assigns.current_user,
+              assigns.current_scope.user,
               assigns.user_group.key,
-              assigns.key,
+              assigns.current_scope.key,
               assigns.group
             )
           )
         else
           maybe_decr_username_for_user_group(
             assigns.message.sender.user_id,
-            assigns.current_user,
-            assigns.key
+            assigns.current_scope.user,
+            assigns.current_scope.key
           )
         end
       else
@@ -95,18 +94,18 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     moniker =
       decr_item(
         assigns.message.sender.moniker,
-        assigns.current_user,
+        assigns.current_scope.user,
         assigns.user_group.key,
-        assigns.key,
+        assigns.current_scope.key,
         assigns.group
       )
 
     content =
       decr_item(
         assigns.message.content,
-        assigns.current_user,
+        assigns.current_scope.user,
         assigns.user_group_key,
-        assigns.key,
+        assigns.current_scope.key,
         assigns.group
       )
 

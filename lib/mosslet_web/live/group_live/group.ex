@@ -9,12 +9,11 @@ defmodule MossletWeb.GroupLive.Group do
         messages={@messages}
         messages_list={@messages_list}
         scrolled_to_top={@scrolled_to_top}
-        current_user={@current_user}
+        current_scope={@current_scope}
         user_group_key={@user_group.key}
         group={@group}
         current_page={@current_page}
         user_group={@user_group}
-        key={@key}
       />
 
       <div class="flex-shrink-0">
@@ -22,11 +21,10 @@ defmodule MossletWeb.GroupLive.Group do
           module={GroupMessage.Form}
           group_id={@group.id}
           sender_id={@user_group.id}
-          current_user={@current_user}
+          current_scope={@current_scope}
           user_group_key={@user_group.key}
           public?={@group.public?}
           current_page={@current_page}
-          key={@key}
           id={"group-#{@group.id}-message-form"}
         />
       </div>

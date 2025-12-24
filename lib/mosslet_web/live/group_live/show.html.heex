@@ -1,8 +1,7 @@
 <.layout
   current_page={@current_page}
   sidebar_current_page={@current_page}
-  current_user={@current_user}
-  key={@key}
+  current_scope={@current_scope}
   type="sidebar"
 >
   <div class="h-[calc(100vh-4rem)] flex flex-col bg-white/60 dark:bg-slate-800/60">
@@ -29,9 +28,9 @@
               <h1 class="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
                 {decr_item(
                   @group.name,
-                  @current_user,
+                  @current_scope.user,
                   @current_user_group.key,
-                  @key,
+                  @current_scope.key,
                   @group
                 )}
               </h1>
@@ -90,8 +89,7 @@
         :if={@live_action == :show}
         messages={@streams.messages}
         messages_list={@messages_list}
-        current_user={@current_user}
-        key={@key}
+        current_scope={@current_scope}
         group={@group}
         user_group={@current_user_group}
         scrolled_to_top={@scrolled_to_top}
@@ -143,9 +141,9 @@
           <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
             {decr_item(
               @group.name,
-              @current_user,
+              @current_scope.user,
               @current_user_group.key,
-              @key,
+              @current_scope.key,
               @group
             )}
           </h3>
@@ -163,9 +161,9 @@
               </span>
             </div>
             <p class="ml-8 text-sm font-medium text-slate-900 dark:text-slate-100">
-              {if @current_user.name,
-                do: decr(@current_user.name, @current_user, @key),
-                else: decr(@current_user.username, @current_user, @key)}
+              {if @current_scope.user.name,
+                do: decr(@current_scope.user.name, @current_scope.user, @current_scope.key),
+                else: decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
             </p>
           </div>
 
@@ -202,9 +200,9 @@
             <p class="ml-8 text-sm text-slate-900 dark:text-slate-100">
               {decr_item(
                 @current_user_group.moniker,
-                @current_user,
+                @current_scope.user,
                 @current_user_group.key,
-                @key,
+                @current_scope.key,
                 @group
               )}
             </p>
@@ -268,8 +266,7 @@
       action={@live_action}
       group={@group}
       patch={~p"/app/circles/#{@group}"}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       user_connections={@user_connections}
     />
   </MossletWeb.DesignSystem.liquid_modal>

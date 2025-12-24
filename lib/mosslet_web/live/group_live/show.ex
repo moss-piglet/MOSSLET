@@ -11,11 +11,11 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    current_user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
     if connected?(socket) do
       Accounts.subscribe_account_deleted()
-      Groups.private_subscribe(current_user)
+      Groups.private_subscribe(current_scope.user)
       Groups.public_subscribe()
       Groups.group_subscribe(Groups.get_group(id))
     end
@@ -25,9 +25,9 @@ defmodule MossletWeb.GroupLive.Show do
         socket,
         :user_connections,
         decrypt_user_connections(
-          Accounts.get_all_confirmed_user_connections(socket.assigns.current_user.id),
-          socket.assigns.current_user,
-          socket.assigns.key
+          Accounts.get_all_confirmed_user_connections(current_scope.user.id),
+          current_scope.user,
+          current_scope.key
         )
       )
 
@@ -43,7 +43,7 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_params(%{"id" => id} = params, _uri, socket) do
-    current_user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
     group = Groups.get_group(id)
 
     # if the group is deleted we redirect everyone currently viewing it.
@@ -53,7 +53,7 @@ defmodule MossletWeb.GroupLive.Show do
        |> put_flash(:info, "This circle cannot be viewed or no longer exists.")
        |> push_navigate(to: ~p"/app/circles")}
     else
-      user_group = get_user_group(group, current_user)
+      user_group = get_user_group(group, current_scope.user)
 
       {:noreply,
        socket
@@ -82,7 +82,7 @@ defmodule MossletWeb.GroupLive.Show do
   defp apply_action(socket, :edit, _params) do
     if can_edit_group?(
          socket.assigns.current_user_group,
-         socket.assigns.current_user
+         socket.assigns.current_scope.user
        ) do
       socket
       |> assign(:page_title, "Edit Group")
@@ -136,7 +136,7 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_info({MossletWeb.GroupLive.Show, {:deleted, post}}, socket) do
-    if post.user_id == socket.assigns.current_user.id do
+    if post.user_id == socket.assigns.current_scope.user.id do
       {:noreply, stream_delete(socket, :posts, post)}
     else
       {:noreply, socket}
@@ -150,7 +150,7 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_info({:user_group_deleted, user_group}, socket) do
-    if user_group.user_id != socket.assigns.current_user.id do
+    if user_group.user_id != socket.assigns.current_scope.user.id do
       {:noreply, push_navigate(socket, to: ~p"/app/circles/#{user_group.group_id}")}
     else
       {:noreply, socket}
@@ -197,7 +197,7 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
     if group.id == socket.assigns.group.id do
-      if kicked_user_id == socket.assigns.current_user.id do
+      if kicked_user_id == socket.assigns.current_scope.user.id do
         {:noreply,
          socket
          |> put_flash(:info, "You have been removed from this circle.")
@@ -213,7 +213,7 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
     if group.id == socket.assigns.group.id do
-      if blocked_user_id == socket.assigns.current_user.id do
+      if blocked_user_id == socket.assigns.current_scope.user.id do
         {:noreply,
          socket
          |> put_flash(:info, "You have been removed from this circle.")
@@ -243,12 +243,6 @@ defmodule MossletWeb.GroupLive.Show do
     else
       {:noreply, socket}
     end
-  end
-
-  @impl true
-  def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
-    user = Accounts.get_user_with_preloads(user_id)
-    {:noreply, assign(socket, :current_user, user)}
   end
 
   @impl true
@@ -305,7 +299,7 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   @impl true
-  def handle_event("delete_message", %{"item_id" => message_id}, socket) do
+  def handle_event("delete_message", %{"id" => message_id}, socket) do
     {:noreply, delete_message(socket, message_id)}
   end
 
@@ -313,7 +307,7 @@ defmodule MossletWeb.GroupLive.Show do
   def handle_event("leave_group", %{"id" => id}, socket) do
     user_group = Groups.get_user_group!(id)
 
-    if can_delete_user_group?(user_group, socket.assigns.current_user) do
+    if can_delete_user_group?(user_group, socket.assigns.current_scope.user) do
       case Groups.delete_user_group(user_group) do
         {:ok, _user_group} ->
           {:noreply,
@@ -341,7 +335,7 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_event("blur-memory", %{"id" => id}, socket) do
     memory = Memories.get_memory!(id)
-    user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
     {:ok, memory} =
       Memories.blur_memory(
@@ -349,14 +343,14 @@ defmodule MossletWeb.GroupLive.Show do
         %{
           "shared_users" =>
             Enum.into(memory.shared_users, [], fn shared_user ->
-              if shared_user.user_id == user.id,
+              if shared_user.user_id == current_scope.user.id,
                 do: put_in(shared_user.blur, blur_shared_user(shared_user))
 
-              put_in(shared_user.current_user_id, user.id)
+              put_in(shared_user.current_user_id, current_scope.user.id)
               Map.from_struct(shared_user)
             end)
         },
-        user,
+        current_scope.user,
         blur: true
       )
 
@@ -365,13 +359,15 @@ defmodule MossletWeb.GroupLive.Show do
 
   def handle_event("fav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
-    user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
-    if user.id not in post.favs_list do
+    if current_scope.user.id not in post.favs_list do
       {:ok, post} = Timeline.inc_favs(post)
 
-      Timeline.update_post_fav(post, %{favs_list: List.insert_at(post.favs_list, 0, user.id)},
-        user: user
+      Timeline.update_post_fav(
+        post,
+        %{favs_list: List.insert_at(post.favs_list, 0, current_scope.user.id)},
+        user: current_scope.user
       )
 
       {:noreply, push_patch(socket, to: socket.assigns.return_post_url)}
@@ -382,13 +378,15 @@ defmodule MossletWeb.GroupLive.Show do
 
   def handle_event("unfav", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
-    user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
-    if user.id in post.favs_list do
+    if current_scope.user.id in post.favs_list do
       {:ok, post} = Timeline.decr_favs(post)
 
-      Timeline.update_post_fav(post, %{favs_list: List.delete(post.favs_list, user.id)},
-        user: user
+      Timeline.update_post_fav(
+        post,
+        %{favs_list: List.delete(post.favs_list, current_scope.user.id)},
+        user: current_scope.user
       )
 
       {:noreply, push_patch(socket, to: socket.assigns.return_post_url)}
@@ -400,10 +398,10 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_event("reply", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
-    current_user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
     group = socket.assigns.group
 
-    if current_user do
+    if current_scope.user do
       {:noreply,
        socket
        |> assign(:live_action, :reply)
@@ -419,9 +417,9 @@ defmodule MossletWeb.GroupLive.Show do
   def handle_event("edit-reply", %{"id" => id}, socket) do
     reply = Timeline.get_reply!(id)
     post = Timeline.get_post!(reply.post_id)
-    current_user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
-    if current_user do
+    if current_scope.user do
       {:noreply,
        socket
        |> assign(:live_action, :reply_edit)
@@ -436,9 +434,9 @@ defmodule MossletWeb.GroupLive.Show do
   def handle_event("delete_group", %{"id" => id}, socket) do
     group = Groups.get_group!(id)
 
-    current_user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
-    if can_delete_group?(group, current_user) do
+    if can_delete_group?(group, current_scope.user) do
       case Groups.delete_group(group) do
         {:ok, _group} ->
           {:noreply,
@@ -462,13 +460,13 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
-    user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
     group = socket.assigns.group
 
-    user_group = Groups.get_user_group_for_group_and_user(group, user)
+    user_group = Groups.get_user_group_for_group_and_user(group, current_scope.user)
 
-    if post.user_id == user.id || user_group.role in [:admin, :moderator, :owner] do
-      {:ok, post} = Timeline.delete_post(post, user: user)
+    if post.user_id == current_scope.user.id || user_group.role in [:admin, :moderator, :owner] do
+      {:ok, post} = Timeline.delete_post(post, user: current_scope.user)
       notify_self({:deleted, post})
 
       socket = put_flash(socket, :success, "Post deleted successfully.")
@@ -481,12 +479,13 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_event("delete-reply", %{"id" => id}, socket) do
     reply = Timeline.get_reply!(id)
-    user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
 
     # The creator of the post can delete any replies for it.
     # this gives them the ability to moderate replies to their posts
-    if user && (user.id == reply.user_id || user.id == reply.post.user_id) do
-      case Timeline.delete_reply(reply, user: user) do
+    if current_scope.user &&
+         (current_scope.user.id == reply.user_id || current_scope.user.id == reply.post.user_id) do
+      case Timeline.delete_reply(reply, user: current_scope.user) do
         {:ok, reply} ->
           notify_self({:deleted, reply})
 
@@ -506,11 +505,14 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_event("delete_post", %{"id" => id}, socket) do
     post = Timeline.get_post!(id)
-    user = socket.assigns.current_user
+    current_scope = socket.assigns.current_scope
     current_user_group = socket.assigns.current_user_group
 
-    if post.user_id == user.id || current_user_group.role in [:owner, :admin, :moderator] do
-      {:ok, post} = Timeline.delete_group_post(post, user: user, user_group: current_user_group)
+    if post.user_id == current_scope.user.id ||
+         current_user_group.role in [:owner, :admin, :moderator] do
+      {:ok, post} =
+        Timeline.delete_group_post(post, user: current_scope.user, user_group: current_user_group)
+
       notify_self({:deleted, post})
 
       socket = put_flash(socket, :success, "Post deleted successfully.")
@@ -592,8 +594,8 @@ defmodule MossletWeb.GroupLive.Show do
     assign(socket, :is_editing_message, is_editing)
   end
 
-  def assign_last_user_message(%{assigns: %{current_user: current_user}} = socket, message)
-      when current_user.id == message.sender_id do
+  def assign_last_user_message(%{assigns: %{current_scope: current_scope}} = socket, message)
+      when current_scope.user.id == message.sender_id do
     assign(socket, :message, message)
   end
 
@@ -605,8 +607,8 @@ defmodule MossletWeb.GroupLive.Show do
     assign(socket, :message, %Groups.GroupMessage{})
   end
 
-  def assign_last_user_message(%{assigns: %{group: group, current_user: current_user}} = socket) do
-    assign(socket, :message, get_last_user_message_for_group(group.id, current_user.id))
+  def assign_last_user_message(%{assigns: %{group: group, current_scope: current_scope}} = socket) do
+    assign(socket, :message, get_last_user_message_for_group(group.id, current_scope.user.id))
   end
 
   def delete_message(socket, message_id) do

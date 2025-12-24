@@ -21,7 +21,9 @@ defmodule MossletWeb.PublicLayout do
   attr :user_menu_items, :list, default: []
   attr :avatar_src, :string, default: nil
   attr :current_user_name, :string, default: "nil"
-  attr :current_user, :map, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :session_locked, :boolean, default: false
   attr :copyright_text, :string, default: "Moss Piglet Corporation, All Rights Reserved."
   attr :max_width, :string, default: "lg", values: ["sm", "md", "lg", "xl", "full"]
@@ -34,6 +36,23 @@ defmodule MossletWeb.PublicLayout do
   slot(:logo)
 
   def mosslet_public_layout(assigns) do
+    current_user =
+      case assigns[:current_scope] do
+        %{user: user} -> user
+        _ -> assigns[:current_user]
+      end
+
+    key =
+      case assigns[:current_scope] do
+        %{key: k} -> k
+        _ -> assigns[:key]
+      end
+
+    assigns =
+      assigns
+      |> assign(:current_user, current_user)
+      |> assign(:key, key)
+
     ~H"""
     <header
       x-data="{ isOpen: false }"

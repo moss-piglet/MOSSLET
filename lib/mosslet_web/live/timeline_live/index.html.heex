@@ -1,8 +1,7 @@
 <.layout
   current_page={:timeline}
   sidebar_current_page={:timeline}
-  current_user={@current_user}
-  key={@key}
+  current_scope={@current_scope}
   type="sidebar"
 >
   <div
@@ -19,8 +18,7 @@
     >
       <MossletWeb.DesignSystem.liquid_timeline_header
         id={"timeline-header-#{@active_tab}"}
-        current_user={@current_user}
-        key={@key}
+        current_scope={@current_scope}
       />
 
       <%!-- Sticky header group: tabs, content filter, and composer --%>
@@ -206,8 +204,7 @@
           <div class="animate-in slide-in-from-top-2 duration-300 ease-out">
             <MossletWeb.TimelineContentFilter.liquid_content_filter
               filters={@content_filters}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
               class=""
             />
           </div>
@@ -245,8 +242,7 @@
               completed_uploads={@completed_uploads}
               class="relative"
               content_warning_enabled?={@content_warning_enabled?}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
               url_preview={@url_preview}
               url_preview_loading={@url_preview_loading}
               collapsed={@composer_collapsed}
@@ -470,8 +466,7 @@
                   removing_shared_user_id={@removing_shared_user_id}
                   adding_shared_user={@adding_shared_user}
                   post={post}
-                  current_user={@current_user}
-                  key={@key}
+                  current_scope={@current_scope}
                   is_repost={post.repost || false}
                   share_note={get_decrypted_share_note(post, @current_user, @key)}
                   liked={get_post_liked_status(post, @current_user, @key)}
@@ -629,8 +624,7 @@
                     removing_shared_user_id={@removing_shared_user_id}
                     adding_shared_user={@adding_shared_user}
                     post={post}
-                    current_user={@current_user}
-                    key={@key}
+                    current_scope={@current_scope}
                     is_repost={post.repost || false}
                     share_note={get_decrypted_share_note(post, @current_user, @key)}
                     liked={get_post_liked_status(post, @current_user, @key)}
@@ -747,8 +741,7 @@
       username={@share_post_username}
       connections={@post_shared_users}
       user_connections={@user_connections}
-      current_user={@current_user}
-      encryption_key={@key}
+      current_scope={@current_scope}
     />
 
     <%!-- Image viewer modal --%>

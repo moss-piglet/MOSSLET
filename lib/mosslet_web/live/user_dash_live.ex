@@ -10,12 +10,15 @@ defmodule MossletWeb.UserDashLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_page={:dashboard} current_user={@current_user} key={@key} type="sidebar">
+    <.layout current_page={:dashboard} current_scope={@current_scope} type="sidebar">
       <%!-- Calm dashboard with liquid metal styling like the sidebar --%>
       <.liquid_container class="py-8">
         <h1 class="sr-only">Dashboard</h1>
         <%!-- Profile creation section for new users --%>
-        <div :if={is_nil(@current_user.connection.profile) && @current_user.confirmed_at} class="mb-8">
+        <div
+          :if={is_nil(@current_scope.user.connection.profile) && @current_scope.user.confirmed_at}
+          class="mb-8"
+        >
           <.liquid_card padding="lg" class="max-w-2xl mx-auto">
             <div class="text-center space-y-6">
               <div class="flex size-16 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 mx-auto">
@@ -42,7 +45,7 @@ defmodule MossletWeb.UserDashLive do
           </.liquid_card>
         </div>
         <.alert
-          :if={is_nil(@current_user.connection.profile) && !@current_user.confirmed_at}
+          :if={is_nil(@current_scope.user.connection.profile) && !@current_scope.user.confirmed_at}
           color="warning"
           class="my-5 max-w-prose"
           heading={gettext("🤫 Unconfirmed account")}
@@ -65,7 +68,7 @@ defmodule MossletWeb.UserDashLive do
   end
 
   def mount(_params, _session, socket) do
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
 
     if current_user.connection.profile do
       {:ok, socket |> push_navigate(to: ~p"/app/profile/#{current_user.connection.profile.slug}")}

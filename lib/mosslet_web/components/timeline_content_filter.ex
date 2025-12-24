@@ -18,10 +18,24 @@ defmodule MossletWeb.TimelineContentFilter do
   attr :filters, :map, required: true, doc: "current filter settings"
   attr :class, :string, default: ""
   attr :mobile_friendly, :boolean, default: true
-  attr :current_user, :map
-  attr :key, :string
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key"
 
   def liquid_content_filter(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:current_user, fn ->
+        case assigns[:current_scope] do
+          %{user: user} -> user
+          _ -> nil
+        end
+      end)
+      |> assign_new(:key, fn ->
+        case assigns[:current_scope] do
+          %{key: k} -> k
+          _ -> nil
+        end
+      end)
+
     ~H"""
     <div class={[
       "relative overflow-hidden transition-all duration-300 ease-out",
@@ -294,10 +308,26 @@ defmodule MossletWeb.TimelineContentFilter do
   """
   attr :muted_users, :list, default: []
   attr :mobile_friendly, :boolean, default: true
-  attr :current_user, :map
-  attr :key, :string
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
 
   def muted_users_list(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:current_user, fn ->
+        case assigns[:current_scope] do
+          %{user: user} -> user
+          _ -> assigns[:current_user]
+        end
+      end)
+      |> assign_new(:key, fn ->
+        case assigns[:current_scope] do
+          %{key: k} -> k
+          _ -> assigns[:key]
+        end
+      end)
+
     ~H"""
     <div class="space-y-3">
       <div

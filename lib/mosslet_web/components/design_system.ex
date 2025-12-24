@@ -46,9 +46,39 @@ defmodule MossletWeb.DesignSystem do
     ]
 
   alias Mosslet.Accounts
+  alias Mosslet.Accounts.Scope
   alias Mosslet.Timeline
-  # Import Phoenix.LiveView.JS for modal functionality
   alias Phoenix.LiveView.JS
+
+  @doc """
+  Extracts current_user and key from current_scope assign for backwards compatibility.
+
+  Components should accept `current_scope` and use this helper to derive user/key.
+  This allows gradual migration from passing `current_user` + `key` separately
+  to passing just `current_scope`.
+
+  ## Example
+
+      def my_component(assigns) do
+        assigns = assign_scope_fields(assigns)
+        # Now @current_user and @key are available in the template
+      end
+  """
+  def assign_scope_fields(assigns) do
+    assigns
+    |> assign_new(:current_user, fn ->
+      case assigns[:current_scope] do
+        %Scope{user: user} -> user
+        _ -> assigns[:current_user]
+      end
+    end)
+    |> assign_new(:key, fn ->
+      case assigns[:current_scope] do
+        %Scope{key: key} -> key
+        _ -> assigns[:key]
+      end
+    end)
+  end
 
   # Custom modal functions that prevent scroll jumping and ensure viewport positioning
   def liquid_show_modal(js \\ %JS{}, id) when is_binary(id) do
@@ -2999,12 +3029,15 @@ defmodule MossletWeb.DesignSystem do
   attr :placeholder, :string, default: "Share something meaningful..."
   attr :class, :any, default: ""
   attr :id, :string, default: "new-post-prompt"
-  attr :current_user, :any, default: nil
-  attr :session_key, :any, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :session_key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :show_status, :boolean, default: false
   attr :status_message, :string, default: nil
 
   def liquid_new_post_prompt(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <.link
       navigate={~p"/app/timeline"}
@@ -3117,14 +3150,17 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :privacy_controls_expanded, :boolean, default: false
   attr :content_warning_enabled?, :boolean, default: false
-  attr :current_user, :any, default: nil
-  attr :key, :any, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :id, :string, default: nil
   attr :url_preview, :map, default: nil
   attr :url_preview_loading, :boolean, default: false
   attr :collapsed, :boolean, default: false
 
   def liquid_timeline_composer_enhanced(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div
       :if={!@collapsed}
@@ -3580,10 +3616,12 @@ defmodule MossletWeb.DesignSystem do
   Integrates with existing TrixContentPostHook and encrypted image system.
   """
   attr :post, :any, required: true
-  attr :current_user, :any, required: true
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, required: true, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
 
   def liquid_post_photo_gallery(assigns) do
+    assigns = assign_scope_fields(assigns)
     image_count = length(assigns.post.image_urls)
 
     grid_class =
@@ -4262,8 +4300,9 @@ defmodule MossletWeb.DesignSystem do
     doc: "map with post_id and username of user being added"
 
   attr :post_id, :string, default: nil
-  attr :current_user, :map, required: true
-  attr :key, :string, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :is_repost, :boolean, default: false
   attr :share_note, :string, default: nil, doc: "Personal note from the sender when sharing"
   # New: unread state
@@ -4285,6 +4324,8 @@ defmodule MossletWeb.DesignSystem do
     doc: "Whether to show the status indicator (based on privacy settings)"
 
   def liquid_timeline_post(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <article
       id={"timeline-card-#{@post.id}"}
@@ -6148,10 +6189,12 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :class, :any, default: ""
   attr :id, :string, default: nil
-  attr :current_user, :any, default: nil
-  attr :key, :any, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
 
   def liquid_timeline_header(assigns) do
+    assigns = assign_scope_fields(assigns)
     banner_image = get_user_banner_image(assigns[:current_user])
     assigns = assign(assigns, :banner_image, banner_image)
 
@@ -7654,22 +7697,24 @@ defmodule MossletWeb.DesignSystem do
         replies={@post.replies || []}
         reply_count={Map.get(@stats, :replies, 0)}
         show={true}
-        current_user={@current_user}
-        key={@key}
+        current_scope={@current_scope}
         class="mt-3"
       />
   """
   attr :post_id, :string, required: true
   attr :replies, :list, default: []
   attr :show, :boolean, default: false
-  attr :current_user, :map, required: true
-  attr :key, :string, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :reply_count, :integer, default: 0
   attr :unread_nested_replies_by_parent, :map, default: %{}
   attr :calm_notifications, :boolean, default: false
   attr :class, :any, default: ""
 
   def liquid_collapsible_reply_thread(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div
       id={"reply-thread-#{@post_id}"}
@@ -7750,8 +7795,9 @@ defmodule MossletWeb.DesignSystem do
   Nested reply item with recursive rendering for threading.
   """
   attr :reply, :map, required: true
-  attr :current_user, :map, required: true
-  attr :key, :string, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :depth, :integer, default: 0
   attr :max_depth, :integer, default: 3
   attr :post_id, :string, default: nil
@@ -7760,6 +7806,8 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
 
   def liquid_nested_reply_item(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div class={[
       "nested-reply-container",
@@ -7950,13 +7998,16 @@ defmodule MossletWeb.DesignSystem do
   Individual reply item with liquid styling (updated for nesting support).
   """
   attr :reply, :map, required: true
-  attr :current_user, :map, required: true
-  attr :key, :string, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
+  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :depth, :integer, default: 0
   attr :post_id, :string, default: nil
   attr :class, :any, default: ""
 
   def liquid_reply_item(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div class={[
       "relative rounded-xl transition-all duration-200 ease-out",
@@ -8496,10 +8547,13 @@ defmodule MossletWeb.DesignSystem do
   attr :parent_reply, :map, required: true
   attr :post, :map, required: true
   attr :author_name, :string, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
 
   def liquid_nested_reply_composer(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div class={[
       "nested-reply-composer relative",
@@ -8914,11 +8968,13 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :form, :any, required: true
   attr :selector, :string, required: true
-  attr :current_user, :any, default: nil
-  attr :key, :any, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
 
   def liquid_enhanced_privacy_controls(assigns) do
+    assigns = assign_scope_fields(assigns)
     # Get visibility groups from current user if available
     visibility_groups =
       if is_map_key(assigns, :current_user) and is_map_key(assigns, :key) do
@@ -9500,11 +9556,14 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :form, :any, required: true
   attr :selector, :string, required: true
-  attr :current_user, :any, default: nil
-  attr :key, :any, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
+  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
 
   def liquid_compact_privacy_controls(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     visibility_groups =
       if is_map_key(assigns, :current_user) and is_map_key(assigns, :key) do
         Mosslet.Accounts.get_user_visibility_groups_with_connections(assigns.current_user)
@@ -9820,10 +9879,13 @@ defmodule MossletWeb.DesignSystem do
 
   attr :groups, :list, required: true
   attr :form, :any, required: true
-  attr :current_user, :any, required: true
-  attr :key, :any, required: true
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, required: true, doc: "deprecated: use current_scope instead"
+  attr :key, :any, required: true, doc: "deprecated: use current_scope instead"
 
   defp compact_group_selector(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div class="space-y-2">
       <p class="text-xs text-purple-700 dark:text-purple-300">Select groups:</p>
@@ -9866,10 +9928,13 @@ defmodule MossletWeb.DesignSystem do
 
   attr :connections, :list, required: true
   attr :form, :any, required: true
-  attr :current_user, :any, required: true
-  attr :key, :any, required: true
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :any, required: true, doc: "deprecated: use current_scope instead"
+  attr :key, :any, required: true, doc: "deprecated: use current_scope instead"
 
   defp compact_user_selector(assigns) do
+    assigns = assign_scope_fields(assigns)
+
     ~H"""
     <div class="space-y-2">
       <p class="text-xs text-amber-700 dark:text-amber-300">Select people:</p>
