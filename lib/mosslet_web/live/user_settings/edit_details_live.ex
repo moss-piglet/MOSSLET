@@ -16,7 +16,7 @@ defmodule MossletWeb.EditDetailsLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_details}
       sidebar_current_page={:edit_details}
       key={@key}
@@ -206,8 +206,8 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     socket =
       socket
@@ -253,8 +253,8 @@ defmodule MossletWeb.EditDetailsLive do
 
   defp process_avatar_upload(socket) do
     lv_pid = self()
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     avatars_bucket = Encrypted.Session.avatars_bucket()
 
     socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
@@ -373,8 +373,8 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def handle_info({:avatar_upload_complete, {:ok, {e_blob, user_params}}}, socket) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     case Accounts.update_user_avatar(user, user_params, user: user, key: key) do
       {:ok, user, conn} ->
@@ -439,7 +439,7 @@ defmodule MossletWeb.EditDetailsLive do
     %{"user" => user_params} = params
 
     name_form =
-      socket.assigns.current_user
+      socket.assigns.current_scope.user
       |> Accounts.change_user_name(user_params, validate_name: true)
       |> Map.put(:action, :validate)
       |> to_form()
@@ -455,7 +455,7 @@ defmodule MossletWeb.EditDetailsLive do
     %{"user" => user_params} = params
 
     username_form =
-      socket.assigns.current_user
+      socket.assigns.current_scope.user
       |> Accounts.change_user_username(user_params, validate_username: true)
       |> Map.put(:action, :validate)
       |> to_form()
@@ -483,8 +483,8 @@ defmodule MossletWeb.EditDetailsLive do
   @impl true
   def handle_event("update_avatar", _user_params, socket) do
     lv_pid = self()
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     avatars_bucket = Encrypted.Session.avatars_bucket()
 
     socket = assign(socket, :avatar_upload_stage, {:receiving, 10})
@@ -602,8 +602,8 @@ defmodule MossletWeb.EditDetailsLive do
   @impl true
   def handle_event("delete_avatar", %{"url" => url}, socket) do
     avatars_bucket = Encrypted.Session.avatars_bucket()
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     profile = Map.get(user.connection, :profile)
 
@@ -673,8 +673,8 @@ defmodule MossletWeb.EditDetailsLive do
 
   @impl true
   def handle_event("update_name", %{"user" => user_params}, socket) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     if user_params["name"] && user_params["name"] != "" do
       case Accounts.update_user_name(user, user_params,
@@ -705,8 +705,8 @@ defmodule MossletWeb.EditDetailsLive do
 
   def handle_event("update_username", params, socket) do
     %{"user" => user_params} = params
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     if user_params["username"] && user_params["username"] != "" do
       case Accounts.update_user_username(user, user_params,

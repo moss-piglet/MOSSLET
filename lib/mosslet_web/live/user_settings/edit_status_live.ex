@@ -21,8 +21,8 @@ defmodule MossletWeb.EditStatusLive do
     ]
 
   def mount(_params, _session, socket) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     # Create forms for status and status visibility
     initial_status_attrs = %{
@@ -77,10 +77,9 @@ defmodule MossletWeb.EditStatusLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_status}
       sidebar_current_page={:edit_status}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">

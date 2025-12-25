@@ -13,17 +13,16 @@ defmodule MossletWeb.EditEmailLive do
     {:ok,
      assign(socket,
        page_title: "Settings",
-       form: to_form(Accounts.change_user_email(socket.assigns.current_user))
+       form: to_form(Accounts.change_user_email(socket.assigns.current_scope.user))
      )}
   end
 
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_email}
       sidebar_current_page={:edit_email}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -302,8 +301,8 @@ defmodule MossletWeb.EditEmailLive do
   end
 
   def handle_event("update_admin", _params, socket) do
-    current_user = socket.assigns.current_user
-    key = socket.assigns.key
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     email = decr(current_user.email, current_user, key)
 
     if email === Encrypted.Session.admin_email() && current_user.confirmed_at do
@@ -339,8 +338,8 @@ defmodule MossletWeb.EditEmailLive do
         %{"current_password" => password, "user" => user_params} = _params,
         socket
       ) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     case Accounts.check_if_can_change_user_email(user, password, user_params) do
       {:ok, applied_user} ->
@@ -374,7 +373,7 @@ defmodule MossletWeb.EditEmailLive do
             :warning,
             Gettext.gettext(
               MossletWeb.Gettext,
-              "There was an error trying to update your email address: your email is #{error}."
+              "There was an error trying to update your email address: your email or password is #{error}."
             )
           )
 
@@ -390,7 +389,7 @@ defmodule MossletWeb.EditEmailLive do
             :warning,
             Gettext.gettext(
               MossletWeb.Gettext,
-              "There was an error trying to update your email address: your password #{error}."
+              "There was an error trying to update your email address: your email or password #{error}."
             )
           )
 

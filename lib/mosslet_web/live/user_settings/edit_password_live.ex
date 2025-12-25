@@ -11,17 +11,16 @@ defmodule MossletWeb.EditPasswordLive do
      assign(socket,
        page_title: "Settings",
        trigger_submit: false,
-       form: to_form(Accounts.change_user_password(socket.assigns.current_user))
+       form: to_form(Accounts.change_user_password(socket.assigns.current_scope.user))
      )}
   end
 
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_password}
       sidebar_current_page={:edit_password}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -426,7 +425,7 @@ defmodule MossletWeb.EditPasswordLive do
   We optionally pass random words and separators.
   """
   def handle_event("generate-password", _params, socket) do
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
 
     words = Enum.random([5, 6, 7])
     separator = Enum.random([" ", "-", "."])
@@ -450,7 +449,7 @@ defmodule MossletWeb.EditPasswordLive do
     user_params = Map.get(params, "user", %{})
 
     form =
-      socket.assigns.current_user
+      socket.assigns.current_scope.user
       |> Accounts.change_user_password(user_params, change_password: true)
       |> Map.put(:action, :validate)
       |> to_form()
@@ -461,8 +460,8 @@ defmodule MossletWeb.EditPasswordLive do
   def handle_event("update_password", params, socket) do
     current_password = Map.get(params, "current_password", "")
     user_params = Map.get(params, "user", %{})
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     case Accounts.update_user_password(user, current_password, user_params,
            change_password: true,
@@ -484,7 +483,7 @@ defmodule MossletWeb.EditPasswordLive do
 
   def handle_event("send_password_reset_email", %{"email" => email}, socket) do
     Accounts.deliver_user_reset_password_instructions(
-      socket.assigns.current_user,
+      socket.assigns.current_scope.user,
       email,
       &url(~p"/auth/reset-password/#{&1}")
     )

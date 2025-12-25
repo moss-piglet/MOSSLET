@@ -10,17 +10,16 @@ defmodule MossletWeb.EditVisibilityLive do
     {:ok,
      assign(socket,
        page_title: "Settings",
-       form: to_form(Accounts.change_user_visibility(socket.assigns.current_user))
+       form: to_form(Accounts.change_user_visibility(socket.assigns.current_scope.user))
      )}
   end
 
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_visibility}
       sidebar_current_page={:edit_visibility}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -190,7 +189,7 @@ defmodule MossletWeb.EditVisibilityLive do
 
   def handle_event("validate_visibility", %{"user" => user_params}, socket) do
     form =
-      socket.assigns.current_user
+      socket.assigns.current_scope.user
       |> Accounts.change_user_visibility(user_params)
       |> Map.put(:action, :validate)
       |> to_form()
@@ -199,9 +198,9 @@ defmodule MossletWeb.EditVisibilityLive do
   end
 
   def handle_event("update_visibility", %{"user" => user_params}, socket) do
-    user = socket.assigns.current_user
+    user = socket.assigns.current_scope.user
 
-    case Accounts.update_user_visibility(user, user_params, key: socket.assigns.key) do
+    case Accounts.update_user_visibility(user, user_params, key: socket.assigns.current_scope.key) do
       {:ok, user} ->
         visibility_form =
           user

@@ -9,7 +9,7 @@ defmodule MossletWeb.EditProfileLive do
   alias MossletWeb.DesignSystem
 
   def mount(_params, _session, socket) do
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
     profile = Map.get(current_user.connection, :profile)
     banner_image = if is_nil(profile), do: :waves, else: Map.get(profile, :banner_image, :waves)
 
@@ -33,10 +33,9 @@ defmodule MossletWeb.EditProfileLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_profile}
       sidebar_current_page={:edit_profile}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -494,7 +493,7 @@ defmodule MossletWeb.EditProfileLive do
 
   def handle_event("validate_profile", params, socket) do
     %{"connection" => profile_params} = params
-    user = socket.assigns.current_user
+    user = socket.assigns.current_scope.user
 
     if Map.get(user.connection, :profile) do
       profile_params =
@@ -502,8 +501,8 @@ defmodule MossletWeb.EditProfileLive do
         |> Map.put(
           "profile",
           Map.put(profile_params["profile"], "opts_map", %{
-            user: socket.assigns.current_user,
-            key: socket.assigns.key,
+            user: user,
+            key: socket.assigns.current_scope.key,
             update_profile: true
           })
         )
@@ -521,7 +520,7 @@ defmodule MossletWeb.EditProfileLive do
         end
 
       profile_form =
-        socket.assigns.current_user.connection
+        user.connection
         |> Accounts.change_user_profile(corrected_profile_params)
         |> Map.put(:action, :validate)
         |> to_form()
@@ -542,8 +541,8 @@ defmodule MossletWeb.EditProfileLive do
         |> Map.put(
           "profile",
           Map.put(profile_params["profile"], "opts_map", %{
-            user: socket.assigns.current_user,
-            key: socket.assigns.key
+            user: user,
+            key: socket.assigns.current_scope.key
           })
         )
 
@@ -560,7 +559,7 @@ defmodule MossletWeb.EditProfileLive do
         end
 
       profile_form =
-        socket.assigns.current_user.connection
+        user.connection
         |> Accounts.change_user_profile(corrected_profile_params)
         |> Map.put(:action, :validate)
         |> to_form()
@@ -580,16 +579,16 @@ defmodule MossletWeb.EditProfileLive do
 
   def handle_event("update_profile", params, socket) do
     %{"connection" => profile_params} = params
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     profile_params =
       profile_params
       |> Map.put(
         "profile",
         Map.put(profile_params["profile"], "opts_map", %{
-          user: socket.assigns.current_user,
-          key: socket.assigns.key,
+          user: user,
+          key: key,
           update_profile: true,
           encrypt: true
         })
@@ -628,16 +627,16 @@ defmodule MossletWeb.EditProfileLive do
 
   def handle_event("create_profile", params, socket) do
     %{"connection" => profile_params} = params
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     profile_params =
       profile_params
       |> Map.put(
         "profile",
         Map.put(profile_params["profile"], "opts_map", %{
-          user: socket.assigns.current_user,
-          key: socket.assigns.key,
+          user: user,
+          key: key,
           encrypt: true
         })
       )
@@ -674,8 +673,8 @@ defmodule MossletWeb.EditProfileLive do
 
   def handle_event("delete_profile", %{"id" => id}, socket) do
     conn = Accounts.get_connection!(id)
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     if user.connection.id == conn.id do
       case Accounts.delete_user_profile(user, conn) do
