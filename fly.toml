@@ -13,7 +13,7 @@ primary_region = 'ewr'
 
 [env]
   DNS_CLUSTER_QUERY = 'mosslet.internal'
-  PORT = '8080'
+  PHX_SERVER = 'true'
   
 
 [http_service]
