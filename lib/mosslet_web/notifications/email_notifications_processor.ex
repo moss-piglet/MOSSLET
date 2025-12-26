@@ -79,7 +79,8 @@ defmodule Mosslet.Notifications.EmailNotificationsProcessor do
     target_user_ids = get_target_user_ids_for_post(post, current_user)
 
     if target_user_ids == [] do
-      Logger.info("❌ No target users for post #{post.id} with visibility #{post.visibility}")
+      # No users to notify
+      :ok
     else
       # Filter and process each user
       eligible_users = filter_eligible_users(target_user_ids, current_user)

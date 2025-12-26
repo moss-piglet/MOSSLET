@@ -104,19 +104,28 @@ defmodule Mosslet.Application do
   end
 
   defp oban_config do
-    if System.fetch_env!("PRIMARY_REGION") == System.fetch_env!("FLY_REGION") do
-      Logger.info("Oban running in primary region. Activated.")
-      Application.fetch_env!(:mosslet, Oban)
-    else
-      Logger.info("Oban disabled when running in non-primary region.")
+    primary_region = System.get_env("PRIMARY_REGION")
+    fly_region = System.get_env("FLY_REGION")
 
-      [
-        repo: Mosslet.Repo,
-        queues: false,
-        plugins: false,
-        peer: false,
-        notifier: Oban.Notifiers.PG
-      ]
+    cond do
+      is_nil(primary_region) or is_nil(fly_region) ->
+        Logger.info("Oban running in dev/test (no FLY_REGION set). Activated.")
+        Application.fetch_env!(:mosslet, Oban)
+
+      primary_region == fly_region ->
+        Logger.info("Oban running in primary region. Activated.")
+        Application.fetch_env!(:mosslet, Oban)
+
+      true ->
+        Logger.info("Oban disabled when running in non-primary region.")
+
+        [
+          repo: Mosslet.Repo,
+          queues: false,
+          plugins: false,
+          peer: false,
+          notifier: Oban.Notifiers.PG
+        ]
     end
   end
 end
