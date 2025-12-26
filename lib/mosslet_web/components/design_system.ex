@@ -357,7 +357,8 @@ defmodule MossletWeb.DesignSystem do
 
       <.liquid_footer current_user={@current_user} />
   """
-  attr :current_user, :map, default: nil
+  attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :current_user, :map, default: nil, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
   attr :rest, :global
 
@@ -390,7 +391,7 @@ defmodule MossletWeb.DesignSystem do
         <nav class="mb-16">
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 max-w-4xl mx-auto">
             <.link
-              :for={item <- footer_menu_items(@current_user)}
+              :for={item <- footer_menu_items(@current_scope.user)}
               href={item.path}
               class={[
                 "group relative px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
@@ -3151,8 +3152,6 @@ defmodule MossletWeb.DesignSystem do
   attr :privacy_controls_expanded, :boolean, default: false
   attr :content_warning_enabled?, :boolean, default: false
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
-  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :id, :string, default: nil
   attr :url_preview, :map, default: nil
   attr :url_preview_loading, :boolean, default: false
@@ -3219,10 +3218,10 @@ defmodule MossletWeb.DesignSystem do
             src={@user_avatar}
             name={@user_name}
             size="md"
-            status={to_string(@current_user.status || "offline")}
-            user_id={@current_user.id}
-            status_message={get_user_status_message(@current_user, @current_user, @key)}
-            show_status={can_view_status?(@current_user, @current_user, @key)}
+            status={to_string(@current_scope.user.status || "offline")}
+            user_id={@current_scope.user.id}
+            status_message={get_user_status_message(@current_scope.user, @current_scope.user, @current_scope.key)}
+            show_status={can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)}
             id={"composer-avatar-#{@id}"}
           />
 
@@ -3485,8 +3484,7 @@ defmodule MossletWeb.DesignSystem do
             <.liquid_compact_privacy_controls
               form={@form}
               selector={@selector}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
             />
           </div>
         <% end %>
@@ -3617,7 +3615,6 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :post, :any, required: true
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, required: true, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
 
   def liquid_post_photo_gallery(assigns) do
@@ -3685,15 +3682,15 @@ defmodule MossletWeb.DesignSystem do
         </div>
 
         <button
-          id={"post-#{@post.id}-show-photos-#{@current_user.id}"}
+          id={"post-#{@post.id}-show-photos-#{@current_scope.user.id}"}
           class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.97]"
           phx-click={
             JS.add_class("photos-loading", to: "#post-body-#{@post.id}")
             |> JS.dispatch("mosslet:show-post-photos-#{@post.id}",
               to: "#post-body-#{@post.id}",
-              detail: %{post_id: @post.id, user_id: @current_user.id}
+              detail: %{post_id: @post.id, user_id: @current_scope.user.id}
             )
-            |> JS.hide(to: "#post-#{@post.id}-show-photos-#{@current_user.id}")
+            |> JS.hide(to: "#post-#{@post.id}-show-photos-#{@current_scope.user.id}")
             |> JS.show(to: "#post-#{@post.id}-loading-indicator", display: "inline-flex")
           }
           phx-hook="TippyHook"
@@ -4301,8 +4298,6 @@ defmodule MossletWeb.DesignSystem do
 
   attr :post_id, :string, default: nil
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
-  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :is_repost, :boolean, default: false
   attr :share_note, :string, default: nil, doc: "Personal note from the sender when sharing"
   # New: unread state
@@ -5278,7 +5273,7 @@ defmodule MossletWeb.DesignSystem do
 
           <%!-- Images with enhanced encrypted display system --%>
           <div :if={@post && photos?(@post.image_urls)} class="mb-4">
-            <.liquid_post_photo_gallery post={@post} current_user={@current_user} class="" />
+            <.liquid_post_photo_gallery post={@post} current_scope={@current_scope} class="" />
           </div>
 
           <%!-- URL Preview Card (if available) --%>
@@ -5389,7 +5384,7 @@ defmodule MossletWeb.DesignSystem do
               active_icon="hero-chat-bubble-oval-left-solid"
               count={Map.get(@stats, :replies, 0)}
               notification_count={
-                if @calm_notifications && @post.user_id == @current_user.id,
+                if @calm_notifications && @post.user_id == @current_scope.user.id,
                   do: @unread_replies_count,
                   else: 0
               }
@@ -5402,7 +5397,7 @@ defmodule MossletWeb.DesignSystem do
               phx-click={
                 toggle_reply_section(
                   @post_id,
-                  (@calm_notifications && @post.user_id == @current_user.id) and
+                  (@calm_notifications && @post.user_id == @current_scope.user.id) and
                     @unread_replies_count > 0
                 )
               }
@@ -5424,7 +5419,7 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={@user_handle}
             />
             <.liquid_timeline_action
-              :if={!@can_repost && @post.user_id == @current_user.id && @post.allow_shares}
+              :if={!@can_repost && @post.user_id == @current_scope.user.id && @post.allow_shares}
               icon="hero-paper-airplane"
               id={"share-button-disabled-#{@post.id}"}
               icon_id={"share-icon-disabled-#{@post.id}"}
@@ -5441,7 +5436,7 @@ defmodule MossletWeb.DesignSystem do
               phx-value-username={nil}
             />
             <.liquid_timeline_action
-              :if={!@can_repost && @post.user_id != @current_user.id}
+              :if={!@can_repost && @post.user_id != @current_scope.user.id}
               icon="hero-paper-airplane"
               id={"share-button-disabled-#{@post.id}"}
               icon_id={"share-icon-disabled-#{@post.id}"}
@@ -5541,16 +5536,15 @@ defmodule MossletWeb.DesignSystem do
       id={"reply-composer-#{@post.id}"}
       post_id={@post.id}
       visibility={@post.visibility}
-      current_user={@current_user}
-      user_name={user_name(@current_user, @key) || "You"}
+      current_scope={@current_scope}
+      user_name={user_name(@current_scope.user, @current_scope.key) || "You"}
       user_avatar={
-        if show_avatar?(@current_user),
-          do: maybe_get_user_avatar(@current_user, @key) || "/images/logo.svg",
+        if show_avatar?(@current_scope.user),
+          do: maybe_get_user_avatar(@current_scope.user, @current_scope.key) || "/images/logo.svg",
           else: "/images/logo.svg"
       }
       character_limit={280}
-      username={decr(@current_user.username, @current_user, @key)}
-      key={@key}
+      username={decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
       class=""
     />
 
@@ -5560,8 +5554,7 @@ defmodule MossletWeb.DesignSystem do
       replies={@post.replies || []}
       reply_count={Map.get(@stats, :replies, 0)}
       show={true}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
       calm_notifications={@calm_notifications}
       class="mt-3"
@@ -7705,8 +7698,6 @@ defmodule MossletWeb.DesignSystem do
   attr :replies, :list, default: []
   attr :show, :boolean, default: false
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
-  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :reply_count, :integer, default: 0
   attr :unread_nested_replies_by_parent, :map, default: %{}
   attr :calm_notifications, :boolean, default: false
@@ -7762,8 +7753,7 @@ defmodule MossletWeb.DesignSystem do
 
             <.liquid_nested_reply_item
               reply={reply}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
               depth={0}
               max_depth={3}
               post_id={@post_id}
@@ -7796,8 +7786,6 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :reply, :map, required: true
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
-  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :depth, :integer, default: 0
   attr :max_depth, :integer, default: 3
   attr :post_id, :string, default: nil
@@ -7816,8 +7804,7 @@ defmodule MossletWeb.DesignSystem do
       <%!-- Render the current reply --%>
       <.liquid_reply_item
         reply={@reply}
-        current_user={@current_user}
-        key={@key}
+        current_scope={@current_scope}
         depth={@depth}
         post_id={@post_id}
       />
@@ -7930,8 +7917,7 @@ defmodule MossletWeb.DesignSystem do
 
             <.liquid_nested_reply_item
               reply={child_reply}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
               depth={@depth + 1}
               max_depth={@max_depth}
               post_id={@post_id}
@@ -7962,7 +7948,7 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Nested reply composer LiveComponent (hidden by default, toggled by JS) --%>
       <div
-        :if={@current_user}
+        :if={@current_scope.user}
         id={"nested-composer-#{@reply.id}"}
         class="ml-4 sm:ml-6 mt-3 hidden"
         data-hide-js={
@@ -7984,9 +7970,8 @@ defmodule MossletWeb.DesignSystem do
           id={"nested-composer-component-#{@reply.id}"}
           parent_reply={@reply}
           post_id={@post_id}
-          current_user={@current_user}
-          key={Map.get(assigns, :key)}
-          author_name={get_safe_reply_author_name(@reply, @current_user, Map.get(assigns, :key))}
+          current_scope={@current_scope}
+          author_name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
           class=""
         />
       </div>
@@ -7999,8 +7984,6 @@ defmodule MossletWeb.DesignSystem do
   """
   attr :reply, :map, required: true
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :map, required: true, doc: "deprecated: use current_scope instead"
-  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :depth, :integer, default: 0
   attr :post_id, :string, default: nil
   attr :class, :any, default: ""
@@ -8031,12 +8014,12 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex items-start gap-3">
           <%!-- Reply author avatar (small) --%>
           <.liquid_avatar
-            id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_user.id}"}
-            src={get_reply_author_avatar(@reply, @current_user, @key)}
-            name={get_safe_reply_author_name(@reply, @current_user, @key)}
-            status={get_reply_author_status(@reply, @current_user, @key)}
-            status_message={get_reply_author_status_message(@reply, @current_user, @key)}
-            show_status={get_reply_author_show_status(@reply, @current_user, @key)}
+            id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_scope.user.id}"}
+            src={get_reply_author_avatar(@reply, @current_scope.user, @current_scope.key)}
+            name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+            status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
+            status_message={get_reply_author_status_message(@reply, @current_scope.user, @current_scope.key)}
+            show_status={get_reply_author_show_status(@reply, @current_scope.user, @current_scope.key)}
             user_id={@reply.user_id}
             size="sm"
             class="flex-shrink-0 mt-0.5"
@@ -8046,7 +8029,7 @@ defmodule MossletWeb.DesignSystem do
             <%!-- Reply header --%>
             <div class="flex items-center gap-2 mb-2">
               <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {get_safe_reply_author_name(@reply, @current_user, @key)}
+                {get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
               </span>
               <span class="text-xs text-slate-500 dark:text-slate-400">
                 {format_reply_timestamp(@reply.inserted_at)}
@@ -8055,46 +8038,46 @@ defmodule MossletWeb.DesignSystem do
 
             <%!-- Reply content --%>
             <div class="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
-              {get_decrypted_reply_content(@reply, @current_user, @key)}
+              {get_decrypted_reply_content(@reply, @current_scope.user, @current_scope.key)}
             </div>
 
             <%!-- Reply actions (mobile-optimized) - only show for connected users or own replies --%>
             <div class="flex items-center justify-between mt-3 sm:mt-2">
               <div class="flex items-center gap-3 sm:gap-4">
                 <.liquid_timeline_action
-                  :if={can_interact_with_reply?(@reply, @current_user)}
+                  :if={can_interact_with_reply?(@reply, @current_scope.user)}
                   id={
-                    if @current_user.id in @reply.favs_list,
+                    if @current_scope.user.id in @reply.favs_list,
                       do: "hero-heart-solid-reply-button-#{@reply.id}",
                       else: "hero-heart-reply-button-#{@reply.id}"
                   }
                   icon_id={
-                    if @current_user.id in @reply.favs_list,
+                    if @current_scope.user.id in @reply.favs_list,
                       do: "hero-heart-solid-reply-icon-#{@reply.id}",
                       else: "hero-heart-reply-icon-#{@reply.id}"
                   }
                   icon={
-                    if @current_user.id in @reply.favs_list,
+                    if @current_scope.user.id in @reply.favs_list,
                       do: "hero-heart-solid",
                       else: "hero-heart"
                   }
                   count={@reply.favs_count}
-                  label={if @current_user.id in @reply.favs_list, do: "Unlike", else: "Love"}
+                  label={if @current_scope.user.id in @reply.favs_list, do: "Unlike", else: "Love"}
                   color="rose"
-                  active={@current_user.id in @reply.favs_list}
+                  active={@current_scope.user.id in @reply.favs_list}
                   reply_id={@reply.id}
                   phx-click={
-                    if @current_user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
+                    if @current_scope.user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
                   }
                   phx-value-id={@reply.id}
                   phx-hook="TippyHook"
                   data-tippy-content={
-                    if @current_user.id in @reply.favs_list, do: "Remove love", else: "Show love"
+                    if @current_scope.user.id in @reply.favs_list, do: "Remove love", else: "Show love"
                   }
                   class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
                 />
                 <button
-                  :if={can_interact_with_reply?(@reply, @current_user)}
+                  :if={can_interact_with_reply?(@reply, @current_scope.user)}
                   id={"reply-button-#{@reply.id}"}
                   phx-click={
                     JS.toggle(
@@ -8122,8 +8105,8 @@ defmodule MossletWeb.DesignSystem do
               <%!-- Reply dropdown menu (only show if user has permissions) --%>
               <div
                 :if={
-                  can_manage_reply?(@reply, @current_user, @post_id) or
-                    can_moderate_reply?(@reply, @current_user)
+                  can_manage_reply?(@reply, @current_scope.user, @post_id) or
+                    can_moderate_reply?(@reply, @current_scope.user)
                 }
                 class="flex-shrink-0 relative z-10"
               >
@@ -8143,8 +8126,8 @@ defmodule MossletWeb.DesignSystem do
                   <%!-- Report option (for others' replies) --%>
                   <:item
                     :if={
-                      can_moderate_reply?(@reply, @current_user) and
-                        @reply.user_id != @current_user.id
+                      can_moderate_reply?(@reply, @current_scope.user) and
+                        @reply.user_id != @current_scope.user.id
                     }
                     color="amber"
                     phx_click="report_reply"
@@ -8158,13 +8141,13 @@ defmodule MossletWeb.DesignSystem do
                   <%!-- Block option (for others' replies) --%>
                   <:item
                     :if={
-                      can_moderate_reply?(@reply, @current_user) and
-                        @reply.user_id != @current_user.id
+                      can_moderate_reply?(@reply, @current_scope.user) and
+                        @reply.user_id != @current_scope.user.id
                     }
                     color="rose"
                     phx_click="block_user_from_reply"
                     phx_value_id={@reply.user_id}
-                    phx_value_user_name={get_safe_reply_author_name(@reply, @current_user, @key)}
+                    phx_value_user_name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
                     phx_value_reply_id={@reply.id}
                   >
                     <.phx_icon name="hero-no-symbol" class="h-4 w-4" />
@@ -8173,7 +8156,7 @@ defmodule MossletWeb.DesignSystem do
 
                   <%!-- Delete option for reply owner or post owner --%>
                   <:item
-                    :if={can_manage_reply?(@reply, @current_user, @post_id)}
+                    :if={can_manage_reply?(@reply, @current_scope.user, @post_id)}
                     color="rose"
                     phx_click="delete_reply"
                     phx_value_id={@reply.id}
@@ -9557,8 +9540,6 @@ defmodule MossletWeb.DesignSystem do
   attr :form, :any, required: true
   attr :selector, :string, required: true
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
-  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
 
   def liquid_compact_privacy_controls(assigns) do
@@ -9633,15 +9614,13 @@ defmodule MossletWeb.DesignSystem do
             <.compact_group_selector
               groups={@visibility_groups}
               form={@form}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
             />
           <% else %>
             <.compact_user_selector
               connections={@user_connections}
               form={@form}
-              current_user={@current_user}
-              key={@key}
+              current_scope={@current_scope}
             />
           <% end %>
         </div>
@@ -9880,8 +9859,6 @@ defmodule MossletWeb.DesignSystem do
   attr :groups, :list, required: true
   attr :form, :any, required: true
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, required: true, doc: "deprecated: use current_scope instead"
-  attr :key, :any, required: true, doc: "deprecated: use current_scope instead"
 
   defp compact_group_selector(assigns) do
     assigns = assign_scope_fields(assigns)
@@ -9893,7 +9870,7 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
           <%= for group_data <- @groups do %>
             <% group = group_data.group %>
-            <% decrypted_name = get_decrypted_group_name(group_data, @current_user, @key) %>
+            <% decrypted_name = get_decrypted_group_name(group_data, @current_scope.user, @current_scope.key) %>
             <% selected = group.id in (@form[:visibility_groups].value || []) %>
             <label class={[
               "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all",
@@ -9929,8 +9906,6 @@ defmodule MossletWeb.DesignSystem do
   attr :connections, :list, required: true
   attr :form, :any, required: true
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, required: true, doc: "deprecated: use current_scope instead"
-  attr :key, :any, required: true, doc: "deprecated: use current_scope instead"
 
   defp compact_user_selector(assigns) do
     assigns = assign_scope_fields(assigns)
@@ -9941,8 +9916,8 @@ defmodule MossletWeb.DesignSystem do
       <%= if @connections != [] do %>
         <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
           <%= for connection <- @connections do %>
-            <% decrypted_name = get_decrypted_connection_name(connection, @current_user, @key) %>
-            <% user_id = get_connection_other_user_id(connection, @current_user) %>
+            <% decrypted_name = get_decrypted_connection_name(connection, @current_scope.user, @current_scope.key) %>
+            <% user_id = get_connection_other_user_id(connection, @current_scope.user) %>
             <% selected = user_id in (@form[:visibility_users].value || []) %>
             <label class={[
               "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all",
@@ -9960,7 +9935,7 @@ defmodule MossletWeb.DesignSystem do
                 class="sr-only"
               />
               <img
-                src={get_connection_avatar_src(connection, @current_user, @key)}
+                src={get_connection_avatar_src(connection, @current_scope.user, @current_scope.key)}
                 alt={decrypted_name}
                 class="w-4 h-4 rounded-full"
               />

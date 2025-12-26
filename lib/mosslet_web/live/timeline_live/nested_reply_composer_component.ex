@@ -14,14 +14,17 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
       # Get the post from the post_id
       post = Timeline.get_post!(assigns.post_id)
 
+      current_user = assigns.current_scope.user
+      key = assigns.current_scope.key
+
       # Create proper changeset form like main reply composer
       changeset =
         Timeline.change_reply(%Reply{}, %{
           "body" => "",
           "parent_reply_id" => assigns.parent_reply.id,
           "post_id" => assigns.post_id,
-          "user_id" => assigns.current_user.id,
-          "username" => MossletWeb.Helpers.user_name(assigns.current_user, assigns.key),
+          "user_id" => current_user.id,
+          "username" => MossletWeb.Helpers.user_name(current_user, key),
           "visibility" => post.visibility
         })
 
@@ -48,8 +51,11 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
 
   def handle_event("cancel_nested_reply", _params, socket) do
     # Reset the form to empty state (clear the body)
-    %{parent_reply: parent_reply, post: post, current_user: current_user, key: key} =
+    %{parent_reply: parent_reply, post: post, current_scope: current_scope} =
       socket.assigns
+
+    current_user = current_scope.user
+    key = current_scope.key
 
     changeset =
       Timeline.change_reply(%Reply{}, %{
@@ -66,8 +72,11 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
   end
 
   def handle_event("submit_nested_reply", %{"reply" => reply_params}, socket) do
-    %{current_user: current_user, key: key, parent_reply: parent_reply, post: post} =
+    %{current_scope: current_scope, parent_reply: parent_reply, post: post} =
       socket.assigns
+
+    current_user = current_scope.user
+    key = current_scope.key
 
     # Get the post_key for encryption (same as parent post)
     post_key = MossletWeb.Helpers.get_post_key(post, current_user)
@@ -170,13 +179,13 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
           field={@form[:user_id]}
           type="hidden"
           id={"nested_reply_user_id_#{@parent_reply.id}"}
-          value={@current_user.id}
+          value={@current_scope.user.id}
         />
         <.phx_input
           field={@form[:username]}
           type="hidden"
           id={"nested_reply_username_#{@parent_reply.id}"}
-          value={MossletWeb.Helpers.user_name(@current_user, @key)}
+          value={MossletWeb.Helpers.user_name(@current_scope.user, @current_scope.key)}
         />
         <.phx_input
           field={@form[:visibility]}

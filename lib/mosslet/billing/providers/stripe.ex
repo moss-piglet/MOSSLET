@@ -13,7 +13,6 @@ defmodule Mosslet.Billing.Providers.Stripe do
   alias Mosslet.Billing.Providers.Stripe.Services.CreatePortalSession
   alias Mosslet.Billing.Providers.Stripe.Services.FindOrCreateCustomer
   alias Mosslet.Billing.Providers.Stripe.Services.SyncCustomer
-  alias Mosslet.Billing.Referrals.Referral
   alias Mosslet.Billing.Subscriptions.Subscription
 
   def checkout(%User{} = user, plan, source, source_id, session_key, referral \\ nil) do

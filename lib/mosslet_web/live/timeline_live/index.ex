@@ -1689,14 +1689,23 @@ defmodule MossletWeb.TimelineLive.Index do
         "expires_at_option",
         post_params["expires_at_option"] || socket.assigns.expires_at_option
       )
-      # Handle visibility groups and users - preserve from socket if not in form params
       |> Map.put(
         "visibility_groups",
-        post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
+        get_visibility_list(
+          post_params,
+          "visibility_groups",
+          socket.assigns.selected_visibility_groups,
+          current_selector
+        )
       )
       |> Map.put(
         "visibility_users",
-        post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
+        get_visibility_list(
+          post_params,
+          "visibility_users",
+          socket.assigns.selected_visibility_users,
+          current_selector
+        )
       )
       # Expiration handling now done in Post changeset with virtual field
       |> add_shared_users_list_for_new_post(post_shared_users, %{
@@ -4303,16 +4312,30 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Helper function to update stored visibility users when they change in the form
+  defp get_visibility_list(post_params, key, fallback, selector) do
+    cond do
+      Map.has_key?(post_params, key) ->
+        post_params[key] || []
+
+      key == "visibility_users" and selector == "specific_users" ->
+        []
+
+      key == "visibility_groups" and selector == "specific_groups" ->
+        []
+
+      true ->
+        fallback || []
+    end
+  end
+
   defp maybe_update_visibility_users(socket, post_params) do
     case post_params["visibility_users"] do
       nil ->
-        socket
+        assign(socket, :selected_visibility_users, [])
 
       users when is_list(users) ->
         socket
         |> assign(:selected_visibility_users, users)
-        # Clear selected groups when users are selected to avoid confusion
         |> assign(:selected_visibility_groups, [])
 
       _ ->
