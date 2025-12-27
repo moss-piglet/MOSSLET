@@ -93,7 +93,7 @@ if config_env() == :prod do
       """
 
   host = System.get_env("PHX_HOST") || "mosslet.com"
-  port = String.to_integer(System.get_env("PORT") || "4000")
+  port = String.to_integer(System.get_env("PORT") || "8080")
 
   # Configure the canonical host for redirects.
   config :mosslet,
