@@ -136,11 +136,11 @@ if config_env() == :prod do
   # We want to ensure we're only running on
   # the primary database.
   unless System.get_env("FLY_REGION") do
-    System.put_env("FLY_REGION", "bos")
+    System.put_env("FLY_REGION", "ewr")
   end
 
   unless System.get_env("PRIMARY_REGION") do
-    System.put_env("PRIMARY_REGION", "bos")
+    System.put_env("PRIMARY_REGION", "ewr")
   end
 
   primary? = System.get_env("FLY_REGION") == System.get_env("PRIMARY_REGION")
