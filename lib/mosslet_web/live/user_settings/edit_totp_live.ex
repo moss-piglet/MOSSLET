@@ -12,7 +12,7 @@ defmodule MossletWeb.EditTotpLive do
     socket =
       socket
       |> assign(backup_codes: nil, current_password: nil)
-      |> reset_assigns(Accounts.get_user_totp(socket.assigns.current_user))
+      |> reset_assigns(Accounts.get_user_totp(socket.assigns.current_scope.user))
 
     {:ok, socket}
   end
@@ -21,10 +21,9 @@ defmodule MossletWeb.EditTotpLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_totp}
       sidebar_current_page={:edit_totp}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
