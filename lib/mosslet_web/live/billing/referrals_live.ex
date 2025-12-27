@@ -13,8 +13,8 @@ defmodule MossletWeb.ReferralsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    user = socket.assigns.current_user
-    session_key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    session_key = socket.assigns.current_scope.key
 
     if Referrals.user_eligible_for_referrals?(user) do
       if connected?(socket) do
@@ -72,10 +72,9 @@ defmodule MossletWeb.ReferralsLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:referrals}
       sidebar_current_page={:referrals}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -1006,8 +1005,8 @@ defmodule MossletWeb.ReferralsLive do
   end
 
   def handle_event("start_connect_onboarding", _params, socket) do
-    user = socket.assigns.current_user
-    session_key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    session_key = socket.assigns.current_scope.key
     referral_code = socket.assigns.referral_code
 
     case StripeConnect.create_connect_account(referral_code, user, session_key) do
@@ -1028,8 +1027,8 @@ defmodule MossletWeb.ReferralsLive do
   end
 
   def handle_event("continue_connect_onboarding", _params, socket) do
-    user = socket.assigns.current_user
-    session_key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    session_key = socket.assigns.current_scope.key
     referral_code = socket.assigns.referral_code
 
     case StripeConnect.create_account_link(referral_code, user, session_key) do
@@ -1043,8 +1042,8 @@ defmodule MossletWeb.ReferralsLive do
   end
 
   def handle_event("open_stripe_dashboard", _params, socket) do
-    user = socket.assigns.current_user
-    session_key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    session_key = socket.assigns.current_scope.key
     referral_code = socket.assigns.referral_code
 
     case StripeConnect.create_login_link(referral_code, user, session_key) do
@@ -1071,7 +1070,7 @@ defmodule MossletWeb.ReferralsLive do
   end
 
   defp refresh_data(socket) do
-    user = socket.assigns.current_user
+    user = socket.assigns.current_scope.user
     referral_code = socket.assigns.referral_code
 
     stats = Referrals.get_stats(user.id)
