@@ -355,10 +355,9 @@ defmodule MossletWeb.DesignSystem do
 
   ## Examples
 
-      <.liquid_footer current_user={@current_user} />
+      <.liquid_footer current_scope={@current_scope} />
   """
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :map, default: nil, doc: "deprecated: use current_scope instead"
   attr :class, :any, default: ""
   attr :rest, :global
 
@@ -3031,8 +3030,6 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :id, :string, default: "new-post-prompt"
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
-  attr :session_key, :any, default: nil, doc: "deprecated: use current_scope instead"
   attr :show_status, :boolean, default: false
   attr :status_message, :string, default: nil
 
@@ -3071,10 +3068,12 @@ defmodule MossletWeb.DesignSystem do
               name={@user_name}
               size="md"
               status={
-                if @current_user, do: to_string(@current_user.status || "offline"), else: "offline"
+                if @current_scope.user,
+                  do: to_string(@current_scope.user.status || "offline"),
+                  else: "offline"
               }
               status_message={@status_message}
-              user_id={if @current_user, do: @current_user.id}
+              user_id={if @current_scope.user, do: @current_scope.user.id}
               show_status={@show_status}
               id={"#{@id}-avatar"}
             />

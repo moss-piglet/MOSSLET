@@ -56,7 +56,7 @@ if config_env() == :prod do
   config :flame, FLAME.FlyBackend,
     token: System.fetch_env!("FLY_API_TOKEN"),
     env: %{
-      "DATABASE_URL" => System.get_env("DATABASE_URL"),
+      "DATABASE_URL" => System.fetch_env!("DATABASE_URL"),
       "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE")
     }
 

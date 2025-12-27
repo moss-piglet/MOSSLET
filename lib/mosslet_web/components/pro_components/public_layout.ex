@@ -129,7 +129,7 @@ defmodule MossletWeb.PublicLayout do
               <.modern_user_dropdown
                 :if={@user_menu_items != []}
                 user_menu_items={@user_menu_items}
-                current_user={@current_user}
+                current_scope={@current_scope}
                 current_user_name={@current_user_name}
                 avatar_src={@avatar_src}
               />
@@ -213,7 +213,7 @@ defmodule MossletWeb.PublicLayout do
 
             <%!-- Mobile authentication section for signed-out users --%>
             <div
-              :if={!@current_user || @current_user_name == "nil"}
+              :if={!@current_scope[:user] || @current_user_name == "nil"}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-3"
             >
               <%!-- Guest user card matching desktop dropdown style --%>
@@ -264,7 +264,7 @@ defmodule MossletWeb.PublicLayout do
 
             <%!-- Mobile user section for signed-in users --%>
             <div
-              :if={@current_user}
+              :if={@current_scope[:user]}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60"
             >
               <div class="flex items-center px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl mb-2">
@@ -277,13 +277,13 @@ defmodule MossletWeb.PublicLayout do
                 </div>
                 <div class="ml-3">
                   <div
-                    :if={@current_user && !@session_locked}
+                    :if={@current_scope[:user] && !@session_locked}
                     class="text-base font-semibold text-slate-900 dark:text-slate-100"
                   >
                     {@current_user_name}
                   </div>
                   <div
-                    :if={@current_user && @session_locked}
+                    :if={@current_scope[:user] && @session_locked}
                     class="text-base font-semibold text-slate-900 dark:text-slate-100"
                   >
                     Online
@@ -347,7 +347,7 @@ defmodule MossletWeb.PublicLayout do
       </div>
 
       <.liquid_container max_width={@max_width} class="relative">
-        <.liquid_footer current_user={@current_user} />
+        <.liquid_footer current_scope={@current_scope} />
       </.liquid_container>
     </footer>
     """

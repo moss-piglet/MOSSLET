@@ -1,5 +1,5 @@
 <h1>
-  👋 {@user.name} wants you to join them on MOSSLET - social media that actually respects your privacy 🌿
+  👋 {@user.name} wants you to join them on MOSSLET - a privacy-first social network for connecting with your people 🌿
 </h1>
 
 <p>
@@ -7,7 +7,7 @@
   <EmailComponents.highlight color="teal">
     <strong>{@user.name}</strong>
   </EmailComponents.highlight>
-  has invited you to join them on MOSSLET – social media that actually respects your privacy and peace of mind. 🌱
+  has invited you to join them on MOSSLET – a privacy-first social network for connecting with your people. 🌱
 </p>
 
 <%= if @invitation.message not in ["", nil]  do %>
@@ -27,9 +27,22 @@
   Ready to experience social media without the stress, tracking, and manipulation? Click below to create your account and join {@user.name}:
 </p>
 
-<EmailComponents.button_centered to={@url} color="teal" size="lg">
-  Join {@user.name} on MOSSLET
-</EmailComponents.button_centered>
+<%= if @referral_code do %>
+  <EmailComponents.button_centered to={@url} color="purple" size="lg">
+    🎁 Join {@user.name} with Referral Discount
+  </EmailComponents.button_centered>
+
+  <p style="text-align: center; margin-top: 12px;">
+    <EmailComponents.small_text>
+      <strong>You've been referred!</strong>
+      Use this special link to get a discount when you sign up.
+    </EmailComponents.small_text>
+  </p>
+<% else %>
+  <EmailComponents.button_centered to={@url} color="teal" size="lg">
+    Join {@user.name} on MOSSLET
+  </EmailComponents.button_centered>
+<% end %>
 
 <EmailComponents.gap />
 
@@ -47,11 +60,7 @@
     <li>Create your account using the button above</li>
     <li>Verify your email address</li>
     <li>Choose your lifetime plan (one-time payment)</li>
-    <li>Find {@user.name} using their details:</li>
-    <ul style="margin: 8px 0; padding-left: 20px;">
-      <li><strong>Email:</strong> {@user.email}</li>
-      <li><strong>Username:</strong> @{@user.username}</li>
-    </ul>
+    <li>Find {@user.name} by searching for their username: <strong>{@user.username}</strong></li>
     <li>Send them a connection request</li>
     <li>Start enjoying private, peaceful social media! 🌿</li>
   </ol>
@@ -91,29 +100,47 @@
 
 <EmailComponents.accent_line width="60%" />
 
-<h3>💰 Why One-Time Payment?</h3>
+<h3>💰 Flexible Pricing That Respects You</h3>
 
 <p>
-  Unlike "free" platforms that make money by exploiting your data and attention, MOSSLET uses a simple one-time payment model. This means:
+  Unlike "free" platforms that make money by exploiting your data and attention, MOSSLET offers flexible pricing options:
 </p>
 
 <ul style="line-height: 1.6;">
+  <li>
+    <strong>Monthly or annual subscriptions</strong> – cancel anytime, no commitments
+  </li>
+  <li>
+    <strong>Lifetime access (one-time payment)</strong>
+    – pay once, use forever, best value for long-term members
+  </li>
   <li>
     <strong>You're the customer, not the product</strong>
     – we serve your interests, not advertisers
   </li>
   <li>
-    <strong>No hidden costs</strong> – pay once, use forever, no subscriptions or surprise fees
-  </li>
-  <li>
-    <strong>Sustainable and honest</strong>
-    – we can focus on building great features instead of maximizing engagement
-  </li>
-  <li>
-    <strong>Community over profit</strong>
-    – our success depends on your satisfaction, not your data
+    <strong>No hidden costs or surprise fees</strong> – transparent pricing that includes the tax
   </li>
 </ul>
+
+<EmailComponents.gap />
+
+<EmailComponents.gray_box>
+  <h3>🎁 Earn With Our Referral Program</h3>
+  <p style="margin: 12px 0;">
+    Once you become an active MOSSLET member, you'll get your own referral code! Share it with friends and family:
+  </p>
+  <ul style="line-height: 1.6; margin: 12px 0;">
+    <li><strong>Your referrals get a special discount</strong> when they sign up</li>
+    <li><strong>You earn a commission</strong> on every purchase they make</li>
+    <li><strong>Lifetime revenue sharing</strong> – earn for as long as they're a member</li>
+  </ul>
+  <p style="margin: 12px 0;">
+    <EmailComponents.small_text>
+      It's our way of saying thanks for spreading the word about privacy-respecting social media. 🌿
+    </EmailComponents.small_text>
+  </p>
+</EmailComponents.gray_box>
 
 <EmailComponents.gap />
 

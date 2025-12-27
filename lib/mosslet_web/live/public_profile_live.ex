@@ -57,7 +57,7 @@ defmodule MossletWeb.PublicProfileLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_page={:home} current_user={@current_user} key={@key} type="public">
+    <.layout current_page={:home} current_scope={@current_scope} type="public">
       <div class="relative overflow-hidden">
         <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
           <div
@@ -80,7 +80,7 @@ defmodule MossletWeb.PublicProfileLive do
               <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div class="relative flex-shrink-0">
                   <MossletWeb.DesignSystem.liquid_avatar
-                    src={get_public_avatar(@profile_user, @current_user)}
+                    src={get_public_avatar(@profile_user, @current_scope.user)}
                     name={
                       URLPreviewHelpers.decrypt_public_field(
                         @profile_user.connection.profile.name,
@@ -90,7 +90,9 @@ defmodule MossletWeb.PublicProfileLive do
                     size="xxl"
                     status={get_public_status(@profile_user)}
                     status_message={get_public_status_message(@profile_user)}
-                    show_status={can_view_status?(@profile_user, @current_user, @key)}
+                    show_status={
+                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                    }
                     user_id={@profile_user.id}
                     verified={false}
                   />

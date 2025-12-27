@@ -6,6 +6,7 @@ defmodule MossletWeb.ReferralsLive do
   use MossletWeb, :live_view
 
   alias Mosslet.Billing.Referrals
+  alias Mosslet.Billing.Subscriptions
   alias Mosslet.Billing.Providers.Stripe.Services.StripeConnect
   alias MossletWeb.DesignSystem
 
@@ -24,10 +25,13 @@ defmodule MossletWeb.ReferralsLive do
 
       {:ok, load_referral_data(socket, user, session_key)}
     else
+      in_free_trial = user_in_free_trial?(user)
+
       {:ok,
        socket
        |> assign(:page_title, gettext("Referrals"))
        |> assign(:eligible, false)
+       |> assign(:in_free_trial, in_free_trial)
        |> assign(:stats, nil)
        |> assign(:referral_code, nil)}
     end
@@ -97,7 +101,11 @@ defmodule MossletWeb.ReferralsLive do
             referrals={@referrals}
           />
         <% else %>
-          <.not_eligible_notice />
+          <%= if @in_free_trial do %>
+            <.free_trial_notice />
+          <% else %>
+            <.not_eligible_notice />
+          <% end %>
         <% end %>
       </DesignSystem.liquid_container>
     </.layout>
@@ -985,6 +993,125 @@ defmodule MossletWeb.ReferralsLive do
     """
   end
 
+  defp free_trial_notice(assigns) do
+    commission = Decimal.mult(Referrals.commission_rate(), 100) |> Decimal.to_integer()
+
+    one_time_commission =
+      Decimal.mult(Referrals.one_time_commission_rate(), 100) |> Decimal.to_integer()
+
+    discount = Referrals.referee_discount_percent()
+
+    assigns =
+      assigns
+      |> assign(:commission, commission)
+      |> assign(:one_time_commission, one_time_commission)
+      |> assign(:discount, discount)
+
+    ~H"""
+    <div class="space-y-8">
+      <DesignSystem.liquid_card class="bg-gradient-to-br from-violet-50/80 to-purple-50/60 dark:from-violet-900/30 dark:to-purple-900/20 border-violet-200/60 dark:border-violet-700/40">
+        <div class="flex items-start gap-4">
+          <div class="flex-shrink-0">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
+              <.phx_icon name="hero-sparkles" class="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-200">
+              {gettext("Free Trial Active")}
+            </h2>
+            <p class="mt-1 text-sm text-violet-700 dark:text-violet-300">
+              {gettext(
+                "You're currently enjoying your free trial of MOSSLET. Once your trial ends and you become a paid member, you'll unlock the referral program!"
+              )}
+            </p>
+            <div class="mt-4">
+              <DesignSystem.liquid_button
+                href={~p"/app/billing"}
+                size="sm"
+                variant="secondary"
+                color="violet"
+                icon="hero-cog-6-tooth"
+              >
+                {gettext("Manage Billing")}
+              </DesignSystem.liquid_button>
+            </div>
+          </div>
+        </div>
+      </DesignSystem.liquid_card>
+
+      <DesignSystem.liquid_card>
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+          {gettext("🎁 What You'll Unlock")}
+        </h3>
+        <div class="space-y-4">
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            {gettext("Once you become a paid member, you'll get access to our referral program:")}
+          </p>
+
+          <div class="grid md:grid-cols-3 gap-6">
+            <div class="flex gap-3">
+              <div class="flex-shrink-0">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                  <.phx_icon name="hero-link" class="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <p class="font-medium text-slate-900 dark:text-white">
+                  {gettext("Unique Referral Link")}
+                </p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">
+                  {gettext("Share with friends and family")}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex gap-3">
+              <div class="flex-shrink-0">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                  <.phx_icon name="hero-gift" class="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <p class="font-medium text-slate-900 dark:text-white">
+                  {gettext("They Save %{discount}%", discount: @discount)}
+                </p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">
+                  {gettext("Your friends get a discount")}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex gap-3">
+              <div class="flex-shrink-0">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                  <.phx_icon name="hero-currency-dollar" class="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <p class="font-medium text-slate-900 dark:text-white">
+                  {gettext("You Earn %{commission}%", commission: @commission)}
+                </p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">
+                  {gettext("Lifetime revenue sharing")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-500 dark:text-slate-400 pt-4 border-t border-slate-200 dark:border-slate-700">
+            {gettext(
+              "Earn %{commission}% of every subscription payment and %{one_time}% of one-time purchases from your referrals—for life! Payouts are processed monthly via Stripe.",
+              commission: @commission,
+              one_time: @one_time_commission
+            )}
+          </p>
+        </div>
+      </DesignSystem.liquid_card>
+    </div>
+    """
+  end
+
   @impl true
   def handle_event("copy_link", _params, socket) do
     {:noreply, put_flash(socket, :info, gettext("Referral link copied to clipboard!"))}
@@ -1091,5 +1218,18 @@ defmodule MossletWeb.ReferralsLive do
     first_of_next_month = Date.new!(today.year, today.month, 1) |> Date.add(32)
     first_of_next_month = Date.new!(first_of_next_month.year, first_of_next_month.month, 1)
     Calendar.strftime(first_of_next_month, "%B %d, %Y")
+  end
+
+  defp user_in_free_trial?(user) do
+    case user do
+      %{customer: %{id: customer_id}} when not is_nil(customer_id) ->
+        case Subscriptions.get_active_subscription_by_customer_id(customer_id) do
+          %{status: "trialing"} -> true
+          _ -> false
+        end
+
+      _ ->
+        false
+    end
   end
 end

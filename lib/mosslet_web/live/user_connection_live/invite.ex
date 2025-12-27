@@ -3,23 +3,22 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
   alias Mosslet.Invitations
   alias Mosslet.Invitations.Invite
+  alias Mosslet.Billing.Referrals
+  alias Mosslet.Billing.Subscriptions
   alias MossletWeb.DesignSystem
 
   def render(assigns) do
     ~H"""
-    <.layout current_page={:new_invite} current_user={@current_user} key={@key} type="sidebar">
+    <.layout current_page={:new_invite} current_scope={@current_scope} type="sidebar">
       <DesignSystem.liquid_container max_width="lg" class="py-8 sm:py-16">
         <%!-- Page header with liquid metal styling --%>
         <div class="mb-8 sm:mb-12 max-w-3xl">
           <div class="mb-6 sm:mb-8">
             <h1 class="text-2xl sm:text-3xl font-bold tracking-tight lg:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              Join me on MOSSLET!
+              Invite a Friend to MOSSLET
             </h1>
             <p class="mt-3 sm:mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-              Fill out the form below to send a new invitation. The person you invite will receive an email to their inbox inviting them to join you on MOSSLET.
-            </p>
-            <p class="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-              Curious to see how it works? Try sending one to yourself.
+              Share MOSSLET with someone you care about. They'll receive a personalized email invitation to join you.
             </p>
           </div>
           <%!-- Decorative accent line --%>
@@ -28,6 +27,58 @@ defmodule MossletWeb.UserConnectionLive.Invite do
         </div>
 
         <div class="space-y-8 max-w-3xl">
+          <%!-- Privacy & Security Notice --%>
+          <DesignSystem.liquid_card class="border-amber-200 dark:border-amber-700/50 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10">
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
+                  <.phx_icon
+                    name="hero-shield-check"
+                    class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                  />
+                </div>
+                <span class="text-amber-800 dark:text-amber-200">Privacy & Email Security</span>
+              </div>
+            </:title>
+
+            <div class="space-y-4 text-amber-700 dark:text-amber-300 text-sm">
+              <p class="leading-relaxed">
+                <strong>What your friend will see in the invitation email:</strong>
+              </p>
+              <ul class="space-y-1.5 ml-4">
+                <li class="flex items-start gap-2">
+                  <.phx_icon name="hero-check-circle" class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
+                  <span>
+                    <strong>Your name</strong>
+                    and <strong>username</strong>
+                    (so they know who's inviting them)
+                  </span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <.phx_icon name="hero-check-circle" class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
+                  <span><strong>Their name</strong> (the name you provide below)</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <.phx_icon name="hero-check-circle" class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
+                  <span><strong>Your personal message</strong> (if you add one)</span>
+                </li>
+              </ul>
+              <div class="pt-2 border-t border-amber-200 dark:border-amber-700/50">
+                <p class="leading-relaxed">
+                  <.phx_icon name="hero-lock-closed" class="h-4 w-4 inline-block mr-1 text-amber-500" />
+                  <strong>Your account email is NOT shared</strong>
+                  in the invitation – only your username is visible. We take your privacy seriously.
+                </p>
+              </div>
+              <div class="pt-2">
+                <p class="leading-relaxed text-xs text-amber-600 dark:text-amber-400">
+                  <.phx_icon name="hero-shield-exclamation" class="h-3.5 w-3.5 inline-block mr-1" />
+                  This email is sent outside of MOSSLET to your friend's email provider. We use TLS encryption for all email transit to protect your data in motion.
+                </p>
+              </div>
+            </div>
+          </DesignSystem.liquid_card>
+
           <%!-- Invitation Form Card --%>
           <DesignSystem.liquid_card heading_level={2}>
             <:title>
@@ -47,17 +98,18 @@ defmodule MossletWeb.UserConnectionLive.Invite do
               <DesignSystem.liquid_input
                 field={@form[:current_user_name]}
                 type="hidden"
-                value={decr(@current_user.name, @current_user, @key)}
-              />
-              <DesignSystem.liquid_input
-                field={@form[:current_user_email]}
-                type="hidden"
-                value={decr(@current_user.email, @current_user, @key)}
+                value={decr(@current_scope.user.name, @current_scope.user, @current_scope.key)}
               />
               <DesignSystem.liquid_input
                 field={@form[:current_user_username]}
                 type="hidden"
-                value={decr(@current_user.username, @current_user, @key)}
+                value={decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
+              />
+              <DesignSystem.liquid_input
+                :if={@referral_code}
+                field={@form[:referral_code]}
+                type="hidden"
+                value={@referral_code}
               />
 
               <div class="space-y-6">
@@ -65,29 +117,29 @@ defmodule MossletWeb.UserConnectionLive.Invite do
                 <DesignSystem.liquid_input
                   field={@form[:recipient_name]}
                   type="text"
-                  label="Name"
-                  placeholder="Enter the recipient's full name"
+                  label="Friend's Name"
+                  placeholder="Enter your friend's name"
                   required
-                  help="The name of the person you'd like to invite to MOSSLET"
+                  help="This name will appear in the invitation email"
                 />
 
                 <%!-- Recipient Email --%>
                 <DesignSystem.liquid_input
                   field={@form[:recipient_email]}
                   type="email"
-                  label="Email"
+                  label="Friend's Email"
                   placeholder="Enter their email address"
                   required
-                  help="We'll send the invitation to this email address"
+                  help="The invitation will be sent to this email address"
                 />
 
                 <%!-- Optional Message --%>
                 <DesignSystem.liquid_textarea
                   field={@form[:message]}
                   label="Personal Message (optional)"
-                  placeholder="Add a personal note to your invitation..."
+                  placeholder="Add a personal note to make your invitation more meaningful..."
                   rows={4}
-                  help="Include a personal message to make your invitation more meaningful"
+                  help="This message will be displayed in the invitation email"
                 />
               </div>
 
@@ -117,6 +169,92 @@ defmodule MossletWeb.UserConnectionLive.Invite do
             </.form>
           </DesignSystem.liquid_card>
 
+          <%!-- Referral Badge (if user has active referral code) --%>
+          <DesignSystem.liquid_card
+            :if={@referral_code}
+            class="border-purple-200 dark:border-purple-700/50 bg-gradient-to-br from-purple-50/50 to-indigo-50/30 dark:from-purple-900/20 dark:to-indigo-900/10"
+          >
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 via-indigo-50 to-purple-100 dark:from-purple-900/30 dark:via-indigo-900/25 dark:to-purple-900/30">
+                  <.phx_icon
+                    name="hero-gift"
+                    class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                  />
+                </div>
+                <span class="text-purple-800 dark:text-purple-200">🎁 Referral Bonus Active</span>
+              </div>
+            </:title>
+
+            <div class="space-y-3 text-purple-700 dark:text-purple-300 text-sm">
+              <p class="leading-relaxed">
+                Your referral code is active! When your friend signs up using your invitation link:
+              </p>
+              <ul class="space-y-1.5 ml-4">
+                <li class="flex items-start gap-2">
+                  <.phx_icon name="hero-sparkles" class="h-4 w-4 mt-0.5 text-purple-500 shrink-0" />
+                  <span>They'll get a <strong>special discount</strong> on their purchase</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <.phx_icon
+                    name="hero-currency-dollar"
+                    class="h-4 w-4 mt-0.5 text-purple-500 shrink-0"
+                  />
+                  <span>You'll earn a <strong>referral commission</strong> when they subscribe</span>
+                </li>
+              </ul>
+            </div>
+          </DesignSystem.liquid_card>
+
+          <%!-- Free Trial Notice (if user is in free trial without referral code) --%>
+          <DesignSystem.liquid_card
+            :if={!@referral_code && @in_free_trial}
+            class="border-violet-200 dark:border-violet-700/50 bg-gradient-to-br from-violet-50/50 to-purple-50/30 dark:from-violet-900/20 dark:to-purple-900/10"
+          >
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-violet-100 via-purple-50 to-violet-100 dark:from-violet-900/30 dark:via-purple-900/25 dark:to-violet-900/30">
+                  <.phx_icon
+                    name="hero-sparkles"
+                    class="h-4 w-4 text-violet-600 dark:text-violet-400"
+                  />
+                </div>
+                <span class="text-violet-800 dark:text-violet-200">🎁 Referral Program</span>
+              </div>
+            </:title>
+
+            <div class="space-y-3 text-violet-700 dark:text-violet-300 text-sm">
+              <p class="leading-relaxed">
+                You're currently on a <strong>free trial</strong>. Once your trial ends and you become a paid member, you'll get your own referral code!
+              </p>
+              <ul class="space-y-1.5 ml-4">
+                <li class="flex items-start gap-2">
+                  <.phx_icon name="hero-gift" class="h-4 w-4 mt-0.5 text-violet-500 shrink-0" />
+                  <span>
+                    Your referrals will get a <strong>special discount</strong> on their purchase
+                  </span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <.phx_icon
+                    name="hero-currency-dollar"
+                    class="h-4 w-4 mt-0.5 text-violet-500 shrink-0"
+                  />
+                  <span>
+                    You'll earn a <strong>lifetime commission</strong> on every purchase they make
+                  </span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <.phx_icon name="hero-arrow-path" class="h-4 w-4 mt-0.5 text-violet-500 shrink-0" />
+                  <span>We share revenue with you for as long as they're a member</span>
+                </li>
+              </ul>
+              <p class="leading-relaxed pt-2 text-violet-600 dark:text-violet-400">
+                <.phx_icon name="hero-clock" class="h-4 w-4 inline-block mr-1" />
+                Complete your subscription to unlock your referral code and start earning!
+              </p>
+            </div>
+          </DesignSystem.liquid_card>
+
           <%!-- Help Card --%>
           <DesignSystem.liquid_card class="border-blue-200 dark:border-blue-700 bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10">
             <:title>
@@ -133,13 +271,10 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
             <div class="space-y-4 text-blue-700 dark:text-blue-300">
               <p class="text-sm leading-relaxed">
-                When you send an invitation, your friend will receive an email with step-by-step instructions on how to join MOSSLET and connect with you. If you include an optional message, they'll see your personalized note too.
+                When you send an invitation, your friend will receive an email with step-by-step instructions on how to join MOSSLET and connect with you. Your username will be included so they can easily find you once they join.
               </p>
               <p class="text-sm leading-relaxed">
-                The invitation includes your account details (email & username) so they can easily find you once they join. You can send one invitation per person every 3 hours to keep things spam-free.
-              </p>
-              <p class="text-sm leading-relaxed">
-                Email not received? Check the spam folder or try a different email address.
+                You can send one invitation per email address every 3 hours to keep things spam-free. If they don't receive the email, ask them to check their spam folder.
               </p>
             </div>
           </DesignSystem.liquid_card>
@@ -151,8 +286,40 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
   def mount(_params, _session, socket) do
     form = to_form(Invitations.change_invitation(%Invite{}, %{}))
+    user = socket.assigns.current_scope.user
+    session_key = socket.assigns.current_scope.key
 
-    {:ok, assign(socket, :form, form)}
+    referral_code = get_active_referral_code(user, session_key)
+    in_free_trial = user_in_free_trial?(user)
+
+    {:ok,
+     socket
+     |> assign(:form, form)
+     |> assign(:referral_code, referral_code)
+     |> assign(:in_free_trial, in_free_trial)}
+  end
+
+  defp get_active_referral_code(user, session_key) do
+    case Referrals.get_referral_code_by_user(user.id) do
+      %{is_active: true} = code ->
+        decr(code.code, user, session_key)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp user_in_free_trial?(user) do
+    case user do
+      %{customer: %{id: customer_id}} when not is_nil(customer_id) ->
+        case Subscriptions.get_active_subscription_by_customer_id(customer_id) do
+          %{status: "trialing"} -> true
+          _ -> false
+        end
+
+      _ ->
+        false
+    end
   end
 
   def handle_params(params, _url, socket) do
@@ -163,7 +330,7 @@ defmodule MossletWeb.UserConnectionLive.Invite do
 
   def apply_action(socket, :new_invite, _params) do
     socket
-    |> assign(:page_title, "New Invitation")
+    |> assign(:page_title, "Invite a Friend")
   end
 
   def handle_event("validate", %{"invite" => params}, socket) do

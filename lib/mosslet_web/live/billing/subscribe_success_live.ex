@@ -142,7 +142,7 @@ defmodule MossletWeb.SubscribeSuccessLive do
     ~H"""
     <%= case @source do %>
       <% :user -> %>
-        <.layout current_page={:subscribe} current_user={@current_user} key={@key}>
+        <.layout current_page={:subscribe} current_scope={@current_scope}>
           <.billing_status
             billing_status={@billing_status}
             payment_intent={@payment_intent}

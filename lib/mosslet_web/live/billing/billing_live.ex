@@ -825,7 +825,7 @@ defmodule MossletWeb.BillingLive do
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
                   {maybe_update_customer_email_encryption(
                     @current_scope.user.customer.email,
-                    @current_scope,
+                    @current_scope.user,
                     @current_scope.key
                   )}
                 </code>

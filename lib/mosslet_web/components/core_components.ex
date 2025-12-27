@@ -2369,7 +2369,7 @@ defmodule MossletWeb.CoreComponents do
           </:logo_icon>
           <:top_right>
             <.link
-              :if={@current_user && @current_user.confirmed_at}
+              :if={@current_scope.user && @current_scope.user.confirmed_at}
               id="invite-connection-link"
               navigate={~p"/app/users/connections/invite/new-invite"}
               phx-hook="TippyHook"
