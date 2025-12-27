@@ -289,7 +289,14 @@ defmodule MossletWeb.BlockedUsersLive do
           <div class="relative">
             <%= if show_avatar?(@blocked_user.blocked) do %>
               <img
-                src={maybe_get_avatar_src(@blocked_user.blocked, @current_scope.user, @current_scope.key, "")}
+                src={
+                  maybe_get_avatar_src(
+                    @blocked_user.blocked,
+                    @current_scope.user,
+                    @current_scope.key,
+                    ""
+                  )
+                }
                 alt="Avatar"
                 class="h-10 w-10 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700"
               />

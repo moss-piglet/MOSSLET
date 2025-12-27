@@ -11,7 +11,7 @@ defmodule MossletWeb.ManageDataLive do
        page_title: "Settings",
        current_password: nil,
        legacy_expanded: false,
-       form: to_form(Accounts.change_user_delete_data(socket.assigns.current_user))
+       form: to_form(Accounts.change_user_delete_data(socket.assigns.current_scope.user))
      )}
   end
 
@@ -21,7 +21,7 @@ defmodule MossletWeb.ManageDataLive do
        page_title: "Settings",
        current_password: nil,
        legacy_expanded: false,
-       form: to_form(Accounts.change_user_delete_data(socket.assigns.current_user))
+       form: to_form(Accounts.change_user_delete_data(socket.assigns.current_scope.user))
      )}
   end
 
@@ -78,10 +78,9 @@ defmodule MossletWeb.ManageDataLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:manage_data}
       sidebar_current_page={:manage_data}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -163,7 +162,7 @@ defmodule MossletWeb.ManageDataLive do
               <input
                 type="hidden"
                 name="user[email]"
-                value={decr(@current_user.email, @current_user, @key)}
+                value={decr(@current_scope.user.email, @current_scope.user, @current_scope.key)}
               />
 
               <%!-- Data Selection Section --%>
@@ -578,7 +577,7 @@ defmodule MossletWeb.ManageDataLive do
     %{"current_password" => password, "user" => user_params} = params
 
     form =
-      socket.assigns.current_user
+      socket.assigns.current_scope.user
       |> Accounts.change_user_delete_data(user_params)
       |> Map.put(:action, :validate)
       |> to_form()
@@ -592,8 +591,8 @@ defmodule MossletWeb.ManageDataLive do
 
   def handle_event("delete_data", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     case Accounts.delete_user_data(user, password, key, user_params) do
       {:error, changeset} ->
