@@ -17,10 +17,9 @@ defmodule MossletWeb.DeleteAccountLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:delete_account}
       sidebar_current_page={:delete_account}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -105,7 +104,7 @@ defmodule MossletWeb.DeleteAccountLive do
                         Delete selected data only
                       </DesignSystem.liquid_button>
                       <DesignSystem.liquid_button
-                        :if={@current_user.visibility !== :private}
+                        :if={@current_scope.user.visibility !== :private}
                         href="/app/users/edit-visibility"
                         variant="secondary"
                         color="blue"
@@ -141,7 +140,7 @@ defmodule MossletWeb.DeleteAccountLive do
               class="space-y-8"
             >
               <%!-- Hidden ID field --%>
-              <input type="hidden" name="user[id]" value={@current_user.id} />
+              <input type="hidden" name="user[id]" value={@current_scope.user.id} />
 
               <%!-- Simplified security notice --%>
               <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200/60 dark:border-slate-700/60">
@@ -366,7 +365,7 @@ defmodule MossletWeb.DeleteAccountLive do
   end
 
   def mount(_params, _session, socket) do
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
 
     {:ok,
      assign(socket,
@@ -388,7 +387,7 @@ defmodule MossletWeb.DeleteAccountLive do
         socket
       ) do
     form =
-      socket.assigns.current_user
+      socket.assigns.current_scope.user
       |> Accounts.change_user_delete_account(user_params)
       |> Map.put(:action, :validate)
       |> to_form()
@@ -405,8 +404,8 @@ defmodule MossletWeb.DeleteAccountLive do
         %{"user" => user_params},
         socket
       ) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     # if a stripe account hasn't been created yet
     stripe_customer_id =
