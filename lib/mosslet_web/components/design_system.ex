@@ -6185,12 +6185,10 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :id, :string, default: nil
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :any, default: nil, doc: "deprecated: use current_scope instead"
-  attr :key, :any, default: nil, doc: "deprecated: use current_scope instead"
 
   def liquid_timeline_header(assigns) do
     assigns = assign_scope_fields(assigns)
-    banner_image = get_user_banner_image(assigns[:current_user])
+    banner_image = get_user_banner_image(assigns[:current_scope].user)
     assigns = assign(assigns, :banner_image, banner_image)
 
     ~H"""
