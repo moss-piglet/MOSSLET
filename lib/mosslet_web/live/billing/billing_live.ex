@@ -27,9 +27,9 @@ defmodule MossletWeb.BillingLive do
   end
 
   defp maybe_load_provider_data(socket) do
-    user = socket.assigns[:current_user] |> Repo.preload(:customer)
+    user = socket.assigns.current_scope.user |> Repo.preload(:customer)
     payment_intent = socket.assigns[:payment_intent]
-    session_key = socket.assigns.key
+    session_key = socket.assigns.current_scope.key
 
     assign_async(
       socket,
@@ -312,10 +312,9 @@ defmodule MossletWeb.BillingLive do
     <%= case @source do %>
       <% :user -> %>
         <.layout
-          current_user={@current_user}
+          current_scope={@current_scope}
           current_page={:billing}
           sidebar_current_page={:billing}
-          key={@key}
           type="sidebar"
         >
           <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -342,8 +341,7 @@ defmodule MossletWeb.BillingLive do
                 upcoming_invoice_async={@upcoming_invoice_async}
                 invoices_async={@invoices_async}
                 invoices_has_more_async={@invoices_has_more_async}
-                current_user={@current_user}
-                key={@key}
+                current_scope={@current_scope}
                 invoice_year_filter={@invoice_year_filter}
               />
             </div>
@@ -361,8 +359,7 @@ defmodule MossletWeb.BillingLive do
   attr :invoices_async, :map
   attr :invoices_has_more_async, :map
   attr :subscribe_path, :string
-  attr :current_user, Mosslet.Accounts.User, required: true
-  attr :key, :string, required: true
+  attr :current_scope, Mosslet.Accounts.Scope, required: true
   attr :invoice_year_filter, :integer, default: nil
 
   def billing_info(assigns) do
@@ -456,8 +453,7 @@ defmodule MossletWeb.BillingLive do
         invoices={@invoices_async.result}
         invoices_has_more={@invoices_has_more_async.result}
         subscribe_path={@subscribe_path}
-        current_user={@current_user}
-        key={@key}
+        current_scope={@current_scope}
         invoice_year_filter={@invoice_year_filter}
       />
     </div>
@@ -473,8 +469,7 @@ defmodule MossletWeb.BillingLive do
         provider_payment_intent={@provider_payment_intent_async.result}
         provider_charge={@provider_charge_async.result}
         subscribe_path={@subscribe_path}
-        current_user={@current_user}
-        key={@key}
+        current_scope={@current_scope}
       />
     </div>
     """
@@ -485,8 +480,7 @@ defmodule MossletWeb.BillingLive do
   attr :invoices, :list, default: []
   attr :invoices_has_more, :boolean, default: false
   attr :subscribe_path, :string, required: true
-  attr :current_user, Mosslet.Accounts.User, required: true
-  attr :key, :string, required: true
+  attr :current_scope, Mosslet.Accounts.Scope, required: true
   attr :invoice_year_filter, :integer, default: nil
 
   defp subscription_info(assigns) do
@@ -815,9 +809,9 @@ defmodule MossletWeb.BillingLive do
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
                   {maybe_update_customer_provider_info_encryption(
-                    @current_user.customer,
-                    @current_user,
-                    @key
+                    @current_scope.user.customer,
+                    @current_scope.user,
+                    @current_scope.key
                   )}
                 </code>
               </div>
@@ -830,9 +824,9 @@ defmodule MossletWeb.BillingLive do
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
                   {maybe_update_customer_email_encryption(
-                    @current_user.customer.email,
-                    @current_user,
-                    @key
+                    @current_scope.user.customer.email,
+                    @current_scope,
+                    @current_scope.key
                   )}
                 </code>
               </div>
@@ -1047,8 +1041,7 @@ defmodule MossletWeb.BillingLive do
   attr :provider_payment_intent, :map, required: true
   attr :provider_charge, :map
   attr :subscribe_path, :string, required: true
-  attr :current_user, Mosslet.Accounts.User, required: true
-  attr :key, :string, required: true
+  attr :current_scope, Mosslet.Accounts.Scope, required: true
 
   defp payment_intent_info(assigns) do
     ~H"""
@@ -1160,9 +1153,9 @@ defmodule MossletWeb.BillingLive do
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
                   {maybe_update_customer_provider_info_encryption(
-                    @current_user.customer,
-                    @current_user,
-                    @key
+                    @current_scope.user.customer,
+                    @current_scope.user,
+                    @current_scope.key
                   )}
                 </code>
               </div>
@@ -1175,9 +1168,9 @@ defmodule MossletWeb.BillingLive do
                 </span>
                 <code class="text-sm bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-800 dark:text-slate-200 break-all max-w-full">
                   {maybe_update_customer_email_encryption(
-                    @current_user.customer.email,
-                    @current_user,
-                    @key
+                    @current_scope.user.customer.email,
+                    @current_scope.user,
+                    @current_scope.key
                   )}
                 </code>
               </div>
@@ -1202,7 +1195,7 @@ defmodule MossletWeb.BillingLive do
                   class="text-sm font-medium text-slate-900 dark:text-slate-100"
                 >
                   <.local_time_full
-                    id={@current_user.id}
+                    id={@current_scope.user.id}
                     at={@provider_payment_intent.provider_created_at}
                   />
                 </time>
