@@ -31,6 +31,7 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
           case Subscriptions.create_subscription(subscription_attrs) do
             {:ok, subscription} ->
               maybe_mark_trial_used(customer, subscription)
+              maybe_reactivate_referral(customer.user_id)
               maybe_broadcast_referral_update(customer.user_id)
               :ok
 
@@ -101,6 +102,19 @@ defmodule Mosslet.Billing.Providers.Stripe.Services.SyncSubscription do
   end
 
   defp handle_referral_cancellation(_), do: :ok
+
+  defp maybe_reactivate_referral(user_id) when is_binary(user_id) do
+    case Referrals.get_referral_by_user(user_id) do
+      nil ->
+        :ok
+
+      referral ->
+        Logger.info("Reactivating referral for user #{user_id} due to new subscription")
+        Referrals.reactivate_referral(referral)
+    end
+  end
+
+  defp maybe_reactivate_referral(_), do: :ok
 
   defp maybe_broadcast_referral_update(user_id) when is_binary(user_id) do
     case Referrals.get_referral_by_user(user_id) do

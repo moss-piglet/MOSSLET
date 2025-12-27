@@ -440,8 +440,13 @@ defmodule MossletWeb.ReferralsLive do
     end
   end
 
-  defp get_referral_subscription(%{referred_user: %{customer: %{subscriptions: [sub | _]}}}),
-    do: sub
+  defp get_referral_subscription(%{referred_user: %{customer: %{subscriptions: subscriptions}}})
+       when is_list(subscriptions) and subscriptions != [] do
+    active_statuses = ["active", "trialing", "past_due"]
+
+    Enum.find(subscriptions, fn sub -> sub.status in active_statuses end) ||
+      Enum.max_by(subscriptions, & &1.inserted_at, DateTime)
+  end
 
   defp get_referral_subscription(_), do: nil
 

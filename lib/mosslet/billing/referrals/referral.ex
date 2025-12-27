@@ -66,6 +66,11 @@ defmodule Mosslet.Billing.Referrals.Referral do
     |> change(%{status: "canceled"})
   end
 
+  def reactivate_changeset(referral) do
+    referral
+    |> change(%{status: "pending"})
+  end
+
   def expire_changeset(referral) do
     referral
     |> change(%{status: "expired"})

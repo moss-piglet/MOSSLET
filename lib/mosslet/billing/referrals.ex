@@ -251,6 +251,17 @@ defmodule Mosslet.Billing.Referrals do
     |> handle_transaction_result()
   end
 
+  def reactivate_referral(%Referral{status: "canceled"} = referral) do
+    Repo.transaction_on_primary(fn ->
+      referral
+      |> Referral.reactivate_changeset()
+      |> Repo.update()
+    end)
+    |> handle_transaction_result()
+  end
+
+  def reactivate_referral(%Referral{} = _referral), do: :ok
+
   def get_commission(id), do: Repo.get(Commission, id)
 
   def create_commission(attrs, current_user \\ nil, session_key \\ nil) do

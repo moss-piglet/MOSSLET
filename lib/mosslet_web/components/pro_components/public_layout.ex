@@ -20,10 +20,8 @@ defmodule MossletWeb.PublicLayout do
   attr :public_menu_items, :list, default: []
   attr :user_menu_items, :list, default: []
   attr :avatar_src, :string, default: nil
-  attr :current_user_name, :string, default: "nil"
+  attr :current_user_name, :string, default: nil
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
-  attr :current_user, :map, default: nil, doc: "deprecated: use current_scope instead"
-  attr :key, :string, default: nil, doc: "deprecated: use current_scope instead"
   attr :session_locked, :boolean, default: false
   attr :copyright_text, :string, default: "Moss Piglet Corporation, All Rights Reserved."
   attr :max_width, :string, default: "lg", values: ["sm", "md", "lg", "xl", "full"]
@@ -213,7 +211,7 @@ defmodule MossletWeb.PublicLayout do
 
             <%!-- Mobile authentication section for signed-out users --%>
             <div
-              :if={!@current_scope[:user] || @current_user_name == "nil"}
+              :if={!(@current_scope && @current_scope.user) || !@current_user_name}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-3"
             >
               <%!-- Guest user card matching desktop dropdown style --%>
@@ -264,7 +262,7 @@ defmodule MossletWeb.PublicLayout do
 
             <%!-- Mobile user section for signed-in users --%>
             <div
-              :if={@current_scope[:user]}
+              :if={@current_scope && @current_scope.user}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60"
             >
               <div class="flex items-center px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl mb-2">
@@ -277,13 +275,13 @@ defmodule MossletWeb.PublicLayout do
                 </div>
                 <div class="ml-3">
                   <div
-                    :if={@current_scope[:user] && !@session_locked}
+                    :if={@current_scope && @current_scope.user && !@session_locked}
                     class="text-base font-semibold text-slate-900 dark:text-slate-100"
                   >
                     {@current_user_name}
                   </div>
                   <div
-                    :if={@current_scope[:user] && @session_locked}
+                    :if={@current_scope && @current_scope.user && @session_locked}
                     class="text-base font-semibold text-slate-900 dark:text-slate-100"
                   >
                     Online
@@ -396,7 +394,7 @@ defmodule MossletWeb.PublicLayout do
           />
           <%!-- Online indicator with improved positioning (only when user is signed in) --%>
           <div
-            :if={@current_user}
+            :if={@current_scope && @current_scope.user}
             class={[
               "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full",
               "bg-gradient-to-br from-emerald-400 to-emerald-500",
@@ -416,7 +414,7 @@ defmodule MossletWeb.PublicLayout do
             {@current_user_name}
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">
-            {if @current_user, do: "Online", else: "Guest"}
+            {if @current_scope && @current_scope.user, do: "Online", else: "Guest"}
           </div>
         </div>
 

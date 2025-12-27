@@ -8,10 +8,9 @@ defmodule MossletWeb.HomeLive do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      current_scope={@current_scope}
       current_page={:landing}
       container_max_width={@max_width}
-      key={@key}
     >
       <LandingPage.hero
         li_logo={@li_logo}

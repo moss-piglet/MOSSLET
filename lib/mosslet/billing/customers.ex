@@ -116,7 +116,7 @@ defmodule Mosslet.Billing.Customers do
   def mark_trial_used(%Customer{} = customer) do
     Repo.transaction_on_primary(fn ->
       customer
-      |> Ecto.Changeset.change(trial_used_at: DateTime.utc_now())
+      |> Ecto.Changeset.change(trial_used_at: DateTime.utc_now() |> DateTime.truncate(:second))
       |> Repo.update()
     end)
     |> case do

@@ -390,7 +390,7 @@ defmodule MossletWeb.DesignSystem do
         <nav class="mb-16">
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 max-w-4xl mx-auto">
             <.link
-              :for={item <- footer_menu_items(@current_scope[:user])}
+              :for={item <- footer_menu_items(@current_scope && @current_scope.user)}
               href={item.path}
               class={[
                 "group relative px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",

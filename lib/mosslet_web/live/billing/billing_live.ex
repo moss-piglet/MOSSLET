@@ -747,7 +747,7 @@ defmodule MossletWeb.BillingLive do
               if @subscription.status == "trialing",
                 do:
                   gettext(
-                    "Are you sure you want to cancel your free trial? You will lose access immediately."
+                    "Are you sure you want to cancel your free trial? You will lose access immediately and won't be able to start another trial. Consider waiting until closer to the end of your 14-day trial to get the most out of it."
                   ),
                 else:
                   gettext(
