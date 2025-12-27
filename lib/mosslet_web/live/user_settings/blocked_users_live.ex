@@ -12,7 +12,10 @@ defmodule MossletWeb.BlockedUsersLive do
      assign(socket,
        page_title: "Settings",
        blocked_users:
-         list_blocked_users_with_details(socket.assigns.current_user, socket.assigns.key),
+         list_blocked_users_with_details(
+           socket.assigns.current_scope.user,
+           socket.assigns.current_scope.key
+         ),
        show_blocked_users: false
      )}
   end
@@ -22,7 +25,10 @@ defmodule MossletWeb.BlockedUsersLive do
      assign(socket,
        page_title: "Settings",
        blocked_users:
-         list_blocked_users_with_details(socket.assigns.current_user, socket.assigns.key),
+         list_blocked_users_with_details(
+           socket.assigns.current_scope.user,
+           socket.assigns.current_scope.key
+         ),
        show_blocked_users: false
      )}
   end
@@ -30,10 +36,9 @@ defmodule MossletWeb.BlockedUsersLive do
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:blocked_users}
       sidebar_current_page={:blocked_users}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-8">
@@ -162,8 +167,7 @@ defmodule MossletWeb.BlockedUsersLive do
                 <.blocked_user_item
                   :for={blocked_user <- @blocked_users}
                   blocked_user={blocked_user}
-                  current_user={@current_user}
-                  key={@key}
+                  current_scope={@current_scope}
                 />
               </div>
             </DesignSystem.liquid_card>
@@ -285,7 +289,7 @@ defmodule MossletWeb.BlockedUsersLive do
           <div class="relative">
             <%= if show_avatar?(@blocked_user.blocked) do %>
               <img
-                src={maybe_get_avatar_src(@blocked_user.blocked, @current_user, @key, "")}
+                src={maybe_get_avatar_src(@blocked_user.blocked, @current_scope.user, @current_scope.key, "")}
                 alt="Avatar"
                 class="h-10 w-10 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700"
               />
@@ -313,9 +317,9 @@ defmodule MossletWeb.BlockedUsersLive do
                 <%= if @blocked_user.user_connection do %>
                   {decr_uconn(
                     @blocked_user.user_connection.connection.name,
-                    @current_user,
+                    @current_scope.user,
                     @blocked_user.user_connection.key,
-                    @key
+                    @current_scope.key
                   )}
                 <% else %>
                   [No connection found]
@@ -325,9 +329,9 @@ defmodule MossletWeb.BlockedUsersLive do
                 <span class="text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md truncate">
                   @{decr_uconn(
                     @blocked_user.user_connection.connection.username,
-                    @current_user,
+                    @current_scope.user,
                     @blocked_user.user_connection.key,
-                    @key
+                    @current_scope.key
                   )}
                 </span>
               <% end %>
@@ -379,14 +383,15 @@ defmodule MossletWeb.BlockedUsersLive do
   end
 
   def handle_event("unblock_user", %{"user-id" => blocked_user_id}, socket) do
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
 
     blocked_user = Accounts.get_user!(blocked_user_id)
 
     case Accounts.unblock_user(current_user, blocked_user) do
       {:ok, _deleted_block} ->
         # Refresh the blocked users list
-        blocked_users = list_blocked_users_with_details(current_user, socket.assigns.key)
+        blocked_users =
+          list_blocked_users_with_details(current_user, socket.assigns.current_scope.key)
 
         {:noreply,
          socket
