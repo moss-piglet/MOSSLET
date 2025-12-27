@@ -7,20 +7,18 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
   import MossletWeb.DesignSystem
   import MossletWeb.ModernSidebarLayout
 
-  attr :current_user, :map
+  attr :current_scope, :map, required: true
   attr :current_page, :atom
   attr :sidebar_current_page, :atom, default: nil
-  attr :key, :string, doc: "the session key for the current user"
   slot :inner_block
 
   def settings_layout(assigns) do
     ~H"""
     <.modern_sidebar_layout
       current_page={@current_page}
-      current_user={@current_user}
-      key={@key}
-      main_menu_items={sidebar_main_menu_items(@current_user)}
-      user_menu_items={sidebar_user_menu_items(@current_user)}
+      current_scope={@current_scope}
+      main_menu_items={sidebar_main_menu_items(@current_scope.user)}
+      user_menu_items={sidebar_user_menu_items(@current_scope.user)}
       home_path="/app"
     >
       <:logo>
@@ -53,7 +51,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
           <%!-- Settings content with sidebar navigation --%>
           <.settings_tabs_container
             current_page={@current_page}
-            menu_items={settings_menu_items(@current_user)}
+            menu_items={settings_menu_items(@current_scope.user)}
           >
             {render_slot(@inner_block)}
           </.settings_tabs_container>
@@ -68,10 +66,9 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
     <.modern_sidebar_layout
       current_page={@current_page}
       sidebar_current_page={:circles}
-      current_user={@current_user}
-      key={@key}
-      main_menu_items={sidebar_main_menu_items(@current_user)}
-      user_menu_items={sidebar_user_menu_items(@current_user)}
+      current_scope={@current_scope}
+      main_menu_items={sidebar_main_menu_items(@current_scope.user)}
+      user_menu_items={sidebar_user_menu_items(@current_scope.user)}
       home_path="/app"
     >
       <:logo>
@@ -100,7 +97,9 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
         <div class="space-y-4 sm:space-y-8">
           <.group_settings_header
             title={Gettext.gettext(MossletWeb.Gettext, "Edit Circle Members")}
-            group_name={decr_item(@group.name, @current_user, @user_group.key, @key, @group)}
+            group_name={
+              decr_item(@group.name, @current_scope.user, @user_group.key, @current_scope.key, @group)
+            }
           >
             <.liquid_button
               variant="secondary"
@@ -113,7 +112,7 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
 
           <.group_settings_tabs_container
             current_page={@current_page}
-            menu_items={settings_menu_items_group(@current_user, @group, @user_group)}
+            menu_items={settings_menu_items_group(@current_scope.user, @group, @user_group)}
             group={@group}
           >
             {render_slot(@inner_block)}

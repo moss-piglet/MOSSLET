@@ -12,11 +12,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     ~H"""
     <.settings_group_layout
       current_page={:edit_circle_members}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       group={@group}
       user_group={@current_user_group}
-      edit_group_name={"Edit #{decr_item(@group.name, @current_user, @current_user_group.key, @key, @group)} Members"}
+      edit_group_name={"Edit #{decr_item(@group.name, @current_scope.user, @current_user_group.key, @current_scope.key, @group)} Members"}
     >
       <div class="space-y-6">
         <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -43,9 +42,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
             <.member_card
               user_group={ug}
               current_user_group={@current_user_group}
-              current_user={@current_user}
+              current_scope={@current_scope}
               group={@group}
-              key={@key}
             />
           </div>
         </div>
@@ -98,8 +96,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
             current_user_group={@current_user_group}
             user_group={@user_group}
             patch={~p"/app/circles/#{@group}/edit-group-members"}
-            current_user={@current_user}
-            key={@key}
+            current_scope={@current_scope}
           />
         </.liquid_modal>
       </div>
@@ -109,9 +106,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
 
   attr :user_group, :map, required: true
   attr :current_user_group, :map, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :group, :map, required: true
-  attr :key, :string, required: true
 
   defp member_card(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
@@ -122,7 +118,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.user_group.id),
-        assigns.current_user
+        assigns.current_scope.user
       )
 
     is_connected = not is_nil(uconn)
@@ -131,9 +127,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       if is_self || is_connected do
         decr_item(
           assigns.user_group.name,
-          assigns.current_user,
+          assigns.current_scope.user,
           assigns.current_user_group.key,
-          assigns.key,
+          assigns.current_scope.key,
           assigns.group
         )
       else
@@ -211,9 +207,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
               get_user_avatar(
                 get_uconn_for_users(
                   get_user_from_user_group_id(@user_group.id),
-                  @current_user
+                  @current_scope.user
                 ),
-                @key
+                @current_scope.key
               )
             }
             alt=""
@@ -221,7 +217,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
           />
           <.phx_avatar
             :if={@current_user_group.user_id == @user_group.user_id}
-            src={maybe_get_user_avatar(@current_user, @key)}
+            src={maybe_get_user_avatar(@current_scope.user, @current_scope.key)}
             alt=""
             class={"w-10 h-10 sm:w-12 sm:h-12 #{role_avatar_ring(@user_group.role)}"}
           />
@@ -262,9 +258,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
               <span class="truncate">
                 {decr_item(
                   @user_group.moniker,
-                  @current_user,
+                  @current_scope,
                   @current_user_group.key,
-                  @key,
+                  @current_scope.key,
                   @group
                 )}
               </span>
@@ -395,7 +391,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       group = Mosslet.Groups.get_group!(id)
 
       current_user_group =
-        Mosslet.Groups.get_user_group_for_group_and_user(group, socket.assigns.current_user)
+        Mosslet.Groups.get_user_group_for_group_and_user(group, socket.assigns.current_scope.user)
 
       if current_user_group.role in [:owner, :admin] do
         {:ok,
@@ -407,9 +403,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
            :group_name,
            decr_item(
              group.name,
-             socket.assigns.current_user,
+             socket.assigns.current_scope.user,
              current_user_group.key,
-             socket.assigns.key,
+             socket.assigns.current_scope.key,
              group
            )
          )
@@ -429,7 +425,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       group = Mosslet.Groups.get_group!(user_group.group_id)
 
       current_user_group =
-        Mosslet.Groups.get_user_group_for_group_and_user(group, socket.assigns.current_user)
+        Mosslet.Groups.get_user_group_for_group_and_user(group, socket.assigns.current_scope.user)
 
       if user_group.role in [:owner, :admin] do
         {:ok,
@@ -442,8 +438,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
            :group_name,
            decr_item(
              group.name,
-             socket.assigns.current_user,
-             get_user_group(group, socket.assigns.current_user).key,
+             socket.assigns.current_scope.user,
+             get_user_group(group, socket.assigns.current_scope.user).key,
              socket.assigns.key,
              group
            )
@@ -466,14 +462,14 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     if socket.assigns.live_action == :edit_member do
       if connected?(socket) do
         Endpoint.subscribe("group:#{socket.assigns.group.id}")
-        Groups.private_subscribe(socket.assigns.current_user)
+        Groups.private_subscribe(socket.assigns.current_scope.user)
       end
 
       {:noreply, apply_action(socket, socket.assigns.live_action, id)}
     else
       if connected?(socket) do
         Endpoint.subscribe("group:#{id}")
-        Groups.private_subscribe(socket.assigns.current_user)
+        Groups.private_subscribe(socket.assigns.current_scope.user)
       end
 
       {:noreply, apply_action(socket, socket.assigns.live_action, id)}
@@ -514,7 +510,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   @impl true
   def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
     if group.id == socket.assigns.group.id do
-      if kicked_user_id == socket.assigns.current_user.id do
+      if kicked_user_id == socket.assigns.current_scope.user.id do
         {:noreply,
          socket
          |> put_flash(:info, "You have been removed from this circle.")
@@ -530,7 +526,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
   @impl true
   def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
     if group.id == socket.assigns.group.id do
-      if blocked_user_id == socket.assigns.current_user.id do
+      if blocked_user_id == socket.assigns.current_scope.user.id do
         {:noreply,
          socket
          |> put_flash(:info, "You have been removed from this circle.")

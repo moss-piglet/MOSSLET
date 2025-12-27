@@ -8,7 +8,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.user_group.id),
-        assigns.current_user
+        assigns.current_scope.user
       )
 
     is_connected = not is_nil(uconn)
@@ -18,9 +18,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
       if is_self || is_connected do
         decr_item(
           assigns.user_group.name,
-          assigns.current_user,
+          assigns.current_scope.user,
           assigns.current_user_group.key,
-          assigns.key,
+          assigns.current_scope.key,
           assigns.group
         )
       else
@@ -42,9 +42,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
             get_user_avatar(
               get_uconn_for_users(
                 get_user_from_user_group_id(@user_group.id),
-                @current_user
+                @current_scope.user
               ),
-              @key
+              @current_scope.key
             )
           }
           alt=""
@@ -65,9 +65,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive.FormComponent 
             <span class="truncate">
               {decr_item(
                 @user_group.moniker,
-                @current_user,
+                @current_scope.user,
                 @current_user_group.key,
-                @key,
+                @current_scope.key,
                 @group
               )}
             </span>

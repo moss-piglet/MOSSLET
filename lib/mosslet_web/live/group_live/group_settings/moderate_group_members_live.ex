@@ -12,11 +12,10 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     ~H"""
     <.settings_group_layout
       current_page={:moderate_circle_members}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       group={@group}
       user_group={@current_user_group}
-      edit_group_name={"Moderate #{decr_item(@group.name, @current_user, @current_user_group.key, @key, @group)} Members"}
+      edit_group_name={"Moderate #{decr_item(@group.name, @current_scope.user, @current_user_group.key, @current_scope.key, @group)} Members"}
     >
       <div class="space-y-6">
         <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -39,9 +38,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
             <.member_card
               user_group={ug}
               current_user_group={@current_user_group}
-              current_user={@current_user}
+              current_scope={@current_scope}
               group={@group}
-              key={@key}
             />
           </div>
         </div>
@@ -50,9 +48,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           :if={@blocked_users != []}
           blocked_users={@blocked_users}
           current_user_group={@current_user_group}
-          current_user={@current_user}
+          current_scope={@current_scope}
           group={@group}
-          key={@key}
         />
 
         <aside
@@ -91,18 +88,16 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
         :if={@live_action == :kick_member}
         user_group={@target_user_group}
         current_user_group={@current_user_group}
-        current_user={@current_user}
+        current_scope={@current_scope}
         group={@group}
-        key={@key}
       />
 
       <.block_modal
         :if={@live_action == :block_member}
         user_group={@target_user_group}
         current_user_group={@current_user_group}
-        current_user={@current_user}
+        current_scope={@current_scope}
         group={@group}
-        key={@key}
       />
     </.settings_group_layout>
     """
@@ -110,9 +105,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
   attr :user_group, :map, required: true
   attr :current_user_group, :map, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :group, :map, required: true
-  attr :key, :string, required: true
 
   defp member_card(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
@@ -121,7 +115,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.user_group.id),
-        assigns.current_user
+        assigns.current_scope.user
       )
 
     is_connected = not is_nil(uconn)
@@ -130,9 +124,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       if is_self || is_connected do
         decr_item(
           assigns.user_group.name,
-          assigns.current_user,
+          assigns.current_scope.user,
           assigns.current_user_group.key,
-          assigns.key,
+          assigns.current_scope.key,
           assigns.group
         )
       else
@@ -160,9 +154,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
               get_user_avatar(
                 get_uconn_for_users(
                   get_user_from_user_group_id(@user_group.id),
-                  @current_user
+                  @current_scope.user
                 ),
-                @key
+                @current_scope.key
               )
             }
             alt=""
@@ -170,7 +164,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
           />
           <.phx_avatar
             :if={@current_user_group.user_id == @user_group.user_id}
-            src={maybe_get_user_avatar(@current_user, @key)}
+            src={maybe_get_user_avatar(@current_scope.user, @current_scope.key)}
             alt=""
             class={"w-10 h-10 sm:w-12 sm:h-12 #{role_avatar_ring(@user_group.role)}"}
           />
@@ -211,9 +205,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
               <span class="truncate">
                 {decr_item(
                   @user_group.moniker,
-                  @current_user,
+                  @current_scope.user,
                   @current_user_group.key,
-                  @key,
+                  @current_scope.key,
                   @group
                 )}
               </span>
@@ -267,9 +261,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
   attr :blocked_users, :list, required: true
   attr :current_user_group, :map, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :group, :map, required: true
-  attr :key, :string, required: true
 
   defp blocked_users_section(assigns) do
     ~H"""
@@ -293,9 +286,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
                 <.phx_icon name="hero-finger-print" class="w-4 h-4 text-rose-400" />
                 {decr_item(
                   block.blocked_moniker,
-                  @current_user,
+                  @current_scope.user,
                   @current_user_group.key,
-                  @key,
+                  @current_scope.key,
                   @group
                 )}
               </span>
@@ -323,9 +316,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
   attr :user_group, :map, required: true
   attr :current_user_group, :map, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :group, :map, required: true
-  attr :key, :string, required: true
 
   defp kick_modal(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
@@ -334,7 +326,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.user_group.id),
-        assigns.current_user
+        assigns.current_scope.user
       )
 
     is_connected = not is_nil(uconn)
@@ -343,9 +335,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       if is_self || is_connected do
         decr_item(
           assigns.user_group.name,
-          assigns.current_user,
+          assigns.current_scope.user,
           assigns.current_user_group.key,
-          assigns.key,
+          assigns.current_scope.key,
           assigns.group
         )
       else
@@ -355,9 +347,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     member_moniker =
       decr_item(
         assigns.user_group.moniker,
-        assigns.current_user,
+        assigns.current_scope.user,
         assigns.current_user_group.key,
-        assigns.key,
+        assigns.current_scope.key,
         assigns.group
       )
 
@@ -428,9 +420,8 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
   attr :user_group, :map, required: true
   attr :current_user_group, :map, required: true
-  attr :current_user, :map, required: true
+  attr :current_scope, :map, required: true
   attr :group, :map, required: true
-  attr :key, :string, required: true
 
   defp block_modal(assigns) do
     is_self = assigns.user_group.id == assigns.current_user_group.id
@@ -439,7 +430,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.user_group.id),
-        assigns.current_user
+        assigns.current_scope.user
       )
 
     is_connected = not is_nil(uconn)
@@ -448,9 +439,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       if is_self || is_connected do
         decr_item(
           assigns.user_group.name,
-          assigns.current_user,
+          assigns.current_scope.user,
           assigns.current_user_group.key,
-          assigns.key,
+          assigns.current_scope.key,
           assigns.group
         )
       else
@@ -460,9 +451,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
     member_moniker =
       decr_item(
         assigns.user_group.moniker,
-        assigns.current_user,
+        assigns.current_scope.user,
         assigns.current_user_group.key,
-        assigns.key,
+        assigns.current_scope.key,
         assigns.group
       )
 
@@ -647,7 +638,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
        |> push_navigate(to: ~p"/app/circles")}
     else
       current_user_group =
-        Groups.get_user_group_for_group_and_user(group, socket.assigns.current_user)
+        Groups.get_user_group_for_group_and_user(group, socket.assigns.current_scope.user)
 
       if current_user_group && current_user_group.role in [:owner, :admin, :moderator] do
         blocked_users = Groups.list_blocked_users(group.id)
@@ -662,9 +653,9 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
            :group_name,
            decr_item(
              group.name,
-             socket.assigns.current_user,
+             socket.assigns.current_scope.user,
              current_user_group.key,
-             socket.assigns.key,
+             socket.assigns.current_scope.key,
              group
            )
          )
@@ -694,7 +685,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
 
             if connected?(socket) do
               Endpoint.subscribe("group:#{group.id}")
-              Groups.private_subscribe(socket.assigns.current_user)
+              Groups.private_subscribe(socket.assigns.current_scope.user)
             end
 
             {:noreply,
@@ -706,7 +697,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
       nil ->
         if connected?(socket) do
           Endpoint.subscribe("group:#{id}")
-          Groups.private_subscribe(socket.assigns.current_user)
+          Groups.private_subscribe(socket.assigns.current_scope.user)
         end
 
         {:noreply, socket}
@@ -810,7 +801,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   @impl true
   def handle_info({:group_member_kicked, {group, kicked_user_id}}, socket) do
     if group.id == socket.assigns.group.id do
-      if kicked_user_id == socket.assigns.current_user.id do
+      if kicked_user_id == socket.assigns.current_scope.user.id do
         {:noreply,
          socket
          |> put_flash(:info, "You have been removed from this circle.")
@@ -826,7 +817,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.ModerateGroupMembersLive do
   @impl true
   def handle_info({:group_member_blocked, {group, blocked_user_id}}, socket) do
     if group.id == socket.assigns.group.id do
-      if blocked_user_id == socket.assigns.current_user.id do
+      if blocked_user_id == socket.assigns.current_scope.user.id do
         {:noreply,
          socket
          |> put_flash(:info, "You have been removed from this circle.")
