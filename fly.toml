@@ -12,13 +12,10 @@ primary_region = 'ewr'
   release_command = '/app/bin/migrate'
 
 [env]
-  BUMBLEBEE_CACHE_DIR = '${BUMBLEBEE_CACHE_DIR}'
   DNS_CLUSTER_QUERY = 'mosslet.internal'
-  PHX_HOST = '${PHX_HOST}'
+  PHX_HOST = 'mosslet.com'
   PHX_SERVER = 'true'
-  PORT = '${PORT}'
-  PRIMARY_REGION = '${PRIMARY_REGION}'
-  RELEASE_COOKIE = '${RELEASE_COOKIE}'
+  BUMBLEBEE_CACHE_DIR = '/app/.bumblebee'
   
 
 [http_service]
