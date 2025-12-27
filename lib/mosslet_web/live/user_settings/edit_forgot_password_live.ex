@@ -9,17 +9,16 @@ defmodule MossletWeb.EditForgotPasswordLive do
     {:ok,
      assign(socket,
        page_title: "Settings",
-       form: to_form(Accounts.change_user_visibility(socket.assigns.current_user))
+       form: to_form(Accounts.change_user_visibility(socket.assigns.current_scope.user))
      )}
   end
 
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_forgot_password}
       sidebar_current_page={:edit_forgot_password}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -45,7 +44,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
               <div class="flex items-center gap-3">
                 <div class={[
                   "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden",
-                  if(@current_user.is_forgot_pwd?,
+                  if(@current_scope.user.is_forgot_pwd?,
                     do:
                       "bg-gradient-to-br from-blue-100 via-cyan-50 to-blue-100 dark:from-blue-900/30 dark:via-cyan-900/25 dark:to-blue-900/30",
                     else:
@@ -53,10 +52,12 @@ defmodule MossletWeb.EditForgotPasswordLive do
                   )
                 ]}>
                   <.phx_icon
-                    name={if @current_user.is_forgot_pwd?, do: "hero-key", else: "hero-lock-closed"}
+                    name={
+                      if @current_scope.user.is_forgot_pwd?, do: "hero-key", else: "hero-lock-closed"
+                    }
                     class={[
                       "h-4 w-4",
-                      if(@current_user.is_forgot_pwd?,
+                      if(@current_scope.user.is_forgot_pwd?,
                         do: "text-blue-600 dark:text-blue-400",
                         else: "text-emerald-600 dark:text-emerald-400"
                       )
@@ -66,14 +67,16 @@ defmodule MossletWeb.EditForgotPasswordLive do
                 <span>Current Setting</span>
                 <span class={[
                   "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
-                  if(@current_user.is_forgot_pwd?,
+                  if(@current_scope.user.is_forgot_pwd?,
                     do:
                       "bg-gradient-to-r from-blue-100 to-cyan-200 text-blue-800 dark:from-blue-800 dark:to-cyan-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600",
                     else:
                       "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600"
                   )
                 ]}>
-                  {if @current_user.is_forgot_pwd?, do: "Maximum Convenience", else: "Maximum Privacy"}
+                  {if @current_scope.user.is_forgot_pwd?,
+                    do: "Maximum Convenience",
+                    else: "Maximum Privacy"}
                 </span>
               </div>
             </:title>
@@ -82,7 +85,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
               <%!-- Current status explanation --%>
               <div class={[
                 "p-4 rounded-lg border",
-                if(@current_user.is_forgot_pwd?,
+                if(@current_scope.user.is_forgot_pwd?,
                   do:
                     "bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10 border-blue-200 dark:border-blue-700",
                   else:
@@ -91,10 +94,12 @@ defmodule MossletWeb.EditForgotPasswordLive do
               ]}>
                 <div class="flex items-start gap-3">
                   <.phx_icon
-                    name={if @current_user.is_forgot_pwd?, do: "hero-key", else: "hero-shield-check"}
+                    name={
+                      if @current_scope.user.is_forgot_pwd?, do: "hero-key", else: "hero-shield-check"
+                    }
                     class={[
                       "h-5 w-5 mt-0.5 flex-shrink-0",
-                      if(@current_user.is_forgot_pwd?,
+                      if(@current_scope.user.is_forgot_pwd?,
                         do: "text-blue-600 dark:text-blue-400",
                         else: "text-emerald-600 dark:text-emerald-400"
                       )
@@ -103,12 +108,12 @@ defmodule MossletWeb.EditForgotPasswordLive do
                   <div class="space-y-2">
                     <h3 class={[
                       "font-medium text-sm",
-                      if(@current_user.is_forgot_pwd?,
+                      if(@current_scope.user.is_forgot_pwd?,
                         do: "text-blue-800 dark:text-blue-200",
                         else: "text-emerald-800 dark:text-emerald-200"
                       )
                     ]}>
-                      {if @current_user.is_forgot_pwd?,
+                      {if @current_scope.user.is_forgot_pwd?,
                         do: "Maximum Convenience Mode",
                         else: "Maximum Privacy Mode"}
                     </h3>
@@ -119,10 +124,10 @@ defmodule MossletWeb.EditForgotPasswordLive do
                         else: "text-emerald-700 dark:text-emerald-300"
                       )
                     ]}>
-                      <span :if={!@current_user.is_forgot_pwd?}>
+                      <span :if={!@current_scope.user.is_forgot_pwd?}>
                         Total privacy! You cannot regain access to your account if you forget your password. Your password is used to derive the cryptographic key that protects your data.
                       </span>
-                      <span :if={@current_user.is_forgot_pwd?}>
+                      <span :if={@current_scope.user.is_forgot_pwd?}>
                         Total convenience! You can easily recover your account using the "Forgot Password" feature. An encrypted recovery key is stored securely on our servers for your peace of mind.
                       </span>
                     </p>
@@ -133,7 +138,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
               <%!-- Additional information --%>
               <div class="space-y-3">
                 <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  <span :if={!@current_user.is_forgot_pwd?}>
+                  <span :if={!@current_scope.user.is_forgot_pwd?}>
                     If you feel your password may have been compromised, you can change it in the
                     <.link
                       navigate={~p"/app/users/change-password"}
@@ -143,7 +148,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
                     </.link>
                     section. This will generate new encryption keys for your account.
                   </span>
-                  <span :if={@current_user.is_forgot_pwd?}>
+                  <span :if={@current_scope.user.is_forgot_pwd?}>
                     Your account remains protected with strong encryption. However, it may be possible for authorities to request access to your recovery key if required by law.
                   </span>
                 </p>
@@ -169,7 +174,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
                   What happens when you change this setting:
                 </h3>
                 <div class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                  <div :if={!@current_user.is_forgot_pwd?} class="space-y-2">
+                  <div :if={!@current_scope.user.is_forgot_pwd?} class="space-y-2">
                     <p class="flex items-start gap-2">
                       <.phx_icon
                         name="hero-arrow-right"
@@ -192,7 +197,7 @@ defmodule MossletWeb.EditForgotPasswordLive do
                       <span>Your data remains encrypted and secure</span>
                     </p>
                   </div>
-                  <div :if={@current_user.is_forgot_pwd?} class="space-y-2">
+                  <div :if={@current_scope.user.is_forgot_pwd?} class="space-y-2">
                     <p class="flex items-start gap-2">
                       <.phx_icon
                         name="hero-arrow-right"
@@ -228,12 +233,12 @@ defmodule MossletWeb.EditForgotPasswordLive do
                 <DesignSystem.liquid_checkbox
                   field={@form[:is_forgot_pwd?]}
                   label={
-                    if @current_user.is_forgot_pwd?,
+                    if @current_scope.user.is_forgot_pwd?,
                       do: "Disable password recovery (maximum privacy)",
                       else: "Enable password recovery (convenience)"
                   }
                   help={
-                    if @current_user.is_forgot_pwd?,
+                    if @current_scope.user.is_forgot_pwd?,
                       do:
                         "This will remove your recovery key from our servers. You can re-enable this feature anytime to store your key again.",
                       else: "This will securely store your account recovery key on our servers."
@@ -368,8 +373,8 @@ defmodule MossletWeb.EditForgotPasswordLive do
   end
 
   def handle_event("update_forgot_password", %{"user" => user_params}, socket) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     if user && user.confirmed_at do
       case Accounts.update_user_forgot_password(user, user_params,

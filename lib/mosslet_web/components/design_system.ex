@@ -391,7 +391,7 @@ defmodule MossletWeb.DesignSystem do
         <nav class="mb-16">
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 max-w-4xl mx-auto">
             <.link
-              :for={item <- footer_menu_items(@current_scope.user)}
+              :for={item <- footer_menu_items(@current_scope[:user])}
               href={item.path}
               class={[
                 "group relative px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
@@ -3220,8 +3220,12 @@ defmodule MossletWeb.DesignSystem do
             size="md"
             status={to_string(@current_scope.user.status || "offline")}
             user_id={@current_scope.user.id}
-            status_message={get_user_status_message(@current_scope.user, @current_scope.user, @current_scope.key)}
-            show_status={can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)}
+            status_message={
+              get_user_status_message(@current_scope.user, @current_scope.user, @current_scope.key)
+            }
+            show_status={
+              can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
+            }
             id={"composer-avatar-#{@id}"}
           />
 
@@ -8018,8 +8022,12 @@ defmodule MossletWeb.DesignSystem do
             src={get_reply_author_avatar(@reply, @current_scope.user, @current_scope.key)}
             name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
             status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
-            status_message={get_reply_author_status_message(@reply, @current_scope.user, @current_scope.key)}
-            show_status={get_reply_author_show_status(@reply, @current_scope.user, @current_scope.key)}
+            status_message={
+              get_reply_author_status_message(@reply, @current_scope.user, @current_scope.key)
+            }
+            show_status={
+              get_reply_author_show_status(@reply, @current_scope.user, @current_scope.key)
+            }
             user_id={@reply.user_id}
             size="sm"
             class="flex-shrink-0 mt-0.5"
@@ -8067,12 +8075,16 @@ defmodule MossletWeb.DesignSystem do
                   active={@current_scope.user.id in @reply.favs_list}
                   reply_id={@reply.id}
                   phx-click={
-                    if @current_scope.user.id in @reply.favs_list, do: "unfav_reply", else: "fav_reply"
+                    if @current_scope.user.id in @reply.favs_list,
+                      do: "unfav_reply",
+                      else: "fav_reply"
                   }
                   phx-value-id={@reply.id}
                   phx-hook="TippyHook"
                   data-tippy-content={
-                    if @current_scope.user.id in @reply.favs_list, do: "Remove love", else: "Show love"
+                    if @current_scope.user.id in @reply.favs_list,
+                      do: "Remove love",
+                      else: "Show love"
                   }
                   class="text-xs sm:scale-75 sm:origin-left min-h-[44px] sm:min-h-0"
                 />
@@ -8147,7 +8159,9 @@ defmodule MossletWeb.DesignSystem do
                     color="rose"
                     phx_click="block_user_from_reply"
                     phx_value_id={@reply.user_id}
-                    phx_value_user_name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+                    phx_value_user_name={
+                      get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)
+                    }
                     phx_value_reply_id={@reply.id}
                   >
                     <.phx_icon name="hero-no-symbol" class="h-4 w-4" />
@@ -9870,7 +9884,8 @@ defmodule MossletWeb.DesignSystem do
         <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
           <%= for group_data <- @groups do %>
             <% group = group_data.group %>
-            <% decrypted_name = get_decrypted_group_name(group_data, @current_scope.user, @current_scope.key) %>
+            <% decrypted_name =
+              get_decrypted_group_name(group_data, @current_scope.user, @current_scope.key) %>
             <% selected = group.id in (@form[:visibility_groups].value || []) %>
             <label class={[
               "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all",
@@ -9916,7 +9931,8 @@ defmodule MossletWeb.DesignSystem do
       <%= if @connections != [] do %>
         <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
           <%= for connection <- @connections do %>
-            <% decrypted_name = get_decrypted_connection_name(connection, @current_scope.user, @current_scope.key) %>
+            <% decrypted_name =
+              get_decrypted_connection_name(connection, @current_scope.user, @current_scope.key) %>
             <% user_id = get_connection_other_user_id(connection, @current_scope.user) %>
             <% selected = user_id in (@form[:visibility_users].value || []) %>
             <label class={[

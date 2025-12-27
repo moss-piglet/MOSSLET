@@ -59,7 +59,9 @@ defmodule Mosslet.Accounts.Scope do
 
   Returns nil if no user is given.
   """
-  def for_user(%User{} = user, opts \\ []) do
+  def for_user(user, opts \\ [])
+
+  def for_user(%User{} = user, opts) do
     %__MODULE__{
       user: user,
       key: Keyword.get(opts, :key)
