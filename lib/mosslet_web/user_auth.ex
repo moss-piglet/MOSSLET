@@ -734,7 +734,8 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_admin_user(conn, _opts) do
-    if conn.assigns[:current_user].is_admin? && conn.assigns[:current_user].confirmed_at do
+    if conn.assigns[:current_scope].user.is_admin? &&
+         conn.assigns[:current_scope].user.confirmed_at do
       conn
     else
       conn
@@ -749,9 +750,9 @@ defmodule MossletWeb.UserAuth do
   end
 
   def kick_user_if_suspended_or_deleted(conn, opts \\ []) do
-    if not is_nil(conn.assigns[:current_user]) and
-         (conn.assigns[:current_user].is_suspended? or
-            conn.assigns[:current_user].is_deleted?) do
+    if not is_nil(conn.assigns[:current_scope].user) and
+         (conn.assigns[:current_scope].user.is_suspended? or
+            conn.assigns[:current_scope].user.is_deleted?) do
       conn
       |> put_flash(
         :error,

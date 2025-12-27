@@ -21,8 +21,7 @@ defmodule MossletWeb.AdminModerationLive do
     <.layout
       current_page={:admin_moderation}
       sidebar_current_page={:admin_moderation}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       type="sidebar"
     >
       <div class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
@@ -158,7 +157,7 @@ defmodule MossletWeb.AdminModerationLive do
                 >
                   <.report_card
                     report={report}
-                    current_user={@current_user}
+                    current_user={@current_scope.user}
                     reporter_stats={@reporter_stats}
                     reported_user_stats={@reported_user_stats}
                   />
@@ -194,7 +193,7 @@ defmodule MossletWeb.AdminModerationLive do
                 >
                   <.report_card
                     report={report}
-                    current_user={@current_user}
+                    current_user={@current_scope.user}
                     reporter_stats={@reporter_stats}
                     reported_user_stats={@reported_user_stats}
                   />
@@ -285,7 +284,7 @@ defmodule MossletWeb.AdminModerationLive do
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Timeline.admin_subscribe(socket.assigns.current_user)
+      Timeline.admin_subscribe(socket.assigns.current_scope.user)
     end
 
     socket =
@@ -433,7 +432,7 @@ defmodule MossletWeb.AdminModerationLive do
                  "admin_notes" => "Status updated to #{status} by admin",
                  "severity_score" => determine_severity_score(status)
                },
-               socket.assigns.current_user
+               socket.assigns.current_scope.user
              ) do
           {:ok, _updated_report} ->
             socket =
@@ -461,7 +460,7 @@ defmodule MossletWeb.AdminModerationLive do
         {:noreply, socket}
 
       post ->
-        case Timeline.delete_post(post, user: socket.assigns.current_user) do
+        case Timeline.delete_post(post, user: socket.assigns.current_scope.user) do
           {:ok, _deleted_post} ->
             # Post deleted successfully, now try to update the report with admin action tracking
             case Timeline.get_post_report(report_id) do
@@ -482,7 +481,7 @@ defmodule MossletWeb.AdminModerationLive do
                          # Mark that the post was deleted
                          "post_deleted?" => true
                        },
-                       socket.assigns.current_user
+                       socket.assigns.current_scope.user
                      ) do
                   {:ok, updated_report} ->
                     stream_name =
@@ -524,7 +523,7 @@ defmodule MossletWeb.AdminModerationLive do
       ) do
     reply = Timeline.get_reply!(reply_id)
 
-    case Timeline.delete_reply(reply, user: socket.assigns.current_user) do
+    case Timeline.delete_reply(reply, user: socket.assigns.current_scope.user) do
       {:ok, _deleted_reply} ->
         # Reply deleted successfully, now try to update the report with admin action tracking
         case Timeline.get_post_report(report_id) do
@@ -545,7 +544,7 @@ defmodule MossletWeb.AdminModerationLive do
                      # Mark that the reply was deleted
                      "reply_deleted?" => true
                    },
-                   socket.assigns.current_user
+                   socket.assigns.current_scope.user
                  ) do
               {:ok, _updated_report} ->
                 socket =
@@ -586,7 +585,7 @@ defmodule MossletWeb.AdminModerationLive do
         {:noreply, socket}
 
       user ->
-        case Accounts.suspend_user(user, socket.assigns.current_user) do
+        case Accounts.suspend_user(user, socket.assigns.current_scope.user) do
           {:ok, _suspended_user} ->
             # User suspended successfully, now try to update the report with admin action tracking
             case Timeline.get_post_report(report_id) do
@@ -607,7 +606,7 @@ defmodule MossletWeb.AdminModerationLive do
                          # User suspension is most serious action
                          "severity_score" => 5
                        },
-                       socket.assigns.current_user
+                       socket.assigns.current_scope.user
                      ) do
                   {:ok, updated_report} ->
                     stream_name =
@@ -1025,7 +1024,7 @@ defmodule MossletWeb.AdminModerationLive do
             Report Reason
           </div>
           <div class="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-            {decrypt_report_reason(@report, @current_user)}
+            {decrypt_report_reason(@report, @current_scope.user)}
           </div>
         </div>
 
@@ -1037,7 +1036,7 @@ defmodule MossletWeb.AdminModerationLive do
               Additional Details
             </div>
             <div class="text-xs sm:text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
-              {decrypt_report_details(@report, @current_user)}
+              {decrypt_report_details(@report, @current_scope.user)}
             </div>
           </div>
         <% end %>

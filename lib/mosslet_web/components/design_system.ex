@@ -6091,22 +6091,21 @@ defmodule MossletWeb.DesignSystem do
       "relative flex-1 min-w-0",
       @class
     ]}>
-      <%!-- Mobile: horizontal scroll, Desktop: grid --%>
       <div
         id="timeline-tabs-scroll"
         phx-hook="ScrollableTabs"
-        class="overflow-x-auto scrollbar-hide md:overflow-visible"
+        class="overflow-x-auto scrollbar-hide xs:overflow-visible"
       >
-        <div class="flex items-center gap-1 md:grid md:grid-cols-5 min-w-max md:min-w-0">
+        <div class="flex items-center gap-1 xs:justify-between">
           <button
             :for={tab <- @tabs}
             data-active={to_string(tab.key == @active_tab)}
             disabled={@loading_tab != nil}
             class={[
-              "relative flex items-center justify-center gap-1.5 transition-all duration-200 ease-out",
+              "relative flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-200 ease-out",
               "focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
-              "whitespace-nowrap",
-              "px-3 py-2 text-xs sm:text-sm font-medium rounded-lg",
+              "flex-shrink-0 xs:flex-1",
+              "px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg",
               timeline_tab_classes(tab.key, tab.key == @active_tab),
               @loading_tab != nil && "cursor-wait"
             ]}

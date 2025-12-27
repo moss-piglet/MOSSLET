@@ -70,34 +70,14 @@
                 %{
                   key: "home",
                   label: "Home",
-                  count: @timeline_counts[:home] || 12,
+                  count: @timeline_counts[:home] || 0,
                   unread:
                     if(@current_user.calm_notifications, do: @unread_counts[:home] || 0, else: 0)
                 },
                 %{
-                  key: "connections",
-                  label: "Connections",
-                  count: @timeline_counts[:connections] || 4,
-                  unread:
-                    if(@current_user.calm_notifications,
-                      do: @unread_counts[:connections] || 0,
-                      else: 0
-                    )
-                },
-                %{
-                  key: "groups",
-                  label: "Groups",
-                  count: @timeline_counts[:groups] || 2,
-                  unread:
-                    if(@current_user.calm_notifications,
-                      do: @unread_counts[:groups] || 0,
-                      else: 0
-                    )
-                },
-                %{
                   key: "bookmarks",
                   label: "Bookmarks",
-                  count: @timeline_counts[:bookmarks] || 8,
+                  count: @timeline_counts[:bookmarks] || 0,
                   unread:
                     if(@current_user.calm_notifications,
                       do: @unread_counts[:bookmarks] || 0,

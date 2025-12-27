@@ -14,8 +14,7 @@ defmodule MossletWeb.AdminDashLive do
     <.layout
       current_page={:admin_dashboard}
       sidebar_current_page={:admin_dashboard}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       type="sidebar"
     >
       <div class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
@@ -141,9 +140,9 @@ defmodule MossletWeb.AdminDashLive do
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Accounts.admin_subscribe(socket.assigns.current_user)
-      Memories.admin_subscribe(socket.assigns.current_user)
-      Timeline.admin_subscribe(socket.assigns.current_user)
+      Accounts.admin_subscribe(socket.assigns.current_scope.user)
+      Memories.admin_subscribe(socket.assigns.current_scope.user)
+      Timeline.admin_subscribe(socket.assigns.current_scope.user)
     end
 
     socket =

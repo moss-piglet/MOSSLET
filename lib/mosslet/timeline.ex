@@ -1593,6 +1593,269 @@ defmodule Mosslet.Timeline do
     |> add_nested_replies_to_posts(options)
   end
 
+  @doc """
+  Returns the unified home timeline containing all posts: user's own posts,
+  connection posts, and group posts. This consolidates the previous Home,
+  Connections, and Groups tabs into a single unified feed.
+
+  Posts are ordered by unread status first (unread before read), then by
+  most recent timestamp.
+
+  Supports filtering by source:
+  - filter_prefs.author_filter: :all | :mine | :connections
+
+  ## Examples
+
+      iex> list_home_timeline(user, %{})
+      [%Post{}, ...]
+
+  """
+  def list_home_timeline(current_user, options \\ %{})
+
+  def list_home_timeline(current_user, options) do
+    options_with_filters = ensure_filter_prefs(options, current_user)
+
+    posts =
+      if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
+        case TimelineCache.get_timeline_data(current_user.id, "home_unified") do
+          {:hit, cached_data} ->
+            Logger.debug("Unified home timeline cache hit for user #{current_user.id}")
+            cached_data[:posts] || []
+
+          :miss ->
+            posts = fetch_home_timeline_from_db(current_user, options_with_filters)
+
+            timeline_data = %{
+              posts: posts,
+              post_count: length(posts),
+              fetched_at: System.system_time(:millisecond)
+            }
+
+            TimelineCache.cache_timeline_data(current_user.id, "home_unified", timeline_data)
+            posts
+        end
+      else
+        fetch_home_timeline_from_db(current_user, options_with_filters)
+      end
+
+    posts
+  end
+
+  defp fetch_home_timeline_from_db(current_user, options) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    author_filter = get_in(options, [:filter_prefs, :author_filter]) || :all
+
+    base_query =
+      Post
+      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
+      |> join(:left, [p, up], upr in UserPostReceipt,
+        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
+      )
+      |> where([p, up], up.user_id == ^current_user.id)
+
+    query =
+      case author_filter do
+        :mine ->
+          base_query
+          |> where([p], p.user_id == ^current_user.id)
+          |> with_any_visibility([
+            :private,
+            :connections,
+            :public,
+            :specific_groups,
+            :specific_users
+          ])
+
+        :connections ->
+          if Enum.empty?(connection_user_ids) do
+            base_query |> where([p], false)
+          else
+            base_query
+            |> where([p], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
+            |> where([p], p.visibility in [:connections, :specific_users, :specific_groups])
+          end
+
+        _ ->
+          if Enum.empty?(connection_user_ids) do
+            base_query
+            |> where([p], p.user_id == ^current_user.id)
+            |> with_any_visibility([
+              :private,
+              :connections,
+              :public,
+              :specific_groups,
+              :specific_users
+            ])
+          else
+            all_author_ids = [current_user.id | connection_user_ids]
+
+            base_query
+            |> where([p], p.user_id in ^all_author_ids)
+            |> where(
+              [p],
+              (p.user_id == ^current_user.id and
+                 p.visibility in [
+                   :private,
+                   :connections,
+                   :public,
+                   :specific_groups,
+                   :specific_users
+                 ]) or
+                (p.user_id != ^current_user.id and
+                   p.visibility in [:connections, :specific_users, :specific_groups])
+            )
+          end
+      end
+
+    query
+    |> apply_database_filters(options)
+    |> preload([:user_posts, :user, :replies, :user_post_receipts])
+    |> order_by([p, up, upr],
+      asc: coalesce(upr.is_read?, true),
+      desc: p.inserted_at
+    )
+    |> paginate(options)
+    |> Repo.all()
+    |> add_nested_replies_to_posts(options)
+  end
+
+  @doc """
+  Counts all posts in the unified home timeline (user's own + connections + groups).
+  Supports author_filter in filter_prefs: :all | :mine | :connections
+  """
+  def count_home_timeline(current_user, filter_prefs \\ %{}) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    author_filter = filter_prefs[:author_filter] || :all
+
+    base_query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: up.user_id == ^current_user.id,
+        distinct: p.id
+      )
+
+    query =
+      case author_filter do
+        :mine ->
+          base_query
+          |> where([p], p.user_id == ^current_user.id)
+
+        :connections ->
+          if Enum.empty?(connection_user_ids) do
+            base_query |> where([p], false)
+          else
+            base_query
+            |> where([p], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
+            |> where([p], p.visibility in [:connections, :specific_users, :specific_groups])
+          end
+
+        _ ->
+          if Enum.empty?(connection_user_ids) do
+            base_query
+            |> where([p], p.user_id == ^current_user.id)
+          else
+            all_author_ids = [current_user.id | connection_user_ids]
+
+            base_query
+            |> where([p], p.user_id in ^all_author_ids)
+            |> where(
+              [p],
+              (p.user_id == ^current_user.id and
+                 p.visibility in [
+                   :private,
+                   :connections,
+                   :public,
+                   :specific_groups,
+                   :specific_users
+                 ]) or
+                (p.user_id != ^current_user.id and
+                   p.visibility in [:connections, :specific_users, :specific_groups])
+            )
+          end
+      end
+
+    query
+    |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
+    |> Repo.aggregate(:count, :id) || 0
+  end
+
+  @doc """
+  Counts unread posts in the unified home timeline.
+  Supports author_filter in filter_prefs: :all | :mine | :connections
+  """
+  def count_unread_home_timeline(current_user, filter_prefs \\ %{}) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    author_filter = filter_prefs[:author_filter] || :all
+
+    base_query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        inner_join: upr in UserPostReceipt,
+        on: upr.user_post_id == up.id,
+        where: up.user_id == ^current_user.id,
+        where: upr.user_id == ^current_user.id,
+        where: not upr.is_read? and is_nil(upr.read_at)
+      )
+
+    query =
+      case author_filter do
+        :mine ->
+          base_query
+          |> where([p], p.user_id == ^current_user.id)
+
+        :connections ->
+          if Enum.empty?(connection_user_ids) do
+            base_query |> where([p], false)
+          else
+            base_query
+            |> where([p], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
+            |> where([p], p.visibility in [:connections, :specific_users, :specific_groups])
+          end
+
+        _ ->
+          if Enum.empty?(connection_user_ids) do
+            base_query
+            |> where([p], p.user_id == ^current_user.id)
+          else
+            all_author_ids = [current_user.id | connection_user_ids]
+
+            base_query
+            |> where([p], p.user_id in ^all_author_ids)
+            |> where(
+              [p],
+              (p.user_id == ^current_user.id and
+                 p.visibility in [
+                   :private,
+                   :connections,
+                   :public,
+                   :specific_groups,
+                   :specific_users
+                 ]) or
+                (p.user_id != ^current_user.id and
+                   p.visibility in [:connections, :specific_users, :specific_groups])
+            )
+          end
+      end
+
+    query
+    |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
+    |> Repo.aggregate(:count, :id) || 0
+  end
+
   def list_public_replies(post, options) do
     from(r in Reply,
       inner_join: p in Post,

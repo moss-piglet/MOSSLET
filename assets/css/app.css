@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Custom xs breakpoint (480px) */
+@theme {
+  --breakpoint-xs: 480px;
+}
+
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 

@@ -76,6 +76,16 @@ defmodule MossletWeb.TimelineContentFilter do
 
         <%!-- Collapsible Filter Sections --%>
         <div class="space-y-3">
+          <%!-- Author Filter Section --%>
+          <.compact_filter_section
+            id="author-section"
+            title="Show Posts From"
+            icon="hero-users"
+            badge_count={if @filters.author_filter && @filters.author_filter != :all, do: 1, else: 0}
+          >
+            <.author_filter_toggles current_filter={@filters.author_filter || :all} />
+          </.compact_filter_section>
+
           <%!-- Keywords Section --%>
           <.compact_filter_section
             id="keywords-section"
@@ -270,6 +280,99 @@ defmodule MossletWeb.TimelineContentFilter do
         No filters active. Posts with selected categories will be hidden.
       </p>
     </div>
+    """
+  end
+
+  @doc """
+  Author filter toggles for filtering by post source (your posts vs connections).
+  """
+  attr :current_filter, :atom, default: :all
+
+  def author_filter_toggles(assigns) do
+    ~H"""
+    <div class="space-y-2">
+      <.author_filter_option
+        name="author_all"
+        label="All posts"
+        sublabel="Show posts from you and your connections"
+        checked={@current_filter == :all}
+        value="all"
+      />
+
+      <.author_filter_option
+        name="author_mine"
+        label="Your posts"
+        sublabel="Only show posts you've created"
+        checked={@current_filter == :mine}
+        value="mine"
+      />
+
+      <.author_filter_option
+        name="author_connections"
+        label="Connections' posts"
+        sublabel="Only show posts from your connections"
+        checked={@current_filter == :connections}
+        value="connections"
+      />
+    </div>
+    """
+  end
+
+  attr :name, :string, required: true
+  attr :label, :string, required: true
+  attr :sublabel, :string, default: nil
+  attr :checked, :boolean, default: false
+  attr :value, :string, required: true
+
+  def author_filter_option(assigns) do
+    ~H"""
+    <label
+      class={[
+        "flex items-center gap-3 py-2 px-3 rounded-xl cursor-pointer transition-all duration-200",
+        "border-2",
+        if(@checked,
+          do: "bg-emerald-50/80 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-600",
+          else:
+            "bg-slate-50/50 dark:bg-slate-700/30 border-transparent hover:bg-slate-100/60 dark:hover:bg-slate-700/50"
+        )
+      ]}
+      phx-click="set_author_filter"
+      phx-value-filter={@value}
+    >
+      <input
+        type="radio"
+        name="author_filter"
+        value={@value}
+        checked={@checked}
+        class="sr-only"
+      />
+      <div class={[
+        "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all duration-200",
+        if(@checked,
+          do: "border-emerald-500 bg-emerald-500",
+          else: "border-slate-300 dark:border-slate-500"
+        )
+      ]}>
+        <div :if={@checked} class="w-1.5 h-1.5 rounded-full bg-white"></div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <span class={[
+          "block text-sm font-medium transition-colors",
+          if(@checked,
+            do: "text-emerald-800 dark:text-emerald-200",
+            else: "text-slate-700 dark:text-slate-300"
+          )
+        ]}>
+          {@label}
+        </span>
+        <span
+          :if={@sublabel}
+          class="block text-[11px] text-slate-500 dark:text-slate-400 truncate"
+        >
+          {@sublabel}
+        </span>
+      </div>
+    </label>
     """
   end
 

@@ -307,17 +307,11 @@ defmodule MossletWeb.TimelineLive.Index do
             "discover" ->
               Timeline.list_discover_posts(user, options_with_filters)
 
-            "connections" ->
-              Timeline.list_connection_posts(user, options_with_filters)
-
             "home" ->
-              Timeline.list_user_own_posts(user, options_with_filters)
+              Timeline.list_home_timeline(user, options_with_filters)
 
             "bookmarks" ->
               Timeline.list_user_bookmarks(user, options_with_filters)
-
-            "groups" ->
-              Timeline.list_group_posts(user, options_with_filters)
 
             _ ->
               options_with_tab = Map.put(options_with_filters, :tab, current_tab_for_async)
@@ -1392,11 +1386,8 @@ defmodule MossletWeb.TimelineLive.Index do
         "discover" ->
           Timeline.list_discover_posts(current_user, options_with_filters)
 
-        "connections" ->
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
         "home" ->
-          Timeline.list_user_own_posts(current_user, options_with_filters)
+          Timeline.list_home_timeline(current_user, options_with_filters)
 
         "bookmarks" ->
           Timeline.list_user_bookmarks(current_user, options_with_filters)
@@ -1441,11 +1432,8 @@ defmodule MossletWeb.TimelineLive.Index do
         "discover" ->
           Timeline.list_discover_posts(current_user, options_with_filters)
 
-        "connections" ->
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
         "home" ->
-          Timeline.list_user_own_posts(current_user, options_with_filters)
+          Timeline.list_home_timeline(current_user, options_with_filters)
 
         "bookmarks" ->
           Timeline.list_user_bookmarks(current_user, options_with_filters)
@@ -1494,11 +1482,8 @@ defmodule MossletWeb.TimelineLive.Index do
         "discover" ->
           Timeline.list_discover_posts(current_user, options_with_filters)
 
-        "connections" ->
-          Timeline.list_connection_posts(current_user, options_with_filters)
-
         "home" ->
-          Timeline.list_user_own_posts(current_user, options_with_filters)
+          Timeline.list_home_timeline(current_user, options_with_filters)
 
         "bookmarks" ->
           Timeline.list_user_bookmarks(current_user, options_with_filters)
@@ -2661,7 +2646,8 @@ defmodule MossletWeb.TimelineLive.Index do
     clear_prefs = %{
       keywords: [],
       content_warnings: %{hide_all: false},
-      muted_users: []
+      muted_users: [],
+      author_filter: :all
     }
 
     {:ok, new_prefs} =
@@ -2672,6 +2658,30 @@ defmodule MossletWeb.TimelineLive.Index do
 
     socket = refresh_timeline_with_filters(socket, new_prefs)
     {:noreply, put_flash(socket, :info, "All filters cleared")}
+  end
+
+  def handle_event("set_author_filter", %{"filter" => filter_value}, socket) do
+    current_user = socket.assigns.current_user
+    key = socket.assigns.key
+
+    author_filter =
+      case filter_value do
+        "mine" -> :mine
+        "connections" -> :connections
+        _ -> :all
+      end
+
+    current_prefs = socket.assigns.content_filters
+    updated_prefs = Map.put(current_prefs, :author_filter, author_filter)
+
+    {:ok, new_prefs} =
+      ContentFilter.update_filter_preferences(current_user.id, updated_prefs,
+        user: current_user,
+        key: key
+      )
+
+    socket = refresh_timeline_with_filters(socket, new_prefs)
+    {:noreply, socket}
   end
 
   def handle_event("live_select_change", %{"id" => id, "text" => text}, socket) do
@@ -2735,17 +2745,11 @@ defmodule MossletWeb.TimelineLive.Index do
         "discover" ->
           Timeline.list_discover_posts(current_user, updated_options_with_filters)
 
-        "connections" ->
-          Timeline.list_connection_posts(current_user, updated_options_with_filters)
-
         "home" ->
-          Timeline.list_user_own_posts(current_user, updated_options_with_filters)
+          Timeline.list_home_timeline(current_user, updated_options_with_filters)
 
         "bookmarks" ->
           Timeline.list_user_bookmarks(current_user, updated_options_with_filters)
-
-        "groups" ->
-          Timeline.list_group_posts(current_user, updated_options_with_filters)
 
         _ ->
           Timeline.filter_timeline_posts(current_user, updated_options_with_filters)
@@ -2815,17 +2819,11 @@ defmodule MossletWeb.TimelineLive.Index do
             "discover" ->
               Timeline.list_discover_posts(user, options_with_filters)
 
-            "connections" ->
-              Timeline.list_connection_posts(user, options_with_filters)
-
             "home" ->
-              Timeline.list_user_own_posts(user, options_with_filters)
+              Timeline.list_home_timeline(user, options_with_filters)
 
             "bookmarks" ->
               Timeline.list_user_bookmarks(user, options_with_filters)
-
-            "groups" ->
-              Timeline.list_group_posts(user, options_with_filters)
 
             _ ->
               Timeline.filter_timeline_posts(user, options_with_filters)
@@ -2889,17 +2887,11 @@ defmodule MossletWeb.TimelineLive.Index do
             "discover" ->
               Timeline.list_discover_posts(user, options_with_filters)
 
-            "connections" ->
-              Timeline.list_connection_posts(user, options_with_filters)
-
             "home" ->
-              Timeline.list_user_own_posts(user, options_with_filters)
+              Timeline.list_home_timeline(user, options_with_filters)
 
             "bookmarks" ->
               Timeline.list_user_bookmarks(user, options_with_filters)
-
-            "groups" ->
-              Timeline.list_group_posts(user, options_with_filters)
 
             _ ->
               options_with_tab = Map.put(options_with_filters, :tab, current_tab_for_async)
@@ -4812,41 +4804,24 @@ defmodule MossletWeb.TimelineLive.Index do
   defp apply_tab_filtering(posts, tab, current_user) do
     case tab do
       "home" ->
-        # Show only posts made BY the current user (private + connections + public)
-        Enum.filter(posts, fn post -> post.user_id == current_user.id end)
-
-      "connections" ->
-        # Use dedicated Timeline function instead of filtering here
-        # This case should not be reached when using the switch_tab event
-        Timeline.list_connection_posts(current_user, %{})
-
-      "groups" ->
-        # Filter timeline posts to only show posts with group_id
-        Enum.filter(posts, fn post -> post.group_id != nil end)
+        posts
 
       "bookmarks" ->
-        # Get bookmarked posts - need to handle both public and private/connection posts
         bookmarked_posts =
           Timeline.list_user_bookmarks(current_user)
           |> Enum.map(fn bookmark -> bookmark.post end)
           |> Enum.filter(&(&1 != nil))
 
-        # For bookmarked posts, we need to ensure they have proper associations
-        # Public posts need user_posts loaded for get_post_key to work
         bookmarked_posts
         |> Enum.map(fn post ->
           if post.visibility == :public do
-            # For public posts, preload user_posts association
             Timeline.get_post!(post.id)
           else
-            # For private/connection posts, they should already be accessible via user timeline
             post
           end
         end)
 
       "discover" ->
-        # Show public posts using dedicated Timeline function for discovery
-        # Note: This should probably use Timeline.list_discover_posts instead
         Timeline.list_discover_posts(current_user, %{})
 
       _ ->
@@ -4856,54 +4831,28 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to check if a new post should appear in the current tab
   defp post_matches_current_tab?(post, current_tab, current_user) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user.id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
     case current_tab do
       "home" ->
-        # Home tab shows user's own posts - so their new posts should appear
-        post.user_id == current_user.id
+        cond do
+          post.user_id == current_user.id ->
+            true
 
-      "connections" ->
-        # Never show current user's own posts in connections tab (including their reposts)
-        if post.user_id == current_user.id do
-          false
-        else
-          # Show posts from connected users, but with specific visibility rules
-          connection_user_ids =
-            Accounts.get_all_confirmed_user_connections(current_user.id)
-            |> Enum.map(& &1.reverse_user_id)
-            |> Enum.uniq()
+          post.visibility == :private ->
+            false
 
-          cond do
-            # Always exclude private posts
-            post.visibility == :private ->
-              false
+          post.user_id in connection_user_ids ->
+            post.visibility in [:connections, :specific_users, :specific_groups]
 
-            # Exclude group-specific posts (they should only appear in groups tab)
-            post.visibility == :specific_groups ->
-              false
-
-            # For specific_users posts, only show if current user is in shared_users list
-            post.visibility == :specific_users ->
-              post.user_id in connection_user_ids and
-                Enum.any?(post.shared_users || [], fn shared_user ->
-                  shared_user.user_id == current_user.id
-                end)
-
-            # For other visibility types (public, connections), show if from connected user
-            # OR if it's a repost shared with the current user
-            true ->
-              post.user_id in connection_user_ids or
-                (post.repost == true and
-                   Ecto.assoc_loaded?(post.user_posts) and
-                   Enum.any?(post.user_posts, fn up -> up.user_id == current_user.id end))
-          end
+          true ->
+            false
         end
 
-      "groups" ->
-        # Show posts from groups the user belongs to
-        post.visibility == :specific_groups
-
       "discover" ->
-        # Show public posts
         post.visibility == :public
 
       "bookmarks" ->
@@ -5124,10 +5073,7 @@ defmodule MossletWeb.TimelineLive.Index do
         load_and_decrypt_content_filters(current_user, options[:key])
 
     counts = %{
-      # All counts now support filtering for accurate "load more" estimates
-      home: Timeline.count_user_own_posts(current_user, content_filter_prefs),
-      connections: Timeline.count_user_connection_posts(current_user, content_filter_prefs),
-      groups: Timeline.count_group_posts(current_user, content_filter_prefs),
+      home: Timeline.count_home_timeline(current_user, content_filter_prefs),
       bookmarks: Timeline.count_user_bookmarks(current_user, content_filter_prefs),
       discover: Timeline.count_discover_posts(current_user, content_filter_prefs)
     }
@@ -5141,13 +5087,7 @@ defmodule MossletWeb.TimelineLive.Index do
     content_filter_prefs = options[:content_filter_prefs] || %{}
 
     %{
-      # Home tab: only show unread posts from the current user (since home only shows user's own posts)
-      home: Timeline.count_unread_user_own_posts(current_user, content_filter_prefs),
-      # Connections tab: only show unread posts from connected users (excluding current user)
-      connections: Timeline.count_unread_connection_posts(current_user, content_filter_prefs),
-      # Groups tab: only show unread posts with specific_groups visibility
-      groups: Timeline.count_unread_group_posts(current_user, content_filter_prefs),
-      # Discover tab: only show unread public posts
+      home: Timeline.count_unread_home_timeline(current_user, content_filter_prefs),
       discover: Timeline.count_unread_discover_posts(current_user, content_filter_prefs),
       # Bookmarks tab: only show unread bookmarked posts
       bookmarks: Timeline.count_unread_bookmarked_posts(current_user, content_filter_prefs)
@@ -5695,12 +5635,14 @@ defmodule MossletWeb.TimelineLive.Index do
     mature_active = Map.get(filters.content_warnings || %{}, :hide_mature, false)
     users_active = (filters.muted_users || []) != []
     reposts_active = Map.get(filters, :hide_reposts, false)
+    author_active = Map.get(filters, :author_filter, :all) != :all
 
-    keywords_active || cw_active || mature_active || users_active || reposts_active
+    keywords_active || cw_active || mature_active || users_active || reposts_active ||
+      author_active
   end
 
   # Helper function to refresh timeline with new filters
-  defp refresh_timeline_with_filters(socket, _new_prefs) do
+  defp refresh_timeline_with_filters(socket, new_prefs) do
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
@@ -5710,6 +5652,9 @@ defmodule MossletWeb.TimelineLive.Index do
     # Reload and decrypt content filters to get fresh state
     # Refresh content filters in socket assigns
     fresh_filters = load_and_decrypt_content_filters(current_user, key)
+
+    # Preserve author_filter from new_prefs since it's not persisted to database
+    fresh_filters = Map.put(fresh_filters, :author_filter, new_prefs[:author_filter] || :all)
 
     # Hydrate the fresh filters with post_shared_users
     hydrated_filters = hydrate_content_filters(fresh_filters, socket.assigns.post_shared_users)
@@ -5739,11 +5684,8 @@ defmodule MossletWeb.TimelineLive.Index do
         "discover" ->
           Timeline.list_discover_posts(current_user, reset_options)
 
-        "connections" ->
-          Timeline.list_connection_posts(current_user, reset_options)
-
         "home" ->
-          Timeline.list_user_own_posts(current_user, reset_options)
+          Timeline.list_home_timeline(current_user, reset_options)
 
         "bookmarks" ->
           Timeline.list_user_bookmarks(current_user, reset_options)
@@ -5753,21 +5695,34 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
+    # CRITICAL FIX: Split posts by read/unread status like initial load does
+    {unread_posts, read_posts} =
+      Enum.split_with(posts, fn post ->
+        is_post_unread?(post, current_user)
+      end)
+
     # CRITICAL FIX: Recalculate timeline counts with new filters
     options_with_filters = Map.put(reset_options, :content_filter_prefs, fresh_filters)
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
     # CRITICAL FIX: Reset pagination state and update counts
+    # Only unread posts go to the main posts stream
+    # Read posts are cached for the collapsible section
     socket =
       socket
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
       |> assign(:options, reset_options)
-      |> assign(:loaded_posts_count, length(posts))
+      |> assign(:loaded_posts_count, length(unread_posts))
       |> assign(:current_page, 1)
       |> assign(:load_more_loading, false)
-      |> stream(:posts, posts, reset: true)
+      |> assign(:read_posts_expanded, false)
+      |> assign(:read_posts_loading, false)
+      |> assign(:loaded_read_posts_count, length(read_posts))
+      |> assign(:cached_read_posts, read_posts)
+      |> stream(:posts, unread_posts, reset: true)
+      |> stream(:read_posts, [], reset: true)
 
     socket
   end
@@ -5815,6 +5770,7 @@ defmodule MossletWeb.TimelineLive.Index do
             hide_mature: prefs.hide_mature_content || false
           },
           hide_reposts: prefs.hide_reposts || false,
+          author_filter: :all,
           raw_preferences: prefs
         }
 
@@ -5831,6 +5787,7 @@ defmodule MossletWeb.TimelineLive.Index do
             hide_mature: false
           },
           hide_reposts: false,
+          author_filter: :all,
           raw_preferences: nil
         }
     end

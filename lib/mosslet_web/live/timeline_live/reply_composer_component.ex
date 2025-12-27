@@ -88,11 +88,19 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                   src={@user_avatar}
                   name={@user_name}
                   size="sm"
-                  status={to_string(@current_user.status || :offline)}
-                  status_message={get_user_status_message(@current_user, @current_user, @key)}
-                  show_status={can_view_status?(@current_user, @current_user, @key)}
+                  status={to_string(@current_scope.user.status || :offline)}
+                  status_message={
+                    get_user_status_message(
+                      @current_scope.user,
+                      @current_scope.user,
+                      @current_scope.key
+                    )
+                  }
+                  show_status={
+                    can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
+                  }
                   class="flex-shrink-0"
-                  user_id={@current_user.id}
+                  user_id={@current_scope.user.id}
                 />
 
                 <div class="flex-1 min-w-0">
@@ -109,7 +117,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                     type="hidden"
                     id={"reply_user_id_#{@post_id}"}
                     name={@form[:user_id].name}
-                    value={@current_user.id}
+                    value={@current_scope.user.id}
                   />
                   <.phx_input
                     field={@form[:visibility]}
@@ -232,7 +240,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
       Timeline.change_reply(%Reply{}, %{
         "body" => "",
         "post_id" => socket.assigns.post_id,
-        "user_id" => socket.assigns.current_user.id,
+        "user_id" => socket.assigns.current_scope.user.id,
         "username" => socket.assigns.username,
         "visibility" => socket.assigns.visibility
       })
@@ -245,7 +253,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
   def handle_event("save_reply", %{"reply" => reply_params}, socket) do
     post_id = socket.assigns.post_id
     visibility = socket.assigns.visibility
-    current_user = socket.assigns.current_user
+    current_user = socket.assigns.current_scope.user
 
     if can_reply?(Timeline.get_post!(post_id), current_user) do
       # Send the reply creation to the parent LiveView
@@ -256,7 +264,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
         Timeline.change_reply(%Reply{}, %{
           "body" => "",
           "post_id" => post_id,
-          "user_id" => socket.assigns.current_user.id,
+          "user_id" => current_user.id,
           "username" => socket.assigns.username,
           "visibility" => visibility
         })
@@ -271,11 +279,17 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
 
   # Helper function to get or create reply form
   defp get_or_create_reply_form(assigns) do
+    current_user =
+      case assigns[:current_scope] do
+        %{user: user} -> user
+        _ -> assigns[:current_scope].user
+      end
+
     changeset =
       Timeline.change_reply(%Reply{}, %{
         "body" => "",
         "post_id" => assigns.post_id,
-        "user_id" => assigns.current_user.id,
+        "user_id" => current_user.id,
         "username" => assigns.username,
         "visibility" => assigns.visibility
       })

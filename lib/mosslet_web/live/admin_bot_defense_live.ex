@@ -14,8 +14,7 @@ defmodule MossletWeb.AdminBotDefenseLive do
     <.layout
       current_page={:admin_bot_defense}
       sidebar_current_page={:admin_bot_defense}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
       type="sidebar"
     >
       <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -276,7 +275,7 @@ defmodule MossletWeb.AdminBotDefenseLive do
           reason: if(reason != "", do: reason, else: nil),
           source: :manual,
           expires_at: expires_at,
-          banned_by_id: socket.assigns.current_user.id
+          banned_by_id: socket.assigns.current_scope.user.id
         ]
 
         case BotDefense.ban_ip(ip_tuple, opts) do
