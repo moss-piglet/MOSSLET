@@ -5,18 +5,18 @@ defmodule MossletWeb.EditNotificationsLive do
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
   alias MossletWeb.DesignSystem
+  alias Mosslet.Accounts.Scope
 
   def mount(_params, _session, socket) do
-    {:ok, assign_form(socket, socket.assigns.current_user)}
+    {:ok, assign_form(socket, socket.assigns.current_scope.user)}
   end
 
   def render(assigns) do
     ~H"""
     <.layout
-      current_user={@current_user}
+      current_scope={@current_scope}
       current_page={:edit_notifications}
       sidebar_current_page={:edit_notifications}
-      key={@key}
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-16">
@@ -42,7 +42,7 @@ defmodule MossletWeb.EditNotificationsLive do
               <div class="flex items-center gap-3">
                 <div class={[
                   "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden",
-                  if(@current_user.calm_notifications,
+                  if(@current_scope.user.calm_notifications,
                     do:
                       "bg-gradient-to-br from-teal-100 via-emerald-50 to-teal-100 dark:from-teal-900/30 dark:via-emerald-900/25 dark:to-teal-900/30",
                     else:
@@ -51,13 +51,13 @@ defmodule MossletWeb.EditNotificationsLive do
                 ]}>
                   <.phx_icon
                     name={
-                      if @current_user.calm_notifications,
+                      if @current_scope.user.calm_notifications,
                         do: "hero-bell",
                         else: "hero-bell-slash"
                     }
                     class={[
                       "h-4 w-4",
-                      if(@current_user.calm_notifications,
+                      if(@current_scope.user.calm_notifications,
                         do: "text-emerald-600 dark:text-emerald-400",
                         else: "text-slate-500 dark:text-slate-400"
                       )
@@ -67,14 +67,14 @@ defmodule MossletWeb.EditNotificationsLive do
                 <span>Calm Notifications</span>
                 <span class={[
                   "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
-                  if(@current_user.calm_notifications,
+                  if(@current_scope.user.calm_notifications,
                     do:
                       "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
                     else:
                       "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
                   )
                 ]}>
-                  {if @current_user.calm_notifications,
+                  {if @current_scope.user.calm_notifications,
                     do: "Enabled",
                     else: "Disabled"}
                 </span>
@@ -85,7 +85,7 @@ defmodule MossletWeb.EditNotificationsLive do
               <%!-- Current status explanation --%>
               <div class={[
                 "p-4 rounded-lg border",
-                if(@current_user.calm_notifications,
+                if(@current_scope.user.calm_notifications,
                   do:
                     "bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 border-emerald-200 dark:border-emerald-700",
                   else:
@@ -95,13 +95,13 @@ defmodule MossletWeb.EditNotificationsLive do
                 <div class="flex items-start gap-3">
                   <.phx_icon
                     name={
-                      if @current_user.calm_notifications,
+                      if @current_scope.user.calm_notifications,
                         do: "hero-check-circle",
                         else: "hero-minus-circle"
                     }
                     class={[
                       "h-5 w-5 mt-0.5 flex-shrink-0",
-                      if(@current_user.calm_notifications,
+                      if(@current_scope.user.calm_notifications,
                         do: "text-emerald-600 dark:text-emerald-400",
                         else: "text-slate-500 dark:text-slate-400"
                       )
@@ -110,26 +110,26 @@ defmodule MossletWeb.EditNotificationsLive do
                   <div class="space-y-2">
                     <h3 class={[
                       "font-medium text-sm",
-                      if(@current_user.calm_notifications,
+                      if(@current_scope.user.calm_notifications,
                         do: "text-emerald-800 dark:text-emerald-200",
                         else: "text-slate-700 dark:text-slate-300"
                       )
                     ]}>
-                      {if @current_user.calm_notifications,
+                      {if @current_scope.user.calm_notifications,
                         do: "Calm Notifications Enabled",
                         else: "Notifications Disabled"}
                     </h3>
                     <p class={[
                       "text-sm leading-relaxed",
-                      if(@current_user.calm_notifications,
+                      if(@current_scope.user.calm_notifications,
                         do: "text-emerald-700 dark:text-emerald-300",
                         else: "text-slate-600 dark:text-slate-400"
                       )
                     ]}>
-                      <span :if={@current_user.calm_notifications}>
+                      <span :if={@current_scope.user.calm_notifications}>
                         You'll receive gentle, calm notifications that appear only when you're actively using MOSSLET. These won't interrupt you or pull your attention away from other activities.
                       </span>
-                      <span :if={!@current_user.calm_notifications}>
+                      <span :if={!@current_scope.user.calm_notifications}>
                         You won't receive any calm notifications. You can always check your timeline and connections manually when you visit MOSSLET.
                       </span>
                     </p>
@@ -193,7 +193,7 @@ defmodule MossletWeb.EditNotificationsLive do
                   field={@form[:calm_notifications]}
                   label="Enable calm notifications"
                   help={
-                    if @current_user.calm_notifications,
+                    if @current_scope.user.calm_notifications,
                       do:
                         "Disable to stop receiving gentle notifications when you're actively using MOSSLET.",
                       else:
@@ -205,7 +205,7 @@ defmodule MossletWeb.EditNotificationsLive do
                   field={@form[:email_notifications]}
                   label="Enable email notifications"
                   help={
-                    if @current_user.email_notifications,
+                    if @current_scope.user.email_notifications,
                       do:
                         "You will receive up to 2 emails per day: one for new posts from friends and one for replies to your posts, only when you're offline.",
                       else:
@@ -227,14 +227,14 @@ defmodule MossletWeb.EditNotificationsLive do
                   <span>Email Notifications</span>
                   <span class={[
                     "inline-flex px-2.5 py-0.5 text-xs rounded-lg font-medium",
-                    if(@current_user.email_notifications,
+                    if(@current_scope.user.email_notifications,
                       do:
                         "bg-gradient-to-r from-emerald-100 to-teal-200 text-emerald-800 dark:from-emerald-800 dark:to-teal-700 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600",
                       else:
                         "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
                     )
                   ]}>
-                    {if @current_user.email_notifications,
+                    {if @current_scope.user.email_notifications,
                       do: "Enabled",
                       else: "Disabled"}
                   </span>
@@ -245,7 +245,7 @@ defmodule MossletWeb.EditNotificationsLive do
             <div class="space-y-4">
               <div class={[
                 "p-4 rounded-lg border",
-                if(@current_user.email_notifications,
+                if(@current_scope.user.email_notifications,
                   do:
                     "bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 border-emerald-200 dark:border-emerald-700",
                   else:
@@ -255,13 +255,13 @@ defmodule MossletWeb.EditNotificationsLive do
                 <div class="flex items-start gap-3">
                   <.phx_icon
                     name={
-                      if @current_user.email_notifications,
+                      if @current_scope.user.email_notifications,
                         do: "hero-check-circle",
                         else: "hero-minus-circle"
                     }
                     class={[
                       "h-5 w-5 mt-0.5 flex-shrink-0",
-                      if(@current_user.email_notifications,
+                      if(@current_scope.user.email_notifications,
                         do: "text-emerald-600 dark:text-emerald-400",
                         else: "text-slate-500 dark:text-slate-400"
                       )
@@ -270,26 +270,26 @@ defmodule MossletWeb.EditNotificationsLive do
                   <div class="space-y-2">
                     <h3 class={[
                       "font-medium text-sm",
-                      if(@current_user.email_notifications,
+                      if(@current_scope.user.email_notifications,
                         do: "text-emerald-800 dark:text-emerald-200",
                         else: "text-slate-700 dark:text-slate-300"
                       )
                     ]}>
-                      {if @current_user.email_notifications,
+                      {if @current_scope.user.email_notifications,
                         do: "Email Notifications Enabled",
                         else: "Email Notifications Disabled"}
                     </h3>
                     <p class={[
                       "text-sm leading-relaxed",
-                      if(@current_user.email_notifications,
+                      if(@current_scope.user.email_notifications,
                         do: "text-emerald-700 dark:text-emerald-300",
                         else: "text-slate-600 dark:text-slate-400"
                       )
                     ]}>
-                      <span :if={@current_user.email_notifications}>
+                      <span :if={@current_scope.user.email_notifications}>
                         You will receive up to 2 emails per day: one when friends share new posts with you, and one when someone replies to your posts. Emails are only sent when you're not currently online, keeping you connected without overwhelming your inbox.
                       </span>
-                      <span :if={!@current_user.email_notifications}>
+                      <span :if={!@current_scope.user.email_notifications}>
                         You won't receive any email notifications. You can always check your timeline and connections manually when you visit MOSSLET.
                       </span>
                     </p>
@@ -552,7 +552,7 @@ defmodule MossletWeb.EditNotificationsLive do
   end
 
   def handle_event("update_profile", %{"user" => user_params}, socket) do
-    case Accounts.update_user_notifications(socket.assigns.current_user, user_params) do
+    case Accounts.update_user_notifications(socket.assigns.current_scope.user, user_params) do
       {:ok, current_user} ->
         Accounts.user_lifecycle_action("after_update_profile", current_user)
 
@@ -562,7 +562,9 @@ defmodule MossletWeb.EditNotificationsLive do
             :success,
             gettext("Your notification preferences have been updated successfully.")
           )
-          |> assign(current_user: current_user)
+          |> assign(
+            current_scope: Scope.for_user(current_user, key: socket.assigns.current_scope.key)
+          )
           |> assign_form(current_user)
           |> push_navigate(to: "/app/users/edit-notifications")
 
