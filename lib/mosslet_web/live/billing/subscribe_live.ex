@@ -7,10 +7,8 @@ defmodule MossletWeb.SubscribeLive do
   alias Mosslet.Billing.Customers.Customer
   alias Mosslet.Billing.Plans
   alias Mosslet.Billing.PaymentIntents
-  alias Mosslet.Billing.PaymentIntents.PaymentIntent
   alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
-  alias Mosslet.Billing.Subscriptions.Subscription
   alias Mosslet.Logs
   alias MossletWeb.BillingLive
   alias MossletWeb.DesignSystem

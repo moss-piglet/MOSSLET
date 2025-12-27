@@ -37,7 +37,6 @@ defmodule MossletWeb.GroupLive.GroupMessages do
   attr :current_scope, :map, required: true
   attr :user_group_key, :string, required: true
   attr :group, :map, required: true
-  attr :key, :string, required: true
   attr :user_group, :map, required: true
   attr :messages_list, :list, required: true
 

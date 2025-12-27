@@ -13,10 +13,11 @@ defmodule MossletWeb.UserOnMountHooks do
   alias Mosslet.Accounts.Scope
 
   def on_mount(:require_authenticated_user, _params, session, socket) do
-    socket = maybe_assign_user(socket, session)
+    socket = maybe_assign_scope(socket, session)
+    user = socket.assigns.current_scope && socket.assigns.current_scope.user
 
-    if socket.assigns.current_user do
-      if socket.assigns.current_user.confirmed_at do
+    if user do
+      if user.confirmed_at do
         {:cont, socket}
       else
         socket =
@@ -37,9 +38,10 @@ defmodule MossletWeb.UserOnMountHooks do
   end
 
   def on_mount(:require_authenticated_user_not_confirmed, _params, session, socket) do
-    socket = maybe_assign_user(socket, session)
+    socket = maybe_assign_scope(socket, session)
+    user = socket.assigns.current_scope && socket.assigns.current_scope.user
 
-    if socket.assigns.current_user do
+    if user do
       {:cont, socket}
     else
       socket = put_flash(socket, :error, gettext("You must sign in to access this page."))
@@ -48,9 +50,10 @@ defmodule MossletWeb.UserOnMountHooks do
   end
 
   def on_mount(:require_confirmed_user, _params, session, socket) do
-    socket = maybe_assign_user(socket, session)
+    socket = maybe_assign_scope(socket, session)
+    user = socket.assigns.current_scope && socket.assigns.current_scope.user
 
-    if socket.assigns.current_user && socket.assigns.current_user.confirmed_at do
+    if user && user.confirmed_at do
       {:cont, socket}
     else
       socket =
@@ -61,9 +64,10 @@ defmodule MossletWeb.UserOnMountHooks do
   end
 
   def on_mount(:require_admin_user, _params, session, socket) do
-    socket = maybe_assign_user(socket, session)
+    socket = maybe_assign_scope(socket, session)
+    user = socket.assigns.current_scope && socket.assigns.current_scope.user
 
-    if socket.assigns.current_user && socket.assigns.current_user.is_admin? do
+    if user && user.is_admin? do
       {:cont, socket}
     else
       {:halt, redirect(socket, to: "/")}
@@ -71,17 +75,18 @@ defmodule MossletWeb.UserOnMountHooks do
   end
 
   def on_mount(:maybe_assign_user, _params, session, socket) do
-    {:cont, maybe_assign_user(socket, session)}
+    {:cont, maybe_assign_scope(socket, session)}
   end
 
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
-    socket = maybe_assign_user(socket, session)
+    socket = maybe_assign_scope(socket, session)
+    scope = socket.assigns.current_scope
 
     totp_pending = session["user_totp_pending"]
 
-    if socket.assigns.current_user && socket.assigns.key && !totp_pending do
+    if scope && scope.user && scope.key && !totp_pending do
       signed_in_path =
-        if socket.assigns.current_user.is_onboarded? do
+        if scope.user.is_onboarded? do
           ~p"/app"
         else
           ~p"/app/users/onboarding"
@@ -89,7 +94,7 @@ defmodule MossletWeb.UserOnMountHooks do
 
       {:halt, redirect(socket, to: signed_in_path)}
     else
-      if socket.assigns.current_user && socket.assigns.key && totp_pending do
+      if scope && scope.user && scope.key && totp_pending do
         {:halt, redirect(socket, to: ~p"/app/users/totp")}
       else
         {:cont, socket}
@@ -97,19 +102,18 @@ defmodule MossletWeb.UserOnMountHooks do
     end
   end
 
-  defp maybe_assign_user(socket, session) do
-    socket =
-      assign_new(socket, :current_user, fn ->
-        get_user(session["user_token"])
+  defp maybe_assign_scope(socket, session) do
+    socket
+    |> assign_new(:current_user, fn ->
+      get_user(session["user_token"])
+    end)
+    |> assign_new(:key, fn ->
+      session["key"]
+    end)
+    |> then(fn socket ->
+      assign_new(socket, :current_scope, fn ->
+        Scope.for_user(socket.assigns.current_user, key: socket.assigns.key)
       end)
-
-    socket =
-      assign_new(socket, :key, fn ->
-        session["key"]
-      end)
-
-    assign_new(socket, :current_scope, fn ->
-      Scope.for_user(socket.assigns.current_user, key: socket.assigns.key)
     end)
   end
 

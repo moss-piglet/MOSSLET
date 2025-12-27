@@ -14,7 +14,6 @@ defmodule MossletWeb.ModernSidebarLayout do
   attr :current_page, :atom, required: true
   attr :sidebar_current_page, :atom, default: nil
   attr :current_scope, :map, required: true
-  attr :key, :string, required: true
   attr :main_menu_items, :list, default: []
   attr :user_menu_items, :list, default: []
   attr :sidebar_title, :string, default: nil

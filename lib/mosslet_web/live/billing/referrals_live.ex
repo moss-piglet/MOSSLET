@@ -408,14 +408,6 @@ defmodule MossletWeb.ReferralsLive do
 
   defp estimated_commission(_), do: 0
 
-  defp total_commissions(%{commissions: commissions}) when is_list(commissions) do
-    Enum.reduce(commissions, 0, fn c, acc ->
-      if c.status in ["available", "paid_out"], do: acc + c.commission_amount, else: acc
-    end)
-  end
-
-  defp total_commissions(_), do: 0
-
   defp referral_display_status(referral) do
     subscription = get_referral_subscription(referral)
 
@@ -444,12 +436,6 @@ defmodule MossletWeb.ReferralsLive do
     do: sub
 
   defp get_referral_subscription(_), do: nil
-
-  defp has_only_pending_commissions?(%{commissions: commissions}) when is_list(commissions) do
-    commissions != [] and Enum.all?(commissions, &(&1.status == "pending"))
-  end
-
-  defp has_only_pending_commissions?(_), do: false
 
   defp has_commissions_past_hold?(%{commissions: commissions}) when is_list(commissions) do
     now = DateTime.utc_now()

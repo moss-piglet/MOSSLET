@@ -303,7 +303,7 @@ defmodule MossletWeb.UserAuth do
 
       {:halt, socket}
     else
-      if socket.assigns.current_user do
+      if socket.assigns.current_scope && socket.assigns.current_scope.user do
         {:cont, socket}
       else
         socket =
@@ -319,7 +319,7 @@ defmodule MossletWeb.UserAuth do
   def on_mount(:ensure_confirmed, _params, session, socket) do
     socket = mount_current_scope(socket, session)
 
-    if socket.assigns.current_user.confirmed_at do
+    if socket.assigns.current_scope.user.confirmed_at do
       {:cont, socket}
     else
       socket =
@@ -342,11 +342,13 @@ defmodule MossletWeb.UserAuth do
     if Enum.any?(@public_list, fn view -> view in view_list end) do
       {:cont, socket}
     else
+      scope = socket.assigns.current_scope
+
       cond do
-        socket.assigns[:current_user] && socket.assigns[:key] ->
+        scope && scope.user && scope.key ->
           {:cont, socket}
 
-        socket.assigns[:current_user] && !socket.assigns[:key] ->
+        scope && scope.user && !scope.key ->
           socket =
             socket
             |> Phoenix.LiveView.put_flash(
@@ -374,7 +376,7 @@ defmodule MossletWeb.UserAuth do
   def on_mount(:ensure_admin_user, _params, session, socket) do
     socket = mount_current_scope(socket, session)
 
-    if socket.assigns.current_user.is_admin? do
+    if socket.assigns.current_scope.user.is_admin? do
       {:cont, socket}
     else
       socket =
@@ -391,16 +393,14 @@ defmodule MossletWeb.UserAuth do
 
   def on_mount(:maybe_ensure_connection, params, session, socket) do
     socket = mount_current_scope(socket, session)
+    user = socket.assigns.current_scope.user
 
     if params["id"] &&
          String.to_existing_atom("Elixir.MossletWeb.UserConnectionLive.Show") == socket.view do
-      if socket.assigns.current_user.id == params["id"] do
+      if user.id == params["id"] do
         {:cont, socket}
       else
-        if Accounts.validate_users_in_connection(
-             params["id"],
-             socket.assigns.current_user.id
-           ) do
+        if Accounts.validate_users_in_connection(params["id"], user.id) do
           {:cont, socket}
         else
           socket =
@@ -421,12 +421,13 @@ defmodule MossletWeb.UserAuth do
 
   def on_mount(:maybe_ensure_private_posts, params, session, socket) do
     socket = mount_current_scope(socket, session)
+    user = socket.assigns.current_scope.user
 
     info = "You do not have permission to view this page or it does not exist."
 
     if String.to_existing_atom("Elixir.MossletWeb.PostLive.Show") == socket.view do
       with %Timeline.Post{} = post <- Timeline.get_post(params["id"]),
-           true <- post.user_id == socket.assigns.current_user.id do
+           true <- post.user_id == user.id do
         {:cont, socket}
       else
         nil ->
@@ -445,7 +446,7 @@ defmodule MossletWeb.UserAuth do
 
           cond do
             post.visibility == :connections &&
-                MossletWeb.Helpers.has_user_connection?(post, socket.assigns.current_user) ->
+                MossletWeb.Helpers.has_user_connection?(post, user) ->
               {:cont, socket}
 
             true ->
@@ -467,10 +468,9 @@ defmodule MossletWeb.UserAuth do
 
   def on_mount(:maybe_ensure_private_profile, params, session, socket) do
     socket = mount_current_scope(socket, session)
+    current_user = socket.assigns.current_scope && socket.assigns.current_scope.user
 
     info = "You do not have permission to view this page or it does not exist."
-
-    current_user = socket.assigns.current_user
 
     if String.to_existing_atom("Elixir.MossletWeb.UserHomeLive") == socket.view do
       with %Accounts.User{} = user <- Accounts.get_user_from_profile_slug(params["slug"]),
@@ -532,11 +532,12 @@ defmodule MossletWeb.UserAuth do
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     totp_pending = session["user_totp_pending"]
     socket = mount_current_scope(socket, session)
+    scope = socket.assigns.current_scope
 
-    if socket.assigns.current_user && socket.assigns.key && !totp_pending do
-      {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket.assigns.current_user))}
+    if scope && scope.user && scope.key && !totp_pending do
+      {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(scope.user))}
     else
-      if socket.assigns.current_user && socket.assigns.key && totp_pending do
+      if scope && scope.user && scope.key && totp_pending do
         {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/app/users/totp")}
       else
         {:cont, socket}
@@ -558,9 +559,6 @@ defmodule MossletWeb.UserAuth do
       end)
     end)
   end
-
-  defp mount_current_user(socket, session), do: mount_current_scope(socket, session)
-  defp mount_current_user_session_key(socket, _session), do: socket
 
   @doc """
   Used for routes that require the user to not be authenticated.

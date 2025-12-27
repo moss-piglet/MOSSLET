@@ -73,8 +73,7 @@ defmodule MossletWeb.Router do
 
     live_session :home,
       on_mount: [
-        {MossletWeb.UserAuth, :mount_current_user},
-        {MossletWeb.UserAuth, :mount_current_user_session_key},
+        {MossletWeb.UserAuth, :mount_current_scope},
         {MossletWeb.UserAuth, :ensure_session_key}
       ] do
       live "/", HomeLive, :home
@@ -107,8 +106,7 @@ defmodule MossletWeb.Router do
 
     live_session :public_profile,
       on_mount: [
-        {MossletWeb.UserAuth, :mount_current_user},
-        {MossletWeb.UserAuth, :mount_current_user_session_key},
+        {MossletWeb.UserAuth, :mount_current_scope},
         {MossletWeb.UserAuth, :ensure_session_key},
         {MossletWeb.UserAuth, :maybe_ensure_connection},
         {MossletWeb.UserAuth, :maybe_ensure_private_profile}

@@ -14,10 +14,9 @@ defmodule MossletWeb.PostLive.Components do
   attr :id, :string, required: true
   attr :stream, :list, required: true
   attr :card_click, :any, default: nil, doc: "the function for handling phx-click on each card"
-  attr :current_user, :string, required: true
+  attr :current_scope, :map, required: true
   attr :options, :map, doc: "the pagination options map"
   attr :post_count, :integer, doc: "the total count of current_user's posts"
-  attr :key, :string, required: true
   attr :post_loading, :boolean, required: true, doc: "whether a post is loading or not"
   attr :group, Mosslet.Groups.Group, default: nil, doc: "the optional group struct"
 
@@ -688,8 +687,7 @@ defmodule MossletWeb.PostLive.Components do
   end
 
   attr :id, :string, doc: "the html id of the post"
-  attr :current_user, :string, required: true
-  attr :key, :string, required: true
+  attr :current_scope, :map, required: true
   attr :post, Mosslet.Timeline.Post, required: true
   attr :reply_count, :integer, doc: "the total count of post's replies"
 

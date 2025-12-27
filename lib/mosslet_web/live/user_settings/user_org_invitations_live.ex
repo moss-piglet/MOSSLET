@@ -20,8 +20,7 @@ defmodule MossletWeb.UserOrgInvitationsLive do
     <.settings_layout
       current_page={:org_invitations}
       sidebar_current_page={:settings}
-      current_user={@current_user}
-      key={@key}
+      current_scope={@current_scope}
     >
       <%= if @current_user.confirmed_at do %>
         <%= if Util.blank?(@invitations) do %>
@@ -87,10 +86,10 @@ defmodule MossletWeb.UserOrgInvitationsLive do
 
   @impl true
   def handle_event("accept_invitation", %{"id" => id}, socket) do
-    membership = Orgs.accept_invitation!(socket.assigns.current_user, id)
+    membership = Orgs.accept_invitation!(socket.assigns.current_scope.user, id)
 
     Mosslet.Logs.log("orgs.accept_invitation", %{
-      user: socket.assigns.current_user,
+      user: socket.assigns.current_scope.user,
       org_id: membership.org_id,
       metadata: %{
         membership_id: membership.id
@@ -105,10 +104,10 @@ defmodule MossletWeb.UserOrgInvitationsLive do
 
   @impl true
   def handle_event("reject_invitation", %{"id" => id}, socket) do
-    invitation = Orgs.reject_invitation!(socket.assigns.current_user, id)
+    invitation = Orgs.reject_invitation!(socket.assigns.current_scope.user, id)
 
     Mosslet.Logs.log("orgs.reject_invitation", %{
-      user: socket.assigns.current_user,
+      user: socket.assigns.current_scope.user,
       org_id: invitation.org_id
     })
 
@@ -121,14 +120,14 @@ defmodule MossletWeb.UserOrgInvitationsLive do
   @impl true
   def handle_event("confirmation_resend", _, socket) do
     # we're resending to the current_user's email
-    key = socket.assigns.key
-    current_user = socket.assigns.current_user
+    key = socket.assigns.current_scope.key
+    current_user = socket.assigns.current_scope.user
 
     d_email =
       Mosslet.Encrypted.Users.Utils.decrypt_user_data(current_user.email, current_user, key)
 
     Accounts.deliver_user_confirmation_instructions(
-      socket.assigns.current_user,
+      current_user,
       d_email,
       &url(~p"/app/users/settings/confirm-email/#{&1}")
     )
@@ -138,7 +137,7 @@ defmodule MossletWeb.UserOrgInvitationsLive do
   end
 
   defp assign_invitations(socket) do
-    invitations = Orgs.list_invitations_by_user(socket.assigns.current_user)
+    invitations = Orgs.list_invitations_by_user(socket.assigns.current_scope.user)
 
     assign(socket, :invitations, invitations)
   end
