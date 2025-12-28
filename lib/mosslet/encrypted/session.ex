@@ -6,6 +6,7 @@ defmodule Mosslet.Encrypted.Session do
   def server_public_key, do: System.fetch_env!("SERVER_PUBLIC_KEY")
   def server_private_key, do: System.fetch_env!("SERVER_PRIVATE_KEY")
   def avatars_bucket, do: System.fetch_env!("AVATARS_BUCKET")
+  def banners_bucket, do: System.fetch_env!("AVATARS_BUCKET")
   def memories_bucket, do: System.fetch_env!("MEMORIES_BUCKET")
   def admin_email, do: System.fetch_env!("ADMIN_EMAIL")
   def s3_endpoint, do: System.fetch_env!("AWS_ENDPOINT_URL_S3")

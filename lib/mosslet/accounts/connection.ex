@@ -88,23 +88,20 @@ defmodule Mosslet.Accounts.Connection do
           :beach,
           :clouds,
           :confetti,
+          :custom,
           :electric,
-          :fern,
           :forest,
           :forest_illustrated,
           :fox_trot,
-          :geranium,
           :lupin,
           :mountain_lake,
           :mountains,
-          :ocean,
-          :shoreline,
-          :succulents,
           :stars,
-          :waves,
-          :years
+          :waves
         ],
         default: :waves
+
+      field :custom_banner_url, Encrypted.Binary
 
       field :opts_map, :map, virtual: true
       field :temp_username, :string, virtual: true
@@ -157,6 +154,7 @@ defmodule Mosslet.Accounts.Connection do
       :slug,
       :visibility,
       :banner_image,
+      :custom_banner_url,
       :profile_key,
       :opts_map,
       :temp_username

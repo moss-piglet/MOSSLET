@@ -422,6 +422,8 @@ defmodule MossletWeb.DeleteAccountLive do
     # Cancel Stripe subscription.
     case Accounts.delete_user_account(user, user_params["current_password"], user_params) do
       {:ok, user} ->
+        maybe_delete_custom_banner(user, key)
+
         case cancel_subscription(user, socket) do
           :canceled ->
             if stripe_customer_id do
@@ -719,5 +721,25 @@ defmodule MossletWeb.DeleteAccountLive do
            }}
       end
     end)
+  end
+
+  defp maybe_delete_custom_banner(user, key) do
+    profile = Map.get(user.connection, :profile)
+
+    if profile && Map.get(profile, :custom_banner_url) do
+      banners_bucket = Encrypted.Session.banners_bucket()
+
+      banner_url =
+        decr_banner(
+          profile.custom_banner_url,
+          user,
+          user.conn_key,
+          key
+        )
+
+      if is_binary(banner_url) and String.starts_with?(banner_url, "uploads/") do
+        make_async_banner_delete_request(banners_bucket, banner_url)
+      end
+    end
   end
 end

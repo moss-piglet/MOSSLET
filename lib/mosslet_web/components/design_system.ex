@@ -4262,6 +4262,273 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
+  @doc """
+  Liquid banner upload component with detailed progress feedback.
+  Shows processing stages and helpful dimension tips for optimal banner display.
+  """
+  attr :upload, :map, required: true
+  attr :upload_stage, :any, default: nil
+  attr :current_banner_src, :string, default: nil
+  attr :banner_loading, :any, default: nil
+  attr :user, :map, required: true
+  attr :encryption_key, :string, required: true
+  attr :url, :string, default: nil
+  attr :on_delete, :string, default: nil
+  attr :class, :any, default: nil
+
+  def liquid_banner_upload(assigns) do
+    ~H"""
+    <div class={["space-y-4", @class]}>
+      <div class="space-y-3">
+        <div class="flex items-start gap-3 p-3 rounded-xl bg-purple-50/60 dark:bg-purple-900/20 border border-purple-200/60 dark:border-purple-700/40">
+          <.phx_icon
+            name="hero-light-bulb"
+            class="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0"
+          />
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-purple-800 dark:text-purple-200">
+              Banner Image Tips
+            </p>
+            <ul class="text-xs text-purple-700/90 dark:text-purple-300/90 space-y-0.5">
+              <li>
+                • Recommended size: <span class="font-medium">1500×500 pixels</span> (3:1 ratio)
+              </li>
+              <li>• Minimum width: <span class="font-medium">1200px</span> for best quality</li>
+              <li>• File types: JPEG, PNG, WebP, HEIC</li>
+              <li>• Max file size: 10MB</li>
+            </ul>
+          </div>
+        </div>
+
+        <div
+          phx-drop-target={@upload.ref}
+          class="relative rounded-xl overflow-hidden border-2 border-dashed border-slate-300 dark:border-slate-600 transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-500 phx-drop-target:border-purple-500 phx-drop-target:bg-purple-50 dark:phx-drop-target:bg-purple-900/20"
+        >
+          <%= cond do %>
+            <% @banner_loading -> %>
+              <div class="aspect-[3/1] flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700">
+                <div class="text-center">
+                  <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-2">
+                  </div>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Loading banner...</p>
+                </div>
+              </div>
+            <% @current_banner_src -> %>
+              <div class="relative aspect-[3/1] bg-slate-100 dark:bg-slate-800">
+                <img
+                  src={@current_banner_src}
+                  class="w-full h-full object-cover"
+                  alt="Current banner"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                <button
+                  :if={@on_delete}
+                  type="button"
+                  id="delete-banner-button"
+                  phx-click={@on_delete}
+                  phx-value-url={@url}
+                  data-confirm="Are you sure you want to remove your custom banner?"
+                  class="absolute top-3 right-3 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
+                  phx-hook="TippyHook"
+                  data-tippy-content="Remove banner"
+                  aria-label="Remove banner"
+                >
+                  <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                </button>
+              </div>
+            <% true -> %>
+              <div class="aspect-[3/1] flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700">
+                <div class="text-center">
+                  <.phx_icon
+                    name="hero-photo"
+                    class="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-2"
+                  />
+                  <p class="text-sm text-slate-500 dark:text-slate-400">No custom banner uploaded</p>
+                </div>
+              </div>
+          <% end %>
+        </div>
+
+        <%= if Enum.any?(@upload.entries) do %>
+          <div class="space-y-3">
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Preview</p>
+            <%= for entry <- @upload.entries do %>
+              <div class="relative rounded-xl overflow-hidden border-2 border-purple-400 dark:border-purple-500">
+                <div class="relative aspect-[3/1]">
+                  <.live_img_preview
+                    entry={entry}
+                    class="w-full h-full object-cover"
+                    alt="Banner preview"
+                  />
+                  <div
+                    :if={is_processing?(@upload_stage)}
+                    class="absolute inset-0 bg-black/50 flex items-center justify-center"
+                  >
+                    <div class="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin">
+                    </div>
+                  </div>
+                  <button
+                    :if={!is_processing?(@upload_stage)}
+                    type="button"
+                    id={"cancel-banner-upload-#{entry.ref}"}
+                    phx-click="cancel-banner-upload"
+                    phx-value-ref={entry.ref}
+                    class="absolute top-3 right-3 w-8 h-8 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                    phx-hook="TippyHook"
+                    data-tippy-content="Cancel"
+                    aria-label="Cancel upload"
+                  >
+                    <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <div class="flex items-center gap-4">
+          <label
+            for={@upload.ref}
+            class={[
+              "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl cursor-pointer",
+              "bg-purple-100 dark:bg-purple-900/40",
+              "border border-purple-200/60 dark:border-purple-700/60",
+              "hover:bg-purple-200/80 dark:hover:bg-purple-800/60",
+              "transition-all duration-200 ease-out",
+              "text-sm font-medium text-purple-700 dark:text-purple-200"
+            ]}
+          >
+            <.phx_icon name="hero-arrow-up-tray" class="h-4 w-4" />
+            <span>{if @current_banner_src, do: "Replace banner", else: "Upload banner"}</span>
+          </label>
+          <.live_file_input upload={@upload} class="hidden" />
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            {Enum.join(@upload.acceptable_exts, ", ")}
+          </p>
+        </div>
+      </div>
+
+      <%= if Enum.any?(@upload.entries) || is_processing?(@upload_stage) do %>
+        <.liquid_banner_upload_progress
+          upload={@upload}
+          upload_stage={@upload_stage}
+        />
+      <% end %>
+
+      <%= for entry <- @upload.entries do %>
+        <%= for err <- upload_errors(@upload, entry) do %>
+          <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+              <span>{humanize_upload_error(err)}</span>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :upload, :map, required: true
+  attr :upload_stage, :any, default: nil
+
+  def liquid_banner_upload_progress(assigns) do
+    stages = [
+      {:receiving, "Receiving", "hero-arrow-down-tray"},
+      {:converting, "Converting", "hero-arrows-right-left"},
+      {:resizing, "Resizing", "hero-arrows-pointing-in"},
+      {:checking, "Safety check", "hero-shield-check"},
+      {:encrypting, "Encrypting", "hero-lock-closed"},
+      {:uploading, "Uploading", "hero-cloud-arrow-up"}
+    ]
+
+    assigns = assign(assigns, :stages, stages)
+
+    ~H"""
+    <div class={[
+      "p-4 rounded-xl border",
+      "bg-gradient-to-br from-purple-50/80 to-purple-100/60 dark:from-purple-900/30 dark:to-purple-900/20",
+      "border-purple-200/60 dark:border-purple-700/60"
+    ]}>
+      <div class="flex items-center gap-2 mb-4">
+        <.phx_icon
+          name="hero-cog-6-tooth"
+          class="h-4 w-4 text-purple-600 dark:text-purple-400 animate-spin"
+        />
+        <span class="text-sm font-medium text-purple-700 dark:text-purple-300">
+          Processing your banner
+        </span>
+      </div>
+
+      <div class="space-y-2">
+        <%= for {stage_key, stage_label, stage_icon} <- @stages do %>
+          <% status = get_stage_status(@upload_stage, stage_key) %>
+          <div class={[
+            "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-300",
+            banner_stage_status_bg_class(status)
+          ]}>
+            <div class={[
+              "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
+              banner_stage_status_icon_class(status)
+            ]}>
+              <%= case status do %>
+                <% :completed -> %>
+                  <.phx_icon name="hero-check" class="h-3.5 w-3.5 text-white" />
+                <% :active -> %>
+                  <div class="w-3 h-3 border-2 border-purple-600 border-t-transparent rounded-full animate-spin">
+                  </div>
+                <% :pending -> %>
+                  <.phx_icon name={stage_icon} class="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                <% :error -> %>
+                  <.phx_icon name="hero-x-mark" class="h-3.5 w-3.5 text-white" />
+              <% end %>
+            </div>
+
+            <span class={[
+              "text-sm font-medium transition-all duration-300",
+              banner_stage_status_text_class(status)
+            ]}>
+              {stage_label}
+            </span>
+
+            <%= if status == :active do %>
+              <div class="ml-auto flex items-center gap-2">
+                <div class="w-16 h-1.5 bg-purple-200 dark:bg-purple-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-purple-500 rounded-full animate-pulse w-2/3"></div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <%= if is_upload_error?(@upload_stage) do %>
+        <div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+            <span>{get_upload_error_message(@upload_stage)}</span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp banner_stage_status_bg_class(:completed), do: "bg-purple-50/80 dark:bg-purple-900/20"
+  defp banner_stage_status_bg_class(:active), do: "bg-purple-100/80 dark:bg-purple-900/30"
+  defp banner_stage_status_bg_class(:error), do: "bg-red-50/80 dark:bg-red-900/20"
+  defp banner_stage_status_bg_class(:pending), do: "bg-transparent"
+
+  defp banner_stage_status_icon_class(:completed), do: "bg-purple-500"
+  defp banner_stage_status_icon_class(:active), do: "bg-purple-100 dark:bg-purple-900/50"
+  defp banner_stage_status_icon_class(:error), do: "bg-red-500"
+  defp banner_stage_status_icon_class(:pending), do: "bg-slate-100 dark:bg-slate-700"
+
+  defp banner_stage_status_text_class(:completed), do: "text-purple-700 dark:text-purple-300"
+  defp banner_stage_status_text_class(:active), do: "text-purple-700 dark:text-purple-300"
+  defp banner_stage_status_text_class(:error), do: "text-red-700 dark:text-red-300"
+  defp banner_stage_status_text_class(:pending), do: "text-slate-500 dark:text-slate-400"
+
   defp avatar_upload_border_class(nil), do: "border-slate-200 dark:border-slate-600"
   defp avatar_upload_border_class({:error, _}), do: "border-red-400 dark:border-red-500"
   defp avatar_upload_border_class({:ready, _}), do: "border-emerald-400 dark:border-emerald-500"
@@ -6278,6 +6545,8 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   attr :id, :string, default: nil
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
+  attr :custom_banner_src, :any, default: nil, doc: "async result for custom banner data URL"
+  attr :banner_loading, :boolean, default: false, doc: "whether custom banner is loading"
 
   def liquid_timeline_header(assigns) do
     assigns = assign_scope_fields(assigns)
@@ -6292,92 +6561,127 @@ defmodule MossletWeb.DesignSystem do
         @class
       ]}
     >
-      <div :if={@banner_image} class="relative h-32 sm:h-40 lg:h-48">
-        <img
-          src={~p"/images/profile/#{@banner_image}"}
-          alt=""
-          class="absolute inset-0 w-full h-full object-cover"
-        />
-        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/10" />
-        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-          <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
-              <.phx_icon
-                name="hero-book-open"
-                class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
-              />
-            </div>
-            <div>
-              <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
-                Timeline
-              </h1>
-              <p class="text-sm text-white/80 drop-shadow-sm">
-                Your private feed
-              </p>
+      <%= cond do %>
+        <% @banner_loading -> %>
+          <div class="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700">
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin">
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div
-        :if={!@banner_image}
-        class="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-br from-emerald-500/90 via-teal-500/80 to-cyan-500/90 dark:from-emerald-600/80 dark:via-teal-600/70 dark:to-cyan-600/80"
-      >
-        <div class="absolute inset-0 overflow-hidden">
-          <div class="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
-          <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-300/20 rounded-full blur-2xl" />
-          <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 bg-teal-200/10 rounded-full blur-3xl rotate-12" />
-          <svg
-            class="absolute inset-0 w-full h-full"
-            viewBox="0 0 800 200"
-            preserveAspectRatio="none"
-          >
-            <path
-              d="M0 120 Q200 80 400 120 T800 100"
-              fill="none"
-              stroke="white"
-              stroke-width="1"
-              opacity="0.2"
+        <% @custom_banner_src -> %>
+          <div class="relative h-32 sm:h-40 lg:h-48">
+            <img
+              src={@custom_banner_src}
+              alt=""
+              class="absolute inset-0 w-full h-full object-cover"
             />
-            <path
-              d="M0 150 Q250 110 500 150 T800 130"
-              fill="none"
-              stroke="white"
-              stroke-width="0.8"
-              opacity="0.15"
-            />
-            <path
-              d="M0 80 Q150 50 350 80 T800 60"
-              fill="none"
-              stroke="white"
-              stroke-width="0.6"
-              opacity="0.1"
-            />
-          </svg>
-        </div>
-
-        <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-
-        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-          <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
-              <.phx_icon
-                name="hero-book-open"
-                class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
-              />
-            </div>
-            <div>
-              <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
-                Timeline
-              </h1>
-              <p class="text-sm text-white/80 drop-shadow-sm">
-                Your private feed
-              </p>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/10" />
+            <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+              <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
+                  <.phx_icon
+                    name="hero-book-open"
+                    class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
+                  />
+                </div>
+                <div>
+                  <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
+                    Timeline
+                  </h1>
+                  <p class="text-sm text-white/80 drop-shadow-sm">
+                    Your private feed
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        <% @banner_image -> %>
+          <div class="relative h-32 sm:h-40 lg:h-48">
+            <img
+              src={~p"/images/profile/#{@banner_image}"}
+              alt=""
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/10" />
+            <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+              <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
+                  <.phx_icon
+                    name="hero-book-open"
+                    class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
+                  />
+                </div>
+                <div>
+                  <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
+                    Timeline
+                  </h1>
+                  <p class="text-sm text-white/80 drop-shadow-sm">
+                    Your private feed
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% true -> %>
+          <div class="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-br from-emerald-500/90 via-teal-500/80 to-cyan-500/90 dark:from-emerald-600/80 dark:via-teal-600/70 dark:to-cyan-600/80">
+            <div class="absolute inset-0 overflow-hidden">
+              <div class="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
+              <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-300/20 rounded-full blur-2xl" />
+              <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 bg-teal-200/10 rounded-full blur-3xl rotate-12" />
+              <svg
+                class="absolute inset-0 w-full h-full"
+                viewBox="0 0 800 200"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M0 120 Q200 80 400 120 T800 100"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="1"
+                  opacity="0.2"
+                />
+                <path
+                  d="M0 150 Q250 110 500 150 T800 130"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="0.8"
+                  opacity="0.15"
+                />
+                <path
+                  d="M0 80 Q150 50 350 80 T800 60"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="0.6"
+                  opacity="0.1"
+                />
+              </svg>
+            </div>
+
+            <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+
+            <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+              <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md shadow-lg border border-white/30">
+                  <.phx_icon
+                    name="hero-book-open"
+                    class="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm"
+                  />
+                </div>
+                <div>
+                  <h1 class="text-lg sm:text-xl font-semibold text-white drop-shadow-sm">
+                    Timeline
+                  </h1>
+                  <p class="text-sm text-white/80 drop-shadow-sm">
+                    Your private feed
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+      <% end %>
     </div>
     """
   end
@@ -6385,7 +6689,8 @@ defmodule MossletWeb.DesignSystem do
   defp get_user_banner_image(nil), do: nil
 
   defp get_user_banner_image(user) do
-    with %{connection: %{profile: %{banner_image: banner}}} when not is_nil(banner) <- user do
+    with %{connection: %{profile: %{banner_image: banner}}}
+         when not is_nil(banner) and banner != :custom <- user do
       "#{banner}.jpg"
     else
       _ -> nil

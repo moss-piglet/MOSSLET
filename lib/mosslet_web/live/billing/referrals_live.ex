@@ -1035,7 +1035,7 @@ defmodule MossletWeb.ReferralsLive do
                 href={~p"/app/billing"}
                 size="sm"
                 variant="secondary"
-                color="violet"
+                color="purple"
                 icon="hero-cog-6-tooth"
               >
                 {gettext("Manage Billing")}

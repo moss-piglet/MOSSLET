@@ -63,6 +63,7 @@ defmodule MossletWeb.UserHomeLive do
         if(profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id))
       )
       |> URLPreviewHelpers.assign_url_preview_defaults()
+      |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
     socket =
       if connected?(socket) do
@@ -308,14 +309,29 @@ defmodule MossletWeb.UserHomeLive do
       <div class="relative overflow-hidden">
         <%!-- Banner/Cover Image Section --%>
         <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-          <%!-- Banner image if available --%>
-          <div
-            :if={get_banner_image_for_connection(@profile_user.connection) != ""}
-            class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-          >
-            <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-          </div>
+          <%!-- Custom banner image if available --%>
+          <%= cond do %>
+            <% @custom_banner_src.loading -> %>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin">
+                </div>
+              </div>
+            <% get_async_banner_src(@custom_banner_src) -> %>
+              <div
+                class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={"background-image: url('#{get_async_banner_src(@custom_banner_src)}')"}
+              >
+                <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+              </div>
+            <% get_banner_image_for_connection(@profile_user.connection) != "" -> %>
+              <div
+                class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
+              >
+                <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+              </div>
+            <% true -> %>
+          <% end %>
 
           <%!-- Liquid metal overlay pattern --%>
           <div class="absolute inset-0 opacity-20">
@@ -1478,4 +1494,124 @@ defmodule MossletWeb.UserHomeLive do
   defp has_contact_links?(profile) do
     profile.alternate_email || profile.website_url
   end
+
+  defp maybe_load_custom_banner_async(socket, profile_user, profile_owner?) do
+    profile = Map.get(profile_user.connection, :profile)
+    banner_image = if profile, do: profile.banner_image, else: :waves
+
+    if banner_image == :custom && profile && Map.get(profile, :custom_banner_url) do
+      key = socket.assigns.key
+
+      if profile_owner? do
+        user = socket.assigns.current_scope.user
+        connection_id = user.connection.id
+
+        case Mosslet.Extensions.BannerProcessor.get_banner(connection_id) do
+          nil ->
+            assign_async(socket, :custom_banner_src, fn ->
+              result = load_custom_banner(user, profile, key, connection_id)
+              {:ok, %{custom_banner_src: result}}
+            end)
+
+          cached_encrypted_binary ->
+            assign_async(socket, :custom_banner_src, fn ->
+              result = decrypt_cached_banner(cached_encrypted_binary, user, key)
+              {:ok, %{custom_banner_src: result}}
+            end)
+        end
+      else
+        assign(socket, :custom_banner_src, %Phoenix.LiveView.AsyncResult{ok?: true, result: nil})
+      end
+    else
+      assign(socket, :custom_banner_src, %Phoenix.LiveView.AsyncResult{ok?: true, result: nil})
+    end
+  end
+
+  defp decrypt_cached_banner(encrypted_binary, user, key) do
+    {:ok, d_conn_key} =
+      Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+
+    case Mosslet.Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_binary}) do
+      {:ok, decrypted} -> "data:image/webp;base64,#{Base.encode64(decrypted)}"
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp load_custom_banner(user, profile, key, connection_id) do
+    if profile && Map.get(profile, :custom_banner_url) do
+      d_banner_url =
+        decr_banner(
+          profile.custom_banner_url,
+          user,
+          user.conn_key,
+          key
+        )
+
+      if is_valid_banner_url?(d_banner_url) do
+        case fetch_and_decrypt_banner(d_banner_url, user, key, connection_id) do
+          {:ok, decrypted_binary} ->
+            "data:image/webp;base64,#{Base.encode64(decrypted_binary)}"
+
+          {:error, _reason} ->
+            nil
+        end
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp is_valid_banner_url?(nil), do: false
+  defp is_valid_banner_url?(""), do: false
+  defp is_valid_banner_url?("failed_verification"), do: false
+  defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
+  defp is_valid_banner_url?(_), do: false
+
+  defp fetch_and_decrypt_banner(banner_url, user, key, connection_id) do
+    banners_bucket = Mosslet.Encrypted.Session.banners_bucket()
+    host = Mosslet.Encrypted.Session.s3_host()
+    host_name = "https://#{banners_bucket}.#{host}"
+
+    config = %{
+      region: Mosslet.Encrypted.Session.s3_region(),
+      access_key_id: Mosslet.Encrypted.Session.s3_access_key_id(),
+      secret_access_key: Mosslet.Encrypted.Session.s3_secret_key_access()
+    }
+
+    options = [
+      virtual_host: true,
+      bucket_as_host: true,
+      expires_in: 600
+    ]
+
+    {:ok, presigned_url} = ExAws.S3.presigned_url(config, :get, host_name, banner_url, options)
+
+    case Req.get(presigned_url,
+           retry: :transient,
+           retry_delay: fn n -> n * 500 end,
+           receive_timeout: 15_000
+         ) do
+      {:ok, %{status: 200, body: encrypted_binary}} ->
+        Mosslet.Extensions.BannerProcessor.put_banner(connection_id, encrypted_binary)
+
+        {:ok, d_conn_key} =
+          Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+
+        case Mosslet.Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_binary}) do
+          {:ok, decrypted} -> {:ok, decrypted}
+          error -> error
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "Failed to fetch banner: HTTP #{status}"}
+
+      {:error, reason} ->
+        {:error, "Failed to fetch banner: #{inspect(reason)}"}
+    end
+  end
+
+  defp get_async_banner_src(%Phoenix.LiveView.AsyncResult{ok?: true, result: result}), do: result
+  defp get_async_banner_src(_), do: nil
 end

@@ -383,6 +383,30 @@ defmodule MossletWeb.Helpers do
     end
   end
 
+  def decr_banner(payload, user, item_key, key) do
+    case payload do
+      nil ->
+        nil
+
+      "" ->
+        nil
+
+      _ ->
+        case Encrypted.Users.Utils.decrypt_user_item(
+               payload,
+               user,
+               item_key,
+               key
+             ) do
+          :failed_verification ->
+            "failed_verification"
+
+          decrypted_payload ->
+            decrypted_payload
+        end
+    end
+  end
+
   # currently being used to handle stripe encryption changeover
   def maybe_decrypt_user_data(payload, user, key) do
     case Encrypted.Users.Utils.decrypt_user_data(payload, user, key) do

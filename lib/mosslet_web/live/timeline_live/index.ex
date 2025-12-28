@@ -211,7 +211,7 @@ defmodule MossletWeb.TimelineLive.Index do
         end
       )
 
-    {:ok, assign(socket, page_title: "Timeline")}
+    {:ok, socket |> assign(page_title: "Timeline") |> maybe_load_custom_banner_async()}
   end
 
   def terminate(_reason, socket) do
@@ -6339,4 +6339,119 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp get_post_date(_), do: nil
+
+  defp maybe_load_custom_banner_async(socket) do
+    user = socket.assigns.current_user
+    profile = Map.get(user.connection, :profile)
+    banner_image = if profile, do: profile.banner_image, else: :waves
+
+    if banner_image == :custom && profile && Map.get(profile, :custom_banner_url) do
+      key = socket.assigns.key
+      connection_id = user.connection.id
+
+      case Mosslet.Extensions.BannerProcessor.get_banner(connection_id) do
+        nil ->
+          assign_async(socket, :custom_banner_src, fn ->
+            result = load_custom_banner(user, profile, key, connection_id)
+            {:ok, %{custom_banner_src: result}}
+          end)
+
+        cached_encrypted_binary ->
+          assign_async(socket, :custom_banner_src, fn ->
+            result = decrypt_cached_banner(cached_encrypted_binary, user, key)
+            {:ok, %{custom_banner_src: result}}
+          end)
+      end
+    else
+      assign(socket, :custom_banner_src, %AsyncResult{ok?: true, result: nil})
+    end
+  end
+
+  defp decrypt_cached_banner(encrypted_binary, user, key) do
+    {:ok, d_conn_key} =
+      Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+
+    case Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_binary}) do
+      {:ok, decrypted} -> "data:image/webp;base64,#{Base.encode64(decrypted)}"
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp load_custom_banner(user, profile, key, connection_id) do
+    if profile && Map.get(profile, :custom_banner_url) do
+      d_banner_url =
+        decr_banner(
+          profile.custom_banner_url,
+          user,
+          user.conn_key,
+          key
+        )
+
+      if is_valid_banner_url?(d_banner_url) do
+        case fetch_and_decrypt_banner(d_banner_url, user, key, connection_id) do
+          {:ok, decrypted_binary} ->
+            "data:image/webp;base64,#{Base.encode64(decrypted_binary)}"
+
+          {:error, _reason} ->
+            nil
+        end
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp is_valid_banner_url?(nil), do: false
+  defp is_valid_banner_url?(""), do: false
+  defp is_valid_banner_url?("failed_verification"), do: false
+  defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
+  defp is_valid_banner_url?(_), do: false
+
+  defp fetch_and_decrypt_banner(banner_url, user, key, connection_id) do
+    banners_bucket = Encrypted.Session.banners_bucket()
+    host = Encrypted.Session.s3_host()
+    host_name = "https://#{banners_bucket}.#{host}"
+
+    config = %{
+      region: Encrypted.Session.s3_region(),
+      access_key_id: Encrypted.Session.s3_access_key_id(),
+      secret_access_key: Encrypted.Session.s3_secret_key_access()
+    }
+
+    options = [
+      virtual_host: true,
+      bucket_as_host: true,
+      expires_in: 600
+    ]
+
+    {:ok, presigned_url} = ExAws.S3.presigned_url(config, :get, host_name, banner_url, options)
+
+    case Req.get(presigned_url,
+           retry: :transient,
+           retry_delay: fn n -> n * 500 end,
+           receive_timeout: 15_000
+         ) do
+      {:ok, %{status: 200, body: encrypted_binary}} ->
+        Mosslet.Extensions.BannerProcessor.put_banner(connection_id, encrypted_binary)
+
+        {:ok, d_conn_key} =
+          Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+
+        case Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_binary}) do
+          {:ok, decrypted} -> {:ok, decrypted}
+          error -> error
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "Failed to fetch banner: HTTP #{status}"}
+
+      {:error, reason} ->
+        {:error, "Failed to fetch banner: #{inspect(reason)}"}
+    end
+  end
+
+  defp get_async_banner_src(%AsyncResult{ok?: true, result: result}), do: result
+  defp get_async_banner_src(_), do: nil
 end

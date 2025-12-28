@@ -19,6 +19,8 @@
       <MossletWeb.DesignSystem.liquid_timeline_header
         id={"timeline-header-#{@active_tab}"}
         current_scope={@current_scope}
+        custom_banner_src={get_async_banner_src(@custom_banner_src)}
+        banner_loading={@custom_banner_src.loading}
       />
 
       <%!-- Sticky header group: tabs, content filter, and composer --%>

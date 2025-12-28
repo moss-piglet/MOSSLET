@@ -7,6 +7,9 @@ defmodule MossletWeb.EditProfileLive do
   alias Mosslet.Encrypted
   alias Mosslet.FileUploads.Storj
   alias MossletWeb.DesignSystem
+  alias Phoenix.LiveView.AsyncResult
+
+  @upload_provider Mosslet.FileUploads.Storj
 
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_scope.user
@@ -18,7 +21,8 @@ defmodule MossletWeb.EditProfileLive do
       |> assign(%{
         page_title: "Settings",
         uploaded_files: [],
-        profile: profile
+        profile: profile,
+        banner_upload_stage: nil
       })
       |> assign(:banner_image, banner_image)
       |> assign_profile_about(current_user, socket.assigns.key)
@@ -26,8 +30,60 @@ defmodule MossletWeb.EditProfileLive do
       |> assign_profile_website_url(current_user, socket.assigns.key)
       |> assign_profile_website_label(current_user, socket.assigns.key)
       |> assign_profile_form(current_user)
+      |> allow_upload(:banner,
+        accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+        auto_upload: true,
+        max_entries: 1,
+        max_file_size: 10_000_000
+      )
+      |> maybe_load_custom_banner_async(current_user, banner_image, profile)
 
     {:ok, socket}
+  end
+
+  defp maybe_load_custom_banner_async(socket, current_user, :custom, profile) do
+    if profile && Map.get(profile, :custom_banner_url) do
+      key = socket.assigns.key
+
+      assign_async(socket, :custom_banner_src, fn ->
+        result = load_custom_banner(current_user, key)
+        {:ok, %{custom_banner_src: result}}
+      end)
+    else
+      assign(socket, :custom_banner_src, %AsyncResult{ok?: true, result: nil})
+    end
+  end
+
+  defp maybe_load_custom_banner_async(socket, _current_user, _banner_image, _profile) do
+    assign(socket, :custom_banner_src, %AsyncResult{ok?: true, result: nil})
+  end
+
+  defp load_custom_banner(user, key) do
+    profile = Map.get(user.connection, :profile)
+
+    if profile && Map.get(profile, :custom_banner_url) do
+      d_banner_url =
+        decr_banner(
+          profile.custom_banner_url,
+          user,
+          user.conn_key,
+          key
+        )
+
+      if is_valid_banner_url?(d_banner_url) do
+        case fetch_and_decrypt_banner(d_banner_url, user, key) do
+          {:ok, decrypted_binary} ->
+            "data:image/webp;base64,#{Base.encode64(decrypted_binary)}"
+
+          {:error, _reason} ->
+            nil
+        end
+      else
+        nil
+      end
+    else
+      nil
+    end
   end
 
   def render(assigns) do
@@ -228,58 +284,133 @@ defmodule MossletWeb.EditProfileLive do
                   </div>
                 </:title>
 
-                <div id="banner-image-select" class="space-y-4">
-                  <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Select your banner image
-                  </label>
-                  <div class="max-h-80 sm:max-h-96 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-800/50">
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      <%= for banner <- Ecto.Enum.values(Connection.ConnectionProfile, :banner_image) do %>
-                        <label class="relative cursor-pointer group">
-                          <input
-                            type="radio"
-                            name={f_nested[:banner_image].name}
-                            value={banner}
-                            checked={@banner_image == banner}
-                            class="sr-only peer"
-                          />
-                          <div class={[
-                            "relative overflow-hidden rounded-xl border-2 transition-all duration-200",
-                            if(@banner_image == banner,
-                              do: "border-purple-400 ring-2 ring-purple-400/30",
-                              else:
-                                "border-slate-200 dark:border-slate-600 hover:border-purple-300 dark:hover:border-purple-500"
-                            )
-                          ]}>
-                            <img
-                              src={~p"/images/profile/#{get_banner_image(banner)}"}
-                              class="w-full h-16 sm:h-20 object-cover group-hover:scale-105 transition-transform duration-300"
-                              alt={"#{banner} banner"}
+                <div id="banner-image-select" class="space-y-6">
+                  <div class="space-y-4">
+                    <label class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                      Choose a preset banner or upload your own
+                    </label>
+                    <div class="max-h-80 sm:max-h-96 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-800/50">
+                      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <%= for banner <- Ecto.Enum.values(Connection.ConnectionProfile, :banner_image) |> Enum.reject(&(&1 == :custom)) do %>
+                          <label class="relative cursor-pointer group">
+                            <input
+                              type="radio"
+                              name={f_nested[:banner_image].name}
+                              value={banner}
+                              checked={@banner_image == banner}
+                              class="sr-only peer"
                             />
-                            <div
-                              :if={@banner_image == banner}
-                              class="absolute inset-0 bg-purple-500/20 transition-opacity duration-200"
-                            >
-                            </div>
-                            <div
-                              :if={@banner_image == banner}
-                              class="absolute top-1 right-1"
-                            >
-                              <div class="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
-                                <.phx_icon name="hero-check" class="w-3 h-3 text-white" />
+                            <div class={[
+                              "relative overflow-hidden rounded-xl border-2 transition-all duration-200",
+                              if(@banner_image == banner,
+                                do: "border-purple-400 ring-2 ring-purple-400/30",
+                                else:
+                                  "border-slate-200 dark:border-slate-600 hover:border-purple-300 dark:hover:border-purple-500"
+                              )
+                            ]}>
+                              <img
+                                src={~p"/images/profile/#{get_banner_image(banner)}"}
+                                class="w-full h-16 sm:h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                                alt={"#{banner} banner"}
+                              />
+                              <div
+                                :if={@banner_image == banner}
+                                class="absolute inset-0 bg-purple-500/20 transition-opacity duration-200"
+                              >
+                              </div>
+                              <div
+                                :if={@banner_image == banner}
+                                class="absolute top-1 right-1"
+                              >
+                                <div class="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
+                                  <.phx_icon name="hero-check" class="w-3 h-3 text-white" />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <span class="text-xs text-center mt-1.5 block capitalize text-slate-600 dark:text-slate-400 truncate">
-                            {banner |> Atom.to_string() |> String.replace("_", " ")}
-                          </span>
-                        </label>
-                      <% end %>
+                            <span class="text-xs text-center mt-1.5 block capitalize text-slate-600 dark:text-slate-400 truncate">
+                              {banner |> Atom.to_string() |> String.replace("_", " ")}
+                            </span>
+                          </label>
+                        <% end %>
+                      </div>
                     </div>
                   </div>
-                  <p class="text-sm text-slate-500 dark:text-slate-400">
-                    Choose a banner image that represents your personality.
-                  </p>
+
+                  <div class="border-t border-slate-200 dark:border-slate-700 pt-6">
+                    <div class="flex items-center gap-3 mb-4">
+                      <label class="relative cursor-pointer group flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name={f_nested[:banner_image].name}
+                          value="custom"
+                          checked={@banner_image == :custom}
+                          class="sr-only peer"
+                        />
+                        <div class={[
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200",
+                          if(@banner_image == :custom,
+                            do: "border-purple-500 bg-purple-500",
+                            else: "border-slate-300 dark:border-slate-600"
+                          )
+                        ]}>
+                          <div
+                            :if={@banner_image == :custom}
+                            class="w-2 h-2 rounded-full bg-white"
+                          >
+                          </div>
+                        </div>
+                        <span class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          Use custom banner image
+                        </span>
+                      </label>
+                    </div>
+
+                    <div :if={@banner_image == :custom} class="space-y-4">
+                      <DesignSystem.liquid_banner_upload
+                        upload={@uploads.banner}
+                        upload_stage={@banner_upload_stage}
+                        current_banner_src={get_async_banner_src(@custom_banner_src)}
+                        banner_loading={@custom_banner_src.loading}
+                        user={@current_user}
+                        encryption_key={@key}
+                        on_delete="delete_banner"
+                        url={
+                          if @profile && Map.get(@profile, :custom_banner_url),
+                            do:
+                              decr_banner(
+                                @profile.custom_banner_url,
+                                @current_user,
+                                @current_user.conn_key,
+                                @key
+                              ),
+                            else: nil
+                        }
+                      />
+                      <div
+                        :if={
+                          Enum.any?(@uploads.banner.entries) && !is_processing?(@banner_upload_stage)
+                        }
+                        class="flex justify-end"
+                      >
+                        <DesignSystem.liquid_button
+                          type="button"
+                          phx-click="upload_banner"
+                          phx-disable-with="Uploading..."
+                          color="purple"
+                          icon="hero-cloud-arrow-up"
+                        >
+                          Upload Banner
+                        </DesignSystem.liquid_button>
+                      </div>
+                    </div>
+
+                    <p
+                      :if={@banner_image != :custom}
+                      class="text-sm text-slate-500 dark:text-slate-400 mt-2"
+                    >
+                      Select "Use custom banner image" to upload your own banner.
+                    </p>
+                  </div>
                 </div>
               </DesignSystem.liquid_card>
 
@@ -581,6 +712,15 @@ defmodule MossletWeb.EditProfileLive do
     %{"connection" => profile_params} = params
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
+    profile = user.connection.profile
+
+    old_banner_image = if profile, do: Map.get(profile, :banner_image), else: nil
+    old_custom_banner_url = if profile, do: Map.get(profile, :custom_banner_url), else: nil
+
+    new_banner_image =
+      profile_params
+      |> get_in(["profile", "banner_image"])
+      |> banner_image_atoms()
 
     profile_params =
       profile_params
@@ -602,6 +742,11 @@ defmodule MossletWeb.EditProfileLive do
              encrypt: true
            ) do
         {:ok, connection} ->
+          if old_banner_image == :custom and old_custom_banner_url != nil and
+               new_banner_image != :custom do
+            delete_old_custom_banner(user, key, old_custom_banner_url)
+          end
+
           profile_form =
             connection
             |> Accounts.change_user_profile(profile_params)
@@ -724,6 +869,228 @@ defmodule MossletWeb.EditProfileLive do
     end
   end
 
+  def handle_event("cancel-banner-upload", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> cancel_upload(:banner, ref)
+     |> assign(:banner_upload_stage, nil)}
+  end
+
+  def handle_event("upload_banner", _params, socket) do
+    entries = socket.assigns.uploads.banner.entries
+    in_progress? = Enum.any?(entries, &(&1.progress < 100))
+
+    if entries == [] or in_progress? do
+      {:noreply, socket}
+    else
+      do_upload_banner(socket)
+    end
+  end
+
+  def handle_event("delete_banner", %{"url" => url}, socket) do
+    banners_bucket = Encrypted.Session.banners_bucket()
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    profile_attrs =
+      %{
+        "profile" => %{
+          "custom_banner_url" => nil,
+          "banner_image" => "waves"
+        }
+      }
+
+    case Accounts.update_user_profile(user, profile_attrs,
+           key: key,
+           user: user,
+           update_profile: true
+         ) do
+      {:ok, _conn} ->
+        Storj.make_async_banner_delete_request(banners_bucket, url)
+        Mosslet.Extensions.BannerProcessor.delete_banner(user.connection.id)
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "banner_cache_global",
+          {:banner_deleted, user.connection.id}
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(:success, gettext("Your custom banner has been deleted successfully."))
+         |> assign(:banner_image, :waves)
+         |> push_navigate(to: ~p"/app/users/edit-profile")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("Failed to delete banner. Please try again."))}
+    end
+  end
+
+  def handle_info({:banner_upload_stage, stage}, socket) do
+    {:noreply, assign(socket, :banner_upload_stage, stage)}
+  end
+
+  def handle_info({:banner_upload_complete, {:ok, {e_blob, file_path}}}, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    {:ok, d_conn_key} =
+      Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+
+    encrypted_file_path = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: file_path})
+
+    profile_attrs =
+      %{
+        "profile" => %{
+          "custom_banner_url" => encrypted_file_path,
+          "banner_image" => "custom"
+        }
+      }
+
+    case Accounts.update_user_profile(user, profile_attrs,
+           key: key,
+           user: user,
+           update_profile: true
+         ) do
+      {:ok, _conn} ->
+        Mosslet.Extensions.BannerProcessor.put_banner(user.connection.id, e_blob)
+
+        Phoenix.PubSub.broadcast(
+          Mosslet.PubSub,
+          "banner_cache_global",
+          {:banner_updated, user.connection.id, e_blob}
+        )
+
+        {:noreply,
+         socket
+         |> assign(:banner_upload_stage, {:ready, 100})
+         |> put_flash(:success, gettext("Your custom banner has been uploaded successfully."))
+         |> push_navigate(to: ~p"/app/users/edit-profile")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> assign(:banner_upload_stage, {:error, "Update failed"})
+         |> put_flash(:error, gettext("Failed to save banner. Please try again."))}
+    end
+  end
+
+  def handle_info({:banner_upload_complete, {:error, error}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:banner_upload_stage, {:error, error})
+     |> put_flash(:warning, error)}
+  end
+
+  defp do_upload_banner(socket) do
+    lv_pid = self()
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    banners_bucket = Encrypted.Session.banners_bucket()
+
+    socket = assign(socket, :banner_upload_stage, {:receiving, 10})
+
+    banner_url_tuple_list =
+      consume_uploaded_entries(
+        socket,
+        :banner,
+        fn meta, entry ->
+          case meta do
+            %{error: error} ->
+              send(lv_pid, {:banner_upload_stage, {:error, error}})
+              {:postpone, {:error, error}}
+
+            %{path: path} ->
+              send(lv_pid, {:banner_upload_stage, {:receiving, 30}})
+              mime_type = ExMarcel.MimeType.for({:path, path})
+
+              if mime_type in [
+                   "image/jpeg",
+                   "image/jpg",
+                   "image/png",
+                   "image/webp",
+                   "image/heic",
+                   "image/heif"
+                 ] do
+                send(lv_pid, {:banner_upload_stage, {:converting, 40}})
+
+                with {:ok, image} <- load_image_for_banner(path, mime_type),
+                     {:ok, image} <- autorotate_image(image),
+                     _ <- send(lv_pid, {:banner_upload_stage, {:checking, 50}}),
+                     {:ok, safe_image} <- check_for_safety(image),
+                     _ <- send(lv_pid, {:banner_upload_stage, {:resizing, 60}}),
+                     {:ok, resized_image} <- resize_banner_image(safe_image),
+                     {:ok, blob} <-
+                       Image.write(resized_image, :memory,
+                         suffix: ".webp",
+                         minimize_file_size: true
+                       ),
+                     _ <- send(lv_pid, {:banner_upload_stage, {:encrypting, 75}}),
+                     {:ok, e_blob} <- @upload_provider.prepare_encrypted_blob(blob, user, key),
+                     {:ok, file_path} <-
+                       @upload_provider.prepare_banner_file_path(entry, user.connection.id),
+                     _ <- send(lv_pid, {:banner_upload_stage, {:uploading, 85}}) do
+                  @upload_provider.make_banner_aws_requests(
+                    entry,
+                    banners_bucket,
+                    file_path,
+                    e_blob,
+                    user,
+                    key
+                  )
+                else
+                  {:nsfw, message} ->
+                    send(lv_pid, {:banner_upload_stage, {:error, message}})
+                    {:postpone, {:nsfw, message}}
+
+                  {:error, message} ->
+                    send(lv_pid, {:banner_upload_stage, {:error, message}})
+                    {:postpone, {:error, message}}
+                end
+              else
+                send(lv_pid, {:banner_upload_stage, {:error, "Incorrect file type."}})
+                {:postpone, :error}
+              end
+          end
+        end
+      )
+
+    case banner_url_tuple_list do
+      [nsfw: message] ->
+        {:noreply,
+         socket
+         |> assign(:banner_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [error: message] ->
+        {:noreply,
+         socket
+         |> assign(:banner_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [:error] ->
+        {:noreply,
+         socket
+         |> assign(:banner_upload_stage, {:error, "Incorrect file type."})
+         |> put_flash(:warning, "Incorrect file type.")}
+
+      [{_entry, file_path, e_blob}] ->
+        send(lv_pid, {:banner_upload_complete, {:ok, {e_blob, file_path}}})
+        {:noreply, assign(socket, :banner_upload_stage, {:uploading, 95})}
+
+      _rest ->
+        error_msg =
+          "There was an error trying to upload your banner, please try a different image."
+
+        {:noreply,
+         socket
+         |> assign(:banner_upload_stage, {:error, error_msg})
+         |> put_flash(:warning, error_msg)}
+    end
+  end
+
   defp maybe_decrypt_profile_about(user, key) do
     profile = Map.get(user.connection, :profile)
 
@@ -812,6 +1179,191 @@ defmodule MossletWeb.EditProfileLive do
       :connections -> "emerald"
       :private -> "rose"
       _ -> "slate"
+    end
+  end
+
+  defp is_processing?(nil), do: false
+  defp is_processing?({:ready, _}), do: false
+  defp is_processing?({:error, _}), do: false
+  defp is_processing?(_), do: true
+
+  defp get_async_banner_src(%AsyncResult{ok?: true, result: result}), do: result
+  defp get_async_banner_src(_), do: nil
+
+  defp is_valid_banner_url?(nil), do: false
+  defp is_valid_banner_url?(""), do: false
+  defp is_valid_banner_url?("failed_verification"), do: false
+  defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
+  defp is_valid_banner_url?(_), do: false
+
+  defp fetch_and_decrypt_banner(banner_url, user, key) do
+    banners_bucket = Encrypted.Session.banners_bucket()
+    host = Encrypted.Session.s3_host()
+    host_name = "https://#{banners_bucket}.#{host}"
+
+    config = %{
+      region: Encrypted.Session.s3_region(),
+      access_key_id: Encrypted.Session.s3_access_key_id(),
+      secret_access_key: Encrypted.Session.s3_secret_key_access()
+    }
+
+    options = [
+      virtual_host: true,
+      bucket_as_host: true,
+      expires_in: 600
+    ]
+
+    {:ok, presigned_url} = ExAws.S3.presigned_url(config, :get, host_name, banner_url, options)
+
+    case Req.get(presigned_url,
+           retry: :transient,
+           retry_delay: fn n -> n * 500 end,
+           receive_timeout: 15_000
+         ) do
+      {:ok, %{status: 200, body: encrypted_binary}} ->
+        {:ok, d_conn_key} =
+          Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+
+        case Encrypted.Utils.decrypt(%{key: d_conn_key, payload: encrypted_binary}) do
+          {:ok, decrypted} -> {:ok, decrypted}
+          error -> error
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "Failed to fetch banner: HTTP #{status}"}
+
+      {:error, reason} ->
+        {:error, "Failed to fetch banner: #{inspect(reason)}"}
+    end
+  end
+
+  defp load_image_for_banner(path, mime_type) when mime_type in ["image/heic", "image/heif"] do
+    binary = File.read!(path)
+
+    with {:ok, {heic_image, _metadata}} <- Vix.Vips.Operation.heifload_buffer(binary),
+         {:ok, materialized} <- materialize_heic(heic_image) do
+      {:ok, materialized}
+    else
+      {:error, _reason} ->
+        load_heic_with_sips(path)
+    end
+  end
+
+  defp load_image_for_banner(path, _mime_type) do
+    case Image.open(path) do
+      {:ok, image} -> {:ok, image}
+      {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
+    end
+  end
+
+  defp materialize_heic(image) do
+    case Image.to_colorspace(image, :srgb) do
+      {:ok, srgb_image} ->
+        case Image.write(srgb_image, :memory, suffix: ".png") do
+          {:ok, png_binary} -> Image.from_binary(png_binary)
+          {:error, _} -> fallback_heic_materialization(srgb_image)
+        end
+
+      {:error, _} ->
+        fallback_heic_materialization(image)
+    end
+  end
+
+  defp fallback_heic_materialization(image) do
+    case Image.write(image, :memory, suffix: ".png") do
+      {:ok, png_binary} ->
+        Image.from_binary(png_binary)
+
+      {:error, _} ->
+        case Image.write(image, :memory, suffix: ".jpg") do
+          {:ok, jpg_binary} -> Image.from_binary(jpg_binary)
+          {:error, reason} -> {:error, "Failed to materialize HEIC image: #{inspect(reason)}"}
+        end
+    end
+  end
+
+  defp load_heic_with_sips(path) do
+    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
+
+    result =
+      case :os.type() do
+        {:unix, :darwin} ->
+          case System.cmd("sips", ["-s", "format", "png", path, "--out", tmp_png],
+                 stderr_to_stdout: true
+               ) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
+          end
+
+        {:unix, _linux} ->
+          case System.cmd("heif-convert", [path, tmp_png], stderr_to_stdout: true) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
+          end
+
+        _ ->
+          {:error, "HEIC/HEIF files are not supported on this platform."}
+      end
+
+    File.rm(tmp_png)
+    result
+  end
+
+  defp check_for_safety(image_binary) do
+    Mosslet.AI.Images.check_for_safety(image_binary)
+  end
+
+  defp autorotate_image(image) do
+    case Image.autorotate(image) do
+      {:ok, {rotated_image, _flags}} -> {:ok, rotated_image}
+      {:error, reason} -> {:error, "Failed to autorotate: #{inspect(reason)}"}
+    end
+  end
+
+  defp resize_banner_image(image) do
+    {width, height, _bands} = Image.shape(image)
+
+    cond do
+      width >= 1500 && height >= 500 ->
+        Image.thumbnail(image, 1500, height: 500, crop: :attention)
+
+      width >= 1200 ->
+        target_height = round(width / 3)
+        Image.thumbnail(image, width, height: target_height, crop: :attention)
+
+      true ->
+        {:ok, image}
+    end
+  end
+
+  defp delete_old_custom_banner(user, key, encrypted_banner_url) do
+    banners_bucket = Encrypted.Session.banners_bucket()
+
+    banner_url =
+      decr_banner(
+        encrypted_banner_url,
+        user,
+        user.conn_key,
+        key
+      )
+
+    if is_valid_banner_url?(banner_url) do
+      Storj.make_async_banner_delete_request(banners_bucket, banner_url)
+      Mosslet.Extensions.BannerProcessor.delete_banner(user.connection.id)
+
+      Phoenix.PubSub.broadcast(
+        Mosslet.PubSub,
+        "banner_cache_global",
+        {:banner_deleted, user.connection.id}
+      )
     end
   end
 end
