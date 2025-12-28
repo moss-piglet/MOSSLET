@@ -10,11 +10,10 @@ defmodule MossletWeb.PublicLive.Pricing do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      current_scope={assigns[:current_scope]}
       current_page={:pricing}
       container_max_width={@max_width}
       socket={@socket}
-      key={@key}
     >
       <div class="bg-white dark:bg-slate-950">
         <div class="isolate">

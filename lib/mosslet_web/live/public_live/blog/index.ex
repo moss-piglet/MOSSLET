@@ -8,10 +8,9 @@ defmodule MossletWeb.PublicLive.Blog.Index do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      current_scope={assigns[:current_scope]}
       current_page={:about}
       container_max_width={@max_width}
-      key={@key}
     >
       <%!-- Enhanced liquid metal blog page layout --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/50 via-transparent to-emerald-50/30 dark:from-slate-900/50 dark:via-transparent dark:to-teal-900/20">

@@ -7,10 +7,9 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      current_scope={assigns[:scope]}
       current_page={:blog}
       container_max_width={@max_width}
-      key={@key}
     >
       <Components.blog_article
         date="November 27, 2025"

@@ -9,11 +9,10 @@ defmodule MossletWeb.PublicLive.Features do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      current_scope={assigns[:current_scope]}
       current_page={:features}
       container_max_width={@max_width}
       socket={@socket}
-      key={@key}
     >
       <%!-- Enhanced liquid metal background matching other pages --%>
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-emerald-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10">

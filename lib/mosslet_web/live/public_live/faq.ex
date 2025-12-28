@@ -9,11 +9,10 @@ defmodule MossletWeb.PublicLive.Faq do
     ~H"""
     <.layout
       type="public"
-      current_user={assigns[:current_user]}
+      current_scope={assigns[:current_scope]}
       current_page={:faq}
       container_max_width={@max_width}
       socket={@socket}
-      key={@key}
     >
       <.liquid_faq_simple
         title="Frequently Asked Questions"
