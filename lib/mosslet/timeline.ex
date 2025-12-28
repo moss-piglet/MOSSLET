@@ -2032,6 +2032,101 @@ defmodule Mosslet.Timeline do
     |> Repo.all()
   end
 
+  @doc """
+  Lists posts for a profile user that are visible to the viewer.
+
+  Visibility rules:
+  - If viewer is the profile owner: show all their posts (private, connections, public, etc)
+  - If viewer is a connection: show public posts + connections posts + specific_users posts where viewer is included
+  - If viewer is not connected: show only public posts
+
+  Options:
+  - :post_page - page number for pagination (default: 1)
+  - :post_per_page - posts per page (default: 10)
+  """
+  def list_profile_posts_visible_to(profile_user, viewer, options \\ %{}) do
+    profile_user_id = profile_user.id
+    viewer_id = viewer.id
+
+    cond do
+      profile_user_id == viewer_id ->
+        list_own_profile_posts(profile_user, options)
+
+      Accounts.has_confirmed_user_connection?(profile_user, viewer_id) ->
+        list_connection_profile_posts(profile_user, viewer, options)
+
+      true ->
+        list_public_profile_posts(profile_user, options)
+    end
+  end
+
+  defp list_own_profile_posts(user, options) do
+    from(p in Post,
+      where: p.user_id == ^user.id,
+      where: is_nil(p.group_id),
+      order_by: [desc: p.inserted_at],
+      preload: [:user_posts, :group, :user_group, :replies, :user]
+    )
+    |> paginate(options)
+    |> Repo.all()
+  end
+
+  defp list_connection_profile_posts(profile_user, viewer, options) do
+    profile_user_id = profile_user.id
+    viewer_id = viewer.id
+
+    from(p in Post,
+      left_join: up in UserPost,
+      on: up.post_id == p.id and up.user_id == ^viewer_id,
+      where: p.user_id == ^profile_user_id,
+      where: is_nil(p.group_id),
+      where:
+        p.visibility == :public or
+          (p.visibility == :connections and not is_nil(up.id)) or
+          (p.visibility == :specific_users and not is_nil(up.id)) or
+          (p.visibility == :specific_groups and not is_nil(up.id)),
+      order_by: [desc: p.inserted_at],
+      preload: [:user_posts, :group, :user_group, :replies, :user]
+    )
+    |> paginate(options)
+    |> Repo.all()
+  end
+
+  def count_profile_posts_visible_to(profile_user, viewer) do
+    profile_user_id = profile_user.id
+    viewer_id = viewer.id
+
+    cond do
+      profile_user_id == viewer_id ->
+        from(p in Post,
+          where: p.user_id == ^profile_user_id,
+          where: is_nil(p.group_id)
+        )
+        |> Repo.aggregate(:count)
+
+      Accounts.has_confirmed_user_connection?(profile_user, viewer_id) ->
+        from(p in Post,
+          left_join: up in UserPost,
+          on: up.post_id == p.id and up.user_id == ^viewer_id,
+          where: p.user_id == ^profile_user_id,
+          where: is_nil(p.group_id),
+          where:
+            p.visibility == :public or
+              (p.visibility == :connections and not is_nil(up.id)) or
+              (p.visibility == :specific_users and not is_nil(up.id)) or
+              (p.visibility == :specific_groups and not is_nil(up.id))
+        )
+        |> Repo.aggregate(:count)
+
+      true ->
+        from(p in Post,
+          where: p.user_id == ^profile_user_id and p.visibility == :public,
+          where: is_nil(p.group_id)
+        )
+        |> Repo.aggregate(:count)
+    end
+  end
+
   defp filter_by_user_id(query, %{filter: %{user_id: ""}}), do: query
 
   defp filter_by_user_id(query, %{filter: %{user_id: user_id}}) do

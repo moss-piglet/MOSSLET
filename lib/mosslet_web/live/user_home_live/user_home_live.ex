@@ -4,8 +4,11 @@ defmodule MossletWeb.UserHomeLive do
   require Logger
 
   alias Mosslet.Accounts
+  alias Mosslet.Timeline
   alias MossletWeb.Helpers.StatusHelpers
   alias MossletWeb.Helpers.URLPreviewHelpers
+
+  @posts_per_page 10
 
   def mount(%{"slug" => slug} = _params, _session, socket) do
     current_user = socket.assigns.current_scope.user
@@ -13,6 +16,7 @@ defmodule MossletWeb.UserHomeLive do
     profile_owner? = current_user.id === profile_user.id
 
     socket = stream(socket, :presences, [])
+    socket = stream(socket, :profile_posts, [])
 
     socket =
       if connected?(socket) do
@@ -47,6 +51,9 @@ defmodule MossletWeb.UserHomeLive do
         socket
       end
 
+    user_connection =
+      if profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id)
+
     socket =
       socket
       |> assign(:slug, slug)
@@ -58,21 +65,33 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:trix_key, nil)
       |> assign(:profile_user, profile_user)
       |> assign(:current_user_is_profile_owner?, profile_owner?)
-      |> assign(
-        :user_connection,
-        if(profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id))
-      )
+      |> assign(:user_connection, user_connection)
+      |> assign(:posts_page, 1)
+      |> assign(:posts_loading, false)
+      |> assign(:posts_count, 0)
       |> URLPreviewHelpers.assign_url_preview_defaults()
       |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
     socket =
       if connected?(socket) do
-        maybe_fetch_website_preview(socket, profile_user, current_user, profile_owner?)
+        socket
+        |> maybe_fetch_website_preview(profile_user, current_user, profile_owner?)
+        |> load_profile_posts(profile_user, current_user, user_connection)
       else
         socket
       end
 
     {:ok, socket}
+  end
+
+  defp load_profile_posts(socket, profile_user, current_user, _user_connection) do
+    options = %{post_page: socket.assigns.posts_page, post_per_page: @posts_per_page}
+    posts = Timeline.list_profile_posts_visible_to(profile_user, current_user, options)
+    posts_count = Timeline.count_profile_posts_visible_to(profile_user, current_user)
+
+    socket
+    |> assign(:posts_count, posts_count)
+    |> stream(:profile_posts, posts, reset: true)
   end
 
   def render(assigns) do
@@ -662,6 +681,124 @@ defmodule MossletWeb.UserHomeLive do
                 </MossletWeb.DesignSystem.liquid_button>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
+
+            <%!-- Posts Section --%>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+              <:title>
+                <div class="flex items-center justify-between w-full">
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chat-bubble-bottom-center-text"
+                      class="size-5 text-emerald-600 dark:text-emerald-400"
+                    />
+                    <span>Posts</span>
+                  </div>
+                  <MossletWeb.DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
+                    {@posts_count}
+                  </MossletWeb.DesignSystem.liquid_badge>
+                </div>
+              </:title>
+              <div id="profile-posts" phx-update="stream" class="space-y-4">
+                <div class="hidden only:block text-center py-8">
+                  <.phx_icon
+                    name="hero-pencil-square"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    No posts yet. Share your thoughts with your community!
+                  </p>
+                  <MossletWeb.DesignSystem.liquid_button
+                    navigate={~p"/app/timeline"}
+                    variant="primary"
+                    color="emerald"
+                    size="sm"
+                    icon="hero-plus"
+                  >
+                    Create Your First Post
+                  </MossletWeb.DesignSystem.liquid_button>
+                </div>
+                <div
+                  :for={{dom_id, post} <- @streams.profile_posts}
+                  id={dom_id}
+                  class="profile-post-container"
+                >
+                  <MossletWeb.DesignSystem.liquid_timeline_post
+                    user_name={
+                      get_profile_post_author_name(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    user_handle={
+                      get_profile_post_author_handle(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    user_avatar={
+                      get_profile_post_author_avatar(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    user_status={nil}
+                    user_status_message={nil}
+                    show_post_author_status={false}
+                    timestamp={format_profile_post_timestamp(post.inserted_at)}
+                    verified={false}
+                    content_warning?={false}
+                    content_warning={nil}
+                    content_warning_category={nil}
+                    content={
+                      get_profile_post_content(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    images={[]}
+                    decrypted_url_preview={nil}
+                    stats={
+                      %{
+                        replies: length(post.replies || []),
+                        shares: post.reposts_count || 0,
+                        likes: post.favs_count || 0
+                      }
+                    }
+                    post_id={post.id}
+                    current_user_id={@current_scope.user.id}
+                    post_shared_users={[]}
+                    removing_shared_user_id={nil}
+                    adding_shared_user={nil}
+                    post={post}
+                    current_scope={@current_scope}
+                    is_repost={false}
+                    share_note={nil}
+                    liked={false}
+                    bookmarked={false}
+                    can_repost={false}
+                    can_reply?={false}
+                    can_bookmark?={false}
+                    unread?={false}
+                    unread_replies_count={0}
+                    unread_nested_replies_by_parent={%{}}
+                    calm_notifications={@current_scope.user.calm_notifications}
+                    class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                  />
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <%!-- Right Column: Quick Actions & Profile Management --%>
@@ -1021,6 +1158,93 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
+
+            <%!-- Posts Section --%>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+              <:title>
+                <div class="flex items-center justify-between w-full">
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chat-bubble-bottom-center-text"
+                      class="size-5 text-cyan-600 dark:text-cyan-400"
+                    />
+                    <span>Posts</span>
+                  </div>
+                  <MossletWeb.DesignSystem.liquid_badge variant="soft" color="cyan" size="sm">
+                    {@posts_count}
+                  </MossletWeb.DesignSystem.liquid_badge>
+                </div>
+              </:title>
+              <div id="profile-posts-public" phx-update="stream" class="space-y-4">
+                <div class="hidden only:block text-center py-8">
+                  <.phx_icon
+                    name="hero-chat-bubble-bottom-center-text"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    No public posts yet.
+                  </p>
+                </div>
+                <div
+                  :for={{dom_id, post} <- @streams.profile_posts}
+                  id={dom_id}
+                  class="profile-post-container"
+                >
+                  <MossletWeb.DesignSystem.liquid_timeline_post
+                    user_name={
+                      decrypt_public_field(
+                        @profile_user.connection.profile.name,
+                        @profile_user.connection.profile.profile_key
+                      )
+                    }
+                    user_handle={"@" <> decrypt_public_field(
+                      @profile_user.connection.profile.username,
+                      @profile_user.connection.profile.profile_key
+                    )}
+                    user_avatar={get_public_avatar(@profile_user, @current_scope.user)}
+                    user_status={get_public_status(@profile_user)}
+                    user_status_message={get_public_status_message(@profile_user)}
+                    show_post_author_status={
+                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                    }
+                    timestamp={format_profile_post_timestamp(post.inserted_at)}
+                    verified={false}
+                    content_warning?={false}
+                    content_warning={nil}
+                    content_warning_category={nil}
+                    content={decrypt_public_field(post.body, get_post_key(post))}
+                    images={[]}
+                    decrypted_url_preview={nil}
+                    stats={
+                      %{
+                        replies: length(post.replies || []),
+                        shares: post.reposts_count || 0,
+                        likes: post.favs_count || 0
+                      }
+                    }
+                    post_id={post.id}
+                    current_user_id={@current_scope.user.id}
+                    post_shared_users={[]}
+                    removing_shared_user_id={nil}
+                    adding_shared_user={nil}
+                    post={post}
+                    current_scope={@current_scope}
+                    is_repost={false}
+                    share_note={nil}
+                    liked={false}
+                    bookmarked={false}
+                    can_repost={false}
+                    can_reply?={false}
+                    can_bookmark?={false}
+                    unread?={false}
+                    unread_replies_count={0}
+                    unread_nested_replies_by_parent={%{}}
+                    calm_notifications={@current_scope.user.calm_notifications}
+                    class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                  />
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <div class="lg:col-span-1 space-y-6">
@@ -1358,6 +1582,115 @@ defmodule MossletWeb.UserHomeLive do
                 </div>
               </div>
             </MossletWeb.DesignSystem.liquid_card>
+
+            <%!-- Posts Section --%>
+            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+              <:title>
+                <div class="flex items-center justify-between w-full">
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chat-bubble-bottom-center-text"
+                      class="size-5 text-emerald-600 dark:text-emerald-400"
+                    />
+                    <span>Posts</span>
+                  </div>
+                  <MossletWeb.DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
+                    {@posts_count}
+                  </MossletWeb.DesignSystem.liquid_badge>
+                </div>
+              </:title>
+              <div id="profile-posts-connections" phx-update="stream" class="space-y-4">
+                <div class="hidden only:block text-center py-8">
+                  <.phx_icon
+                    name="hero-chat-bubble-bottom-center-text"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    No posts shared with you yet.
+                  </p>
+                </div>
+                <div
+                  :for={{dom_id, post} <- @streams.profile_posts}
+                  id={dom_id}
+                  class="profile-post-container"
+                >
+                  <MossletWeb.DesignSystem.liquid_timeline_post
+                    user_name={
+                      get_profile_post_author_name(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    user_handle={
+                      get_profile_post_author_handle(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    user_avatar={
+                      get_profile_post_author_avatar(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    user_status={nil}
+                    user_status_message={nil}
+                    show_post_author_status={false}
+                    timestamp={format_profile_post_timestamp(post.inserted_at)}
+                    verified={false}
+                    content_warning?={false}
+                    content_warning={nil}
+                    content_warning_category={nil}
+                    content={
+                      get_profile_post_content(
+                        post,
+                        @profile_user,
+                        @current_scope.user,
+                        @current_scope.key,
+                        @user_connection
+                      )
+                    }
+                    images={[]}
+                    decrypted_url_preview={nil}
+                    stats={
+                      %{
+                        replies: length(post.replies || []),
+                        shares: post.reposts_count || 0,
+                        likes: post.favs_count || 0
+                      }
+                    }
+                    post_id={post.id}
+                    current_user_id={@current_scope.user.id}
+                    post_shared_users={[]}
+                    removing_shared_user_id={nil}
+                    adding_shared_user={nil}
+                    post={post}
+                    current_scope={@current_scope}
+                    is_repost={false}
+                    share_note={nil}
+                    liked={false}
+                    bookmarked={false}
+                    can_repost={false}
+                    can_reply?={false}
+                    can_bookmark?={false}
+                    unread?={false}
+                    unread_replies_count={0}
+                    unread_nested_replies_by_parent={%{}}
+                    calm_notifications={@current_scope.user.calm_notifications}
+                    class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                  />
+                </div>
+              </div>
+            </MossletWeb.DesignSystem.liquid_card>
           </div>
 
           <%!-- Right Column: Connection Info & Stats --%>
@@ -1614,4 +1947,122 @@ defmodule MossletWeb.UserHomeLive do
 
   defp get_async_banner_src(%Phoenix.LiveView.AsyncResult{ok?: true, result: result}), do: result
   defp get_async_banner_src(_), do: nil
+
+  defp get_profile_post_author_name(post, profile_user, current_user, key, user_connection) do
+    profile_owner? = current_user.id == profile_user.id
+
+    if profile_owner? or post.user_id == current_user.id do
+      case user_name(current_user, key) do
+        name when is_binary(name) -> name
+        _ -> "Private Author"
+      end
+    else
+      if user_connection && user_connection.connection do
+        profile = user_connection.connection.profile
+
+        if profile && profile.show_name? do
+          case decr_uconn(user_connection.connection.name, current_user, user_connection.key, key) do
+            name when is_binary(name) -> name
+            _ -> "Private Author"
+          end
+        else
+          case decr_uconn(
+                 user_connection.connection.username,
+                 current_user,
+                 user_connection.key,
+                 key
+               ) do
+            username when is_binary(username) -> username
+            _ -> "Private Author"
+          end
+        end
+      else
+        "Private Author"
+      end
+    end
+  end
+
+  defp get_profile_post_author_handle(post, profile_user, current_user, key, user_connection) do
+    profile_owner? = current_user.id == profile_user.id
+
+    if profile_owner? or post.user_id == current_user.id do
+      profile = current_user.connection.profile
+
+      case decr_item(profile.username, current_user, profile.profile_key, key, profile) do
+        username when is_binary(username) -> "@#{username}"
+        _ -> "@author"
+      end
+    else
+      if user_connection && user_connection.connection do
+        case decr_uconn(
+               user_connection.connection.username,
+               current_user,
+               user_connection.key,
+               key
+             ) do
+          username when is_binary(username) -> "@#{username}"
+          _ -> "@author"
+        end
+      else
+        "@author"
+      end
+    end
+  end
+
+  defp get_profile_post_author_avatar(post, profile_user, current_user, key, user_connection) do
+    profile_owner? = current_user.id == profile_user.id
+
+    if profile_owner? or post.user_id == current_user.id do
+      if current_user.connection.profile.show_avatar? do
+        maybe_get_user_avatar(current_user, key) || "/images/logo.svg"
+      else
+        "/images/logo.svg"
+      end
+    else
+      if user_connection && show_avatar?(user_connection) do
+        case maybe_get_avatar_src(post, current_user, key, []) do
+          avatar when is_binary(avatar) and avatar != "" -> avatar
+          _ -> "/images/logo.svg"
+        end
+      else
+        "/images/logo.svg"
+      end
+    end
+  end
+
+  defp get_profile_post_key(post, _profile_user, current_user, _user_connection) do
+    get_post_key(post, current_user)
+  end
+
+  defp get_profile_post_content(post, profile_user, current_user, key, user_connection) do
+    post_key = get_profile_post_key(post, profile_user, current_user, user_connection)
+
+    if is_nil(post_key) do
+      "[Could not decrypt content]"
+    else
+      case decr_item(post.body, current_user, post_key, key, post, "body") do
+        content when is_binary(content) -> content
+        rest -> "#{rest}"
+      end
+    end
+  end
+
+  defp format_profile_post_timestamp(naive_datetime)
+       when is_struct(naive_datetime, NaiveDateTime) do
+    now = NaiveDateTime.utc_now()
+    diff_seconds = NaiveDateTime.diff(now, naive_datetime)
+    diff_minutes = div(diff_seconds, 60)
+    diff_hours = div(diff_minutes, 60)
+    diff_days = div(diff_hours, 24)
+
+    cond do
+      diff_seconds < 60 -> "Just now"
+      diff_minutes < 60 -> "#{diff_minutes}m"
+      diff_hours < 24 -> "#{diff_hours}h"
+      diff_days < 7 -> "#{diff_days}d"
+      true -> Calendar.strftime(naive_datetime, "%b %d")
+    end
+  end
+
+  defp format_profile_post_timestamp(_), do: ""
 end
