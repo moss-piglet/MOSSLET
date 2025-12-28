@@ -8,7 +8,7 @@ defmodule MossletWeb.GroupLive.Join do
   @impl true
   def render(assigns) do
     ~H"""
-    <.layout current_user={@current_user} current_page={@current_page} key={@key} type="sidebar">
+    <.layout current_scope={@current_scope} current_page={@current_page} type="sidebar">
       <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-amber-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-amber-900/10">
         <div class="flex min-h-[80vh] items-center justify-center p-4">
           <div class="w-full max-w-md">
@@ -43,7 +43,7 @@ defmodule MossletWeb.GroupLive.Join do
                     >
                       {decr_public_item(
                         @group.name,
-                        get_public_user_group(@group, @current_user).key
+                        get_public_user_group(@group, @current_scope.user).key
                       )}
                     </span>
                     <span
@@ -52,8 +52,8 @@ defmodule MossletWeb.GroupLive.Join do
                     >
                       {decr_item(
                         @group.name,
-                        @current_user,
-                        get_user_group(@group, @current_user).key,
+                        @current_scope.user,
+                        get_user_group(@group, @current_scope.user).key,
                         @key,
                         @group
                       )}
@@ -81,7 +81,7 @@ defmodule MossletWeb.GroupLive.Join do
                     {alpine_autofocus()}
                   />
 
-                  <.phx_input field={@form[:user_id]} type="hidden" value={@current_user.id} />
+                  <.phx_input field={@form[:user_id]} type="hidden" value={@current_scope.user.id} />
 
                   <div
                     :if={@join_attempts > 0 && @join_attempts < 5}
@@ -141,7 +141,7 @@ defmodule MossletWeb.GroupLive.Join do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      Groups.private_subscribe(socket.assigns.current_user)
+      Groups.private_subscribe(socket.assigns.current_scope.user)
     end
 
     {:ok, assign(socket, :current_page, :groups), layout: {MossletWeb.Layouts, :app}}
@@ -159,7 +159,9 @@ defmodule MossletWeb.GroupLive.Join do
   @impl true
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
-    {:noreply, assign(socket, :current_user, user)}
+
+    {:noreply,
+     assign(socket, :current_scope, Scope.for_user(user, key: socket.assigns.current_scope.key))}
   end
 
   @impl true
@@ -169,9 +171,10 @@ defmodule MossletWeb.GroupLive.Join do
 
   defp apply_action(socket, :join_password, %{"id" => id}) do
     group = Groups.get_group!(id)
-    user_group = get_user_group(group, socket.assigns.current_user)
+    user_group = get_user_group(group, socket.assigns.current_scope.user)
 
-    if group.require_password? && can_join_group?(group, user_group, socket.assigns.current_user) do
+    if group.require_password? &&
+         can_join_group?(group, user_group, socket.assigns.current_scope.user) do
       changeset = Group.join_changeset(group, %{password: nil})
 
       socket
@@ -200,10 +203,10 @@ defmodule MossletWeb.GroupLive.Join do
   end
 
   defp save_group(socket, :join_password, group_params) do
-    user = socket.assigns.current_user
+    user = socket.assigns.current_scope.user
     group = socket.assigns.group
     user_group = socket.assigns.user_group
-    key = socket.assigns.key
+    key = socket.assigns.current_scope.key
 
     if can_join_group?(group, user_group, user) do
       join_result =

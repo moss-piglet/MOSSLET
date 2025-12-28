@@ -52,15 +52,22 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         maybe_get_user_avatar(assigns.current_scope.user, assigns.current_scope.key) ||
           ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_scope.user, assigns.user_group.key, assigns.current_scope.key, assigns.group)}"
       else
-        if uconn do
-          maybe_get_avatar_src(
-            uconn,
-            assigns.current_scope.user,
-            assigns.current_scope.key,
-            assigns.messages_list
-          )
-        else
+        group_avatar_fallback =
           ~p"/images/groups/#{decr_item(assigns.message.sender.avatar_img, assigns.current_scope.user, assigns.user_group.key, assigns.current_scope.key, assigns.group)}"
+
+        if uconn do
+          case maybe_get_avatar_src(
+                 uconn,
+                 assigns.current_scope.user,
+                 assigns.current_scope.key,
+                 assigns.messages_list
+               ) do
+            "" -> group_avatar_fallback
+            nil -> group_avatar_fallback
+            src -> src
+          end
+        else
+          group_avatar_fallback
         end
       end
 

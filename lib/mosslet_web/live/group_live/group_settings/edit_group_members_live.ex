@@ -115,6 +115,13 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
     target_is_owner = assigns.user_group.role == :owner
     can_edit = (!is_self || !is_owner) && (is_owner || !target_is_owner)
 
+    disabled_reason =
+      cond do
+        is_self && is_owner -> "You cannot change your own role as the circle owner"
+        target_is_owner && !is_owner -> "Only the circle owner can modify another owner's role"
+        true -> nil
+      end
+
     uconn =
       get_uconn_for_users(
         get_user_from_user_group_id(assigns.user_group.id),
@@ -140,6 +147,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       assigns
       |> assign(:is_self, is_self)
       |> assign(:can_edit, can_edit)
+      |> assign(:disabled_reason, disabled_reason)
       |> assign(:member_name, member_name)
 
     ~H"""
@@ -186,7 +194,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
       ]}
       data-tippy-content={
         if !@can_edit,
-          do: "This is you and you cannot currently change your role from owner.",
+          do: @disabled_reason,
           else: "Click to edit member role"
       }
       phx-hook="TippyHook"
@@ -258,7 +266,7 @@ defmodule MossletWeb.GroupLive.GroupSettings.EditGroupMembersLive do
               <span class="truncate">
                 {decr_item(
                   @user_group.moniker,
-                  @current_scope,
+                  @current_scope.user,
                   @current_user_group.key,
                   @current_scope.key,
                   @group
