@@ -145,6 +145,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:read_posts_count, 0)
       |> assign(:loaded_read_posts_count, 0)
       |> assign(:cached_read_posts, [])
+      |> assign(:cached_unread_posts, [])
       # Track dynamic stream limit
       |> assign(:stream_limit, @post_per_page_default)
       # Store user token for uploads
@@ -4050,6 +4051,7 @@ defmodule MossletWeb.TimelineLive.Index do
       Map.get(timeline_result, :unread_nested_replies_by_parent, %{})
 
     unread_posts_with_dates = add_date_grouping_context(unread_posts)
+    read_posts_with_dates = add_date_grouping_context(read_posts)
 
     {:noreply,
      socket
@@ -4065,7 +4067,8 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:current_page, current_page)
      |> assign(:read_posts_count, read_posts_count)
      |> assign(:loaded_read_posts_count, read_posts_count)
-     |> assign(:cached_read_posts, read_posts)
+     |> assign(:cached_read_posts, read_posts_with_dates)
+     |> assign(:cached_unread_posts, unread_posts_with_dates)
      |> stream(:posts, unread_posts_with_dates, reset: true)}
   end
 
@@ -5714,6 +5717,7 @@ defmodule MossletWeb.TimelineLive.Index do
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
     unread_posts_with_dates = add_date_grouping_context(unread_posts)
+    read_posts_with_dates = add_date_grouping_context(read_posts)
 
     socket =
       socket
@@ -5726,7 +5730,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:read_posts_expanded, false)
       |> assign(:read_posts_loading, false)
       |> assign(:loaded_read_posts_count, length(read_posts))
-      |> assign(:cached_read_posts, read_posts)
+      |> assign(:cached_read_posts, read_posts_with_dates)
+      |> assign(:cached_unread_posts, unread_posts_with_dates)
       |> stream(:posts, unread_posts_with_dates, reset: true)
       |> stream(:read_posts, [], reset: true)
 
@@ -6247,20 +6252,107 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp stream_insert_post(socket, post, current_user, opts) do
     if is_post_unread?(post, current_user) do
-      stream_insert(socket, :posts, post, opts)
+      cached_unread_posts = socket.assigns[:cached_unread_posts] || []
+      post_with_date = add_single_post_date_context(post, cached_unread_posts, opts)
+      updated_cached = update_or_add_cached_post(cached_unread_posts, post_with_date)
+
+      socket =
+        socket
+        |> assign(:cached_unread_posts, updated_cached)
+        |> maybe_update_old_first_post_separator(
+          :posts,
+          cached_unread_posts,
+          post_with_date,
+          opts
+        )
+
+      stream_insert(socket, :posts, post_with_date, opts)
     else
       cached_read_posts = socket.assigns[:cached_read_posts] || []
-      updated_cached = update_or_add_cached_post(cached_read_posts, post)
+      is_new_read_post = not Enum.any?(cached_read_posts, &(&1.id == post.id))
+      post_with_date = add_single_post_date_context(post, cached_read_posts, opts)
+      updated_cached = update_or_add_cached_post(cached_read_posts, post_with_date)
 
-      socket
-      |> assign(:cached_read_posts, updated_cached)
-      |> maybe_stream_insert_read_post(post, opts)
+      loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
+
+      new_loaded_read_count =
+        if is_new_read_post, do: loaded_read_count + 1, else: loaded_read_count
+
+      socket =
+        socket
+        |> assign(:cached_read_posts, updated_cached)
+        |> assign(:loaded_read_posts_count, new_loaded_read_count)
+        |> maybe_update_old_first_post_separator(
+          :read_posts,
+          cached_read_posts,
+          post_with_date,
+          opts
+        )
+
+      maybe_stream_insert_read_post(socket, post_with_date, opts)
     end
   end
 
   defp maybe_stream_insert_read_post(socket, post, opts) do
     if socket.assigns[:read_posts_expanded] do
       stream_insert(socket, :read_posts, post, opts)
+    else
+      socket
+    end
+  end
+
+  defp add_single_post_date_context(post, existing_posts, opts) do
+    post_date = get_post_date(post.inserted_at)
+    at_position = Keyword.get(opts, :at, -1)
+
+    show_date_separator =
+      cond do
+        at_position == 0 ->
+          true
+
+        at_position == -1 ->
+          last_existing = List.last(existing_posts || [])
+
+          if last_existing do
+            existing_date = get_post_date(last_existing.inserted_at)
+            existing_date != post_date
+          else
+            true
+          end
+
+        true ->
+          true
+      end
+
+    post
+    |> Map.put(:show_date_separator, show_date_separator)
+    |> Map.put(:post_date, post_date)
+    |> Map.put(:first_separator, at_position == 0 && show_date_separator)
+  end
+
+  defp maybe_update_old_first_post_separator(socket, stream_name, cached_posts, new_post, opts) do
+    at_position = Keyword.get(opts, :at, -1)
+
+    if at_position == 0 do
+      first_existing = List.first(cached_posts || [])
+
+      if first_existing && first_existing.id != new_post.id do
+        new_post_date = get_post_date(new_post.inserted_at)
+        existing_date = get_post_date(first_existing.inserted_at)
+
+        if existing_date == new_post_date && Map.get(first_existing, :show_date_separator, false) do
+          updated_old_first =
+            first_existing
+            |> Map.put(:show_date_separator, false)
+            |> Map.put(:first_separator, false)
+
+          stream_insert(socket, stream_name, updated_old_first)
+        else
+          socket
+        end
+      else
+        socket
+      end
     else
       socket
     end
@@ -6276,10 +6368,14 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp stream_delete_post(socket, post) do
     cached_read_posts = socket.assigns[:cached_read_posts] || []
-    updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+    updated_cached_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+    cached_unread_posts = socket.assigns[:cached_unread_posts] || []
+    updated_cached_unread = Enum.reject(cached_unread_posts, &(&1.id == post.id))
 
     socket
-    |> assign(:cached_read_posts, updated_cached)
+    |> assign(:cached_read_posts, updated_cached_read)
+    |> assign(:cached_unread_posts, updated_cached_unread)
     |> stream_delete(:posts, post)
     |> stream_delete(:read_posts, post)
   end
@@ -6287,21 +6383,29 @@ defmodule MossletWeb.TimelineLive.Index do
   defp move_post_between_streams(socket, post, current_user) do
     if is_post_unread?(post, current_user) do
       cached_read_posts = socket.assigns[:cached_read_posts] || []
-      updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+      updated_cached_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
       loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
 
+      cached_unread_posts = socket.assigns[:cached_unread_posts] || []
+      updated_cached_unread = update_or_add_cached_post(cached_unread_posts, post)
+
       socket
-      |> assign(:cached_read_posts, updated_cached)
+      |> assign(:cached_read_posts, updated_cached_read)
+      |> assign(:cached_unread_posts, updated_cached_unread)
       |> assign(:loaded_read_posts_count, max(0, loaded_read_count - 1))
       |> stream_delete(:read_posts, post)
       |> stream_insert(:posts, post, at: -1)
     else
       cached_read_posts = socket.assigns[:cached_read_posts] || []
-      updated_cached = update_or_add_cached_post(cached_read_posts, post)
+      updated_cached_read = update_or_add_cached_post(cached_read_posts, post)
       loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
 
+      cached_unread_posts = socket.assigns[:cached_unread_posts] || []
+      updated_cached_unread = Enum.reject(cached_unread_posts, &(&1.id == post.id))
+
       socket
-      |> assign(:cached_read_posts, updated_cached)
+      |> assign(:cached_read_posts, updated_cached_read)
+      |> assign(:cached_unread_posts, updated_cached_unread)
       |> assign(:loaded_read_posts_count, loaded_read_count + 1)
       |> stream_delete(:posts, post)
       |> maybe_stream_insert_read_post(post, at: -1)

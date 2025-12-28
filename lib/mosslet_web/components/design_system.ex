@@ -2985,7 +2985,10 @@ defmodule MossletWeb.DesignSystem do
           icon_bg_hover:
             "group-hover:from-emerald-100 group-hover:to-teal-50 dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
           spinner: "border-emerald-500/30 border-t-emerald-500",
-          divider_line: "via-emerald-300/40 dark:via-emerald-600/40"
+          divider_line: "via-emerald-300/40 dark:via-emerald-600/40",
+          button:
+            "bg-gradient-to-r from-emerald-500 to-teal-600 text-white focus:ring-emerald-500/50",
+          indicator: "bg-emerald-400"
         }
 
       "teal" ->
@@ -2996,7 +2999,9 @@ defmodule MossletWeb.DesignSystem do
           icon_bg_hover:
             "group-hover:from-blue-100 group-hover:to-cyan-50 dark:group-hover:from-blue-900/40 dark:group-hover:to-cyan-900/30",
           spinner: "border-blue-500/30 border-t-blue-500",
-          divider_line: "via-blue-300/40 dark:via-blue-600/40"
+          divider_line: "via-blue-300/40 dark:via-blue-600/40",
+          button: "bg-gradient-to-r from-blue-500 to-cyan-600 text-white focus:ring-blue-500/50",
+          indicator: "bg-blue-400"
         }
 
       "blue" ->
@@ -3007,7 +3012,10 @@ defmodule MossletWeb.DesignSystem do
           icon_bg_hover:
             "group-hover:from-purple-100 group-hover:to-violet-50 dark:group-hover:from-purple-900/40 dark:group-hover:to-violet-900/30",
           spinner: "border-purple-500/30 border-t-purple-500",
-          divider_line: "via-purple-300/40 dark:via-purple-600/40"
+          divider_line: "via-purple-300/40 dark:via-purple-600/40",
+          button:
+            "bg-gradient-to-r from-purple-500 to-violet-600 text-white focus:ring-purple-500/50",
+          indicator: "bg-purple-400"
         }
 
       "purple" ->
@@ -3018,7 +3026,10 @@ defmodule MossletWeb.DesignSystem do
           icon_bg_hover:
             "group-hover:from-amber-100 group-hover:to-orange-50 dark:group-hover:from-amber-900/40 dark:group-hover:to-orange-900/30",
           spinner: "border-amber-500/30 border-t-amber-500",
-          divider_line: "via-amber-300/40 dark:via-amber-600/40"
+          divider_line: "via-amber-300/40 dark:via-amber-600/40",
+          button:
+            "bg-gradient-to-r from-amber-500 to-orange-600 text-white focus:ring-amber-500/50",
+          indicator: "bg-amber-400"
         }
 
       "orange" ->
@@ -3029,7 +3040,10 @@ defmodule MossletWeb.DesignSystem do
           icon_bg_hover:
             "group-hover:from-indigo-100 group-hover:to-blue-50 dark:group-hover:from-indigo-900/40 dark:group-hover:to-blue-900/30",
           spinner: "border-indigo-500/30 border-t-indigo-500",
-          divider_line: "via-indigo-300/40 dark:via-indigo-600/40"
+          divider_line: "via-indigo-300/40 dark:via-indigo-600/40",
+          button:
+            "bg-gradient-to-r from-indigo-500 to-blue-600 text-white focus:ring-indigo-500/50",
+          indicator: "bg-indigo-400"
         }
 
       _ ->
@@ -3040,7 +3054,10 @@ defmodule MossletWeb.DesignSystem do
           icon_bg_hover:
             "group-hover:from-slate-200 group-hover:to-slate-100 dark:group-hover:from-slate-700 dark:group-hover:to-slate-600",
           spinner: "border-slate-500/30 border-t-slate-500",
-          divider_line: "via-slate-300/40 dark:via-slate-600/40"
+          divider_line: "via-slate-300/40 dark:via-slate-600/40",
+          button:
+            "bg-gradient-to-r from-slate-500 to-slate-600 text-white focus:ring-slate-500/50",
+          indicator: "bg-slate-400"
         }
     end
   end
