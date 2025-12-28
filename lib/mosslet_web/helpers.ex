@@ -2345,9 +2345,11 @@ defmodule MossletWeb.Helpers do
         ""
 
       not is_nil(avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
-        image = decr_public_item(avatar_binary, profile.profile_key)
-        image = Base.encode64(image)
-        "data:image/webp;base64," <> image
+        case decr_public_item(avatar_binary, profile.profile_key) do
+          :failed_verification -> ""
+          image when is_binary(image) -> "data:image/webp;base64," <> Base.encode64(image)
+          _ -> ""
+        end
 
       is_nil(_avatar_binary = AvatarProcessor.get_ets_avatar("profile-#{user.connection.id}")) ->
         avatars_bucket = Encrypted.Session.avatars_bucket()

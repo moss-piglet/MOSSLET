@@ -5,6 +5,7 @@ defmodule MossletWeb.UserHomeLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Timeline
+  alias Mosslet.Timeline.Post
   alias MossletWeb.Helpers.StatusHelpers
   alias MossletWeb.Helpers.URLPreviewHelpers
 
@@ -17,6 +18,7 @@ defmodule MossletWeb.UserHomeLive do
 
     socket = stream(socket, :presences, [])
     socket = stream(socket, :profile_posts, [])
+    socket = stream(socket, :read_posts, [])
 
     socket =
       if connected?(socket) do
@@ -25,8 +27,10 @@ defmodule MossletWeb.UserHomeLive do
         Accounts.block_subscribe(current_user)
         Accounts.subscribe_connection_status(current_user)
         Accounts.private_subscribe(current_user)
+        Timeline.subscribe()
+        Timeline.connections_subscribe(current_user)
+        Timeline.private_subscribe(current_user)
 
-        # Only track presence when viewing YOUR OWN profile
         if profile_owner? do
           MossletWeb.Presence.track_activity(
             self(),
@@ -44,7 +48,6 @@ defmodule MossletWeb.UserHomeLive do
 
         socket = stream(socket, :presences, MossletWeb.Presence.list_online_users())
 
-        # Privately track user activity for auto-status functionality
         Accounts.track_user_activity(current_user, :general)
         socket
       else
@@ -53,6 +56,12 @@ defmodule MossletWeb.UserHomeLive do
 
     user_connection =
       if profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id)
+
+    key = socket.assigns.key
+    user_connections = Accounts.get_all_confirmed_user_connections(current_user.id)
+
+    post_shared_users =
+      decrypt_shared_user_connections(user_connections, current_user, key, :post)
 
     socket =
       socket
@@ -66,9 +75,23 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:profile_user, profile_user)
       |> assign(:current_user_is_profile_owner?, profile_owner?)
       |> assign(:user_connection, user_connection)
+      |> assign(:user_connections, user_connections)
+      |> assign(:post_shared_users, post_shared_users)
+      |> assign(:removing_shared_user_id, nil)
+      |> assign(:adding_shared_user, nil)
       |> assign(:posts_page, 1)
       |> assign(:posts_loading, false)
+      |> assign(:load_more_loading, false)
       |> assign(:posts_count, 0)
+      |> assign(:cached_profile_posts, [])
+      |> assign(:read_posts_expanded, false)
+      |> assign(:read_posts_loading, false)
+      |> assign(:read_posts_count, 0)
+      |> assign(:cached_read_posts, [])
+      |> assign(:show_share_modal, false)
+      |> assign(:share_post_id, nil)
+      |> assign(:share_post_body, nil)
+      |> assign(:share_post_username, nil)
       |> URLPreviewHelpers.assign_url_preview_defaults()
       |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
@@ -89,9 +112,42 @@ defmodule MossletWeb.UserHomeLive do
     posts = Timeline.list_profile_posts_visible_to(profile_user, current_user, options)
     posts_count = Timeline.count_profile_posts_visible_to(profile_user, current_user)
 
+    {unread_posts, read_posts} =
+      Enum.split_with(posts, fn post ->
+        is_post_unread?(post, current_user)
+      end)
+
+    unread_posts_with_dates = add_date_grouping_context(unread_posts)
+    read_posts_with_dates = add_date_grouping_context(read_posts)
+
     socket
     |> assign(:posts_count, posts_count)
-    |> stream(:profile_posts, posts, reset: true)
+    |> assign(:cached_profile_posts, unread_posts_with_dates)
+    |> assign(:read_posts_count, length(read_posts))
+    |> assign(:cached_read_posts, read_posts_with_dates)
+    |> assign(:read_posts_expanded, false)
+    |> stream(:profile_posts, unread_posts_with_dates, reset: true)
+    |> stream(:read_posts, [], reset: true)
+  end
+
+  defp is_post_unread?(post, current_user) do
+    cond do
+      Ecto.assoc_loaded?(post.user_post_receipts) ->
+        case Enum.find(post.user_post_receipts || [], fn receipt ->
+               receipt.user_id == current_user.id
+             end) do
+          nil -> true
+          %{is_read?: is_read} -> !is_read
+        end
+
+      true ->
+        case Timeline.get_user_post_receipt(current_user, post) do
+          nil -> true
+          %{is_read?: true} -> false
+          %{is_read?: false} -> true
+          _ -> true
+        end
+    end
   end
 
   def render(assigns) do
@@ -246,8 +302,425 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  def handle_info({:post_created, post}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      if post_visible_on_profile?(post, profile_user, current_user) do
+        cached_posts = socket.assigns.cached_profile_posts
+        post_with_date = add_single_post_date_context(post, cached_posts, at: 0)
+        updated_cached = [post_with_date | cached_posts]
+
+        socket =
+          socket
+          |> assign(:cached_profile_posts, updated_cached)
+          |> assign(:posts_count, socket.assigns.posts_count + 1)
+          |> maybe_update_old_first_post_separator(cached_posts, post_with_date, at: 0)
+          |> stream_insert(:profile_posts, post_with_date, at: 0)
+
+        {:noreply, socket}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:post_updated, post}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = update_cached_post(cached_posts, post)
+      post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:post_updated_fav, post}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = update_cached_post(cached_posts, post)
+      post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:post_deleted, post}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = Enum.reject(cached_posts, &(&1.id == post.id))
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> assign(:posts_count, max(0, socket.assigns.posts_count - 1))
+        |> stream_delete(:profile_posts, post)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:post_shared_users_added, post}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = update_cached_post(cached_posts, post)
+      post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:post_shared_users_removed, post}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = update_cached_post(cached_posts, post)
+      post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:reply_created, post, _reply}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = update_cached_post(cached_posts, post)
+      post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:reply_deleted, post, _reply}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_posts = socket.assigns.cached_profile_posts
+      updated_cached = update_cached_post(cached_posts, post)
+      post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+      socket =
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:submit_share, share_params}, socket) do
+    post = Timeline.get_post!(share_params.post_id)
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    encrypted_post_key = get_post_key(post, user)
+
+    decrypted_post_key =
+      case post.visibility do
+        :public ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+            decrypted when is_binary(decrypted) -> decrypted
+            _ -> nil
+          end
+
+        _ ->
+          case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                 encrypted_post_key,
+                 user,
+                 key
+               ) do
+            {:ok, decrypted} -> decrypted
+            _ -> nil
+          end
+      end
+
+    decrypted_reposts = decrypt_post_reposts_list(post, user, key)
+
+    if post.user_id != user.id && user.id not in decrypted_reposts do
+      selected_user_ids = share_params.selected_user_ids
+      note = share_params.note || ""
+      body = share_params.body
+      username = share_params.username
+
+      all_shared_users = socket.assigns.post_shared_users
+
+      selected_shared_users =
+        all_shared_users
+        |> Enum.filter(fn su -> su.user_id in selected_user_ids end)
+        |> Enum.map(fn su ->
+          %{
+            sender_id: su.sender_id,
+            username: su.username,
+            user_id: su.user_id,
+            color: su.color
+          }
+        end)
+
+      repost_params =
+        %{
+          body: body,
+          username: username,
+          favs_list: post.favs_list,
+          reposts_list: post.reposts_list,
+          favs_count: post.favs_count,
+          reposts_count: post.reposts_count,
+          user_id: user.id,
+          original_post_id: post.id,
+          visibility: :connections,
+          image_urls: decrypt_image_urls_for_repost(post, user, key),
+          image_urls_updated_at: post.image_urls_updated_at,
+          shared_users: selected_shared_users,
+          repost: true,
+          share_note: note
+        }
+
+      case Timeline.create_targeted_share(repost_params,
+             user: user,
+             key: key,
+             trix_key: decrypted_post_key
+           ) do
+        {:ok, _shared_post} ->
+          {:ok, post} = Timeline.inc_reposts(post)
+          updated_reposts = [user.id | decrypted_reposts]
+          encrypted_post_key = get_post_key(post, user)
+
+          {:ok, _post} =
+            Timeline.update_post_repost(
+              post,
+              %{reposts_list: updated_reposts},
+              user: user,
+              key: key,
+              post_key: encrypted_post_key
+            )
+
+          Accounts.track_user_activity(user, :interaction)
+
+          recipient_count = length(selected_user_ids)
+
+          {:noreply,
+           socket
+           |> assign(:show_share_modal, false)
+           |> assign(:share_post_id, nil)
+           |> assign(:share_post_body, nil)
+           |> assign(:share_post_username, nil)
+           |> put_flash(
+             :success,
+             "Shared with #{recipient_count} #{if recipient_count == 1, do: "person", else: "people"}!"
+           )
+           |> push_event("update_post_repost_count", %{
+             post_id: post.id,
+             reposts_count: post.reposts_count,
+             can_repost: false
+           })}
+
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> assign(:show_share_modal, false)
+           |> put_flash(:error, "Failed to share. Please try again.")}
+      end
+    else
+      {:noreply,
+       socket
+       |> assign(:show_share_modal, false)
+       |> put_flash(:error, "You cannot share this post.")}
+    end
+  end
+
+  def handle_info({:close_share_modal, _params}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, false)
+     |> assign(:share_post_id, nil)
+     |> assign(:share_post_body, nil)
+     |> assign(:share_post_username, nil)}
+  end
+
   def handle_info(_message, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("load_more_posts", _params, socket) do
+    socket = assign(socket, :load_more_loading, true)
+    current_user = socket.assigns.current_scope.user
+    profile_user = socket.assigns.profile_user
+
+    current_page = socket.assigns.posts_page
+    next_page = current_page + 1
+
+    options = %{post_page: next_page, post_per_page: @posts_per_page}
+    new_posts = Timeline.list_profile_posts_visible_to(profile_user, current_user, options)
+
+    if Enum.empty?(new_posts) do
+      {:noreply, assign(socket, :load_more_loading, false)}
+    else
+      {_new_unread, new_read_posts} =
+        Enum.split_with(new_posts, fn post ->
+          is_post_unread?(post, current_user)
+        end)
+
+      cached_read_posts = socket.assigns.cached_read_posts
+
+      new_read_posts_with_dates =
+        add_date_grouping_context_for_append(new_read_posts, cached_read_posts)
+
+      updated_cached_read = cached_read_posts ++ new_read_posts_with_dates
+
+      socket =
+        new_read_posts_with_dates
+        |> Enum.reduce(socket, fn post, acc_socket ->
+          stream_insert(acc_socket, :read_posts, post, at: -1)
+        end)
+        |> assign(:posts_page, next_page)
+        |> assign(:cached_read_posts, updated_cached_read)
+        |> assign(:load_more_loading, false)
+
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_read_posts", _params, socket) do
+    if socket.assigns.read_posts_expanded do
+      {:noreply,
+       socket
+       |> assign(:read_posts_expanded, false)
+       |> stream(:read_posts, [], reset: true)}
+    else
+      cached_posts = socket.assigns[:cached_read_posts] || []
+      posts_with_dates = add_date_grouping_context(cached_posts)
+
+      {:noreply,
+       socket
+       |> assign(:read_posts_expanded, true)
+       |> stream(:read_posts, posts_with_dates, reset: true)}
+    end
+  end
+
+  def handle_event("fav", %{"id" => id}, socket) do
+    post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_scope.user
+
+    if current_user.id not in post.favs_list do
+      {:ok, post} = Timeline.inc_favs(post)
+
+      case Timeline.update_post_fav(
+             post,
+             %{favs_list: List.insert_at(post.favs_list, 0, current_user.id)},
+             user: current_user
+           ) do
+        {:ok, _post} ->
+          {:noreply, socket}
+
+        {:error, changeset} ->
+          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("unfav", %{"id" => id}, socket) do
+    post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_scope.user
+
+    if current_user.id in post.favs_list do
+      {:ok, post} = Timeline.decr_favs(post)
+
+      case Timeline.update_post_fav(
+             post,
+             %{favs_list: List.delete(post.favs_list, current_user.id)},
+             user: current_user
+           ) do
+        {:ok, _post} ->
+          {:noreply, socket}
+
+        {:error, changeset} ->
+          {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event(
+        "open_share_modal",
+        %{"id" => id, "body" => body, "username" => username},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, true)
+     |> assign(:share_post_id, id)
+     |> assign(:share_post_body, body)
+     |> assign(:share_post_username, username)}
+  end
+
+  def handle_event("close_share_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_share_modal, false)
+     |> assign(:share_post_id, nil)
+     |> assign(:share_post_body, nil)
+     |> assign(:share_post_username, nil)}
   end
 
   defp get_profile_key_for_preview(socket) do
@@ -324,200 +797,201 @@ defmodule MossletWeb.UserHomeLive do
       current_scope={@current_scope}
       type="sidebar"
     >
-      <%!-- Hero Section with responsive design --%>
-      <div class="relative overflow-hidden">
-        <%!-- Banner/Cover Image Section --%>
-        <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-          <%!-- Custom banner image if available --%>
-          <%= cond do %>
-            <% @custom_banner_src.loading -> %>
-              <div class="absolute inset-0 flex items-center justify-center">
-                <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin">
+      <div id="timeline-container">
+        <%!-- Hero Section with responsive design --%>
+        <div class="relative overflow-hidden">
+          <%!-- Banner/Cover Image Section --%>
+          <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
+            <%!-- Custom banner image if available --%>
+            <%= cond do %>
+              <% @custom_banner_src.loading -> %>
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="w-10 h-10 border-3 border-purple-400 border-t-transparent rounded-full animate-spin">
+                  </div>
                 </div>
-              </div>
-            <% get_async_banner_src(@custom_banner_src) -> %>
-              <div
-                class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={"background-image: url('#{get_async_banner_src(@custom_banner_src)}')"}
-              >
-                <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-              </div>
-            <% get_banner_image_for_connection(@profile_user.connection) != "" -> %>
-              <div
-                class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-              >
-                <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-              </div>
-            <% true -> %>
-          <% end %>
+              <% get_async_banner_src(@custom_banner_src) -> %>
+                <div
+                  class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                  style={"background-image: url('#{get_async_banner_src(@custom_banner_src)}')"}
+                >
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                </div>
+              <% get_banner_image_for_connection(@profile_user.connection) != "" -> %>
+                <div
+                  class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                  style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
+                >
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                </div>
+              <% true -> %>
+            <% end %>
 
-          <%!-- Liquid metal overlay pattern --%>
-          <div class="absolute inset-0 opacity-20">
-            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
+            <%!-- Liquid metal overlay pattern --%>
+            <div class="absolute inset-0 opacity-20">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
+              </div>
             </div>
           </div>
-        </div>
 
-        <%!-- Profile Header --%>
-        <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
-          <div class="mx-auto max-w-7xl">
-            <div class="relative pb-8">
-              <%!-- Avatar and Basic Info --%>
-              <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <%!-- Enhanced Avatar with built-in status support --%>
-                <div class="relative flex-shrink-0">
-                  <MossletWeb.DesignSystem.liquid_avatar
-                    src={
-                      if @profile_user.connection.profile.show_avatar?,
-                        do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
-                    }
-                    name={
-                      decr_item(
-                        @current_scope.user.connection.profile.name,
-                        @current_scope.user,
-                        @current_scope.user.conn_key,
-                        @current_scope.key,
-                        @current_scope.user.connection.profile
-                      )
-                    }
-                    size="xxl"
-                    status={to_string(@current_scope.user.status)}
-                    status_message={
-                      get_user_status_message(
-                        @current_scope.user,
-                        @current_scope.user,
-                        @current_scope.key
-                      )
-                    }
-                    show_status={
-                      can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
-                    }
-                    user_id={@current_scope.user.id}
-                    verified={@current_scope.user.connection.profile.visibility == "public"}
-                  />
-                </div>
-
-                <%!-- Name, username, and actions --%>
-                <div class="flex-1 text-center sm:text-left space-y-4">
-                  <%!-- Name and username --%>
-                  <div class="space-y-1">
-                    <h1
-                      :if={@current_scope.user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                    >
-                      {"#{decr_item(@current_scope.user.connection.profile.name,
-                      @current_scope.user,
-                      @current_scope.user.connection.profile.profile_key,
-                      @current_scope.key,
-                      @current_scope.user.connection.profile)}"}
-                    </h1>
-
-                    <h1
-                      :if={!@current_scope.user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                    >
-                      {"Profile 🌿"}
-                    </h1>
-                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
-                      <%!-- username badge --%>
-                      <MossletWeb.DesignSystem.liquid_badge
-                        variant="soft"
-                        color={
-                          if(@profile_user.connection.profile.visibility == "public",
-                            do: "cyan",
-                            else: "emerald"
-                          )
-                        }
-                        size="sm"
-                      >
-                        @{decr_item(
-                          @current_scope.user.connection.profile.username,
+          <%!-- Profile Header --%>
+          <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
+            <div class="mx-auto max-w-7xl">
+              <div class="relative pb-8">
+                <%!-- Avatar and Basic Info --%>
+                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  <%!-- Enhanced Avatar with built-in status support --%>
+                  <div class="relative flex-shrink-0">
+                    <MossletWeb.DesignSystem.liquid_avatar
+                      src={
+                        if @profile_user.connection.profile.show_avatar?,
+                          do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
+                      }
+                      name={
+                        decr_item(
+                          @current_scope.user.connection.profile.name,
                           @current_scope.user,
-                          @current_scope.user.connection.profile.profile_key,
+                          @current_scope.user.conn_key,
                           @current_scope.key,
                           @current_scope.user.connection.profile
-                        )}
-                      </MossletWeb.DesignSystem.liquid_badge>
-
-                      <%!-- Email badge if show_email? is true --%>
-                      <MossletWeb.DesignSystem.liquid_badge
-                        :if={
-                          @current_scope.user.connection.profile.show_email? &&
-                            @current_scope.user.connection.profile.email
-                        }
-                        variant="soft"
-                        color={
-                          if(@profile_user.connection.profile.visibility == "public",
-                            do: "cyan",
-                            else: "emerald"
-                          )
-                        }
-                        size="sm"
-                      >
-                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                        {decr_item(
-                          @current_scope.user.connection.profile.email,
+                        )
+                      }
+                      size="xxl"
+                      status={to_string(@current_scope.user.status)}
+                      status_message={
+                        get_user_status_message(
                           @current_scope.user,
-                          @current_scope.user.connection.profile.profile_key,
-                          @current_scope.key,
-                          @current_scope.user.connection.profile
-                        )}
-                      </MossletWeb.DesignSystem.liquid_badge>
-
-                      <%!-- Visibility badge --%>
-                      <MossletWeb.DesignSystem.liquid_badge
-                        variant="soft"
-                        color={
-                          if(@profile_user.connection.profile.visibility == "public",
-                            do: "cyan",
-                            else: "emerald"
-                          )
-                        }
-                        size="sm"
-                      >
-                        <.phx_icon
-                          name={
-                            if(@current_scope.user.connection.profile.visibility == "public",
-                              do: "hero-globe-alt",
-                              else: "hero-lock-closed"
-                            )
-                          }
-                          class="size-3 mr-1"
-                        />
-                        {String.capitalize(
-                          to_string(@current_scope.user.connection.profile.visibility)
-                        )}
-                      </MossletWeb.DesignSystem.liquid_badge>
-                    </div>
+                          @current_scope.user,
+                          @current_scope.key
+                        )
+                      }
+                      show_status={
+                        can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
+                      }
+                      user_id={@current_scope.user.id}
+                      verified={@current_scope.user.connection.profile.visibility == "public"}
+                    />
                   </div>
 
-                  <%!-- Action buttons --%>
-                  <div class="flex flex-col sm:flex-row items-center gap-3">
-                    <%!-- Edit Profile --%>
-                    <MossletWeb.DesignSystem.liquid_button
-                      navigate={~p"/app/users/edit-profile"}
-                      variant="primary"
-                      color="teal"
-                      icon="hero-pencil-square"
-                      class="w-full sm:w-auto"
-                    >
-                      Edit Profile
-                    </MossletWeb.DesignSystem.liquid_button>
+                  <%!-- Name, username, and actions --%>
+                  <div class="flex-1 text-center sm:text-left space-y-4">
+                    <%!-- Name and username --%>
+                    <div class="space-y-1">
+                      <h1
+                        :if={@current_scope.user.connection.profile.show_name?}
+                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
+                      >
+                        {"#{decr_item(@current_scope.user.connection.profile.name,
+                        @current_scope.user,
+                        @current_scope.user.connection.profile.profile_key,
+                        @current_scope.key,
+                        @current_scope.user.connection.profile)}"}
+                      </h1>
 
-                    <%!-- Status Settings --%>
-                    <MossletWeb.DesignSystem.liquid_button
-                      navigate={~p"/app/users/edit-status"}
-                      variant="secondary"
-                      color="blue"
-                      icon="hero-face-smile"
-                      size="md"
-                      class="w-full sm:w-auto"
-                    >
-                      Status Settings
-                    </MossletWeb.DesignSystem.liquid_button>
+                      <h1
+                        :if={!@current_scope.user.connection.profile.show_name?}
+                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
+                      >
+                        {"Profile 🌿"}
+                      </h1>
+                      <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
+                        <%!-- username badge --%>
+                        <MossletWeb.DesignSystem.liquid_badge
+                          variant="soft"
+                          color={
+                            if(@profile_user.connection.profile.visibility == "public",
+                              do: "cyan",
+                              else: "emerald"
+                            )
+                          }
+                          size="sm"
+                        >
+                          @{decr_item(
+                            @current_scope.user.connection.profile.username,
+                            @current_scope.user,
+                            @current_scope.user.connection.profile.profile_key,
+                            @current_scope.key,
+                            @current_scope.user.connection.profile
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
 
-                    <%!-- Share Profile
+                        <%!-- Email badge if show_email? is true --%>
+                        <MossletWeb.DesignSystem.liquid_badge
+                          :if={
+                            @current_scope.user.connection.profile.show_email? &&
+                              @current_scope.user.connection.profile.email
+                          }
+                          variant="soft"
+                          color={
+                            if(@profile_user.connection.profile.visibility == "public",
+                              do: "cyan",
+                              else: "emerald"
+                            )
+                          }
+                          size="sm"
+                        >
+                          <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                          {decr_item(
+                            @current_scope.user.connection.profile.email,
+                            @current_scope.user,
+                            @current_scope.user.connection.profile.profile_key,
+                            @current_scope.key,
+                            @current_scope.user.connection.profile
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
+
+                        <%!-- Visibility badge --%>
+                        <MossletWeb.DesignSystem.liquid_badge
+                          variant="soft"
+                          color={
+                            if(@profile_user.connection.profile.visibility == "public",
+                              do: "cyan",
+                              else: "emerald"
+                            )
+                          }
+                          size="sm"
+                        >
+                          <.phx_icon
+                            name={
+                              if(@current_scope.user.connection.profile.visibility == "public",
+                                do: "hero-globe-alt",
+                                else: "hero-lock-closed"
+                              )
+                            }
+                            class="size-3 mr-1"
+                          />
+                          {String.capitalize(
+                            to_string(@current_scope.user.connection.profile.visibility)
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
+                      </div>
+                    </div>
+
+                    <%!-- Action buttons --%>
+                    <div class="flex flex-col sm:flex-row items-center gap-3">
+                      <%!-- Edit Profile --%>
+                      <MossletWeb.DesignSystem.liquid_button
+                        navigate={~p"/app/users/edit-profile"}
+                        variant="primary"
+                        color="teal"
+                        icon="hero-pencil-square"
+                        class="w-full sm:w-auto"
+                      >
+                        Edit Profile
+                      </MossletWeb.DesignSystem.liquid_button>
+
+                      <%!-- Status Settings --%>
+                      <MossletWeb.DesignSystem.liquid_button
+                        navigate={~p"/app/users/edit-status"}
+                        variant="secondary"
+                        color="blue"
+                        icon="hero-face-smile"
+                        size="md"
+                        class="w-full sm:w-auto"
+                      >
+                        Status Settings
+                      </MossletWeb.DesignSystem.liquid_button>
+
+                      <%!-- Share Profile
 
                 <MossletWeb.DesignSystem.liquid_button
                   variant="ghost"
@@ -531,408 +1005,534 @@ defmodule MossletWeb.UserHomeLive do
                   Share
                 </MossletWeb.DesignSystem.liquid_button>
                 --%>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <%!-- Main Content --%>
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
-        <%!-- New Post Prompt --%>
-        <div class="mb-8">
-          <MossletWeb.DesignSystem.liquid_new_post_prompt
-            id="home-new-post-prompt"
-            user_name={
-              decr_item(
-                @current_scope.user.connection.profile.name,
-                @current_scope.user,
-                @current_scope.user.conn_key,
-                @current_scope.key,
-                @current_scope.user.connection.profile
-              )
-            }
-            user_avatar={
-              if @profile_user.connection.profile.show_avatar?,
-                do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
-            }
-            placeholder="Share something meaningful with your community..."
-            current_scope={@current_scope}
-            show_status={
-              can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
-            }
-            status_message={get_current_user_status_message(@current_scope.user, @current_scope.key)}
-          />
-        </div>
+        <%!-- Main Content --%>
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+          <%!-- New Post Prompt --%>
+          <div class="mb-8">
+            <MossletWeb.DesignSystem.liquid_new_post_prompt
+              id="home-new-post-prompt"
+              user_name={
+                decr_item(
+                  @current_scope.user.connection.profile.name,
+                  @current_scope.user,
+                  @current_scope.user.conn_key,
+                  @current_scope.key,
+                  @current_scope.user.connection.profile
+                )
+              }
+              user_avatar={
+                if @profile_user.connection.profile.show_avatar?,
+                  do: maybe_get_user_avatar(@current_scope.user, @current_scope.key)
+              }
+              placeholder="Share something meaningful with your community..."
+              current_scope={@current_scope}
+              show_status={
+                can_view_status?(@current_scope.user, @current_scope.user, @current_scope.key)
+              }
+              status_message={
+                get_current_user_status_message(@current_scope.user, @current_scope.key)
+              }
+            />
+          </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <%!-- Left Column: Profile Details & Federation --%>
-          <div class="lg:col-span-2 space-y-8">
-            <%!-- Contact & Links Section --%>
-            <MossletWeb.DesignSystem.liquid_card
-              :if={has_contact_links?(@current_scope.user.connection.profile)}
-              heading_level={2}
-            >
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
-                  Contact & Links
-                </div>
-              </:title>
-              <div class="space-y-4">
-                <div
-                  :if={@current_scope.user.connection.profile.alternate_email}
-                  class="flex items-center gap-3"
-                >
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <%!-- Left Column: Profile Details & Federation --%>
+            <div class="lg:col-span-2 space-y-8">
+              <%!-- Contact & Links Section --%>
+              <MossletWeb.DesignSystem.liquid_card
+                :if={has_contact_links?(@current_scope.user.connection.profile)}
+                heading_level={2}
+              >
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                    Contact & Links
                   </div>
-                  <div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
-                    <a
-                      href={"mailto:#{decr_item(@current_scope.user.connection.profile.alternate_email, @current_scope.user, @current_scope.user.connection.profile.profile_key, @current_scope.key, @current_scope.user.connection.profile)}"}
-                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
-                    >
-                      {decr_item(
-                        @current_scope.user.connection.profile.alternate_email,
+                </:title>
+                <div class="space-y-4">
+                  <div
+                    :if={@current_scope.user.connection.profile.alternate_email}
+                    class="flex items-center gap-3"
+                  >
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                      <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                      <a
+                        href={"mailto:#{decr_item(@current_scope.user.connection.profile.alternate_email, @current_scope.user, @current_scope.user.connection.profile.profile_key, @current_scope.key, @current_scope.user.connection.profile)}"}
+                        class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                      >
+                        {decr_item(
+                          @current_scope.user.connection.profile.alternate_email,
+                          @current_scope.user,
+                          @current_scope.user.connection.profile.profile_key,
+                          @current_scope.key,
+                          @current_scope.user.connection.profile
+                        )}
+                      </a>
+                    </div>
+                  </div>
+
+                  <MossletWeb.DesignSystem.website_url_preview
+                    :if={@current_scope.user.connection.profile.website_url}
+                    preview={@website_url_preview}
+                    loading={@website_url_preview_loading}
+                    url={
+                      decr_item(
+                        @current_scope.user.connection.profile.website_url,
                         @current_scope.user,
                         @current_scope.user.connection.profile.profile_key,
                         @current_scope.key,
                         @current_scope.user.connection.profile
-                      )}
-                    </a>
-                  </div>
+                      )
+                    }
+                    label={
+                      if @current_scope.user.connection.profile.website_label do
+                        decr_item(
+                          @current_scope.user.connection.profile.website_label,
+                          @current_scope.user,
+                          @current_scope.user.connection.profile.profile_key,
+                          @current_scope.key,
+                          @current_scope.user.connection.profile
+                        )
+                      else
+                        "Website"
+                      end
+                    }
+                  />
                 </div>
+              </MossletWeb.DesignSystem.liquid_card>
 
-                <MossletWeb.DesignSystem.website_url_preview
-                  :if={@current_scope.user.connection.profile.website_url}
-                  preview={@website_url_preview}
-                  loading={@website_url_preview_loading}
-                  url={
-                    decr_item(
-                      @current_scope.user.connection.profile.website_url,
+              <%!-- About Section --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" />
+                    About
+                  </div>
+                </:title>
+                <div
+                  :if={@current_scope.user.connection.profile.about}
+                  class="prose prose-slate dark:prose-invert max-w-none"
+                >
+                  <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {decr_item(
+                      @current_scope.user.connection.profile.about,
                       @current_scope.user,
                       @current_scope.user.connection.profile.profile_key,
                       @current_scope.key,
                       @current_scope.user.connection.profile
-                    )
-                  }
-                  label={
-                    if @current_scope.user.connection.profile.website_label do
-                      decr_item(
-                        @current_scope.user.connection.profile.website_label,
-                        @current_scope.user,
-                        @current_scope.user.connection.profile.profile_key,
-                        @current_scope.key,
-                        @current_scope.user.connection.profile
-                      )
-                    else
-                      "Website"
-                    end
-                  }
-                />
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- About Section --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
-                </div>
-              </:title>
-              <div
-                :if={@current_scope.user.connection.profile.about}
-                class="prose prose-slate dark:prose-invert max-w-none"
-              >
-                <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {decr_item(
-                    @current_scope.user.connection.profile.about,
-                    @current_scope.user,
-                    @current_scope.user.connection.profile.profile_key,
-                    @current_scope.key,
-                    @current_scope.user.connection.profile
-                  )}
-                </p>
-              </div>
-              <div
-                :if={!@current_scope.user.connection.profile.about}
-                class="text-center py-8"
-              >
-                <div class="mb-4">
-                  <.phx_icon
-                    name="hero-chat-bubble-left-right"
-                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                  />
-                  <p class="text-sm text-slate-600 dark:text-slate-400">
-                    Share something about yourself!
+                    )}
                   </p>
                 </div>
-                <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/app/users/edit-profile"}
-                  variant="secondary"
-                  color="teal"
-                  size="sm"
-                  icon="hero-plus"
+                <div
+                  :if={!@current_scope.user.connection.profile.about}
+                  class="text-center py-8"
                 >
-                  Add Bio
-                </MossletWeb.DesignSystem.liquid_button>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- Posts Section --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center justify-between w-full">
-                  <div class="flex items-center gap-2">
+                  <div class="mb-4">
                     <.phx_icon
-                      name="hero-chat-bubble-bottom-center-text"
-                      class="size-5 text-emerald-600 dark:text-emerald-400"
+                      name="hero-chat-bubble-left-right"
+                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
                     />
-                    <span>Posts</span>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                      Share something about yourself!
+                    </p>
                   </div>
-                  <MossletWeb.DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
-                    {@posts_count}
-                  </MossletWeb.DesignSystem.liquid_badge>
-                </div>
-              </:title>
-              <div id="profile-posts" phx-update="stream" class="space-y-4">
-                <div class="hidden only:block text-center py-8">
-                  <.phx_icon
-                    name="hero-pencil-square"
-                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                  />
-                  <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                    No posts yet. Share your thoughts with your community!
-                  </p>
                   <MossletWeb.DesignSystem.liquid_button
-                    navigate={~p"/app/timeline"}
-                    variant="primary"
-                    color="emerald"
+                    navigate={~p"/app/users/edit-profile"}
+                    variant="secondary"
+                    color="teal"
                     size="sm"
                     icon="hero-plus"
                   >
-                    Create Your First Post
+                    Add Bio
                   </MossletWeb.DesignSystem.liquid_button>
                 </div>
-                <div
-                  :for={{dom_id, post} <- @streams.profile_posts}
-                  id={dom_id}
-                  class="profile-post-container"
-                >
-                  <MossletWeb.DesignSystem.liquid_timeline_post
-                    user_name={
-                      get_profile_post_author_name(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    user_handle={
-                      get_profile_post_author_handle(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    user_avatar={
-                      get_profile_post_author_avatar(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    user_status={nil}
-                    user_status_message={nil}
-                    show_post_author_status={false}
-                    timestamp={format_profile_post_timestamp(post.inserted_at)}
-                    verified={false}
-                    content_warning?={false}
-                    content_warning={nil}
-                    content_warning_category={nil}
-                    content={
-                      get_profile_post_content(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    images={[]}
-                    decrypted_url_preview={nil}
-                    stats={
-                      %{
-                        replies: length(post.replies || []),
-                        shares: post.reposts_count || 0,
-                        likes: post.favs_count || 0
-                      }
-                    }
-                    post_id={post.id}
-                    current_user_id={@current_scope.user.id}
-                    post_shared_users={[]}
-                    removing_shared_user_id={nil}
-                    adding_shared_user={nil}
-                    post={post}
-                    current_scope={@current_scope}
-                    is_repost={false}
-                    share_note={nil}
-                    liked={false}
-                    bookmarked={false}
-                    can_repost={false}
-                    can_reply?={false}
-                    can_bookmark?={false}
-                    unread?={false}
-                    unread_replies_count={0}
-                    unread_nested_replies_by_parent={%{}}
-                    calm_notifications={@current_scope.user.calm_notifications}
-                    class="shadow-md hover:shadow-lg transition-shadow duration-300"
-                  />
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-          </div>
+              </MossletWeb.DesignSystem.liquid_card>
 
-          <%!-- Right Column: Quick Actions & Profile Management --%>
-          <div
-            :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
-            class="lg:col-span-1 space-y-6"
-          >
-            <%!-- Quick Actions --%>
-            <MossletWeb.DesignSystem.liquid_card
-              heading_level={2}
-              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-            >
-              <:title>
-                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                  <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
-                  Quick Actions
-                </div>
-              </:title>
-              <div class="space-y-3">
-                <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/app/timeline"}
-                  variant="primary"
-                  color="teal"
-                  icon="hero-newspaper"
-                  class="w-full"
-                >
-                  View Timeline
-                </MossletWeb.DesignSystem.liquid_button>
-
-                <div class="space-y-2 pt-2">
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/users/connections"}
-                    icon="hero-users"
-                    class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
-                  >
-                    Manage Connections
-                  </MossletWeb.DesignSystem.liquid_nav_item>
-
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/circles"}
-                    icon="hero-circle-stack"
-                    class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
-                  >
-                    Join Circles
-                  </MossletWeb.DesignSystem.liquid_nav_item>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- Profile Stats --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-pie"
-                    class="size-5 text-purple-600 dark:text-purple-400"
-                  /> Profile Stats
-                </div>
-              </:title>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Profile views</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {assigns[:profile_views] || "—"}
-                  </span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.inserted_at,
-                      do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                      else: "—"}
-                  </span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.last_activity_at,
-                      do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                      else: "Now"}
-                  </span>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- Privacy & Security --%>
-            <MossletWeb.DesignSystem.liquid_card
-              :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
-              heading_level={2}
-              class="border-emerald-200/40 dark:border-emerald-700/40"
-            >
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-shield-check"
-                    class="size-5 text-emerald-600 dark:text-emerald-400"
-                  /> Privacy & Security
-                </div>
-              </:title>
-              <div class="space-y-3">
-                <div class="flex items-center gap-3 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
-                  <div class="size-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+              <%!-- Posts Section --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-chat-bubble-bottom-center-text"
+                        class="size-5 text-emerald-600 dark:text-emerald-400"
+                      />
+                      <span>Posts</span>
+                    </div>
+                    <MossletWeb.DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
+                      {@posts_count}
+                    </MossletWeb.DesignSystem.liquid_badge>
+                  </div>
+                </:title>
+                <div id="profile-posts" phx-update="stream" class="space-y-4">
+                  <div class="hidden only:block text-center py-8">
                     <.phx_icon
-                      name="hero-lock-closed"
-                      class="size-4 text-emerald-600 dark:text-emerald-400"
+                      name="hero-pencil-square"
+                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                    />
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                      No posts yet. Share your thoughts with your community!
+                    </p>
+                    <MossletWeb.DesignSystem.liquid_button
+                      navigate={~p"/app/timeline"}
+                      variant="primary"
+                      color="emerald"
+                      size="sm"
+                      icon="hero-plus"
+                    >
+                      Create Your First Post
+                    </MossletWeb.DesignSystem.liquid_button>
+                  </div>
+                  <div
+                    :for={{dom_id, post} <- @streams.profile_posts}
+                    id={dom_id}
+                    class="profile-post-container"
+                  >
+                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                      date={post.post_date}
+                      first={Map.get(post, :first_separator, false)}
+                    />
+                    <MossletWeb.DesignSystem.liquid_timeline_post
+                      user_name={
+                        get_profile_post_author_name(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_handle={
+                        get_profile_post_author_handle(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_avatar={
+                        get_profile_post_author_avatar(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status={nil}
+                      user_status_message={nil}
+                      show_post_author_status={false}
+                      timestamp={format_profile_post_timestamp(post.inserted_at)}
+                      verified={false}
+                      content_warning?={false}
+                      content_warning={nil}
+                      content_warning_category={nil}
+                      content={
+                        get_profile_post_content(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      images={[]}
+                      decrypted_url_preview={nil}
+                      stats={
+                        %{
+                          replies: length(post.replies || []),
+                          shares: post.reposts_count || 0,
+                          likes: post.favs_count || 0
+                        }
+                      }
+                      post_id={post.id}
+                      current_user_id={@current_scope.user.id}
+                      post_shared_users={@post_shared_users}
+                      removing_shared_user_id={@removing_shared_user_id}
+                      adding_shared_user={@adding_shared_user}
+                      post={post}
+                      current_scope={@current_scope}
+                      is_repost={post.repost || false}
+                      share_note={nil}
+                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      bookmarked={false}
+                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_reply?={false}
+                      can_bookmark?={false}
+                      unread?={false}
+                      unread_replies_count={0}
+                      unread_nested_replies_by_parent={%{}}
+                      calm_notifications={@current_scope.user.calm_notifications}
+                      class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
                   </div>
-                  <div class="text-sm">
-                    <p class="font-medium text-emerald-800 dark:text-emerald-200">
-                      End-to-End Encrypted
-                    </p>
-                    <p class="text-emerald-600 dark:text-emerald-400">Your data is protected</p>
+                </div>
+                <MossletWeb.DesignSystem.liquid_read_posts_divider
+                  :if={@posts_count - length(@cached_profile_posts) > 0}
+                  count={@posts_count - length(@cached_profile_posts)}
+                  expanded={@read_posts_expanded}
+                  loading={@read_posts_loading}
+                  tab_color="emerald"
+                />
+                <div
+                  :if={@read_posts_expanded}
+                  id="profile-read-posts-own"
+                  phx-update="stream"
+                  class={[
+                    "space-y-4",
+                    "animate-in fade-in-0 slide-in-from-top-4 duration-500 ease-out"
+                  ]}
+                >
+                  <div
+                    :for={{dom_id, post} <- @streams.read_posts}
+                    id={dom_id}
+                    class="profile-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
+                  >
+                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                      date={post.post_date}
+                      first={Map.get(post, :first_separator, false)}
+                    />
+                    <MossletWeb.DesignSystem.liquid_timeline_post
+                      user_name={
+                        get_profile_post_author_name(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_handle={
+                        get_profile_post_author_handle(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_avatar={
+                        get_profile_post_author_avatar(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status={nil}
+                      user_status_message={nil}
+                      show_post_author_status={false}
+                      timestamp={format_profile_post_timestamp(post.inserted_at)}
+                      verified={false}
+                      content_warning?={false}
+                      content_warning={nil}
+                      content_warning_category={nil}
+                      content={
+                        get_profile_post_content(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      images={[]}
+                      decrypted_url_preview={nil}
+                      stats={
+                        %{
+                          replies: length(post.replies || []),
+                          shares: post.reposts_count || 0,
+                          likes: post.favs_count || 0
+                        }
+                      }
+                      post_id={post.id}
+                      current_user_id={@current_scope.user.id}
+                      post_shared_users={@post_shared_users}
+                      removing_shared_user_id={@removing_shared_user_id}
+                      adding_shared_user={@adding_shared_user}
+                      post={post}
+                      current_scope={@current_scope}
+                      is_repost={post.repost || false}
+                      share_note={nil}
+                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      bookmarked={false}
+                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_reply?={false}
+                      can_bookmark?={false}
+                      unread?={false}
+                      unread_replies_count={0}
+                      unread_nested_replies_by_parent={%{}}
+                      calm_notifications={@current_scope.user.calm_notifications}
+                      class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                    />
                   </div>
                 </div>
+                <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                  :if={
+                    @read_posts_expanded &&
+                      @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
+                  }
+                  remaining_count={
+                    @posts_count - length(@cached_profile_posts) - length(@cached_read_posts)
+                  }
+                  load_count={
+                    min(10, @posts_count - length(@cached_profile_posts) - length(@cached_read_posts))
+                  }
+                  loading={@load_more_loading}
+                  tab_color="emerald"
+                  phx-click="load_more_posts"
+                />
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
 
-                <div class="space-y-2">
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/users/two-factor-authentication"}
-                    icon="hero-cog-6-tooth"
-                    class="rounded-lg text-sm"
+            <%!-- Right Column: Quick Actions & Profile Management --%>
+            <div
+              :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
+              class="lg:col-span-1 space-y-6"
+            >
+              <%!-- Quick Actions --%>
+              <MossletWeb.DesignSystem.liquid_card
+                heading_level={2}
+                class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
+              >
+                <:title>
+                  <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
+                    <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
+                    Quick Actions
+                  </div>
+                </:title>
+                <div class="space-y-3">
+                  <MossletWeb.DesignSystem.liquid_button
+                    navigate={~p"/app/timeline"}
+                    variant="primary"
+                    color="teal"
+                    icon="hero-newspaper"
+                    class="w-full"
                   >
-                    Security Settings
-                  </MossletWeb.DesignSystem.liquid_nav_item>
+                    View Timeline
+                  </MossletWeb.DesignSystem.liquid_button>
 
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/users/edit-visibility"}
-                    icon="hero-eye-slash"
-                    class="rounded-lg text-sm"
-                  >
-                    Visibility Controls
-                  </MossletWeb.DesignSystem.liquid_nav_item>
+                  <div class="space-y-2 pt-2">
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/users/connections"}
+                      icon="hero-users"
+                      class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
+                    >
+                      Manage Connections
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/circles"}
+                      icon="hero-circle-stack"
+                      class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
+                    >
+                      Join Circles
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+                  </div>
                 </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <%!-- Profile Stats --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chart-pie"
+                      class="size-5 text-purple-600 dark:text-purple-400"
+                    /> Profile Stats
+                  </div>
+                </:title>
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Profile views</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {assigns[:profile_views] || "—"}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {if @profile_user.inserted_at,
+                        do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
+                        else: "—"}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {if @profile_user.last_activity_at,
+                        do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
+                        else: "Now"}
+                    </span>
+                  </div>
+                </div>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <%!-- Privacy & Security --%>
+              <MossletWeb.DesignSystem.liquid_card
+                :if={@current_scope.user && @current_scope.user.id == @profile_user.id}
+                heading_level={2}
+                class="border-emerald-200/40 dark:border-emerald-700/40"
+              >
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-shield-check"
+                      class="size-5 text-emerald-600 dark:text-emerald-400"
+                    /> Privacy & Security
+                  </div>
+                </:title>
+                <div class="space-y-3">
+                  <div class="flex items-center gap-3 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
+                    <div class="size-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                      <.phx_icon
+                        name="hero-lock-closed"
+                        class="size-4 text-emerald-600 dark:text-emerald-400"
+                      />
+                    </div>
+                    <div class="text-sm">
+                      <p class="font-medium text-emerald-800 dark:text-emerald-200">
+                        End-to-End Encrypted
+                      </p>
+                      <p class="text-emerald-600 dark:text-emerald-400">Your data is protected</p>
+                    </div>
+                  </div>
+
+                  <div class="space-y-2">
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/users/two-factor-authentication"}
+                      icon="hero-cog-6-tooth"
+                      class="rounded-lg text-sm"
+                    >
+                      Security Settings
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/users/edit-visibility"}
+                      icon="hero-eye-slash"
+                      class="rounded-lg text-sm"
+                    >
+                      Visibility Controls
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+                  </div>
+                </div>
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
           </div>
         </div>
       </div>
@@ -948,377 +1548,488 @@ defmodule MossletWeb.UserHomeLive do
       current_scope={@current_scope}
       type="sidebar"
     >
-      <div class="relative overflow-hidden">
-        <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-          <div
-            :if={get_banner_image_for_connection(@profile_user.connection) != ""}
-            class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-          >
-            <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+      <div id="timeline-container">
+        <div class="relative overflow-hidden">
+          <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
+            <div
+              :if={get_banner_image_for_connection(@profile_user.connection) != ""}
+              class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
+            >
+              <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+            </div>
+
+            <div class="absolute inset-0 opacity-20">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
+              </div>
+            </div>
           </div>
 
-          <div class="absolute inset-0 opacity-20">
-            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
+          <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
+            <div class="mx-auto max-w-7xl">
+              <div class="relative pb-8">
+                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  <div class="relative flex-shrink-0">
+                    <MossletWeb.DesignSystem.liquid_avatar
+                      src={
+                        if @profile_user.connection.profile.show_avatar?,
+                          do: get_public_avatar(@profile_user, @current_scope.user)
+                      }
+                      name={
+                        decrypt_public_field(
+                          @profile_user.connection.profile.name,
+                          @profile_user.connection.profile.profile_key
+                        )
+                      }
+                      size="xxl"
+                      status={get_public_status(@profile_user)}
+                      status_message={get_public_status_message(@profile_user)}
+                      show_status={
+                        can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                      }
+                      user_id={@profile_user.id}
+                      verified={false}
+                    />
+                  </div>
+
+                  <div class="flex-1 text-center sm:text-left space-y-4">
+                    <div class="space-y-1">
+                      <h1
+                        :if={@profile_user.connection.profile.show_name?}
+                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
+                      >
+                        {decrypt_public_field(
+                          @profile_user.connection.profile.name,
+                          @profile_user.connection.profile.profile_key
+                        )}
+                      </h1>
+
+                      <h1
+                        :if={!@profile_user.connection.profile.show_name?}
+                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
+                      >
+                        {"Profile 🌿"}
+                      </h1>
+
+                      <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
+                        <MossletWeb.DesignSystem.liquid_badge
+                          variant="soft"
+                          color="cyan"
+                          size="sm"
+                        >
+                          @{decrypt_public_field(
+                            @profile_user.connection.profile.username,
+                            @profile_user.connection.profile.profile_key
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
+
+                        <MossletWeb.DesignSystem.liquid_badge
+                          :if={
+                            @profile_user.connection.profile.show_email? &&
+                              @profile_user.connection.profile.email
+                          }
+                          variant="soft"
+                          color="cyan"
+                          size="sm"
+                        >
+                          <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                          {decrypt_public_field(
+                            @profile_user.connection.profile.email,
+                            @profile_user.connection.profile.profile_key
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
+
+                        <MossletWeb.DesignSystem.liquid_badge
+                          variant="soft"
+                          color="cyan"
+                          size="sm"
+                        >
+                          <.phx_icon name="hero-globe-alt" class="size-3 mr-1" /> Public
+                        </MossletWeb.DesignSystem.liquid_badge>
+                      </div>
+                    </div>
+
+                    <div
+                      :if={
+                        @current_scope.user && !@current_user_is_profile_owner? && !@user_connection
+                      }
+                      class="flex flex-col sm:flex-row items-center gap-3"
+                    >
+                      <MossletWeb.DesignSystem.liquid_button
+                        navigate={~p"/app/users/connections"}
+                        variant="primary"
+                        color="teal"
+                        icon="hero-user-plus"
+                        class="w-full sm:w-auto"
+                      >
+                        Connect
+                      </MossletWeb.DesignSystem.liquid_button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
-          <div class="mx-auto max-w-7xl">
-            <div class="relative pb-8">
-              <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <div class="relative flex-shrink-0">
-                  <MossletWeb.DesignSystem.liquid_avatar
-                    src={
-                      if @profile_user.connection.profile.show_avatar?,
-                        do: get_public_avatar(@profile_user, @current_scope.user)
-                    }
-                    name={
-                      decrypt_public_field(
-                        @profile_user.connection.profile.name,
-                        @profile_user.connection.profile.profile_key
-                      )
-                    }
-                    size="xxl"
-                    status={get_public_status(@profile_user)}
-                    status_message={get_public_status_message(@profile_user)}
-                    show_status={
-                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
-                    }
-                    user_id={@profile_user.id}
-                    verified={false}
-                  />
-                </div>
-
-                <div class="flex-1 text-center sm:text-left space-y-4">
-                  <div class="space-y-1">
-                    <h1
-                      :if={@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                    >
-                      {decrypt_public_field(
-                        @profile_user.connection.profile.name,
-                        @profile_user.connection.profile.profile_key
-                      )}
-                    </h1>
-
-                    <h1
-                      :if={!@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                    >
-                      {"Profile 🌿"}
-                    </h1>
-
-                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-emerald-600 dark:text-emerald-400">
-                      <MossletWeb.DesignSystem.liquid_badge
-                        variant="soft"
-                        color="cyan"
-                        size="sm"
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-8">
+              <MossletWeb.DesignSystem.liquid_card
+                :if={has_contact_links?(@profile_user.connection.profile)}
+                heading_level={2}
+              >
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                    Contact & Links
+                  </div>
+                </:title>
+                <div class="space-y-4">
+                  <div
+                    :if={@profile_user.connection.profile.alternate_email}
+                    class="flex items-center gap-3"
+                  >
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                      <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                      <a
+                        href={"mailto:#{decrypt_public_field(@profile_user.connection.profile.alternate_email, @profile_user.connection.profile.profile_key)}"}
+                        class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                       >
-                        @{decrypt_public_field(
-                          @profile_user.connection.profile.username,
-                          @profile_user.connection.profile.profile_key
-                        )}
-                      </MossletWeb.DesignSystem.liquid_badge>
-
-                      <MossletWeb.DesignSystem.liquid_badge
-                        :if={
-                          @profile_user.connection.profile.show_email? &&
-                            @profile_user.connection.profile.email
-                        }
-                        variant="soft"
-                        color="cyan"
-                        size="sm"
-                      >
-                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
                         {decrypt_public_field(
-                          @profile_user.connection.profile.email,
+                          @profile_user.connection.profile.alternate_email,
                           @profile_user.connection.profile.profile_key
                         )}
-                      </MossletWeb.DesignSystem.liquid_badge>
-
-                      <MossletWeb.DesignSystem.liquid_badge
-                        variant="soft"
-                        color="cyan"
-                        size="sm"
-                      >
-                        <.phx_icon name="hero-globe-alt" class="size-3 mr-1" /> Public
-                      </MossletWeb.DesignSystem.liquid_badge>
+                      </a>
                     </div>
                   </div>
 
-                  <div
-                    :if={@current_scope.user && !@current_user_is_profile_owner? && !@user_connection}
-                    class="flex flex-col sm:flex-row items-center gap-3"
-                  >
-                    <MossletWeb.DesignSystem.liquid_button
-                      navigate={~p"/app/users/connections"}
-                      variant="primary"
-                      color="teal"
-                      icon="hero-user-plus"
-                      class="w-full sm:w-auto"
-                    >
-                      Connect
-                    </MossletWeb.DesignSystem.liquid_button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div class="lg:col-span-2 space-y-8">
-            <MossletWeb.DesignSystem.liquid_card
-              :if={has_contact_links?(@profile_user.connection.profile)}
-              heading_level={2}
-            >
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
-                  Contact & Links
-                </div>
-              </:title>
-              <div class="space-y-4">
-                <div
-                  :if={@profile_user.connection.profile.alternate_email}
-                  class="flex items-center gap-3"
-                >
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
-                  </div>
-                  <div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
-                    <a
-                      href={"mailto:#{decrypt_public_field(@profile_user.connection.profile.alternate_email, @profile_user.connection.profile.profile_key)}"}
-                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
-                    >
-                      {decrypt_public_field(
-                        @profile_user.connection.profile.alternate_email,
-                        @profile_user.connection.profile.profile_key
-                      )}
-                    </a>
-                  </div>
-                </div>
-
-                <MossletWeb.DesignSystem.website_url_preview
-                  :if={@profile_user.connection.profile.website_url}
-                  preview={@website_url_preview}
-                  loading={@website_url_preview_loading}
-                  url={
-                    decrypt_public_field(
-                      @profile_user.connection.profile.website_url,
-                      @profile_user.connection.profile.profile_key
-                    )
-                  }
-                  label={
-                    if @profile_user.connection.profile.website_label do
+                  <MossletWeb.DesignSystem.website_url_preview
+                    :if={@profile_user.connection.profile.website_url}
+                    preview={@website_url_preview}
+                    loading={@website_url_preview_loading}
+                    url={
                       decrypt_public_field(
-                        @profile_user.connection.profile.website_label,
+                        @profile_user.connection.profile.website_url,
                         @profile_user.connection.profile.profile_key
                       )
-                    else
-                      "Website"
-                    end
-                  }
-                />
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
-                </div>
-              </:title>
-              <div
-                :if={@profile_user.connection.profile.about}
-                class="prose prose-slate dark:prose-invert max-w-none"
-              >
-                <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {decrypt_public_field(
-                    @profile_user.connection.profile.about,
-                    @profile_user.connection.profile.profile_key
-                  )}
-                </p>
-              </div>
-              <div
-                :if={!@profile_user.connection.profile.about}
-                class="text-center py-8"
-              >
-                <div class="text-slate-400 dark:text-slate-500 mb-4">
-                  <.phx_icon
-                    name="hero-chat-bubble-left-right"
-                    class="size-12 mx-auto mb-3 opacity-50"
+                    }
+                    label={
+                      if @profile_user.connection.profile.website_label do
+                        decrypt_public_field(
+                          @profile_user.connection.profile.website_label,
+                          @profile_user.connection.profile.profile_key
+                        )
+                      else
+                        "Website"
+                      end
+                    }
                   />
-                  <p class="text-sm">No bio available.</p>
                 </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
+              </MossletWeb.DesignSystem.liquid_card>
 
-            <%!-- Posts Section --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center justify-between w-full">
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
                   <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-chat-bubble-bottom-center-text"
-                      class="size-5 text-cyan-600 dark:text-cyan-400"
-                    />
-                    <span>Posts</span>
+                    <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" />
+                    About
                   </div>
-                  <MossletWeb.DesignSystem.liquid_badge variant="soft" color="cyan" size="sm">
-                    {@posts_count}
-                  </MossletWeb.DesignSystem.liquid_badge>
-                </div>
-              </:title>
-              <div id="profile-posts-public" phx-update="stream" class="space-y-4">
-                <div class="hidden only:block text-center py-8">
-                  <.phx_icon
-                    name="hero-chat-bubble-bottom-center-text"
-                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                  />
-                  <p class="text-sm text-slate-600 dark:text-slate-400">
-                    No public posts yet.
+                </:title>
+                <div
+                  :if={@profile_user.connection.profile.about}
+                  class="prose prose-slate dark:prose-invert max-w-none"
+                >
+                  <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {decrypt_public_field(
+                      @profile_user.connection.profile.about,
+                      @profile_user.connection.profile.profile_key
+                    )}
                   </p>
                 </div>
                 <div
-                  :for={{dom_id, post} <- @streams.profile_posts}
-                  id={dom_id}
-                  class="profile-post-container"
+                  :if={!@profile_user.connection.profile.about}
+                  class="text-center py-8"
                 >
-                  <MossletWeb.DesignSystem.liquid_timeline_post
-                    user_name={
-                      decrypt_public_field(
-                        @profile_user.connection.profile.name,
-                        @profile_user.connection.profile.profile_key
-                      )
-                    }
-                    user_handle={"@" <> decrypt_public_field(
-                      @profile_user.connection.profile.username,
-                      @profile_user.connection.profile.profile_key
-                    )}
-                    user_avatar={get_public_avatar(@profile_user, @current_scope.user)}
-                    user_status={get_public_status(@profile_user)}
-                    user_status_message={get_public_status_message(@profile_user)}
-                    show_post_author_status={
-                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
-                    }
-                    timestamp={format_profile_post_timestamp(post.inserted_at)}
-                    verified={false}
-                    content_warning?={false}
-                    content_warning={nil}
-                    content_warning_category={nil}
-                    content={decrypt_public_field(post.body, get_post_key(post))}
-                    images={[]}
-                    decrypted_url_preview={nil}
-                    stats={
-                      %{
-                        replies: length(post.replies || []),
-                        shares: post.reposts_count || 0,
-                        likes: post.favs_count || 0
+                  <div class="text-slate-400 dark:text-slate-500 mb-4">
+                    <.phx_icon
+                      name="hero-chat-bubble-left-right"
+                      class="size-12 mx-auto mb-3 opacity-50"
+                    />
+                    <p class="text-sm">No bio available.</p>
+                  </div>
+                </div>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <%!-- Posts Section --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-chat-bubble-bottom-center-text"
+                        class="size-5 text-indigo-600 dark:text-indigo-400"
+                      />
+                      <span>Posts</span>
+                    </div>
+                    <MossletWeb.DesignSystem.liquid_badge variant="soft" color="indigo" size="sm">
+                      {@posts_count}
+                    </MossletWeb.DesignSystem.liquid_badge>
+                  </div>
+                </:title>
+                <div id="profile-posts-public" phx-update="stream" class="space-y-4">
+                  <div class="hidden only:block text-center py-8">
+                    <.phx_icon
+                      name="hero-chat-bubble-bottom-center-text"
+                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                    />
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                      No public posts yet.
+                    </p>
+                  </div>
+                  <div
+                    :for={{dom_id, post} <- @streams.profile_posts}
+                    id={dom_id}
+                    class="profile-post-container"
+                  >
+                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                      date={post.post_date}
+                      first={Map.get(post, :first_separator, false)}
+                    />
+                    <MossletWeb.DesignSystem.liquid_timeline_post
+                      user_name={get_public_post_author_name(post, @profile_user)}
+                      user_handle={
+                        get_public_profile_post_handle(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key
+                        )
                       }
-                    }
-                    post_id={post.id}
-                    current_user_id={@current_scope.user.id}
-                    post_shared_users={[]}
-                    removing_shared_user_id={nil}
-                    adding_shared_user={nil}
-                    post={post}
-                    current_scope={@current_scope}
-                    is_repost={false}
-                    share_note={nil}
-                    liked={false}
-                    bookmarked={false}
-                    can_repost={false}
-                    can_reply?={false}
-                    can_bookmark?={false}
-                    unread?={false}
-                    unread_replies_count={0}
-                    unread_nested_replies_by_parent={%{}}
-                    calm_notifications={@current_scope.user.calm_notifications}
-                    class="shadow-md hover:shadow-lg transition-shadow duration-300"
-                  />
+                      user_avatar={
+                        get_public_post_author_avatar(post, @profile_user, @current_scope.user)
+                      }
+                      user_status={get_public_status(@profile_user)}
+                      user_status_message={get_public_status_message(@profile_user)}
+                      show_post_author_status={
+                        can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                      }
+                      timestamp={format_profile_post_timestamp(post.inserted_at)}
+                      verified={false}
+                      content_warning?={false}
+                      content_warning={nil}
+                      content_warning_category={nil}
+                      content={
+                        get_public_profile_post_content(post, @current_scope.user, @current_scope.key)
+                      }
+                      images={[]}
+                      decrypted_url_preview={nil}
+                      stats={
+                        %{
+                          replies: length(post.replies || []),
+                          shares: post.reposts_count || 0,
+                          likes: post.favs_count || 0
+                        }
+                      }
+                      post_id={post.id}
+                      current_user_id={@current_scope.user.id}
+                      post_shared_users={@post_shared_users}
+                      removing_shared_user_id={@removing_shared_user_id}
+                      adding_shared_user={@adding_shared_user}
+                      post={post}
+                      current_scope={@current_scope}
+                      is_repost={post.repost || false}
+                      share_note={nil}
+                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      bookmarked={false}
+                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_reply?={false}
+                      can_bookmark?={false}
+                      unread?={false}
+                      unread_replies_count={0}
+                      unread_nested_replies_by_parent={%{}}
+                      calm_notifications={@current_scope.user.calm_notifications}
+                      class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                    />
+                  </div>
                 </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-          </div>
-
-          <div class="lg:col-span-1 space-y-6">
-            <%!-- Quick Actions --%>
-            <MossletWeb.DesignSystem.liquid_card
-              :if={!@current_user_is_profile_owner?}
-              heading_level={2}
-              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-            >
-              <:title>
-                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                  <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
-                  Quick Actions
-                </div>
-              </:title>
-              <div class="space-y-3">
-                <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/app/timeline"}
-                  variant="primary"
-                  color="teal"
-                  icon="hero-newspaper"
-                  class="w-full"
+                <MossletWeb.DesignSystem.liquid_read_posts_divider
+                  :if={@posts_count - length(@cached_profile_posts) > 0}
+                  count={@posts_count - length(@cached_profile_posts)}
+                  expanded={@read_posts_expanded}
+                  loading={@read_posts_loading}
+                  tab_color="emerald"
+                />
+                <div
+                  :if={@read_posts_expanded}
+                  id="profile-read-posts-public"
+                  phx-update="stream"
+                  class={[
+                    "space-y-4",
+                    "animate-in fade-in-0 slide-in-from-top-4 duration-500 ease-out"
+                  ]}
                 >
-                  View Timeline
-                </MossletWeb.DesignSystem.liquid_button>
-
-                <div class="space-y-2 pt-2">
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/users/connections"}
-                    icon="hero-users"
-                    class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
+                  <div
+                    :for={{dom_id, post} <- @streams.read_posts}
+                    id={dom_id}
+                    class="profile-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
                   >
-                    Manage Connections
-                  </MossletWeb.DesignSystem.liquid_nav_item>
+                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                      date={post.post_date}
+                      first={Map.get(post, :first_separator, false)}
+                    />
+                    <MossletWeb.DesignSystem.liquid_timeline_post
+                      user_name={get_public_post_author_name(post, @profile_user)}
+                      user_handle={
+                        get_public_profile_post_handle(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key
+                        )
+                      }
+                      user_avatar={
+                        get_public_post_author_avatar(post, @profile_user, @current_scope.user)
+                      }
+                      user_status={get_public_status(@profile_user)}
+                      user_status_message={get_public_status_message(@profile_user)}
+                      show_post_author_status={
+                        can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                      }
+                      timestamp={format_profile_post_timestamp(post.inserted_at)}
+                      verified={false}
+                      content_warning?={false}
+                      content_warning={nil}
+                      content_warning_category={nil}
+                      content={
+                        get_public_profile_post_content(post, @current_scope.user, @current_scope.key)
+                      }
+                      images={[]}
+                      decrypted_url_preview={nil}
+                      stats={
+                        %{
+                          replies: length(post.replies || []),
+                          shares: post.reposts_count || 0,
+                          likes: post.favs_count || 0
+                        }
+                      }
+                      post_id={post.id}
+                      current_user_id={@current_scope.user.id}
+                      post_shared_users={@post_shared_users}
+                      removing_shared_user_id={@removing_shared_user_id}
+                      adding_shared_user={@adding_shared_user}
+                      post={post}
+                      current_scope={@current_scope}
+                      is_repost={post.repost || false}
+                      share_note={nil}
+                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      bookmarked={false}
+                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_reply?={false}
+                      can_bookmark?={false}
+                      unread?={false}
+                      unread_replies_count={0}
+                      unread_nested_replies_by_parent={%{}}
+                      calm_notifications={@current_scope.user.calm_notifications}
+                      class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                    />
+                  </div>
+                </div>
+                <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                  :if={
+                    @read_posts_expanded &&
+                      @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
+                  }
+                  remaining_count={
+                    @posts_count - length(@cached_profile_posts) - length(@cached_read_posts)
+                  }
+                  load_count={
+                    min(10, @posts_count - length(@cached_profile_posts) - length(@cached_read_posts))
+                  }
+                  loading={@load_more_loading}
+                  tab_color="emerald"
+                  phx-click="load_more_posts"
+                />
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
 
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/circles"}
-                    icon="hero-circle-stack"
-                    class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
+            <div class="lg:col-span-1 space-y-6">
+              <%!-- Quick Actions --%>
+              <MossletWeb.DesignSystem.liquid_card
+                :if={!@current_user_is_profile_owner?}
+                heading_level={2}
+                class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
+              >
+                <:title>
+                  <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
+                    <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
+                    Quick Actions
+                  </div>
+                </:title>
+                <div class="space-y-3">
+                  <MossletWeb.DesignSystem.liquid_button
+                    navigate={~p"/app/timeline"}
+                    variant="primary"
+                    color="teal"
+                    icon="hero-newspaper"
+                    class="w-full"
                   >
-                    Join Circles
-                  </MossletWeb.DesignSystem.liquid_nav_item>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
+                    View Timeline
+                  </MossletWeb.DesignSystem.liquid_button>
 
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-pie"
-                    class="size-5 text-purple-600 dark:text-purple-400"
-                  /> Profile Stats
+                  <div class="space-y-2 pt-2">
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/users/connections"}
+                      icon="hero-users"
+                      class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
+                    >
+                      Manage Connections
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/circles"}
+                      icon="hero-circle-stack"
+                      class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
+                    >
+                      Join Circles
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+                  </div>
                 </div>
-              </:title>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.inserted_at,
-                      do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                      else: "—"}
-                  </span>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chart-pie"
+                      class="size-5 text-purple-600 dark:text-purple-400"
+                    /> Profile Stats
+                  </div>
+                </:title>
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {if @profile_user.inserted_at,
+                        do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
+                        else: "—"}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {if @profile_user.last_activity_at,
+                        do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
+                        else: "Recently"}
+                    </span>
+                  </div>
                 </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.last_activity_at,
-                      do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                      else: "Recently"}
-                  </span>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
           </div>
         </div>
       </div>
@@ -1335,143 +2046,149 @@ defmodule MossletWeb.UserHomeLive do
       current_scope={@current_scope}
       type="sidebar"
     >
-      <%!-- Hero Section with responsive design --%>
-      <div class="relative overflow-hidden">
-        <%!-- Banner/Cover Image Section --%>
-        <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
-          <%!-- Banner image if available --%>
-          <div
-            :if={get_banner_image_for_connection(@profile_user.connection) != ""}
-            class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
-          >
-            <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-          </div>
+      <div id="timeline-container">
+        <%!-- Hero Section with responsive design --%>
+        <div class="relative overflow-hidden">
+          <%!-- Banner/Cover Image Section --%>
+          <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
+            <%!-- Banner image if available --%>
+            <div
+              :if={get_banner_image_for_connection(@profile_user.connection) != ""}
+              class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={"background-image: url('/images/profile/#{get_banner_image_for_connection(@profile_user.connection)}')"}
+            >
+              <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+            </div>
 
-          <%!-- Liquid metal overlay pattern --%>
-          <div class="absolute inset-0 opacity-20">
-            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
+            <%!-- Liquid metal overlay pattern --%>
+            <div class="absolute inset-0 opacity-20">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-pulse">
+              </div>
             </div>
           </div>
-        </div>
 
-        <%!-- Profile Header --%>
-        <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
-          <div class="mx-auto max-w-7xl">
-            <div class="relative pb-8">
-              <%!-- Avatar and Basic Info --%>
-              <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <%!-- Enhanced Avatar --%>
-                <div class="relative flex-shrink-0">
-                  <MossletWeb.DesignSystem.liquid_avatar
-                    src={
-                      if @profile_user.connection.profile.show_avatar?,
-                        do:
-                          get_connection_avatar_src(
-                            @user_connection,
-                            @current_scope.user,
-                            @current_scope.key
-                          )
-                    }
-                    name={
-                      decr_item(
-                        @profile_user.connection.profile.name,
+          <%!-- Profile Header --%>
+          <div class="relative px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 lg:-mt-16">
+            <div class="mx-auto max-w-7xl">
+              <div class="relative pb-8">
+                <%!-- Avatar and Basic Info --%>
+                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  <%!-- Enhanced Avatar --%>
+                  <div class="relative flex-shrink-0">
+                    <MossletWeb.DesignSystem.liquid_avatar
+                      src={
+                        if @profile_user.connection.profile.show_avatar?,
+                          do:
+                            get_connection_avatar_src(
+                              @user_connection,
+                              @current_scope.user,
+                              @current_scope.key
+                            )
+                      }
+                      name={
+                        decr_item(
+                          @profile_user.connection.profile.name,
+                          @current_scope.user,
+                          @user_connection.key,
+                          @current_scope.key,
+                          @profile_user.connection.profile
+                        )
+                      }
+                      size="xxl"
+                      status={to_string(@profile_user.status)}
+                      status_message={
+                        get_user_status_message(
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key
+                        )
+                      }
+                      show_status={
+                        can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
+                      }
+                      user_id={@profile_user.id}
+                      verified={false}
+                    />
+                  </div>
+
+                  <%!-- Name, username, and info --%>
+                  <div class="flex-1 text-center sm:text-left space-y-4">
+                    <%!-- Name and username --%>
+                    <div class="space-y-1">
+                      <h1
+                        :if={@profile_user.connection.profile.show_name?}
+                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
+                      >
+                        {"#{decr_item(@profile_user.connection.profile.name,
                         @current_scope.user,
                         @user_connection.key,
                         @current_scope.key,
-                        @profile_user.connection.profile
-                      )
-                    }
-                    size="xxl"
-                    status={to_string(@profile_user.status)}
-                    status_message={
-                      get_user_status_message(@profile_user, @current_scope.user, @current_scope.key)
-                    }
-                    show_status={
-                      can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
-                    }
-                    user_id={@profile_user.id}
-                    verified={false}
-                  />
-                </div>
-
-                <%!-- Name, username, and info --%>
-                <div class="flex-1 text-center sm:text-left space-y-4">
-                  <%!-- Name and username --%>
-                  <div class="space-y-1">
-                    <h1
-                      :if={@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                    >
-                      {"#{decr_item(@profile_user.connection.profile.name,
-                      @current_scope.user,
-                      @user_connection.key,
-                      @current_scope.key,
-                      @profile_user.connection.profile)}"}
-                    </h1>
-                    <h1
-                      :if={!@profile_user.connection.profile.show_name?}
-                      class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
-                    >
-                      {"Profile 🌿"}
-                    </h1>
-                    <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-slate-600 dark:text-slate-400">
-                      <%!-- username badge --%>
-                      <MossletWeb.DesignSystem.liquid_badge
-                        variant="soft"
-                        color={
-                          if(@profile_user.connection.profile.visibility == "public",
-                            do: "cyan",
-                            else: "emerald"
-                          )
-                        }
-                        size="sm"
+                        @profile_user.connection.profile)}"}
+                      </h1>
+                      <h1
+                        :if={!@profile_user.connection.profile.show_name?}
+                        class="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-950 dark:text-white sm:text-white sm:dark:text-white"
                       >
-                        @{decr_item(
-                          @profile_user.connection.profile.username,
-                          @current_scope.user,
-                          @user_connection.key,
-                          @current_scope.key,
-                          @profile_user.connection.profile
-                        )}
-                      </MossletWeb.DesignSystem.liquid_badge>
+                        {"Profile 🌿"}
+                      </h1>
+                      <div class="flex items-center justify-center sm:justify-start gap-2 flex-wrap text-lg text-slate-600 dark:text-slate-400">
+                        <%!-- username badge --%>
+                        <MossletWeb.DesignSystem.liquid_badge
+                          variant="soft"
+                          color={
+                            if(@profile_user.connection.profile.visibility == "public",
+                              do: "cyan",
+                              else: "emerald"
+                            )
+                          }
+                          size="sm"
+                        >
+                          @{decr_item(
+                            @profile_user.connection.profile.username,
+                            @current_scope.user,
+                            @user_connection.key,
+                            @current_scope.key,
+                            @profile_user.connection.profile
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
 
-                      <%!-- Email badge if show_email? is true --%>
-                      <MossletWeb.DesignSystem.liquid_badge
-                        :if={
-                          @profile_user.connection.profile.show_email? &&
-                            @profile_user.connection.profile.email
-                        }
-                        variant="soft"
-                        color={
-                          if(@profile_user.connection.profile.visibility == "public",
-                            do: "cyan",
-                            else: "emerald"
-                          )
-                        }
-                        size="sm"
-                      >
-                        <.phx_icon name="hero-envelope" class="size-3 mr-1" />
-                        {decr_item(
-                          @profile_user.connection.profile.email,
-                          @current_scope.user,
-                          @user_connection.key,
-                          @current_scope.key,
-                          @profile_user.connection.profile
-                        )}
-                      </MossletWeb.DesignSystem.liquid_badge>
+                        <%!-- Email badge if show_email? is true --%>
+                        <MossletWeb.DesignSystem.liquid_badge
+                          :if={
+                            @profile_user.connection.profile.show_email? &&
+                              @profile_user.connection.profile.email
+                          }
+                          variant="soft"
+                          color={
+                            if(@profile_user.connection.profile.visibility == "public",
+                              do: "cyan",
+                              else: "emerald"
+                            )
+                          }
+                          size="sm"
+                        >
+                          <.phx_icon name="hero-envelope" class="size-3 mr-1" />
+                          {decr_item(
+                            @profile_user.connection.profile.email,
+                            @current_scope.user,
+                            @user_connection.key,
+                            @current_scope.key,
+                            @profile_user.connection.profile
+                          )}
+                        </MossletWeb.DesignSystem.liquid_badge>
 
-                      <%!-- Connection badge --%>
-                      <MossletWeb.DesignSystem.liquid_badge
-                        variant="soft"
-                        color="emerald"
-                        size="sm"
-                      >
-                        <.phx_icon
-                          name="hero-user-group"
-                          class="size-3 mr-1"
-                        /> Connection
-                      </MossletWeb.DesignSystem.liquid_badge>
+                        <%!-- Connection badge --%>
+                        <MossletWeb.DesignSystem.liquid_badge
+                          variant="soft"
+                          color="emerald"
+                          size="sm"
+                        >
+                          <.phx_icon
+                            name="hero-user-group"
+                            class="size-3 mr-1"
+                          /> Connection
+                        </MossletWeb.DesignSystem.liquid_badge>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1479,301 +2196,437 @@ defmodule MossletWeb.UserHomeLive do
             </div>
           </div>
         </div>
-      </div>
 
-      <%!-- Main Content --%>
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <%!-- Left Column: Connection Profile Details --%>
-          <div class="lg:col-span-2 space-y-8">
-            <%!-- Contact & Links Section --%>
-            <MossletWeb.DesignSystem.liquid_card
-              :if={has_contact_links?(@profile_user.connection.profile)}
-              heading_level={2}
-            >
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
-                  Contact & Links
-                </div>
-              </:title>
-              <div class="space-y-4">
-                <div
-                  :if={@profile_user.connection.profile.alternate_email}
-                  class="flex items-center gap-3"
-                >
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
-                    <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+        <%!-- Main Content --%>
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 mt-8">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <%!-- Left Column: Connection Profile Details --%>
+            <div class="lg:col-span-2 space-y-8">
+              <%!-- Contact & Links Section --%>
+              <MossletWeb.DesignSystem.liquid_card
+                :if={has_contact_links?(@profile_user.connection.profile)}
+                heading_level={2}
+              >
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon name="hero-link" class="size-5 text-violet-600 dark:text-violet-400" />
+                    Contact & Links
                   </div>
-                  <div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
-                    <a
-                      href={"mailto:#{decr_uconn(@profile_user.connection.profile.alternate_email, @current_scope.user, @user_connection.key, @current_scope.key)}"}
-                      class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
-                    >
-                      {decr_uconn(
-                        @profile_user.connection.profile.alternate_email,
+                </:title>
+                <div class="space-y-4">
+                  <div
+                    :if={@profile_user.connection.profile.alternate_email}
+                    class="flex items-center gap-3"
+                  >
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30">
+                      <.phx_icon name="hero-envelope" class="size-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p class="text-sm text-slate-500 dark:text-slate-400">Contact Email</p>
+                      <a
+                        href={"mailto:#{decr_uconn(@profile_user.connection.profile.alternate_email, @current_scope.user, @user_connection.key, @current_scope.key)}"}
+                        class="text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                      >
+                        {decr_uconn(
+                          @profile_user.connection.profile.alternate_email,
+                          @current_scope.user,
+                          @user_connection.key,
+                          @current_scope.key
+                        )}
+                      </a>
+                    </div>
+                  </div>
+
+                  <MossletWeb.DesignSystem.website_url_preview
+                    :if={@profile_user.connection.profile.website_url}
+                    preview={@website_url_preview}
+                    loading={@website_url_preview_loading}
+                    url={
+                      decr_uconn(
+                        @profile_user.connection.profile.website_url,
                         @current_scope.user,
                         @user_connection.key,
                         @current_scope.key
-                      )}
-                    </a>
-                  </div>
+                      )
+                    }
+                    label={
+                      if @profile_user.connection.profile.website_label do
+                        decr_uconn(
+                          @profile_user.connection.profile.website_label,
+                          @current_scope.user,
+                          @user_connection.key,
+                          @current_scope.key
+                        )
+                      else
+                        "Website"
+                      end
+                    }
+                  />
                 </div>
+              </MossletWeb.DesignSystem.liquid_card>
 
-                <MossletWeb.DesignSystem.website_url_preview
-                  :if={@profile_user.connection.profile.website_url}
-                  preview={@website_url_preview}
-                  loading={@website_url_preview_loading}
-                  url={
-                    decr_uconn(
-                      @profile_user.connection.profile.website_url,
+              <%!-- About Section --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" />
+                    About
+                  </div>
+                </:title>
+                <div
+                  :if={@profile_user.connection.profile.about}
+                  class="prose prose-slate dark:prose-invert max-w-none"
+                >
+                  <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {decr_uconn(
+                      @profile_user.connection.profile.about,
                       @current_scope.user,
                       @user_connection.key,
                       @current_scope.key
-                    )
-                  }
-                  label={
-                    if @profile_user.connection.profile.website_label do
-                      decr_uconn(
-                        @profile_user.connection.profile.website_label,
-                        @current_scope.user,
-                        @user_connection.key,
-                        @current_scope.key
-                      )
-                    else
-                      "Website"
-                    end
-                  }
-                />
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- About Section --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon name="hero-user" class="size-5 text-teal-600 dark:text-teal-400" /> About
-                </div>
-              </:title>
-              <div
-                :if={@profile_user.connection.profile.about}
-                class="prose prose-slate dark:prose-invert max-w-none"
-              >
-                <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {decr_uconn(
-                    @profile_user.connection.profile.about,
-                    @current_scope.user,
-                    @user_connection.key,
-                    @current_scope.key
-                  )}
-                </p>
-              </div>
-              <div
-                :if={!@profile_user.connection.profile.about}
-                class="text-center py-8"
-              >
-                <div class="text-slate-400 dark:text-slate-500 mb-4">
-                  <.phx_icon
-                    name="hero-chat-bubble-left-right"
-                    class="size-12 mx-auto mb-3 opacity-50"
-                  />
-                  <p class="text-sm">This connection hasn't shared a bio yet.</p>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-
-            <%!-- Posts Section --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center justify-between w-full">
-                  <div class="flex items-center gap-2">
-                    <.phx_icon
-                      name="hero-chat-bubble-bottom-center-text"
-                      class="size-5 text-emerald-600 dark:text-emerald-400"
-                    />
-                    <span>Posts</span>
-                  </div>
-                  <MossletWeb.DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
-                    {@posts_count}
-                  </MossletWeb.DesignSystem.liquid_badge>
-                </div>
-              </:title>
-              <div id="profile-posts-connections" phx-update="stream" class="space-y-4">
-                <div class="hidden only:block text-center py-8">
-                  <.phx_icon
-                    name="hero-chat-bubble-bottom-center-text"
-                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                  />
-                  <p class="text-sm text-slate-600 dark:text-slate-400">
-                    No posts shared with you yet.
+                    )}
                   </p>
                 </div>
                 <div
-                  :for={{dom_id, post} <- @streams.profile_posts}
-                  id={dom_id}
-                  class="profile-post-container"
+                  :if={!@profile_user.connection.profile.about}
+                  class="text-center py-8"
                 >
-                  <MossletWeb.DesignSystem.liquid_timeline_post
-                    user_name={
-                      get_profile_post_author_name(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    user_handle={
-                      get_profile_post_author_handle(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    user_avatar={
-                      get_profile_post_author_avatar(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    user_status={nil}
-                    user_status_message={nil}
-                    show_post_author_status={false}
-                    timestamp={format_profile_post_timestamp(post.inserted_at)}
-                    verified={false}
-                    content_warning?={false}
-                    content_warning={nil}
-                    content_warning_category={nil}
-                    content={
-                      get_profile_post_content(
-                        post,
-                        @profile_user,
-                        @current_scope.user,
-                        @current_scope.key,
-                        @user_connection
-                      )
-                    }
-                    images={[]}
-                    decrypted_url_preview={nil}
-                    stats={
-                      %{
-                        replies: length(post.replies || []),
-                        shares: post.reposts_count || 0,
-                        likes: post.favs_count || 0
+                  <div class="text-slate-400 dark:text-slate-500 mb-4">
+                    <.phx_icon
+                      name="hero-chat-bubble-left-right"
+                      class="size-12 mx-auto mb-3 opacity-50"
+                    />
+                    <p class="text-sm">This connection hasn't shared a bio yet.</p>
+                  </div>
+                </div>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <%!-- Posts Section --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-2">
+                      <.phx_icon
+                        name="hero-chat-bubble-bottom-center-text"
+                        class="size-5 text-emerald-600 dark:text-emerald-400"
+                      />
+                      <span>Posts</span>
+                    </div>
+                    <MossletWeb.DesignSystem.liquid_badge variant="soft" color="emerald" size="sm">
+                      {@posts_count}
+                    </MossletWeb.DesignSystem.liquid_badge>
+                  </div>
+                </:title>
+                <div id="profile-posts-connections" phx-update="stream" class="space-y-4">
+                  <div class="hidden only:block text-center py-8">
+                    <.phx_icon
+                      name="hero-chat-bubble-bottom-center-text"
+                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                    />
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                      No posts shared with you yet.
+                    </p>
+                  </div>
+                  <div
+                    :for={{dom_id, post} <- @streams.profile_posts}
+                    id={dom_id}
+                    class="profile-post-container"
+                  >
+                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                      date={post.post_date}
+                      first={Map.get(post, :first_separator, false)}
+                    />
+                    <MossletWeb.DesignSystem.liquid_timeline_post
+                      user_name={
+                        get_profile_post_author_name(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
                       }
-                    }
-                    post_id={post.id}
-                    current_user_id={@current_scope.user.id}
-                    post_shared_users={[]}
-                    removing_shared_user_id={nil}
-                    adding_shared_user={nil}
-                    post={post}
-                    current_scope={@current_scope}
-                    is_repost={false}
-                    share_note={nil}
-                    liked={false}
-                    bookmarked={false}
-                    can_repost={false}
-                    can_reply?={false}
-                    can_bookmark?={false}
-                    unread?={false}
-                    unread_replies_count={0}
-                    unread_nested_replies_by_parent={%{}}
-                    calm_notifications={@current_scope.user.calm_notifications}
-                    class="shadow-md hover:shadow-lg transition-shadow duration-300"
-                  />
+                      user_handle={
+                        get_profile_post_author_handle(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_avatar={
+                        get_profile_post_author_avatar(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status={nil}
+                      user_status_message={nil}
+                      show_post_author_status={false}
+                      timestamp={format_profile_post_timestamp(post.inserted_at)}
+                      verified={false}
+                      content_warning?={false}
+                      content_warning={nil}
+                      content_warning_category={nil}
+                      content={
+                        get_profile_post_content(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      images={[]}
+                      decrypted_url_preview={nil}
+                      stats={
+                        %{
+                          replies: length(post.replies || []),
+                          shares: post.reposts_count || 0,
+                          likes: post.favs_count || 0
+                        }
+                      }
+                      post_id={post.id}
+                      current_user_id={@current_scope.user.id}
+                      post_shared_users={@post_shared_users}
+                      removing_shared_user_id={@removing_shared_user_id}
+                      adding_shared_user={@adding_shared_user}
+                      post={post}
+                      current_scope={@current_scope}
+                      is_repost={post.repost || false}
+                      share_note={nil}
+                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      bookmarked={false}
+                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_reply?={false}
+                      can_bookmark?={false}
+                      unread?={false}
+                      unread_replies_count={0}
+                      unread_nested_replies_by_parent={%{}}
+                      calm_notifications={@current_scope.user.calm_notifications}
+                      class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                    />
+                  </div>
                 </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
-          </div>
-
-          <%!-- Right Column: Connection Info & Stats --%>
-          <div class="lg:col-span-1 space-y-6">
-            <%!-- Quick Actions --%>
-            <MossletWeb.DesignSystem.liquid_card
-              heading_level={2}
-              class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
-            >
-              <:title>
-                <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
-                  <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
-                  Quick Actions
-                </div>
-              </:title>
-              <div class="space-y-3">
-                <MossletWeb.DesignSystem.liquid_button
-                  navigate={~p"/app/timeline"}
-                  variant="primary"
-                  color="teal"
-                  icon="hero-newspaper"
-                  class="w-full"
+                <MossletWeb.DesignSystem.liquid_read_posts_divider
+                  :if={@posts_count - length(@cached_profile_posts) > 0}
+                  count={@posts_count - length(@cached_profile_posts)}
+                  expanded={@read_posts_expanded}
+                  loading={@read_posts_loading}
+                  tab_color="emerald"
+                />
+                <div
+                  :if={@read_posts_expanded}
+                  id="profile-read-posts-connections"
+                  phx-update="stream"
+                  class={[
+                    "space-y-4",
+                    "animate-in fade-in-0 slide-in-from-top-4 duration-500 ease-out"
+                  ]}
                 >
-                  View Timeline
-                </MossletWeb.DesignSystem.liquid_button>
-
-                <div class="space-y-2 pt-2">
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/users/connections"}
-                    icon="hero-users"
-                    class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
+                  <div
+                    :for={{dom_id, post} <- @streams.read_posts}
+                    id={dom_id}
+                    class="profile-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
                   >
-                    Manage Connections
-                  </MossletWeb.DesignSystem.liquid_nav_item>
+                    <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                      date={post.post_date}
+                      first={Map.get(post, :first_separator, false)}
+                    />
+                    <MossletWeb.DesignSystem.liquid_timeline_post
+                      user_name={
+                        get_profile_post_author_name(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_handle={
+                        get_profile_post_author_handle(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_avatar={
+                        get_profile_post_author_avatar(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status={nil}
+                      user_status_message={nil}
+                      show_post_author_status={false}
+                      timestamp={format_profile_post_timestamp(post.inserted_at)}
+                      verified={false}
+                      content_warning?={false}
+                      content_warning={nil}
+                      content_warning_category={nil}
+                      content={
+                        get_profile_post_content(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      images={[]}
+                      decrypted_url_preview={nil}
+                      stats={
+                        %{
+                          replies: length(post.replies || []),
+                          shares: post.reposts_count || 0,
+                          likes: post.favs_count || 0
+                        }
+                      }
+                      post_id={post.id}
+                      current_user_id={@current_scope.user.id}
+                      post_shared_users={@post_shared_users}
+                      removing_shared_user_id={@removing_shared_user_id}
+                      adding_shared_user={@adding_shared_user}
+                      post={post}
+                      current_scope={@current_scope}
+                      is_repost={post.repost || false}
+                      share_note={nil}
+                      liked={@current_scope.user.id in (post.favs_list || [])}
+                      bookmarked={false}
+                      can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
+                      can_reply?={false}
+                      can_bookmark?={false}
+                      unread?={false}
+                      unread_replies_count={0}
+                      unread_nested_replies_by_parent={%{}}
+                      calm_notifications={@current_scope.user.calm_notifications}
+                      class="shadow-md hover:shadow-lg transition-shadow duration-300"
+                    />
+                  </div>
+                </div>
+                <MossletWeb.DesignSystem.liquid_timeline_scroll_indicator
+                  :if={
+                    @read_posts_expanded &&
+                      @posts_count > length(@cached_profile_posts) + length(@cached_read_posts)
+                  }
+                  remaining_count={
+                    @posts_count - length(@cached_profile_posts) - length(@cached_read_posts)
+                  }
+                  load_count={
+                    min(10, @posts_count - length(@cached_profile_posts) - length(@cached_read_posts))
+                  }
+                  loading={@load_more_loading}
+                  tab_color="emerald"
+                  phx-click="load_more_posts"
+                />
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
 
-                  <MossletWeb.DesignSystem.liquid_nav_item
-                    navigate={~p"/app/circles"}
-                    icon="hero-circle-stack"
-                    class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
+            <%!-- Right Column: Connection Info & Stats --%>
+            <div class="lg:col-span-1 space-y-6">
+              <%!-- Quick Actions --%>
+              <MossletWeb.DesignSystem.liquid_card
+                heading_level={2}
+                class="bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200/60 dark:border-emerald-700/30"
+              >
+                <:title>
+                  <div class="text-lg font-bold tracking-tight bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent flex items-center gap-2">
+                    <.phx_icon name="hero-bolt" class="size-5 text-teal-600 dark:text-teal-400" />
+                    Quick Actions
+                  </div>
+                </:title>
+                <div class="space-y-3">
+                  <MossletWeb.DesignSystem.liquid_button
+                    navigate={~p"/app/timeline"}
+                    variant="primary"
+                    color="teal"
+                    icon="hero-newspaper"
+                    class="w-full"
                   >
-                    Join Circles
-                  </MossletWeb.DesignSystem.liquid_nav_item>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
+                    View Timeline
+                  </MossletWeb.DesignSystem.liquid_button>
 
-            <%!-- Connection Stats --%>
-            <MossletWeb.DesignSystem.liquid_card heading_level={2}>
-              <:title>
-                <div class="flex items-center gap-2">
-                  <.phx_icon
-                    name="hero-chart-pie"
-                    class="size-5 text-purple-600 dark:text-purple-400"
-                  /> Profile Stats
+                  <div class="space-y-2 pt-2">
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/users/connections"}
+                      icon="hero-users"
+                      class="rounded-xl group hover:from-blue-50 hover:via-cyan-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:via-cyan-900/20 dark:hover:to-blue-900/20"
+                    >
+                      Manage Connections
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+
+                    <MossletWeb.DesignSystem.liquid_nav_item
+                      navigate={~p"/app/circles"}
+                      icon="hero-circle-stack"
+                      class="rounded-xl group hover:from-purple-50 hover:via-violet-50 hover:to-purple-50 dark:hover:from-purple-900/20 dark:hover:via-violet-900/20 dark:hover:to-purple-900/20"
+                    >
+                      Join Circles
+                    </MossletWeb.DesignSystem.liquid_nav_item>
+                  </div>
                 </div>
-              </:title>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.inserted_at,
-                      do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
-                      else: "—"}
-                  </span>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <%!-- Connection Stats --%>
+              <MossletWeb.DesignSystem.liquid_card heading_level={2}>
+                <:title>
+                  <div class="flex items-center gap-2">
+                    <.phx_icon
+                      name="hero-chart-pie"
+                      class="size-5 text-purple-600 dark:text-purple-400"
+                    /> Profile Stats
+                  </div>
+                </:title>
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Joined</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {if @profile_user.inserted_at,
+                        do: Calendar.strftime(@profile_user.inserted_at, "%B %Y"),
+                        else: "—"}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {if @profile_user.last_activity_at,
+                        do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
+                        else: "Now"}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Status</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">
+                      {String.capitalize(to_string(@profile_user.status))}
+                    </span>
+                  </div>
                 </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Last active</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {if @profile_user.last_activity_at,
-                      do: "#{Calendar.strftime(@profile_user.last_activity_at, "%b %d")}",
-                      else: "Now"}
-                  </span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-slate-600 dark:text-slate-400">Status</span>
-                  <span class="font-semibold text-slate-900 dark:text-white">
-                    {String.capitalize(to_string(@profile_user.status))}
-                  </span>
-                </div>
-              </div>
-            </MossletWeb.DesignSystem.liquid_card>
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
           </div>
         </div>
+
+        <.live_component
+          :if={@show_share_modal}
+          module={MossletWeb.TimelineLive.ShareModalComponent}
+          id={"share-modal-component-#{@share_post_id}"}
+          show={@show_share_modal}
+          post_id={@share_post_id}
+          body={@share_post_body}
+          username={@share_post_username}
+          connections={@post_shared_users}
+          user_connections={@user_connections}
+          current_scope={@current_scope}
+        />
       </div>
     </.layout>
     """
@@ -1826,6 +2679,69 @@ defmodule MossletWeb.UserHomeLive do
 
   defp has_contact_links?(profile) do
     profile.alternate_email || profile.website_url
+  end
+
+  defp get_public_post_author_name(_post, profile_user) do
+    decrypt_public_field(
+      profile_user.connection.profile.name,
+      profile_user.connection.profile.profile_key
+    )
+  end
+
+  defp get_public_post_author_handle(post, _profile_user) do
+    "@" <>
+      case decrypt_public_field(post.username, get_post_key(post)) do
+        username when is_binary(username) -> username
+        _ -> "author"
+      end
+  end
+
+  defp get_public_post_author_avatar(_post, profile_user, current_user) do
+    get_public_avatar(profile_user, current_user)
+  end
+
+  defp get_public_profile_post_content(post, current_user, key) do
+    post_key = get_post_key(post, current_user)
+
+    if is_nil(post_key) do
+      "[Could not decrypt content]"
+    else
+      if post.visibility == :public do
+        case decrypt_public_field(post.body, post_key) do
+          content when is_binary(content) -> content
+          _ -> "[Could not decrypt content]"
+        end
+      else
+        case decr_item(post.body, current_user, post_key, key, post, "body") do
+          content when is_binary(content) -> content
+          _ -> "[Could not decrypt content]"
+        end
+      end
+    end
+  end
+
+  defp get_public_profile_post_handle(post, profile_user, current_user, key) do
+    post_key = get_post_key(post, current_user)
+
+    username =
+      if post.visibility == :public do
+        decrypt_public_field(post.username, post_key)
+      else
+        decr_item(post.username, current_user, post_key, key, post, "username")
+      end
+
+    "@" <>
+      case username do
+        username when is_binary(username) -> username
+        _ -> "author"
+      end
+  end
+
+  defp get_original_post_user_id(post) do
+    case Mosslet.Timeline.get_post(post.original_post_id) do
+      %{user_id: user_id} -> user_id
+      _ -> post.user_id
+    end
   end
 
   defp maybe_load_custom_banner_async(socket, profile_user, profile_owner?) do
@@ -1983,30 +2899,20 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp get_profile_post_author_handle(post, profile_user, current_user, key, user_connection) do
-    profile_owner? = current_user.id == profile_user.id
+    post_key = get_post_key(post, current_user)
 
-    if profile_owner? or post.user_id == current_user.id do
-      profile = current_user.connection.profile
-
-      case decr_item(profile.username, current_user, profile.profile_key, key, profile) do
-        username when is_binary(username) -> "@#{username}"
-        _ -> "@author"
-      end
-    else
-      if user_connection && user_connection.connection do
-        case decr_uconn(
-               user_connection.connection.username,
-               current_user,
-               user_connection.key,
-               key
-             ) do
-          username when is_binary(username) -> "@#{username}"
-          _ -> "@author"
-        end
+    username =
+      if post.visibility == :public do
+        decrypt_public_field(post.username, post_key)
       else
-        "@author"
+        decr_item(post.username, current_user, post_key, key, post, "username")
       end
-    end
+
+    "@" <>
+      case username do
+        username when is_binary(username) -> username
+        _ -> "author"
+      end
   end
 
   defp get_profile_post_author_avatar(post, profile_user, current_user, key, user_connection) do
@@ -2065,4 +2971,225 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp format_profile_post_timestamp(_), do: ""
+
+  defp add_date_grouping_context(posts) do
+    posts
+    |> Enum.with_index()
+    |> Enum.map(fn {post, index} ->
+      prev_post = if index > 0, do: Enum.at(posts, index - 1)
+      post_date = get_post_date(post.inserted_at)
+
+      show_date_separator =
+        if prev_post do
+          prev_date = get_post_date(prev_post.inserted_at)
+          prev_date != post_date
+        else
+          true
+        end
+
+      post
+      |> Map.put(:show_date_separator, show_date_separator)
+      |> Map.put(:post_date, post_date)
+      |> Map.put(:first_separator, index == 0 && show_date_separator)
+    end)
+  end
+
+  defp add_date_grouping_context_for_append(new_posts, existing_posts) do
+    last_existing = List.last(existing_posts)
+    last_date = if last_existing, do: get_post_date(last_existing.inserted_at), else: nil
+
+    new_posts
+    |> Enum.with_index()
+    |> Enum.map(fn {post, index} ->
+      post_date = get_post_date(post.inserted_at)
+
+      show_date_separator =
+        cond do
+          index == 0 && last_date ->
+            last_date != post_date
+
+          index == 0 ->
+            true
+
+          true ->
+            prev_post = Enum.at(new_posts, index - 1)
+            prev_date = get_post_date(prev_post.inserted_at)
+            prev_date != post_date
+        end
+
+      post
+      |> Map.put(:show_date_separator, show_date_separator)
+      |> Map.put(:post_date, post_date)
+      |> Map.put(:first_separator, false)
+    end)
+  end
+
+  defp add_single_post_date_context(post, existing_posts, opts) do
+    post_date = get_post_date(post.inserted_at)
+    at_position = Keyword.get(opts, :at, -1)
+
+    show_date_separator =
+      cond do
+        at_position == 0 ->
+          true
+
+        at_position == -1 ->
+          last_existing = List.last(existing_posts || [])
+
+          if last_existing do
+            existing_date = get_post_date(last_existing.inserted_at)
+            existing_date != post_date
+          else
+            true
+          end
+
+        true ->
+          true
+      end
+
+    post
+    |> Map.put(:show_date_separator, show_date_separator)
+    |> Map.put(:post_date, post_date)
+    |> Map.put(:first_separator, at_position == 0 && show_date_separator)
+  end
+
+  defp maybe_update_old_first_post_separator(socket, cached_posts, new_post, opts) do
+    at_position = Keyword.get(opts, :at, -1)
+
+    if at_position == 0 do
+      first_existing = List.first(cached_posts || [])
+
+      if first_existing && first_existing.id != new_post.id do
+        new_post_date = get_post_date(new_post.inserted_at)
+        existing_date = get_post_date(first_existing.inserted_at)
+
+        if existing_date == new_post_date && Map.get(first_existing, :show_date_separator, false) do
+          updated_old_first =
+            first_existing
+            |> Map.put(:show_date_separator, false)
+            |> Map.put(:first_separator, false)
+
+          stream_insert(socket, :profile_posts, updated_old_first)
+        else
+          socket
+        end
+      else
+        socket
+      end
+    else
+      socket
+    end
+  end
+
+  defp get_post_date(datetime) when is_struct(datetime, NaiveDateTime) do
+    NaiveDateTime.to_date(datetime)
+  end
+
+  defp get_post_date(datetime) when is_struct(datetime, DateTime) do
+    DateTime.to_date(datetime)
+  end
+
+  defp get_post_date(_), do: nil
+
+  defp update_cached_post(cached_posts, post) do
+    if Enum.any?(cached_posts, &(&1.id == post.id)) do
+      Enum.map(cached_posts, fn p ->
+        if p.id == post.id do
+          post
+          |> Map.put(:show_date_separator, Map.get(p, :show_date_separator, false))
+          |> Map.put(:post_date, Map.get(p, :post_date))
+          |> Map.put(:first_separator, Map.get(p, :first_separator, false))
+        else
+          p
+        end
+      end)
+    else
+      cached_posts
+    end
+  end
+
+  defp find_post_with_date(cached_posts, post_id) do
+    Enum.find(cached_posts, &(&1.id == post_id))
+  end
+
+  defp post_visible_on_profile?(post, profile_user, current_user) do
+    cond do
+      post.user_id == profile_user.id -> true
+      post.user_id == current_user.id && profile_user.id == current_user.id -> true
+      true -> false
+    end
+  end
+
+  defp can_repost?(user, post, key) do
+    cond do
+      !post.allow_shares -> false
+      post.user_id == user.id -> false
+      post.is_ephemeral -> false
+      user.id in decrypt_post_reposts_list(post, user, key) -> false
+      true -> post.allow_shares
+    end
+  end
+
+  defp decrypt_post_reposts_list(post, user, key) do
+    case post.reposts_list do
+      nil ->
+        []
+
+      [] ->
+        []
+
+      list when is_list(list) ->
+        encrypted_post_key =
+          case post.visibility do
+            :public -> get_post_key(post)
+            _ -> get_post_key(post, user)
+          end
+
+        if is_nil(encrypted_post_key) do
+          []
+        else
+          case post.visibility do
+            :public ->
+              case Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(encrypted_post_key) do
+                decrypted_post_key when is_binary(decrypted_post_key) ->
+                  Enum.map(list, fn user_id ->
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+
+            _ ->
+              case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                     encrypted_post_key,
+                     user,
+                     key
+                   ) do
+                {:ok, decrypted_post_key} ->
+                  Enum.map(list, fn user_id ->
+                    case Mosslet.Encrypted.Utils.decrypt(%{
+                           key: decrypted_post_key,
+                           payload: user_id
+                         }) do
+                      {:ok, decrypted_id} -> decrypted_id
+                      _ -> user_id
+                    end
+                  end)
+                  |> Enum.reject(&is_nil/1)
+
+                _ ->
+                  []
+              end
+          end
+        end
+    end
+  end
 end

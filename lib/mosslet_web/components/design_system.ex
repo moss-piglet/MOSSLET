@@ -2871,10 +2871,11 @@ defmodule MossletWeb.DesignSystem do
           class={[
             "group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full",
             "bg-white dark:bg-slate-800",
-            "border border-slate-200/80 dark:border-slate-700/80",
+            "border",
+            @color_classes.border,
             "shadow-lg shadow-slate-900/5 dark:shadow-black/20",
             "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-black/30",
-            "hover:border-slate-300 dark:hover:border-slate-600",
+            @color_classes.hover_border,
             "focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
             @color_classes.focus_ring,
             "transition-all duration-300 ease-out",
@@ -2988,7 +2989,9 @@ defmodule MossletWeb.DesignSystem do
           divider_line: "via-emerald-300/40 dark:via-emerald-600/40",
           button:
             "bg-gradient-to-r from-emerald-500 to-teal-600 text-white focus:ring-emerald-500/50",
-          indicator: "bg-emerald-400"
+          indicator: "bg-emerald-400",
+          border: "border-emerald-200/80 dark:border-emerald-700/80",
+          hover_border: "hover:border-emerald-300 dark:hover:border-emerald-600"
         }
 
       "teal" ->
@@ -3001,7 +3004,9 @@ defmodule MossletWeb.DesignSystem do
           spinner: "border-blue-500/30 border-t-blue-500",
           divider_line: "via-blue-300/40 dark:via-blue-600/40",
           button: "bg-gradient-to-r from-blue-500 to-cyan-600 text-white focus:ring-blue-500/50",
-          indicator: "bg-blue-400"
+          indicator: "bg-blue-400",
+          border: "border-blue-200/80 dark:border-blue-700/80",
+          hover_border: "hover:border-blue-300 dark:hover:border-blue-600"
         }
 
       "blue" ->
@@ -3015,7 +3020,9 @@ defmodule MossletWeb.DesignSystem do
           divider_line: "via-purple-300/40 dark:via-purple-600/40",
           button:
             "bg-gradient-to-r from-purple-500 to-violet-600 text-white focus:ring-purple-500/50",
-          indicator: "bg-purple-400"
+          indicator: "bg-purple-400",
+          border: "border-purple-200/80 dark:border-purple-700/80",
+          hover_border: "hover:border-purple-300 dark:hover:border-purple-600"
         }
 
       "purple" ->
@@ -3029,7 +3036,9 @@ defmodule MossletWeb.DesignSystem do
           divider_line: "via-amber-300/40 dark:via-amber-600/40",
           button:
             "bg-gradient-to-r from-amber-500 to-orange-600 text-white focus:ring-amber-500/50",
-          indicator: "bg-amber-400"
+          indicator: "bg-amber-400",
+          border: "border-amber-200/80 dark:border-amber-700/80",
+          hover_border: "hover:border-amber-300 dark:hover:border-amber-600"
         }
 
       "orange" ->
@@ -3043,7 +3052,40 @@ defmodule MossletWeb.DesignSystem do
           divider_line: "via-indigo-300/40 dark:via-indigo-600/40",
           button:
             "bg-gradient-to-r from-indigo-500 to-blue-600 text-white focus:ring-indigo-500/50",
-          indicator: "bg-indigo-400"
+          indicator: "bg-indigo-400",
+          border: "border-indigo-200/80 dark:border-indigo-700/80",
+          hover_border: "hover:border-indigo-300 dark:hover:border-indigo-600"
+        }
+
+      "cyan" ->
+        %{
+          badge: "bg-gradient-to-br from-cyan-500 to-teal-600 shadow-cyan-500/30",
+          focus_ring: "focus:ring-cyan-500/50",
+          icon_hover: "group-hover:text-cyan-600 dark:group-hover:text-cyan-400",
+          icon_bg_hover:
+            "group-hover:from-cyan-100 group-hover:to-teal-50 dark:group-hover:from-cyan-900/40 dark:group-hover:to-teal-900/30",
+          spinner: "border-cyan-500/30 border-t-cyan-500",
+          divider_line: "via-cyan-300/40 dark:via-cyan-600/40",
+          button: "bg-gradient-to-r from-cyan-500 to-teal-600 text-white focus:ring-cyan-500/50",
+          indicator: "bg-cyan-400",
+          border: "border-cyan-200/80 dark:border-cyan-700/80",
+          hover_border: "hover:border-cyan-300 dark:hover:border-cyan-600"
+        }
+
+      "indigo" ->
+        %{
+          badge: "bg-gradient-to-br from-indigo-500 to-blue-600 shadow-indigo-500/30",
+          focus_ring: "focus:ring-indigo-500/50",
+          icon_hover: "group-hover:text-indigo-600 dark:group-hover:text-indigo-400",
+          icon_bg_hover:
+            "group-hover:from-indigo-100 group-hover:to-blue-50 dark:group-hover:from-indigo-900/40 dark:group-hover:to-blue-900/30",
+          spinner: "border-indigo-500/30 border-t-indigo-500",
+          divider_line: "via-indigo-300/40 dark:via-indigo-600/40",
+          button:
+            "bg-gradient-to-r from-indigo-500 to-blue-600 text-white focus:ring-indigo-500/50",
+          indicator: "bg-indigo-400",
+          border: "border-indigo-200/80 dark:border-indigo-700/80",
+          hover_border: "hover:border-indigo-300 dark:hover:border-indigo-600"
         }
 
       _ ->
@@ -3057,7 +3099,9 @@ defmodule MossletWeb.DesignSystem do
           divider_line: "via-slate-300/40 dark:via-slate-600/40",
           button:
             "bg-gradient-to-r from-slate-500 to-slate-600 text-white focus:ring-slate-500/50",
-          indicator: "bg-slate-400"
+          indicator: "bg-slate-400",
+          border: "border-slate-200/80 dark:border-slate-700/80",
+          hover_border: "hover:border-slate-300 dark:hover:border-slate-600"
         }
     end
   end
@@ -12672,10 +12716,11 @@ defmodule MossletWeb.DesignSystem do
           class={[
             "group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full",
             "bg-white dark:bg-slate-800",
-            "border border-slate-200/80 dark:border-slate-700/80",
+            "border",
+            @color_classes.border,
             "shadow-lg shadow-slate-900/5 dark:shadow-black/20",
             "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-black/30",
-            "hover:border-slate-300 dark:hover:border-slate-600",
+            @color_classes.hover_border,
             "focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
             @color_classes.focus_ring,
             "transition-all duration-300 ease-out",
