@@ -318,19 +318,30 @@ defmodule MossletWeb.UserAuth do
 
   def on_mount(:ensure_confirmed, _params, session, socket) do
     socket = mount_current_scope(socket, session)
+    scope = socket.assigns.current_scope
 
-    if socket.assigns.current_scope.user.confirmed_at do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(
-          :info,
-          "Please check your email to confirm your account before accessing this page."
-        )
-        |> Phoenix.LiveView.redirect(to: ~p"/auth/confirm")
+    cond do
+      is_nil(scope) or is_nil(scope.user) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:info, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
 
-      {:halt, socket}
+        {:halt, socket}
+
+      scope.user.confirmed_at ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :info,
+            "Please check your email to confirm your account before accessing this page."
+          )
+          |> Phoenix.LiveView.redirect(to: ~p"/auth/confirm")
+
+        {:halt, socket}
     end
   end
 
@@ -375,94 +386,116 @@ defmodule MossletWeb.UserAuth do
 
   def on_mount(:ensure_admin_user, _params, session, socket) do
     socket = mount_current_scope(socket, session)
+    scope = socket.assigns.current_scope
 
-    if socket.assigns.current_scope.user.is_admin? do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(
-          :info,
-          "You are not authorized to access this page or it does not exist."
-        )
-        |> Phoenix.LiveView.redirect(to: ~p"/app")
+    cond do
+      is_nil(scope) or is_nil(scope.user) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:info, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/auth/sign_in")
 
-      {:halt, socket}
+        {:halt, socket}
+
+      scope.user.is_admin? ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :info,
+            "You are not authorized to access this page or it does not exist."
+          )
+          |> Phoenix.LiveView.redirect(to: ~p"/app")
+
+        {:halt, socket}
     end
   end
 
   def on_mount(:maybe_ensure_connection, params, session, socket) do
     socket = mount_current_scope(socket, session)
-    user = socket.assigns.current_scope.user
+    scope = socket.assigns.current_scope
 
-    if params["id"] &&
-         String.to_existing_atom("Elixir.MossletWeb.UserConnectionLive.Show") == socket.view do
-      if user.id == params["id"] do
-        {:cont, socket}
-      else
-        if Accounts.validate_users_in_connection(params["id"], user.id) do
+    if is_nil(scope) or is_nil(scope.user) do
+      {:cont, socket}
+    else
+      user = scope.user
+
+      if params["id"] &&
+           String.to_existing_atom("Elixir.MossletWeb.UserConnectionLive.Show") == socket.view do
+        if user.id == params["id"] do
           {:cont, socket}
         else
-          socket =
-            socket
-            |> Phoenix.LiveView.put_flash(
-              :info,
-              "You do not have permission to view this page or it does not exist."
-            )
-            |> Phoenix.LiveView.redirect(to: ~p"/app")
+          if Accounts.validate_users_in_connection(params["id"], user.id) do
+            {:cont, socket}
+          else
+            socket =
+              socket
+              |> Phoenix.LiveView.put_flash(
+                :info,
+                "You do not have permission to view this page or it does not exist."
+              )
+              |> Phoenix.LiveView.redirect(to: ~p"/app")
 
-          {:halt, socket}
+            {:halt, socket}
+          end
         end
+      else
+        {:cont, socket}
       end
-    else
-      {:cont, socket}
     end
   end
 
   def on_mount(:maybe_ensure_private_posts, params, session, socket) do
     socket = mount_current_scope(socket, session)
-    user = socket.assigns.current_scope.user
+    scope = socket.assigns.current_scope
 
-    info = "You do not have permission to view this page or it does not exist."
-
-    if String.to_existing_atom("Elixir.MossletWeb.PostLive.Show") == socket.view do
-      with %Timeline.Post{} = post <- Timeline.get_post(params["id"]),
-           true <- post.user_id == user.id do
-        {:cont, socket}
-      else
-        nil ->
-          socket =
-            socket
-            |> Phoenix.LiveView.put_flash(
-              :info,
-              info
-            )
-            |> Phoenix.LiveView.redirect(to: ~p"/app/timeline")
-
-          {:halt, socket}
-
-        false ->
-          post = Timeline.get_post!(params["id"])
-
-          cond do
-            post.visibility == :connections &&
-                MossletWeb.Helpers.has_user_connection?(post, user) ->
-              {:cont, socket}
-
-            true ->
-              socket =
-                socket
-                |> Phoenix.LiveView.put_flash(
-                  :info,
-                  info
-                )
-                |> Phoenix.LiveView.redirect(to: ~p"/app/timeline")
-
-              {:halt, socket}
-          end
-      end
-    else
+    if is_nil(scope) or is_nil(scope.user) do
       {:cont, socket}
+    else
+      user = scope.user
+      info = "You do not have permission to view this page or it does not exist."
+
+      if String.to_existing_atom("Elixir.MossletWeb.PostLive.Show") == socket.view do
+        with %Timeline.Post{} = post <- Timeline.get_post(params["id"]),
+             true <- post.user_id == user.id do
+          {:cont, socket}
+        else
+          nil ->
+            socket =
+              socket
+              |> Phoenix.LiveView.put_flash(
+                :info,
+                info
+              )
+              |> Phoenix.LiveView.redirect(to: ~p"/app/timeline")
+
+            {:halt, socket}
+
+          false ->
+            post = Timeline.get_post!(params["id"])
+
+            cond do
+              post.visibility == :connections &&
+                  MossletWeb.Helpers.has_user_connection?(post, user) ->
+                {:cont, socket}
+
+              true ->
+                socket =
+                  socket
+                  |> Phoenix.LiveView.put_flash(
+                    :info,
+                    info
+                  )
+                  |> Phoenix.LiveView.redirect(to: ~p"/app/timeline")
+
+                {:halt, socket}
+            end
+        end
+      else
+        {:cont, socket}
+      end
     end
   end
 
@@ -565,13 +598,15 @@ defmodule MossletWeb.UserAuth do
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
     totp_pending = get_session(conn, :user_totp_pending)
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
 
-    if conn.assigns[:current_user] && conn.assigns[:key] && !totp_pending do
+    if user && scope.key && !totp_pending do
       conn
-      |> redirect(to: signed_in_path(conn.assigns[:current_user]))
+      |> redirect(to: signed_in_path(user))
       |> halt()
     else
-      if conn.assigns[:current_user] && conn.assigns[:key] && totp_pending do
+      if user && scope.key && totp_pending do
         conn
         |> redirect(to: ~p"/app/users/totp")
         |> halt()
@@ -587,21 +622,22 @@ defmodule MossletWeb.UserAuth do
   Requires that the user email is confirmed.
   """
   def require_authenticated_user(conn, _opts) do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
+
     if get_session(conn, :user_totp_pending) && conn.request_path != "/app/users/totp" do
       conn
       |> redirect(to: "/app/users/totp")
       |> halt()
     else
-      case conn.assigns[:current_user] do
-        nil ->
-          conn
-          |> put_flash(:info, "You must log in to access this page.")
-          |> maybe_store_return_to()
-          |> redirect(to: ~p"/auth/sign_in")
-          |> halt()
-
-        _ ->
-          conn
+      if user do
+        conn
+      else
+        conn
+        |> put_flash(:info, "You must log in to access this page.")
+        |> maybe_store_return_to()
+        |> redirect(to: ~p"/auth/sign_in")
+        |> halt()
       end
     end
   end
@@ -612,7 +648,10 @@ defmodule MossletWeb.UserAuth do
   Does not require the user to be confirmed by their email.
   """
   def require_authenticated_user_not_confirmed(conn, _opts) do
-    if conn.assigns[:current_user] do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
+
+    if user do
       conn
     else
       conn
@@ -624,11 +663,14 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_session_key(conn, _opts) do
-    if conn.assigns[:current_user] && conn.private.plug_session["key"] do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
+
+    if user && conn.private.plug_session["key"] do
       conn
     else
       cond do
-        conn.assigns[:current_user] ->
+        user ->
           conn
           |> put_flash(
             :info,
@@ -646,13 +688,16 @@ defmodule MossletWeb.UserAuth do
   end
 
   def maybe_require_connection(conn, _opts) do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
+
     if conn.path_params["id"] do
-      if conn.path_params["id"] == conn.assigns.current_user.id do
+      if conn.path_params["id"] == user.id do
         conn
       else
         if Accounts.get_user_connection_between_users!(
              conn.path_params["id"],
-             conn.assigns.current_user.id
+             user.id
            ) do
           conn
         else
@@ -671,12 +716,14 @@ defmodule MossletWeb.UserAuth do
   end
 
   def maybe_require_private_posts(conn, _opts) do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
     info = "You do not have permission to view this page or it does not exist."
 
     case conn.path_info do
       ["posts", id] ->
         with %Timeline.Post{} = post <- Timeline.get_post(id),
-             true <- post.user_id == conn.assigns.current_user.id do
+             true <- post.user_id == user.id do
           conn
         else
           nil ->
@@ -698,7 +745,7 @@ defmodule MossletWeb.UserAuth do
 
             cond do
               post.visibility == :connections &&
-                  MossletWeb.Helpers.has_user_connection?(post, conn.assigns.current_user) ->
+                  MossletWeb.Helpers.has_user_connection?(post, user) ->
                 conn
 
               true ->
@@ -719,7 +766,10 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_confirmed_user(conn, _opts) do
-    if conn.assigns[:current_user].confirmed_at do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
+
+    if user && user.confirmed_at do
       conn
     else
       conn
@@ -734,8 +784,10 @@ defmodule MossletWeb.UserAuth do
   end
 
   def require_admin_user(conn, _opts) do
-    if conn.assigns[:current_scope].user.is_admin? &&
-         conn.assigns[:current_scope].user.confirmed_at do
+    scope = conn.assigns[:current_scope]
+    user = scope && scope.user
+
+    if user && user.is_admin? && user.confirmed_at do
       conn
     else
       conn
@@ -750,9 +802,10 @@ defmodule MossletWeb.UserAuth do
   end
 
   def kick_user_if_suspended_or_deleted(conn, opts \\ []) do
-    if not is_nil(conn.assigns[:current_scope].user) and
-         (conn.assigns[:current_scope].user.is_suspended? or
-            conn.assigns[:current_scope].user.is_deleted?) do
+    current_scope = conn.assigns[:current_scope]
+
+    if not is_nil(current_scope) and not is_nil(current_scope.user) and
+         (current_scope.user.is_suspended? or current_scope.user.is_deleted?) do
       conn
       |> put_flash(
         :error,

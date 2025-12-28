@@ -405,7 +405,7 @@ defmodule MossletWeb.UserHomeLive do
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color={
-                          if(@current_scope.user.connection.profile.visibility == "public",
+                          if(@profile_user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -429,7 +429,7 @@ defmodule MossletWeb.UserHomeLive do
                         }
                         variant="soft"
                         color={
-                          if(@current_scope.user.connection.profile.visibility == "public",
+                          if(@profile_user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -450,7 +450,7 @@ defmodule MossletWeb.UserHomeLive do
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color={
-                          if(@current_scope.user.connection.profile.visibility == "public",
+                          if(@profile_user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -1196,7 +1196,7 @@ defmodule MossletWeb.UserHomeLive do
                       <MossletWeb.DesignSystem.liquid_badge
                         variant="soft"
                         color={
-                          if(@current_scope.user.connection.profile.visibility == "public",
+                          if(@profile_user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
@@ -1220,7 +1220,7 @@ defmodule MossletWeb.UserHomeLive do
                         }
                         variant="soft"
                         color={
-                          if(@current_scope.user.connection.profile.visibility == "public",
+                          if(@profile_user.connection.profile.visibility == "public",
                             do: "cyan",
                             else: "emerald"
                           )
