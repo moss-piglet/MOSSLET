@@ -71,7 +71,7 @@ defmodule MossletWeb.GroupLive.Show do
     if not is_nil(socket.assigns.current_user_group) &&
          socket.assigns.current_user_group.confirmed_at do
       socket
-      |> assign(page_title: "Show Group")
+      |> assign(page_title: "Viewing Circle")
     else
       socket
       |> put_flash(:info, "You don't have permission to view this circle or it does not exist.")
@@ -85,7 +85,7 @@ defmodule MossletWeb.GroupLive.Show do
          socket.assigns.current_scope.user
        ) do
       socket
-      |> assign(:page_title, "Edit Group")
+      |> assign(:page_title, "Edit Circle")
     else
       socket
       |> put_flash(:info, "You do not have permission to edit this circle.")

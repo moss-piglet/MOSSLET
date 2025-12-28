@@ -885,6 +885,7 @@ defmodule Mosslet.Timeline do
         |> filter_by_muted_users_simple_bookmark(filter_prefs[:muted_users] || [])
         |> filter_by_reposts_simple_bookmark(filter_prefs[:hide_reposts] || false)
         |> filter_by_blocked_users_simple_bookmarks(current_user_id)
+        |> filter_by_author_simple_bookmark(filter_prefs[:author_filter] || :all, current_user_id)
 
       %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
         query
@@ -902,6 +903,27 @@ defmodule Mosslet.Timeline do
     end
   end
 
+  defp filter_by_author_simple_bookmark(query, :all, _current_user_id), do: query
+
+  defp filter_by_author_simple_bookmark(query, :mine, current_user_id) do
+    where(query, [b, p], p.user_id == ^current_user_id)
+  end
+
+  defp filter_by_author_simple_bookmark(query, :connections, current_user_id) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user_id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    if Enum.empty?(connection_user_ids) do
+      where(query, [b, p], false)
+    else
+      where(query, [b, p], p.user_id in ^connection_user_ids)
+    end
+  end
+
+  defp filter_by_author_simple_bookmark(query, _, _current_user_id), do: query
+
   # Helper function to apply database-level filters to bookmark unread count queries
   # For count_unread_bookmarked_posts with complex [p, b, up, upr] join pattern
   defp apply_bookmark_unread_database_filters(query, options) do
@@ -914,6 +936,7 @@ defmodule Mosslet.Timeline do
         |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
         |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
         |> filter_by_blocked_users_bookmarks(current_user_id)
+        |> filter_by_author_bookmark(filter_prefs[:author_filter] || :all, current_user_id)
 
       %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
         query
@@ -1085,6 +1108,27 @@ defmodule Mosslet.Timeline do
     |> where([p, b, up, upr], p.user_id not in subquery(blocked_by_me_subquery))
     |> where([p, b, up, upr], p.user_id not in subquery(blocked_me_subquery))
   end
+
+  defp filter_by_author_bookmark(query, :all, _current_user_id), do: query
+
+  defp filter_by_author_bookmark(query, :mine, current_user_id) do
+    where(query, [p, b, up, upr], p.user_id == ^current_user_id)
+  end
+
+  defp filter_by_author_bookmark(query, :connections, current_user_id) do
+    connection_user_ids =
+      Accounts.get_all_confirmed_user_connections(current_user_id)
+      |> Enum.map(& &1.reverse_user_id)
+      |> Enum.uniq()
+
+    if Enum.empty?(connection_user_ids) do
+      where(query, [p, b, up, upr], false)
+    else
+      where(query, [p, b, up, upr], p.user_id in ^connection_user_ids)
+    end
+  end
+
+  defp filter_by_author_bookmark(query, _, _current_user_id), do: query
 
   @doc """
   Returns the list of public posts.
@@ -1454,6 +1498,17 @@ defmodule Mosslet.Timeline do
 
   defp fetch_discover_posts_from_db(current_user, options) do
     if current_user do
+      author_filter = get_in(options, [:filter_prefs, :author_filter]) || :all
+
+      connection_user_ids =
+        if author_filter == :connections do
+          Accounts.get_all_confirmed_user_connections(current_user.id)
+          |> Enum.map(& &1.reverse_user_id)
+          |> Enum.uniq()
+        else
+          []
+        end
+
       public_post_ids =
         from(p in Post,
           inner_join: up in UserPost,
@@ -1462,18 +1517,37 @@ defmodule Mosslet.Timeline do
           select: p.id
         )
 
-      from(p in Post,
-        left_join: up in UserPost,
-        on: up.post_id == p.id and up.user_id == ^current_user.id,
-        left_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
-        where: p.id in subquery(public_post_ids),
-        order_by: [
-          asc: coalesce(upr.is_read?, true),
-          desc: p.inserted_at
-        ],
-        preload: [:user_posts, :replies, :user_post_receipts]
-      )
+      base_query =
+        from(p in Post,
+          left_join: up in UserPost,
+          on: up.post_id == p.id and up.user_id == ^current_user.id,
+          left_join: upr in UserPostReceipt,
+          on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
+          where: p.id in subquery(public_post_ids),
+          order_by: [
+            asc: coalesce(upr.is_read?, true),
+            desc: p.inserted_at
+          ],
+          preload: [:user_posts, :replies, :user_post_receipts]
+        )
+
+      query =
+        case author_filter do
+          :mine ->
+            base_query |> where([p], p.user_id == ^current_user.id)
+
+          :connections ->
+            if Enum.empty?(connection_user_ids) do
+              base_query |> where([p], false)
+            else
+              base_query |> where([p], p.user_id in ^connection_user_ids)
+            end
+
+          _ ->
+            base_query
+        end
+
+      query
       |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
@@ -1503,7 +1577,6 @@ defmodule Mosslet.Timeline do
   Counts public posts for discover timeline.
   """
   def count_discover_posts(current_user \\ nil, filter_prefs \\ %{}) do
-    # Always use database-level filtering for consistency and performance
     options =
       if current_user do
         %{filter_prefs: filter_prefs, current_user_id: current_user.id}
@@ -1511,14 +1584,46 @@ defmodule Mosslet.Timeline do
         %{filter_prefs: filter_prefs}
       end
 
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.visibility == :public,
-      distinct: p.id
-    )
-    |> apply_database_filters(options)
-    |> Repo.aggregate(:count, :id)
+    author_filter = filter_prefs[:author_filter] || :all
+
+    connection_user_ids =
+      if current_user && author_filter == :connections do
+        Accounts.get_all_confirmed_user_connections(current_user.id)
+        |> Enum.map(& &1.reverse_user_id)
+        |> Enum.uniq()
+      else
+        []
+      end
+
+    base_query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        where: p.visibility == :public,
+        distinct: p.id
+      )
+      |> apply_database_filters(options)
+
+    query =
+      case {current_user, author_filter} do
+        {nil, _} ->
+          base_query
+
+        {user, :mine} ->
+          base_query |> where([p], p.user_id == ^user.id)
+
+        {_user, :connections} ->
+          if Enum.empty?(connection_user_ids) do
+            base_query |> where([p], false)
+          else
+            base_query |> where([p], p.user_id in ^connection_user_ids)
+          end
+
+        _ ->
+          base_query
+      end
+
+    Repo.aggregate(query, :count, :id)
   end
 
   @doc """
@@ -1526,16 +1631,45 @@ defmodule Mosslet.Timeline do
   Now applies content filters to ensure unread counts match filtered timeline display.
   """
   def count_unread_discover_posts(current_user, filter_prefs \\ %{}) do
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      inner_join: upr in UserPostReceipt,
-      on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
-      where: p.visibility == :public,
-      where: not upr.is_read?
-    )
-    |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-    |> Repo.aggregate(:count, :id)
+    author_filter = filter_prefs[:author_filter] || :all
+
+    connection_user_ids =
+      if author_filter == :connections do
+        Accounts.get_all_confirmed_user_connections(current_user.id)
+        |> Enum.map(& &1.reverse_user_id)
+        |> Enum.uniq()
+      else
+        []
+      end
+
+    base_query =
+      from(p in Post,
+        inner_join: up in UserPost,
+        on: up.post_id == p.id,
+        inner_join: upr in UserPostReceipt,
+        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
+        where: p.visibility == :public,
+        where: not upr.is_read?
+      )
+      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
+
+    query =
+      case author_filter do
+        :mine ->
+          base_query |> where([p], p.user_id == ^current_user.id)
+
+        :connections ->
+          if Enum.empty?(connection_user_ids) do
+            base_query |> where([p], false)
+          else
+            base_query |> where([p], p.user_id in ^connection_user_ids)
+          end
+
+        _ ->
+          base_query
+      end
+
+    Repo.aggregate(query, :count, :id)
   end
 
   @doc """
@@ -4495,19 +4629,42 @@ defmodule Mosslet.Timeline do
   Counts a user's bookmarks.
   """
   def count_user_bookmarks(user, filter_prefs \\ %{}) do
-    # Always use database-level filtering for consistency and performance
-    # Use subquery to count bookmarks that match filter criteria
     bookmark_post_ids =
       from(b in Bookmark,
         where: b.user_id == ^user.id,
         select: b.post_id
       )
 
-    from(p in Post,
-      where: p.id in subquery(bookmark_post_ids)
-    )
-    |> apply_database_filters(%{filter_prefs: filter_prefs})
-    |> Repo.aggregate(:count, :id)
+    base_query =
+      from(p in Post,
+        where: p.id in subquery(bookmark_post_ids)
+      )
+      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: user.id})
+
+    author_filter = filter_prefs[:author_filter] || :all
+
+    query =
+      case author_filter do
+        :mine ->
+          base_query |> where([p], p.user_id == ^user.id)
+
+        :connections ->
+          connection_user_ids =
+            Accounts.get_all_confirmed_user_connections(user.id)
+            |> Enum.map(& &1.reverse_user_id)
+            |> Enum.uniq()
+
+          if Enum.empty?(connection_user_ids) do
+            base_query |> where([p], false)
+          else
+            base_query |> where([p], p.user_id in ^connection_user_ids)
+          end
+
+        _ ->
+          base_query
+      end
+
+    Repo.aggregate(query, :count, :id)
   end
 
   @doc """
