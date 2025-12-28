@@ -111,6 +111,11 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:block_update?, false)
       |> assign(:profile_user_block, profile_user_block)
       |> assign(:removing_self_from_post_id, nil)
+      |> assign(:show_image_modal, false)
+      |> assign(:current_images, [])
+      |> assign(:current_image_index, 0)
+      |> assign(:current_post_for_images, nil)
+      |> assign(:can_download_images, false)
       |> URLPreviewHelpers.assign_url_preview_defaults()
       |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
@@ -1503,6 +1508,282 @@ defmodule MossletWeb.UserHomeLive do
     {:noreply, socket}
   end
 
+  def handle_event("get_post_image_urls", %{"post_id" => post_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        case post.image_urls do
+          [_ | _] = urls ->
+            post_key = get_post_key(post, current_user)
+
+            decrypted_urls =
+              Enum.map(urls, fn encrypted_url ->
+                decr_item(encrypted_url, current_user, post_key, key, post, "body")
+              end)
+
+            {:reply, %{response: "success", image_urls: decrypted_urls}, socket}
+
+          _ ->
+            {:reply, %{response: "success", image_urls: []}, socket}
+        end
+
+      nil ->
+        {:reply, %{response: "error", message: "Post not found"}, socket}
+    end
+  end
+
+  def handle_event(
+        "decrypt_post_images",
+        %{"sources" => sources, "post_id" => post_id} = _params,
+        socket
+      ) do
+    memories_bucket = Mosslet.Encrypted.Session.memories_bucket()
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    post_id =
+      if String.contains?(post_id, "-reply-form"),
+        do: String.split(post_id, "-reply-form") |> List.first(),
+        else: post_id
+
+    post = Timeline.get_post!(post_id)
+    post_key = get_post_key(post, current_user)
+
+    images =
+      Enum.map(sources, fn file_path ->
+        webp_path = normalize_to_webp(file_path)
+
+        case get_s3_object(memories_bucket, webp_path) do
+          {:ok, %{body: e_obj}} ->
+            decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", "webp")
+
+          {:error, _} ->
+            case get_s3_object(memories_bucket, file_path) do
+              {:ok, %{body: e_obj}} ->
+                ext = Path.extname(file_path) |> String.trim_leading(".")
+                ext = if ext == "", do: "webp", else: ext
+                decrypt_image_for_trix(e_obj, current_user, post_key, key, post, "body", ext)
+
+              {:error, error} ->
+                Logger.info("Error getting Post images from cloud in UserHomeLive")
+                Logger.debug(inspect(error))
+                nil
+            end
+        end
+      end)
+      |> List.flatten()
+      |> Enum.filter(fn source -> !is_nil(source) end)
+
+    if decrypted_image_binaries_for_trix?(images) do
+      {:reply, %{response: "success", decrypted_binaries: images}, socket}
+    else
+      {:reply, %{response: "failed", decrypted_binaries: []}, socket}
+    end
+  end
+
+  def handle_event("delete_post", %{"id" => id}, socket) do
+    post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    if post.user_id == current_user.id do
+      user_post = Timeline.get_user_post(post, current_user)
+      replies = post.replies
+
+      case Timeline.delete_post(post, user: current_user) do
+        {:ok, post} ->
+          Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(current_user.id)
+
+          socket =
+            socket
+            |> put_flash(:success, "Post deleted successfully.")
+            |> start_async(
+              :delete_post_from_cloud,
+              fn ->
+                delete_post_from_cloud(
+                  post,
+                  user_post,
+                  current_user,
+                  key
+                )
+              end
+            )
+            |> start_async(
+              :delete_reply_from_cloud,
+              fn ->
+                delete_replies_from_cloud(
+                  replies,
+                  user_post,
+                  current_user,
+                  key
+                )
+              end
+            )
+
+          {:noreply, stream_delete_profile_post(socket, post)}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to delete post. Please try again.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You are not authorized to delete this post.")}
+    end
+  end
+
+  def handle_event(
+        "show_timeline_images",
+        %{"post_id" => post_id, "image_index" => image_index, "images" => images},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        can_download = check_download_permission(post, current_user)
+
+        {:noreply,
+         socket
+         |> assign(:show_image_modal, true)
+         |> assign(:current_images, images)
+         |> assign(:current_image_index, image_index)
+         |> assign(:current_post_for_images, post)
+         |> assign(:can_download_images, can_download)}
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  def handle_event("show_timeline_images", %{"post_id" => post_id} = _params, socket) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        can_download = check_download_permission(post, current_user)
+
+        case post.image_urls do
+          [_ | _] = urls ->
+            post_key = get_post_key(post, current_user)
+
+            decrypted_urls =
+              Enum.map(urls, fn encrypted_url ->
+                decr_item(encrypted_url, current_user, post_key, key, post, "body")
+              end)
+              |> Enum.filter(&(!is_nil(&1)))
+
+            {:noreply,
+             socket
+             |> assign(:show_image_modal, true)
+             |> assign(:current_images, decrypted_urls)
+             |> assign(:current_image_index, 0)
+             |> assign(:current_post_for_images, post)
+             |> assign(:can_download_images, can_download)}
+
+          _ ->
+            {:noreply, put_flash(socket, :info, "No images found in this post")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  def handle_event("close_image_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_image_modal, false)
+     |> assign(:current_images, [])
+     |> assign(:current_image_index, 0)
+     |> assign(:current_post_for_images, nil)
+     |> assign(:can_download_images, false)
+     |> push_event("restore-body-scroll", %{})}
+  end
+
+  def handle_event("next_timeline_image", _params, socket) do
+    current_index = socket.assigns.current_image_index
+    max_index = length(socket.assigns.current_images) - 1
+
+    new_index = if current_index < max_index, do: current_index + 1, else: current_index
+
+    {:noreply, assign(socket, :current_image_index, new_index)}
+  end
+
+  def handle_event("prev_timeline_image", _params, socket) do
+    current_index = socket.assigns.current_image_index
+    new_index = if current_index > 0, do: current_index - 1, else: 0
+
+    {:noreply, assign(socket, :current_image_index, new_index)}
+  end
+
+  def handle_event("goto_timeline_image", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    max_index = length(socket.assigns.current_images) - 1
+
+    new_index = max(0, min(index, max_index))
+
+    {:noreply, assign(socket, :current_image_index, new_index)}
+  end
+
+  def handle_event("download_timeline_image", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    current_user = socket.assigns.current_user
+
+    if socket.assigns.can_download_images do
+      case socket.assigns.current_post_for_images do
+        %Mosslet.Timeline.Post{} = post ->
+          token =
+            Phoenix.Token.sign(MossletWeb.Endpoint, "timeline_image_download", %{
+              "post_id" => post.id,
+              "image_index" => index,
+              "user_id" => current_user.id
+            })
+
+          download_url = ~p"/app/timeline/images/download/#{token}"
+
+          {:noreply,
+           socket
+           |> push_event("download-file", %{
+             url: download_url,
+             filename: "timeline-image-#{index + 1}"
+           })
+           |> push_event("restore-body-scroll", %{})
+           |> put_flash(:info, "Downloading image...")}
+
+        nil ->
+          {:noreply, put_flash(socket, :error, "No post selected for image download")}
+      end
+    else
+      {:noreply,
+       put_flash(socket, :error, "You don't have permission to download images from this post")}
+    end
+  end
+
+  def handle_event("restore-body-scroll", _params, socket) do
+    socket = put_flash(socket, :success, "Download complete!")
+    {:noreply, socket}
+  end
+
+  def handle_async(:delete_post_from_cloud, {:ok, _result}, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_async(:delete_post_from_cloud, {:exit, reason}, socket) do
+    Logger.error("Failed to delete post from cloud: #{inspect(reason)}")
+    {:noreply, socket}
+  end
+
+  def handle_async(:delete_reply_from_cloud, {:ok, _result}, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_async(:delete_reply_from_cloud, {:exit, reason}, socket) do
+    Logger.error("Failed to delete replies from cloud: #{inspect(reason)}")
+    {:noreply, socket}
+  end
+
   def handle_async(:remove_shared_user, {:ok, _result}, socket) do
     {:noreply, assign(socket, :removing_shared_user_id, nil)}
   end
@@ -1621,6 +1902,7 @@ defmodule MossletWeb.UserHomeLive do
       type="sidebar"
     >
       <div id="timeline-container">
+        <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
         <%!-- Hero Section with responsive design --%>
         <div class="relative overflow-hidden">
           <%!-- Banner/Cover Image Section --%>
@@ -2359,6 +2641,15 @@ defmodule MossletWeb.UserHomeLive do
           </div>
         </div>
       </div>
+
+      <MossletWeb.DesignSystem.liquid_image_modal
+        id="profile-image-modal"
+        show={@show_image_modal}
+        images={@current_images}
+        current_index={@current_image_index}
+        can_download={@can_download_images}
+        on_cancel={JS.push("close_image_modal")}
+      />
     </.layout>
     """
   end
@@ -2372,6 +2663,7 @@ defmodule MossletWeb.UserHomeLive do
       type="sidebar"
     >
       <div id="timeline-container">
+        <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
         <div class="relative overflow-hidden">
           <div class="relative h-48 sm:h-64 lg:h-80 bg-gradient-to-br from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-900/40 dark:via-emerald-900/30 dark:to-cyan-900/40">
             <div
@@ -2920,6 +3212,15 @@ defmodule MossletWeb.UserHomeLive do
         block_update?={@block_update?}
         block_reply_context={assigns[:block_reply_context]}
       />
+
+      <MossletWeb.DesignSystem.liquid_image_modal
+        id="profile-image-modal"
+        show={@show_image_modal}
+        images={@current_images}
+        current_index={@current_image_index}
+        can_download={@can_download_images}
+        on_cancel={JS.push("close_image_modal")}
+      />
     </.layout>
     """
   end
@@ -2934,6 +3235,7 @@ defmodule MossletWeb.UserHomeLive do
       type="sidebar"
     >
       <div id="timeline-container">
+        <div phx-hook="ImageDownloadHook" id="image-download-handler" style="display: none;"></div>
         <%!-- Hero Section with responsive design --%>
         <div class="relative overflow-hidden">
           <%!-- Banner/Cover Image Section --%>
@@ -3513,6 +3815,15 @@ defmodule MossletWeb.UserHomeLive do
           connections={@post_shared_users}
           user_connections={@user_connections}
           current_scope={@current_scope}
+        />
+
+        <MossletWeb.DesignSystem.liquid_image_modal
+          id="profile-image-modal"
+          show={@show_image_modal}
+          images={@current_images}
+          current_index={@current_image_index}
+          can_download={@can_download_images}
+          on_cancel={JS.push("close_image_modal")}
         />
       </div>
     </.layout>
@@ -4101,6 +4412,111 @@ defmodule MossletWeb.UserHomeLive do
               end
           end
         end
+    end
+  end
+
+  defp normalize_to_webp(file_path) do
+    base = Path.rootname(file_path)
+    "#{base}.webp"
+  end
+
+  defp stream_delete_profile_post(socket, post) do
+    cached_read_posts = socket.assigns[:cached_read_posts] || []
+    updated_cached_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+    cached_unread_posts = socket.assigns[:cached_unread_posts] || []
+    updated_cached_unread = Enum.reject(cached_unread_posts, &(&1.id == post.id))
+
+    socket
+    |> assign(:cached_read_posts, updated_cached_read)
+    |> assign(:cached_unread_posts, updated_cached_unread)
+    |> stream_delete(:profile_posts, post)
+    |> stream_delete(:read_posts, post)
+  end
+
+  defp delete_post_from_cloud(post, user_post, current_user, key) when is_struct(post) do
+    if !post.repost && is_list(post.image_urls) do
+      d_image_urls =
+        Enum.map(post.image_urls, fn e_image_url ->
+          decr_item(
+            e_image_url,
+            current_user,
+            user_post.key,
+            key,
+            post,
+            "body"
+          )
+        end)
+
+      case delete_object_storage_post_worker(%{"urls" => d_image_urls}) do
+        {:ok, %Oban.Job{conflict?: false} = _oban_job} ->
+          :ok
+
+        rest ->
+          Logger.info("Error deleting Post images from the cloud in UserHomeLive context.")
+          Logger.info(inspect(rest))
+          Logger.error(rest)
+          {:error, "There was an error deleting Post data from the cloud."}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp delete_post_from_cloud(nil, _user_post, _current_user, _key), do: :ok
+
+  defp delete_replies_from_cloud(replies, user_post, current_user, key) when is_list(replies) do
+    for reply <- replies do
+      if is_list(reply.image_urls) && !Enum.empty?(reply.image_urls) do
+        d_image_urls =
+          Enum.map(reply.image_urls, fn e_image_url ->
+            decr_item(
+              e_image_url,
+              current_user,
+              user_post.key,
+              key,
+              reply,
+              "body"
+            )
+          end)
+
+        case delete_object_storage_post_worker(%{"urls" => d_image_urls}) do
+          {:ok, %Oban.Job{conflict?: false} = _oban_job} ->
+            :ok
+
+          rest ->
+            Logger.info("Error deleting Reply images from the cloud in UserHomeLive context.")
+            Logger.info(inspect(rest))
+            Logger.error(rest)
+            {:error, "There was an error deleting Reply data from the cloud."}
+        end
+      else
+        :ok
+      end
+    end
+  end
+
+  defp delete_replies_from_cloud(nil, _user_post, _current_user, _key), do: :ok
+
+  defp delete_object_storage_post_worker(params) do
+    params
+    |> Mosslet.Workers.DeleteObjectStoragePostWorker.new()
+    |> Oban.insert()
+  end
+
+  defp check_download_permission(post, current_user) do
+    cond do
+      post.user_id == current_user.id ->
+        true
+
+      post.visibility in [:connections, :specific_users] ->
+        can_download_photos_from_shared_item?(post, current_user)
+
+      post.visibility == :public ->
+        can_download_photos_from_shared_item?(post, current_user)
+
+      true ->
+        false
     end
   end
 end
