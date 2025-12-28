@@ -5740,41 +5740,39 @@ defmodule MossletWeb.TimelineLive.Index do
 
   # Helper function to load and decrypt content filters
   defp load_and_decrypt_content_filters(user, key) do
-    # Get preferences
+    muted_connection_user_ids = Accounts.get_muted_connection_user_ids(user)
+
     case Timeline.get_user_timeline_preference(user) do
       %Timeline.UserTimelinePreference{} = prefs ->
-        # Decrypt keywords - StringList gives us list of asymmetrically encrypted keywords
         decrypted_keywords =
           if prefs.mute_keywords && prefs.mute_keywords != [] do
             Enum.map(prefs.mute_keywords, fn encrypted_keyword ->
-              # decrypt_user_data returns the decrypted string directly
               Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_keyword, user, key)
             end)
-            # Remove failed decryptions
             |> Enum.reject(&is_nil/1)
           else
             []
           end
 
-        # Decrypt muted users - StringList gives us list of asymmetrically encrypted user_ids
         decrypted_muted_users =
           if prefs.muted_users && prefs.muted_users != [] do
             Enum.map(prefs.muted_users, fn encrypted_user_id ->
-              # decrypt_user_data returns the decrypted string directly
               Mosslet.Encrypted.Users.Utils.decrypt_user_data(encrypted_user_id, user, key)
             end)
-            # Remove failed decryptions
             |> Enum.reject(&is_nil/1)
           else
             []
           end
 
-        # Get blocked users from UserBlock table (no decryption needed - stored as plaintext IDs)
+        all_muted_users =
+          (decrypted_muted_users ++ muted_connection_user_ids)
+          |> Enum.uniq()
+
         blocked_user_ids = Timeline.get_blocked_user_ids(user)
 
         %{
           keywords: decrypted_keywords,
-          muted_users: decrypted_muted_users,
+          muted_users: all_muted_users,
           blocked_users: blocked_user_ids,
           content_warnings: %{
             hide_all: prefs.hide_content_warnings || false,
@@ -5786,12 +5784,11 @@ defmodule MossletWeb.TimelineLive.Index do
         }
 
       nil ->
-        # No preferences found - return defaults, but still get blocked users
         blocked_user_ids = Timeline.get_blocked_user_ids(user)
 
         %{
           keywords: [],
-          muted_users: [],
+          muted_users: muted_connection_user_ids,
           blocked_users: blocked_user_ids,
           content_warnings: %{
             hide_all: false,

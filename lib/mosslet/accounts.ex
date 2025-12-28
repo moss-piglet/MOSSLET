@@ -223,6 +223,12 @@ defmodule Mosslet.Accounts do
     adapter().get_all_confirmed_user_connections(id)
   end
 
+  def get_muted_connection_user_ids(user) do
+    get_all_confirmed_user_connections(user.id)
+    |> Enum.filter(fn conn -> conn.zen? == true end)
+    |> Enum.map(fn conn -> conn.reverse_user_id end)
+  end
+
   def get_user_connection_from_shared_item(item, current_user) do
     adapter().get_user_connection_from_shared_item(item, current_user)
   end

@@ -2015,15 +2015,16 @@ defmodule Mosslet.Timeline do
 
   ## Examples
 
-      iex> list_public_profile_posts(user, options)
+      iex> list_public_profile_posts(user, viewer, hidden_post_ids, options)
       [%Post{}, ...]
 
   """
-  def list_public_profile_posts(user, options) do
+  def list_public_profile_posts(user, viewer, hidden_post_ids, options) do
     from(p in Post,
       inner_join: up in UserPost,
       on: up.post_id == p.id,
       where: p.user_id == ^user.id and p.visibility == :public,
+      where: p.id not in ^hidden_post_ids,
       order_by: [desc: p.inserted_at],
       preload: [:user_posts, :group, :user_group, :replies]
     )
@@ -2048,16 +2049,32 @@ defmodule Mosslet.Timeline do
     profile_user_id = profile_user.id
     viewer_id = viewer.id
 
+    hidden_post_ids = list_hidden_post_ids(viewer)
+
     cond do
       profile_user_id == viewer_id ->
         list_own_profile_posts(profile_user, options)
 
+      is_blocked_profile?(profile_user_id, viewer_id) ->
+        []
+
       Accounts.has_confirmed_user_connection?(profile_user, viewer_id) ->
-        list_connection_profile_posts(profile_user, viewer, options)
+        list_connection_profile_posts(profile_user, viewer, hidden_post_ids, options)
 
       true ->
-        list_public_profile_posts(profile_user, options)
+        list_public_profile_posts(profile_user, viewer, hidden_post_ids, options)
     end
+  end
+
+  defp is_blocked_profile?(profile_user_id, viewer_id) do
+    from(ub in UserBlock,
+      where:
+        (ub.blocker_id == ^viewer_id and ub.blocked_id == ^profile_user_id and
+           ub.block_type in [:full, :posts_only]) or
+          (ub.blocker_id == ^profile_user_id and ub.blocked_id == ^viewer_id and
+             ub.block_type in [:full, :posts_only])
+    )
+    |> Repo.exists?()
   end
 
   defp list_own_profile_posts(user, options) do
@@ -2071,7 +2088,7 @@ defmodule Mosslet.Timeline do
     |> Repo.all()
   end
 
-  defp list_connection_profile_posts(profile_user, viewer, options) do
+  defp list_connection_profile_posts(profile_user, viewer, hidden_post_ids, options) do
     profile_user_id = profile_user.id
     viewer_id = viewer.id
 
@@ -2080,6 +2097,7 @@ defmodule Mosslet.Timeline do
       on: up.post_id == p.id and up.user_id == ^viewer_id,
       where: p.user_id == ^profile_user_id,
       where: is_nil(p.group_id),
+      where: p.id not in ^hidden_post_ids,
       where:
         p.visibility == :public or
           (p.visibility == :connections and not is_nil(up.id)) or
@@ -2096,6 +2114,8 @@ defmodule Mosslet.Timeline do
     profile_user_id = profile_user.id
     viewer_id = viewer.id
 
+    hidden_post_ids = list_hidden_post_ids(viewer)
+
     cond do
       profile_user_id == viewer_id ->
         from(p in Post,
@@ -2104,12 +2124,16 @@ defmodule Mosslet.Timeline do
         )
         |> Repo.aggregate(:count)
 
+      is_blocked_profile?(profile_user_id, viewer_id) ->
+        0
+
       Accounts.has_confirmed_user_connection?(profile_user, viewer_id) ->
         from(p in Post,
           left_join: up in UserPost,
           on: up.post_id == p.id and up.user_id == ^viewer_id,
           where: p.user_id == ^profile_user_id,
           where: is_nil(p.group_id),
+          where: p.id not in ^hidden_post_ids,
           where:
             p.visibility == :public or
               (p.visibility == :connections and not is_nil(up.id)) or
@@ -2121,7 +2145,8 @@ defmodule Mosslet.Timeline do
       true ->
         from(p in Post,
           where: p.user_id == ^profile_user_id and p.visibility == :public,
-          where: is_nil(p.group_id)
+          where: is_nil(p.group_id),
+          where: p.id not in ^hidden_post_ids
         )
         |> Repo.aggregate(:count)
     end
@@ -3731,6 +3756,10 @@ defmodule Mosslet.Timeline do
           )
         end)
 
+        Logger.debug(
+          "Broadcasting :post_shared_users_added to conn_posts:#{updated_post.user_id}"
+        )
+
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "conn_posts:#{updated_post.user_id}",
@@ -3773,8 +3802,10 @@ defmodule Mosslet.Timeline do
           )
         end)
 
-        # broadcast to the post author
-        # who removed the shared_user
+        Logger.debug(
+          "Broadcasting :post_shared_users_removed to conn_posts:#{updated_post.user_id}"
+        )
+
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "conn_posts:#{updated_post.user_id}",
@@ -5139,6 +5170,17 @@ defmodule Mosslet.Timeline do
         order_by: [desc: h.inserted_at]
 
     Repo.all(query)
+  end
+
+  @doc """
+  Gets list of post IDs hidden by a user.
+  """
+  def list_hidden_post_ids(user) do
+    from(h in PostHide,
+      where: h.user_id == ^user.id,
+      select: h.post_id
+    )
+    |> Repo.all()
   end
 
   @doc """

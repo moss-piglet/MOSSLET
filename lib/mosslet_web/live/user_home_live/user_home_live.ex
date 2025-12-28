@@ -4,6 +4,7 @@ defmodule MossletWeb.UserHomeLive do
   require Logger
 
   alias Mosslet.Accounts
+  alias Mosslet.Accounts.UserBlock
   alias Mosslet.Timeline
   alias Mosslet.Timeline.Post
   alias MossletWeb.Helpers.StatusHelpers
@@ -29,6 +30,7 @@ defmodule MossletWeb.UserHomeLive do
         Accounts.private_subscribe(current_user)
         Timeline.subscribe()
         Timeline.connections_subscribe(current_user)
+        Logger.debug("UserHomeLive subscribed to conn_posts:#{current_user.id}")
         Timeline.private_subscribe(current_user)
 
         if profile_owner? do
@@ -57,7 +59,10 @@ defmodule MossletWeb.UserHomeLive do
     user_connection =
       if profile_owner?, do: nil, else: get_uconn_for_users!(profile_user.id, current_user.id)
 
-    key = socket.assigns.key
+    profile_user_block =
+      if profile_owner?, do: nil, else: Accounts.get_user_block(current_user, profile_user.id)
+
+    key = socket.assigns.current_scope.key
     user_connections = Accounts.get_all_confirmed_user_connections(current_user.id)
 
     post_shared_users =
@@ -92,6 +97,20 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:share_post_id, nil)
       |> assign(:share_post_body, nil)
       |> assign(:share_post_username, nil)
+      |> assign(:show_report_modal, false)
+      |> assign(:report_post_id, nil)
+      |> assign(:report_user_id, nil)
+      |> assign(:report_reply_context, %{})
+      |> assign(:show_block_modal, false)
+      |> assign(:block_post_id, nil)
+      |> assign(:block_user_id, nil)
+      |> assign(:block_user_name, nil)
+      |> assign(:existing_block, nil)
+      |> assign(:block_decrypted_reason, "")
+      |> assign(:block_default_type, "full")
+      |> assign(:block_update?, false)
+      |> assign(:profile_user_block, profile_user_block)
+      |> assign(:removing_self_from_post_id, nil)
       |> URLPreviewHelpers.assign_url_preview_defaults()
       |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
@@ -107,10 +126,23 @@ defmodule MossletWeb.UserHomeLive do
     {:ok, socket}
   end
 
-  defp load_profile_posts(socket, profile_user, current_user, _user_connection) do
+  defp load_profile_posts(socket, profile_user, current_user, user_connection) do
     options = %{post_page: socket.assigns.posts_page, post_per_page: @posts_per_page}
     posts = Timeline.list_profile_posts_visible_to(profile_user, current_user, options)
-    posts_count = Timeline.count_profile_posts_visible_to(profile_user, current_user)
+
+    posts =
+      if user_connection && user_connection.zen? do
+        Enum.reject(posts, fn post -> post.user_id == profile_user.id end)
+      else
+        posts
+      end
+
+    posts_count =
+      if user_connection && user_connection.zen? do
+        0
+      else
+        Timeline.count_profile_posts_visible_to(profile_user, current_user)
+      end
 
     {unread_posts, read_posts} =
       Enum.split_with(posts, fn post ->
@@ -128,6 +160,15 @@ defmodule MossletWeb.UserHomeLive do
     |> assign(:read_posts_expanded, false)
     |> stream(:profile_posts, unread_posts_with_dates, reset: true)
     |> stream(:read_posts, [], reset: true)
+  end
+
+  defp maybe_reload_posts_for_block(socket, block, profile_user, current_user) do
+    if block.block_type in [:full, :posts_only] do
+      user_connection = socket.assigns.user_connection
+      load_profile_posts(socket, profile_user, current_user, user_connection)
+    else
+      socket
+    end
   end
 
   defp is_post_unread?(post, current_user) do
@@ -168,6 +209,62 @@ defmodule MossletWeb.UserHomeLive do
   """
   def handle_params(params, _url, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  def handle_info({:submit_report, report_params}, socket) do
+    handle_event("submit_report", %{"report" => report_params}, socket)
+  end
+
+  def handle_info({:close_report_modal, _params}, socket) do
+    socket =
+      socket
+      |> assign(:show_report_modal, false)
+      |> assign(:report_post_id, nil)
+      |> assign(:report_user_id, nil)
+      |> assign(:report_reply_context, %{})
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:submit_block, block_params}, socket) do
+    handle_event("submit_block", %{"block" => block_params}, socket)
+  end
+
+  def handle_info({:close_block_modal}, socket) do
+    handle_event("close_block_modal", %{}, socket)
+  end
+
+  def handle_info({event, %UserBlock{} = block}, socket)
+      when event in [:user_blocked, :user_block_updated] do
+    current_user = socket.assigns.current_scope.user
+    profile_user = socket.assigns.profile_user
+
+    if block.blocker_id == current_user.id and block.blocked_id == profile_user.id do
+      socket =
+        socket
+        |> assign(:profile_user_block, block)
+        |> maybe_reload_posts_for_block(block, profile_user, current_user)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:user_unblocked, %UserBlock{} = block}, socket) do
+    current_user = socket.assigns.current_scope.user
+    profile_user = socket.assigns.profile_user
+
+    if block.blocker_id == current_user.id and block.blocked_id == profile_user.id do
+      socket =
+        socket
+        |> assign(:profile_user_block, nil)
+        |> maybe_reload_posts_for_block(block, profile_user, current_user)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info({MossletWeb.Presence, {:join, presence}}, socket) do
@@ -306,8 +403,13 @@ defmodule MossletWeb.UserHomeLive do
     profile_user = socket.assigns.profile_user
     current_user = socket.assigns.current_scope.user
 
-    if post.user_id == profile_user.id or post.user_id == current_user.id do
-      if post_visible_on_profile?(post, profile_user, current_user) do
+    is_author? = post.user_id == profile_user.id or post.user_id == current_user.id
+
+    is_shared_with_current_user? =
+      Enum.any?(post.shared_users || [], &(&1.user_id == current_user.id))
+
+    cond do
+      is_author? and post_visible_on_profile?(post, profile_user, current_user) ->
         cached_posts = socket.assigns.cached_profile_posts
         post_with_date = add_single_post_date_context(post, cached_posts, at: 0)
         updated_cached = [post_with_date | cached_posts]
@@ -320,11 +422,27 @@ defmodule MossletWeb.UserHomeLive do
           |> stream_insert(:profile_posts, post_with_date, at: 0)
 
         {:noreply, socket}
-      else
+
+      is_shared_with_current_user? ->
+        cached_read_posts = socket.assigns.cached_read_posts
+        already_in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
+
+        if already_in_read_posts? do
+          {:noreply, socket}
+        else
+          post_with_date = add_single_post_date_context(post, cached_read_posts, at: 0)
+          updated_cached = [post_with_date | cached_read_posts]
+
+          socket =
+            socket
+            |> assign(:cached_read_posts, updated_cached)
+            |> stream_insert(:read_posts, post_with_date, at: 0)
+
+          {:noreply, socket}
+        end
+
+      true ->
         {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
     end
   end
 
@@ -430,12 +548,20 @@ defmodule MossletWeb.UserHomeLive do
     profile_user = socket.assigns.profile_user
     current_user = socket.assigns.current_scope.user
 
+    Logger.debug(
+      "handle_info :post_shared_users_added - post.id=#{post.id}, post.user_id=#{post.user_id}, profile_user.id=#{profile_user.id}, current_user.id=#{current_user.id}"
+    )
+
     if post.user_id == profile_user.id or post.user_id == current_user.id do
       cached_profile_posts = socket.assigns.cached_profile_posts
       cached_read_posts = socket.assigns.cached_read_posts
 
       in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
       in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
+
+      Logger.debug(
+        "handle_info :post_shared_users_added - in_profile_posts?=#{in_profile_posts?}, in_read_posts?=#{in_read_posts?}, cached_profile_posts_count=#{length(cached_profile_posts)}"
+      )
 
       socket =
         cond do
@@ -459,7 +585,7 @@ defmodule MossletWeb.UserHomeLive do
             socket
         end
 
-      {:noreply, socket}
+      {:noreply, assign(socket, :adding_shared_user, nil)}
     else
       {:noreply, socket}
     end
@@ -469,12 +595,20 @@ defmodule MossletWeb.UserHomeLive do
     profile_user = socket.assigns.profile_user
     current_user = socket.assigns.current_scope.user
 
+    Logger.debug(
+      "handle_info :post_shared_users_removed - post.id=#{post.id}, post.user_id=#{post.user_id}, profile_user.id=#{profile_user.id}, current_user.id=#{current_user.id}"
+    )
+
     if post.user_id == profile_user.id or post.user_id == current_user.id do
       cached_profile_posts = socket.assigns.cached_profile_posts
       cached_read_posts = socket.assigns.cached_read_posts
 
       in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
       in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
+
+      Logger.debug(
+        "handle_info :post_shared_users_removed - in_profile_posts?=#{in_profile_posts?}, in_read_posts?=#{in_read_posts?}, cached_profile_posts_count=#{length(cached_profile_posts)}"
+      )
 
       socket =
         cond do
@@ -498,10 +632,40 @@ defmodule MossletWeb.UserHomeLive do
             socket
         end
 
-      {:noreply, socket}
+      {:noreply, assign(socket, :removing_shared_user_id, nil)}
     else
       {:noreply, socket}
     end
+  end
+
+  def handle_info({:post_updated_user_removed, post}, socket) do
+    cached_profile_posts = socket.assigns.cached_profile_posts
+    cached_read_posts = socket.assigns.cached_read_posts
+
+    in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
+    in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
+
+    socket =
+      cond do
+        in_profile_posts? ->
+          updated_cached = Enum.reject(cached_profile_posts, &(&1.id == post.id))
+
+          socket
+          |> assign(:cached_profile_posts, updated_cached)
+          |> stream_delete(:profile_posts, post)
+
+        in_read_posts? ->
+          updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+          socket
+          |> assign(:cached_read_posts, updated_cached)
+          |> stream_delete(:read_posts, post)
+
+        true ->
+          socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_info({:reply_created, post, _reply}, socket) do
@@ -710,6 +874,7 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_info(_message, socket) do
+    Logger.debug("UserHomeLive catch-all handle_info: #{inspect(_message)}")
     {:noreply, socket}
   end
 
@@ -1008,10 +1173,366 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  # ============================================================================
+  # MODERATION EVENT HANDLERS
+  # ============================================================================
+
+  def handle_event("report_post", %{"id" => post_id}, socket) do
+    case Timeline.get_post(post_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found.")}
+
+      post ->
+        reported_user = Accounts.get_user!(post.user_id)
+
+        socket =
+          socket
+          |> assign(:show_report_modal, true)
+          |> assign(:report_post_id, post_id)
+          |> assign(:report_user_id, reported_user.id)
+          |> assign(:report_reply_context, %{})
+
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_report_modal", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_report_modal, false)
+      |> assign(:report_post_id, nil)
+      |> assign(:report_user_id, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("submit_report", %{"report" => report_params}, socket) do
+    current_user = socket.assigns.current_scope.user
+    post_id = report_params["post_id"]
+    reported_user_id = report_params["reported_user_id"]
+    reply_context = socket.assigns[:report_reply_context]
+
+    enhanced_params =
+      if reply_context && Map.has_key?(reply_context, :reply_id) do
+        report_params
+        |> Map.put("reply_id", reply_context.reply_id)
+      else
+        report_params
+      end
+
+    case {Timeline.get_post(post_id), Accounts.get_user(reported_user_id)} do
+      {%Timeline.Post{} = post, %Accounts.User{} = reported_user} ->
+        report_type =
+          if reply_context && Map.has_key?(reply_context, :reply_id),
+            do: "reply",
+            else: "post"
+
+        case Timeline.report_post(current_user, reported_user, post, enhanced_params) do
+          {:ok, _report} ->
+            socket =
+              socket
+              |> assign(:show_report_modal, false)
+              |> assign(:report_post_id, nil)
+              |> assign(:report_user_id, nil)
+              |> assign(:report_reply_context, %{})
+              |> put_flash(
+                :info,
+                "#{String.capitalize(report_type)} reported successfully. Thank you for helping keep our community safe."
+              )
+
+            {:noreply, socket}
+
+          {:error, _changeset} ->
+            info = "You've already submitted a report for this #{report_type}."
+            {:noreply, put_flash(socket, :warning, info)}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Post or user not found.")}
+    end
+  end
+
+  def handle_event(
+        "block_user",
+        %{"id" => user_id, "user-name" => user_name, "item-id" => block_post_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    blocked_user_ids = Timeline.get_blocked_user_ids(current_user)
+    is_blocked = user_id in blocked_user_ids
+
+    {existing_block, decrypted_reason} =
+      if is_blocked do
+        case Accounts.get_user_block(current_user, user_id) do
+          %UserBlock{} = block ->
+            decrypted_reason =
+              if block.reason do
+                Mosslet.Encrypted.Users.Utils.decrypt_user_data(
+                  block.reason,
+                  current_user,
+                  key
+                )
+              else
+                ""
+              end
+
+            {block, decrypted_reason}
+
+          nil ->
+            {nil, ""}
+        end
+      else
+        {nil, ""}
+      end
+
+    default_block_type =
+      cond do
+        existing_block -> Atom.to_string(existing_block.block_type)
+        true -> "full"
+      end
+
+    socket =
+      socket
+      |> assign(:show_block_modal, true)
+      |> assign(:block_post_id, block_post_id)
+      |> assign(:block_user_id, user_id)
+      |> assign(:block_user_name, user_name)
+      |> assign(:existing_block, existing_block)
+      |> assign(:block_decrypted_reason, decrypted_reason)
+      |> assign(:block_default_type, default_block_type)
+      |> assign(:block_update?, is_blocked)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("close_block_modal", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_block_modal, false)
+      |> assign(:block_user_id, nil)
+      |> assign(:block_user_name, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("submit_block", %{"block" => block_params}, socket) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    blocked_user_id = block_params["blocked_id"]
+
+    case Accounts.get_user(blocked_user_id) do
+      %Accounts.User{} = blocked_user ->
+        case Accounts.block_user(current_user, blocked_user, block_params,
+               user: current_user,
+               key: key
+             ) do
+          {:ok, _block} ->
+            socket =
+              socket
+              |> assign(:show_block_modal, false)
+              |> assign(:block_user_id, nil)
+              |> assign(:block_user_name, nil)
+              |> put_flash(
+                :info,
+                "Author blocked successfully. You won't see their content anymore."
+              )
+
+            {:noreply, socket}
+
+          {:error, changeset} ->
+            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
+            error_msg = "Block failed: #{inspect(errors)}"
+            {:noreply, put_flash(socket, :error, error_msg)}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Author not found.")}
+    end
+  end
+
+  def handle_event("remove_self_from_post", %{"post-id" => post_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, post_id)
+      |> start_async(:remove_self_from_post, fn ->
+        case Timeline.get_user_post_by_post_id_and_user_id(post_id, current_user.id) do
+          nil ->
+            post = Timeline.get_post!(post_id)
+
+            case Timeline.hide_post(current_user, post) do
+              {:ok, _hide} -> {:ok, post}
+              error -> error
+            end
+
+          user_post ->
+            post = Timeline.get_post!(user_post.post_id)
+
+            with {:ok, updated_post} <-
+                   Timeline.remove_self_from_shared_post(user_post, user: current_user) do
+              if post.visibility == :public do
+                Timeline.hide_post(current_user, updated_post)
+              end
+
+              {:ok, updated_post}
+            end
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:ok, {:ok, post}}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> stream_delete(:profile_posts, post)
+      |> stream_delete(:read_posts, post)
+      |> put_flash(:info, "Post removed from your timeline.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:ok, {:error, _changeset}}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:error, "Failed to remove post.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:exit, reason}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:error, "Failed to remove post: #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "remove_shared_user",
+        %{"post-id" => post_id, "user-id" => user_id, "shared-username" => shared_username},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+
+    socket =
+      socket
+      |> assign(:removing_shared_user_id, user_id)
+      |> start_async(:remove_shared_user, fn ->
+        user_post = Timeline.get_user_post_by_post_id_and_user_id!(post_id, user_id)
+
+        Timeline.delete_user_post(user_post,
+          user: current_user,
+          shared_username: shared_username
+        )
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "add_shared_user",
+        %{"post-id" => post_id, "user-id" => user_id, "username" => username},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    socket =
+      socket
+      |> assign(:adding_shared_user, %{post_id: post_id, username: username})
+      |> start_async(:add_shared_user, fn ->
+        post = Timeline.get_post!(post_id)
+
+        if post.user_id == current_user.id do
+          user_to_share_with = Accounts.get_user!(user_id)
+
+          encrypted_post_key =
+            post.user_posts
+            |> Enum.find(fn up -> up.user_id == current_user.id end)
+            |> case do
+              nil -> nil
+              user_post -> user_post.key
+            end
+
+          decrypted_post_key =
+            case Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(
+                   encrypted_post_key,
+                   current_user,
+                   key
+                 ) do
+              {:ok, decrypted} -> decrypted
+              _ -> nil
+            end
+
+          if decrypted_post_key do
+            Timeline.share_post_with_user(post, user_to_share_with, decrypted_post_key,
+              user: current_user
+            )
+          else
+            {:error, :decryption_failed}
+          end
+        else
+          {:error, :not_owner}
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_shared_user, {:ok, _result}, socket) do
+    {:noreply, assign(socket, :removing_shared_user_id, nil)}
+  end
+
+  def handle_async(:remove_shared_user, {:exit, reason}, socket) do
+    socket =
+      socket
+      |> assign(:removing_shared_user_id, nil)
+      |> put_flash(:error, "Failed to remove shared user: #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:add_shared_user, {:ok, {:ok, _user_post}} = result, socket) do
+    require Logger
+    Logger.debug("handle_async :add_shared_user success: #{inspect(result)}")
+    {:noreply, assign(socket, :adding_shared_user, nil)}
+  end
+
+  def handle_async(:add_shared_user, {:ok, {:error, _reason}} = result, socket) do
+    require Logger
+    Logger.debug("handle_async :add_shared_user error: #{inspect(result)}")
+
+    socket =
+      socket
+      |> assign(:adding_shared_user, nil)
+      |> put_flash(:error, "Failed to share post with user")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:add_shared_user, {:exit, reason} = result, socket) do
+    require Logger
+    Logger.debug("handle_async :add_shared_user exit: #{inspect(result)}")
+
+    socket =
+      socket
+      |> assign(:adding_shared_user, nil)
+      |> put_flash(:error, "Failed to share post with user: #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
   defp get_profile_key_for_preview(socket) do
     profile_user = socket.assigns.profile_user
     current_user = socket.assigns.current_scope.user
-    session_key = socket.assigns.key
+    session_key = socket.assigns.current_scope.key
     encrypted_profile_key = profile_user.connection.profile.profile_key
 
     if encrypted_profile_key && profile_user.visibility != :public do
@@ -1030,7 +1551,7 @@ defmodule MossletWeb.UserHomeLive do
 
   defp maybe_fetch_website_preview(socket, profile_user, current_user, _profile_owner?) do
     profile = profile_user.connection.profile
-    session_key = socket.assigns.key
+    session_key = socket.assigns.current_scope.key
 
     {website_url, profile_key} =
       if profile.website_url do
@@ -2064,6 +2585,45 @@ defmodule MossletWeb.UserHomeLive do
                     </MossletWeb.DesignSystem.liquid_badge>
                   </div>
                 </:title>
+                <div
+                  :if={@profile_user_block}
+                  class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700/50"
+                >
+                  <div class="flex items-start gap-3">
+                    <.phx_icon
+                      name="hero-no-symbol"
+                      class="size-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5"
+                    />
+                    <div>
+                      <p class="text-sm font-medium text-rose-800 dark:text-rose-200">
+                        You've blocked this user{unless @profile_user_block.block_type == :full,
+                          do: "'s #{block_type_label(@profile_user_block.block_type)}"}
+                      </p>
+                      <p class="text-xs text-rose-700 dark:text-rose-300 mt-1">
+                        {block_type_description(@profile_user_block.block_type)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  :if={@user_connection && @user_connection.zen?}
+                  class="mb-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50"
+                >
+                  <div class="flex items-start gap-3">
+                    <.phx_icon
+                      name="hero-speaker-x-mark"
+                      class="size-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+                    />
+                    <div>
+                      <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        You've muted this author
+                      </p>
+                      <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        Their posts won't appear in your timeline.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <div id="profile-posts-public" phx-update="stream" class="space-y-4">
                   <div class="hidden only:block text-center py-8">
                     <.phx_icon
@@ -2318,6 +2878,31 @@ defmodule MossletWeb.UserHomeLive do
           </div>
         </div>
       </div>
+
+      <.live_component
+        :if={@show_report_modal}
+        module={MossletWeb.TimelineLive.ReportModalComponent}
+        id={"report-modal-component-#{@report_post_id}"}
+        show={@show_report_modal}
+        post_id={@report_post_id}
+        reported_user_id={@report_user_id}
+        report_reply_context={@report_reply_context}
+      />
+
+      <.live_component
+        :if={@show_block_modal}
+        module={MossletWeb.TimelineLive.BlockModalComponent}
+        id={"block-modal-component-#{@block_user_id}-#{@block_post_id}"}
+        post_id={@block_post_id}
+        show={@show_block_modal}
+        user_id={@block_user_id}
+        user_name={@block_user_name}
+        existing_block={@existing_block}
+        decrypted_reason={@block_decrypted_reason}
+        default_block_type={@block_default_type}
+        block_update?={@block_update?}
+        block_reply_context={assigns[:block_reply_context]}
+      />
     </.layout>
     """
   end
@@ -2919,7 +3504,7 @@ defmodule MossletWeb.UserHomeLive do
 
   defp render_no_access(assigns) do
     ~H"""
-    <.layout current_page={:home} sidebar_current_page={:home}>
+    <.layout current_page={:home} sidebar_current_page={:home} current_scope={@current_scope}>
       <div class="text-center p-8">
         <p>This profile is not viewable or does not exist.</p>
       </div>
@@ -3034,7 +3619,7 @@ defmodule MossletWeb.UserHomeLive do
     banner_image = if profile, do: profile.banner_image, else: :waves
 
     if banner_image == :custom && profile && Map.get(profile, :custom_banner_url) do
-      key = socket.assigns.key
+      key = socket.assigns.current_scope.key
 
       if profile_owner? do
         user = socket.assigns.current_scope.user
@@ -3256,6 +3841,21 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp format_profile_post_timestamp(_), do: ""
+
+  defp block_type_description(:full),
+    do: "Their posts and replies are hidden from your timeline and profile views."
+
+  defp block_type_description(:posts_only),
+    do: "Their posts are hidden, but you can still see their replies."
+
+  defp block_type_description(:replies_only),
+    do: "Their replies are hidden, but you can still see their posts."
+
+  defp block_type_description(_), do: "Their content is hidden from your view."
+
+  defp block_type_label(:posts_only), do: "posts"
+  defp block_type_label(:replies_only), do: "replies"
+  defp block_type_label(_), do: nil
 
   defp add_date_grouping_context(posts) do
     posts
