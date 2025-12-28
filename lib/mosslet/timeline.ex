@@ -1751,9 +1751,9 @@ defmodule Mosslet.Timeline do
 
     posts =
       if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
-        case TimelineCache.get_timeline_data(current_user.id, "home_unified") do
+        case TimelineCache.get_timeline_data(current_user.id, "home") do
           {:hit, cached_data} ->
-            Logger.debug("Unified home timeline cache hit for user #{current_user.id}")
+            Logger.debug("Home timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
@@ -1765,7 +1765,7 @@ defmodule Mosslet.Timeline do
               fetched_at: System.system_time(:millisecond)
             }
 
-            TimelineCache.cache_timeline_data(current_user.id, "home_unified", timeline_data)
+            TimelineCache.cache_timeline_data(current_user.id, "home", timeline_data)
             posts
         end
       else

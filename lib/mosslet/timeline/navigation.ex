@@ -10,7 +10,7 @@ defmodule Mosslet.Timeline.Navigation do
   alias Mosslet.{Accounts, Timeline, Groups, Repo}
   alias Mosslet.Timeline.{Post, UserTimelinePreference, TimelineViewCache}
 
-  @default_tabs ["home", "connections", "groups", "bookmarks", "discover"]
+  @default_tabs ["home", "bookmarks", "discover"]
 
   @doc """
   Gets timeline data for a specific tab with caching.

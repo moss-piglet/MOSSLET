@@ -368,33 +368,19 @@ defmodule Mosslet.Timeline.Performance.TimelineCache do
   defp invalidate_timelines_for_post(post) do
     cond do
       post.visibility === :public ->
-        # Invalidate discover timelines (public posts affect discover feed)
         invalidate_keys_with_prefix("timeline:")
 
-      post.visibility in [:connections, :specific_users] ->
-        # Invalidate home/connections timelines for connected users
+      post.visibility in [:connections, :specific_users, :specific_groups] ->
         connected_user_ids = get_connected_user_ids(post.user_id)
 
         for user_id <- [post.user_id | connected_user_ids] do
           invalidate_timeline(user_id, "home")
-          invalidate_timeline(user_id, "connections")
-        end
-
-      post.visibility === :specific_groups ->
-        # Invalidate home/connections timelines for connected users
-        connected_user_ids = get_connected_user_ids(post.user_id)
-
-        for user_id <- [post.user_id | connected_user_ids] do
-          invalidate_timeline(user_id, "home")
-          invalidate_timeline(user_id, "groups")
         end
 
       post.visibility === :private ->
-        # Only invalidate creator's timelines
         invalidate_timeline(post.user_id, "home")
 
       true ->
-        # Handle other visibility types
         invalidate_timeline(post.user_id, "home")
     end
   end

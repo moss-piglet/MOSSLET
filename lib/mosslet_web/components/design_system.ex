@@ -2853,38 +2853,107 @@ defmodule MossletWeb.DesignSystem do
   attr :rest, :global, include: ~w(phx-click)
 
   def liquid_timeline_scroll_indicator(assigns) do
-    # Define color variants based on tab
     assigns =
       assign(assigns, :color_classes, get_tab_color_classes(assigns.tab_color))
 
     ~H"""
-    <div class={[
-      "text-center py-8",
-      @class
-    ]}>
-      <%!-- Loading state --%>
-      <div
-        :if={@loading}
-        class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400"
-      >
-        <div class={["w-2 h-2 rounded-full animate-pulse", @color_classes.indicator]}></div>
-        <span class="text-sm font-medium">Loading more posts...</span>
+    <div class={["relative py-6", @class]}>
+      <div class="absolute inset-0 flex items-center" aria-hidden="true">
+        <div class={[
+          "w-full h-px bg-gradient-to-r from-transparent to-transparent",
+          @color_classes.divider_line
+        ]} />
       </div>
 
-      <%!-- Load more button with tab-specific colors and clickable --%>
-      <button
-        :if={!@loading && @remaining_count > 0}
-        class={[
-          "inline-flex items-center gap-3 px-6 py-3 rounded-xl backdrop-blur-sm transition-all duration-200 ease-out cursor-pointer group text-sm font-medium",
-          @color_classes.button
-        ]}
-        {@rest}
-      >
-        <div class={["w-2 h-2 rounded-full animate-pulse", @color_classes.indicator]}></div>
-        <span>
-          Load {@load_count} more posts ({@remaining_count} remaining)
-        </span>
-      </button>
+      <div class="relative flex justify-center">
+        <button
+          type="button"
+          class={[
+            "group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full",
+            "bg-white dark:bg-slate-800",
+            "border border-slate-200/80 dark:border-slate-700/80",
+            "shadow-lg shadow-slate-900/5 dark:shadow-black/20",
+            "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-black/30",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
+            @color_classes.focus_ring,
+            "transition-all duration-300 ease-out",
+            "transform hover:scale-[1.02] active:scale-[0.98]",
+            "phx-click-loading:cursor-wait phx-click-loading:opacity-90",
+            @loading && "cursor-wait opacity-80"
+          ]}
+          disabled={@loading}
+          {@rest}
+        >
+          <div class="phx-click-loading:flex hidden items-center gap-2">
+            <div class={[
+              "h-4 w-4 animate-spin rounded-full border-2",
+              @color_classes.spinner
+            ]} />
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Loading...
+            </span>
+          </div>
+
+          <div :if={@loading} class="phx-click-loading:hidden flex items-center gap-2">
+            <div class={[
+              "h-4 w-4 animate-spin rounded-full border-2",
+              @color_classes.spinner
+            ]} />
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Loading more posts...
+            </span>
+          </div>
+
+          <div :if={!@loading} class="phx-click-loading:hidden flex items-center gap-2.5">
+            <div class={[
+              "flex items-center justify-center w-6 h-6 rounded-full",
+              "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
+              @color_classes.icon_bg_hover,
+              "transition-all duration-300"
+            ]}>
+              <.phx_icon
+                name="hero-arrow-down"
+                class={[
+                  "w-3.5 h-3.5 text-slate-500 dark:text-slate-400",
+                  @color_classes.icon_hover,
+                  "transition-all duration-300"
+                ]}
+              />
+            </div>
+
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">
+              <span class="text-slate-500 dark:text-slate-400">Load</span>
+              <span class={[
+                "inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 mx-1",
+                "text-xs font-semibold rounded-full",
+                "text-white shadow-sm",
+                @color_classes.badge
+              ]}>
+                {@load_count}
+              </span>
+              <span class="text-slate-500 dark:text-slate-400">more</span>
+              <span class="text-slate-500 dark:text-slate-400 ml-1">({@remaining_count} left)</span>
+            </span>
+
+            <div class={[
+              "flex items-center justify-center w-6 h-6 rounded-full",
+              "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
+              @color_classes.icon_bg_hover,
+              "transition-all duration-300"
+            ]}>
+              <.phx_icon
+                name="hero-plus"
+                class={[
+                  "w-3.5 h-3.5 text-slate-400 dark:text-slate-500",
+                  @color_classes.icon_hover,
+                  "transition-colors duration-300"
+                ]}
+              />
+            </div>
+          </div>
+        </button>
+      </div>
     </div>
     """
   end
@@ -2910,44 +2979,68 @@ defmodule MossletWeb.DesignSystem do
     case tab_color do
       "emerald" ->
         %{
-          button:
-            "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:from-emerald-600 hover:to-teal-600",
-          indicator: "bg-white/80"
+          badge: "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30",
+          focus_ring: "focus:ring-emerald-500/50",
+          icon_hover: "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+          icon_bg_hover:
+            "group-hover:from-emerald-100 group-hover:to-teal-50 dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
+          spinner: "border-emerald-500/30 border-t-emerald-500",
+          divider_line: "via-emerald-300/40 dark:via-emerald-600/40"
         }
 
       "teal" ->
         %{
-          button:
-            "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:from-blue-600 hover:to-cyan-600",
-          indicator: "bg-white/80"
+          badge: "bg-gradient-to-br from-blue-500 to-cyan-600 shadow-blue-500/30",
+          focus_ring: "focus:ring-blue-500/50",
+          icon_hover: "group-hover:text-blue-600 dark:group-hover:text-blue-400",
+          icon_bg_hover:
+            "group-hover:from-blue-100 group-hover:to-cyan-50 dark:group-hover:from-blue-900/40 dark:group-hover:to-cyan-900/30",
+          spinner: "border-blue-500/30 border-t-blue-500",
+          divider_line: "via-blue-300/40 dark:via-blue-600/40"
         }
 
       "blue" ->
         %{
-          button:
-            "bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md hover:from-purple-600 hover:to-violet-600",
-          indicator: "bg-white/80"
+          badge: "bg-gradient-to-br from-purple-500 to-violet-600 shadow-purple-500/30",
+          focus_ring: "focus:ring-purple-500/50",
+          icon_hover: "group-hover:text-purple-600 dark:group-hover:text-purple-400",
+          icon_bg_hover:
+            "group-hover:from-purple-100 group-hover:to-violet-50 dark:group-hover:from-purple-900/40 dark:group-hover:to-violet-900/30",
+          spinner: "border-purple-500/30 border-t-purple-500",
+          divider_line: "via-purple-300/40 dark:via-purple-600/40"
         }
 
       "purple" ->
         %{
-          button:
-            "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:from-amber-600 hover:to-orange-600",
-          indicator: "bg-white/80"
+          badge: "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/30",
+          focus_ring: "focus:ring-amber-500/50",
+          icon_hover: "group-hover:text-amber-600 dark:group-hover:text-amber-400",
+          icon_bg_hover:
+            "group-hover:from-amber-100 group-hover:to-orange-50 dark:group-hover:from-amber-900/40 dark:group-hover:to-orange-900/30",
+          spinner: "border-amber-500/30 border-t-amber-500",
+          divider_line: "via-amber-300/40 dark:via-amber-600/40"
         }
 
       "orange" ->
         %{
-          button:
-            "bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-md hover:from-indigo-600 hover:to-blue-600",
-          indicator: "bg-white/80"
+          badge: "bg-gradient-to-br from-indigo-500 to-blue-600 shadow-indigo-500/30",
+          focus_ring: "focus:ring-indigo-500/50",
+          icon_hover: "group-hover:text-indigo-600 dark:group-hover:text-indigo-400",
+          icon_bg_hover:
+            "group-hover:from-indigo-100 group-hover:to-blue-50 dark:group-hover:from-indigo-900/40 dark:group-hover:to-blue-900/30",
+          spinner: "border-indigo-500/30 border-t-indigo-500",
+          divider_line: "via-indigo-300/40 dark:via-indigo-600/40"
         }
 
       _ ->
         %{
-          button:
-            "bg-slate-50/80 dark:bg-slate-800/80 border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/80",
-          indicator: "bg-gradient-to-r from-slate-400 to-slate-500"
+          badge: "bg-gradient-to-br from-slate-500 to-slate-600 shadow-slate-500/30",
+          focus_ring: "focus:ring-slate-500/50",
+          icon_hover: "group-hover:text-slate-600 dark:group-hover:text-slate-400",
+          icon_bg_hover:
+            "group-hover:from-slate-200 group-hover:to-slate-100 dark:group-hover:from-slate-700 dark:group-hover:to-slate-600",
+          spinner: "border-slate-500/30 border-t-slate-500",
+          divider_line: "via-slate-300/40 dark:via-slate-600/40"
         }
     end
   end
@@ -12181,6 +12274,42 @@ defmodule MossletWeb.DesignSystem do
   end
 
   @doc """
+  Timeline date separator with enhanced visual design.
+
+  A visually prominent date separator for timeline posts with subtle animation
+  and improved readability.
+
+  ## Examples
+
+      <.liquid_timeline_date_separator date={~D[2024-01-15]} />
+  """
+  attr :date, Date, required: true
+  attr :class, :any, default: ""
+  attr :first, :boolean, default: false, doc: "Whether this is the first separator (no top line)"
+
+  def liquid_timeline_date_separator(assigns) do
+    ~H"""
+    <div class={["flex items-center py-1", @class]}>
+      <div class="flex items-center gap-2.5 pl-1">
+        <div class="flex flex-col items-center">
+          <div class={[
+            "w-px h-3",
+            !@first && "bg-gradient-to-b from-transparent to-emerald-400/50 dark:to-emerald-500/40",
+            @first && "bg-transparent"
+          ]} />
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shadow-sm shadow-emerald-500/30 ring-2 ring-white dark:ring-slate-900" />
+          <div class="w-px h-3 bg-gradient-to-b from-emerald-400/50 to-transparent dark:from-emerald-500/40" />
+        </div>
+        <div class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <.phx_icon name="hero-calendar-days-mini" class="w-3.5 h-3.5" />
+          <span>{format_chat_date(@date)}</span>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Timeline read posts divider with expand/collapse functionality.
 
   A beautiful animated divider that separates unread posts from read posts,
@@ -12192,18 +12321,25 @@ defmodule MossletWeb.DesignSystem do
         count={5}
         expanded={false}
         loading={false}
+        tab_color="emerald"
       />
   """
   attr :count, :integer, required: true
   attr :expanded, :boolean, default: false
   attr :loading, :boolean, default: false
+  attr :tab_color, :string, default: "emerald"
   attr :class, :any, default: ""
 
   def liquid_read_posts_divider(assigns) do
+    assigns = assign(assigns, :color_classes, get_tab_color_classes(assigns.tab_color))
+
     ~H"""
     <div class={["relative py-6", @class]}>
       <div class="absolute inset-0 flex items-center" aria-hidden="true">
-        <div class="w-full h-px bg-gradient-to-r from-transparent via-slate-300/60 to-transparent dark:via-slate-600/60" />
+        <div class={[
+          "w-full h-px bg-gradient-to-r from-transparent to-transparent",
+          @color_classes.divider_line
+        ]} />
       </div>
 
       <div class="relative flex justify-center">
@@ -12218,7 +12354,8 @@ defmodule MossletWeb.DesignSystem do
             "shadow-lg shadow-slate-900/5 dark:shadow-black/20",
             "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-black/30",
             "hover:border-slate-300 dark:hover:border-slate-600",
-            "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
+            "focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
+            @color_classes.focus_ring,
             "transition-all duration-300 ease-out",
             "transform hover:scale-[1.02] active:scale-[0.98]",
             "phx-click-loading:cursor-wait phx-click-loading:opacity-90",
@@ -12226,14 +12363,20 @@ defmodule MossletWeb.DesignSystem do
           ]}
         >
           <div class="phx-click-loading:flex hidden items-center gap-2">
-            <div class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
+            <div class={[
+              "h-4 w-4 animate-spin rounded-full border-2",
+              @color_classes.spinner
+            ]} />
             <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
               {if @expanded, do: "Hiding...", else: "Loading..."}
             </span>
           </div>
 
           <div :if={@loading} class="phx-click-loading:hidden flex items-center gap-2">
-            <div class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
+            <div class={[
+              "h-4 w-4 animate-spin rounded-full border-2",
+              @color_classes.spinner
+            ]} />
             <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
               Loading posts...
             </span>
@@ -12243,15 +12386,14 @@ defmodule MossletWeb.DesignSystem do
             <div class={[
               "flex items-center justify-center w-6 h-6 rounded-full",
               "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
-              "group-hover:from-emerald-100 group-hover:to-teal-50",
-              "dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
+              @color_classes.icon_bg_hover,
               "transition-all duration-300"
             ]}>
               <.phx_icon
                 name={if @expanded, do: "hero-chevron-up", else: "hero-chevron-down"}
                 class={[
                   "w-3.5 h-3.5 text-slate-500 dark:text-slate-400",
-                  "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+                  @color_classes.icon_hover,
                   "transition-all duration-300",
                   @expanded && "rotate-180"
                 ]}
@@ -12266,8 +12408,8 @@ defmodule MossletWeb.DesignSystem do
                 <span class={[
                   "inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 mx-1",
                   "text-xs font-semibold rounded-full",
-                  "bg-gradient-to-br from-emerald-500 to-teal-600 text-white",
-                  "shadow-sm shadow-emerald-500/30"
+                  "text-white shadow-sm",
+                  @color_classes.badge
                 ]}>
                   {@count}
                 </span>
@@ -12280,8 +12422,7 @@ defmodule MossletWeb.DesignSystem do
               class={[
                 "flex items-center justify-center w-6 h-6 rounded-full",
                 "bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800",
-                "group-hover:from-emerald-100 group-hover:to-teal-50",
-                "dark:group-hover:from-emerald-900/40 dark:group-hover:to-teal-900/30",
+                @color_classes.icon_bg_hover,
                 "transition-all duration-300"
               ]}
             >
@@ -12289,7 +12430,7 @@ defmodule MossletWeb.DesignSystem do
                 name="hero-eye"
                 class={[
                   "w-3.5 h-3.5 text-slate-400 dark:text-slate-500",
-                  "group-hover:text-emerald-500 dark:group-hover:text-emerald-400",
+                  @color_classes.icon_hover,
                   "transition-colors duration-300"
                 ]}
               />
@@ -12300,7 +12441,7 @@ defmodule MossletWeb.DesignSystem do
 
       <div
         :if={@expanded && !@loading}
-        class="absolute left-0 right-0 bottom-0 flex items-center"
+        class="absolute left-0 right-0 bottom-0 flex items-center hidden"
         aria-hidden="true"
       >
         <div class="w-full h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent dark:via-emerald-600/40 animate-pulse" />

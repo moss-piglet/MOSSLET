@@ -12,7 +12,7 @@ defmodule Mosslet.Timeline.Performance.TimelineBroadway do
   - ✅ User IDs (UUIDs - not sensitive)
   - ✅ Post IDs (UUIDs - not sensitive)
   - ✅ Operation types ("regenerate", "warm_cache" - not sensitive)
-  - ✅ Tab names ("home", "connections" - not sensitive)
+  - ✅ Tab names ("home", "discover", "bookmarks" - not sensitive)
 
   NEVER IN MESSAGES:
   - ❌ Post content, usernames, emails
@@ -241,11 +241,9 @@ defmodule Mosslet.Timeline.Performance.TimelineBroadway do
       user ->
         Logger.debug("Regenerating timeline feed for user #{user_id}")
 
-        # Clear cache first
         TimelineCache.invalidate_timeline(user_id, :all)
 
-        # Pre-generate feeds for all tabs
-        tabs = ["home", "connections", "groups", "bookmarks"]
+        tabs = ["home", "bookmarks", "discover"]
 
         Task.async_stream(
           tabs,
@@ -284,8 +282,7 @@ defmodule Mosslet.Timeline.Performance.TimelineBroadway do
       user ->
         Logger.debug("Warming timeline cache for user #{user_id}")
 
-        # Warm cache for high-traffic tabs
-        priority_tabs = ["home", "connections", "groups"]
+        priority_tabs = ["home", "discover"]
 
         Task.async_stream(
           priority_tabs,

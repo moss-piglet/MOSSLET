@@ -1397,13 +1397,14 @@ defmodule MossletWeb.TimelineLive.Index do
           |> apply_tab_filtering(current_tab, current_user)
       end
 
-    # Update timeline counts to reflect the block using cached content filters
+    posts_with_dates = add_date_grouping_context(posts)
+
     socket =
       socket
       |> maybe_update_timeline_counts(current_user, options_with_filters)
       |> assign(:loaded_posts_count, length(posts))
       |> assign(:current_page, 1)
-      |> stream(:posts, posts, reset: true)
+      |> stream(:posts, posts_with_dates, reset: true)
       |> put_flash(
         :info,
         "User blocked successfully. Their content has been filtered from your timeline."
@@ -1447,13 +1448,15 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
+    posts_with_dates = add_date_grouping_context(posts)
+
     socket =
       socket
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
       |> assign(:loaded_posts_count, length(posts))
       |> assign(:current_page, 1)
-      |> stream(:posts, posts, reset: true)
+      |> stream(:posts, posts_with_dates, reset: true)
       |> put_flash(
         :info,
         "User unblocked successfully. Their content is now visible in your timeline."
@@ -1497,10 +1500,11 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
-    # we only want to show a flash message to the blocker (not the person being blocked)
     info =
       if block.blocked_id != current_user.id,
         do: "Block settings updated. Timeline refreshed to reflect changes."
+
+    posts_with_dates = add_date_grouping_context(posts)
 
     socket =
       socket
@@ -1508,7 +1512,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:timeline_counts, timeline_counts)
       |> assign(:unread_counts, unread_counts)
       |> assign(:current_page, 1)
-      |> stream(:posts, posts, reset: true)
+      |> stream(:posts, posts_with_dates, reset: true)
       |> put_flash(
         :info,
         info
@@ -1613,11 +1617,12 @@ defmodule MossletWeb.TimelineLive.Index do
        |> stream(:read_posts, [], reset: true)}
     else
       cached_posts = socket.assigns[:cached_read_posts] || []
+      posts_with_dates = add_date_grouping_context(cached_posts)
 
       {:noreply,
        socket
        |> assign(:read_posts_expanded, true)
-       |> stream(:read_posts, cached_posts, reset: true)}
+       |> stream(:read_posts, posts_with_dates, reset: true)}
     end
   end
 
@@ -4044,6 +4049,8 @@ defmodule MossletWeb.TimelineLive.Index do
     unread_nested_replies_by_parent =
       Map.get(timeline_result, :unread_nested_replies_by_parent, %{})
 
+    unread_posts_with_dates = add_date_grouping_context(unread_posts)
+
     {:noreply,
      socket
      |> assign(:timeline_data, AsyncResult.ok(socket.assigns.timeline_data, timeline_result))
@@ -4059,7 +4066,7 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:read_posts_count, read_posts_count)
      |> assign(:loaded_read_posts_count, read_posts_count)
      |> assign(:cached_read_posts, read_posts)
-     |> stream(:posts, unread_posts, reset: true)}
+     |> stream(:posts, unread_posts_with_dates, reset: true)}
   end
 
   def handle_async(:load_timeline_data, {:exit, reason}, socket) do
@@ -5706,9 +5713,8 @@ defmodule MossletWeb.TimelineLive.Index do
     timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
     unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
-    # CRITICAL FIX: Reset pagination state and update counts
-    # Only unread posts go to the main posts stream
-    # Read posts are cached for the collapsible section
+    unread_posts_with_dates = add_date_grouping_context(unread_posts)
+
     socket =
       socket
       |> assign(:timeline_counts, timeline_counts)
@@ -5721,7 +5727,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:read_posts_loading, false)
       |> assign(:loaded_read_posts_count, length(read_posts))
       |> assign(:cached_read_posts, read_posts)
-      |> stream(:posts, unread_posts, reset: true)
+      |> stream(:posts, unread_posts_with_dates, reset: true)
       |> stream(:read_posts, [], reset: true)
 
     socket
@@ -6282,19 +6288,55 @@ defmodule MossletWeb.TimelineLive.Index do
     if is_post_unread?(post, current_user) do
       cached_read_posts = socket.assigns[:cached_read_posts] || []
       updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+      loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
 
       socket
       |> assign(:cached_read_posts, updated_cached)
+      |> assign(:loaded_read_posts_count, max(0, loaded_read_count - 1))
       |> stream_delete(:read_posts, post)
       |> stream_insert(:posts, post, at: -1)
     else
       cached_read_posts = socket.assigns[:cached_read_posts] || []
       updated_cached = update_or_add_cached_post(cached_read_posts, post)
+      loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
 
       socket
       |> assign(:cached_read_posts, updated_cached)
+      |> assign(:loaded_read_posts_count, loaded_read_count + 1)
       |> stream_delete(:posts, post)
       |> maybe_stream_insert_read_post(post, at: -1)
     end
   end
+
+  defp add_date_grouping_context(posts) do
+    posts
+    |> Enum.with_index()
+    |> Enum.map(fn {post, index} ->
+      prev_post = if index > 0, do: Enum.at(posts, index - 1)
+      post_date = get_post_date(post.inserted_at)
+
+      show_date_separator =
+        if prev_post do
+          prev_date = get_post_date(prev_post.inserted_at)
+          prev_date != post_date
+        else
+          true
+        end
+
+      post
+      |> Map.put(:show_date_separator, show_date_separator)
+      |> Map.put(:post_date, post_date)
+      |> Map.put(:first_separator, index == 0 && show_date_separator)
+    end)
+  end
+
+  defp get_post_date(datetime) when is_struct(datetime, NaiveDateTime) do
+    NaiveDateTime.to_date(datetime)
+  end
+
+  defp get_post_date(datetime) when is_struct(datetime, DateTime) do
+    DateTime.to_date(datetime)
+  end
+
+  defp get_post_date(_), do: nil
 end

@@ -338,6 +338,11 @@
               class="timeline-post-container"
               data-user-id={post.user_id}
             >
+              <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                date={post.post_date}
+                first={Map.get(post, :first_separator, false)}
+              />
               <div id={"timeline-card-container-#{post.id}"} class="timeline-post-item new-post">
                 <MossletWeb.DesignSystem.liquid_timeline_post
                   user_name={get_post_author_name(post, @current_user, @key)}
@@ -476,6 +481,7 @@
               count={total_read_posts}
               expanded={@read_posts_expanded}
               loading={@read_posts_loading}
+              tab_color={get_tab_color(@active_tab)}
             />
 
             <div
@@ -493,6 +499,11 @@
                 class="timeline-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
                 data-user-id={post.user_id}
               >
+                <MossletWeb.DesignSystem.liquid_timeline_date_separator
+                  :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
+                  date={post.post_date}
+                  first={Map.get(post, :first_separator, false)}
+                />
                 <div id={"timeline-card-container-read-#{post.id}"} class="timeline-post-item">
                   <MossletWeb.DesignSystem.liquid_timeline_post
                     user_name={get_post_author_name(post, @current_user, @key)}

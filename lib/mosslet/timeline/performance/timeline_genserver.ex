@@ -12,7 +12,7 @@ defmodule Mosslet.Timeline.Performance.TimelineGenServer do
   - ✅ User IDs (UUIDs - not sensitive)
   - ✅ Post IDs (UUIDs - not sensitive)
   - ✅ Operation types ("regenerate", "warm_cache" - not sensitive)
-  - ✅ Tab names ("home", "connections" - not sensitive)
+  - ✅ Tab names ("home", "discover", "bookmarks" - not sensitive)
 
   NEVER IN QUEUE:
   - ❌ Post content, usernames, emails

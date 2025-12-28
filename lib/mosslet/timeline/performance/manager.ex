@@ -29,13 +29,8 @@ defmodule Mosslet.Timeline.Performance.Manager do
         # Many users affected - use batch job
         TimelineFeedJob.schedule_batch_feed_update(affected_user_ids, "new_post")
       else
-        # Few users affected - individual jobs
         Enum.each(affected_user_ids, fn user_id ->
-          TimelineFeedJob.schedule_feed_regeneration(user_id, [
-            "home",
-            "connections",
-            "groups"
-          ])
+          TimelineFeedJob.schedule_feed_regeneration(user_id, ["home"])
         end)
       end
     end
@@ -86,19 +81,15 @@ defmodule Mosslet.Timeline.Performance.Manager do
   def handle_user_activity(user_id, activity_type \\ :general) do
     case activity_type do
       :login ->
-        # User just logged in - warm their cache immediately
-        TimelineFeedJob.schedule_cache_warming(user_id, ["home", "connections"])
+        TimelineFeedJob.schedule_cache_warming(user_id, ["home"])
 
       :timeline_view ->
-        # User viewing timeline - warm related tabs
-        TimelineFeedJob.schedule_cache_warming(user_id, ["connections", "groups"])
+        TimelineFeedJob.schedule_cache_warming(user_id, ["home", "discover"])
 
       :post_creation ->
-        # User creating content - warm their home feed
         TimelineFeedJob.schedule_cache_warming(user_id, ["home"])
 
       _ ->
-        # General activity - no specific action needed
         :ok
     end
   end
@@ -150,7 +141,6 @@ defmodule Mosslet.Timeline.Performance.Manager do
 
         Enum.each([post.user_id | connected_user_ids], fn user_id ->
           TimelineCache.invalidate_timeline(user_id, "home")
-          TimelineCache.invalidate_timeline(user_id, "connections")
         end)
 
       :private ->
