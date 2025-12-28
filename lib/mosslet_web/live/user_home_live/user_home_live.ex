@@ -424,22 +424,39 @@ defmodule MossletWeb.UserHomeLive do
         {:noreply, socket}
 
       is_shared_with_current_user? ->
+        cached_profile_posts = socket.assigns.cached_profile_posts
         cached_read_posts = socket.assigns.cached_read_posts
+        is_profile_post? = post.user_id == profile_user.id
+        already_in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
         already_in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
 
-        if already_in_read_posts? do
-          {:noreply, socket}
-        else
-          post_with_date = add_single_post_date_context(post, cached_read_posts, at: 0)
-          updated_cached = [post_with_date | cached_read_posts]
+        socket =
+          cond do
+            is_profile_post? and not already_in_profile_posts? ->
+              post_with_date = add_single_post_date_context(post, cached_profile_posts, at: 0)
+              updated_cached = [post_with_date | cached_profile_posts]
 
-          socket =
-            socket
-            |> assign(:cached_read_posts, updated_cached)
-            |> stream_insert(:read_posts, post_with_date, at: 0)
+              socket
+              |> assign(:cached_profile_posts, updated_cached)
+              |> assign(:posts_count, socket.assigns.posts_count + 1)
+              |> maybe_update_old_first_post_separator(cached_profile_posts, post_with_date,
+                at: 0
+              )
+              |> stream_insert(:profile_posts, post_with_date, at: 0)
 
-          {:noreply, socket}
-        end
+            not already_in_read_posts? ->
+              post_with_date = add_single_post_date_context(post, cached_read_posts, at: 0)
+              updated_cached = [post_with_date | cached_read_posts]
+
+              socket
+              |> assign(:cached_read_posts, updated_cached)
+              |> stream_insert(:read_posts, post_with_date, at: 0)
+
+            true ->
+              socket
+          end
+
+        {:noreply, socket}
 
       true ->
         {:noreply, socket}

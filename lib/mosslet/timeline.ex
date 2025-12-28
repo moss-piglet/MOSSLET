@@ -2019,7 +2019,7 @@ defmodule Mosslet.Timeline do
       [%Post{}, ...]
 
   """
-  def list_public_profile_posts(user, viewer, hidden_post_ids, options) do
+  def list_public_profile_posts(user, _viewer, hidden_post_ids, options) do
     from(p in Post,
       inner_join: up in UserPost,
       on: up.post_id == p.id,
