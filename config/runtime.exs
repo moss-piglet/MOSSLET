@@ -58,7 +58,6 @@ if config_env() == :prod do
     cpu_kind: "performance",
     cpus: 2,
     memory_mb: 4096,
-    region: System.get_env("PRIMARY_REGION", "ewr"),
     env: %{
       "DATABASE_URL" => System.fetch_env!("DATABASE_URL"),
       "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE"),
