@@ -74,7 +74,7 @@ defmodule Mosslet.Application do
       {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
       Mosslet.Security.BotDefense,
       MossletWeb.Telemetry,
-      MossletWeb.Endpoint,
+      !flame_parent && MossletWeb.Endpoint,
       {Finch, name: Mosslet.OpenAIFinch},
       ExMarcel.TableWrapper,
       Mosslet.Extensions.AvatarProcessor,

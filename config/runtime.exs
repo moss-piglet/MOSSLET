@@ -62,7 +62,8 @@ if config_env() == :prod do
       "DATABASE_URL" => System.fetch_env!("DATABASE_URL"),
       "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE"),
       "BUMBLEBEE_CACHE_DIR" => System.get_env("BUMBLEBEE_CACHE_DIR", "/app/.bumblebee"),
-      "BUMBLEBEE_OFFLINE" => System.get_env("BUMBLEBEE_OFFLINE", "true")
+      "BUMBLEBEE_OFFLINE" => System.get_env("BUMBLEBEE_OFFLINE", "true"),
+      "PHX_SERVER" => "false"
     }
 
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
