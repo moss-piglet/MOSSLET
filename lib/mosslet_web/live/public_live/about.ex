@@ -382,7 +382,7 @@ defmodule MossletWeb.PublicLive.About do
                 link={~p"/blog/articles/11"}
               />
               <.article_preview
-                id="blogPostUSPMCTHS"
+                id="blogPostHWBSRSM"
                 img_source={~p"/images/blog/dec_8_2025_hsrsm.jpg"}
                 date="December 8, 2025"
                 title="How We Built Surveillance-Resistant Social Media"

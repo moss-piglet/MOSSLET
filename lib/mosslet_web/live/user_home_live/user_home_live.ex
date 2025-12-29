@@ -2636,7 +2636,7 @@ defmodule MossletWeb.UserHomeLive do
                   </div>
                 </:title>
                 <div id="profile-posts" phx-update="stream" class="space-y-4">
-                  <div class="hidden only:block text-center py-8">
+                  <div id="profile-posts-empty" class="hidden only:block text-center py-8">
                     <.phx_icon
                       name="hero-pencil-square"
                       class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
