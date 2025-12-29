@@ -35,9 +35,7 @@ primary_region = "ewr"
   [[http_service.checks]]
     grace_period = "30s"
     interval = "15s"
-    method = "GET"
     timeout = "5s"
-    path = "/health"
 
 [[vm]]
   memory = "4gb"

@@ -68,10 +68,6 @@ defmodule MossletWeb.Router do
     plug :subscribed_user_only
   end
 
-  scope "/" do
-    get "/health", MossletWeb.HealthController, :index
-  end
-
   scope "/", MossletWeb do
     pipe_through [:browser]
 
