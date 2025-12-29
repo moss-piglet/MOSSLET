@@ -154,7 +154,7 @@ if config_env() == :prod do
 
     config :mosslet, Oban,
       queues: false,
-      plugins: [Oban.Met],
+      plugins: false,
       peer: false
   end
 

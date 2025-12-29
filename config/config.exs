@@ -107,6 +107,7 @@ config :mosslet, Oban,
   repo: Mosslet.Repo.Local,
   notifier: Oban.Notifiers.PG,
   plugins: [
+    Oban.Met,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)},
     # Automatic cache maintenance (ethical performance optimization)
