@@ -7,7 +7,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog09 do
     ~H"""
     <.layout
       type="public"
-      current_scope={assigns[:scope]}
+      current_scope={assigns[:current_scope]}
       current_page={:blog}
       container_max_width={@max_width}
     >

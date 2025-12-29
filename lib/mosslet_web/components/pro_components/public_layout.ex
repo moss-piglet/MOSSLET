@@ -133,6 +133,7 @@ defmodule MossletWeb.PublicLayout do
                 current_scope={@current_scope}
                 current_user_name={@current_user_name}
                 avatar_src={@avatar_src}
+                session_locked={@session_locked}
               />
             </div>
 
@@ -413,11 +414,37 @@ defmodule MossletWeb.PublicLayout do
 
         <%!-- User name with better typography (hidden on small screens) --%>
         <div class="hidden lg:block relative flex-1 text-left">
-          <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200">
+          <div
+            :if={@current_scope && @current_scope.user && !@session_locked}
+            class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200"
+          >
             {@current_user_name}
           </div>
-          <div class="text-xs text-slate-500 dark:text-slate-400">
-            {if @current_scope && @current_scope.user, do: "Online", else: "Guest"}
+          <div
+            :if={@current_scope && @current_scope.user && @session_locked}
+            class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200"
+          >
+            Online
+          </div>
+          <div
+            :if={!@current_scope || !@current_scope.user}
+            class="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200"
+          >
+            Guest
+          </div>
+          <div class={[
+            "text-xs",
+            cond do
+              !@current_scope || !@current_scope.user -> "text-slate-500 dark:text-slate-400"
+              @session_locked -> "text-amber-600 dark:text-amber-400"
+              true -> "text-emerald-500 dark:text-emerald-400"
+            end
+          ]}>
+            {cond do
+              !@current_scope || !@current_scope.user -> "Sign in to continue"
+              @session_locked -> "Session locked"
+              true -> "Online"
+            end}
           </div>
         </div>
 
