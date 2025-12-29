@@ -169,12 +169,13 @@ if config_env() == :prod do
     openai_org_id: System.get_env("OPENAI_ORG_ID")
 
   # Configure image nsfw detection
+  # autostart: false - NSFW detection runs on FLAME runners via Mosslet.AI.NsfwServing
   config :image, :classifier,
     model: {:hf, "Falconsai/nsfw_image_detection"},
     featurizer: {:hf, "Falconsai/nsfw_image_detection"},
     featurizer_options: [module: Bumblebee.Vision.VitFeaturizer],
     name: Image.Classification.Server,
-    autostart: true
+    autostart: false
 
   config :bumblebee, progress_bar_enabled: false
 
