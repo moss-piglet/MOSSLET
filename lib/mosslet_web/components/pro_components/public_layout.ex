@@ -54,6 +54,9 @@ defmodule MossletWeb.PublicLayout do
     ~H"""
     <header
       x-data="{ isOpen: false }"
+      x-effect="document.body.style.overflow = isOpen ? 'hidden' : ''"
+      @keydown.escape.window="isOpen = false"
+      @click.outside="isOpen = false"
       class={[
         "fixed top-0 left-0 z-30 w-full transition-all duration-300 ease-out",
         "lg:sticky backdrop-blur-md",
@@ -189,7 +192,7 @@ defmodule MossletWeb.PublicLayout do
           x-transition:leave="transition ease-in duration-150"
           x-transition:leave-start="opacity-100 transform translate-y-0"
           x-transition:leave-end="opacity-0 transform -translate-y-2"
-          class="lg:hidden"
+          class="lg:hidden max-h-[calc(100vh-4rem)] overflow-y-auto overscroll-contain"
           x-cloak
         >
           <div class="px-2 pt-2 pb-3 space-y-1 border-t border-slate-200/60 dark:border-slate-700/60">
@@ -209,9 +212,9 @@ defmodule MossletWeb.PublicLayout do
               <span class="relative">{item.label}</span>
             </.link>
 
-            <%!-- Mobile authentication section for signed-out users --%>
+            <%!-- Mobile authentication section for signed-out users (true guests only, not locked sessions) --%>
             <div
-              :if={!(@current_scope && @current_scope.user) || !@current_user_name}
+              :if={!(@current_scope && @current_scope.user)}
               class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-3"
             >
               <%!-- Guest user card matching desktop dropdown style --%>
