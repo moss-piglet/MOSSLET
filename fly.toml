@@ -32,11 +32,6 @@ primary_region = "ewr"
     hard_limit = 500
     soft_limit = 400
 
-  [[http_service.checks]]
-    grace_period = "30s"
-    interval = "15s"
-    timeout = "5s"
-
 [[vm]]
   memory = "4gb"
   cpu_kind = "shared"
