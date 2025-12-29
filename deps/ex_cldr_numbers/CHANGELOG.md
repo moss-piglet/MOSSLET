@@ -1,12 +1,22 @@
 # Changelog
 
+## Cldr Numbers v2.37.0
+
+This is the changelog for Cldr v2.37.0 released on December 23rd, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr_numbers/tags)
+
+### Enhancements
+
+* Adds `:gender` and `:grammatical_case` options to `Cldr.Number.to_string/3`. When `:format` is an [RBNF](https://www.unicode.org/reports/tr35/tr35-numbers.html#Rule-Based_Number_Formatting) rule name, these parameters are used to resolve a grammatical gender and grammatical case appropriate rule in the given locale, if one exists. The default falls back to gender only, then a rule without gender or grammatical case. Both options are indeed optional.  Thanks to @tanguilp for the report and motivation. Closes #61.
+
+* Adds `Cldr.Number.Format.Options.valid_gender/0` and `Cldr.Number.Format.Options.valid_grammatical_case/0` to return a list of valid values for the `:gender` and `:grammatical_case` options to `Cldr.Number.to_string/3`. Note that a valid `:gender` or `:grammatical_case` does not imply that the related RBNF rule exists, only that the value is valid.
+
 ## Cldr Numbers v2.36.0
 
 This is the changelog for Cldr v2.36.0 released on November 6th, 2025.  For older changelogs please consult the release tag on [GitHub](https://github.com/elixir-cldr/cldr_numbers/tags)
 
 ### Enhancements
 
-* Updates to [CLDR 48](https://cldr.unicode.org/downloads/cldr-48) data
+* Updates to [CLDR 48](https://cldr.unicode.org/downloads/cldr-48) data.
 
 * Adds `Cldr.Number.to_ratio_string/3` to format numbers as a rational string.
 

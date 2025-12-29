@@ -109,4 +109,4 @@ COPY --from=builder --chown=nobody:root /app/.bumblebee/ ./.bumblebee
 
 USER nobody
 
-CMD ["/app/bin/server", "start"]
+CMD ["/app/bin/server"]
