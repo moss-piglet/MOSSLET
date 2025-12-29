@@ -93,7 +93,7 @@ defmodule Mosslet.Application do
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},
       {FLAME.Pool,
        name: Mosslet.MediaRunner,
-       min: 1,
+       min: 0,
        max: 5,
        max_concurrency: 10,
        min_idle_shutdown_after: :timer.minutes(5),

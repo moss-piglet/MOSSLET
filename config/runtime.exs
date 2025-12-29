@@ -58,6 +58,7 @@ if config_env() == :prod do
     cpu_kind: "performance",
     cpus: 2,
     memory_mb: 4096,
+    region: System.get_env("PRIMARY_REGION", "ewr"),
     env: %{
       "DATABASE_URL" => System.fetch_env!("DATABASE_URL"),
       "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE"),
@@ -117,11 +118,7 @@ if config_env() == :prod do
       encryption_salt: System.get_env("LIVE_VIEW_ENCRYPTION_SALT")
     ],
     http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://hexdocs.pm/plug_cowboy/Plug.Cowboy.html
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0},
+      ip: {0, 0, 0, 0},
       port: port
     ],
     secret_key_base: secret_key_base
