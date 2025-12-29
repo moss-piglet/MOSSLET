@@ -3,36 +3,36 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'mosslet'
-kill_signal = 'SIGTERM'
+app = "mosslet"
+kill_signal = "SIGTERM"
 swap_size_mb = 512
-primary_region = 'ewr'
+primary_region = "ewr"
 
 [deploy]
-  release_command = '/app/bin/migrate'
+  release_command = "/app/bin/migrate"
 
 [env]
-  DNS_CLUSTER_QUERY = 'mosslet.internal'
-  PHX_HOST = 'mosslet.com'
-  PORT = '8080'
-  BUMBLEBEE_CACHE_DIR = '/app/.bumblebee'
-  RELEASE_COOKIE = 'ugVuamQ7bvl3QC6oEkObAffPs4QsE-pzkqVl0iFjUxU7tRfEPsNw5g=='
+  DNS_CLUSTER_QUERY = "mosslet.internal"
+  PHX_HOST = "mosslet.com"
+  PORT = "8080"
+  BUMBLEBEE_CACHE_DIR = "/app/.bumblebee"
+  RELEASE_COOKIE = "ugVuamQ7bvl3QC6oEkObAffPs4QsE-pzkqVl0iFjUxU7tRfEPsNw5g=="
   
 
 [http_service]
   internal_port = 8080
   force_https = true
   min_machines_running = 1
-  auto_stop_machines = 'suspend'
+  auto_stop_machines = "suspend"
   auto_start_machines = true
-  processes = ['app']
+  processes = ["app"]
 
   [http_service.concurrency]
-    type = 'connections'
+    type = "connections"
     hard_limit = 500
     soft_limit = 400
 
 [[vm]]
-  memory = '4gb'
-  cpu_kind = 'shared'
+  memory = "4gb"
+  cpu_kind = "shared"
   cpus = 2
