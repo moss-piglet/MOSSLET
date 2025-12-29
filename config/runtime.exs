@@ -109,6 +109,7 @@ if config_env() == :prod do
     canonical_host: host
 
   config :mosslet, MossletWeb.Endpoint,
+    adapter: Bandit.PhoenixAdapter,
     url: [host: host, port: 443, scheme: "https"],
     check_origin: true,
     force_ssl: [rewrite_on: [:x_forwarded_proto]],
