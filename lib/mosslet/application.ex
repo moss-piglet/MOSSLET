@@ -11,15 +11,13 @@ defmodule Mosslet.Application do
       Mosslet.Platform.Config.ensure_data_directory!()
     end
 
-    flame_parent = FLAME.Parent.get()
-
     unless Mosslet.Platform.native?() do
       Logger.add_backend(Sentry.LoggerBackend)
       Oban.Telemetry.attach_default_logger()
       Mosslet.ObanReporter.attach()
     end
 
-    children = build_children(flame_parent)
+    children = build_children()
 
     opts = [strategy: :one_for_one, name: Mosslet.Supervisor]
     Supervisor.start_link(children, opts)
@@ -31,11 +29,11 @@ defmodule Mosslet.Application do
     :ok
   end
 
-  defp build_children(flame_parent) do
+  defp build_children do
     if Mosslet.Platform.native?() do
       native_children()
     else
-      web_children(flame_parent)
+      web_children()
     end
   end
 
@@ -59,7 +57,9 @@ defmodule Mosslet.Application do
     ]
   end
 
-  defp web_children(flame_parent) do
+  defp web_children do
+    flame_parent = FLAME.Parent.get()
+
     [
       {Fly.RPC, []},
       Mosslet.Repo.Local,
