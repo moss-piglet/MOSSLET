@@ -59,7 +59,6 @@ defmodule Mosslet.Application do
 
   defp web_children do
     flame_parent = FLAME.Parent.get()
-    Logger.info("FLAME.Parent.get() on boot: #{inspect(flame_parent)}")
 
     [
       {Fly.RPC, []},
@@ -75,7 +74,7 @@ defmodule Mosslet.Application do
       {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
       Mosslet.Security.BotDefense,
       MossletWeb.Telemetry,
-      !flame_parent && MossletWeb.Endpoint,
+      MossletWeb.Endpoint,
       {Finch, name: Mosslet.OpenAIFinch},
       ExMarcel.TableWrapper,
       Mosslet.Extensions.AvatarProcessor,
