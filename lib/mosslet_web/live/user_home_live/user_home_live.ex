@@ -3,6 +3,8 @@ defmodule MossletWeb.UserHomeLive do
 
   require Logger
 
+  import MossletWeb.Helpers
+
   alias Mosslet.Accounts
   alias Mosslet.Accounts.UserBlock
   alias Mosslet.Timeline
@@ -555,20 +557,38 @@ defmodule MossletWeb.UserHomeLive do
     profile_user = socket.assigns.profile_user
     current_user = socket.assigns.current_scope.user
 
-    if post.user_id == profile_user.id or post.user_id == current_user.id do
-      cached_posts = socket.assigns.cached_profile_posts
-      updated_cached = Enum.reject(cached_posts, &(&1.id == post.id))
+    cached_profile_posts = socket.assigns.cached_profile_posts
+    cached_read_posts = socket.assigns.cached_read_posts
 
-      socket =
-        socket
-        |> assign(:cached_profile_posts, updated_cached)
-        |> assign(:posts_count, max(0, socket.assigns.posts_count - 1))
-        |> stream_delete(:profile_posts, post)
+    in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
+    in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
 
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
+    socket =
+      cond do
+        in_profile_posts? ->
+          updated_cached = Enum.reject(cached_profile_posts, &(&1.id == post.id))
+
+          socket
+          |> assign(:cached_profile_posts, updated_cached)
+          |> assign(:posts_count, max(0, socket.assigns.posts_count - 1))
+          |> stream_delete(:profile_posts, post)
+
+        in_read_posts? ->
+          updated_cached = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+          socket
+          |> assign(:cached_read_posts, updated_cached)
+          |> stream_delete(:read_posts, post)
+
+        post.user_id == profile_user.id or post.user_id == current_user.id ->
+          socket
+          |> assign(:posts_count, max(0, socket.assigns.posts_count - 1))
+
+        true ->
+          socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_info({:post_shared_users_added, post}, socket) do
@@ -1175,6 +1195,57 @@ defmodule MossletWeb.UserHomeLive do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  def handle_event("bookmark_post", %{"id" => post_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        if Timeline.bookmarked?(current_user, post) do
+          bookmark = Timeline.get_bookmark(current_user, post)
+
+          case Timeline.delete_bookmark(bookmark, current_user) do
+            {:ok, _bookmark} ->
+              Accounts.track_user_activity(current_user, :interaction)
+
+              socket =
+                socket
+                |> push_event("update_post_bookmark", %{
+                  post_id: post_id,
+                  is_bookmarked: false
+                })
+                |> put_flash(:info, "Bookmark removed successfully.")
+
+              {:noreply, socket}
+
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Failed to remove bookmark")}
+          end
+        else
+          case Timeline.create_bookmark(current_user, post, %{}) do
+            {:ok, _bookmark} ->
+              Accounts.track_user_activity(current_user, :interaction)
+
+              socket =
+                socket
+                |> push_event("update_post_bookmark", %{
+                  post_id: post_id,
+                  is_bookmarked: true
+                })
+                |> put_flash(:success, "Post bookmarked successfully.")
+
+              {:noreply, socket}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Failed to bookmark post")}
+          end
+        end
+
+      nil ->
+        Logger.error("Post not found for bookmarking: #{post_id}")
+        {:noreply, put_flash(socket, :error, "Post not found")}
     end
   end
 
@@ -2699,10 +2770,10 @@ defmodule MossletWeb.UserHomeLive do
                       is_repost={post.repost || false}
                       share_note={nil}
                       liked={@current_scope.user.id in (post.favs_list || [])}
-                      bookmarked={false}
+                      bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
-                      can_bookmark?={false}
+                      can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
                       unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
@@ -2843,10 +2914,10 @@ defmodule MossletWeb.UserHomeLive do
                       is_repost={post.repost || false}
                       share_note={nil}
                       liked={@current_scope.user.id in (post.favs_list || [])}
-                      bookmarked={false}
+                      bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
-                      can_bookmark?={false}
+                      can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
                       unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
@@ -3372,10 +3443,10 @@ defmodule MossletWeb.UserHomeLive do
                       is_repost={post.repost || false}
                       share_note={nil}
                       liked={@current_scope.user.id in (post.favs_list || [])}
-                      bookmarked={false}
+                      bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
-                      can_bookmark?={false}
+                      can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
                       unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
@@ -3461,10 +3532,10 @@ defmodule MossletWeb.UserHomeLive do
                       is_repost={post.repost || false}
                       share_note={nil}
                       liked={@current_scope.user.id in (post.favs_list || [])}
-                      bookmarked={false}
+                      bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
-                      can_bookmark?={false}
+                      can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
                       unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
@@ -4011,10 +4082,10 @@ defmodule MossletWeb.UserHomeLive do
                       is_repost={post.repost || false}
                       share_note={nil}
                       liked={@current_scope.user.id in (post.favs_list || [])}
-                      bookmarked={false}
+                      bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
-                      can_bookmark?={false}
+                      can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
                       unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
@@ -4155,10 +4226,10 @@ defmodule MossletWeb.UserHomeLive do
                       is_repost={post.repost || false}
                       share_note={nil}
                       liked={@current_scope.user.id in (post.favs_list || [])}
-                      bookmarked={false}
+                      bookmarked={get_post_bookmarked_status(post, @current_scope.user)}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
                       can_reply?={can_reply?(post, @current_scope.user)}
-                      can_bookmark?={false}
+                      can_bookmark?={can_bookmark?(post, @current_scope.user)}
                       unread?={is_post_unread?(post, @current_scope.user)}
                       unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
                       unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
@@ -5117,4 +5188,11 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   defp count_all_replies(_), do: 0
+
+  defp get_post_bookmarked_status(post, current_user) do
+    case Timeline.bookmarked?(current_user, post) do
+      result when is_boolean(result) -> result
+      _ -> false
+    end
+  end
 end
