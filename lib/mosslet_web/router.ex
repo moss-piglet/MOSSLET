@@ -7,6 +7,10 @@ defmodule MossletWeb.Router do
   alias MossletWeb.Plugs.{PlugAttack, ProfilePlug}
   alias MossletWeb.OnboardingPlug
 
+  scope "/healthz" do
+    get "/", MossletWeb.HealthController, :index
+  end
+
   pipeline :browser do
     plug PlugAttack
     plug :accepts, ["html"]
