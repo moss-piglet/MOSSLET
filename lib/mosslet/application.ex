@@ -87,7 +87,10 @@ defmodule Mosslet.Application do
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},
       {Task.Supervisor, name: Mosslet.StorjTask},
-      flame_parent && Mosslet.AI.NsfwServing,
+      flame_parent &&
+        {Mosslet.DelayedServing,
+         serving_name: Mosslet.AI.NsfwServing,
+         serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end},
       Mosslet.Security.BotDetector,
       {Oban, oban_config()},
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},
