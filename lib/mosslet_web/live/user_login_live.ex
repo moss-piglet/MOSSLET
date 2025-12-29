@@ -3,7 +3,7 @@ defmodule MossletWeb.UserLoginLive do
 
   def render(assigns) do
     ~H"""
-    <.mosslet_auth_layout conn={@socket} title="Sign In">
+    <.mosslet_auth_layout conn={@socket} current_scope={@current_scope} title="Sign In">
       <:logo>
         <.logo class="h-8 transition-transform duration-300 ease-out transform hover:scale-105" />
       </:logo>
