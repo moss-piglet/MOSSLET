@@ -203,7 +203,7 @@ config :langchain,
 config :nx, :default_backend, {EXLA.Backend, client: :host}
 
 # Configure Bumblebee cache
-config :bumblebee, offline: System.get_env("BUMBLEBEE_OFFLINE")
+config :bumblebee, offline: System.get_env("BUMBLEBEE_OFFLINE") == "true"
 
 # Configure image nsfw detection
 config :image, :classifier,

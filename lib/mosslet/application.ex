@@ -74,6 +74,7 @@ defmodule Mosslet.Application do
       {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
       Mosslet.Security.BotDefense,
       MossletWeb.Telemetry,
+      !flame_parent && MossletWeb.Endpoint,
       {Finch, name: Mosslet.OpenAIFinch},
       ExMarcel.TableWrapper,
       Mosslet.Extensions.AvatarProcessor,
@@ -97,8 +98,7 @@ defmodule Mosslet.Application do
        max_concurrency: 10,
        min_idle_shutdown_after: :timer.minutes(5),
        idle_shutdown_after: :timer.minutes(2),
-       log: :info},
-      !flame_parent && MossletWeb.Endpoint
+       log: :info}
     ]
     |> Enum.filter(& &1)
   end
