@@ -4742,6 +4742,14 @@ defmodule MossletWeb.DesignSystem do
     default: true,
     doc: "Whether to show the status indicator (based on privacy settings)"
 
+  attr :author_profile_slug, :string,
+    default: nil,
+    doc: "The profile slug of the post author (for linking to their profile)"
+
+  attr :author_profile_visibility, :atom,
+    default: nil,
+    doc: "The profile visibility of the post author (:private, :connections, :public)"
+
   def liquid_timeline_post(assigns) do
     assigns = assign_scope_fields(assigns)
 
@@ -5476,8 +5484,27 @@ defmodule MossletWeb.DesignSystem do
       <div class="relative p-6">
         <%!-- User header --%>
         <div class="flex items-start gap-4 mb-4">
-          <%!-- Enhanced liquid metal avatar --%>
+          <%!-- Enhanced liquid metal avatar - conditionally linked to author profile --%>
+          <.link
+            :if={show_author_profile?(@author_profile_slug, @author_profile_visibility)}
+            navigate={~p"/app/profile/#{@author_profile_slug}"}
+            class="flex-shrink-0"
+          >
+            <.liquid_avatar
+              src={@user_avatar}
+              name={@user_name}
+              size="md"
+              verified={@verified}
+              clickable={true}
+              status={@user_status}
+              status_message={@user_status_message}
+              show_status={@show_post_author_status}
+              user_id={@post.user_id}
+              id={"avatar-#{@post.id}"}
+            />
+          </.link>
           <.liquid_avatar
+            :if={!show_author_profile?(@author_profile_slug, @author_profile_visibility)}
             src={@user_avatar}
             name={@user_name}
             size="md"
@@ -5493,7 +5520,17 @@ defmodule MossletWeb.DesignSystem do
           <%!-- User info --%>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
+              <.link
+                :if={show_author_profile?(@author_profile_slug, @author_profile_visibility)}
+                navigate={~p"/app/profile/#{@author_profile_slug}"}
+                class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              >
+                {@user_name}
+              </.link>
+              <span
+                :if={!show_author_profile?(@author_profile_slug, @author_profile_visibility)}
+                class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate"
+              >
                 {@user_name}
               </span>
               <.phx_icon
@@ -8471,8 +8508,43 @@ defmodule MossletWeb.DesignSystem do
         reply_padding_classes(@depth)
       ]}>
         <div class="flex items-start gap-3">
-          <%!-- Reply author avatar (small) --%>
+          <%!-- Reply author avatar (small) - conditionally linked to author profile --%>
+          <.link
+            :if={
+              show_author_profile?(
+                get_reply_author_profile_slug(@reply, @current_scope.user, @current_scope.key),
+                get_reply_author_profile_visibility(@reply, @current_scope.user)
+              )
+            }
+            navigate={
+              ~p"/app/profile/#{get_reply_author_profile_slug(@reply, @current_scope.user, @current_scope.key)}"
+            }
+            class="flex-shrink-0"
+          >
+            <.liquid_avatar
+              id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_scope.user.id}"}
+              src={get_reply_author_avatar(@reply, @current_scope.user, @current_scope.key)}
+              name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+              status={get_reply_author_status(@reply, @current_scope.user, @current_scope.key)}
+              status_message={
+                get_reply_author_status_message(@reply, @current_scope.user, @current_scope.key)
+              }
+              show_status={
+                get_reply_author_show_status(@reply, @current_scope.user, @current_scope.key)
+              }
+              user_id={@reply.user_id}
+              size="sm"
+              clickable={true}
+              class="mt-0.5"
+            />
+          </.link>
           <.liquid_avatar
+            :if={
+              !show_author_profile?(
+                get_reply_author_profile_slug(@reply, @current_scope.user, @current_scope.key),
+                get_reply_author_profile_visibility(@reply, @current_scope.user)
+              )
+            }
             id={"liquid-avatar-#{@post_id}-#{@reply.id}-#{@current_scope.user.id}"}
             src={get_reply_author_avatar(@reply, @current_scope.user, @current_scope.key)}
             name={get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
@@ -8489,9 +8561,31 @@ defmodule MossletWeb.DesignSystem do
           />
 
           <div class="flex-1 min-w-0">
-            <%!-- Reply header --%>
+            <%!-- Reply header - author name also linked when profile is viewable --%>
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <.link
+                :if={
+                  show_author_profile?(
+                    get_reply_author_profile_slug(@reply, @current_scope.user, @current_scope.key),
+                    get_reply_author_profile_visibility(@reply, @current_scope.user)
+                  )
+                }
+                navigate={
+                  ~p"/app/profile/#{get_reply_author_profile_slug(@reply, @current_scope.user, @current_scope.key)}"
+                }
+                class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              >
+                {get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
+              </.link>
+              <span
+                :if={
+                  !show_author_profile?(
+                    get_reply_author_profile_slug(@reply, @current_scope.user, @current_scope.key),
+                    get_reply_author_profile_visibility(@reply, @current_scope.user)
+                  )
+                }
+                class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+              >
                 {get_safe_reply_author_name(@reply, @current_scope.user, @current_scope.key)}
               </span>
               <span class="text-xs text-slate-500 dark:text-slate-400">
@@ -8658,6 +8752,11 @@ defmodule MossletWeb.DesignSystem do
       shared_post_user.profile_visibility in [:connections, :public]
   end
 
+  def show_author_profile?(author_profile_slug, author_profile_visibility) do
+    author_profile_slug &&
+      author_profile_visibility in [:connections, :public]
+  end
+
   def connection_has_user_post?(post_id, user_id) do
     case get_user_post_for_user_id(post_id, user_id) do
       %Timeline.UserPost{} = _user_post -> true
@@ -8762,6 +8861,44 @@ defmodule MossletWeb.DesignSystem do
 
       nil ->
         false
+    end
+  end
+
+  def get_reply_author_profile_slug(reply, current_user, _key) do
+    cond do
+      reply.user_id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{slug: slug}} when is_binary(slug) -> slug
+          _ -> nil
+        end
+
+      not is_connected_to_reply_author?(reply, current_user) ->
+        nil
+
+      true ->
+        case Accounts.get_user_with_preloads(reply.user_id) do
+          %{connection: %{profile: %{slug: slug}}} when is_binary(slug) -> slug
+          _ -> nil
+        end
+    end
+  end
+
+  def get_reply_author_profile_visibility(reply, current_user) do
+    cond do
+      reply.user_id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{visibility: visibility}} -> visibility
+          _ -> nil
+        end
+
+      not is_connected_to_reply_author?(reply, current_user) ->
+        nil
+
+      true ->
+        case Accounts.get_user_with_preloads(reply.user_id) do
+          %{connection: %{profile: %{visibility: visibility}}} -> visibility
+          _ -> nil
+        end
     end
   end
 

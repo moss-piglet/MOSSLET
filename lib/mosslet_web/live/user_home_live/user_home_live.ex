@@ -28,9 +28,10 @@ defmodule MossletWeb.UserHomeLive do
         Accounts.block_subscribe(current_user)
         Accounts.subscribe_connection_status(current_user)
         Accounts.private_subscribe(current_user)
+        Timeline.reply_subscribe()
         Timeline.subscribe()
+        Timeline.connections_reply_subscribe(current_user)
         Timeline.connections_subscribe(current_user)
-        Logger.debug("UserHomeLive subscribed to conn_posts:#{current_user.id}")
         Timeline.private_subscribe(current_user)
 
         if profile_owner? do
@@ -116,6 +117,10 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:current_image_index, 0)
       |> assign(:current_post_for_images, nil)
       |> assign(:can_download_images, false)
+      |> assign(:loaded_replies_counts, %{})
+      |> assign(:loaded_nested_replies, %{})
+      |> assign(:unread_replies_by_post, %{})
+      |> assign(:unread_nested_replies_by_parent, %{})
       |> URLPreviewHelpers.assign_url_preview_defaults()
       |> maybe_load_custom_banner_async(profile_user, profile_owner?)
 
@@ -768,6 +773,31 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
+  def handle_info({:reply_updated_fav, post, reply}, socket) do
+    profile_user = socket.assigns.profile_user
+    current_user = socket.assigns.current_scope.user
+
+    if post.user_id == profile_user.id or post.user_id == current_user.id do
+      cached_profile_posts = socket.assigns.cached_profile_posts
+      cached_read_posts = socket.assigns.cached_read_posts
+
+      in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
+      in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
+
+      if in_profile_posts? or in_read_posts? do
+        {:noreply,
+         push_event(socket, "update_reply_fav_count", %{
+           reply_id: reply.id,
+           favs_count: reply.favs_count
+         })}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info({:submit_share, share_params}, socket) do
     post = Timeline.get_post!(share_params.post_id)
     user = socket.assigns.current_scope.user
@@ -893,6 +923,99 @@ defmodule MossletWeb.UserHomeLive do
      |> assign(:share_post_id, nil)
      |> assign(:share_post_body, nil)
      |> assign(:share_post_username, nil)}
+  end
+
+  def handle_info({:create_reply, reply_params, post_id, visibility}, socket) do
+    current_user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Timeline.get_post(post_id) do
+      %Post{} = post ->
+        post_key = get_post_key(post, current_user)
+
+        case Timeline.create_reply(reply_params,
+               user: current_user,
+               key: key,
+               post: post,
+               post_key: post_key,
+               visibility: visibility
+             ) do
+          {:ok, _reply} ->
+            Accounts.track_user_activity(current_user, :interaction)
+            updated_post = Timeline.get_post!(post_id)
+
+            socket =
+              socket
+              |> put_flash(:success, "Reply posted successfully!")
+              |> update_post_in_streams(updated_post)
+              |> push_event("show-reply-thread", %{post_id: post_id})
+
+            {:noreply, socket}
+
+          {:error, changeset} ->
+            send_update(MossletWeb.TimelineLive.ReplyComposerComponent,
+              id: "reply-composer-#{post_id}",
+              form: to_form(changeset, action: :validate)
+            )
+
+            {:noreply,
+             put_flash(socket, :error, "Failed to post reply. Please check your input.")}
+        end
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Post not found")}
+    end
+  end
+
+  def handle_info({:nested_reply_created, post_id, parent_reply_id}, socket) do
+    current_user = socket.assigns.current_scope.user
+    updated_post = Timeline.get_post!(post_id)
+
+    socket =
+      socket
+      |> update_post_in_streams(updated_post)
+      |> put_flash(:success, "Reply created!")
+      |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply_id})
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:nested_reply_error, error_message}, socket) do
+    {:noreply, put_flash(socket, :error, error_message)}
+  end
+
+  def handle_info({:nested_reply_cancelled, parent_reply_id}, socket) do
+    socket = push_event(socket, "hide-nested-reply-composer", %{reply_id: parent_reply_id})
+    {:noreply, socket}
+  end
+
+  defp update_post_in_streams(socket, post) do
+    cached_profile_posts = socket.assigns.cached_profile_posts
+    cached_read_posts = socket.assigns.cached_read_posts
+
+    in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
+    in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
+
+    cond do
+      in_profile_posts? ->
+        updated_cached = update_cached_post(cached_profile_posts, post)
+        post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+        socket
+        |> assign(:cached_profile_posts, updated_cached)
+        |> stream_insert(:profile_posts, post_with_date)
+
+      in_read_posts? ->
+        updated_cached = update_cached_post(cached_read_posts, post)
+        post_with_date = find_post_with_date(updated_cached, post.id) || post
+
+        socket
+        |> assign(:cached_read_posts, updated_cached)
+        |> stream_insert(:read_posts, post_with_date)
+
+      true ->
+        socket
+    end
   end
 
   def handle_info(_message, socket) do
@@ -1049,6 +1172,82 @@ defmodule MossletWeb.UserHomeLive do
 
         {:error, changeset} ->
           {:noreply, put_flash(socket, :error, "#{changeset.message}")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("fav_reply", %{"id" => id}, socket) do
+    reply = Timeline.get_reply!(id)
+    current_user = socket.assigns.current_scope.user
+
+    if current_user.id not in reply.favs_list do
+      case Timeline.inc_reply_favs(reply) do
+        {:ok, reply} ->
+          case Timeline.update_reply_fav(
+                 reply,
+                 %{favs_list: List.insert_at(reply.favs_list, 0, current_user.id)},
+                 user: current_user
+               ) do
+            {:ok, updated_reply} ->
+              Accounts.track_user_activity(current_user, :interaction)
+
+              socket =
+                socket
+                |> push_event("update_reply_fav_count", %{
+                  reply_id: updated_reply.id,
+                  favs_count: updated_reply.favs_count,
+                  is_liked: true
+                })
+                |> put_flash(:success, "You loved this reply!")
+
+              {:noreply, socket}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Operation failed. Please try again.")}
+          end
+
+        {:error, _error} ->
+          {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("unfav_reply", %{"id" => id}, socket) do
+    reply = Timeline.get_reply!(id)
+    current_user = socket.assigns.current_scope.user
+
+    if current_user.id in reply.favs_list do
+      case Timeline.decr_reply_favs(reply) do
+        {:ok, reply} ->
+          case Timeline.update_reply_fav(
+                 reply,
+                 %{favs_list: List.delete(reply.favs_list, current_user.id)},
+                 user: current_user
+               ) do
+            {:ok, updated_reply} ->
+              Accounts.track_user_activity(current_user, :interaction)
+
+              socket =
+                socket
+                |> push_event("update_reply_fav_count", %{
+                  reply_id: updated_reply.id,
+                  favs_count: updated_reply.favs_count,
+                  is_liked: false
+                })
+                |> put_flash(:success, "You removed love from this reply.")
+
+              {:noreply, socket}
+
+            {:error, _changeset} ->
+              {:noreply, put_flash(socket, :error, "Failed to remove love. Please try again.")}
+          end
+
+        {:error, _error} ->
+          {:noreply, put_flash(socket, :error, "Reply not found. Please try again.")}
       end
     else
       {:noreply, socket}
@@ -1766,6 +1965,91 @@ defmodule MossletWeb.UserHomeLive do
     {:noreply, socket}
   end
 
+  def handle_event(
+        "expand_nested_replies",
+        %{"reply-id" => reply_id, "post-id" => post_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+
+    loaded_nested_replies = socket.assigns[:loaded_nested_replies] || %{}
+    current_offset = Map.get(loaded_nested_replies, reply_id, 0)
+
+    new_child_replies =
+      Timeline.get_child_replies_for_reply(reply_id, %{
+        current_user_id: current_user.id,
+        limit: 5,
+        offset: current_offset
+      })
+
+    if Enum.empty?(new_child_replies) do
+      {:noreply, put_flash(socket, :info, "No more replies to load.")}
+    else
+      loaded_replies_counts = socket.assigns[:loaded_replies_counts] || %{}
+      post_id_str = to_string(post_id)
+      reply_limit = Map.get(loaded_replies_counts, post_id_str, 5)
+
+      post =
+        Timeline.get_post_with_nested_replies(post_id, %{
+          current_user_id: current_user.id,
+          limit: reply_limit
+        })
+
+      if post do
+        new_offset = current_offset + length(new_child_replies)
+        updated_loaded = Map.put(loaded_nested_replies, reply_id, new_offset)
+
+        post_with_date =
+          add_single_post_date_context(post, socket.assigns[:cached_profile_posts] || [], at: -1)
+
+        socket =
+          socket
+          |> assign(:loaded_nested_replies, updated_loaded)
+          |> stream_insert(:profile_posts, post_with_date, at: -1)
+
+        {:noreply, socket}
+      else
+        {:noreply, put_flash(socket, :error, "Post not found.")}
+      end
+    end
+  end
+
+  def handle_event(
+        "load_more_replies",
+        %{"post-id" => post_id},
+        socket
+      ) do
+    current_user = socket.assigns.current_scope.user
+
+    loaded_replies_counts = socket.assigns[:loaded_replies_counts] || %{}
+    current_count = Map.get(loaded_replies_counts, post_id, 5)
+
+    new_limit = current_count + 5
+
+    post =
+      Timeline.get_post_with_nested_replies(post_id, %{
+        current_user_id: current_user.id,
+        limit: new_limit
+      })
+
+    if post do
+      updated_counts = Map.put(loaded_replies_counts, post_id, new_limit)
+
+      post_with_date =
+        add_single_post_date_context(post, socket.assigns[:cached_profile_posts] || [], at: -1)
+
+      socket =
+        socket
+        |> assign(:loaded_replies_counts, updated_counts)
+        |> stream_insert(:profile_posts, post_with_date, at: -1)
+        |> push_event("animate-new-replies", %{post_id: post_id, start_index: current_count})
+
+      {:noreply, socket}
+    else
+      {:noreply, put_flash(socket, :error, "Post not found.")}
+    end
+  end
+
   def handle_async(:delete_post_from_cloud, {:ok, _result}, socket) do
     {:noreply, socket}
   end
@@ -2337,9 +2621,51 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
-                      user_status={nil}
-                      user_status_message={nil}
-                      show_post_author_status={false}
+                      user_status={
+                        get_profile_post_author_status(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status_message={
+                        get_profile_post_author_status_message(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      show_post_author_status={
+                        can_view_profile_post_author_status?(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_slug={
+                        get_profile_post_author_slug(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_visibility={
+                        get_profile_post_author_visibility(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
                       content_warning?={false}
@@ -2358,7 +2684,7 @@ defmodule MossletWeb.UserHomeLive do
                       decrypted_url_preview={nil}
                       stats={
                         %{
-                          replies: length(post.replies || []),
+                          replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                           shares: post.reposts_count || 0,
                           likes: post.favs_count || 0
                         }
@@ -2375,11 +2701,11 @@ defmodule MossletWeb.UserHomeLive do
                       liked={@current_scope.user.id in (post.favs_list || [])}
                       bookmarked={false}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
-                      can_reply?={false}
+                      can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={false}
                       unread?={is_post_unread?(post, @current_scope.user)}
-                      unread_replies_count={0}
-                      unread_nested_replies_by_parent={%{}}
+                      unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                       calm_notifications={@current_scope.user.calm_notifications}
                       class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
@@ -2439,9 +2765,51 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
-                      user_status={nil}
-                      user_status_message={nil}
-                      show_post_author_status={false}
+                      user_status={
+                        get_profile_post_author_status(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status_message={
+                        get_profile_post_author_status_message(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      show_post_author_status={
+                        can_view_profile_post_author_status?(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_slug={
+                        get_profile_post_author_slug(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_visibility={
+                        get_profile_post_author_visibility(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
                       content_warning?={false}
@@ -2460,7 +2828,7 @@ defmodule MossletWeb.UserHomeLive do
                       decrypted_url_preview={nil}
                       stats={
                         %{
-                          replies: length(post.replies || []),
+                          replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                           shares: post.reposts_count || 0,
                           likes: post.favs_count || 0
                         }
@@ -2477,11 +2845,11 @@ defmodule MossletWeb.UserHomeLive do
                       liked={@current_scope.user.id in (post.favs_list || [])}
                       bookmarked={false}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
-                      can_reply?={false}
+                      can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={false}
                       unread?={is_post_unread?(post, @current_scope.user)}
-                      unread_replies_count={0}
-                      unread_nested_replies_by_parent={%{}}
+                      unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                       calm_notifications={@current_scope.user.calm_notifications}
                       class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
@@ -2971,6 +3339,12 @@ defmodule MossletWeb.UserHomeLive do
                       show_post_author_status={
                         can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
                       }
+                      author_profile_slug={
+                        get_public_post_author_slug(post, @profile_user, @current_scope.user)
+                      }
+                      author_profile_visibility={
+                        get_public_post_author_visibility(post, @profile_user, @current_scope.user)
+                      }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
                       content_warning?={false}
@@ -2983,7 +3357,7 @@ defmodule MossletWeb.UserHomeLive do
                       decrypted_url_preview={nil}
                       stats={
                         %{
-                          replies: length(post.replies || []),
+                          replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                           shares: post.reposts_count || 0,
                           likes: post.favs_count || 0
                         }
@@ -3000,11 +3374,11 @@ defmodule MossletWeb.UserHomeLive do
                       liked={@current_scope.user.id in (post.favs_list || [])}
                       bookmarked={false}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
-                      can_reply?={false}
+                      can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={false}
                       unread?={is_post_unread?(post, @current_scope.user)}
-                      unread_replies_count={0}
-                      unread_nested_replies_by_parent={%{}}
+                      unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                       calm_notifications={@current_scope.user.calm_notifications}
                       class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
@@ -3054,6 +3428,12 @@ defmodule MossletWeb.UserHomeLive do
                       show_post_author_status={
                         can_view_status?(@profile_user, @current_scope.user, @current_scope.key)
                       }
+                      author_profile_slug={
+                        get_public_post_author_slug(post, @profile_user, @current_scope.user)
+                      }
+                      author_profile_visibility={
+                        get_public_post_author_visibility(post, @profile_user, @current_scope.user)
+                      }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
                       content_warning?={false}
@@ -3066,7 +3446,7 @@ defmodule MossletWeb.UserHomeLive do
                       decrypted_url_preview={nil}
                       stats={
                         %{
-                          replies: length(post.replies || []),
+                          replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                           shares: post.reposts_count || 0,
                           likes: post.favs_count || 0
                         }
@@ -3083,11 +3463,11 @@ defmodule MossletWeb.UserHomeLive do
                       liked={@current_scope.user.id in (post.favs_list || [])}
                       bookmarked={false}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
-                      can_reply?={false}
+                      can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={false}
                       unread?={is_post_unread?(post, @current_scope.user)}
-                      unread_replies_count={0}
-                      unread_nested_replies_by_parent={%{}}
+                      unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                       calm_notifications={@current_scope.user.calm_notifications}
                       class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
@@ -3553,9 +3933,51 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
-                      user_status={nil}
-                      user_status_message={nil}
-                      show_post_author_status={false}
+                      user_status={
+                        get_profile_post_author_status(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status_message={
+                        get_profile_post_author_status_message(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      show_post_author_status={
+                        can_view_profile_post_author_status?(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_slug={
+                        get_profile_post_author_slug(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_visibility={
+                        get_profile_post_author_visibility(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
                       content_warning?={false}
@@ -3574,7 +3996,7 @@ defmodule MossletWeb.UserHomeLive do
                       decrypted_url_preview={nil}
                       stats={
                         %{
-                          replies: length(post.replies || []),
+                          replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                           shares: post.reposts_count || 0,
                           likes: post.favs_count || 0
                         }
@@ -3591,11 +4013,11 @@ defmodule MossletWeb.UserHomeLive do
                       liked={@current_scope.user.id in (post.favs_list || [])}
                       bookmarked={false}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
-                      can_reply?={false}
+                      can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={false}
                       unread?={is_post_unread?(post, @current_scope.user)}
-                      unread_replies_count={0}
-                      unread_nested_replies_by_parent={%{}}
+                      unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                       calm_notifications={@current_scope.user.calm_notifications}
                       class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
@@ -3655,9 +4077,51 @@ defmodule MossletWeb.UserHomeLive do
                           @user_connection
                         )
                       }
-                      user_status={nil}
-                      user_status_message={nil}
-                      show_post_author_status={false}
+                      user_status={
+                        get_profile_post_author_status(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      user_status_message={
+                        get_profile_post_author_status_message(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      show_post_author_status={
+                        can_view_profile_post_author_status?(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_slug={
+                        get_profile_post_author_slug(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
+                      author_profile_visibility={
+                        get_profile_post_author_visibility(
+                          post,
+                          @profile_user,
+                          @current_scope.user,
+                          @current_scope.key,
+                          @user_connection
+                        )
+                      }
                       timestamp={format_profile_post_timestamp(post.inserted_at)}
                       verified={false}
                       content_warning?={false}
@@ -3676,7 +4140,7 @@ defmodule MossletWeb.UserHomeLive do
                       decrypted_url_preview={nil}
                       stats={
                         %{
-                          replies: length(post.replies || []),
+                          replies: Map.get(post, :total_reply_count, count_all_replies(post.replies)),
                           shares: post.reposts_count || 0,
                           likes: post.favs_count || 0
                         }
@@ -3693,11 +4157,11 @@ defmodule MossletWeb.UserHomeLive do
                       liked={@current_scope.user.id in (post.favs_list || [])}
                       bookmarked={false}
                       can_repost={can_repost?(@current_scope.user, post, @current_scope.key)}
-                      can_reply?={false}
+                      can_reply?={can_reply?(post, @current_scope.user)}
                       can_bookmark?={false}
                       unread?={is_post_unread?(post, @current_scope.user)}
-                      unread_replies_count={0}
-                      unread_nested_replies_by_parent={%{}}
+                      unread_replies_count={Map.get(@unread_replies_by_post, post.id, 0)}
+                      unread_nested_replies_by_parent={@unread_nested_replies_by_parent}
                       calm_notifications={@current_scope.user.calm_notifications}
                       class="shadow-md hover:shadow-lg transition-shadow duration-300"
                     />
@@ -3935,6 +4399,42 @@ defmodule MossletWeb.UserHomeLive do
       end
   end
 
+  defp get_public_post_author_slug(_post, profile_user, current_user) do
+    cond do
+      profile_user.id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{slug: slug}} when is_binary(slug) -> slug
+          _ -> nil
+        end
+
+      true ->
+        case profile_user.connection do
+          %{profile: %{slug: slug, visibility: visibility}}
+          when is_binary(slug) and visibility in [:connections, :public] ->
+            slug
+
+          _ ->
+            nil
+        end
+    end
+  end
+
+  defp get_public_post_author_visibility(_post, profile_user, current_user) do
+    cond do
+      profile_user.id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{visibility: visibility}} -> visibility
+          _ -> nil
+        end
+
+      true ->
+        case profile_user.connection do
+          %{profile: %{visibility: visibility}} -> visibility
+          _ -> nil
+        end
+    end
+  end
+
   defp get_original_post_user_id(post) do
     case Mosslet.Timeline.get_post(post.original_post_id) do
       %{user_id: user_id} -> user_id
@@ -4148,6 +4648,95 @@ defmodule MossletWeb.UserHomeLive do
         content when is_binary(content) -> content
         rest -> "#{rest}"
       end
+    end
+  end
+
+  defp get_profile_post_author_status(post, _profile_user, current_user, key, _user_connection) do
+    case Accounts.get_user_with_preloads(post.user_id) do
+      %{} = post_author ->
+        case get_user_status_info(post_author, current_user, key) do
+          %{status: status} when is_binary(status) -> status
+          _ -> nil
+        end
+
+      nil ->
+        nil
+    end
+  end
+
+  defp get_profile_post_author_status_message(
+         post,
+         _profile_user,
+         current_user,
+         key,
+         _user_connection
+       ) do
+    case Accounts.get_user_with_preloads(post.user_id) do
+      %{} = post_author ->
+        get_user_status_message(post_author, current_user, key)
+
+      nil ->
+        nil
+    end
+  end
+
+  defp can_view_profile_post_author_status?(
+         post,
+         _profile_user,
+         current_user,
+         key,
+         _user_connection
+       ) do
+    case Accounts.get_user_with_preloads(post.user_id) do
+      %{} = post_author ->
+        can_view_status?(post_author, current_user, key)
+
+      nil ->
+        false
+    end
+  end
+
+  defp get_profile_post_author_slug(post, _profile_user, current_user, _key, user_connection) do
+    cond do
+      post.user_id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{slug: slug}} when is_binary(slug) -> slug
+          _ -> nil
+        end
+
+      is_nil(user_connection) ->
+        nil
+
+      true ->
+        case Accounts.get_user_with_preloads(post.user_id) do
+          %{connection: %{profile: %{slug: slug}}} when is_binary(slug) -> slug
+          _ -> nil
+        end
+    end
+  end
+
+  defp get_profile_post_author_visibility(
+         post,
+         _profile_user,
+         current_user,
+         _key,
+         user_connection
+       ) do
+    cond do
+      post.user_id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{visibility: visibility}} -> visibility
+          _ -> nil
+        end
+
+      is_nil(user_connection) ->
+        nil
+
+      true ->
+        case Accounts.get_user_with_preloads(post.user_id) do
+          %{connection: %{profile: %{visibility: visibility}}} -> visibility
+          _ -> nil
+        end
     end
   end
 
@@ -4519,4 +5108,13 @@ defmodule MossletWeb.UserHomeLive do
         false
     end
   end
+
+  defp count_all_replies(replies) when is_list(replies) do
+    Enum.reduce(replies, 0, fn reply, acc ->
+      child_count = count_all_replies(Map.get(reply, :child_replies, []))
+      acc + 1 + child_count
+    end)
+  end
+
+  defp count_all_replies(_), do: 0
 end

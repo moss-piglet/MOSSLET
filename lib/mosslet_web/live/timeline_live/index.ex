@@ -5214,6 +5214,50 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  defp get_post_author_profile_slug(post, current_user, _key) do
+    cond do
+      post.user_id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{slug: slug}} when is_binary(slug) -> slug
+          _ -> nil
+        end
+
+      true ->
+        user_connection = get_uconn_for_shared_item(post, current_user)
+
+        if user_connection do
+          case Accounts.get_user_with_preloads(post.user_id) do
+            %{connection: %{profile: %{slug: slug}}} when is_binary(slug) -> slug
+            _ -> nil
+          end
+        else
+          nil
+        end
+    end
+  end
+
+  defp get_post_author_profile_visibility(post, current_user, _key) do
+    cond do
+      post.user_id == current_user.id ->
+        case current_user.connection do
+          %{profile: %{visibility: visibility}} -> visibility
+          _ -> nil
+        end
+
+      true ->
+        user_connection = get_uconn_for_shared_item(post, current_user)
+
+        if user_connection do
+          case Accounts.get_user_with_preloads(post.user_id) do
+            %{connection: %{profile: %{visibility: visibility}}} -> visibility
+            _ -> nil
+          end
+        else
+          nil
+        end
+    end
+  end
+
   # Helper function to check if a post is bookmarked by the current user
   defp get_post_bookmarked_status(post, current_user) do
     # Use the existing Timeline.bookmarked? function with fallback

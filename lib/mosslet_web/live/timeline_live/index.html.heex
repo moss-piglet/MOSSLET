@@ -362,6 +362,10 @@
                       @key
                     )
                   }
+                  author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
+                  author_profile_visibility={
+                    get_post_author_profile_visibility(post, @current_user, @key)
+                  }
                   timestamp={format_post_timestamp(post.inserted_at)}
                   verified={false}
                   content_warning?={post.content_warning?}
@@ -524,6 +528,10 @@
                         @current_user,
                         @key
                       )
+                    }
+                    author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
+                    author_profile_visibility={
+                      get_post_author_profile_visibility(post, @current_user, @key)
                     }
                     timestamp={format_post_timestamp(post.inserted_at)}
                     verified={false}

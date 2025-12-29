@@ -2026,11 +2026,12 @@ defmodule Mosslet.Timeline do
       where: p.user_id == ^user.id and p.visibility == :public,
       where: p.id not in ^hidden_post_ids,
       order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :replies]
+      preload: [:user_posts, :group, :user_group]
     )
     |> sort(options)
     |> paginate(options)
     |> Repo.all()
+    |> add_nested_replies_to_posts(options)
   end
 
   @doc """
@@ -2082,10 +2083,11 @@ defmodule Mosslet.Timeline do
       where: p.user_id == ^user.id,
       where: is_nil(p.group_id),
       order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :replies, :user]
+      preload: [:user_posts, :group, :user_group, :user]
     )
     |> paginate(options)
     |> Repo.all()
+    |> add_nested_replies_to_posts(options)
   end
 
   defp list_connection_profile_posts(profile_user, viewer, hidden_post_ids, options) do
@@ -2104,10 +2106,11 @@ defmodule Mosslet.Timeline do
           (p.visibility == :specific_users and not is_nil(up.id)) or
           (p.visibility == :specific_groups and not is_nil(up.id)),
       order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :replies, :user]
+      preload: [:user_posts, :group, :user_group, :user]
     )
     |> paginate(options)
     |> Repo.all()
+    |> add_nested_replies_to_posts(options)
   end
 
   def count_profile_posts_visible_to(profile_user, viewer) do
