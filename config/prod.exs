@@ -8,7 +8,10 @@ import Config
 config :mosslet, MossletWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   cache_static_manifest: "priv/static/cache_manifest.json",
-  force_ssl: [rewrite_on: [:x_forwarded_proto]]
+  force_ssl: [
+    rewrite_on: [:x_forwarded_proto],
+    exclude: [hosts: ["localhost", "127.0.0.1"], paths: ["/healthz"]]
+  ]
 
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Finch, finch_name: Mosslet.Finch
