@@ -112,7 +112,10 @@ if config_env() == :prod do
     adapter: Bandit.PhoenixAdapter,
     url: [host: host, port: 443, scheme: "https"],
     check_origin: true,
-    force_ssl: [rewrite_on: [:x_forwarded_proto]],
+    force_ssl: [
+      rewrite_on: [:x_forwarded_proto],
+      exclude: [hosts: ["localhost", "127.0.0.1"], paths: ["/healthz"]]
+    ],
     live_view: [
       signing_salt: System.get_env("LIVE_VIEW_SIGNING_SALT"),
       encryption_salt: System.get_env("LIVE_VIEW_ENCRYPTION_SALT")
