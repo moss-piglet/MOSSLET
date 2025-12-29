@@ -107,12 +107,24 @@ defmodule Mosslet.AI.Images do
   end
 
   defp classify_image(tensor) do
-    case Nx.Serving.batched_run(NsfwImageDetection, tensor) do
-      %{predictions: [%{label: label}]} ->
-        {:ok, label}
+    FLAME.call(Mosslet.MediaRunner, fn ->
+      result =
+        case Process.whereis(Mosslet.AI.NsfwServing) do
+          nil ->
+            serving = Mosslet.AI.NsfwImageDetection.serving()
+            Nx.Serving.run(serving, tensor)
 
-      _other ->
-        {:error, "Failed to classify image"}
-    end
+          _pid ->
+            Nx.Serving.batched_run(Mosslet.AI.NsfwServing, tensor)
+        end
+
+      case result do
+        %{predictions: [%{label: label}]} ->
+          {:ok, label}
+
+        _other ->
+          {:error, "Failed to classify image"}
+      end
+    end)
   end
 end

@@ -55,9 +55,14 @@ if config_env() == :prod do
 
   config :flame, FLAME.FlyBackend,
     token: System.fetch_env!("FLY_API_TOKEN"),
+    cpu_kind: "performance",
+    cpus: 2,
+    memory_mb: 4096,
     env: %{
       "DATABASE_URL" => System.fetch_env!("DATABASE_URL"),
-      "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE")
+      "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE"),
+      "BUMBLEBEE_CACHE_DIR" => System.get_env("BUMBLEBEE_CACHE_DIR", "/app/.bumblebee"),
+      "BUMBLEBEE_OFFLINE" => System.get_env("BUMBLEBEE_OFFLINE", "true")
     }
 
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")

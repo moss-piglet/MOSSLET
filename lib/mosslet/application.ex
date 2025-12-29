@@ -87,20 +87,18 @@ defmodule Mosslet.Application do
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},
       {Task.Supervisor, name: Mosslet.StorjTask},
+      flame_parent && Mosslet.AI.NsfwServing,
       Mosslet.Security.BotDetector,
       {Oban, oban_config()},
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},
       {FLAME.Pool,
        name: Mosslet.MediaRunner,
-       min: 0,
+       min: 1,
        max: 5,
        max_concurrency: 10,
-       min_idle_shutdown_after: :timer.seconds(30),
-       idle_shutdown_after: :timer.seconds(30),
-       log: :info},
-      {Mosslet.DelayedServing,
-       serving_name: NsfwImageDetection,
-       serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end}
+       min_idle_shutdown_after: :timer.minutes(5),
+       idle_shutdown_after: :timer.minutes(2),
+       log: :info}
     ]
     |> Enum.filter(& &1)
   end
