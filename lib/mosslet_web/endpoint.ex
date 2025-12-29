@@ -78,11 +78,21 @@ defmodule MossletWeb.Endpoint do
 
   plug RemoteIp, headers: ~w[fly-client-ip]
 
+  plug :health_check
   plug :canonical_host
 
   plug MossletWeb.Plugs.BotDefense
 
   plug MossletWeb.Router
+
+  defp health_check(%{request_path: "/healthz"} = conn, _opts) do
+    conn
+    |> Plug.Conn.put_resp_content_type("text/plain")
+    |> Plug.Conn.send_resp(200, "ok")
+    |> Plug.Conn.halt()
+  end
+
+  defp health_check(conn, _opts), do: conn
 
   defp canonical_host(conn, _opts) do
     canonical = Application.get_env(:mosslet, :canonical_host)
