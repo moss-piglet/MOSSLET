@@ -16,7 +16,6 @@ primary_region = "ewr"
   PHX_HOST = "mosslet.com"
   PORT = "8080"
   BUMBLEBEE_CACHE_DIR = "/app/.bumblebee"
-  RELEASE_COOKIE = "ugVuamQ7bvl3QC6oEkObAffPs4QsE-pzkqVl0iFjUxU7tRfEPsNw5g=="
   
 
 [http_service]
