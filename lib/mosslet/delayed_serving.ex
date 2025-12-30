@@ -84,29 +84,4 @@ defmodule Mosslet.DelayedServing do
         false
     end
   end
-
-  @doc """
-  Return if Elixir has access to the GPU or not.
-  """
-  @spec has_cpu_access? :: boolean()
-  def has_cpu_access?() do
-    try do
-      case Nx.tensor(0) do
-        # :host == CPU
-        %Nx.Tensor{data: %EXLA.Backend{buffer: %EXLA.DeviceBuffer{client_name: :host}}} ->
-          true
-
-        # :cuda == GPU
-        %Nx.Tensor{data: %EXLA.Backend{buffer: %EXLA.DeviceBuffer{client_name: :cuda}}} ->
-          false
-
-        _other ->
-          false
-      end
-    rescue
-      _exception ->
-        Logger.error("Error trying to determine CPU access!")
-        false
-    end
-  end
 end
