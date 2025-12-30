@@ -59,6 +59,7 @@ defmodule Mosslet.Application do
 
   defp web_children do
     flame_parent = FLAME.Parent.get()
+    Logger.info("FLAME parent: #{inspect(flame_parent)}")
 
     [
       {Fly.RPC, []},
