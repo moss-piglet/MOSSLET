@@ -69,9 +69,6 @@ RUN mix assets.deploy
 # Compile the release
 RUN mix compile
 
-# Download the Bumblebee model during build so it's cached for runtime
-RUN mix bumblebee.download
-
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
 

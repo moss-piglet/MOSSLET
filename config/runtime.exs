@@ -55,15 +55,9 @@ if config_env() == :prod do
 
   config :flame, FLAME.FlyBackend,
     token: System.fetch_env!("FLY_API_TOKEN"),
-    cpu_kind: "performance",
-    cpus: 2,
-    memory_mb: 4096,
     env: %{
-      "DATABASE_URL" => System.fetch_env!("DATABASE_URL"),
-      "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE"),
-      "BUMBLEBEE_CACHE_DIR" => System.get_env("BUMBLEBEE_CACHE_DIR", "/app/.bumblebee"),
-      "BUMBLEBEE_OFFLINE" => System.get_env("BUMBLEBEE_OFFLINE", "true"),
-      "PHX_SERVER" => "false"
+      "DATABASE_URL" => System.get_env("DATABASE_URL"),
+      "RELEASE_COOKIE" => System.fetch_env!("RELEASE_COOKIE")
     }
 
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
@@ -103,7 +97,7 @@ if config_env() == :prod do
       """
 
   host = System.get_env("PHX_HOST") || "mosslet.com"
-  port = String.to_integer(System.get_env("PORT") || "8080")
+  port = String.to_integer(System.get_env("PORT") || "4000")
 
   # Configure the canonical host for redirects.
   config :mosslet,
@@ -171,17 +165,14 @@ if config_env() == :prod do
     openai_org_id: System.get_env("OPENAI_ORG_ID")
 
   # Configure image nsfw detection
-  # autostart: false - NSFW detection runs on FLAME runners via Mosslet.AI.NsfwServing
   config :image, :classifier,
     model: {:hf, "Falconsai/nsfw_image_detection"},
     featurizer: {:hf, "Falconsai/nsfw_image_detection"},
     featurizer_options: [module: Bumblebee.Vision.VitFeaturizer],
     name: Image.Classification.Server,
-    autostart: false
+    autostart: true
 
-  config :bumblebee,
-    progress_bar_enabled: false,
-    offline: System.get_env("BUMBLEBEE_OFFLINE", "true") == "true"
+  config :bumblebee, progress_bar_enabled: false
 
   # Configure Stripe
   config :stripity_stripe,
