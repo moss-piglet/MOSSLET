@@ -65,16 +65,13 @@ defmodule Mosslet.Application do
       Mosslet.Repo.Local,
       {Fly.Postgres.LSN.Supervisor, repo: Mosslet.Repo.Local},
       Mosslet.Vault,
-      {Phoenix.PubSub, name: Mosslet.PubSub},
       !flame_parent &&
         {DNSCluster, query: Application.get_env(:mosslet, :dns_cluster_query) || :ignore},
+      MossletWeb.Telemetry,
+      {Phoenix.PubSub, name: Mosslet.PubSub},
       MossletWeb.Presence,
       {Task.Supervisor, name: Mosslet.BackgroundTask},
       {Finch, name: Mosslet.Finch},
-      {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
-      Mosslet.Security.BotDefense,
-      MossletWeb.Telemetry,
-      !flame_parent && MossletWeb.Endpoint,
       {Finch, name: Mosslet.OpenAIFinch},
       ExMarcel.TableWrapper,
       Mosslet.Extensions.AvatarProcessor,
@@ -87,13 +84,11 @@ defmodule Mosslet.Application do
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},
       {Task.Supervisor, name: Mosslet.StorjTask},
-      flame_parent &&
-        {Mosslet.DelayedServing,
-         serving_name: Mosslet.AI.NsfwServing,
-         serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end},
-      Mosslet.Security.BotDetector,
+      {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
       {Oban, oban_config()},
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},
+      Mosslet.Security.BotDefense,
+      Mosslet.Security.BotDetector,
       {FLAME.Pool,
        name: Mosslet.MediaRunner,
        min: 0,
@@ -101,7 +96,12 @@ defmodule Mosslet.Application do
        max_concurrency: 10,
        min_idle_shutdown_after: :timer.minutes(5),
        idle_shutdown_after: :timer.minutes(2),
-       log: :info}
+       log: :info},
+      !flame_parent && MossletWeb.Endpoint,
+      flame_parent &&
+        {Mosslet.DelayedServing,
+         serving_name: Mosslet.AI.NsfwServing,
+         serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end}
     ]
     |> Enum.filter(& &1)
   end
