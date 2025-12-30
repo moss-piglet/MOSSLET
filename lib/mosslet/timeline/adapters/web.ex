@@ -85,6 +85,14 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
+  def get_user_by_session_token(token) do
+    {:ok, query} = UserToken.verify_session_token_query(token)
+
+    Repo.one(query)
+    |> Repo.preload([:connection, :customer])
+  end
+
+  @impl true
   def get_all_posts(user) do
     from(p in Post,
       where: p.user_id == ^user.id

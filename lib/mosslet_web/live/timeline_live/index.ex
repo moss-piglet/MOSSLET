@@ -195,8 +195,6 @@ defmodule MossletWeb.TimelineLive.Index do
         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
         max_entries: 10,
         max_file_size: 10_000_000,
-        chunk_size: 512_000,
-        chunk_timeout: 30_000,
         auto_upload: true,
         progress: &handle_upload_progress/3,
         writer: fn _name, entry, socket ->
