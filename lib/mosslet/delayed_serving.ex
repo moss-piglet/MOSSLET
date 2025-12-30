@@ -41,17 +41,11 @@ defmodule Mosslet.DelayedServing do
     server = self()
 
     spawn(fn ->
-      if has_cpu_access?() do
-        Logger.info("Elixir has CPU access! Starting serving #{inspect(state.serving_name)}.")
+      Logger.info("Starting serving #{inspect(state.serving_name)}.")
 
-        serving = state.serving_fn.()
-        Logger.info("Serving #{inspect(state.serving_name)} started")
-        send(server, {:serving_loaded, serving})
-      else
-        Logger.warning("Elixir does not have CPU access. Serving will NOT be started.")
-      end
-
-      :ok
+      serving = state.serving_fn.()
+      Logger.info("Serving #{inspect(state.serving_name)} started")
+      send(server, {:serving_loaded, serving})
     end)
 
     # trigger the async callback after GenServer start
