@@ -14,7 +14,6 @@ primary_region = "ewr"
 [env]
   DNS_CLUSTER_QUERY = "mosslet.internal"
   PHX_HOST = "mosslet.com"
-  PHX_SERVER = "true"
   PORT = "8080"
   BUMBLEBEE_CACHE_DIR = "/app/.bumblebee"
   
