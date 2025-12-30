@@ -172,6 +172,9 @@ if config_env() == :prod do
     name: Image.Classification.Server,
     autostart: true
 
+  config :bumblebee,
+    offline: System.get_env("BUMBLEBEE_OFFLINE", "true") == "true"
+
   # Configure Stripe
   config :stripity_stripe,
     api_key: System.get_env("STRIPE_API_KEY"),
