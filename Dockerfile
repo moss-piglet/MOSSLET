@@ -70,7 +70,7 @@ RUN mix assets.deploy
 RUN mix compile
 
 # Download the Bumblebee model during build so it's cached for runtime
-RUN mix run -e 'Mosslet.AI.NsfwImageDetection.load()' --no-start
+RUN mix run -e 'Application.ensure_all_started(:inets); Application.ensure_all_started(:ssl); Mosslet.AI.NsfwImageDetection.load()'
 
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
