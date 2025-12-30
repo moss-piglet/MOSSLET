@@ -6,8 +6,7 @@ defmodule Mix.Tasks.Bumblebee.Download do
 
   @shortdoc "Downloads Bumblebee models"
   def run(_args) do
-    Application.ensure_all_started(:inets)
-    Application.ensure_all_started(:ssl)
+    Application.ensure_all_started(:bumblebee)
 
     Mix.shell().info("Downloading NSFW detection model...")
     Mosslet.AI.NsfwImageDetection.load()
