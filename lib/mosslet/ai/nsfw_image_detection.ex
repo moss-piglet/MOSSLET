@@ -14,7 +14,10 @@ defmodule Mosslet.AI.NsfwImageDetection do
       )
 
     {:ok, featurizer} =
-      Bumblebee.load_featurizer({:hf, @hf_model_repo}, module: Bumblebee.Vision.VitFeaturizer)
+      Bumblebee.load_featurizer(
+        {:hf, @hf_model_repo, offline: Application.fetch_env!(:bumblebee, :offline)},
+        module: Bumblebee.Vision.VitFeaturizer
+      )
 
     {model_info, featurizer}
   end
