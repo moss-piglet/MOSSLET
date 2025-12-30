@@ -98,9 +98,9 @@ defmodule Mosslet.Application do
        idle_shutdown_after: :timer.minutes(2),
        log: :info},
       !flame_parent && MossletWeb.Endpoint,
-      flame_parent &&
+      !flame_parent &&
         {Mosslet.DelayedServing,
-         serving_name: Mosslet.AI.NsfwServing,
+         serving_name: NsfwImageDetection,
          serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end}
     ]
     |> Enum.filter(& &1)
