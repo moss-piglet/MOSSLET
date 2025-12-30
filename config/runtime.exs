@@ -172,8 +172,6 @@ if config_env() == :prod do
     name: Image.Classification.Server,
     autostart: true
 
-  config :bumblebee, progress_bar_enabled: false
-
   # Configure Stripe
   config :stripity_stripe,
     api_key: System.get_env("STRIPE_API_KEY"),
