@@ -58,16 +58,12 @@ defmodule Mosslet.Application do
   end
 
   defp web_children do
-    flame_parent = FLAME.Parent.get()
-    Logger.info("FLAME parent: #{inspect(flame_parent)}")
-
     [
       {Fly.RPC, []},
       Mosslet.Repo.Local,
       {Fly.Postgres.LSN.Supervisor, repo: Mosslet.Repo.Local},
       Mosslet.Vault,
-      !flame_parent &&
-        {DNSCluster, query: Application.get_env(:mosslet, :dns_cluster_query) || :ignore},
+      {DNSCluster, query: Application.get_env(:mosslet, :dns_cluster_query) || :ignore},
       MossletWeb.Telemetry,
       {Phoenix.PubSub, name: Mosslet.PubSub},
       MossletWeb.Presence,
@@ -90,21 +86,11 @@ defmodule Mosslet.Application do
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},
       Mosslet.Security.BotDefense,
       Mosslet.Security.BotDetector,
-      {FLAME.Pool,
-       name: Mosslet.MediaRunner,
-       min: 0,
-       max: 5,
-       max_concurrency: 10,
-       min_idle_shutdown_after: :timer.minutes(5),
-       idle_shutdown_after: :timer.minutes(2),
-       log: :info},
-      !flame_parent && MossletWeb.Endpoint,
-      !flame_parent &&
-        {Mosslet.DelayedServing,
-         serving_name: NsfwImageDetection,
-         serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end}
+      MossletWeb.Endpoint,
+      {Mosslet.DelayedServing,
+       serving_name: NsfwImageDetection,
+       serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end}
     ]
-    |> Enum.filter(& &1)
   end
 
   defp oban_config do
