@@ -112,8 +112,13 @@ defmodule MossletWeb.Endpoint do
   defp build_canonical_url(conn, canonical_host) do
     scheme =
       case Plug.Conn.get_req_header(conn, "x-forwarded-proto") do
-        [proto | _] -> proto
-        [] -> to_string(conn.scheme)
+        [proto | _] ->
+          proto
+
+        [] ->
+          if Application.get_env(:mosslet, :env) == :prod,
+            do: "https",
+            else: to_string(conn.scheme)
       end
 
     query =
