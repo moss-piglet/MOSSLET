@@ -179,7 +179,9 @@ if config_env() == :prod do
     name: Image.Classification.Server,
     autostart: false
 
-  config :bumblebee, progress_bar_enabled: false
+  config :bumblebee,
+    progress_bar_enabled: false,
+    offline: System.get_env("BUMBLEBEE_OFFLINE", "true") == "true"
 
   # Configure Stripe
   config :stripity_stripe,

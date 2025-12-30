@@ -68,8 +68,9 @@ RUN mix assets.deploy
 
 # Compile the release
 RUN mix compile
-# RUN mix run -e 'Mosslet.Application.load_serving()' --no-start
-# RUN /bin/mosslet eval 'Mosslet.Application.load_serving()'
+
+# Download the Bumblebee model during build so it's cached for runtime
+RUN mix run -e 'Mosslet.AI.NsfwImageDetection.load()' --no-start
 
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/

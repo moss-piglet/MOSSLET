@@ -107,24 +107,37 @@ defmodule Mosslet.AI.Images do
   end
 
   defp classify_image(tensor) do
-    FLAME.call(Mosslet.MediaRunner, fn ->
-      result =
-        case Process.whereis(Mosslet.AI.NsfwServing) do
-          nil ->
-            serving = Mosslet.AI.NsfwImageDetection.serving()
-            Nx.Serving.run(serving, tensor)
+    FLAME.call(
+      Mosslet.MediaRunner,
+      fn ->
+        wait_for_serving(Mosslet.AI.NsfwServing, _attempts = 60, _interval_ms = 1000)
 
-          _pid ->
-            Nx.Serving.batched_run(Mosslet.AI.NsfwServing, tensor)
+        result = Nx.Serving.batched_run(Mosslet.AI.NsfwServing, tensor)
+
+        case result do
+          %{predictions: [%{label: label}]} ->
+            {:ok, label}
+
+          _other ->
+            {:error, "Failed to classify image"}
         end
+      end,
+      timeout: 120_000
+    )
+  end
 
-      case result do
-        %{predictions: [%{label: label}]} ->
-          {:ok, label}
+  defp wait_for_serving(name, attempts, interval_ms) when attempts > 0 do
+    case Process.whereis(name) do
+      nil ->
+        Process.sleep(interval_ms)
+        wait_for_serving(name, attempts - 1, interval_ms)
 
-        _other ->
-          {:error, "Failed to classify image"}
-      end
-    end)
+      _pid ->
+        :ok
+    end
+  end
+
+  defp wait_for_serving(name, _attempts, _interval_ms) do
+    raise "Serving #{inspect(name)} not available after waiting"
   end
 end
