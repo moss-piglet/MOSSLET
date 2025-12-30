@@ -2635,25 +2635,29 @@ defmodule MossletWeb.UserHomeLive do
                     </MossletWeb.DesignSystem.liquid_badge>
                   </div>
                 </:title>
+                <div
+                  :if={@posts_count == 0}
+                  id="profile-posts-empty"
+                  class="text-center py-8"
+                >
+                  <.phx_icon
+                    name="hero-pencil-square"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    No posts yet. Share your thoughts with your community!
+                  </p>
+                  <MossletWeb.DesignSystem.liquid_button
+                    navigate={~p"/app/timeline"}
+                    variant="primary"
+                    color="emerald"
+                    size="sm"
+                    icon="hero-plus"
+                  >
+                    Create Your First Post
+                  </MossletWeb.DesignSystem.liquid_button>
+                </div>
                 <div id="profile-posts" phx-update="stream" class="space-y-4">
-                  <div id="profile-posts-empty" class="hidden only:block text-center py-8">
-                    <.phx_icon
-                      name="hero-pencil-square"
-                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                    />
-                    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                      No posts yet. Share your thoughts with your community!
-                    </p>
-                    <MossletWeb.DesignSystem.liquid_button
-                      navigate={~p"/app/timeline"}
-                      variant="primary"
-                      color="emerald"
-                      size="sm"
-                      icon="hero-plus"
-                    >
-                      Create Your First Post
-                    </MossletWeb.DesignSystem.liquid_button>
-                  </div>
                   <div
                     :for={{dom_id, post} <- @streams.profile_posts}
                     id={dom_id}
@@ -3372,16 +3376,20 @@ defmodule MossletWeb.UserHomeLive do
                     </div>
                   </div>
                 </div>
+                <div
+                  :if={@posts_count == 0}
+                  id="profile-posts-public-empty"
+                  class="text-center py-8"
+                >
+                  <.phx_icon
+                    name="hero-chat-bubble-bottom-center-text"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    No public posts yet.
+                  </p>
+                </div>
                 <div id="profile-posts-public" phx-update="stream" class="space-y-4">
-                  <div class="hidden only:block text-center py-8">
-                    <.phx_icon
-                      name="hero-chat-bubble-bottom-center-text"
-                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                    />
-                    <p class="text-sm text-slate-600 dark:text-slate-400">
-                      No public posts yet.
-                    </p>
-                  </div>
                   <div
                     :for={{dom_id, post} <- @streams.profile_posts}
                     id={dom_id}
@@ -3956,16 +3964,20 @@ defmodule MossletWeb.UserHomeLive do
                     </MossletWeb.DesignSystem.liquid_badge>
                   </div>
                 </:title>
+                <div
+                  :if={@posts_count == 0}
+                  id="profile-posts-connections-empty"
+                  class="text-center py-8"
+                >
+                  <.phx_icon
+                    name="hero-chat-bubble-bottom-center-text"
+                    class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
+                  />
+                  <p class="text-sm text-slate-600 dark:text-slate-400">
+                    No posts shared with you yet.
+                  </p>
+                </div>
                 <div id="profile-posts-connections" phx-update="stream" class="space-y-4">
-                  <div class="hidden only:block text-center py-8">
-                    <.phx_icon
-                      name="hero-chat-bubble-bottom-center-text"
-                      class="size-12 mx-auto mb-3 text-slate-300 dark:text-slate-600"
-                    />
-                    <p class="text-sm text-slate-600 dark:text-slate-400">
-                      No posts shared with you yet.
-                    </p>
-                  </div>
                   <div
                     :for={{dom_id, post} <- @streams.profile_posts}
                     id={dom_id}
