@@ -55,7 +55,7 @@ defmodule Mosslet.DelayedServing do
   def handle_info({:serving_loaded, serving}, state) do
     # start the serving as a linked process so it if crashes, this GenServer
     # crashes then it will all get started up again.
-    link = Nx.Serving.start_link(name: state.serving_name, serving: serving)
+    link = Nx.Serving.start_link(name: state.serving_name, serving: serving, batch_timeout: 50)
     Logger.warning("Nx.Serving.start_link  - #{inspect(link)}")
     {:noreply, Map.put(state, :serving, serving)}
   end

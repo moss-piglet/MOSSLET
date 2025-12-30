@@ -33,7 +33,7 @@ defmodule Mosslet.AI.NsfwImageDetection do
 
     Bumblebee.Vision.image_classification(model_info, featurizer,
       top_k: 1,
-      compile: [batch_size: 16],
+      compile: [batch_size: 4],
       defn_options: [compiler: EXLA]
     )
 
