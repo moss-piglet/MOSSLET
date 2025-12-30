@@ -70,7 +70,7 @@ RUN mix assets.deploy
 RUN mix compile
 
 # Download and cache the NSFW detection model
-RUN mix run --no-start -e 'Mosslet.AI.NsfwImageDetection.load()'
+RUN mix run -e 'Mosslet.AI.NsfwImageDetection.load()'
 
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
