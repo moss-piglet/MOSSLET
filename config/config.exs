@@ -202,6 +202,9 @@ config :langchain,
 # Configure Nx
 config :nx, :default_backend, {EXLA.Backend, client: :host}
 
+# Configure Bumblebee (build-time default, overridden in runtime.exs)
+config :bumblebee, offline: false
+
 # Configure image nsfw detection
 config :image, :classifier,
   model: {:hf, "Falconsai/nsfw_image_detection"},
