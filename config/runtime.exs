@@ -163,7 +163,7 @@ if config_env() == :prod do
     autostart: true
 
   config :bumblebee,
-    offline: System.get_env("BUMBLEBEE_OFFLINE", "true") == "true"
+    offline: System.get_env("BUMBLEBEE_OFFLINE", "false") == "true"
 
   # Configure Stripe
   config :stripity_stripe,

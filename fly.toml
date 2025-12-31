@@ -5,8 +5,13 @@
 
 app = "mosslet"
 kill_signal = "SIGTERM"
-swap_size_mb = 512
+
 primary_region = "ewr"
+
+[mounts]
+  source = "bumblebee_cache"
+  destination = "/data/bumblebee"
+  initial_size = "1gb"
 
 [deploy]
   release_command = "/app/bin/migrate"
@@ -15,7 +20,7 @@ primary_region = "ewr"
   DNS_CLUSTER_QUERY = "mosslet.internal"
   PHX_HOST = "mosslet.com"
   PORT = "8080"
-  BUMBLEBEE_CACHE_DIR = "/app/.bumblebee"
+  BUMBLEBEE_CACHE_DIR = "/data/bumblebee"
   
 
 [http_service]
@@ -32,6 +37,6 @@ primary_region = "ewr"
     soft_limit = 400
 
 [[vm]]
-  memory = "4gb"
+  memory = "2gb"
   cpu_kind = "shared"
   cpus = 2

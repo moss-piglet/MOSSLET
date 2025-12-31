@@ -31,13 +31,8 @@ WORKDIR /app
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# make bumblebee cache dir
-RUN mkdir /app/.bumblebee
-
 # set build ENV
 ENV MIX_ENV="prod"
-ENV BUMBLEBEE_OFFLINE=false
-ENV BUMBLEBEE_CACHE_DIR="/app/.bumblebee"
 
 # install mix dependencies
 COPY mix.exs mix.lock ./
@@ -69,9 +64,6 @@ RUN mix assets.deploy
 # Compile the release
 RUN mix compile
 
-# Download and cache the NSFW detection model
-RUN mix run --no-start -e 'Application.ensure_all_started(:exla); Application.ensure_all_started(:bumblebee); Mosslet.AI.NsfwImageDetection.load()'
-
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
 
@@ -97,16 +89,12 @@ ENV ERL_AFLAGS "-proto_dist inet6_tcp"
 WORKDIR "/app"
 RUN chown nobody /app
 
-ENV BUMBLEBEE_CACHE_DIR="/app/.bumblebee"
-
 # set runner ENV
 ENV MIX_ENV="prod"
-ENV BUMBLEBEE_OFFLINE=true
 
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/mosslet ./
-COPY --from=builder --chown=nobody:root /app/.bumblebee/ ./.bumblebee
 
 USER nobody
 
