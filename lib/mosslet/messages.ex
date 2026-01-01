@@ -1,12 +1,27 @@
 defmodule Mosslet.Messages do
   @moduledoc """
   The Messages context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Messages.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Messages.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
   """
 
-  import Ecto.Query, warn: false
-  require Logger
-  alias Mosslet.Repo
+  alias Mosslet.Platform
   alias Mosslet.Messages.Message
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Messages.Adapters.Native
+    else
+      Mosslet.Messages.Adapters.Web
+    end
+  end
 
   @doc """
   Returns the list of messages.
@@ -18,11 +33,7 @@ defmodule Mosslet.Messages do
 
   """
   def list_messages(conversation_id) do
-    from(m in Message,
-      where: m.conversation_id == ^conversation_id,
-      order_by: [asc: m.inserted_at]
-    )
-    |> Repo.all()
+    adapter().list_messages(conversation_id)
   end
 
   @doc """
@@ -40,17 +51,11 @@ defmodule Mosslet.Messages do
 
   """
   def get_message!(conversation_id, id) do
-    from(m in Message, where: m.conversation_id == ^conversation_id, where: m.id == ^id)
-    |> Repo.one!()
+    adapter().get_message!(conversation_id, id)
   end
 
   def get_last_message!(conversation_id) do
-    from(m in Message,
-      where: m.conversation_id == ^conversation_id,
-      order_by: [desc: m.id],
-      limit: 1
-    )
-    |> Repo.one!()
+    adapter().get_last_message!(conversation_id)
   end
 
   @doc """
@@ -66,17 +71,7 @@ defmodule Mosslet.Messages do
 
   """
   def create_message(conversation_id, attrs \\ %{}) do
-    case Repo.transaction_on_primary(fn ->
-           conversation_id
-           |> Message.create_changeset(attrs)
-           |> Repo.insert()
-         end) do
-      {:ok, {:ok, message}} ->
-        {:ok, message}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().create_message(conversation_id, attrs)
   end
 
   @doc """
@@ -92,17 +87,7 @@ defmodule Mosslet.Messages do
 
   """
   def update_message(%Message{} = message, attrs) do
-    case Repo.transaction_on_primary(fn ->
-           message
-           |> Message.changeset(attrs)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, message}} ->
-        {:ok, message}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().update_message(message, attrs)
   end
 
   @doc """
@@ -118,15 +103,7 @@ defmodule Mosslet.Messages do
 
   """
   def delete_message(%Message{} = message) do
-    case Repo.transaction_on_primary(fn ->
-           Repo.delete(message)
-         end) do
-      {:ok, {:ok, message}} ->
-        {:ok, message}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
+    adapter().delete_message(message)
   end
 
   @doc """

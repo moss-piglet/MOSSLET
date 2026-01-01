@@ -1,13 +1,28 @@
 defmodule Mosslet.GroupMessages do
   @moduledoc """
   The GroupMessages context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.GroupMessages.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.GroupMessages.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
   """
 
-  import Ecto.Query, warn: false
-  alias Mosslet.Repo
-
-  alias Mosslet.Groups.{Group, GroupMessage, GroupMessages}
+  alias Mosslet.Platform
+  alias Mosslet.Groups.GroupMessage
   alias MossletWeb.Endpoint
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.GroupMessages.Adapters.Native
+    else
+      Mosslet.GroupMessages.Adapters.Web
+    end
+  end
 
   @doc """
   Returns the list of groups.
@@ -19,31 +34,24 @@ defmodule Mosslet.GroupMessages do
 
   """
   def list_groups do
-    Repo.all(Group)
+    adapter().list_groups()
   end
 
   def get_message!(id) do
-    Repo.get(GroupMessage, id)
+    adapter().get_message!(id)
   end
 
   def last_ten_messages_for(group_id) do
-    GroupMessages.Query.for_group(group_id)
-    |> Repo.all()
-    |> Repo.preload(:sender)
+    adapter().last_ten_messages_for(group_id)
   end
 
   def last_user_message_for_group(group_id, user_id) do
-    GroupMessages.Query.last_user_message_for_group(group_id, user_id)
-    |> Repo.one()
+    adapter().last_user_message_for_group(group_id, user_id)
   end
 
   def delete_message(%GroupMessage{} = message) do
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        Repo.delete(message)
-      end)
-
-    return |> publish_message_deleted()
+    adapter().delete_message(message)
+    |> publish_message_deleted()
   end
 
   def change_message(%GroupMessage{} = message, attrs \\ %{}) do
@@ -51,30 +59,17 @@ defmodule Mosslet.GroupMessages do
   end
 
   def create_message(attrs \\ %{}, opts \\ []) do
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        %GroupMessage{}
-        |> GroupMessage.changeset(attrs, opts)
-        |> Repo.insert()
-      end)
-
-    return |> publish_message_created()
+    adapter().create_message(attrs, opts)
+    |> publish_message_created()
   end
 
   def update_message(%GroupMessage{} = message, attrs) do
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        message
-        |> GroupMessage.changeset(attrs)
-        |> Repo.update()
-      end)
-
-    return |> publish_message_updated()
+    adapter().update_message(message, attrs)
+    |> publish_message_updated()
   end
 
   def preload_message_sender(message) do
-    message
-    |> Repo.preload(:sender)
+    adapter().preload_message_sender(message)
   end
 
   def publish_message_created({:ok, message} = result) do
@@ -99,17 +94,10 @@ defmodule Mosslet.GroupMessages do
   def publish_message_updated(result), do: result
 
   def get_previous_n_messages(date, group_id, n) do
-    if is_nil(date) do
-      []
-    else
-      GroupMessages.Query.previous_n(date, group_id, n)
-      |> Repo.all()
-      |> Repo.preload(:sender)
-    end
+    adapter().get_previous_n_messages(date, group_id, n)
   end
 
   def get_message_count_for_group(group_id) do
-    from(m in GroupMessage, where: m.group_id == ^group_id)
-    |> Repo.aggregate(:count, :id)
+    adapter().get_message_count_for_group(group_id)
   end
 end

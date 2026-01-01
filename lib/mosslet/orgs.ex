@@ -1,36 +1,50 @@
 defmodule Mosslet.Orgs do
-  @moduledoc false
-  import Ecto.Query, only: [from: 2]
+  @moduledoc """
+  The Orgs context.
 
-  alias Mosslet.Orgs.Invitation
-  alias Mosslet.Orgs.Membership
-  alias Mosslet.Orgs.Org
-  alias Mosslet.Repo
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Orgs.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Orgs.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
+  """
+
+  alias Mosslet.Platform
+  alias Mosslet.Orgs.{Org, Membership, Invitation}
 
   @membership_roles ~w(member admin)
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Orgs.Adapters.Native
+    else
+      Mosslet.Orgs.Adapters.Web
+    end
+  end
 
   ## Orgs
 
   def list_orgs(user) do
-    Repo.preload(user, :orgs).orgs
+    adapter().list_orgs(user)
   end
 
   def list_orgs do
-    Repo.all(from(o in Org, order_by: :id))
+    adapter().list_orgs()
   end
 
   def get_org!(user, slug) when is_binary(slug) do
-    user
-    |> Ecto.assoc(:orgs)
-    |> Repo.get_by!(slug: slug)
+    adapter().get_org!(user, slug)
   end
 
   def get_org!(slug) when is_binary(slug) do
-    Repo.get_by!(Org, slug: slug)
+    adapter().get_org!(slug)
   end
 
   def get_org_by_id(id) do
-    Repo.get(Org, id)
+    adapter().get_org_by_id(id)
   end
 
   def create_org(user, attrs) do
@@ -39,31 +53,15 @@ defmodule Mosslet.Orgs do
     end
 
     changeset = Org.insert_changeset(attrs)
-
-    multi =
-      Ecto.Multi.new()
-      |> Ecto.Multi.insert(:org, changeset)
-      |> Ecto.Multi.insert(:membership, fn %{org: org} ->
-        Membership.insert_changeset(org, user, :admin)
-      end)
-
-    case Repo.transaction(multi) do
-      {:ok, %{org: org}} ->
-        {:ok, org}
-
-      {:error, :org, changeset, _} ->
-        {:error, changeset}
-    end
+    adapter().create_org(user, changeset)
   end
 
   def update_org(%Org{} = org, attrs) do
-    org
-    |> Org.update_changeset(attrs)
-    |> Repo.update()
+    adapter().update_org(org, attrs)
   end
 
   def delete_org(%Org{} = org) do
-    Repo.delete(org)
+    adapter().delete_org(org)
   end
 
   def change_org(org, attrs \\ %{}) do
@@ -80,33 +78,25 @@ defmodule Mosslet.Orgs do
   Run this after a user has confirmed or changed their email.
   """
   def sync_user_invitations(user) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.update_all(:updated_invitations, Invitation.assign_to_user_by_email(user), [])
-    |> Ecto.Multi.delete_all(:deleted_invitations, Invitation.get_stale_by_user_id(user.id))
-    |> Repo.transaction()
+    adapter().sync_user_invitations(user)
   end
 
   ## Members
 
   def list_members_by_org(org) do
-    Repo.preload(org, :users).users
+    adapter().list_members_by_org(org)
   end
 
   def delete_membership(membership) do
-    Repo.delete(Membership.delete_changeset(membership))
+    adapter().delete_membership(membership)
   end
 
   def get_membership!(user, org_slug) when is_binary(org_slug) do
-    user
-    |> Membership.by_user_and_org_slug(org_slug)
-    |> Repo.one!()
-    |> Repo.preload(:org)
+    adapter().get_membership!(user, org_slug)
   end
 
   def get_membership!(id) do
-    Membership
-    |> Repo.get!(id)
-    |> Repo.preload([:user])
+    adapter().get_membership!(id)
   end
 
   def membership_roles do
@@ -118,21 +108,17 @@ defmodule Mosslet.Orgs do
   end
 
   def update_membership(%Membership{} = membership, attrs) do
-    membership
-    |> Membership.update_changeset(attrs)
-    |> Repo.update()
+    adapter().update_membership(membership, attrs)
   end
 
   ## Invitations - org based
 
   def get_invitation_by_org!(org, id) do
-    org
-    |> Invitation.by_org()
-    |> Repo.get!(id)
+    adapter().get_invitation_by_org!(org, id)
   end
 
   def delete_invitation!(invitation) do
-    Repo.delete(invitation)
+    adapter().delete_invitation!(invitation)
   end
 
   def build_invitation(%Org{} = org, params) do
@@ -140,41 +126,20 @@ defmodule Mosslet.Orgs do
   end
 
   def create_invitation(org, params) do
-    %Invitation{org_id: org.id}
-    |> Invitation.changeset(params)
-    |> Repo.insert()
+    adapter().create_invitation(org, params)
   end
 
   ## Invitations - user based
 
   def list_invitations_by_user(user) do
-    user
-    |> Invitation.by_user()
-    |> Repo.all()
-    |> Repo.preload(:org)
+    adapter().list_invitations_by_user(user)
   end
 
   def accept_invitation!(user, id) do
-    invitation = get_invitation_by_user!(user, id)
-    org = Repo.one!(Ecto.assoc(invitation, :org))
-
-    {:ok, %{membership: membership}} =
-      Ecto.Multi.new()
-      |> Ecto.Multi.insert(:membership, Membership.insert_changeset(org, user))
-      |> Ecto.Multi.delete(:invitation, invitation)
-      |> Repo.transaction()
-
-    %{membership | org: org}
+    adapter().accept_invitation!(user, id)
   end
 
   def reject_invitation!(user, id) do
-    invitation = get_invitation_by_user!(user, id)
-    Repo.delete!(invitation)
-  end
-
-  defp get_invitation_by_user!(user, id) do
-    user
-    |> Invitation.by_user()
-    |> Repo.get!(id)
+    adapter().reject_invitation!(user, id)
   end
 end

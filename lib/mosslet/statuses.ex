@@ -2,6 +2,12 @@ defmodule Mosslet.Statuses do
   @moduledoc """
   Context for handling user status and presence.
 
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Statuses.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Statuses.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
+
   Follows the dual-update pattern where status is stored in both:
   1. User table (personal, encrypted with user_key)
   2. Connection table (shared, encrypted with conn_key)
@@ -10,10 +16,21 @@ defmodule Mosslet.Statuses do
   """
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.{User, Connection}
-  alias Mosslet.Repo
+  alias Mosslet.Accounts.User
+  alias Mosslet.Platform
 
   require Logger
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Statuses.Adapters.Native
+    else
+      Mosslet.Statuses.Adapters.Web
+    end
+  end
 
   @doc """
   Updates a user's status and status message.
@@ -22,27 +39,6 @@ defmodule Mosslet.Statuses do
   1. Updates user.status_message (encrypted with user_key)
   2. Updates connection.status_message (encrypted with conn_key)
   3. Broadcasts update to connections via PubSub
-
-  conn = get_connection!(user.connection.id)
-    opts = [key: key, user: user]
-
-    changeset =
-      user
-      |> User.email_changeset(%{email: email}, opts)
-      |> User.confirm_changeset()
-
-    c_attrs = changeset.changes.connection_map
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.update(:connection, fn %{user: _user} ->
-      Connection.update_email_changeset(conn, %{
-        email: c_attrs.c_email,
-        email_hash: c_attrs.c_email_hash
-      })
-    end)
-    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, [context]))
-
   """
   def update_user_status(user, attrs, opts \\ []) do
     conn = Accounts.get_connection!(user.connection.id)
@@ -53,40 +49,13 @@ defmodule Mosslet.Statuses do
 
     c_attrs = changeset.changes.connection_map
 
-    case Ecto.Multi.new()
-         |> Ecto.Multi.update(:user, changeset)
-         |> Ecto.Multi.update(:update_connection, fn %{user: _user} ->
-           Connection.update_status_changeset(conn, %{
-             status: c_attrs.c_status,
-             status_message: c_attrs.c_status_message,
-             status_message_hash: c_attrs.c_status_message_hash,
-             status_updated_at: c_attrs.c_status_updated_at
-           })
-         end)
-         |> Repo.transaction_on_primary() do
-      # Update activity timestamp
-      {:ok, %{update_connection: _connection, user: user}} ->
-        # user = update_user_activity(user)
-
-        # Broadcast status change using accounts context
-        # Delegate to accounts context for broadcasting
-        {:ok, user |> Repo.preload(:connection)}
+    case adapter().update_user_status_multi(changeset, conn, c_attrs) do
+      {:ok, user} ->
+        {:ok, user}
         |> Accounts.broadcast_user_status(:status_updated)
 
-      {:ok, {:ok, {:error, changeset}}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-
-      {:error, :update_user, changeset, _} ->
-        {:error, changeset}
-
-      error ->
-        Logger.info("Error updating user status.")
-        Logger.info(inspect(error))
-        Logger.error(error)
-        {:error, "Error updating user status"}
     end
   end
 
@@ -100,40 +69,15 @@ defmodule Mosslet.Statuses do
   4. Broadcasts visibility change to affected connections
   """
   def update_user_status_visibility(user, attrs, opts \\ []) do
-    case Repo.transaction_on_primary(fn ->
-           # Update user record (personal status visibility settings)
-           changeset = user |> User.status_visibility_changeset(attrs, opts)
+    changeset = user |> User.status_visibility_changeset(attrs, opts)
 
-           case Repo.update(changeset) do
-             {:ok, updated_user} ->
-               # Update connection record (shared status visibility) if connection_map was set
+    case adapter().update_user_status_visibility(user, changeset) do
+      {:ok, updated_user} ->
+        {:ok, updated_user}
+        |> Accounts.broadcast_user_status(:status_visibility_updated)
 
-               if updated_user.connection_map do
-                 update_connection_status_visibility(
-                   updated_user,
-                   updated_user.connection_map
-                 )
-               end
-
-               # Broadcast status visibility change to connections
-               {:ok, updated_user |> Repo.preload(:connection)}
-               |> Accounts.broadcast_user_status(:status_visibility_updated)
-
-             {:error, changeset} ->
-               {:error, changeset}
-           end
-         end) do
-      {:ok, {:ok, user}} ->
-        {:ok, user}
-
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      error ->
-        Logger.info("Error updating user status visibility.")
-        Logger.info(inspect(error))
-        Logger.error(error)
-        {:error, "Error updating user status visibility"}
     end
   end
 
@@ -147,10 +91,7 @@ defmodule Mosslet.Statuses do
       new_status = determine_status_from_presence_and_activity(user)
 
       if new_status != user.status do
-        # For auto-updates, only change the status enum, don't touch status_message
-        # The updated encrypt_connection_map_status_only function will preserve existing messages
         attrs = %{status: new_status}
-
         update_user_status(user, attrs, auto_update: true)
       else
         {:ok, user}
@@ -183,19 +124,14 @@ defmodule Mosslet.Statuses do
           attrs
       end
 
-    case Repo.transaction_on_primary(fn ->
-           user
-           |> User.activity_changeset(attrs)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_user}} ->
+    changeset = user |> User.activity_changeset(attrs)
+
+    case adapter().update_user_activity(user, changeset) do
+      {:ok, updated_user} ->
         auto_update_status_from_activity(updated_user)
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      error ->
-        error
     end
   end
 
@@ -204,10 +140,8 @@ defmodule Mosslet.Statuses do
   Follows the connection access pattern.
   """
   def get_user_status_for_connection(user, viewing_user, session_key) do
-    # FIXED: Pass user IDs, not structs
     case Accounts.get_user_connection_between_users(viewing_user.id, user.id) do
       nil ->
-        # No connection - only show basic status if public
         if user.visibility == :public do
           %{status: user.status, status_message: nil, updated_at: user.status_updated_at}
         else
@@ -215,7 +149,6 @@ defmodule Mosslet.Statuses do
         end
 
       user_connection ->
-        # Has connection - decrypt shared status from connection
         connection = user.connection
 
         if connection && connection.status_message do
@@ -245,24 +178,18 @@ defmodule Mosslet.Statuses do
   # Private functions
 
   defp determine_status_from_presence_and_activity(user) do
-    # Never auto-change from manually set :busy status
     if user.status == :busy do
       :busy
     else
       if MossletWeb.Presence.user_active_in_app?(user.id) do
-        # User is online (WebSocket connected) - determine activity level
         minutes_since_activity = get_minutes_since_last_activity(user)
 
         cond do
-          # Very recent interaction
           minutes_since_activity < 2 -> :active
-          # Recent activity
           minutes_since_activity < 10 -> :calm
-          # Online but inactive 10+ min
           true -> :away
         end
       else
-        # Not in presence = offline (WebSocket disconnected)
         :offline
       end
     end
@@ -272,7 +199,6 @@ defmodule Mosslet.Statuses do
     last_activity =
       case {user.last_activity_at, user.last_post_at} do
         {nil, nil} ->
-          # No activity recorded, use account creation time
           user.inserted_at
 
         {activity_at, nil} ->
@@ -282,7 +208,6 @@ defmodule Mosslet.Statuses do
           post_at
 
         {activity_at, post_at} ->
-          # Pick the most recent of the two
           if NaiveDateTime.compare(activity_at, post_at) == :gt do
             activity_at
           else
@@ -328,9 +253,7 @@ defmodule Mosslet.Statuses do
   Follows the same granular privacy pattern as posts.
   """
   def can_view_user_status?(user, current_user, session_key) do
-    # Check user.visibility hierarchy first
     case {user.visibility, user.status_visibility || :nobody} do
-      # Private users: only nobody or connections allowed
       {:private, :nobody} ->
         {:error, :private}
 
@@ -341,7 +264,6 @@ defmodule Mosslet.Statuses do
           check_connection_status_access(user, current_user)
         end
 
-      # Connections users: can share with connections, groups, users (but not public)
       {:connections, :nobody} ->
         {:error, :private}
 
@@ -366,7 +288,6 @@ defmodule Mosslet.Statuses do
           check_specific_users_status_access(user, current_user, session_key)
         end
 
-      # Public users: can use any status visibility including public
       {:public, :nobody} ->
         {:error, :private}
 
@@ -391,11 +312,9 @@ defmodule Mosslet.Statuses do
           check_specific_users_status_access(user, current_user, session_key)
         end
 
-      # Public status for everyone
       {:public, :public} ->
         {:ok, :full_access}
 
-      # Default: no access
       _ ->
         {:error, :private}
     end
@@ -404,9 +323,7 @@ defmodule Mosslet.Statuses do
   # Private helper functions for granular status access
 
   defp check_connection_status_access(target_user, viewing_user) do
-    # FIXED: Pass User structs, not IDs - the has_user_connection function expects structs
     if Accounts.has_user_connection?(target_user, viewing_user) do
-      # we also check if the target_user is allowing people to view their presence
       case target_user.show_online_presence do
         true -> {:ok, :full_access}
         false -> {:error, :private}
@@ -417,7 +334,6 @@ defmodule Mosslet.Statuses do
   end
 
   defp check_specific_groups_status_access(target_user, viewing_user, session_key) do
-    # Check if viewing_user is in any of target_user's status-visible groups
     if user_in_status_visible_groups?(target_user, viewing_user, session_key) do
       case target_user.show_online_presence do
         true -> {:ok, :full_access}
@@ -429,7 +345,6 @@ defmodule Mosslet.Statuses do
   end
 
   defp check_specific_users_status_access(user, current_user, session_key) do
-    # Check if current_user is explicitly in user's status-visible users list
     in_specific_users? = user_in_status_visible_users?(user, current_user, session_key)
 
     if in_specific_users? do
@@ -443,16 +358,11 @@ defmodule Mosslet.Statuses do
   end
 
   defp user_in_status_visible_groups?(target_user, viewing_user, session_key) do
-    # Get user_connection between them to access group memberships
-    # FIXED: Pass user IDs, not structs
-    # Get the current user's UserConnection that points to the target user
-    # This contains the target user's conn_key encrypted for the current user
     case Accounts.get_user_connection_between_users(target_user.id, viewing_user.id) do
       nil ->
         false
 
       user_connection ->
-        # Check if viewing_user is in any of target_user's connection status_visible_groups list
         status_groups_user_ids =
           decrypt_presence_visible_groups_user_ids(
             target_user,
@@ -471,9 +381,6 @@ defmodule Mosslet.Statuses do
 
   defp user_in_status_visible_users?(user, current_user, session_key) do
     if user.connection && user.connection.status_visible_to_users do
-      # We need the UserConnection where current_user.id is the user_id
-      # This contains the target user's conn_key encrypted for current_user
-      # Based on our debugging, this is the reverse direction
       user_connection = Accounts.get_user_connection_between_users(user.id, current_user.id)
 
       case user_connection do
@@ -481,7 +388,6 @@ defmodule Mosslet.Statuses do
           false
 
         uc ->
-          # First decrypt the connection key, then decrypt the user IDs
           encrypted_list = user.connection.status_visible_to_users
 
           decrypted_user_ids =
@@ -510,10 +416,8 @@ defmodule Mosslet.Statuses do
   end
 
   defp get_decrypted_status_with_message(target_user, viewing_user, session_key) do
-    # Get decrypted status message via connection
     case Accounts.get_user_connection_between_users(target_user.id, viewing_user.id) do
       nil ->
-        # No connection - show status without message
         %{
           status: target_user.status || :offline,
           status_message: nil,
@@ -522,7 +426,6 @@ defmodule Mosslet.Statuses do
         }
 
       user_connection ->
-        # Has connection - decrypt shared status from connection
         connection = target_user.connection
 
         if connection && connection.status_message do
@@ -552,38 +455,9 @@ defmodule Mosslet.Statuses do
   end
 
   defp is_user_online?(user) do
-    # Check if user is currently online via Presence
     MossletWeb.Presence.user_active_on_timeline?(user.id)
   end
 
-  defp update_connection_status_visibility(user, connection_map) do
-    case Repo.transaction_on_primary(fn ->
-           # Map the c_ prefixed keys to the expected field names
-           mapped_attrs = %{
-             status_visibility: connection_map[:c_status_visibility],
-             status_visible_to_groups: connection_map[:c_status_visible_to_groups],
-             status_visible_to_users: connection_map[:c_status_visible_to_users],
-             status_visible_to_groups_user_ids:
-               connection_map[:c_status_visible_to_groups_user_ids],
-             show_online_presence: connection_map[:c_show_online_presence],
-             presence_visible_to_groups: connection_map[:c_presence_visible_to_groups],
-             presence_visible_to_users: connection_map[:c_presence_visible_to_users],
-             presence_visible_to_groups_user_ids:
-               connection_map[:c_presence_visible_to_groups_user_ids]
-           }
-
-           user.connection
-           |> Connection.update_status_visibility_changeset(mapped_attrs)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, _connection}} -> :ok
-      _ -> :error
-    end
-  end
-
-  # Status visibility broadcast moved to Mosslet.Accounts context
-
-  # Decryption helper functions
   defp decrypt_presence_visible_groups_user_ids(
          target_user,
          viewing_user,

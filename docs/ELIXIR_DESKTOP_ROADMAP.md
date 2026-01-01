@@ -417,7 +417,7 @@ Authenticated (requires Bearer token):
 - Deleted resources are handled gracefully
 - Local cache updated to match server state after resolution
 
-### Phase 5: Context-Level Platform Routing 🚧 IN PROGRESS
+### Phase 5: Context-Level Platform Routing ✅ COMPLETE
 
 **Goal:** Make contexts platform-aware so LiveViews work unchanged on both web and native.
 
@@ -511,18 +511,18 @@ LiveView calls
 
 **Context Priority Matrix:**
 
-| Context             | Repo Calls | Priority     | Status         | Notes                        |
-| ------------------- | ---------- | ------------ | -------------- | ---------------------------- |
-| ~~`accounts.ex`~~   | ~~173~~    | ~~CRITICAL~~ | ✅ COMPLETE    | ~~Auth, users, connections~~ |
-| `timeline.ex`       | 236        | HIGH         | 🚧 IN PROGRESS | Posts, feeds, reactions      |
-| `groups.ex`         | 43         | MEDIUM       | ⏳ PENDING     | Group management             |
-| `group_messages.ex` | 15         | MEDIUM       | ⏳ PENDING     | Group chat                   |
-| `messages.ex`       | 9          | MEDIUM       | ⏳ PENDING     | Direct messages              |
-| `orgs.ex`           | 25         | LOW          | ⏳ PENDING     | Organization features        |
-| `statuses.ex`       | 9          | LOW          | ⏳ PENDING     | User statuses                |
-| `logs.ex`           | 7          | SKIP         | —              | Audit logs (server-only)     |
-| `memories.ex`       | 57         | SKIP         | —              | Legacy - phasing out         |
-| `conversations.ex`  | 9          | SKIP         | —              | Legacy - phasing out         |
+| Context                 | Repo Calls | Priority     | Status      | Notes                        |
+| ----------------------- | ---------- | ------------ | ----------- | ---------------------------- |
+| ~~`accounts.ex`~~       | ~~173~~    | ~~CRITICAL~~ | ✅ COMPLETE | ~~Auth, users, connections~~ |
+| ~~`timeline.ex`~~       | ~~236~~    | ~~HIGH~~     | ✅ COMPLETE | ~~Posts, feeds, reactions~~  |
+| ~~`groups.ex`~~         | ~~43~~     | ~~MEDIUM~~   | ✅ COMPLETE | ~~Group management~~         |
+| ~~`group_messages.ex`~~ | ~~15~~     | ~~MEDIUM~~   | ✅ COMPLETE | ~~Group chat~~               |
+| ~~`messages.ex`~~       | ~~9~~      | ~~MEDIUM~~   | ✅ COMPLETE | ~~Direct messages~~          |
+| ~~`orgs.ex`~~           | ~~25~~     | ~~LOW~~      | ✅ COMPLETE | ~~Organization features~~    |
+| ~~`statuses.ex`~~       | ~~9~~      | ~~LOW~~      | ✅ COMPLETE | ~~User statuses~~            |
+| `logs.ex`               | 7          | SKIP         | —           | Audit logs (server-only)     |
+| `memories.ex`           | 57         | SKIP         | —           | Legacy - phasing out         |
+| `conversations.ex`      | 9          | SKIP         | —           | Legacy - phasing out         |
 
 #### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - ✅ COMPLETE
 
@@ -619,124 +619,265 @@ end
 - `lib/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache + zero-knowledge decryption)
 - `lib/mosslet/session/native.ex` - JWT token + session key storage (from Phase 3)
 
-#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` - 🚧 IN PROGRESS
+#### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` - ✅ COMPLETE
 
-**Status:** Adapter pattern implementation started. Basic getters and count functions partially complete.
+**Status:** Adapter pattern implementation complete. All functions delegated to adapters.
 
 **Target State:**
 - `timeline.ex` contains all business logic (changesets, broadcasts, PubSub, cache invalidation)
-- `web.ex` contains Repo calls + query logic
+- `web.ex` contains Repo calls + query logic + filter helpers
 - `native.ex` contains API/cache calls + any zero-knowledge decryption needed
 
 **Files created:**
 
-- `lib/mosslet/timeline/adapter.ex` - Behaviour definition with callbacks
-- `lib/mosslet/timeline/adapters/web.ex` - Web adapter (Repo calls)
-- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache)
+- `lib/mosslet/timeline/adapter.ex` - Behaviour definition with 130+ callbacks
+- `lib/mosslet/timeline/adapters/web.ex` - Web adapter (Repo calls + filtering, ~2200 lines)
+- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache, ~1600 lines)
 
 **Completed Functions (delegated to adapters):**
 
-Basic Getters (12 functions) - ✅ COMPLETE:
-- `get_post/1`, `get_post!/1`
-- `get_reply/1`, `get_reply!/1`
-- `get_user_post!/1`, `get_user_post_receipt!/1`
+Basic Getters (18 functions) - ✅ COMPLETE:
+- `get_post/1`, `get_post!/1`, `get_post_with_preloads/1`, `get_post_with_preloads!/1`
+- `get_reply/1`, `get_reply!/1`, `get_reply_with_preloads/1`, `get_reply_with_preloads!/1`
+- `get_user_post/1`, `get_user_post!/1`, `get_user_post_receipt/1`, `get_user_post_receipt!/1`
 - `get_user_post_by_post_id_and_user_id/2`, `get_user_post_by_post_id_and_user_id!/2`
 - `get_all_posts/1`, `get_all_shared_posts/1`
 - `list_user_posts_for_sync/2`, `preload_group/1`
 
-Count Functions (8 of ~24 functions) - ✅ COMPLETE:
-- `count_all_posts/0`
-- `post_count/2`
-- `shared_between_users_post_count/2`
-- `timeline_post_count/2`
-- `reply_count/2`
-- `public_reply_count/2`
-- `group_post_count/1`
-- `public_post_count_filtered/2`, `public_post_count/1`
+Bookmark Getters (6 functions) - ✅ COMPLETE:
+- `get_bookmark/1`, `get_bookmark!/1`
+- `get_bookmark_by_post_and_user/2`
+- `get_bookmark_category/1`, `get_bookmark_category!/1`
+- `user_has_bookmarked?/2`
 
-**Remaining Count Functions (~16 functions) - ⏳ PENDING:**
+All Count Functions (31 functions) - ✅ COMPLETE:
+- Simple counts: `count_all_posts/0`, `post_count/2`, `shared_between_users_post_count/2`, `timeline_post_count/2`, `reply_count/2`, `public_reply_count/2`, `group_post_count/1`, `public_post_count_filtered/2`, `public_post_count/1`
+- Filtered counts: `count_user_own_posts/2`, `count_user_group_posts/2`, `count_user_connection_posts/2`, `count_group_posts/2`, `count_discover_posts/2`
+- Unread counts: `count_unread_posts_for_user/1`, `count_unread_user_own_posts/2`, `count_unread_bookmarked_posts/2`, `count_unread_connection_posts/2`, `count_unread_group_posts/2`, `count_unread_discover_posts/2`
+- Reply counts: `count_replies_for_post/2`, `count_top_level_replies/2`, `count_child_replies/2`, `count_unread_replies_for_user/1`, `count_unread_replies_by_post/1`, `count_unread_replies_to_user_replies/1`, `count_unread_nested_replies_by_parent/1`, `count_unread_replies_to_user_replies_by_post/1`, `count_unread_nested_replies_for_post/2`
+- Bookmark count: `count_user_bookmarks/2`
+- Home timeline counts: `count_home_timeline/2`, `count_unread_home_timeline/2`
 
-These functions use `apply_database_filters/2` which is complex business logic for content filtering (muted keywords, content warnings, muted users, blocked users, reposts). Two approaches:
+Timeline Listings with Caching (5 functions) - ✅ COMPLETE:
+- `list_connection_posts/2` → `fetch_connection_posts/2`
+- `list_discover_posts/2` → `fetch_discover_posts/2`
+- `list_user_own_posts/2` → `fetch_user_own_posts/2`
+- `list_home_timeline/2` → `fetch_home_timeline/2`
+- `list_group_posts/2` → `fetch_group_posts/2`
 
-1. Copy filtering helpers to web.ex (cleaner adapter separation, more duplication)
-2. Keep functions in timeline.ex as orchestration (simpler, less adapter coverage)
+Profile Listings (5 functions) - ✅ COMPLETE:
+- `list_public_profile_posts/4`
+- `list_profile_posts_visible_to/3`
+- `count_profile_posts_visible_to/2`
+- `list_user_group_posts/2`
+- `list_own_connection_posts/2`
 
-Functions pending:
-- `count_user_own_posts/2` - Uses apply_database_filters
-- `count_user_group_posts/2` - Uses apply_database_filters
-- `count_user_connection_posts/2` - Uses apply_database_filters
-- `count_unread_user_own_posts/2` - Uses apply_database_filters
-- `count_unread_bookmarked_posts/2` - Uses apply_bookmark_unread_database_filters
-- `count_unread_posts_for_user/1`
-- `count_unread_replies_for_user/1`
-- `count_unread_replies_by_post/1`
-- `count_unread_replies_to_user_replies/1`
-- `count_unread_nested_replies_by_parent/1`
-- `count_unread_replies_to_user_replies_by_post/1`
-- `count_unread_nested_replies_for_post/2`
-- `count_unread_connection_posts/2`
-- `count_group_posts/2`
-- `count_unread_group_posts/2`
-- `count_discover_posts/2`, `count_unread_discover_posts/2`
-- `count_replies_for_post/2`, `count_top_level_replies/2`, `count_child_replies/2`
-- `count_user_bookmarks/2`
+Utility Listings (3 functions) - ✅ COMPLETE:
+- `first_reply/2`
+- `first_public_reply/2`
+- `unread_posts/1`
 
-**Remaining Categories - ⏳ NOT STARTED:**
-
-Listings (~20+ functions):
+Other Listings (10 functions) - ✅ COMPLETE:
 - `list_posts/2`, `list_replies/2`, `list_shared_posts/3`
-- `filter_timeline_posts/2`, `list_connection_posts/2`
-- `list_group_posts/2`, `list_discover_posts/2`
-- `list_user_own_posts/2`, `list_public_posts/1`
-- And more...
+- `list_public_posts/1`, `list_public_replies/2`
+- `list_user_bookmarks/2`, `list_bookmark_categories/1`
+- `filter_timeline_posts/2`, `list_nested_replies/2`, `list_user_replies/2`
 
-CRUD (~15+ functions):
-- `create_post/3`, `update_post/3`, `delete_post/1`
-- `create_reply/3`, `update_reply/3`, `delete_reply/1`
-- `mark_post_read/2`, `mark_replies_read_for_post/2`
-- And more...
+Mark Read Operations (5 functions) - ✅ COMPLETE:
+- `mark_replies_read_for_post/2`
+- `mark_all_replies_read_for_user/1`
+- `mark_nested_replies_read_for_parent/2`
+- `mark_top_level_replies_read_for_post/2`
+- `mark_post_as_read/2`
 
-Bookmarks (~10+ functions):
-- `create_bookmark/2`, `delete_bookmark/1`
-- `list_user_bookmarks/2`, `get_bookmark_for_post/2`
-- And more...
+Bookmark Category CRUD (3 functions) - ✅ COMPLETE:
+- `create_bookmark_category/2`
+- `update_bookmark_category/2`
+- `delete_bookmark_category/1`
 
-**API Client Functions Added:**
-- `count_all_posts/1`
-- `post_count/3`
-- `shared_between_users_post_count/3`
-- `timeline_post_count/3`
-- `reply_count/3`
-- `public_reply_count/3`
-- `group_post_count/2`
-- `public_post_count_filtered/2`
-- `public_post_count/2`
+Basic CRUD Callbacks (14 functions) - ✅ COMPLETE:
+- Post: `create_post/2`, `update_post/3`, `delete_post/1`
+- Reply: `create_reply/2`, `update_reply/3`, `delete_reply/1`
+- UserPost: `create_user_post/1`, `delete_user_post/1`
+- UserPostReceipt: `create_user_post_receipt/1`, `update_user_post_receipt/2`
+- Bookmark: `create_bookmark/1`, `delete_bookmark/1`
+- Preloads: `preload_post/2`, `preload_reply/2`
 
-**Tests:** All 9 timeline tests and 18 timeline_live tests pass ✅
+Query Execution (4 functions) - ✅ COMPLETE:
+- `execute_query/1`, `execute_count/1`, `execute_one/1`, `execute_exists?/1`
 
-#### 5.3 Groups - `groups.ex` (Priority: MEDIUM)
+Transaction Support (1 function) - ✅ COMPLETE:
+- `transaction/1`
 
-- [ ] Group CRUD operations - Route to API
-- [ ] Group membership operations - Route to API
-- [ ] Group queries - Fetch via API, cache locally
+Repo Wrappers (21 functions) - ✅ COMPLETE:
+- `repo_all/1`, `repo_all/2`, `repo_one/1`, `repo_one/2`, `repo_one!/1`, `repo_one!/2`
+- `repo_aggregate/3`, `repo_aggregate/4`, `repo_exists?/1`
+- `repo_preload/2`, `repo_preload/3`
+- `repo_insert/1`, `repo_insert!/1`, `repo_update/1`, `repo_update!/1`
+- `repo_delete/1`, `repo_delete!/1`, `repo_delete_all/1`, `repo_update_all/2`
+- `repo_transaction/1`, `repo_get/2`, `repo_get!/2`, `repo_get_by/2`, `repo_get_by!/2`
 
-#### 5.4 Group Messages - `group_messages.ex` (Priority: MEDIUM)
+Note: Complex CRUD operations (like `create_public_post`, `create_repost`, etc.) use `Ecto.Multi` transactions with business logic (broadcasts, cache invalidation, multiple related records). These remain in timeline.ex and use `Repo.transaction_on_primary()`. For native apps, these will call comprehensive API endpoints that handle the full operation server-side.
 
-- [ ] Group message CRUD - Route to API
-- [ ] Group message queries - Fetch via API, cache locally
+**Tests:** All 9 timeline tests pass ✅
+- Additional counts: `count_user_own_posts/3`, `count_user_group_posts/3`, `count_user_connection_posts/3`, `count_group_posts/3`, `count_discover_posts/3`, `count_unread_*` functions
+- Reply counts: `count_replies_for_post/3`, `count_top_level_replies/3`, `count_child_replies/3`, `count_unread_nested_replies_for_post/3`
+- Bookmark: `count_user_bookmarks/3`
+- Listings: `list_posts/3`, `list_replies/3`, `list_shared_posts/4`, `list_public_posts/2`, `list_public_replies/3`, `list_user_bookmarks/3`, `list_bookmark_categories/2`
+- Mark read: `mark_replies_read_for_post/3`, `mark_all_replies_read_for_user/2`, `mark_nested_replies_read_for_parent/3`
+- Bookmark category: `create_bookmark_category/2`, `update_bookmark_category/3`, `delete_bookmark_category/2`
+- CRUD: `create_post/2`, `update_post/3`, `delete_post/2`, `create_reply/2`, `update_reply/3`, `delete_reply/2`
+- And many more helper functions for bookmarks, user_posts, receipts
 
-#### 5.5 Messages - `messages.ex` (Priority: MEDIUM)
+**Tests:** All 9 timeline tests pass ✅
 
-- [ ] Direct message CRUD - Route to API
+#### 5.3 Groups - `groups.ex` (Priority: MEDIUM) - ✅ COMPLETE
 
-#### 5.6 Organizations - `orgs.ex` (Priority: LOW)
+**Status:** Adapter pattern implementation complete. All functions delegated to adapters.
 
-- [ ] Org CRUD operations - Route to API
-- [ ] Org membership operations - Route to API
+**Files created:**
 
-#### 5.7 Statuses - `statuses.ex` (Priority: LOW)
+- `lib/mosslet/groups/adapter.ex` - Behaviour definition with 25+ callbacks
+- `lib/mosslet/groups/adapters/web.ex` - Web adapter (Repo calls, ~380 lines)
+- `lib/mosslet/groups/adapters/native.ex` - Native adapter (API + cache, ~520 lines)
 
-- [ ] Status CRUD - Route to API
+**Completed Functions (delegated to adapters):**
+
+Group Getters (2 functions):
+- `get_group/1`, `get_group!/1`
+
+Group Listings (7 functions):
+- `list_groups/2`, `list_unconfirmed_groups/2`, `list_public_groups/3`
+- `public_group_count/2`, `filter_groups_with_users/3`
+- `group_count/1`, `group_count_confirmed/1`
+
+UserGroup Getters (4 functions):
+- `get_user_group/1`, `get_user_group!/1`, `get_user_group_with_user!/1`
+- `get_user_group_for_group_and_user/2`
+
+UserGroup Listings (4 functions):
+- `list_user_groups/0`, `list_user_groups/1` (by group)
+- `list_user_groups_for_user/1`, `list_user_groups_for_sync/2`
+
+CRUD Operations (9 functions):
+- Group: `create_group/5`, `update_group_multi/4`, `delete_group/1`
+- UserGroup: `create_user_group/2`, `update_user_group/3`, `delete_user_group/1`
+- `join_group_confirm/1`, `update_user_group_role/2`
+
+Block Operations (6 functions):
+- `list_blocked_users/1`, `user_blocked?/2`
+- `get_group_block/2`, `get_group_block!/1`
+- `block_member_multi/2`, `delete_group_block/1`
+
+Utility Functions (2 functions):
+- `validate_owner_count/1`, `repo_preload/2`
+
+**Tests:** All 8 groups tests pass ✅
+
+#### 5.4 Group Messages - `group_messages.ex` (Priority: MEDIUM) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. All functions delegated to adapters.
+
+**Files created:**
+
+- `lib/mosslet/group_messages/adapter.ex` - Behaviour definition with 10 callbacks
+- `lib/mosslet/group_messages/adapters/web.ex` - Web adapter (Repo calls, ~90 lines)
+- `lib/mosslet/group_messages/adapters/native.ex` - Native adapter (API + cache, ~280 lines)
+
+**Completed Functions (delegated to adapters):**
+
+Message Getters (2 functions):
+- `get_message!/1`, `last_user_message_for_group/2`
+
+Message Listings (3 functions):
+- `list_groups/0`, `last_ten_messages_for/1`, `get_previous_n_messages/3`
+
+CRUD Operations (3 functions):
+- `create_message/2`, `update_message/2`, `delete_message/1`
+
+Utility Functions (2 functions):
+- `preload_message_sender/1`, `get_message_count_for_group/1`
+
+**Note:** Business logic (PubSub broadcasts) stays in context, adapters handle data access only.
+
+#### 5.5 Messages - `messages.ex` (Priority: MEDIUM) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. All functions delegated to adapters.
+
+**Files created:**
+
+- `lib/mosslet/messages/adapter.ex` - Behaviour definition with 6 callbacks
+- `lib/mosslet/messages/adapters/web.ex` - Web adapter (Repo calls, ~80 lines)
+- `lib/mosslet/messages/adapters/native.ex` - Native adapter (API + cache, ~230 lines)
+
+**Completed Functions (delegated to adapters):**
+
+Message Listings (1 function):
+- `list_messages/1`
+
+Message Getters (2 functions):
+- `get_message!/2`, `get_last_message!/1`
+
+CRUD Operations (3 functions):
+- `create_message/2`, `update_message/2`, `delete_message/1`
+
+**Note:** `change_message/2` and `db_messages_to_langchain_messages/1` are pure functions that stay in the context.
+
+#### 5.6 Organizations - `orgs.ex` (Priority: LOW) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. All functions delegated to adapters.
+
+**Files created:**
+
+- `lib/mosslet/orgs/adapter.ex` - Behaviour definition with 17 callbacks
+- `lib/mosslet/orgs/adapters/web.ex` - Web adapter (Repo calls, ~140 lines)
+- `lib/mosslet/orgs/adapters/native.ex` - Native adapter (API + cache, ~420 lines)
+
+**Completed Functions (delegated to adapters):**
+
+Org Operations (6 functions):
+- `list_orgs/0`, `list_orgs/1` (by user)
+- `get_org!/1`, `get_org!/2` (by user + slug), `get_org_by_id/1`
+- `create_org/2`, `update_org/2`, `delete_org/1`
+
+Membership Operations (5 functions):
+- `list_members_by_org/1`
+- `get_membership!/1`, `get_membership!/2`
+- `update_membership/2`, `delete_membership/1`
+
+Invitation Operations (6 functions):
+- `get_invitation_by_org!/2`, `create_invitation/2`, `delete_invitation!/1`
+- `list_invitations_by_user/1`, `accept_invitation!/2`, `reject_invitation!/2`
+
+Utility (1 function):
+- `sync_user_invitations/1`
+
+**Note:** `change_org/2`, `change_membership/2`, `build_invitation/2`, and `membership_roles/0` are pure functions that stay in the context.
+
+#### 5.7 Statuses - `statuses.ex` (Priority: LOW) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. Data access functions delegated to adapters.
+
+**Files created:**
+
+- `lib/mosslet/statuses/adapter.ex` - Behaviour definition with 5 callbacks
+- `lib/mosslet/statuses/adapters/web.ex` - Web adapter (Repo calls, ~110 lines)
+- `lib/mosslet/statuses/adapters/native.ex` - Native adapter (API + cache, ~140 lines)
+
+**Completed Functions (delegated to adapters):**
+
+Status Update Operations (3 functions):
+- `update_user_status_multi/3` - Multi-update for user + connection status
+- `update_user_status_visibility/2` - Update visibility settings
+- `update_connection_status_visibility/2` - Update connection visibility
+
+Activity Operations (1 function):
+- `update_user_activity/2` - Track user activity timestamps
+
+Utility (1 function):
+- `preload_connection/1` - Load connection association
+
+**Note:** Complex privacy/visibility logic (encryption, presence checks, status access controls) stays in the context as it involves encryption that must happen on-device for native apps.
 
 #### 5.8 Skipped Contexts
 
@@ -1100,4 +1241,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-02-17 (Phase 5.2 timeline IN PROGRESS - basic getters complete, 8/24 count functions complete)_
+_Last updated: 2025-01-31 (Phase 5.7 statuses ✅ COMPLETE - All status data access functions delegated to adapters. 5 adapter callbacks implemented. Phase 5 Context-Level Platform Routing is now COMPLETE!)_

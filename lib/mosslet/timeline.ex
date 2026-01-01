@@ -142,22 +142,7 @@ defmodule Mosslet.Timeline do
   This counts only posts where the user is the author, regardless of visibility.
   """
   def count_user_own_posts(user, filter_prefs \\ %{}) do
-    # Always use database-level filtering for consistency and performance
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: up.user_id == ^user.id and p.user_id == ^user.id,
-        distinct: p.id
-      )
-      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: user.id})
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
+    adapter().count_user_own_posts(user, filter_prefs)
   end
 
   @doc """
@@ -165,24 +150,7 @@ defmodule Mosslet.Timeline do
   This counts posts with group_id that the user has access to.
   """
   def count_user_group_posts(user, filter_prefs \\ %{}) do
-    # Always use database-level filtering for consistency and performance
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: up.user_id == ^user.id and p.visibility == :specific_groups
-      )
-      |> apply_database_filters(%{filter_prefs: filter_prefs})
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
+    adapter().count_user_group_posts(user, filter_prefs)
   end
 
   @doc """
@@ -190,33 +158,7 @@ defmodule Mosslet.Timeline do
   This matches the filtering logic used in apply_tab_filtering.
   """
   def count_user_connection_posts(current_user, filter_prefs \\ %{}) do
-    # Always use database-level filtering for consistency and performance
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    if Enum.empty?(connection_user_ids) do
-      0
-    else
-      query =
-        from(p in Post,
-          inner_join: up in UserPost,
-          on: up.post_id == p.id,
-          where: up.user_id == ^current_user.id,
-          where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-          where: p.visibility in [:connections, :specific_users],
-          distinct: p.id
-        )
-        |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-
-      count = Repo.aggregate(query, :count, :id)
-
-      case count do
-        nil -> 0
-        count -> count
-      end
-    end
+    adapter().count_user_connection_posts(current_user, filter_prefs)
   end
 
   @doc """
@@ -224,24 +166,7 @@ defmodule Mosslet.Timeline do
   Now applies content filters to ensure unread counts match filtered timeline display.
   """
   def count_unread_user_own_posts(user, filter_prefs \\ %{}) do
-    query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        inner_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id,
-        where: up.user_id == ^user.id and p.user_id == ^user.id,
-        where: upr.user_id == ^user.id,
-        where: not upr.is_read? and is_nil(upr.read_at)
-      )
-      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: user.id})
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
+    adapter().count_unread_user_own_posts(user, filter_prefs)
   end
 
   @doc """
@@ -249,30 +174,7 @@ defmodule Mosslet.Timeline do
   Now applies content filters to ensure unread counts match filtered timeline display.
   """
   def count_unread_bookmarked_posts(user, filter_prefs \\ %{}) do
-    query =
-      from(p in Post,
-        inner_join: b in Bookmark,
-        on: b.post_id == p.id,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        inner_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id,
-        where: b.user_id == ^user.id,
-        where: up.user_id == ^user.id,
-        where: upr.user_id == ^user.id,
-        where: not upr.is_read? and is_nil(upr.read_at)
-      )
-      |> apply_bookmark_unread_database_filters(%{
-        filter_prefs: filter_prefs,
-        current_user_id: user.id
-      })
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
+    adapter().count_unread_bookmarked_posts(user, filter_prefs)
   end
 
   @doc """
@@ -297,17 +199,7 @@ defmodule Mosslet.Timeline do
 
   """
   def list_posts(user, options) do
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      where: up.user_id == ^user.id and p.visibility != :public,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :replies]
-    )
-    |> filter_by_user_id(options)
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
+    adapter().list_posts(user, options)
   end
 
   @doc """
@@ -331,37 +223,14 @@ defmodule Mosslet.Timeline do
   connected replies.
   """
   def list_replies(post, options) do
-    user_connection_query = user_connection_subquery(options.current_user_id)
-
-    Reply
-    |> join(:inner, [r], p in assoc(r, :post))
-    |> where([r, p], r.post_id == ^post.id)
-    |> where(
-      [r, p],
-      r.user_id in subquery(user_connection_query) or r.user_id == ^options.current_user_id
-    )
-    |> reply_sort(options)
-    |> paginate(options)
-    |> preload([:user, :post])
-    |> Repo.all()
+    adapter().list_replies(post, options)
   end
 
   @doc """
   Returns the first (latest) reply for a post.
   """
   def first_reply(post, options) do
-    user_connection_query = user_connection_subquery(options.current_user_id)
-
-    Reply
-    |> join(:inner, [r], p in Post, on: p.id == r.post_id)
-    |> where([r, p], r.post_id == ^post.id)
-    |> where(
-      [r, p],
-      r.user_id in subquery(user_connection_query) or r.user_id == ^options.current_user_id
-    )
-    |> sort(options)
-    |> preload([:user, :post])
-    |> Repo.first()
+    adapter().first_reply(post, options)
   end
 
   @doc """
@@ -370,28 +239,14 @@ defmodule Mosslet.Timeline do
   This does not apply a current_user check.
   """
   def first_public_reply(post, options) do
-    Reply
-    |> join(:inner, [r], p in Post, on: p.id == r.post_id)
-    |> where([r, p], r.post_id == ^post.id)
-    |> sort(options)
-    |> preload([:user, :post])
-    |> Repo.first()
+    adapter().first_public_reply(post, options)
   end
 
   @doc """
   Returns a list of posts shared between two users.
   """
   def list_shared_posts(user_id, current_user_id, options) do
-    Post
-    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-    |> join(:inner, [p, up], up2 in UserPost, on: up2.post_id == p.id)
-    |> where([p, up, up2], up.user_id == ^user_id and up2.user_id == ^current_user_id)
-    |> where([p, up, up2], p.user_id == ^user_id or p.user_id == ^current_user_id)
-    |> where([p, up, up2], p.visibility == :connections)
-    |> sort(options)
-    |> paginate(options)
-    |> preload([:user_posts, :group, :user_group, :replies])
-    |> Repo.all()
+    adapter().list_shared_posts(user_id, current_user_id, options)
   end
 
   @doc """
@@ -458,13 +313,7 @@ defmodule Mosslet.Timeline do
   Uses the same logic as unread_posts/1 but optimized for counting.
   """
   def count_unread_posts_for_user(user) do
-    Post
-    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-    |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
-    |> where([p, up, upr], upr.user_id == ^user.id)
-    |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
-    |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
-    |> Repo.aggregate(:count, :id)
+    adapter().count_unread_posts_for_user(user)
   end
 
   @doc """
@@ -473,18 +322,7 @@ defmodule Mosslet.Timeline do
   Used for the in-app notification count on reply buttons.
   """
   def count_unread_replies_for_user(user) do
-    direct_to_posts = count_unread_direct_replies_for_user(user)
-    to_user_replies = count_unread_replies_to_user_replies(user)
-    direct_to_posts + to_user_replies
-  end
-
-  defp count_unread_direct_replies_for_user(user) do
-    Reply
-    |> join(:inner, [r], p in Post, on: r.post_id == p.id)
-    |> where([r, p], p.user_id == ^user.id)
-    |> where([r, p], r.user_id != ^user.id)
-    |> where([r, p], is_nil(r.read_at))
-    |> Repo.aggregate(:count, :id)
+    adapter().count_unread_replies_for_user(user)
   end
 
   @doc """
@@ -493,26 +331,7 @@ defmodule Mosslet.Timeline do
   Also includes replies to the user's own replies (nested replies) on any post.
   """
   def count_unread_replies_by_post(user) do
-    direct_replies = count_unread_direct_replies_by_post(user)
-    nested_replies = count_unread_replies_to_user_replies_by_post(user)
-    merge_reply_counts(direct_replies, nested_replies)
-  end
-
-  defp count_unread_direct_replies_by_post(user) do
-    Reply
-    |> join(:inner, [r], p in Post, on: r.post_id == p.id)
-    |> where([r, p], p.user_id == ^user.id)
-    |> where([r, p], r.user_id != ^user.id)
-    |> where([r, p], is_nil(r.read_at))
-    |> where([r, p], is_nil(r.parent_reply_id))
-    |> group_by([r, p], r.post_id)
-    |> select([r, p], {r.post_id, count(r.id)})
-    |> Repo.all()
-    |> Map.new()
-  end
-
-  defp merge_reply_counts(map1, map2) do
-    Map.merge(map1, map2, fn _key, v1, v2 -> v1 + v2 end)
+    adapter().count_unread_replies_by_post(user)
   end
 
   @doc """
@@ -520,12 +339,7 @@ defmodule Mosslet.Timeline do
   This notifies users when someone replies to their reply on any post.
   """
   def count_unread_replies_to_user_replies(user) do
-    Reply
-    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-    |> where([r, parent], parent.user_id == ^user.id)
-    |> where([r, parent], r.user_id != ^user.id)
-    |> where([r, parent], is_nil(r.read_at))
-    |> Repo.aggregate(:count, :id)
+    adapter().count_unread_replies_to_user_replies(user)
   end
 
   @doc """
@@ -533,15 +347,7 @@ defmodule Mosslet.Timeline do
   Used to show unread indicators on nested reply toggle buttons.
   """
   def count_unread_nested_replies_by_parent(user) do
-    Reply
-    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-    |> where([r, parent], parent.user_id == ^user.id)
-    |> where([r, parent], r.user_id != ^user.id)
-    |> where([r, parent], is_nil(r.read_at))
-    |> group_by([r, parent], r.parent_reply_id)
-    |> select([r, parent], {r.parent_reply_id, count(r.id)})
-    |> Repo.all()
-    |> Map.new()
+    adapter().count_unread_nested_replies_by_parent(user)
   end
 
   @doc """
@@ -549,18 +355,7 @@ defmodule Mosslet.Timeline do
   Called when user expands a nested reply thread.
   """
   def mark_nested_replies_read_for_parent(parent_reply_id, user_id) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    {count, _} =
-      Reply
-      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-      |> where([r, parent], r.parent_reply_id == ^parent_reply_id)
-      |> where([r, parent], parent.user_id == ^user_id)
-      |> where([r, parent], r.user_id != ^user_id)
-      |> where([r, parent], is_nil(r.read_at))
-      |> Repo.update_all(set: [read_at: now])
-
-    count
+    adapter().mark_nested_replies_read_for_parent(parent_reply_id, user_id)
   end
 
   @doc """
@@ -568,15 +363,7 @@ defmodule Mosslet.Timeline do
   replies by the user that have been replied to by others.
   """
   def count_unread_replies_to_user_replies_by_post(user) do
-    Reply
-    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-    |> where([r, parent], parent.user_id == ^user.id)
-    |> where([r, parent], r.user_id != ^user.id)
-    |> where([r, parent], is_nil(r.read_at))
-    |> group_by([r, parent], r.post_id)
-    |> select([r, parent], {r.post_id, count(r.id)})
-    |> Repo.all()
-    |> Map.new()
+    adapter().count_unread_replies_to_user_replies_by_post(user)
   end
 
   @doc """
@@ -584,13 +371,7 @@ defmodule Mosslet.Timeline do
   Returns the count of unread nested replies on that post.
   """
   def count_unread_nested_replies_for_post(post_id, user_id) do
-    Reply
-    |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-    |> where([r, parent], r.post_id == ^post_id)
-    |> where([r, parent], parent.user_id == ^user_id)
-    |> where([r, parent], r.user_id != ^user_id)
-    |> where([r, parent], is_nil(r.read_at))
-    |> Repo.aggregate(:count, :id)
+    adapter().count_unread_nested_replies_for_post(post_id, user_id)
   end
 
   @doc """
@@ -601,12 +382,7 @@ defmodule Mosslet.Timeline do
   Returns the number of replies marked as read.
   """
   def mark_replies_read_for_post(post_id, user_id) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    direct_count = mark_direct_replies_read_for_post(post_id, user_id, now)
-    nested_count = mark_nested_replies_read_for_post(post_id, user_id, now)
-
-    direct_count + nested_count
+    adapter().mark_replies_read_for_post(post_id, user_id)
   end
 
   @doc """
@@ -633,19 +409,6 @@ defmodule Mosslet.Timeline do
     count
   end
 
-  defp mark_nested_replies_read_for_post(post_id, user_id, now) do
-    {count, _} =
-      Reply
-      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-      |> where([r, parent], r.post_id == ^post_id)
-      |> where([r, parent], parent.user_id == ^user_id)
-      |> where([r, parent], r.user_id != ^user_id)
-      |> where([r, parent], is_nil(r.read_at))
-      |> Repo.update_all(set: [read_at: now])
-
-    count
-  end
-
   @doc """
   Marks all unread replies to all of a user's posts as read,
   plus replies to the user's own replies (nested replies).
@@ -653,36 +416,7 @@ defmodule Mosslet.Timeline do
   Returns the number of replies marked as read.
   """
   def mark_all_replies_read_for_user(user_id) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    direct_count = mark_all_direct_replies_read_for_user(user_id, now)
-    nested_count = mark_all_nested_replies_read_for_user(user_id, now)
-
-    direct_count + nested_count
-  end
-
-  defp mark_all_direct_replies_read_for_user(user_id, now) do
-    {count, _} =
-      Reply
-      |> join(:inner, [r], p in Post, on: r.post_id == p.id)
-      |> where([r, p], p.user_id == ^user_id)
-      |> where([r, p], r.user_id != ^user_id)
-      |> where([r, p], is_nil(r.read_at))
-      |> Repo.update_all(set: [read_at: now])
-
-    count
-  end
-
-  defp mark_all_nested_replies_read_for_user(user_id, now) do
-    {count, _} =
-      Reply
-      |> join(:inner, [r], parent in Reply, on: r.parent_reply_id == parent.id)
-      |> where([r, parent], parent.user_id == ^user_id)
-      |> where([r, parent], r.user_id != ^user_id)
-      |> where([r, parent], is_nil(r.read_at))
-      |> Repo.update_all(set: [read_at: now])
-
-    count
+    adapter().mark_all_replies_read_for_user(user_id)
   end
 
   @doc """
@@ -690,23 +424,7 @@ defmodule Mosslet.Timeline do
   have not been read yet.
   """
   def unread_posts(current_user) do
-    Post
-    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-    |> join(:inner, [p, up, upr], upr in UserPostReceipt, on: upr.user_post_id == up.id)
-    |> where([p, up, upr], upr.user_id == ^current_user.id)
-    |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
-    |> with_any_visibility([:private, :connections, :specific_groups, :specific_users])
-    # Unread posts first (false comes before true)
-    |> order_by([p, up, upr],
-      asc: upr.is_read?,
-      # Most recent posts first within each group
-      desc: p.inserted_at,
-      # Secondary sort on read_at
-      asc: upr.read_at
-    )
-    |> preload([:user_posts, :user, :replies])
-    |> Repo.all()
-    |> add_nested_replies_to_posts(%{current_user_id: current_user.id})
+    adapter().unread_posts(current_user)
   end
 
   defp with_any_visibility(query, visibility_list) do
@@ -1144,17 +862,7 @@ defmodule Mosslet.Timeline do
 
   """
   def list_public_posts(options) do
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.visibility == :public,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :replies]
-    )
-    |> filter_by_user_id(options)
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
+    adapter().list_public_posts(nil, options)
   end
 
   @doc """
@@ -1165,10 +873,8 @@ defmodule Mosslet.Timeline do
   def list_connection_posts(current_user, options \\ %{})
 
   def list_connection_posts(current_user, options) do
-    # Ensure options always include current user's content filter preferences
     options_with_filters = ensure_filter_prefs(options, current_user)
 
-    # Try cache first (for first page only)
     posts =
       if !options_with_filters[:skip_cache] && (options_with_filters[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "connections") do
@@ -1177,7 +883,7 @@ defmodule Mosslet.Timeline do
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_connection_posts_from_db(current_user, options_with_filters)
+            posts = adapter().fetch_connection_posts(current_user, options_with_filters)
 
             timeline_data = %{
               posts: posts,
@@ -1189,10 +895,9 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_connection_posts_from_db(current_user, options_with_filters)
+        adapter().fetch_connection_posts(current_user, options_with_filters)
       end
 
-    # Database filtering is already applied in fetch functions, no need for additional filtering
     posts
   end
 
@@ -1274,74 +979,12 @@ defmodule Mosslet.Timeline do
     end
   end
 
-  defp fetch_connection_posts_from_db(current_user, options) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    if Enum.empty?(connection_user_ids) do
-      []
-    else
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      # FIXED: Use LEFT JOIN to include posts without receipts (like Home tab)
-      |> join(:left, [p, up], upr in UserPostReceipt,
-        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
-      )
-      |> where([p, up], up.user_id == ^current_user.id)
-      |> where([p, up], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
-      |> where([p], p.visibility in [:connections, :specific_users])
-      |> apply_database_filters(options)
-      |> preload([:user_posts, :user, :replies, :user_post_receipts])
-      |> order_by([p, up, upr],
-        # Unread posts first: false (unread) < true (read)
-        # COALESCE treats NULL (no join record) as true (read)
-        asc: coalesce(upr.is_read?, true),
-        # Most recent posts first within each group
-        desc: p.inserted_at
-      )
-      # Uses post_page and post_per_page
-      |> paginate(options)
-      |> Repo.all()
-      |> add_nested_replies_to_posts(options)
-    end
-  end
-
   @doc """
   Gets the count of unread connection posts (for Connections tab unread indicator).
   Now applies content filters to ensure unread counts match filtered timeline display.
   """
   def count_unread_connection_posts(current_user, filter_prefs \\ %{}) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    if Enum.empty?(connection_user_ids) do
-      0
-    else
-      query =
-        from(p in Post,
-          inner_join: up in UserPost,
-          on: up.post_id == p.id,
-          inner_join: upr in UserPostReceipt,
-          on: upr.user_post_id == up.id,
-          where: up.user_id == ^current_user.id,
-          where: p.user_id in ^connection_user_ids and p.user_id != ^current_user.id,
-          where: p.visibility in [:connections, :specific_users],
-          where: upr.user_id == ^current_user.id,
-          where: not upr.is_read? and is_nil(upr.read_at)
-        )
-        |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-
-      count = Repo.aggregate(query, :count, :id)
-
-      case count do
-        nil -> 0
-        count -> count
-      end
-    end
+    adapter().count_unread_connection_posts(current_user, filter_prefs)
   end
 
   @doc """
@@ -1349,7 +992,6 @@ defmodule Mosslet.Timeline do
   These are posts with visibility :specific_groups where the user is in the shared_users list.
   """
   def list_group_posts(current_user, options \\ %{}) do
-    # Try cache first (for first page only)
     posts =
       if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "groups") do
@@ -1358,7 +1000,7 @@ defmodule Mosslet.Timeline do
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_group_posts_from_db(current_user, options)
+            posts = adapter().fetch_group_posts(current_user, options)
 
             timeline_data = %{
               posts: posts,
@@ -1370,70 +1012,17 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_group_posts_from_db(current_user, options)
+        adapter().fetch_group_posts(current_user, options)
       end
 
-    # Database filtering is already applied in fetch functions
     posts
-  end
-
-  defp fetch_group_posts_from_db(current_user, options) do
-    Post
-    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-    # LEFT JOIN to include posts without receipts
-    |> join(:left, [p, up], upr in UserPostReceipt,
-      on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
-    )
-    |> where([p, up], up.user_id == ^current_user.id)
-    # Only show posts with specific_groups visibility (group posts)
-    |> where([p], p.visibility == :specific_groups)
-    # Only show posts that were shared WITH the current user (not created BY them)
-    |> where([p], p.user_id != ^current_user.id)
-    |> apply_database_filters(options)
-    |> preload([:user_posts, :user, :replies, :user_post_receipts])
-    |> order_by([p, up, upr],
-      # Unread posts first: false (unread) < true (read)
-      # COALESCE treats NULL (no join record) as true (read)
-      asc: coalesce(upr.is_read?, true),
-      # Most recent posts first within each group
-      desc: p.inserted_at
-    )
-    # Uses post_page and post_per_page
-    |> paginate(options)
-    |> Repo.all()
-    |> add_nested_replies_to_posts(options)
   end
 
   @doc """
   Counts group posts for the current user where visibility is :specific_groups.
   """
   def count_group_posts(current_user, filter_prefs \\ %{}) do
-    query =
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> where([p, up], up.user_id == ^current_user.id)
-      # Only count posts with specific_groups visibility
-      |> where([p], p.visibility == :specific_groups)
-      # Only count posts that were shared WITH the current user (not created BY them)
-      |> where([p], p.user_id != ^current_user.id)
-
-    # Apply filters if provided
-    query =
-      if filter_prefs != %{} do
-        apply_database_filters(query, %{
-          filter_prefs: filter_prefs,
-          current_user_id: current_user.id
-        })
-      else
-        query
-      end
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
+    adapter().count_group_posts(current_user, filter_prefs)
   end
 
   @doc """
@@ -1441,26 +1030,7 @@ defmodule Mosslet.Timeline do
   Now applies content filters to ensure unread counts match filtered timeline display.
   """
   def count_unread_group_posts(current_user, filter_prefs \\ %{}) do
-    query =
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> join(:inner, [p, up], upr in UserPostReceipt,
-        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
-      )
-      |> where([p, up], up.user_id == ^current_user.id)
-      # Only count posts with specific_groups visibility
-      |> where([p], p.visibility == :specific_groups)
-      # Only count posts that were shared WITH the current user (not created BY them)
-      |> where([p], p.user_id != ^current_user.id)
-      |> where([p, up, upr], not upr.is_read? and is_nil(upr.read_at))
-      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
+    adapter().count_unread_group_posts(current_user, filter_prefs)
   end
 
   @doc """
@@ -1469,14 +1039,13 @@ defmodule Mosslet.Timeline do
   def list_discover_posts(current_user \\ nil, options \\ %{}) do
     posts =
       if current_user && !options[:skip_cache] && (options[:post_page] || 1) == 1 do
-        # Try cache for first page of discover posts
         case TimelineCache.get_timeline_data(current_user.id, "discover") do
           {:hit, cached_data} ->
             Logger.debug("Discover timeline cache hit for user #{current_user.id}")
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_discover_posts_from_db(current_user, options)
+            posts = adapter().fetch_discover_posts(current_user, options)
 
             timeline_data = %{
               posts: posts,
@@ -1488,142 +1057,17 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_discover_posts_from_db(current_user, options)
+        adapter().fetch_discover_posts(current_user, options)
       end
 
-    # Database filtering is already applied in fetch functions, no need for additional filtering
-
     posts
-  end
-
-  defp fetch_discover_posts_from_db(current_user, options) do
-    if current_user do
-      author_filter = get_in(options, [:filter_prefs, :author_filter]) || :all
-
-      connection_user_ids =
-        if author_filter == :connections do
-          Accounts.get_all_confirmed_user_connections(current_user.id)
-          |> Enum.map(& &1.reverse_user_id)
-          |> Enum.uniq()
-        else
-          []
-        end
-
-      public_post_ids =
-        from(p in Post,
-          inner_join: up in UserPost,
-          on: up.post_id == p.id,
-          where: p.visibility == :public,
-          select: p.id
-        )
-
-      base_query =
-        from(p in Post,
-          left_join: up in UserPost,
-          on: up.post_id == p.id and up.user_id == ^current_user.id,
-          left_join: upr in UserPostReceipt,
-          on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
-          where: p.id in subquery(public_post_ids),
-          order_by: [
-            asc: coalesce(upr.is_read?, true),
-            desc: p.inserted_at
-          ],
-          preload: [:user_posts, :replies, :user_post_receipts]
-        )
-
-      query =
-        case author_filter do
-          :mine ->
-            base_query |> where([p], p.user_id == ^current_user.id)
-
-          :connections ->
-            if Enum.empty?(connection_user_ids) do
-              base_query |> where([p], false)
-            else
-              base_query |> where([p], p.user_id in ^connection_user_ids)
-            end
-
-          _ ->
-            base_query
-        end
-
-      query
-      |> apply_database_filters(options)
-      |> paginate(options)
-      |> Repo.all()
-      |> add_nested_replies_to_posts(options)
-    else
-      public_post_ids =
-        from(p in Post,
-          inner_join: up in UserPost,
-          on: up.post_id == p.id,
-          where: p.visibility == :public,
-          select: p.id
-        )
-
-      from(p in Post,
-        where: p.id in subquery(public_post_ids),
-        order_by: [desc: p.inserted_at],
-        preload: [:user_posts, :replies]
-      )
-      |> apply_database_filters(options)
-      |> paginate(options)
-      |> Repo.all()
-      |> add_nested_replies_to_posts(options)
-    end
   end
 
   @doc """
   Counts public posts for discover timeline.
   """
   def count_discover_posts(current_user \\ nil, filter_prefs \\ %{}) do
-    options =
-      if current_user do
-        %{filter_prefs: filter_prefs, current_user_id: current_user.id}
-      else
-        %{filter_prefs: filter_prefs}
-      end
-
-    author_filter = filter_prefs[:author_filter] || :all
-
-    connection_user_ids =
-      if current_user && author_filter == :connections do
-        Accounts.get_all_confirmed_user_connections(current_user.id)
-        |> Enum.map(& &1.reverse_user_id)
-        |> Enum.uniq()
-      else
-        []
-      end
-
-    base_query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.visibility == :public,
-        distinct: p.id
-      )
-      |> apply_database_filters(options)
-
-    query =
-      case {current_user, author_filter} do
-        {nil, _} ->
-          base_query
-
-        {user, :mine} ->
-          base_query |> where([p], p.user_id == ^user.id)
-
-        {_user, :connections} ->
-          if Enum.empty?(connection_user_ids) do
-            base_query |> where([p], false)
-          else
-            base_query |> where([p], p.user_id in ^connection_user_ids)
-          end
-
-        _ ->
-          base_query
-      end
-
-    Repo.aggregate(query, :count, :id)
+    adapter().count_discover_posts(current_user, filter_prefs)
   end
 
   @doc """
@@ -1631,45 +1075,7 @@ defmodule Mosslet.Timeline do
   Now applies content filters to ensure unread counts match filtered timeline display.
   """
   def count_unread_discover_posts(current_user, filter_prefs \\ %{}) do
-    author_filter = filter_prefs[:author_filter] || :all
-
-    connection_user_ids =
-      if author_filter == :connections do
-        Accounts.get_all_confirmed_user_connections(current_user.id)
-        |> Enum.map(& &1.reverse_user_id)
-        |> Enum.uniq()
-      else
-        []
-      end
-
-    base_query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        inner_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id,
-        where: p.visibility == :public,
-        where: not upr.is_read?
-      )
-      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-
-    query =
-      case author_filter do
-        :mine ->
-          base_query |> where([p], p.user_id == ^current_user.id)
-
-        :connections ->
-          if Enum.empty?(connection_user_ids) do
-            base_query |> where([p], false)
-          else
-            base_query |> where([p], p.user_id in ^connection_user_ids)
-          end
-
-        _ ->
-          base_query
-      end
-
-    Repo.aggregate(query, :count, :id)
+    adapter().count_unread_discover_posts(current_user, filter_prefs)
   end
 
   @doc """
@@ -1679,7 +1085,6 @@ defmodule Mosslet.Timeline do
   def list_user_own_posts(current_user, options \\ %{})
 
   def list_user_own_posts(current_user, options) do
-    # Try cache first (for first page only)
     posts =
       if !options[:skip_cache] && (options[:post_page] || 1) == 1 do
         case TimelineCache.get_timeline_data(current_user.id, "home") do
@@ -1688,7 +1093,7 @@ defmodule Mosslet.Timeline do
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_user_own_posts_from_db(current_user, options)
+            posts = adapter().fetch_user_own_posts(current_user, options)
 
             timeline_data = %{
               posts: posts,
@@ -1700,31 +1105,10 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_user_own_posts_from_db(current_user, options)
+        adapter().fetch_user_own_posts(current_user, options)
       end
 
-    # Database filtering is already applied in fetch functions, no need for additional filtering
     posts
-  end
-
-  defp fetch_user_own_posts_from_db(current_user, options) do
-    Post
-    |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-    |> join(:left, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
-    |> where([p, up], up.user_id == ^current_user.id and p.user_id == ^current_user.id)
-    |> with_any_visibility([:private, :connections, :public, :specific_groups, :specific_users])
-    |> apply_database_filters(options)
-    |> preload([:user_posts, :user, :replies, :user_post_receipts])
-    |> order_by([p, up, upr],
-      # Unread posts first: false (unread) < true (read)
-      # COALESCE treats NULL (no join record) as true (read)
-      asc: coalesce(upr.is_read?, true),
-      # Most recent posts first within each group
-      desc: p.inserted_at
-    )
-    |> paginate(options)
-    |> Repo.all()
-    |> add_nested_replies_to_posts(options)
   end
 
   @doc """
@@ -1757,7 +1141,7 @@ defmodule Mosslet.Timeline do
             cached_data[:posts] || []
 
           :miss ->
-            posts = fetch_home_timeline_from_db(current_user, options_with_filters)
+            posts = adapter().fetch_home_timeline(current_user, options_with_filters)
 
             timeline_data = %{
               posts: posts,
@@ -1769,92 +1153,10 @@ defmodule Mosslet.Timeline do
             posts
         end
       else
-        fetch_home_timeline_from_db(current_user, options_with_filters)
+        adapter().fetch_home_timeline(current_user, options_with_filters)
       end
 
     posts
-  end
-
-  defp fetch_home_timeline_from_db(current_user, options) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    author_filter = get_in(options, [:filter_prefs, :author_filter]) || :all
-
-    base_query =
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> join(:left, [p, up], upr in UserPostReceipt,
-        on: upr.user_post_id == up.id and upr.user_id == ^current_user.id
-      )
-      |> where([p, up], up.user_id == ^current_user.id)
-
-    query =
-      case author_filter do
-        :mine ->
-          base_query
-          |> where([p], p.user_id == ^current_user.id)
-          |> with_any_visibility([
-            :private,
-            :connections,
-            :public,
-            :specific_groups,
-            :specific_users
-          ])
-
-        :connections ->
-          if Enum.empty?(connection_user_ids) do
-            base_query |> where([p], false)
-          else
-            base_query
-            |> where([p], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
-            |> where([p], p.visibility in [:connections, :specific_users, :specific_groups])
-          end
-
-        _ ->
-          if Enum.empty?(connection_user_ids) do
-            base_query
-            |> where([p], p.user_id == ^current_user.id)
-            |> with_any_visibility([
-              :private,
-              :connections,
-              :public,
-              :specific_groups,
-              :specific_users
-            ])
-          else
-            all_author_ids = [current_user.id | connection_user_ids]
-
-            base_query
-            |> where([p], p.user_id in ^all_author_ids)
-            |> where(
-              [p],
-              (p.user_id == ^current_user.id and
-                 p.visibility in [
-                   :private,
-                   :connections,
-                   :public,
-                   :specific_groups,
-                   :specific_users
-                 ]) or
-                (p.user_id != ^current_user.id and
-                   p.visibility in [:connections, :specific_users, :specific_groups])
-            )
-          end
-      end
-
-    query
-    |> apply_database_filters(options)
-    |> preload([:user_posts, :user, :replies, :user_post_receipts])
-    |> order_by([p, up, upr],
-      asc: coalesce(upr.is_read?, true),
-      desc: p.inserted_at
-    )
-    |> paginate(options)
-    |> Repo.all()
-    |> add_nested_replies_to_posts(options)
   end
 
   @doc """
@@ -1862,64 +1164,7 @@ defmodule Mosslet.Timeline do
   Supports author_filter in filter_prefs: :all | :mine | :connections
   """
   def count_home_timeline(current_user, filter_prefs \\ %{}) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    author_filter = filter_prefs[:author_filter] || :all
-
-    base_query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        where: up.user_id == ^current_user.id,
-        distinct: p.id
-      )
-
-    query =
-      case author_filter do
-        :mine ->
-          base_query
-          |> where([p], p.user_id == ^current_user.id)
-
-        :connections ->
-          if Enum.empty?(connection_user_ids) do
-            base_query |> where([p], false)
-          else
-            base_query
-            |> where([p], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
-            |> where([p], p.visibility in [:connections, :specific_users, :specific_groups])
-          end
-
-        _ ->
-          if Enum.empty?(connection_user_ids) do
-            base_query
-            |> where([p], p.user_id == ^current_user.id)
-          else
-            all_author_ids = [current_user.id | connection_user_ids]
-
-            base_query
-            |> where([p], p.user_id in ^all_author_ids)
-            |> where(
-              [p],
-              (p.user_id == ^current_user.id and
-                 p.visibility in [
-                   :private,
-                   :connections,
-                   :public,
-                   :specific_groups,
-                   :specific_users
-                 ]) or
-                (p.user_id != ^current_user.id and
-                   p.visibility in [:connections, :specific_users, :specific_groups])
-            )
-          end
-      end
-
-    query
-    |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-    |> Repo.aggregate(:count, :id) || 0
+    adapter().count_home_timeline(current_user, filter_prefs)
   end
 
   @doc """
@@ -1927,82 +1172,11 @@ defmodule Mosslet.Timeline do
   Supports author_filter in filter_prefs: :all | :mine | :connections
   """
   def count_unread_home_timeline(current_user, filter_prefs \\ %{}) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user.id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    author_filter = filter_prefs[:author_filter] || :all
-
-    base_query =
-      from(p in Post,
-        inner_join: up in UserPost,
-        on: up.post_id == p.id,
-        inner_join: upr in UserPostReceipt,
-        on: upr.user_post_id == up.id,
-        where: up.user_id == ^current_user.id,
-        where: upr.user_id == ^current_user.id,
-        where: not upr.is_read? and is_nil(upr.read_at)
-      )
-
-    query =
-      case author_filter do
-        :mine ->
-          base_query
-          |> where([p], p.user_id == ^current_user.id)
-
-        :connections ->
-          if Enum.empty?(connection_user_ids) do
-            base_query |> where([p], false)
-          else
-            base_query
-            |> where([p], p.user_id in ^connection_user_ids and p.user_id != ^current_user.id)
-            |> where([p], p.visibility in [:connections, :specific_users, :specific_groups])
-          end
-
-        _ ->
-          if Enum.empty?(connection_user_ids) do
-            base_query
-            |> where([p], p.user_id == ^current_user.id)
-          else
-            all_author_ids = [current_user.id | connection_user_ids]
-
-            base_query
-            |> where([p], p.user_id in ^all_author_ids)
-            |> where(
-              [p],
-              (p.user_id == ^current_user.id and
-                 p.visibility in [
-                   :private,
-                   :connections,
-                   :public,
-                   :specific_groups,
-                   :specific_users
-                 ]) or
-                (p.user_id != ^current_user.id and
-                   p.visibility in [:connections, :specific_users, :specific_groups])
-            )
-          end
-      end
-
-    query
-    |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: current_user.id})
-    |> Repo.aggregate(:count, :id) || 0
+    adapter().count_unread_home_timeline(current_user, filter_prefs)
   end
 
   def list_public_replies(post, options) do
-    from(r in Reply,
-      inner_join: p in Post,
-      on: p.id == r.post_id,
-      where: r.post_id == ^post.id,
-      where: r.visibility == :public,
-      order_by: [desc: r.inserted_at],
-      preload: [:user, :post]
-    )
-    |> filter_by_user_id(options)
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
+    adapter().list_public_replies(post, options)
   end
 
   @doc """
@@ -2019,19 +1193,8 @@ defmodule Mosslet.Timeline do
       [%Post{}, ...]
 
   """
-  def list_public_profile_posts(user, _viewer, hidden_post_ids, options) do
-    from(p in Post,
-      inner_join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.user_id == ^user.id and p.visibility == :public,
-      where: p.id not in ^hidden_post_ids,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group]
-    )
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
-    |> add_nested_replies_to_posts(options)
+  def list_public_profile_posts(user, viewer, hidden_post_ids, options) do
+    adapter().list_public_profile_posts(user, viewer, hidden_post_ids, options)
   end
 
   @doc """
@@ -2047,112 +1210,11 @@ defmodule Mosslet.Timeline do
   - :post_per_page - posts per page (default: 10)
   """
   def list_profile_posts_visible_to(profile_user, viewer, options \\ %{}) do
-    profile_user_id = profile_user.id
-    viewer_id = viewer.id
-
-    hidden_post_ids = list_hidden_post_ids(viewer)
-
-    cond do
-      profile_user_id == viewer_id ->
-        list_own_profile_posts(profile_user, options)
-
-      is_blocked_profile?(profile_user_id, viewer_id) ->
-        []
-
-      Accounts.has_confirmed_user_connection?(profile_user, viewer_id) ->
-        list_connection_profile_posts(profile_user, viewer, hidden_post_ids, options)
-
-      true ->
-        list_public_profile_posts(profile_user, viewer, hidden_post_ids, options)
-    end
-  end
-
-  defp is_blocked_profile?(profile_user_id, viewer_id) do
-    from(ub in UserBlock,
-      where:
-        (ub.blocker_id == ^viewer_id and ub.blocked_id == ^profile_user_id and
-           ub.block_type in [:full, :posts_only]) or
-          (ub.blocker_id == ^profile_user_id and ub.blocked_id == ^viewer_id and
-             ub.block_type in [:full, :posts_only])
-    )
-    |> Repo.exists?()
-  end
-
-  defp list_own_profile_posts(user, options) do
-    from(p in Post,
-      where: p.user_id == ^user.id,
-      where: is_nil(p.group_id),
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :user]
-    )
-    |> paginate(options)
-    |> Repo.all()
-    |> add_nested_replies_to_posts(options)
-  end
-
-  defp list_connection_profile_posts(profile_user, viewer, hidden_post_ids, options) do
-    profile_user_id = profile_user.id
-    viewer_id = viewer.id
-
-    from(p in Post,
-      left_join: up in UserPost,
-      on: up.post_id == p.id and up.user_id == ^viewer_id,
-      where: p.user_id == ^profile_user_id,
-      where: is_nil(p.group_id),
-      where: p.id not in ^hidden_post_ids,
-      where:
-        p.visibility == :public or
-          (p.visibility == :connections and not is_nil(up.id)) or
-          (p.visibility == :specific_users and not is_nil(up.id)) or
-          (p.visibility == :specific_groups and not is_nil(up.id)),
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :user]
-    )
-    |> paginate(options)
-    |> Repo.all()
-    |> add_nested_replies_to_posts(options)
+    adapter().list_profile_posts_visible_to(profile_user, viewer, options)
   end
 
   def count_profile_posts_visible_to(profile_user, viewer) do
-    profile_user_id = profile_user.id
-    viewer_id = viewer.id
-
-    hidden_post_ids = list_hidden_post_ids(viewer)
-
-    cond do
-      profile_user_id == viewer_id ->
-        from(p in Post,
-          where: p.user_id == ^profile_user_id,
-          where: is_nil(p.group_id)
-        )
-        |> Repo.aggregate(:count)
-
-      is_blocked_profile?(profile_user_id, viewer_id) ->
-        0
-
-      Accounts.has_confirmed_user_connection?(profile_user, viewer_id) ->
-        from(p in Post,
-          left_join: up in UserPost,
-          on: up.post_id == p.id and up.user_id == ^viewer_id,
-          where: p.user_id == ^profile_user_id,
-          where: is_nil(p.group_id),
-          where: p.id not in ^hidden_post_ids,
-          where:
-            p.visibility == :public or
-              (p.visibility == :connections and not is_nil(up.id)) or
-              (p.visibility == :specific_users and not is_nil(up.id)) or
-              (p.visibility == :specific_groups and not is_nil(up.id))
-        )
-        |> Repo.aggregate(:count)
-
-      true ->
-        from(p in Post,
-          where: p.user_id == ^profile_user_id and p.visibility == :public,
-          where: is_nil(p.group_id),
-          where: p.id not in ^hidden_post_ids
-        )
-        |> Repo.aggregate(:count)
-    end
+    adapter().count_profile_posts_visible_to(profile_user, viewer)
   end
 
   defp filter_by_user_id(query, %{filter: %{user_id: ""}}), do: query
@@ -2218,34 +1280,11 @@ defmodule Mosslet.Timeline do
   Lists all posts for a group and user.
   """
   def list_user_group_posts(group, user) do
-    from(p in Post,
-      join: up in UserPost,
-      on: up.post_id == p.id,
-      where: p.group_id == ^group.id,
-      where: p.user_id == ^user.id,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group, :replies]
-    )
-    |> Repo.all()
+    adapter().list_user_group_posts(group, user)
   end
 
   def list_own_connection_posts(user, opts) do
-    limit = Keyword.fetch!(opts, :limit)
-    offset = Keyword.get(opts, :offset, 0)
-
-    from(p in Post,
-      join: up in UserPost,
-      on: up.post_id == p.id,
-      join: u in User,
-      on: up.user_id == u.id,
-      where: p.visibility == :connections and p.user_id == ^user.id,
-      where: is_nil(p.group_id),
-      offset: ^offset,
-      limit: ^limit,
-      order_by: [desc: p.inserted_at],
-      preload: [:user_posts, :group, :user_group]
-    )
-    |> Repo.all()
+    adapter().list_own_connection_posts(user, opts)
   end
 
   def inc_favs(%Post{id: id}) do
@@ -2519,60 +1558,21 @@ defmodule Mosslet.Timeline do
   Counts total replies for a post (all levels).
   """
   def count_replies_for_post(post_id, options \\ %{}) do
-    query =
-      from(r in Reply,
-        where: r.post_id == ^post_id,
-        select: count(r.id)
-      )
-
-    filtered_query =
-      if options[:current_user_id] do
-        filter_by_blocked_users_replies(query, options[:current_user_id])
-      else
-        query
-      end
-
-    Repo.one(filtered_query) || 0
+    adapter().count_replies_for_post(post_id, options)
   end
 
   @doc """
   Counts top-level replies for a post (replies without a parent).
   """
   def count_top_level_replies(post_id, options \\ %{}) do
-    query =
-      from(r in Reply,
-        where: r.post_id == ^post_id and is_nil(r.parent_reply_id),
-        select: count(r.id)
-      )
-
-    filtered_query =
-      if options[:current_user_id] do
-        filter_by_blocked_users_replies(query, options[:current_user_id])
-      else
-        query
-      end
-
-    Repo.one(filtered_query) || 0
+    adapter().count_top_level_replies(post_id, options)
   end
 
   @doc """
   Counts child replies for a specific parent reply.
   """
   def count_child_replies(parent_reply_id, options \\ %{}) do
-    query =
-      from(r in Reply,
-        where: r.parent_reply_id == ^parent_reply_id,
-        select: count(r.id)
-      )
-
-    filtered_query =
-      if options[:current_user_id] do
-        filter_by_blocked_users_replies(query, options[:current_user_id])
-      else
-        query
-      end
-
-    Repo.one(filtered_query) || 0
+    adapter().count_child_replies(parent_reply_id, options)
   end
 
   @doc """
@@ -4724,76 +3724,14 @@ defmodule Mosslet.Timeline do
   Gets all bookmarks for a user with optional category filtering.
   """
   def list_user_bookmarks(user, opts \\ []) do
-    # Use database-level filtering by joining with posts table
-    query =
-      from b in Bookmark,
-        inner_join: p in Post,
-        on: b.post_id == p.id,
-        where: b.user_id == ^user.id,
-        order_by: [desc: b.inserted_at],
-        preload: [:category, post: [:user_posts, :replies, :user_post_receipts]],
-        select: b
-
-    query =
-      case opts[:category_id] do
-        nil -> query
-        category_id -> where(query, [b], b.category_id == ^category_id)
-      end
-
-    # Apply database-level content filtering on the joined Post table (p1)
-    # Since we're filtering posts through bookmarks, we need to reference the Post alias
-    query = apply_bookmark_database_filters(query, opts)
-
-    # Apply consistent pagination using post_page and post_per_page
-    query = paginate_bookmarks(query, opts)
-
-    # Get bookmarks and extract posts
-    query
-    |> Repo.all()
-    |> Enum.map(fn bookmark -> bookmark.post end)
-    |> Enum.filter(&(&1 != nil))
+    adapter().list_user_bookmarks(user, opts)
   end
 
   @doc """
   Counts a user's bookmarks.
   """
   def count_user_bookmarks(user, filter_prefs \\ %{}) do
-    bookmark_post_ids =
-      from(b in Bookmark,
-        where: b.user_id == ^user.id,
-        select: b.post_id
-      )
-
-    base_query =
-      from(p in Post,
-        where: p.id in subquery(bookmark_post_ids)
-      )
-      |> apply_database_filters(%{filter_prefs: filter_prefs, current_user_id: user.id})
-
-    author_filter = filter_prefs[:author_filter] || :all
-
-    query =
-      case author_filter do
-        :mine ->
-          base_query |> where([p], p.user_id == ^user.id)
-
-        :connections ->
-          connection_user_ids =
-            Accounts.get_all_confirmed_user_connections(user.id)
-            |> Enum.map(& &1.reverse_user_id)
-            |> Enum.uniq()
-
-          if Enum.empty?(connection_user_ids) do
-            base_query |> where([p], false)
-          else
-            base_query |> where([p], p.user_id in ^connection_user_ids)
-          end
-
-        _ ->
-          base_query
-      end
-
-    Repo.aggregate(query, :count, :id)
+    adapter().count_user_bookmarks(user, filter_prefs)
   end
 
   @doc """
@@ -4823,31 +3761,15 @@ defmodule Mosslet.Timeline do
   Creates a bookmark category for a user.
   """
   def create_bookmark_category(user, attrs) do
-    case Repo.transaction_on_primary(fn ->
-           %BookmarkCategory{}
-           |> BookmarkCategory.changeset(attrs)
-           |> Ecto.Changeset.put_assoc(:user, user)
-           |> Repo.insert()
-         end) do
-      {:ok, {:ok, category}} -> {:ok, category}
-      {:ok, {:error, changeset}} -> {:error, changeset}
-      error -> error
-    end
+    attrs = Map.put(attrs, :user_id, user.id)
+    adapter().create_bookmark_category(attrs)
   end
 
   @doc """
   Updates a bookmark category.
   """
   def update_bookmark_category(category, attrs) do
-    case Repo.transaction_on_primary(fn ->
-           category
-           |> BookmarkCategory.changeset(attrs)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_category}} -> {:ok, updated_category}
-      {:ok, {:error, changeset}} -> {:error, changeset}
-      error -> error
-    end
+    adapter().update_bookmark_category(category, attrs)
   end
 
   @doc """
@@ -4855,25 +3777,14 @@ defmodule Mosslet.Timeline do
   Note: This will set category_id to nil for existing bookmarks.
   """
   def delete_bookmark_category(category) do
-    case Repo.transaction_on_primary(fn ->
-           Repo.delete(category)
-         end) do
-      {:ok, {:ok, deleted_category}} -> {:ok, deleted_category}
-      {:ok, {:error, changeset}} -> {:error, changeset}
-      error -> error
-    end
+    adapter().delete_bookmark_category(category)
   end
 
   @doc """
   Gets all bookmark categories for a user.
   """
   def list_user_bookmark_categories(user) do
-    query =
-      from bc in BookmarkCategory,
-        where: bc.user_id == ^user.id,
-        order_by: [asc: bc.name]
-
-    Repo.all(query)
+    adapter().list_bookmark_categories(user)
   end
 
   @doc """

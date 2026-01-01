@@ -1,12 +1,18 @@
 defmodule Mosslet.Groups do
   @moduledoc """
   The Groups context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Groups.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Groups.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
   """
   require Logger
 
   import Ecto.Query, warn: false
-  alias Mosslet.Repo
 
+  alias Mosslet.Platform
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
   alias Mosslet.Encrypted
@@ -25,6 +31,17 @@ defmodule Mosslet.Groups do
   ]
 
   @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Groups.Adapters.Native
+    else
+      Mosslet.Groups.Adapters.Web
+    end
+  end
+
+  @doc """
   Returns the list of groups for a user.
 
   ## Examples
@@ -34,14 +51,7 @@ defmodule Mosslet.Groups do
 
   """
   def list_groups(user, options \\ []) do
-    Group
-    |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
-    |> where([g, ug], ug.user_id == ^user.id)
-    |> where_user_group_confirmed()
-    |> sort(options)
-    |> paginate(options)
-    |> preload([:user_groups])
-    |> Repo.all()
+    adapter().list_groups(user, options)
   end
 
   @doc """
@@ -53,23 +63,8 @@ defmodule Mosslet.Groups do
       [%Group{}, ...]
 
   """
-  def list_unconfirmed_groups(user, _opts \\ []) do
-    blocked_group_ids =
-      from(gb in GroupBlock,
-        where: gb.user_id == ^user.id,
-        select: gb.group_id
-      )
-
-    from(g in Group,
-      join: ug in UserGroup,
-      on: ug.group_id == g.id,
-      where: ug.user_id == ^user.id,
-      where: is_nil(ug.confirmed_at),
-      where: g.id not in subquery(blocked_group_ids),
-      order_by: [desc: g.inserted_at],
-      preload: [:user_groups]
-    )
-    |> Repo.all()
+  def list_unconfirmed_groups(user, opts \\ []) do
+    adapter().list_unconfirmed_groups(user, opts)
   end
 
   @doc """
@@ -83,13 +78,7 @@ defmodule Mosslet.Groups do
 
   """
   def list_user_groups(group) do
-    from(ug in UserGroup,
-      where: ug.group_id == ^group.id,
-      where: not is_nil(ug.confirmed_at),
-      select: ug,
-      preload: [:group, :memories, :posts, :user]
-    )
-    |> Repo.all()
+    adapter().list_user_groups(group)
   end
 
   @doc """
@@ -103,72 +92,11 @@ defmodule Mosslet.Groups do
 
   """
   def list_public_groups(user, search_term \\ nil, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 50)
-    offset = Keyword.get(opts, :offset, 0)
-
-    user_group_ids =
-      from(ug in UserGroup,
-        where: ug.user_id == ^user.id,
-        select: ug.group_id
-      )
-
-    blocked_group_ids =
-      from(gb in GroupBlock,
-        where: gb.user_id == ^user.id,
-        select: gb.group_id
-      )
-
-    query =
-      from(g in Group,
-        where: g.public? == true,
-        where: g.id not in subquery(user_group_ids),
-        where: g.id not in subquery(blocked_group_ids),
-        order_by: [desc: g.inserted_at],
-        limit: ^limit,
-        offset: ^offset,
-        preload: [:user_groups]
-      )
-
-    query =
-      if search_term && String.trim(search_term) != "" do
-        search_pattern = "%#{String.downcase(search_term)}%"
-        from(g in query, where: g.name_hash == ^search_pattern)
-      else
-        query
-      end
-
-    Repo.all(query)
+    adapter().list_public_groups(user, search_term, opts)
   end
 
   def public_group_count(user, search_term \\ nil) do
-    user_group_ids =
-      from(ug in UserGroup,
-        where: ug.user_id == ^user.id,
-        select: ug.group_id
-      )
-
-    blocked_group_ids =
-      from(gb in GroupBlock,
-        where: gb.user_id == ^user.id,
-        select: gb.group_id
-      )
-
-    query =
-      from(g in Group,
-        where: g.public? == true,
-        where: g.id not in subquery(user_group_ids),
-        where: g.id not in subquery(blocked_group_ids)
-      )
-
-    query =
-      if search_term && String.trim(search_term) != "" do
-        search_pattern = "%#{String.downcase(search_term)}%"
-        from(g in query, where: g.name_hash == ^search_pattern)
-      else
-        query
-      end
-
-    Repo.aggregate(query, :count)
+    adapter().public_group_count(user, search_term)
   end
 
   @doc """
@@ -177,49 +105,15 @@ defmodule Mosslet.Groups do
   UserConnection live show page.
   """
   def filter_groups_with_users(user_id, current_user_id, options) do
-    Group
-    |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
-    |> join(:inner, [g, ug], ug2 in UserGroup, on: ug2.group_id == g.id)
-    |> where([g, ug, ug2], ug.user_id == ^user_id and ug2.user_id == ^current_user_id)
-    |> with_confirmed()
-    |> sort(options[:sort])
-    |> limit(5)
-    |> preload([:user_groups])
-    |> Repo.all()
-  end
-
-  defp with_confirmed(query) do
-    query
-    |> where([g, ug, ug2], not is_nil(ug.confirmed_at) and not is_nil(ug2.confirmed_at))
+    adapter().filter_groups_with_users(user_id, current_user_id, options)
   end
 
   @doc """
   Lists all user_groups for a user (confirmed or not).
   """
   def list_user_groups_for_user(%User{} = user) do
-    from(ug in UserGroup,
-      where: ug.user_id == ^user.id,
-      select: ug,
-      preload: [:group, :memories, :posts, :user]
-    )
-    |> Repo.all()
+    adapter().list_user_groups_for_user(user)
   end
-
-  defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, _options), do: order_by(query, [g, ug], {:desc, g.inserted_at})
-
-  defp paginate(query, %{page: page, per_page: per_page}) do
-    offset = max((page - 1) * per_page, 0)
-
-    query
-    |> limit(^per_page)
-    |> offset(^offset)
-  end
-
-  defp paginate(query, _options), do: query
 
   @doc """
   Gets a single group.
@@ -235,28 +129,14 @@ defmodule Mosslet.Groups do
       ** (Ecto.NoResultsError)
 
   """
-  def get_group!(id), do: Repo.get!(Group, id) |> Repo.preload([:user_groups])
-  def get_group(id), do: Repo.get(Group, id) |> Repo.preload([:user_groups])
+  def get_group!(id), do: adapter().get_group!(id)
+  def get_group(id), do: adapter().get_group(id)
 
   @doc """
   Gets the total count of a user's Groups.
   """
   def group_count(user) do
-    query =
-      from g in Group,
-        inner_join: ug in UserGroup,
-        on: ug.group_id == g.id,
-        where: ug.user_id == ^user.id
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
+    adapter().group_count(user)
   end
 
   @doc """
@@ -265,26 +145,7 @@ defmodule Mosslet.Groups do
   index page.
   """
   def group_count_confirmed(user) do
-    query =
-      Group
-      |> join(:inner, [g], ug in UserGroup, on: ug.group_id == g.id)
-      |> where([g, ug], ug.user_id == ^user.id)
-      |> where_user_group_confirmed()
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
-
-  defp where_user_group_confirmed(query) do
-    query
-    |> where([g, ug], not is_nil(ug.confirmed_at))
+    adapter().group_count_confirmed(user)
   end
 
   @doc """
@@ -300,31 +161,13 @@ defmodule Mosslet.Groups do
 
   """
   def create_group(attrs \\ %{}, opts \\ []) do
-    group = Group.changeset(%Group{}, attrs, opts)
+    group_changeset = Group.changeset(%Group{}, attrs, opts)
 
     if attrs["user_id"] || attrs[:user_id] do
       user = Accounts.get_user!(attrs["user_id"] || attrs[:user_id])
-      p_attrs = group.changes.user_group_map
+      user_group_map = group_changeset.changes.user_group_map
 
-      case Ecto.Multi.new()
-           |> Ecto.Multi.insert(:insert_group, group)
-           |> Ecto.Multi.insert(:insert_user_group, fn %{insert_group: group} ->
-             UserGroup.changeset(
-               %UserGroup{},
-               %{
-                 name: attrs["user_name"] || attrs[:user_name],
-                 key: p_attrs.key,
-                 role: "owner",
-                 confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-               },
-               user: user,
-               key: opts[:key],
-               public?: group.public?
-             )
-             |> Ecto.Changeset.put_assoc(:group, group)
-             |> Ecto.Changeset.put_assoc(:user, user)
-           end)
-           |> Repo.transaction_on_primary() do
+      case adapter().create_group(attrs, group_changeset, user, user_group_map, opts) do
         {:ok, %{insert_group: group, insert_user_group: _user_group}} ->
           for u <- attrs["users"] || attrs[:users] do
             uconn = Accounts.get_user_connection_between_users(u.id, user.id)
@@ -337,7 +180,7 @@ defmodule Mosslet.Groups do
                   uconn.key,
                   opts[:key]
                 ),
-              key: p_attrs.key,
+              key: user_group_map.key,
               role: "member",
               group_id: group.id,
               user_id: u.id
@@ -346,7 +189,7 @@ defmodule Mosslet.Groups do
             create_user_group(ug_attrs, user: u, key: opts[:key], public?: group.public?)
           end
 
-          {:ok, group |> Repo.preload([:user_groups])}
+          {:ok, adapter().get_group!(group.id)}
           |> broadcast(:group_created)
 
         {:error, :insert_group, changeset, _map} ->
@@ -364,7 +207,7 @@ defmodule Mosslet.Groups do
           {:error, "error"}
       end
     else
-      {:error, group}
+      {:error, group_changeset}
     end
   end
 
@@ -372,10 +215,7 @@ defmodule Mosslet.Groups do
     changeset = Group.join_changeset(group, %{password: Keyword.get(opts, :join_password)}, opts)
 
     if changeset.valid? do
-      user_group
-      |> UserGroup.confirm_changeset()
-      |> Repo.update()
-
+      adapter().join_group_confirm(user_group)
       group = get_group!(group.id)
 
       {:ok, group}
@@ -475,99 +315,106 @@ defmodule Mosslet.Groups do
   """
   def update_group(%Group{} = group, attrs, opts \\ []) do
     if attrs["user_id"] do
-      user = Accounts.get_user!(attrs["user_id"])
+      user = opts[:user] || Accounts.get_user!(attrs["user_id"])
       user_group = get_user_group_for_group_and_user(group, user)
 
-      {:ok, d_group_key} =
-        Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
+      result = Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
 
-      opts =
-        opts ++
-          [
-            update: true,
-            group_key: d_group_key,
-            require_password?: Map.get(attrs, :require_password?, false)
-          ]
+      case result do
+        {:ok, d_group_key} ->
+          do_update_group(group, attrs, opts, user, user_group, d_group_key)
 
-      group = Group.changeset(group, attrs, opts)
-      p_attrs = group.changes.user_group_map
-
-      case Ecto.Multi.new()
-           |> Ecto.Multi.update(:update_group, group)
-           |> Ecto.Multi.update(:update_user_group, fn %{update_group: group} ->
-             UserGroup.changeset(
-               user_group,
-               %{
-                 name: attrs["user_name"],
-                 key: p_attrs.key,
-                 role: user_group.role
-               },
-               user: user,
-               key: opts[:key],
-               public?: group.public?
-             )
-             |> Ecto.Changeset.put_assoc(:group, group)
-             |> Ecto.Changeset.put_assoc(:user, user)
-           end)
-           |> Repo.transaction_on_primary() do
-        {:ok, %{update_group: group, update_user_group: _user_group}} ->
-          user_groups = group.user_groups
-          user_groups_id_list = Enum.into(group.user_groups, [], fn x -> x.user_id end)
-          members = attrs["users"]
-
-          Enum.each(user_groups, fn ug ->
-            if ug.user_id not in attrs["user_connections"] do
-              delete_user_group(ug)
-            end
-          end)
-
-          {:ok, group}
-          |> broadcast(:group_updated_members_removed)
-
-          Enum.each(members, fn member ->
-            if member.id not in user_groups_id_list do
-              uconn = Accounts.get_user_connection_between_users(member.id, user.id)
-
-              ug_attrs = %{
-                name:
-                  Encrypted.Users.Utils.decrypt_user_item(
-                    uconn.connection.name,
-                    user,
-                    uconn.key,
-                    opts[:key]
-                  ),
-                key: p_attrs.key,
-                role: "member",
-                group_id: group.id,
-                user_id: member.id
-              }
-
-              create_user_group(ug_attrs, user: member, key: opts[:key], public?: group.public?)
-            end
-          end)
-
-          group = get_group!(group.id)
-
-          {:ok, group}
-          |> broadcast(:group_updated)
-
-        {:error, :update_group, changeset, _map} ->
-          {:error, changeset}
-
-        {:error, :update_user_group, changeset, _map} ->
-          {:error, changeset}
-
-        {:error, :update_group, _, :update_user_group, changeset, _map} ->
-          {:error, changeset}
-
-        rest ->
-          Logger.warning("Error updating group")
-          Logger.debug("Error updating group: #{inspect(rest)}")
-          {:error, "error"}
+        _error ->
+          {:error, :decryption_failed}
       end
     else
-      group = Group.changeset(group, attrs, opts)
-      {:error, group}
+      adapter().update_group(group, attrs, opts)
+      |> broadcast(:group_updated)
+    end
+  end
+
+  defp do_update_group(group, attrs, opts, user, user_group, d_group_key) do
+    opts =
+      opts ++
+        [
+          update: true,
+          group_key: d_group_key,
+          require_password?: Map.get(attrs, :require_password?, false)
+        ]
+
+    group_changeset = Group.changeset(group, attrs, opts)
+    p_attrs = group_changeset.changes.user_group_map
+
+    user_group_attrs = %{
+      name: attrs["user_name"],
+      key: p_attrs.key,
+      role: user_group.role
+    }
+
+    case adapter().update_group_multi(group_changeset, user_group, user_group_attrs,
+           user: user,
+           key: opts[:key],
+           group_id: group.id,
+           attrs: attrs
+         ) do
+      {:ok, %{update_group: updated_group, update_user_group: _user_group}} ->
+        user_groups = updated_group.user_groups
+        user_groups_id_list = Enum.into(updated_group.user_groups, [], fn x -> x.user_id end)
+        members = attrs["users"]
+
+        Enum.each(user_groups, fn ug ->
+          if ug.user_id not in attrs["user_connections"] do
+            delete_user_group(ug)
+          end
+        end)
+
+        {:ok, updated_group}
+        |> broadcast(:group_updated_members_removed)
+
+        Enum.each(members, fn member ->
+          if member.id not in user_groups_id_list do
+            uconn = Accounts.get_user_connection_between_users(member.id, user.id)
+
+            ug_attrs = %{
+              name:
+                Encrypted.Users.Utils.decrypt_user_item(
+                  uconn.connection.name,
+                  user,
+                  uconn.key,
+                  opts[:key]
+                ),
+              key: p_attrs.key,
+              role: "member",
+              group_id: updated_group.id,
+              user_id: member.id
+            }
+
+            create_user_group(ug_attrs,
+              user: member,
+              key: opts[:key],
+              public?: updated_group.public?
+            )
+          end
+        end)
+
+        group = get_group!(updated_group.id)
+
+        {:ok, group}
+        |> broadcast(:group_updated)
+
+      {:error, :update_group, changeset, _map} ->
+        {:error, changeset}
+
+      {:error, :update_user_group, changeset, _map} ->
+        {:error, changeset}
+
+      {:error, :update_group, _, :update_user_group, changeset, _map} ->
+        {:error, changeset}
+
+      rest ->
+        Logger.warning("Error updating group")
+        Logger.debug("Error updating group: #{inspect(rest)}")
+        {:error, "error"}
     end
   end
 
@@ -584,21 +431,15 @@ defmodule Mosslet.Groups do
 
   """
   def delete_group(%Group{} = group) do
-    case Repo.transaction_on_primary(fn ->
-           Repo.delete(group)
-         end) do
-      {:ok, {:ok, group}} ->
-        {:ok, group |> Repo.preload([:user_groups])}
+    case adapter().delete_group(group) do
+      {:ok, deleted_group} ->
+        {:ok, deleted_group}
         |> broadcast(:group_deleted)
 
-      {:ok, {:error, _changeset}} ->
-        # we just share the message because there's no changeset for the UI
-        {:error, "Error deleting group"}
-
-      rest ->
+      {:error, reason} ->
         Logger.warning("Error deleting group")
-        Logger.debug("Error deleting group: #{inspect(rest)}")
-        {:error, "error"}
+        Logger.debug("Error deleting group: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -657,7 +498,7 @@ defmodule Mosslet.Groups do
 
   """
   def list_user_groups do
-    Repo.all(UserGroup)
+    adapter().list_user_groups()
   end
 
   @doc """
@@ -674,23 +515,15 @@ defmodule Mosslet.Groups do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user_group!(id),
-    do: Repo.get!(UserGroup, id) |> Repo.preload([:user, group: :user_groups])
-
-  def get_user_group(id),
-    do: Repo.get(UserGroup, id) |> Repo.preload([:user, group: :user_groups])
-
-  def get_user_group_with_user!(id), do: Repo.get!(UserGroup, id) |> Repo.preload([:user])
+  def get_user_group!(id), do: adapter().get_user_group!(id)
+  def get_user_group(id), do: adapter().get_user_group(id)
+  def get_user_group_with_user!(id), do: adapter().get_user_group_with_user!(id)
 
   @doc """
   TODO
   """
   def get_user_group_for_group_and_user(group, user) do
-    UserGroup
-    |> where([ug], ug.group_id == ^group.id)
-    |> where([ug], ug.user_id == ^user.id)
-    |> preload([:group, :user])
-    |> Repo.one()
+    adapter().get_user_group_for_group_and_user(group, user)
   end
 
   @doc """
@@ -706,11 +539,7 @@ defmodule Mosslet.Groups do
 
   """
   def create_user_group(attrs \\ %{}, opts \\ []) do
-    Repo.transaction_on_primary(fn ->
-      %UserGroup{}
-      |> UserGroup.changeset(attrs, opts)
-      |> Repo.insert()
-    end)
+    adapter().create_user_group(attrs, opts)
   end
 
   @doc """
@@ -726,14 +555,7 @@ defmodule Mosslet.Groups do
 
   """
   def update_user_group(%UserGroup{} = user_group, attrs, opts \\ []) do
-    {:ok, {:ok, user_group}} =
-      Repo.transaction_on_primary(fn ->
-        user_group
-        |> UserGroup.changeset(attrs, opts)
-        |> Repo.update()
-      end)
-
-    {:ok, user_group}
+    adapter().update_user_group(user_group, attrs, opts)
   end
 
   @doc """
@@ -749,21 +571,15 @@ defmodule Mosslet.Groups do
 
   """
   def delete_user_group(%UserGroup{} = user_group) do
-    case Repo.transaction_on_primary(fn ->
-           Repo.delete(user_group)
-         end) do
-      {:ok, {:ok, user_group}} ->
-        {:ok, user_group}
+    case adapter().delete_user_group(user_group) do
+      {:ok, deleted_user_group} ->
+        {:ok, deleted_user_group}
         |> broadcast_user_group(:user_group_deleted)
 
-      {:ok, {:error, _changeset}} ->
-        # we just share the message because there's no changeset for the UI
-        {:error, "Error deleting user_group"}
-
-      rest ->
+      {:error, reason} ->
         Logger.warning("Error deleting user_group")
-        Logger.debug("Error deleting user_group: #{inspect(rest)}")
-        {:error, "error"}
+        Logger.debug("Error deleting user_group: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -861,29 +677,9 @@ defmodule Mosslet.Groups do
         {:error, :insufficient_permissions}
 
       true ->
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert(:block, fn _changes ->
-          %GroupBlock{}
-          |> GroupBlock.changeset(%{
-            group_id: actor.group_id,
-            user_id: target.user_id,
-            blocked_by_id: actor.user_id,
-            blocked_moniker: target.moniker,
-            reason: "Blocked by group moderator"
-          })
-        end)
-        |> Ecto.Multi.run(:remove_member, fn repo, _changes ->
-          case repo.delete(target) do
-            {:ok, user_group} ->
-              broadcast_user_group({:ok, user_group}, :user_group_deleted)
-
-            error ->
-              error
-          end
-        end)
-        |> Repo.transaction_on_primary()
-        |> case do
+        case adapter().block_member_multi(actor, target) do
           {:ok, %{block: block, remove_member: _}} ->
+            broadcast_user_group({:ok, target}, :user_group_deleted)
             broadcast({:ok, get_group!(actor.group_id), target.user_id}, :group_member_blocked)
             {:ok, block}
 
@@ -901,11 +697,11 @@ defmodule Mosslet.Groups do
   """
   def unblock_member(%UserGroup{} = actor, %GroupBlock{} = block) do
     if actor.role in [:owner, :admin] and actor.group_id == block.group_id do
-      case Repo.delete(block) do
-        {:ok, block} ->
-          target_user_id = block.user_id
+      case adapter().delete_group_block(block) do
+        {:ok, deleted_block} ->
+          target_user_id = deleted_block.user_id
           broadcast({:ok, get_group!(actor.group_id), target_user_id}, :group_member_unblocked)
-          {:ok, block}
+          {:ok, deleted_block}
 
         error ->
           error
@@ -919,41 +715,28 @@ defmodule Mosslet.Groups do
   Lists all blocked users for a group.
   """
   def list_blocked_users(group_id) do
-    from(gb in GroupBlock,
-      where: gb.group_id == ^group_id,
-      preload: [:user, :blocked_by]
-    )
-    |> Repo.all()
+    adapter().list_blocked_users(group_id)
   end
 
   @doc """
   Checks if a user is blocked from a group.
   """
   def user_blocked?(group_id, user_id) do
-    from(gb in GroupBlock,
-      where: gb.group_id == ^group_id and gb.user_id == ^user_id
-    )
-    |> Repo.exists?()
+    adapter().user_blocked?(group_id, user_id)
   end
 
   @doc """
   Gets a specific block record.
   """
   def get_group_block(group_id, user_id) do
-    from(gb in GroupBlock,
-      where: gb.group_id == ^group_id and gb.user_id == ^user_id,
-      preload: [:user, :blocked_by]
-    )
-    |> Repo.one()
+    adapter().get_group_block(group_id, user_id)
   end
 
   @doc """
   Gets a specific block record by id. Raises if not found.
   """
   def get_group_block!(id) do
-    GroupBlock
-    |> Repo.get!(id)
-    |> Repo.preload([:user, :blocked_by])
+    adapter().get_group_block!(id)
   end
 
   @doc """
@@ -992,45 +775,26 @@ defmodule Mosslet.Groups do
 
   defp validate_owner_count(%UserGroup{role: :owner, group_id: group_id} = _user_group, new_role)
        when new_role != :owner do
-    owner_count =
-      from(ug in UserGroup,
-        where: ug.group_id == ^group_id and ug.role == :owner,
-        select: count(ug.id)
-      )
-      |> Repo.one()
-
-    if owner_count <= 1 do
-      {:error, :must_have_at_least_one_owner}
-    else
-      :ok
-    end
+    adapter().validate_owner_count(group_id)
   end
 
   defp validate_owner_count(_user_group, _new_role), do: :ok
 
   defp do_update_user_group_role(%UserGroup{} = user_group, attrs) do
-    return =
-      Repo.transaction_on_primary(fn ->
-        user_group
-        |> UserGroup.role_changeset(attrs)
-        |> Repo.update()
-      end)
+    changeset = UserGroup.role_changeset(user_group, attrs)
 
-    case return do
-      {:ok, {:ok, user_group}} ->
-        user_group = user_group |> Repo.preload([:group])
+    case adapter().update_user_group_role(user_group, changeset) do
+      {:ok, updated_user_group} ->
+        updated_user_group = adapter().repo_preload(updated_user_group, [:group])
 
-        {:ok, user_group.group |> Repo.preload([:user_groups])}
+        {:ok, adapter().repo_preload(updated_user_group.group, [:user_groups])}
         |> broadcast(:group_updated_member)
 
-        {:ok, user_group}
+        {:ok, updated_user_group}
         |> broadcast_user_group(:user_group_updated)
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      rest ->
-        rest
     end
   end
 
@@ -1049,6 +813,20 @@ defmodule Mosslet.Groups do
     Phoenix.PubSub.subscribe(Mosslet.PubSub, "groups")
   end
 
+  @doc """
+  Returns user groups for sync with desktop/mobile apps.
+
+  Returns UserGroup records with associated groups, including encrypted
+  data blobs that native apps decrypt locally.
+
+  ## Options
+
+  - `:since` - Only return groups updated after this timestamp
+  """
+  def list_user_groups_for_sync(user, opts \\ []) do
+    adapter().list_user_groups_for_sync(user, opts)
+  end
+
   ### PRIVATE
 
   defp broadcast_user_group({:ok, user_group}, event) do
@@ -1064,7 +842,7 @@ defmodule Mosslet.Groups do
       {event, user_group}
     )
 
-    user_group = Repo.preload(user_group, group: :user_groups)
+    user_group = adapter().repo_preload(user_group, group: :user_groups)
 
     Enum.each(user_group.group.user_groups, fn ug ->
       if ug.user_id != user_group.user_id do
@@ -1115,9 +893,6 @@ defmodule Mosslet.Groups do
           end
         end)
 
-        # When there's a target_user_id (like kicking or blocking a member from a group), then
-        # we send a separate single broadcast to that target_user_id as they will no longer have
-        # a user_group (to handle redirects if they're on the page)
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "group:#{target_user_id}",
@@ -1152,37 +927,5 @@ defmodule Mosslet.Groups do
 
         {:ok, group}
     end
-  end
-
-  @doc """
-  Returns user groups for sync with desktop/mobile apps.
-
-  Returns UserGroup records with associated groups, including encrypted
-  data blobs that native apps decrypt locally.
-
-  ## Options
-
-  - `:since` - Only return groups updated after this timestamp
-  """
-  def list_user_groups_for_sync(user, opts \\ []) do
-    since = opts[:since]
-
-    query =
-      from(ug in UserGroup,
-        join: g in assoc(ug, :group),
-        where: ug.user_id == ^user.id,
-        where: not is_nil(ug.confirmed_at),
-        order_by: [desc: g.updated_at],
-        preload: [:group]
-      )
-
-    query =
-      if since do
-        from([ug, g] in query, where: g.updated_at > ^since)
-      else
-        query
-      end
-
-    Repo.all(query)
   end
 end

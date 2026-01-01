@@ -91,6 +91,53 @@ defmodule Mosslet.Timeline.Adapter do
   @callback list_user_replies(user :: User.t(), options :: map()) :: [Reply.t()]
 
   # =============================================================================
+  # Timeline Listing Functions (with caching support)
+  # These are called by the context after caching logic; adapters handle DB/API access
+  # =============================================================================
+
+  @callback fetch_connection_posts(current_user :: User.t(), options :: map()) :: [Post.t()]
+  @callback fetch_discover_posts(current_user :: User.t() | nil, options :: map()) :: [Post.t()]
+  @callback fetch_user_own_posts(current_user :: User.t(), options :: map()) :: [Post.t()]
+  @callback fetch_home_timeline(current_user :: User.t(), options :: map()) :: [Post.t()]
+  @callback fetch_group_posts(current_user :: User.t(), options :: map()) :: [Post.t()]
+
+  # =============================================================================
+  # Profile Listing Functions
+  # =============================================================================
+
+  @callback list_public_profile_posts(
+              user :: User.t(),
+              viewer :: User.t() | nil,
+              hidden_post_ids :: [String.t()],
+              options :: map()
+            ) :: [Post.t()]
+  @callback list_profile_posts_visible_to(
+              profile_user :: User.t(),
+              viewer :: User.t(),
+              options :: map()
+            ) :: [Post.t()]
+  @callback count_profile_posts_visible_to(profile_user :: User.t(), viewer :: User.t()) ::
+              non_neg_integer()
+  @callback list_user_group_posts(group :: Group.t(), user :: User.t()) :: [Post.t()]
+  @callback list_own_connection_posts(user :: User.t(), opts :: map()) :: [Post.t()]
+
+  # =============================================================================
+  # Home Timeline Count Functions
+  # =============================================================================
+
+  @callback count_home_timeline(user :: User.t(), filter_prefs :: map()) :: non_neg_integer()
+  @callback count_unread_home_timeline(user :: User.t(), filter_prefs :: map()) ::
+              non_neg_integer()
+
+  # =============================================================================
+  # Utility Listing Functions
+  # =============================================================================
+
+  @callback first_reply(post :: Post.t(), options :: map()) :: Reply.t() | nil
+  @callback first_public_reply(post :: Post.t(), options :: map()) :: Reply.t() | nil
+  @callback unread_posts(current_user :: User.t()) :: [Post.t()]
+
+  # =============================================================================
   # Post Count Functions
   # =============================================================================
 
@@ -253,4 +300,49 @@ defmodule Mosslet.Timeline.Adapter do
   # =============================================================================
 
   @callback transaction(fun :: (-> any())) :: {:ok, any()} | {:error, any()}
+
+  # =============================================================================
+  # Low-Level Repo Operations
+  # These allow the context to call repo operations through the adapter.
+  # Web adapter delegates to Repo; Native adapter uses API/cache.
+  # =============================================================================
+
+  @callback repo_all(query :: Ecto.Queryable.t()) :: [struct()]
+  @callback repo_all(query :: Ecto.Queryable.t(), opts :: keyword()) :: [struct()]
+  @callback repo_one(query :: Ecto.Queryable.t()) :: struct() | nil
+  @callback repo_one(query :: Ecto.Queryable.t(), opts :: keyword()) :: struct() | nil
+  @callback repo_one!(query :: Ecto.Queryable.t()) :: struct()
+  @callback repo_one!(query :: Ecto.Queryable.t(), opts :: keyword()) :: struct()
+  @callback repo_aggregate(query :: Ecto.Queryable.t(), aggregate :: atom(), field :: atom()) ::
+              term()
+  @callback repo_aggregate(
+              query :: Ecto.Queryable.t(),
+              aggregate :: atom(),
+              field :: atom(),
+              opts :: keyword()
+            ) :: term()
+  @callback repo_exists?(query :: Ecto.Queryable.t()) :: boolean()
+  @callback repo_preload(struct_or_structs :: struct() | [struct()], preloads :: list()) ::
+              struct() | [struct()]
+  @callback repo_preload(
+              struct_or_structs :: struct() | [struct()],
+              preloads :: list(),
+              opts :: keyword()
+            ) :: struct() | [struct()]
+  @callback repo_insert(changeset :: Ecto.Changeset.t()) ::
+              {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @callback repo_insert!(changeset :: Ecto.Changeset.t()) :: struct()
+  @callback repo_update(changeset :: Ecto.Changeset.t()) ::
+              {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @callback repo_update!(changeset :: Ecto.Changeset.t()) :: struct()
+  @callback repo_delete(struct :: struct()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @callback repo_delete!(struct :: struct()) :: struct()
+  @callback repo_delete_all(query :: Ecto.Queryable.t()) :: {non_neg_integer(), nil | [term()]}
+  @callback repo_update_all(query :: Ecto.Queryable.t(), updates :: keyword()) ::
+              {non_neg_integer(), nil | [term()]}
+  @callback repo_transaction(fun :: (-> any())) :: {:ok, any()} | {:error, any()}
+  @callback repo_get(schema :: module(), id :: term()) :: struct() | nil
+  @callback repo_get!(schema :: module(), id :: term()) :: struct()
+  @callback repo_get_by(schema :: module(), clauses :: keyword() | map()) :: struct() | nil
+  @callback repo_get_by!(schema :: module(), clauses :: keyword() | map()) :: struct()
 end

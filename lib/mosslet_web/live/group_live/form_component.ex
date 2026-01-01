@@ -81,9 +81,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
           value={
             decr_item(
               @group_name,
-              @current_user,
-              get_user_group(@group, @current_user).key,
-              @key,
+              @current_scope.user,
+              get_user_group(@group, @current_scope.user).key,
+              @current_scope.key,
               @group
             )
           }
@@ -98,9 +98,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
           value={
             decr_item(
               @group_description,
-              @current_user,
-              get_user_group(@group, @current_user).key,
-              @key,
+              @current_scope.user,
+              get_user_group(@group, @current_scope.user).key,
+              @current_scope.key,
               @group
             )
           }
@@ -109,11 +109,11 @@ defmodule MossletWeb.GroupLive.FormComponent do
           label="Description"
           placeholder="What is this circle about?"
         />
-        <.phx_input field={@form[:user_id]} type="hidden" value={@current_user.id} />
+        <.phx_input field={@form[:user_id]} type="hidden" value={@current_scope.user.id} />
         <.phx_input
           field={@form[:user_name]}
           type="hidden"
-          value={decr(@current_user.name, @current_user, @key)}
+          value={decr(@current_scope.user.name, @current_scope.user, @current_scope.key)}
         />
 
         <div class="p-4 -mx-1 sm:mx-0 rounded-xl bg-gradient-to-br from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/30 border border-slate-200/60 dark:border-slate-700/40">
@@ -139,9 +139,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
                   class="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-700"
                   src={
                     maybe_get_avatar_src(
-                      get_uconn_for_users!(option.value, @current_user.id),
-                      @current_user,
-                      @key,
+                      get_uconn_for_users!(option.value, @current_scope.user.id),
+                      @current_scope.user,
+                      @current_scope.key,
                       []
                     )
                   }
@@ -155,9 +155,9 @@ defmodule MossletWeb.GroupLive.FormComponent do
                 alt={option.label}
                 src={
                   maybe_get_avatar_src(
-                    get_uconn_for_users!(option.value, @current_user.id),
-                    @current_user,
-                    @key,
+                    get_uconn_for_users!(option.value, @current_scope.user.id),
+                    @current_scope.user,
+                    @current_scope.key,
                     []
                   )
                 }
@@ -181,13 +181,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
                 <.phx_avatar
                   class="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-700"
                   src={
-                    if option.value == @current_user.id do
-                      maybe_get_user_avatar(@current_user, @key)
+                    if option.value == @current_scope.user.id do
+                      maybe_get_user_avatar(@current_scope.user, @current_scope.key)
                     else
                       maybe_get_avatar_src(
-                        get_uconn_for_users!(option.value, @current_user.id),
-                        @current_user,
-                        @key,
+                        get_uconn_for_users!(option.value, @current_scope.user.id),
+                        @current_scope.user,
+                        @current_scope.key,
                         @user_connections
                       )
                     end
@@ -201,13 +201,13 @@ defmodule MossletWeb.GroupLive.FormComponent do
                 class="h-5 w-5 rounded-full"
                 alt={option.label}
                 src={
-                  if option.value == @current_user.id do
-                    maybe_get_user_avatar(@current_user, @key)
+                  if option.value == @current_scope.user.id do
+                    maybe_get_user_avatar(@current_scope.user, @current_scope.key)
                   else
                     maybe_get_avatar_src(
-                      get_uconn_for_users!(option.value, @current_user.id),
-                      @current_user,
-                      @key,
+                      get_uconn_for_users!(option.value, @current_scope.user.id),
+                      @current_scope.user,
+                      @current_scope.key,
                       @user_connections
                     )
                   end
@@ -272,7 +272,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
 
   @impl true
   def update(%{group: group} = assigns, socket) do
-    current_user = assigns.current_user
+    current_user = assigns.current_scope.user
     user_connections = convert_options_for_live_select(assigns.user_connections)
 
     if assigns.action in [:new] do
@@ -285,7 +285,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
        |> assign(:require_password?, false)
        |> assign_form(changeset)}
     else
-      key = assigns.key
+      key = assigns.current_scope.key
       user_connections = convert_options_for_live_select(assigns.user_connections)
 
       member_list =
@@ -417,8 +417,8 @@ defmodule MossletWeb.GroupLive.FormComponent do
   end
 
   defp save_group(socket, :edit, group_params) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     if can_edit_group?(get_user_group(socket.assigns.group, user), user) do
       case Groups.update_group(socket.assigns.group, group_params,
@@ -432,6 +432,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           {:noreply,
            socket
            |> put_flash(:success, "Circle updated successfully")
+           |> push_event("restore-body-scroll", %{})
            |> push_patch(to: socket.assigns.patch)}
 
         {:error, %Ecto.Changeset{} = changeset} ->
@@ -441,13 +442,14 @@ defmodule MossletWeb.GroupLive.FormComponent do
       {:noreply,
        socket
        |> put_flash(:info, "You do not have permission to edit this circle.")
+       |> push_event("restore-body-scroll", %{})
        |> push_patch(to: socket.assigns.patch)}
     end
   end
 
   defp save_group(socket, :new, group_params) do
-    user = socket.assigns.current_user
-    key = socket.assigns.key
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
 
     if group_params["user_id"] == user.id && group_params["user_connections"] do
       case Groups.create_group(group_params,
@@ -461,6 +463,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
           {:noreply,
            socket
            |> put_flash(:success, "Circle created successfully")
+           |> push_event("restore-body-scroll", %{})
            |> push_patch(to: socket.assigns.patch)}
 
         {:error, %Ecto.Changeset{} = changeset} ->

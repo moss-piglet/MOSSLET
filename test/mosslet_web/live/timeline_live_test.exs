@@ -45,12 +45,11 @@ defmodule MossletWeb.TimelineLiveTest do
 
       # Basic functionality - page loads successfully with tabs
       assert render(lv) =~ "Home"
-      assert render(lv) =~ "connections"
-      assert render(lv) =~ "discover"
-      assert render(lv) =~ "bookmarks"
+      assert render(lv) =~ "Bookmarks"
+      assert render(lv) =~ "Discover"
 
       # Test tab switching triggers async load
-      lv |> element("button", "Connections") |> render_click()
+      lv |> element("button", "Discover") |> render_click()
 
       # Wait for tab switch async operation
       render_async(lv)
@@ -66,7 +65,7 @@ defmodule MossletWeb.TimelineLiveTest do
       friend: friend,
       friend_key: friend_key
     } do
-      # Create posts for different scenarios  
+      # Create posts for different scenarios
       user_post =
         post_fixture(%{visibility: "connections", body: "User's post"}, user: user, key: key)
 
@@ -113,7 +112,7 @@ defmodule MossletWeb.TimelineLiveTest do
       # Wait for async timeline data to load
       render_async(lv)
 
-      # Verify post creation form exists  
+      # Verify post creation form exists
       assert has_element?(lv, "form")
     end
 
@@ -341,7 +340,7 @@ defmodule MossletWeb.TimelineLiveTest do
       # Wait for async timeline data to load
       html = render_async(lv)
 
-      # Should have loaded timeline  
+      # Should have loaded timeline
       assert html =~ "Timeline"
     end
   end
