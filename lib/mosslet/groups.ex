@@ -318,14 +318,20 @@ defmodule Mosslet.Groups do
       user = opts[:user] || Accounts.get_user!(attrs["user_id"])
       user_group = get_user_group_for_group_and_user(group, user)
 
-      result = Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
+      d_group_key =
+        if group.public? do
+          Encrypted.Users.Utils.decrypt_public_item_key(user_group.key)
+        else
+          case Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key]) do
+            {:ok, key} -> key
+            _error -> nil
+          end
+        end
 
-      case result do
-        {:ok, d_group_key} ->
-          do_update_group(group, attrs, opts, user, user_group, d_group_key)
-
-        _error ->
-          {:error, :decryption_failed}
+      if d_group_key do
+        do_update_group(group, attrs, opts, user, user_group, d_group_key)
+      else
+        {:error, :decryption_failed}
       end
     else
       adapter().update_group(group, attrs, opts)
