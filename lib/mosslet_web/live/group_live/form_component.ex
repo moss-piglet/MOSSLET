@@ -78,15 +78,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
         <.phx_input
           :if={@action in [:edit]}
           field={@form[:name]}
-          value={
-            decr_item(
-              @group_name,
-              @current_scope.user,
-              get_user_group(@group, @current_scope.user).key,
-              @current_scope.key,
-              @group
-            )
-          }
+          value={@group_name}
           type="text"
           phx-debounce="500"
           label="Name"
@@ -95,15 +87,7 @@ defmodule MossletWeb.GroupLive.FormComponent do
         <.phx_input
           :if={@action in [:edit]}
           field={@form[:description]}
-          value={
-            decr_item(
-              @group_description,
-              @current_scope.user,
-              get_user_group(@group, @current_scope.user).key,
-              @current_scope.key,
-              @group
-            )
-          }
+          value={@group_description}
           type="text"
           phx-debounce="500"
           label="Description"
@@ -299,10 +283,28 @@ defmodule MossletWeb.GroupLive.FormComponent do
         value: member_list
       )
 
+      decrypted_name =
+        decr_item(
+          group.name,
+          current_user,
+          get_user_group(group, current_user).key,
+          key,
+          group
+        )
+
+      decrypted_description =
+        decr_item(
+          group.description,
+          current_user,
+          get_user_group(group, current_user).key,
+          key,
+          group
+        )
+
       {:ok,
        socket
-       |> assign(:group_name, group.name)
-       |> assign(:group_description, group.description)
+       |> assign(:group_name, decrypted_name)
+       |> assign(:group_description, decrypted_description)
        |> assign(assigns)
        |> assign(:user_connections, user_connections)
        |> assign(:require_password?, group.require_password?)
@@ -357,7 +359,10 @@ defmodule MossletWeb.GroupLive.FormComponent do
 
   @impl true
   def handle_event("validate", %{"group" => group_params}, socket) do
-    socket = assign(socket, :require_password?, group_params["require_password?"])
+    socket =
+      socket
+      |> assign(:require_password?, group_params["require_password?"])
+      |> maybe_update_decrypted_fields(group_params)
 
     changeset =
       cond do
@@ -531,6 +536,22 @@ defmodule MossletWeb.GroupLive.FormComponent do
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
+
+  defp maybe_update_decrypted_fields(socket, group_params) do
+    if socket.assigns.action == :edit do
+      socket
+      |> maybe_assign_field(:group_name, group_params["name"])
+      |> maybe_assign_field(:group_description, group_params["description"])
+    else
+      socket
+    end
+  end
+
+  defp maybe_assign_field(socket, key, value) when is_binary(value) and value != "" do
+    assign(socket, key, value)
+  end
+
+  defp maybe_assign_field(socket, _key, _value), do: socket
 
   defp notify_parent(msg), do: send(self(), {__MODULE__, msg})
 end
