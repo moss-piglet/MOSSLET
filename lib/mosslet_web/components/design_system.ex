@@ -12276,7 +12276,7 @@ defmodule MossletWeb.DesignSystem do
                 </span>
               </div>
 
-              <div :if={render_slot(@members) != []} class="isolate flex -space-x-2 shrink-0">
+              <div :if={render_slot(@members) != []} class="isolate flex -space-x-2 shrink-0 mr-6">
                 {render_slot(@members)}
               </div>
             </div>
