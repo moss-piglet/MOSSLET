@@ -9,6 +9,9 @@ defmodule MossletWeb.Components.MossletAuthLayout do
   attr :conn, :any, required: true
   attr :title, :string, required: true
 
+  attr :current_scope, :map,
+    doc: "the current_scope (usually includes current_user and key (session key))"
+
   slot :logo
   slot :top_right
   slot :inner_block, required: true

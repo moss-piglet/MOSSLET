@@ -315,7 +315,7 @@ defmodule Mosslet.Groups.Adapters.Web do
   end
 
   @impl true
-  def update_user_group_role(user_group, changeset) do
+  def update_user_group_role(_user_group, changeset) do
     case Repo.transaction_on_primary(fn ->
            Repo.update(changeset)
          end) do

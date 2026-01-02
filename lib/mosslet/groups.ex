@@ -314,24 +314,29 @@ defmodule Mosslet.Groups do
 
   """
   def update_group(%Group{} = group, attrs, opts \\ []) do
+    require Logger
+    Logger.debug("update_group called with attrs keys: #{inspect(Map.keys(attrs))}")
+    Logger.debug("update_group opts: #{inspect(Keyword.keys(opts))}")
+
     if attrs["user_id"] do
       user = opts[:user] || Accounts.get_user!(attrs["user_id"])
       user_group = get_user_group_for_group_and_user(group, user)
 
-      d_group_key =
-        if group.public? do
-          Encrypted.Users.Utils.decrypt_public_item_key(user_group.key)
-        else
-          case Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key]) do
-            {:ok, key} -> key
-            _error -> nil
-          end
-        end
+      Logger.debug("user_group found: #{inspect(user_group.id)}")
+      Logger.debug("user_group.key present: #{user_group.key != nil}")
+      Logger.debug("opts[:key] present: #{opts[:key] != nil}")
 
-      if d_group_key do
-        do_update_group(group, attrs, opts, user, user_group, d_group_key)
-      else
-        {:error, :decryption_failed}
+      result = Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
+
+      case result do
+        {:ok, d_group_key} ->
+          do_update_group(group, attrs, opts, user, user_group, d_group_key)
+
+        error ->
+          Logger.error("Decryption failed in update_group: #{inspect(error)}")
+          Logger.error("user_group.key: #{inspect(user_group.key)}")
+          Logger.error("opts[:key] present?: #{opts[:key] != nil}")
+          {:error, :decryption_failed}
       end
     else
       adapter().update_group(group, attrs, opts)

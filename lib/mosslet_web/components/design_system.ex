@@ -4723,7 +4723,7 @@ defmodule MossletWeb.DesignSystem do
   attr :post_id, :string, default: nil
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
   attr :is_repost, :boolean, default: false
-  attr :share_note, :string, default: nil, doc: "Personal note from the sender when sharing"
+  attr :share_note, :any, default: nil, doc: "Personal note from the sender when sharing"
   # New: unread state
   attr :unread?, :boolean, default: false
   attr :unread_replies_count, :integer, default: 0
@@ -4732,9 +4732,19 @@ defmodule MossletWeb.DesignSystem do
   attr :class, :any, default: ""
   # Content warning
   attr :content_warning?, :boolean, default: false
-  attr :content_warning, :string, default: nil
-  attr :content_warning_category, :string, default: nil
-  attr :decrypted_url_preview, :map, default: nil
+
+  attr :content_warning, :any,
+    default: nil,
+    doc: "type :string but we default to nil so we use :any type"
+
+  attr :content_warning_category, :any,
+    default: nil,
+    doc: "type :string but we default to nil so we use :any type"
+
+  attr :decrypted_url_preview, :any,
+    default: nil,
+    doc: "type :map but we default to nil so we use :any type"
+
   # Report modal state
   attr :show_report_modal?, :boolean, default: false
 

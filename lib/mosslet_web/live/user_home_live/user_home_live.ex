@@ -988,7 +988,6 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_info({:nested_reply_created, post_id, parent_reply_id}, socket) do
-    current_user = socket.assigns.current_scope.user
     updated_post = Timeline.get_post!(post_id)
 
     socket =
@@ -1006,6 +1005,10 @@ defmodule MossletWeb.UserHomeLive do
 
   def handle_info({:nested_reply_cancelled, parent_reply_id}, socket) do
     socket = push_event(socket, "hide-nested-reply-composer", %{reply_id: parent_reply_id})
+    {:noreply, socket}
+  end
+
+  def handle_info(_message, socket) do
     {:noreply, socket}
   end
 
@@ -1036,11 +1039,6 @@ defmodule MossletWeb.UserHomeLive do
       true ->
         socket
     end
-  end
-
-  def handle_info(_message, socket) do
-    Logger.debug("UserHomeLive catch-all handle_info: #{inspect(_message)}")
-    {:noreply, socket}
   end
 
   def handle_event("load_more_posts", _params, socket) do
@@ -1109,47 +1107,6 @@ defmodule MossletWeb.UserHomeLive do
        |> assign(:read_posts_expanded, true)
        |> stream(:read_posts, posts_with_dates, reset: true)}
     end
-  end
-
-  defp fetch_additional_read_posts(socket, needed) do
-    current_user = socket.assigns.current_scope.user
-    profile_user = socket.assigns.profile_user
-    current_page = socket.assigns.posts_page
-    cached_read_posts = socket.assigns.cached_read_posts
-
-    {socket, _} =
-      Enum.reduce_while(1..10, {socket, current_page}, fn _, {acc_socket, page} ->
-        next_page = page + 1
-        options = %{post_page: next_page, post_per_page: @posts_per_page}
-        new_posts = Timeline.list_profile_posts_visible_to(profile_user, current_user, options)
-
-        if Enum.empty?(new_posts) do
-          {:halt, {acc_socket, next_page}}
-        else
-          {_new_unread, new_read_posts} =
-            Enum.split_with(new_posts, fn post ->
-              is_post_unread?(post, current_user)
-            end)
-
-          current_cached = acc_socket.assigns.cached_read_posts
-
-          new_read_posts_with_dates =
-            add_date_grouping_context_for_append(new_read_posts, current_cached)
-
-          updated_cached_read = current_cached ++ new_read_posts_with_dates
-
-          acc_socket = assign(acc_socket, :posts_page, next_page)
-          acc_socket = assign(acc_socket, :cached_read_posts, updated_cached_read)
-
-          if length(updated_cached_read) >= length(cached_read_posts) + needed do
-            {:halt, {acc_socket, next_page}}
-          else
-            {:cont, {acc_socket, next_page}}
-          end
-        end
-      end)
-
-    socket
   end
 
   def handle_event("fav", %{"id" => id}, socket) do
@@ -1419,52 +1376,6 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp move_post_between_read_streams(socket, post, current_user) do
-    is_unread = is_post_unread?(post, current_user)
-    cached_profile_posts = socket.assigns.cached_profile_posts
-    cached_read_posts = socket.assigns.cached_read_posts
-
-    post_with_date = Map.put(post, :show_date?, false)
-
-    if is_unread do
-      updated_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
-
-      updated_profile =
-        [post_with_date | cached_profile_posts]
-        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
-
-      profile_with_dates = add_date_grouping_context(updated_profile)
-
-      socket
-      |> stream_delete(:read_posts, post)
-      |> assign(:cached_read_posts, updated_read)
-      |> assign(:cached_profile_posts, profile_with_dates)
-      |> stream(:profile_posts, profile_with_dates, reset: true)
-    else
-      updated_profile = Enum.reject(cached_profile_posts, &(&1.id == post.id))
-
-      updated_read =
-        [post_with_date | cached_read_posts]
-        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
-
-      profile_with_dates = add_date_grouping_context(updated_profile)
-      read_with_dates = add_date_grouping_context(updated_read)
-
-      socket
-      |> stream_delete(:profile_posts, post)
-      |> assign(:cached_profile_posts, profile_with_dates)
-      |> assign(:cached_read_posts, read_with_dates)
-      |> stream(:profile_posts, profile_with_dates, reset: true)
-      |> then(fn s ->
-        if s.assigns.read_posts_expanded do
-          stream(s, :read_posts, read_with_dates, reset: true)
-        else
-          s
-        end
-      end)
-    end
-  end
-
   # ============================================================================
   # MODERATION EVENT HANDLERS
   # ============================================================================
@@ -1673,35 +1584,6 @@ defmodule MossletWeb.UserHomeLive do
             end
         end
       end)
-
-    {:noreply, socket}
-  end
-
-  def handle_async(:remove_self_from_post, {:ok, {:ok, post}}, socket) do
-    socket =
-      socket
-      |> assign(:removing_self_from_post_id, nil)
-      |> stream_delete(:profile_posts, post)
-      |> stream_delete(:read_posts, post)
-      |> put_flash(:info, "Post removed from your timeline.")
-
-    {:noreply, socket}
-  end
-
-  def handle_async(:remove_self_from_post, {:ok, {:error, _changeset}}, socket) do
-    socket =
-      socket
-      |> assign(:removing_self_from_post_id, nil)
-      |> put_flash(:error, "Failed to remove post.")
-
-    {:noreply, socket}
-  end
-
-  def handle_async(:remove_self_from_post, {:exit, reason}, socket) do
-    socket =
-      socket
-      |> assign(:removing_self_from_post_id, nil)
-      |> put_flash(:error, "Failed to remove post: #{inspect(reason)}")
 
     {:noreply, socket}
   end
@@ -2178,6 +2060,35 @@ defmodule MossletWeb.UserHomeLive do
       socket
       |> assign(:adding_shared_user, nil)
       |> put_flash(:error, "Failed to share post with user: #{inspect(reason)}")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:ok, {:ok, post}}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> stream_delete(:profile_posts, post)
+      |> stream_delete(:read_posts, post)
+      |> put_flash(:info, "Post removed from your timeline.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:ok, {:error, _changeset}}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:error, "Failed to remove post.")
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:remove_self_from_post, {:exit, reason}, socket) do
+    socket =
+      socket
+      |> assign(:removing_self_from_post_id, nil)
+      |> put_flash(:error, "Failed to remove post: #{inspect(reason)}")
 
     {:noreply, socket}
   end
@@ -4433,14 +4344,6 @@ defmodule MossletWeb.UserHomeLive do
     )
   end
 
-  defp get_public_post_author_handle(post, _profile_user) do
-    "@" <>
-      case decrypt_public_field(post.username, get_post_key(post)) do
-        username when is_binary(username) -> username
-        _ -> "author"
-      end
-  end
-
   defp get_public_post_author_avatar(_post, profile_user, current_user) do
     get_public_avatar(profile_user, current_user)
   end
@@ -4518,13 +4421,6 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp get_original_post_user_id(post) do
-    case Mosslet.Timeline.get_post(post.original_post_id) do
-      %{user_id: user_id} -> user_id
-      _ -> post.user_id
-    end
-  end
-
   defp maybe_load_custom_banner_async(socket, profile_user, profile_owner?) do
     profile = Map.get(profile_user.connection, :profile)
     banner_image = if profile, do: profile.banner_image, else: :waves
@@ -4599,6 +4495,47 @@ defmodule MossletWeb.UserHomeLive do
   defp is_valid_banner_url?(url) when is_binary(url), do: String.starts_with?(url, "uploads/")
   defp is_valid_banner_url?(_), do: false
 
+  defp fetch_additional_read_posts(socket, needed) do
+    current_user = socket.assigns.current_scope.user
+    profile_user = socket.assigns.profile_user
+    current_page = socket.assigns.posts_page
+    cached_read_posts = socket.assigns.cached_read_posts
+
+    {socket, _} =
+      Enum.reduce_while(1..10, {socket, current_page}, fn _, {acc_socket, page} ->
+        next_page = page + 1
+        options = %{post_page: next_page, post_per_page: @posts_per_page}
+        new_posts = Timeline.list_profile_posts_visible_to(profile_user, current_user, options)
+
+        if Enum.empty?(new_posts) do
+          {:halt, {acc_socket, next_page}}
+        else
+          {_new_unread, new_read_posts} =
+            Enum.split_with(new_posts, fn post ->
+              is_post_unread?(post, current_user)
+            end)
+
+          current_cached = acc_socket.assigns.cached_read_posts
+
+          new_read_posts_with_dates =
+            add_date_grouping_context_for_append(new_read_posts, current_cached)
+
+          updated_cached_read = current_cached ++ new_read_posts_with_dates
+
+          acc_socket = assign(acc_socket, :posts_page, next_page)
+          acc_socket = assign(acc_socket, :cached_read_posts, updated_cached_read)
+
+          if length(updated_cached_read) >= length(cached_read_posts) + needed do
+            {:halt, {acc_socket, next_page}}
+          else
+            {:cont, {acc_socket, next_page}}
+          end
+        end
+      end)
+
+    socket
+  end
+
   defp fetch_and_decrypt_banner(banner_url, user, key, connection_id) do
     banners_bucket = Mosslet.Encrypted.Session.banners_bucket()
     host = Mosslet.Encrypted.Session.s3_host()
@@ -4639,6 +4576,52 @@ defmodule MossletWeb.UserHomeLive do
 
       {:error, reason} ->
         {:error, "Failed to fetch banner: #{inspect(reason)}"}
+    end
+  end
+
+  defp move_post_between_read_streams(socket, post, current_user) do
+    is_unread = is_post_unread?(post, current_user)
+    cached_profile_posts = socket.assigns.cached_profile_posts
+    cached_read_posts = socket.assigns.cached_read_posts
+
+    post_with_date = Map.put(post, :show_date?, false)
+
+    if is_unread do
+      updated_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
+
+      updated_profile =
+        [post_with_date | cached_profile_posts]
+        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
+
+      profile_with_dates = add_date_grouping_context(updated_profile)
+
+      socket
+      |> stream_delete(:read_posts, post)
+      |> assign(:cached_read_posts, updated_read)
+      |> assign(:cached_profile_posts, profile_with_dates)
+      |> stream(:profile_posts, profile_with_dates, reset: true)
+    else
+      updated_profile = Enum.reject(cached_profile_posts, &(&1.id == post.id))
+
+      updated_read =
+        [post_with_date | cached_read_posts]
+        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
+
+      profile_with_dates = add_date_grouping_context(updated_profile)
+      read_with_dates = add_date_grouping_context(updated_read)
+
+      socket
+      |> stream_delete(:profile_posts, post)
+      |> assign(:cached_profile_posts, profile_with_dates)
+      |> assign(:cached_read_posts, read_with_dates)
+      |> stream(:profile_posts, profile_with_dates, reset: true)
+      |> then(fn s ->
+        if s.assigns.read_posts_expanded do
+          stream(s, :read_posts, read_with_dates, reset: true)
+        else
+          s
+        end
+      end)
     end
   end
 

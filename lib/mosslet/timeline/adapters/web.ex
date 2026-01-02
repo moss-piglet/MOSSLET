@@ -85,14 +85,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
-  def get_user_by_session_token(token) do
-    {:ok, query} = UserToken.verify_session_token_query(token)
-
-    Repo.one(query)
-    |> Repo.preload([:connection, :customer])
-  end
-
-  @impl true
   def get_all_posts(user) do
     from(p in Post,
       where: p.user_id == ^user.id
@@ -881,6 +873,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   defp filter_by_muted_keywords(query, _muted_keywords), do: query
 
+  defp filter_by_content_warnings(query, %{}), do: query
+
   defp filter_by_content_warnings(query, cw_settings) do
     hide_all = Map.get(cw_settings || %{}, :hide_all, false)
     hide_mature = Map.get(cw_settings || %{}, :hide_mature, false)
@@ -1284,6 +1278,10 @@ defmodule Mosslet.Timeline.Adapters.Web do
     order_by(query, [{^sort_order, ^sort_by}])
   end
 
+  defp sort(query, %{post_sort_by: sort_by, post_sort_order: sort_order}) do
+    order_by(query, [{^sort_order, ^sort_by}])
+  end
+
   defp sort(query, _options), do: query
 
   defp reply_sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
@@ -1292,14 +1290,17 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   defp reply_sort(query, _options), do: order_by(query, desc: :inserted_at)
 
-  defp paginate(query, opts) do
-    page = opts[:page] || opts[:post_page] || 1
-    per_page = opts[:per_page] || opts[:post_per_page] || 20
-
-    query
-    |> limit(^per_page)
-    |> offset(^((page - 1) * per_page))
+  defp paginate(query, %{page: page, per_page: per_page}) do
+    offset_val = max((page - 1) * per_page, 0)
+    query |> limit(^per_page) |> offset(^offset_val)
   end
+
+  defp paginate(query, %{post_page: page, post_per_page: per_page}) do
+    offset_val = max((page - 1) * per_page, 0)
+    query |> limit(^per_page) |> offset(^offset_val)
+  end
+
+  defp paginate(query, _options), do: query
 
   @impl true
   def mark_replies_read_for_post(post_id, user_id) do
@@ -2299,33 +2300,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
   # Private Helper Functions
   # =============================================================================
 
-  defp apply_database_filters(query, options) do
-    case options do
-      %{filter_prefs: filter_prefs, current_user_id: current_user_id}
-      when is_map(filter_prefs) and is_binary(current_user_id) ->
-        query
-        |> filter_by_muted_keywords(filter_prefs[:keywords] || [])
-        |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
-        |> filter_by_muted_users(filter_prefs[:muted_users] || [])
-        |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
-        |> filter_by_blocked_users_posts(current_user_id)
-
-      %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
-        query
-        |> filter_by_muted_keywords(filter_prefs[:keywords] || [])
-        |> filter_by_content_warnings(filter_prefs[:content_warnings] || %{})
-        |> filter_by_muted_users(filter_prefs[:muted_users] || [])
-        |> filter_by_reposts(filter_prefs[:hide_reposts] || false)
-
-      %{current_user_id: current_user_id} when is_binary(current_user_id) ->
-        query
-        |> filter_by_blocked_users_posts(current_user_id)
-
-      _ ->
-        query
-    end
-  end
-
   defp apply_count_database_filters(query, options) do
     case options do
       %{filter_prefs: filter_prefs, current_user_id: current_user_id}
@@ -2353,14 +2327,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
     end
   end
 
-  defp filter_by_muted_keywords(query, []), do: query
-  defp filter_by_muted_keywords(query, _keywords), do: query
-
   defp filter_by_muted_keywords_count(query, []), do: query
   defp filter_by_muted_keywords_count(query, _keywords), do: query
-
-  defp filter_by_content_warnings(query, %{}), do: query
-  defp filter_by_content_warnings(query, _warnings), do: query
 
   defp filter_by_content_warnings_count(query, %{}), do: query
   defp filter_by_content_warnings_count(query, _warnings), do: query
@@ -2370,24 +2338,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   defp filter_by_reposts_count(query, false), do: query
   defp filter_by_reposts_count(query, true), do: where(query, [p], is_nil(p.original_post_id))
-
-  defp filter_by_blocked_users_posts(query, current_user_id) do
-    blocked_ids =
-      from(ub in UserBlock,
-        where: ub.blocker_id == ^current_user_id,
-        select: ub.blocked_id
-      )
-
-    blocker_ids =
-      from(ub in UserBlock,
-        where: ub.blocked_id == ^current_user_id,
-        select: ub.blocker_id
-      )
-
-    query
-    |> where([p], p.user_id not in subquery(blocked_ids))
-    |> where([p], p.user_id not in subquery(blocker_ids))
-  end
 
   defp filter_by_blocked_users_count(query, current_user_id) do
     blocked_ids =
@@ -2406,28 +2356,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
     |> where([p], p.user_id not in subquery(blocked_ids))
     |> where([p], p.user_id not in subquery(blocker_ids))
   end
-
-  defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, %{post_sort_by: sort_by, post_sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, _options), do: query
-
-  defp paginate(query, %{page: page, per_page: per_page}) do
-    offset_val = max((page - 1) * per_page, 0)
-    query |> limit(^per_page) |> offset(^offset_val)
-  end
-
-  defp paginate(query, %{post_page: page, post_per_page: per_page}) do
-    offset_val = max((page - 1) * per_page, 0)
-    query |> limit(^per_page) |> offset(^offset_val)
-  end
-
-  defp paginate(query, _options), do: query
 
   defp add_nested_replies_to_posts(posts, _options) when is_list(posts), do: posts
   defp add_nested_replies_to_posts(post, _options), do: post

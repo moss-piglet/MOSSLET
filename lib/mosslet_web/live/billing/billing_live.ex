@@ -177,17 +177,6 @@ defmodule MossletWeb.BillingLive do
   defp subscribe_path(:user, _assigns), do: ~p"/app/subscribe"
   defp subscribe_path(:org, assigns), do: ~p"/app/org/#{assigns.current_org.slug}/subscribe"
 
-  @impl true
-  def handle_event("cancel_subscription", %{"subscription-id" => subscription_id}, socket) do
-    subscription = Subscriptions.get_subscription!(subscription_id)
-
-    if subscription.status == "trialing" do
-      cancel_subscription_immediately(subscription, socket)
-    else
-      cancel_subscription_at_period_end(subscription, socket)
-    end
-  end
-
   defp cancel_subscription_immediately(subscription, socket) do
     case billing_provider().cancel_subscription_immediately(subscription.provider_subscription_id) do
       {:ok, _cancelled} ->
@@ -241,6 +230,18 @@ defmodule MossletWeb.BillingLive do
     end
   end
 
+  @impl true
+  def handle_event("cancel_subscription", %{"subscription-id" => subscription_id}, socket) do
+    subscription = Subscriptions.get_subscription!(subscription_id)
+
+    if subscription.status == "trialing" do
+      cancel_subscription_immediately(subscription, socket)
+    else
+      cancel_subscription_at_period_end(subscription, socket)
+    end
+  end
+
+  @impl true
   def handle_event("resume_subscription", %{"subscription-id" => subscription_id}, socket) do
     subscription = Subscriptions.get_subscription!(subscription_id)
 
@@ -267,6 +268,7 @@ defmodule MossletWeb.BillingLive do
     end
   end
 
+  @impl true
   def handle_event("load_more_invoices", _params, socket) do
     subscription = socket.assigns.subscription_async.result
     current_invoices = socket.assigns.invoices_async.result
@@ -296,6 +298,7 @@ defmodule MossletWeb.BillingLive do
     {:noreply, socket}
   end
 
+  @impl true
   def handle_event("filter_invoices_by_year", %{"filter" => %{"year" => year}}, socket) do
     year_filter =
       case year do
