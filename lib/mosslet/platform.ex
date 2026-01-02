@@ -41,7 +41,7 @@ defmodule Mosslet.Platform do
   def type do
     cond do
       desktop_mode?() and desktop_available?() ->
-        normalize_desktop_type(Desktop.OS.type())
+        normalize_desktop_type(apply(Desktop.OS, :type, []))
 
       true ->
         :web

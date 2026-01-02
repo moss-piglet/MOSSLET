@@ -3,7 +3,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
   Web adapter for timeline operations.
 
   This adapter uses direct Postgres access via `Mosslet.Repo` and
-  `Fly.Repo.transaction_on_primary/1` for writes.
+  `Repo.transaction_on_primary/1` for writes.
 
   This is the default adapter for web deployments on Fly.io.
   """
@@ -922,11 +922,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
     |> Enum.reject(&is_nil/1)
   end
 
-  defp filter_by_reposts(query, true) do
-    where(query, [p, up], not p.repost or is_nil(p.repost))
-  end
-
-  defp filter_by_reposts(query, _hide_reposts), do: query
+  defp filter_by_reposts(query, false), do: query
+  defp filter_by_reposts(query, true), do: where(query, [p], is_nil(p.original_post_id))
 
   defp filter_by_blocked_users_posts(query, current_user_id) when is_binary(current_user_id) do
     blocked_by_me_subquery =
@@ -1325,7 +1322,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> where([r, p], is_nil(r.parent_reply_id))
 
     {count, _} =
-      Fly.Repo.transaction_on_primary(fn -> Repo.update_all(query, set: [read_at: now]) end)
+      Repo.transaction_on_primary(fn -> Repo.update_all(query, set: [read_at: now]) end)
       |> unwrap_transaction!()
 
     count
@@ -1341,7 +1338,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> where([r, parent], is_nil(r.read_at))
 
     {count, _} =
-      Fly.Repo.transaction_on_primary(fn -> Repo.update_all(query, set: [read_at: now]) end)
+      Repo.transaction_on_primary(fn -> Repo.update_all(query, set: [read_at: now]) end)
       |> unwrap_transaction!()
 
     count
@@ -1359,7 +1356,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> where([r, p], is_nil(r.read_at))
 
     {direct_count, _} =
-      Fly.Repo.transaction_on_primary(fn ->
+      Repo.transaction_on_primary(fn ->
         Repo.update_all(direct_query, set: [read_at: now])
       end)
       |> unwrap_transaction!()
@@ -1372,7 +1369,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> where([r, parent], is_nil(r.read_at))
 
     {nested_count, _} =
-      Fly.Repo.transaction_on_primary(fn ->
+      Repo.transaction_on_primary(fn ->
         Repo.update_all(nested_query, set: [read_at: now])
       end)
       |> unwrap_transaction!()
@@ -1393,7 +1390,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> where([r, parent], is_nil(r.read_at))
 
     {count, _} =
-      Fly.Repo.transaction_on_primary(fn -> Repo.update_all(query, set: [read_at: now]) end)
+      Repo.transaction_on_primary(fn -> Repo.update_all(query, set: [read_at: now]) end)
       |> unwrap_transaction!()
 
     count
@@ -1404,7 +1401,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     %Mosslet.Timeline.BookmarkCategory{}
     |> Mosslet.Timeline.BookmarkCategory.changeset(attrs)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
       |> unwrap_transaction()
     end)
   end
@@ -1414,14 +1411,14 @@ defmodule Mosslet.Timeline.Adapters.Web do
     category
     |> Mosslet.Timeline.BookmarkCategory.changeset(attrs)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
       |> unwrap_transaction()
     end)
   end
 
   @impl true
   def delete_bookmark_category(category) do
-    Fly.Repo.transaction_on_primary(fn -> Repo.delete(category) end)
+    Repo.transaction_on_primary(fn -> Repo.delete(category) end)
     |> unwrap_transaction()
   end
 
@@ -1531,7 +1528,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
   def execute_exists?(query), do: Repo.exists?(query)
 
   @impl true
-  def transaction(fun), do: Fly.Repo.transaction_on_primary(fun)
+  def transaction(fun), do: Repo.transaction_on_primary(fun)
 
   @impl true
   def filter_timeline_posts(current_user, options) do
@@ -1624,7 +1621,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
           read_at: now
         })
         |> then(fn changeset ->
-          Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+          Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
           |> unwrap_transaction()
         end)
 
@@ -1632,7 +1629,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
         receipt
         |> UserPostReceipt.changeset(%{is_read?: true, read_at: now})
         |> then(fn changeset ->
-          Fly.Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
+          Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
           |> unwrap_transaction()
         end)
     end
@@ -1643,14 +1640,14 @@ defmodule Mosslet.Timeline.Adapters.Web do
     %Bookmark{}
     |> Bookmark.changeset(attrs)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
       |> unwrap_transaction()
     end)
   end
 
   @impl true
   def delete_bookmark(bookmark) do
-    Fly.Repo.transaction_on_primary(fn -> Repo.delete(bookmark) end)
+    Repo.transaction_on_primary(fn -> Repo.delete(bookmark) end)
     |> unwrap_transaction()
   end
 
@@ -1659,7 +1656,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     %Post{}
     |> Post.changeset(attrs, opts)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
       |> unwrap_transaction()
     end)
   end
@@ -1669,14 +1666,14 @@ defmodule Mosslet.Timeline.Adapters.Web do
     post
     |> Post.changeset(attrs, opts)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
       |> unwrap_transaction()
     end)
   end
 
   @impl true
   def delete_post(post) do
-    Fly.Repo.transaction_on_primary(fn -> Repo.delete(post) end)
+    Repo.transaction_on_primary(fn -> Repo.delete(post) end)
     |> unwrap_transaction()
   end
 
@@ -1685,7 +1682,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     %Reply{}
     |> Reply.changeset(attrs, opts)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
       |> unwrap_transaction()
     end)
   end
@@ -1695,14 +1692,14 @@ defmodule Mosslet.Timeline.Adapters.Web do
     reply
     |> Reply.changeset(attrs, opts)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
       |> unwrap_transaction()
     end)
   end
 
   @impl true
   def delete_reply(reply) do
-    Fly.Repo.transaction_on_primary(fn -> Repo.delete(reply) end)
+    Repo.transaction_on_primary(fn -> Repo.delete(reply) end)
     |> unwrap_transaction()
   end
 
@@ -1711,14 +1708,14 @@ defmodule Mosslet.Timeline.Adapters.Web do
     %UserPost{}
     |> UserPost.changeset(attrs, [])
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
       |> unwrap_transaction()
     end)
   end
 
   @impl true
   def delete_user_post(user_post) do
-    Fly.Repo.transaction_on_primary(fn -> Repo.delete(user_post) end)
+    Repo.transaction_on_primary(fn -> Repo.delete(user_post) end)
     |> unwrap_transaction()
   end
 
@@ -1727,7 +1724,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     %UserPostReceipt{}
     |> UserPostReceipt.changeset(attrs)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.insert(changeset) end)
       |> unwrap_transaction()
     end)
   end
@@ -1737,7 +1734,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     receipt
     |> UserPostReceipt.changeset(attrs)
     |> then(fn changeset ->
-      Fly.Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
+      Repo.transaction_on_primary(fn -> Repo.update(changeset) end)
       |> unwrap_transaction()
     end)
   end
@@ -1779,42 +1776,40 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   @impl true
   def repo_insert(changeset),
-    do: Fly.Repo.transaction_on_primary(fn -> Repo.insert(changeset) end) |> unwrap_transaction()
+    do: Repo.transaction_on_primary(fn -> Repo.insert(changeset) end) |> unwrap_transaction()
 
   @impl true
   def repo_insert!(changeset),
-    do:
-      Fly.Repo.transaction_on_primary(fn -> Repo.insert!(changeset) end) |> unwrap_transaction!()
+    do: Repo.transaction_on_primary(fn -> Repo.insert!(changeset) end) |> unwrap_transaction!()
 
   @impl true
   def repo_update(changeset),
-    do: Fly.Repo.transaction_on_primary(fn -> Repo.update(changeset) end) |> unwrap_transaction()
+    do: Repo.transaction_on_primary(fn -> Repo.update(changeset) end) |> unwrap_transaction()
 
   @impl true
   def repo_update!(changeset),
-    do:
-      Fly.Repo.transaction_on_primary(fn -> Repo.update!(changeset) end) |> unwrap_transaction!()
+    do: Repo.transaction_on_primary(fn -> Repo.update!(changeset) end) |> unwrap_transaction!()
 
   @impl true
   def repo_delete(struct),
-    do: Fly.Repo.transaction_on_primary(fn -> Repo.delete(struct) end) |> unwrap_transaction()
+    do: Repo.transaction_on_primary(fn -> Repo.delete(struct) end) |> unwrap_transaction()
 
   @impl true
   def repo_delete!(struct),
-    do: Fly.Repo.transaction_on_primary(fn -> Repo.delete!(struct) end) |> unwrap_transaction!()
+    do: Repo.transaction_on_primary(fn -> Repo.delete!(struct) end) |> unwrap_transaction!()
 
   @impl true
   def repo_delete_all(query),
-    do: Fly.Repo.transaction_on_primary(fn -> Repo.delete_all(query) end) |> unwrap_transaction!()
+    do: Repo.transaction_on_primary(fn -> Repo.delete_all(query) end) |> unwrap_transaction!()
 
   @impl true
   def repo_update_all(query, updates),
     do:
-      Fly.Repo.transaction_on_primary(fn -> Repo.update_all(query, updates) end)
+      Repo.transaction_on_primary(fn -> Repo.update_all(query, updates) end)
       |> unwrap_transaction!()
 
   @impl true
-  def repo_transaction(fun), do: Fly.Repo.transaction_on_primary(fun)
+  def repo_transaction(fun), do: Repo.transaction_on_primary(fun)
 
   @impl true
   def repo_get(schema, id), do: Repo.get(schema, id)
@@ -2370,14 +2365,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
   defp filter_by_content_warnings_count(query, %{}), do: query
   defp filter_by_content_warnings_count(query, _warnings), do: query
 
-  defp filter_by_muted_users(query, []), do: query
-  defp filter_by_muted_users(query, _users), do: query
-
   defp filter_by_muted_users_count(query, []), do: query
   defp filter_by_muted_users_count(query, _users), do: query
-
-  defp filter_by_reposts(query, false), do: query
-  defp filter_by_reposts(query, true), do: where(query, [p], is_nil(p.original_post_id))
 
   defp filter_by_reposts_count(query, false), do: query
   defp filter_by_reposts_count(query, true), do: where(query, [p], is_nil(p.original_post_id))

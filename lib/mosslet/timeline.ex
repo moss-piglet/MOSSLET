@@ -41,7 +41,13 @@ defmodule Mosslet.Timeline do
   """
   def adapter do
     if Platform.native?() do
-      Mosslet.Timeline.Adapters.Native
+      if Code.ensure_loaded?(Ecto.Adapters.SQLite3) do
+        Mosslet.Timeline.Adapters.Native
+      else
+        Logger.warning("SQLite3 not available when trying to load native platform in timeline.ex")
+        Logger.warning("SQLite3 not available timeline.ex — Defaulting to Web adapter")
+        Mosslet.Timeline.Adapters.Web
+      end
     else
       Mosslet.Timeline.Adapters.Web
     end
@@ -591,36 +597,6 @@ defmodule Mosslet.Timeline do
     end
   end
 
-  # Helper function to apply database-level filters to bookmark queries
-  # For list_user_bookmarks with simple [b, p] join pattern
-  defp apply_bookmark_database_filters(query, options) do
-    case options do
-      %{filter_prefs: filter_prefs, current_user_id: current_user_id}
-      when is_map(filter_prefs) and is_binary(current_user_id) ->
-        query
-        |> filter_by_muted_keywords_simple_bookmark(filter_prefs[:keywords] || [])
-        |> filter_by_content_warnings_simple_bookmark(filter_prefs[:content_warnings] || %{})
-        |> filter_by_muted_users_simple_bookmark(filter_prefs[:muted_users] || [])
-        |> filter_by_reposts_simple_bookmark(filter_prefs[:hide_reposts] || false)
-        |> filter_by_blocked_users_simple_bookmarks(current_user_id)
-        |> filter_by_author_simple_bookmark(filter_prefs[:author_filter] || :all, current_user_id)
-
-      %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
-        query
-        |> filter_by_muted_keywords_simple_bookmark(filter_prefs[:keywords] || [])
-        |> filter_by_content_warnings_simple_bookmark(filter_prefs[:content_warnings] || %{})
-        |> filter_by_muted_users_simple_bookmark(filter_prefs[:muted_users] || [])
-        |> filter_by_reposts_simple_bookmark(filter_prefs[:hide_reposts] || false)
-
-      %{current_user_id: current_user_id} when is_binary(current_user_id) ->
-        query
-        |> filter_by_blocked_users_simple_bookmarks(current_user_id)
-
-      _ ->
-        query
-    end
-  end
-
   defp filter_by_author_simple_bookmark(query, :all, _current_user_id), do: query
 
   defp filter_by_author_simple_bookmark(query, :mine, current_user_id) do
@@ -641,36 +617,6 @@ defmodule Mosslet.Timeline do
   end
 
   defp filter_by_author_simple_bookmark(query, _, _current_user_id), do: query
-
-  # Helper function to apply database-level filters to bookmark unread count queries
-  # For count_unread_bookmarked_posts with complex [p, b, up, upr] join pattern
-  defp apply_bookmark_unread_database_filters(query, options) do
-    case options do
-      %{filter_prefs: filter_prefs, current_user_id: current_user_id}
-      when is_map(filter_prefs) and is_binary(current_user_id) ->
-        query
-        |> filter_by_muted_keywords_bookmark(filter_prefs[:keywords] || [])
-        |> filter_by_content_warnings_bookmark(filter_prefs[:content_warnings] || %{})
-        |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
-        |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
-        |> filter_by_blocked_users_bookmarks(current_user_id)
-        |> filter_by_author_bookmark(filter_prefs[:author_filter] || :all, current_user_id)
-
-      %{filter_prefs: filter_prefs} when is_map(filter_prefs) ->
-        query
-        |> filter_by_muted_keywords_bookmark(filter_prefs[:keywords] || [])
-        |> filter_by_content_warnings_bookmark(filter_prefs[:content_warnings] || %{})
-        |> filter_by_muted_users_bookmark(filter_prefs[:muted_users] || [])
-        |> filter_by_reposts_bookmark(filter_prefs[:hide_reposts] || false)
-
-      %{current_user_id: current_user_id} when is_binary(current_user_id) ->
-        query
-        |> filter_by_blocked_users_bookmarks(current_user_id)
-
-      _ ->
-        query
-    end
-  end
 
   # Simple bookmark filters for [b, p] join pattern used in list_user_bookmarks
   defp filter_by_muted_keywords_simple_bookmark(query, muted_keywords)
@@ -826,27 +772,6 @@ defmodule Mosslet.Timeline do
     |> where([p, b, up, upr], p.user_id not in subquery(blocked_by_me_subquery))
     |> where([p, b, up, upr], p.user_id not in subquery(blocked_me_subquery))
   end
-
-  defp filter_by_author_bookmark(query, :all, _current_user_id), do: query
-
-  defp filter_by_author_bookmark(query, :mine, current_user_id) do
-    where(query, [p, b, up, upr], p.user_id == ^current_user_id)
-  end
-
-  defp filter_by_author_bookmark(query, :connections, current_user_id) do
-    connection_user_ids =
-      Accounts.get_all_confirmed_user_connections(current_user_id)
-      |> Enum.map(& &1.reverse_user_id)
-      |> Enum.uniq()
-
-    if Enum.empty?(connection_user_ids) do
-      where(query, [p, b, up, upr], false)
-    else
-      where(query, [p, b, up, upr], p.user_id in ^connection_user_ids)
-    end
-  end
-
-  defp filter_by_author_bookmark(query, _, _current_user_id), do: query
 
   @doc """
   Returns the list of public posts.

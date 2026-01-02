@@ -44,7 +44,7 @@ defmodule Mosslet.Statuses.Adapters.Web do
   end
 
   @impl true
-  def update_user_status_visibility(user, changeset) do
+  def update_user_status_visibility(_user, changeset) do
     case Repo.transaction_on_primary(fn ->
            case Repo.update(changeset) do
              {:ok, updated_user} ->
@@ -96,7 +96,7 @@ defmodule Mosslet.Statuses.Adapters.Web do
   end
 
   @impl true
-  def update_user_activity(user, changeset) do
+  def update_user_activity(_user, changeset) do
     case Repo.transaction_on_primary(fn ->
            Repo.update(changeset)
          end) do

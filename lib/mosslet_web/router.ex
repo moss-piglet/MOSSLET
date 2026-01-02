@@ -185,6 +185,11 @@ defmodule MossletWeb.Router do
     put "/users/forgot-password", UserController, :update_forgot_password
     put "/users/oban-reset-token-id", UserController, :update_oban_reset_token_id
     post "/users/block", UserController, :block_user
+
+    # Status management
+    put "/users/status", StatusController, :update_status
+    put "/users/status/visibility", StatusController, :update_status_visibility
+    post "/users/status/activity", StatusController, :track_activity
     delete "/users/block/:user_id", UserController, :unblock_user
     get "/users/blocked", UserController, :list_blocked
 
@@ -221,6 +226,81 @@ defmodule MossletWeb.Router do
     post "/connections/:id/confirm", ConnectionController, :confirm
     delete "/connections/:id", ConnectionController, :delete
     delete "/connections/:id/both", ConnectionController, :delete_both
+
+    # Groups
+    get "/groups", GroupController, :index
+    get "/groups/unconfirmed", GroupController, :list_unconfirmed
+    get "/groups/public", GroupController, :list_public
+    get "/groups/count", GroupController, :count
+    get "/groups/filter-with-users", GroupController, :filter_with_users
+    get "/groups/:id", GroupController, :show
+    post "/groups", GroupController, :create
+    put "/groups/:id", GroupController, :update
+    delete "/groups/:id", GroupController, :delete
+    post "/groups/:id/join", GroupController, :join
+    get "/groups/:group_id/members", GroupController, :list_members
+    get "/groups/:group_id/blocks", GroupController, :list_blocked
+    get "/groups/:group_id/blocks/check", GroupController, :check_blocked
+    get "/groups/:group_id/blocks/:user_id", GroupController, :show_block
+    post "/groups/:group_id/blocks", GroupController, :create_block
+    delete "/groups/:group_id/blocks/:id", GroupController, :delete_block
+
+    # UserGroups (group membership)
+    post "/user-groups", GroupController, :create_user_group
+    get "/user-groups/:id", GroupController, :show_user_group
+    put "/user-groups/:id", GroupController, :update_user_group
+    put "/user-groups/role", GroupController, :update_user_group_role
+    delete "/user-groups/:id", GroupController, :delete_user_group
+    post "/user-groups/:id/confirm", GroupController, :confirm_user_group
+
+    # Group messages
+    get "/groups/:group_id/messages", GroupMessageController, :index
+    get "/groups/:group_id/messages/last-user-message", GroupMessageController, :last_user_message
+    get "/groups/:group_id/messages/count", GroupMessageController, :count
+    get "/groups/:group_id/messages/previous", GroupMessageController, :previous
+    post "/group-messages", GroupMessageController, :create
+    get "/group-messages/:id", GroupMessageController, :show
+    put "/group-messages/:id", GroupMessageController, :update
+    delete "/group-messages/:id", GroupMessageController, :delete
+
+    # Organizations
+    get "/orgs", OrgController, :index
+    get "/orgs/mine", OrgController, :mine
+    get "/orgs/by-id/:id", OrgController, :show_by_id
+    get "/orgs/:id", OrgController, :show
+    post "/orgs", OrgController, :create
+    put "/orgs/:id", OrgController, :update
+    delete "/orgs/:id", OrgController, :delete
+    get "/orgs/:org_id/members", OrgController, :list_members
+    get "/orgs/:org_id/invitations/:id", OrgController, :show_invitation
+    post "/orgs/:org_id/invitations", OrgController, :create_invitation
+
+    # Organization memberships
+    get "/org-memberships/:id", OrgController, :show_membership
+    put "/org-memberships/:id", OrgController, :update_membership
+    delete "/org-memberships/:id", OrgController, :delete_membership
+
+    # Organization invitations (user-centric)
+    get "/org-invitations/mine", OrgController, :list_my_invitations
+    delete "/org-invitations/:id", OrgController, :delete_invitation
+    post "/org-invitations/:id/accept", OrgController, :accept_invitation
+    post "/org-invitations/:id/reject", OrgController, :reject_invitation
+
+    # Conversations (legacy AI chat)
+    get "/conversations", ConversationController, :index
+    get "/conversations/:id", ConversationController, :show
+    get "/conversations/:id/token-count", ConversationController, :token_count
+    post "/conversations", ConversationController, :create
+    put "/conversations/:id", ConversationController, :update
+    delete "/conversations/:id", ConversationController, :delete
+
+    # Conversation messages (legacy)
+    get "/conversations/:conversation_id/messages", MessageController, :index
+    get "/conversations/:conversation_id/messages/last", MessageController, :last
+    get "/conversations/:conversation_id/messages/:id", MessageController, :show
+    post "/conversations/:conversation_id/messages", MessageController, :create
+    put "/conversations/:conversation_id/messages/:id", MessageController, :update
+    delete "/conversations/:conversation_id/messages/:id", MessageController, :delete
   end
 
   ## Authentication routes

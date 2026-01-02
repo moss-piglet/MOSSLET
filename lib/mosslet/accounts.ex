@@ -31,7 +31,13 @@ defmodule Mosslet.Accounts do
   """
   def adapter do
     if Platform.native?() do
-      Mosslet.Accounts.Adapters.Native
+      if Code.ensure_loaded?(Ecto.Adapters.SQLite3) do
+        Mosslet.Accounts.Adapters.Native
+      else
+        Logger.warning("SQLite3 not available when trying to load native platform in accounts.ex")
+        Logger.warning("SQLite3 not available accounts.ex — Defaulting to Web adapter")
+        Mosslet.Accounts.Adapters.Web
+      end
     else
       Mosslet.Accounts.Adapters.Web
     end

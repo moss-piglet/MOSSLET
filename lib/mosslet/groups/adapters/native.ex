@@ -65,7 +65,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def list_unconfirmed_groups(user, _opts \\ []) do
+  def list_unconfirmed_groups(_user, _opts \\ []) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"groups" => groups}} <- Client.list_unconfirmed_groups(token) do
@@ -79,7 +79,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def list_public_groups(user, search_term \\ nil, opts \\ []) do
+  def list_public_groups(_user, search_term \\ nil, opts \\ []) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"groups" => groups}} <-
@@ -94,7 +94,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def public_group_count(user, search_term \\ nil) do
+  def public_group_count(_user, search_term \\ nil) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"count" => count}} <- Client.public_group_count(token, search_term) do
@@ -123,7 +123,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def group_count(user) do
+  def group_count(_user) do
     case Cache.list_cached_items("group") do
       items when is_list(items) -> length(items)
       _ -> 0
@@ -136,7 +136,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def list_user_groups_for_sync(user, opts \\ []) do
+  def list_user_groups_for_sync(_user, opts \\ []) do
     with {:ok, token} <- NativeSession.get_token(),
          {:ok, %{"groups" => groups}} <- Client.fetch_groups(token, opts) do
       Enum.each(groups, &cache_group/1)
@@ -241,7 +241,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def create_group(attrs, _group_changeset, user, user_group_map, opts) do
+  def create_group(attrs, _group_changeset, _user, _user_group_map, _opts) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"group" => group_data}} <- Client.create_group(token, attrs) do
@@ -261,7 +261,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def create_user_group(attrs, opts) do
+  def create_user_group(attrs, _opts) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"user_group" => ug_data}} <- Client.create_user_group(token, attrs) do
@@ -276,6 +276,29 @@ defmodule Mosslet.Groups.Adapters.Native do
       end
     else
       Cache.queue_for_sync("user_group", "create", attrs)
+      {:error, "Offline - queued for sync"}
+    end
+  end
+
+  @impl true
+  def update_group(group, attrs, _opts) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{group: group_data}} <- Client.update_group(token, group.id, attrs) do
+        cache_group(group_data)
+        {:ok, deserialize_group(group_data)}
+      else
+        {:error, %{errors: errors}} ->
+          {:error, build_changeset_errors(errors)}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      Cache.queue_for_sync("group", "update", %{id: group.id, attrs: attrs},
+        resource_id: group.id
+      )
+
       {:error, "Offline - queued for sync"}
     end
   end
@@ -302,7 +325,7 @@ defmodule Mosslet.Groups.Adapters.Native do
   end
 
   @impl true
-  def update_user_group(user_group, attrs, opts) do
+  def update_user_group(user_group, attrs, _opts) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"user_group" => ug_data}} <-
@@ -399,7 +422,8 @@ defmodule Mosslet.Groups.Adapters.Native do
   def list_blocked_users(group_id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
-           {:ok, %{"blocked_users" => blocks}} <- Client.list_group_blocked_users(token, group_id) do
+           {:ok, %{"blocked_users" => blocks}} <-
+             Client.list_group_blocked_users(token, group_id) do
         Enum.map(blocks, &deserialize_group_block/1)
       else
         _ -> []

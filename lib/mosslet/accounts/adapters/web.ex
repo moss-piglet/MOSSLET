@@ -602,7 +602,7 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
-  def update_user_profile(_user, conn, changeset) do
+  def update_user_profile(_user, _conn, changeset) do
     case Ecto.Multi.new()
          |> Ecto.Multi.update(:update_connection, fn _ -> changeset end)
          |> Repo.transaction_on_primary() do

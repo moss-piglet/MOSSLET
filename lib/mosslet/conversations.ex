@@ -1,22 +1,37 @@
 defmodule Mosslet.Conversations do
   @moduledoc """
   The Conversations context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Conversations.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Conversations.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
+
+  Note: Conversations is a legacy feature being phased out. This adapter
+  implementation provides platform support during the transition period.
   """
 
-  import Ecto.Query, warn: false
-  require Logger
-  alias Mosslet.Repo
-
   alias Mosslet.Conversations.Conversation
-  alias Mosslet.Messages.Message
+  alias Mosslet.Platform
+
+  require Logger
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Conversations.Adapters.Native
+    else
+      Mosslet.Conversations.Adapters.Web
+    end
+  end
 
   @doc """
   Returns the list of conversations.
   """
-  def load_conversations(user) do
-    from(c in Conversation, where: c.user_id == ^user.id, order_by: [desc: c.inserted_at])
-    |> Repo.all()
-  end
+  def load_conversations(user), do: adapter().load_conversations(user)
 
   @doc """
   Gets a single conversation.
@@ -32,18 +47,10 @@ defmodule Mosslet.Conversations do
       ** (Ecto.NoResultsError)
 
   """
-  def get_conversation!(id, user) do
-    from(c in Conversation, where: c.id == ^id, where: c.user_id == ^user.id)
-    |> Repo.one!()
-  end
+  def get_conversation!(id, user), do: adapter().get_conversation!(id, user)
 
   def total_conversation_tokens(conversation, user) do
-    from(m in Message,
-      where: m.conversation_id == ^conversation.id,
-      join: c in Conversation,
-      on: c.user_id == ^user.id
-    )
-    |> Repo.aggregate(:sum, :tokens)
+    adapter().total_conversation_tokens(conversation, user)
   end
 
   @doc """
@@ -58,19 +65,7 @@ defmodule Mosslet.Conversations do
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_conversation(attrs \\ %{}) do
-    case Repo.transaction_on_primary(fn ->
-           %Conversation{}
-           |> Conversation.changeset(attrs)
-           |> Repo.insert()
-         end) do
-      {:ok, {:ok, conversation}} ->
-        {:ok, conversation}
-
-      {:ok, {:error, changeset}} ->
-        {:error, changeset}
-    end
-  end
+  def create_conversation(attrs \\ %{}), do: adapter().create_conversation(attrs)
 
   @doc """
   Updates a conversation.
@@ -85,19 +80,7 @@ defmodule Mosslet.Conversations do
 
   """
   def update_conversation(%Conversation{} = conversation, attrs, user) do
-    if conversation.user_id == user.id do
-      case Repo.transaction_on_primary(fn ->
-             conversation
-             |> Conversation.changeset(attrs)
-             |> Repo.update()
-           end) do
-        {:ok, {:ok, conversation}} ->
-          {:ok, conversation}
-
-        {:ok, {:error, changeset}} ->
-          {:error, changeset}
-      end
-    end
+    adapter().update_conversation(conversation, attrs, user)
   end
 
   @doc """
@@ -113,17 +96,7 @@ defmodule Mosslet.Conversations do
 
   """
   def delete_conversation(%Conversation{} = conversation, user) do
-    if conversation.user_id == user.id do
-      case Repo.transaction_on_primary(fn ->
-             Repo.delete(conversation)
-           end) do
-        {:ok, {:ok, conversation}} ->
-          {:ok, conversation}
-
-        {:ok, {:error, changeset}} ->
-          {:error, changeset}
-      end
-    end
+    adapter().delete_conversation(conversation, user)
   end
 
   @doc """

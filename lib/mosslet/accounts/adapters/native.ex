@@ -826,7 +826,12 @@ defmodule Mosslet.Accounts.Adapters.Native do
 
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{user: user_data}} <-
-             Client.update_user_password(token, current_password, password, password_confirmation) do
+             Client.update_user_password(
+               token,
+               current_password,
+               password,
+               password_confirmation
+             ) do
         cache_user(user_data)
         {:ok, deserialize_user(user_data)}
       else
@@ -855,7 +860,12 @@ defmodule Mosslet.Accounts.Adapters.Native do
 
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{user: user_data}} <-
-             Client.reset_user_password(token, current_password, password, password_confirmation) do
+             Client.reset_user_password(
+               token,
+               current_password,
+               password,
+               password_confirmation
+             ) do
         cache_user(user_data)
         {:ok, deserialize_user(user_data)}
       else
@@ -1716,7 +1726,8 @@ defmodule Mosslet.Accounts.Adapters.Native do
       forgot_password = Map.get(attrs, "forgot_password?") || Map.get(attrs, :forgot_password?)
 
       with {:ok, token} <- NativeSession.get_token(),
-           {:ok, %{user: user_data}} <- Client.update_user_forgot_password(token, forgot_password) do
+           {:ok, %{user: user_data}} <-
+             Client.update_user_forgot_password(token, forgot_password) do
         cache_user(user_data)
         {:ok, deserialize_user(user_data)}
       else
@@ -2141,7 +2152,11 @@ defmodule Mosslet.Accounts.Adapters.Native do
   def cleanup_shared_users_from_memories(uconn_user_id, uconn_reverse_user_id) do
     with {:ok, token} <- NativeSession.get_token(),
          {:ok, _response} <-
-           Client.cleanup_shared_users_from_memories(token, uconn_user_id, uconn_reverse_user_id) do
+           Client.cleanup_shared_users_from_memories(
+             token,
+             uconn_user_id,
+             uconn_reverse_user_id
+           ) do
       {:ok, :cleaned}
     else
       {:error, {_status, _error}} -> {:ok, :cleaned}

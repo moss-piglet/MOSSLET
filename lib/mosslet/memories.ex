@@ -1,18 +1,34 @@
 defmodule Mosslet.Memories do
   @moduledoc """
   The Memories context.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Memories.Adapters.Web`
+  - Native (Desktop/Mobile): API + SQLite cache via `Mosslet.Memories.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
+
+  Note: Memories is a legacy feature being phased out. This adapter
+  implementation provides platform support during the transition period.
   """
   require Logger
 
-  import Ecto.Query, warn: false
-
-  alias Mosslet.Repo
-
   alias Mosslet.Accounts
-  alias Mosslet.Memories.{Memory, Remark, UserMemory}
-  alias Mosslet.Memories.Remarks
+  alias Mosslet.Memories.{Memory, Remark}
   alias Mosslet.Encrypted
+  alias Mosslet.Platform
   alias MossletWeb.Endpoint
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Memories.Adapters.Native
+    else
+      Mosslet.Memories.Adapters.Web
+    end
+  end
 
   @doc """
   Gets a single memory.
@@ -28,87 +44,26 @@ defmodule Mosslet.Memories do
       ** (Ecto.NoResultsError)
 
   """
-  def get_memory!(id),
-    do: Repo.get!(Memory, id) |> Repo.preload([:user_memories, :user, :group, :remarks])
+  def get_memory!(id), do: adapter().get_memory!(id)
 
-  def get_memory(id) do
-    if :new == id || "new" == id do
-      nil
-    else
-      Repo.get(Memory, id) |> Repo.preload([:user_memories, :user, :group, :remarks])
-    end
-  end
+  def get_memory(id), do: adapter().get_memory(id)
 
   @doc """
   Gets the total count of a user's Memories.
   """
-  def memory_count(user) do
-    query =
-      from m in Memory,
-        inner_join: um in UserMemory,
-        on: um.memory_id == m.id,
-        where: um.user_id == ^user.id,
-        where: m.visibility != :public,
-        where: is_nil(m.group_id)
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def memory_count(user), do: adapter().memory_count(user)
 
   @doc """
   Gets the total count of a user's Memories that have
   been shared with the user. Does not include group Memories.
   """
-  def shared_with_user_memory_count(user) do
-    query =
-      from m in Memory,
-        inner_join: um in UserMemory,
-        on: um.memory_id == m.id,
-        where: um.user_id == ^user.id,
-        where: m.visibility == :connections,
-        where: is_nil(m.group_id)
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def shared_with_user_memory_count(user), do: adapter().shared_with_user_memory_count(user)
 
   @doc """
   Gets the total count of a current_user's memories
   on their timeline page.
   """
-  def timeline_memory_count(current_user) do
-    query =
-      Memory
-      |> join(:inner, [m], um in UserMemory, on: um.memory_id == m.id)
-      |> where([m, um], um.user_id == ^current_user.id)
-      |> with_any_visibility([:private, :connections])
-      |> with_group(nil)
-      |> preload([:user_memories])
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def timeline_memory_count(current_user), do: adapter().timeline_memory_count(current_user)
 
   @doc """
   Gets the total count of a user's Memories that have
@@ -116,165 +71,63 @@ defmodule Mosslet.Memories do
   Does not include group Memories.
   """
   def shared_between_users_memory_count(user_id, current_user_id) do
-    query =
-      Memory
-      |> join(:inner, [m], um in UserMemory, on: um.memory_id == m.id)
-      |> join(:inner, [m, um], um2 in UserMemory, on: um2.memory_id == m.id)
-      |> where([m, um, um2], um.user_id == ^user_id and um2.user_id == ^current_user_id)
-      |> where([m, um, um2], m.visibility == :connections)
-      |> where([m, um, um2], is_nil(m.group_id))
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
+    adapter().shared_between_users_memory_count(user_id, current_user_id)
   end
 
   @doc """
   Gets the total count of a user's Memories.
   """
-  def public_memory_count(user) do
-    query =
-      from m in Memory,
-        inner_join: um in UserMemory,
-        on: um.memory_id == m.id,
-        where: um.user_id == ^user.id,
-        where: m.visibility == :public
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def public_memory_count(user), do: adapter().public_memory_count(user)
 
   @doc """
   Gets the total count of a group's Memories.
   """
-  def group_memory_count(group) do
-    query =
-      from m in Memory,
-        inner_join: um in UserMemory,
-        on: um.memory_id == m.id,
-        where: m.group_id == ^group.id,
-        where: m.visibility == :connections
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def group_memory_count(group), do: adapter().group_memory_count(group)
 
   @doc """
   Gets the total count of a memory's Remarks.
   """
-  def remark_count(memory) do
-    query =
-      from r in Remark,
-        inner_join: m in Memory,
-        on: r.memory_id == m.id,
-        where: r.memory_id == ^memory.id
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil ->
-        0
-
-      count ->
-        count
-    end
-  end
+  def remark_count(memory), do: adapter().remark_count(memory)
 
   @doc """
   Returns the sum of the size of a user's memories.
   """
-  def get_total_storage(user) do
-    query = from m in Memory, where: m.user_id == ^user.id
-    sum = Repo.aggregate(query, :sum, :size)
-
-    case sum do
-      nil ->
-        0
-
-      sum ->
-        sum
-    end
-  end
+  def get_total_storage(user), do: adapter().get_total_storage(user)
 
   @doc """
   Counts all Memories.
   """
-  def count_all_memories() do
-    query = from(m in Memory)
-    Repo.aggregate(query, :count)
-  end
+  def count_all_memories, do: adapter().count_all_memories()
 
   @doc """
   Returns the count of a memory's remark loved reactions.
   """
-  def get_remarks_loved_count(memory) do
-    query = from r in Remark, where: r.memory_id == ^memory.id, where: r.mood == :loved
-
-    Repo.aggregate(query, :count, :mood)
-  end
+  def get_remarks_loved_count(memory), do: adapter().get_remarks_loved_count(memory)
 
   @doc """
   Returns the count of a memory's remark excited reactions.
   """
-  def get_remarks_excited_count(memory) do
-    query = from r in Remark, where: r.memory_id == ^memory.id, where: r.mood == :excited
-
-    Repo.aggregate(query, :count, :mood)
-  end
+  def get_remarks_excited_count(memory), do: adapter().get_remarks_excited_count(memory)
 
   @doc """
   Returns the count of a memory's remark happy reactions.
   """
-  def get_remarks_happy_count(memory) do
-    query = from r in Remark, where: r.memory_id == ^memory.id, where: r.mood == :happy
-
-    Repo.aggregate(query, :count, :mood)
-  end
+  def get_remarks_happy_count(memory), do: adapter().get_remarks_happy_count(memory)
 
   @doc """
   Returns the count of a memory's remark sad reactions.
   """
-  def get_remarks_sad_count(memory) do
-    query = from r in Remark, where: r.memory_id == ^memory.id, where: r.mood == :sad
-
-    Repo.aggregate(query, :count, :mood)
-  end
+  def get_remarks_sad_count(memory), do: adapter().get_remarks_sad_count(memory)
 
   @doc """
   Returns the count of a memory's remark thumbsy reactions.
   """
-  def get_remarks_thumbsy_count(memory) do
-    query = from r in Remark, where: r.memory_id == ^memory.id, where: r.mood == :thumbsy
-
-    Repo.aggregate(query, :count, :mood)
-  end
+  def get_remarks_thumbsy_count(memory), do: adapter().get_remarks_thumbsy_count(memory)
 
   @doc """
   Preloads the Memory.
   """
-  def preload(memory) do
-    Repo.preload(memory, [:user, :user_memories, :group, :remarks])
-  end
+  def preload(memory), do: adapter().preload(memory)
 
   @doc """
   Returns the list of non-public memories for
@@ -291,20 +144,7 @@ defmodule Mosslet.Memories do
       [%Memory{}, ...]
 
   """
-  def list_memories(user, options) do
-    from(m in Memory,
-      inner_join: um in UserMemory,
-      on: um.memory_id == m.id,
-      where: um.user_id == ^user.id,
-      where: m.visibility != :public,
-      where: is_nil(m.group_id),
-      order_by: [desc: m.inserted_at],
-      preload: [:user_memories]
-    )
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
-  end
+  def list_memories(user, options), do: adapter().list_memories(user, options)
 
   @doc """
   Returns a list of memories for the
@@ -312,15 +152,7 @@ defmodule Mosslet.Memories do
   non-public memories that have been shared.
   """
   def filter_timeline_memories(current_user, options) do
-    Memory
-    |> join(:inner, [m], um in UserMemory, on: um.memory_id == m.id)
-    |> where([m, um], um.user_id == ^current_user.id)
-    |> with_any_visibility([:private, :connections])
-    |> with_group(nil)
-    |> preload([:user_memories, :user, :remarks])
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
+    adapter().filter_timeline_memories(current_user, options)
   end
 
   @doc """
@@ -328,71 +160,18 @@ defmodule Mosslet.Memories do
   with the current user by another user.
   """
   def filter_memories_shared_with_current_user(user_id, options) do
-    Memory
-    |> with_users(user_id, options[:current_user_id], :desc)
-    |> with_visibility(:connections)
-    |> with_group(nil)
-    |> preload([:user_memories, :user, :remarks])
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
-  end
-
-  defp with_visibility(query, visibility) do
-    where(query, [m], m.visibility == ^visibility)
-  end
-
-  defp with_any_visibility(query, visibility_list) do
-    where(query, [m], m.visibility in ^visibility_list)
-  end
-
-  defp with_group(query, group_id) when not is_nil(group_id) do
-    where(query, [m], m.group_id == ^group_id)
-  end
-
-  defp with_group(query, nil) do
-    where(query, [m], is_nil(m.group_id))
-  end
-
-  defp with_users(query, user_id, current_user_id, :desc) do
-    query
-    |> join(:inner, [m], um in UserMemory, on: um.memory_id == m.id)
-    |> join(:inner, [m, um], um2 in UserMemory, on: um2.memory_id == m.id)
-    |> where([m, um, um2], um.user_id == ^user_id and um2.user_id == ^current_user_id)
-    |> where([m, um, um2], m.user_id == ^user_id or m.user_id == ^current_user_id)
-    |> order_by([m, um, um2], desc: um.inserted_at)
+    adapter().filter_memories_shared_with_current_user(user_id, options)
   end
 
   @doc """
   Returns the list of user's public memories.
   """
-  def list_public_memories(user, options) do
-    from(m in Memory,
-      inner_join: um in UserMemory,
-      on: um.memory_id == m.id,
-      where: um.user_id == ^user.id,
-      where: m.visibility == :public,
-      order_by: [desc: m.inserted_at],
-      preload: [:user_memories]
-    )
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
-  end
+  def list_public_memories(user, options), do: adapter().list_public_memories(user, options)
 
   @doc """
   Used only in group's show page.
   """
-  def list_group_memories(group, options) do
-    from(m in Memory,
-      where: m.group_id == ^group.id,
-      order_by: [desc: m.inserted_at],
-      preload: [:user_memories, :group, :user_group]
-    )
-    |> sort(options)
-    |> paginate(options)
-    |> Repo.all()
-  end
+  def list_group_memories(group, options), do: adapter().list_group_memories(group, options)
 
   @doc """
   Returns the list of remarks for
@@ -404,58 +183,10 @@ defmodule Mosslet.Memories do
       [%Remark{}, ...]
 
   """
-  def list_remarks(memory, options) do
-    Remark
-    |> join(:inner, [r], m in Memory, on: r.memory_id == m.id)
-    |> where([r, m], r.memory_id == ^memory.id and m.id == ^memory.id)
-    |> order_by([r, m], [{:desc, r.inserted_at}])
-    |> paginate(options)
-    |> preload([r, m], memory: m)
-    |> Repo.all()
-  end
+  def list_remarks(memory, options), do: adapter().list_remarks(memory, options)
 
-  defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, %{memory_sort_by: sort_by, memory_sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, %{remark_sort_by: sort_by, remark_sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, _options), do: query
-
-  defp paginate(query, %{page: page, per_page: per_page}) do
-    offset = max((page - 1) * per_page, 0)
-
-    query
-    |> limit(^per_page)
-    |> offset(^offset)
-  end
-
-  defp paginate(query, %{memory_page: page, memory_per_page: per_page}) do
-    offset = max((page - 1) * per_page, 0)
-
-    query
-    |> limit(^per_page)
-    |> offset(^offset)
-  end
-
-  defp paginate(query, %{remark_page: page, remark_per_page: per_page}) do
-    offset = max((page - 1) * per_page, 0)
-
-    query
-    |> limit(^per_page)
-    |> offset(^offset)
-  end
-
-  defp paginate(query, _options), do: query
-
-  def get_remark!(id), do: Repo.get!(Remark, id) |> Repo.preload([:user, :memory])
-  def get_remark(id), do: Repo.get(Remark, id) |> Repo.preload([:user, :memory])
+  def get_remark!(id), do: adapter().get_remark!(id)
+  def get_remark(id), do: adapter().get_remark(id)
 
   @doc """
   Creates a memory.
@@ -470,50 +201,19 @@ defmodule Mosslet.Memories do
 
   """
   def create_memory(attrs \\ %{}, opts \\ []) do
-    memory = Memory.changeset(%Memory{}, attrs, opts)
+    changeset = Memory.changeset(%Memory{}, attrs, opts)
     user = Accounts.get_user!(opts[:user].id)
-    p_attrs = memory.changes.user_memory_map
+    p_attrs = changeset.changes.user_memory_map
 
-    # we first encrypt the Memory and UserMemory for the person
-    # creating the Memory
-    #
-    # p_attrs.key is encrypted already
-
-    case Ecto.Multi.new()
-         |> Ecto.Multi.insert(:insert_memory, memory)
-         |> Ecto.Multi.insert(:insert_user_memory, fn %{insert_memory: memory} ->
-           UserMemory.changeset(
-             %UserMemory{},
-             %{
-               key: p_attrs.temp_key,
-               user_id: user.id,
-               memory_id: memory.id
-             },
-             user: user,
-             visibility: attrs["visibility"]
-           )
-         end)
-         |> Repo.transaction_on_primary() do
-      {:ok, %{insert_memory: memory, insert_user_memory: _user_memory_conn}} ->
-        # we create user_memories for everyone being shared with
+    case adapter().create_memory_multi(changeset, user, p_attrs, attrs["visibility"]) do
+      {:ok, memory} ->
         create_shared_user_memories(memory, attrs, p_attrs, user)
 
         {:ok, memory}
         |> broadcast_admin(:memory_created)
 
-      {:error, :insert_memory, changeset, _map} ->
+      {:error, changeset} ->
         {:error, changeset}
-
-      {:error, :insert_user_memory, changeset, _map} ->
-        {:error, changeset}
-
-      {:error, :insert_memory, _, :insert_user_memory, changeset, _map} ->
-        {:error, changeset}
-
-      rest ->
-        Logger.warning("Error creating memory")
-        Logger.debug("Error creating memory: #{inspect(rest)}")
-        {:error, "error"}
     end
   end
 
@@ -530,72 +230,37 @@ defmodule Mosslet.Memories do
 
   """
   def create_public_memory(attrs \\ %{}, opts \\ []) do
-    memory = Memory.changeset(%Memory{}, attrs, opts)
+    changeset = Memory.changeset(%Memory{}, attrs, opts)
     user = Accounts.get_user!(opts[:user].id)
-    p_attrs = memory.changes.user_memory_map
+    p_attrs = changeset.changes.user_memory_map
 
-    # we first encrypt the Memory and UserMemory for the person
-    # creating the Memory
-    #
-    # p_attrs.key is encrypted already
-    {:ok, %{insert_memory: memory, insert_user_memory: _user_memory_conn}} =
-      Ecto.Multi.new()
-      |> Ecto.Multi.insert(:insert_memory, memory)
-      |> Ecto.Multi.insert(:insert_user_memory, fn %{insert_memory: memory} ->
-        UserMemory.changeset(
-          %UserMemory{},
-          %{
-            key: p_attrs.temp_key,
-            user_id: user.id,
-            memory_id: memory.id
-          },
-          user: user,
-          visibility: attrs["visibility"]
-        )
-      end)
-      |> Repo.transaction_on_primary()
+    case adapter().create_memory_multi(changeset, user, p_attrs, attrs["visibility"]) do
+      {:ok, memory} ->
+        conn = Accounts.get_connection_from_item(memory, user)
 
-    # we do not create multiple user_memories as the memory is
-    # symmetrically encrypted with the server public key.
+        {:ok, conn, preload(memory)}
+        |> broadcast(:memory_created)
 
-    conn = Accounts.get_connection_from_item(memory, user)
-
-    {:ok, conn, memory |> Repo.preload([:user_memories])}
-    |> broadcast(:memory_created)
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   defp create_shared_user_memories(memory, attrs, p_attrs, current_user) do
     if attrs["shared_users"] && !Enum.empty?(attrs["shared_users"]) do
       for su <- attrs["shared_users"] do
         user = Mosslet.Accounts.get_user!(su[:user_id] || su["user_id"])
-
-        user_memory =
-          UserMemory.sharing_changeset(
-            %UserMemory{},
-            %{
-              key: p_attrs.temp_key,
-              memory_id: memory.id,
-              user_id: user.id
-            },
-            user: user,
-            visibility: attrs["visibility"]
-          )
-
-        # p_attrs.temp_key is not encrypted yet
-        {:ok, %{insert_user_memory: _user_memory}} =
-          Ecto.Multi.new()
-          |> Ecto.Multi.insert(:insert_user_memory, user_memory)
-          |> Repo.transaction_on_primary()
+        adapter().create_shared_user_memory(memory, user, p_attrs, attrs["visibility"])
       end
 
       conn = Accounts.get_connection_from_item(memory, current_user)
 
-      {:ok, conn, memory |> Repo.preload([:user_memories])}
+      {:ok, conn, preload(memory)}
       |> broadcast(:memory_created)
     else
       conn = Accounts.get_connection_from_item(memory, current_user)
 
-      {:ok, conn, memory |> Repo.preload([:user_memories])}
+      {:ok, conn, preload(memory)}
       |> broadcast(:memory_created)
     end
   end
@@ -613,37 +278,29 @@ defmodule Mosslet.Memories do
 
   """
   def update_memory(%Memory{} = memory, attrs, opts \\ []) do
-    memory = Memory.changeset(memory, attrs, opts)
+    changeset = Memory.changeset(memory, attrs, opts)
     user = Accounts.get_user!(opts[:user].id)
-    p_attrs = memory.changes.user_memory_map
+    p_attrs = changeset.changes.user_memory_map
 
-    {:ok, %{update_memory: memory, update_user_memory: _user_memory_conn}} =
-      Ecto.Multi.new()
-      |> Ecto.Multi.update(:update_memory, memory)
-      |> Ecto.Multi.update(:update_user_memory, fn %{update_memory: memory} ->
-        UserMemory.changeset(get_user_memory(memory, user), %{
-          key: p_attrs.key
-        })
-        |> Ecto.Changeset.put_assoc(:memory, memory)
-        |> Ecto.Changeset.put_assoc(:user, user)
-      end)
-      |> Repo.transaction_on_primary()
+    case adapter().update_memory_multi(changeset, memory, user, p_attrs) do
+      {:ok, updated_memory} ->
+        conn = Accounts.get_connection_from_item(updated_memory, user)
 
-    conn = Accounts.get_connection_from_item(memory, user)
+        {:ok, conn, preload(updated_memory)}
+        |> broadcast(:memory_updated)
 
-    {:ok, conn, memory |> Repo.preload([:user_memories])}
-    |> broadcast(:memory_updated)
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def blur_memory(%Memory{} = memory, attrs, user, opts \\ []) do
-    memory = Memory.blur_changeset(memory, attrs, user, opts)
+    changeset = Memory.blur_changeset(memory, attrs, user, opts)
 
-    {:ok, %{update_blur_memory: memory}} =
-      Ecto.Multi.new()
-      |> Ecto.Multi.update(:update_blur_memory, memory, opts)
-      |> Repo.transaction_on_primary()
-
-    {:ok, memory}
+    case adapter().blur_memory_multi(changeset, opts) do
+      {:ok, memory} -> {:ok, memory}
+      {:error, changeset} -> {:error, changeset}
+    end
   end
 
   @doc """
@@ -659,22 +316,15 @@ defmodule Mosslet.Memories do
 
   """
   def create_remark(attrs \\ %{}, opts \\ []) do
-    remark = Remark.changeset(%Remark{}, attrs, opts)
+    changeset = Remark.changeset(%Remark{}, attrs, opts)
     user = Accounts.get_user!(opts[:user].id)
 
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        remark
-        |> Repo.insert()
-      end)
-
-    return |> publish_remark_created()
-
-    case return do
+    case adapter().create_remark(changeset) do
       {:ok, remark} ->
+        publish_remark_created({:ok, remark})
         conn = Accounts.get_connection_from_item(remark, user)
 
-        {:ok, conn, remark |> Repo.preload([:memory, :user])}
+        {:ok, conn, adapter().preload_remark_user(remark)}
         |> broadcast(:remark_created)
 
       {:error, changeset} ->
@@ -697,19 +347,12 @@ defmodule Mosslet.Memories do
   def delete_remark(%Remark{} = remark, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
 
-    {:ok, return} =
-      Repo.transaction_on_primary(fn ->
-        remark
-        |> Repo.delete()
-      end)
-
-    return |> publish_remark_deleted()
-
-    case return do
+    case adapter().delete_remark(remark) do
       {:ok, remark} ->
+        publish_remark_deleted({:ok, remark})
         conn = Accounts.get_connection_from_item(remark, user)
 
-        {:ok, conn, remark |> Repo.preload([:memory, :user])}
+        {:ok, conn, adapter().preload_remark_user(remark)}
         |> broadcast(:remark_deleted)
 
       {:error, changeset} ->
@@ -722,38 +365,22 @@ defmodule Mosslet.Memories do
   """
   def update_memory_fav(%Memory{} = memory, attrs, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
+    changeset = Memory.changeset(memory, attrs, opts)
 
-    {:ok, {:ok, memory}} =
-      Repo.transaction_on_primary(fn ->
-        Memory.changeset(memory, attrs, opts)
-        |> Repo.update()
-      end)
+    case adapter().update_memory_fav(changeset) do
+      {:ok, memory} ->
+        conn = Accounts.get_connection_from_item(memory, user)
 
-    conn = Accounts.get_connection_from_item(memory, user)
+        {:ok, conn, preload(memory)}
+        |> broadcast(:memory_updated)
 
-    {:ok, conn, memory |> Repo.preload([:user_memories])}
-    |> broadcast(:memory_updated)
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
-  def inc_favs(%Memory{id: id}) do
-    {:ok, {1, [memory]}} =
-      Repo.transaction_on_primary(fn ->
-        from(m in Memory, where: m.id == ^id, select: m)
-        |> Repo.update_all(inc: [favs_count: 1])
-      end)
-
-    {:ok, memory |> Repo.preload([:user_memories])}
-  end
-
-  def decr_favs(%Memory{id: id}) do
-    {:ok, {1, [memory]}} =
-      Repo.transaction_on_primary(fn ->
-        from(m in Memory, where: m.id == ^id, select: m)
-        |> Repo.update_all(inc: [favs_count: -1])
-      end)
-
-    {:ok, memory |> Repo.preload([:user_memories])}
-  end
+  def inc_favs(%Memory{} = memory), do: adapter().inc_favs(memory)
+  def decr_favs(%Memory{} = memory), do: adapter().decr_favs(memory)
 
   @doc """
   Deletes a memory.
@@ -769,19 +396,19 @@ defmodule Mosslet.Memories do
   """
   def delete_memory(%Memory{} = memory, opts \\ []) do
     user = Accounts.get_user!(opts[:user].id)
-
     conn = Accounts.get_connection_from_item(memory, user)
 
-    {:ok, {:ok, memory}} =
-      Repo.transaction_on_primary(fn ->
-        Repo.delete(memory)
-      end)
+    case adapter().delete_memory(memory) do
+      {:ok, memory} ->
+        {:ok, memory}
+        |> broadcast_admin(:memory_deleted)
 
-    {:ok, memory}
-    |> broadcast_admin(:memory_deleted)
+        {:ok, conn, memory}
+        |> broadcast(:memory_deleted)
 
-    {:ok, conn, memory}
-    |> broadcast(:memory_deleted)
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   @doc """
@@ -810,29 +437,17 @@ defmodule Mosslet.Memories do
     Remark.changeset(remark, attrs, opts)
   end
 
-  def last_ten_remarks_for(memory_id) do
-    Remarks.Query.for_memory(memory_id)
-    |> Repo.all()
-  end
+  def last_ten_remarks_for(memory_id), do: adapter().last_ten_remarks_for(memory_id)
 
   def last_user_remark_for_memory(memory_id, user_id) do
-    Remarks.Query.last_user_remark_for_memory(memory_id, user_id)
-    |> Repo.one()
+    adapter().last_user_remark_for_memory(memory_id, user_id)
   end
 
   def get_previous_n_remarks(date, memory_id, n) do
-    if is_nil(date) do
-      []
-    else
-      Remarks.Query.previous_n(date, memory_id, n)
-      |> Repo.all()
-    end
+    adapter().get_previous_n_remarks(date, memory_id, n)
   end
 
-  def preload_remark_user(remark) do
-    remark
-    |> Repo.preload([:user, :memory])
-  end
+  def preload_remark_user(remark), do: adapter().preload_remark_user(remark)
 
   def publish_remark_created({:ok, remark} = result) do
     Endpoint.broadcast("memory:#{remark.memory_id}", "new_remark", %{remark: remark})
@@ -873,16 +488,9 @@ defmodule Mosslet.Memories do
     end
   end
 
-  # The user_memory is always just one
-  # and is the first in the list
-  def get_public_user_memory(memory) do
-    Enum.at(memory.user_memories, 0)
-    |> Repo.preload([:memory, :user])
-  end
+  def get_public_user_memory(memory), do: adapter().get_public_user_memory(memory)
 
-  def get_user_memory(memory, user) do
-    Repo.one(from um in UserMemory, where: um.memory_id == ^memory.id and um.user_id == ^user.id)
-  end
+  def get_user_memory(memory, user), do: adapter().get_user_memory(memory, user)
 
   defp broadcast({:ok, conn, struct}, event, _user_conn \\ %{}) do
     case struct.visibility do
@@ -996,8 +604,6 @@ defmodule Mosslet.Memories do
     end
   end
 
-  ##  Group Post broadcasts
-
   def publish_group_memory({event, memory}) do
     Phoenix.PubSub.broadcast(
       Mosslet.PubSub,
@@ -1006,9 +612,6 @@ defmodule Mosslet.Memories do
     )
   end
 
-  ## Object storage requests
-
-  # delete 1,000 objects at a time
   def make_async_aws_requests(urls) when is_list(urls) do
     memories_bucket = Encrypted.Session.memories_bucket()
 

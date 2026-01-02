@@ -69,7 +69,8 @@ defmodule Mosslet.Messages.Adapters.Native do
   def get_last_message!(conversation_id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
-           {:ok, %{"message" => message_data}} <- Client.get_last_message(token, conversation_id) do
+           {:ok, %{"message" => message_data}} <-
+             Client.get_last_message(token, conversation_id) do
         if message_data do
           cache_message(message_data)
           deserialize_message(message_data)
@@ -107,7 +108,12 @@ defmodule Mosslet.Messages.Adapters.Native do
           {:error, reason}
       end
     else
-      Cache.queue_for_sync("message", "create", Map.put(attrs, :conversation_id, conversation_id))
+      Cache.queue_for_sync(
+        "message",
+        "create",
+        Map.put(attrs, :conversation_id, conversation_id)
+      )
+
       {:error, "Offline - queued for sync"}
     end
   end

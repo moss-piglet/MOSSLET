@@ -1,27 +1,37 @@
 defmodule Mosslet.Logs do
   @moduledoc """
-  A context file for CRUDing logs
+  A context file for CRUDing logs.
+
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Logs.Adapters.Web`
+  - Native (Desktop/Mobile): API calls via `Mosslet.Logs.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
+
+  Note: Logs are primarily a server-side concern for audit/analytics.
+  Native apps send log events to the server via API.
   """
 
-  import Ecto.Query, warn: false
-
-  alias Mosslet.Extensions.Ecto.QueryExt
   alias Mosslet.Logs.Log
-  alias Mosslet.Repo
+  alias Mosslet.Platform
 
   require Logger
 
-  # Logs allow you to keep track of user activity.
-  # This helps with both analytics and customer support (easy to look up a user and see what they've done)
-  # If you don't want to store logs on your db, you could rewrite this file to send them to a 3rd
-  # party service like https://www.datadoghq.com/
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Mosslet.Logs.Adapters.Native
+    else
+      Mosslet.Logs.Adapters.Web
+    end
+  end
 
-  def get(id), do: Repo.get(Log, id)
+  def get(id), do: adapter().get(id)
 
   def create(attrs \\ %{}) do
-    case %Log{}
-         |> Log.changeset(attrs)
-         |> Repo.insert() do
+    case adapter().create(attrs) do
       {:ok, log} ->
         MossletWeb.Endpoint.broadcast("logs", "new-log", log)
         {:ok, log}
@@ -79,7 +89,7 @@ defmodule Mosslet.Logs do
       billing_customer_id: billing_customer_id,
       target_user_id: target_user_id,
       action: action,
-      user_role: params[:user_role] || if(is_admin?, do: "admin", else: "user"),
+      user_type: params[:user_type] || if(is_admin?, do: "admin", else: "user"),
       metadata: params[:metadata] || %{}
     }
   end
@@ -107,18 +117,10 @@ defmodule Mosslet.Logs do
     end)
   end
 
-  def exists?(params) do
-    Log
-    |> QueryBuilder.where(params)
-    |> Mosslet.Repo.exists?()
-  end
+  def exists?(params), do: adapter().exists?(params)
 
   def get_last_log_of_user(user) do
-    user.id
-    |> Mosslet.Logs.LogQuery.by_user()
-    |> Mosslet.Logs.LogQuery.order_by(:newest)
-    |> QueryExt.limit(1)
-    |> Mosslet.Repo.one()
+    adapter().get_last_log_of_user(user.id)
   end
 
   @doc """
@@ -135,10 +137,7 @@ defmodule Mosslet.Logs do
       Logs.delete_logs_older_than(30)
   """
   def delete_logs_older_than(days) when is_integer(days) and days > 0 do
-    cutoff_date = DateTime.utc_now() |> DateTime.add(-days, :day)
-
-    from(l in Log, where: l.inserted_at < ^cutoff_date)
-    |> Repo.delete_all()
+    adapter().delete_logs_older_than(days)
   end
 
   @doc """
@@ -148,11 +147,7 @@ defmodule Mosslet.Logs do
   Returns the number of deleted records.
   """
   def delete_sensitive_logs do
-    # Delete logs that contain email metadata (from before we removed email logging)
-    from(l in Log,
-      where: fragment("?->'new_email' IS NOT NULL", l.metadata)
-    )
-    |> Repo.delete_all()
+    adapter().delete_sensitive_logs()
   end
 
   @doc """
@@ -161,9 +156,6 @@ defmodule Mosslet.Logs do
   Returns the number of deleted records.
   """
   def delete_user_logs(user_id) do
-    from(l in Log,
-      where: l.user_id == ^user_id or l.target_user_id == ^user_id
-    )
-    |> Repo.delete_all()
+    adapter().delete_user_logs(user_id)
   end
 end

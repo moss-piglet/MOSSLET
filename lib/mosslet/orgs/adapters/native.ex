@@ -29,7 +29,7 @@ defmodule Mosslet.Orgs.Adapters.Native do
   alias Mosslet.Sync
 
   @impl true
-  def list_orgs(user) do
+  def list_orgs(_user) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"orgs" => orgs}} <- Client.list_user_orgs(token) do
@@ -59,7 +59,7 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
-  def get_org!(user, slug) when is_binary(slug) do
+  def get_org!(_user, slug) when is_binary(slug) do
     case get_org_by_slug(slug) do
       nil -> raise Ecto.NoResultsError, queryable: Org
       org -> org
@@ -186,7 +186,7 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
-  def get_membership!(user, org_slug) when is_binary(org_slug) do
+  def get_membership!(_user, org_slug) when is_binary(org_slug) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"membership" => membership_data}} <-
@@ -297,7 +297,7 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
-  def accept_invitation!(user, id) do
+  def accept_invitation!(_user, id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"membership" => membership_data}} <-
@@ -312,7 +312,7 @@ defmodule Mosslet.Orgs.Adapters.Native do
   end
 
   @impl true
-  def reject_invitation!(user, id) do
+  def reject_invitation!(_user, id) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{"invitation" => invitation_data}} <-

@@ -58,14 +58,14 @@ defmodule Mosslet.Platform.Config do
 
       :ios ->
         if Code.ensure_loaded?(Desktop.OS) do
-          Desktop.OS.home()
+          apply(Desktop.OS, :home, [])
         else
           System.tmp_dir!()
         end
 
       :android ->
         if Code.ensure_loaded?(Desktop.OS) do
-          Desktop.OS.home()
+          apply(Desktop.OS, :home, [])
         else
           System.tmp_dir!()
         end

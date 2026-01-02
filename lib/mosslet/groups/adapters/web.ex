@@ -284,7 +284,6 @@ defmodule Mosslet.Groups.Adapters.Web do
 
   @impl true
   def update_group_multi(group_changeset, user_group, user_group_attrs, opts) do
-    group = group_changeset.data
     user = opts[:user]
 
     Ecto.Multi.new()

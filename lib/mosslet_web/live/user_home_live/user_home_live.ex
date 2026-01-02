@@ -4465,7 +4465,7 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp get_public_profile_post_handle(post, profile_user, current_user, key) do
+  defp get_public_profile_post_handle(post, _profile_user, current_user, key) do
     post_key = get_post_key(post, current_user)
 
     username =
@@ -4679,7 +4679,7 @@ defmodule MossletWeb.UserHomeLive do
     end
   end
 
-  defp get_profile_post_author_handle(post, profile_user, current_user, key, user_connection) do
+  defp get_profile_post_author_handle(post, _profile_user, current_user, key, _user_connection) do
     post_key = get_post_key(post, current_user)
 
     username =

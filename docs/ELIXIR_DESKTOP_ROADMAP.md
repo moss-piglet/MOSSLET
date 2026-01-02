@@ -520,9 +520,9 @@ LiveView calls
 | ~~`messages.ex`~~       | ~~9~~      | ~~MEDIUM~~   | ✅ COMPLETE | ~~Direct messages~~          |
 | ~~`orgs.ex`~~           | ~~25~~     | ~~LOW~~      | ✅ COMPLETE | ~~Organization features~~    |
 | ~~`statuses.ex`~~       | ~~9~~      | ~~LOW~~      | ✅ COMPLETE | ~~User statuses~~            |
-| `logs.ex`               | 7          | SKIP         | —           | Audit logs (server-only)     |
-| `memories.ex`           | 57         | SKIP         | —           | Legacy - phasing out         |
-| `conversations.ex`      | 9          | SKIP         | —           | Legacy - phasing out         |
+| ~~`logs.ex`~~           | ~~7~~      | ~~LOW~~      | ✅ COMPLETE | ~~Audit logs~~               |
+| ~~`memories.ex`~~       | ~~57~~     | ~~LOW~~      | ✅ COMPLETE | ~~Legacy - phasing out~~     |
+| ~~`conversations.ex`~~  | ~~9~~      | ~~LOW~~      | ✅ COMPLETE | ~~Legacy - phasing out~~     |
 
 #### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - ✅ COMPLETE
 
@@ -879,46 +879,199 @@ Utility (1 function):
 
 **Note:** Complex privacy/visibility logic (encryption, presence checks, status access controls) stays in the context as it involves encryption that must happen on-device for native apps.
 
-#### 5.8 Skipped Contexts
+#### 5.8 Logs - `logs.ex` (Priority: LOW) - ✅ COMPLETE
 
-The following contexts are **not** being updated for native platform routing:
+**Status:** Adapter pattern implementation complete. All data access functions delegated to adapters.
 
-- `logs.ex` - Audit logging is server-side only
-- `memories.ex` - Legacy feature, being phased out
-- `conversations.ex` - Legacy feature, being phased out
+**Files created:**
 
-#### 5.9 API Endpoints Required
+- `lib/mosslet/logs/adapter.ex` - Behaviour definition with 7 callbacks
+- `lib/mosslet/logs/adapters/web.ex` - Web adapter (Repo calls, ~60 lines)
+- `lib/mosslet/logs/adapters/native.ex` - Native adapter (API calls, ~100 lines)
 
-For each context above, corresponding API endpoints need to exist. Current API coverage:
+**Completed Functions (delegated to adapters):**
 
-**Existing:**
+Log Operations (7 functions):
+- `get/1` - Get a log by ID
+- `create/1` - Create a new log entry
+- `exists?/1` - Check if a log matching params exists
+- `get_last_log_of_user/1` - Get user's most recent log
+- `delete_logs_older_than/1` - Delete old logs (cleanup)
+- `delete_sensitive_logs/0` - Delete logs with PII
+- `delete_user_logs/1` - Delete all logs for a user (GDPR)
 
-- Auth: login, register, refresh, logout, me ✅
-- Sync: user, posts, connections, groups, full ✅
-- Posts: CRUD ✅
+**Note:** Logs are primarily server-side for audit/analytics. Native apps send log events via API; most query operations return empty/nil for native platform since logs are not cached locally.
 
-**Existing (✅ Complete):**
+#### 5.9 Memories - `memories.ex` (Priority: LOW) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. Legacy feature with full adapter support during transition period.
+
+**Files created:**
+
+- `lib/mosslet/memories/adapter.ex` - Behaviour definition with 40+ callbacks
+- `lib/mosslet/memories/adapters/web.ex` - Web adapter (Repo calls, ~400 lines)
+- `lib/mosslet/memories/adapters/native.ex` - Native adapter (API + cache, ~500 lines)
+
+**Completed Functions (delegated to adapters):**
+
+Memory Getters (2 functions):
+- `get_memory!/1`, `get_memory/1`
+
+Count Functions (11 functions):
+- `memory_count/1`, `shared_with_user_memory_count/1`, `timeline_memory_count/1`
+- `shared_between_users_memory_count/2`, `public_memory_count/1`, `group_memory_count/1`
+- `remark_count/1`, `get_total_storage/1`, `count_all_memories/0`
+- `get_remarks_*_count/1` (5 mood-specific counts)
+
+Listing Functions (6 functions):
+- `list_memories/2`, `filter_timeline_memories/2`, `filter_memories_shared_with_current_user/2`
+- `list_public_memories/2`, `list_group_memories/2`, `list_remarks/2`
+
+CRUD Operations (8 functions):
+- Memory: `create_memory_multi/4`, `update_memory_multi/4`, `blur_memory_multi/2`, `delete_memory/1`
+- Fav: `update_memory_fav/1`, `inc_favs/1`, `decr_favs/1`
+- Remark: `create_remark/1`, `delete_remark/1`
+
+Utility Functions (8 functions):
+- `preload/1`, `get_remark!/1`, `get_remark/1`
+- `last_ten_remarks_for/1`, `last_user_remark_for_memory/2`, `get_previous_n_remarks/3`
+- `preload_remark_user/1`, `get_public_user_memory/1`, `get_user_memory/2`
+
+**Note:** Memories is a legacy feature being phased out. This adapter implementation provides platform support during the transition period.
+
+#### 5.10 Conversations - `conversations.ex` (Priority: LOW) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. Legacy feature with full adapter support during transition period.
+
+**Files created:**
+
+- `lib/mosslet/conversations/adapter.ex` - Behaviour definition with 6 callbacks
+- `lib/mosslet/conversations/adapters/web.ex` - Web adapter (Repo calls, ~70 lines)
+- `lib/mosslet/conversations/adapters/native.ex` - Native adapter (API + cache, ~180 lines)
+
+**Completed Functions (delegated to adapters):**
+
+Conversation Operations (6 functions):
+- `load_conversations/1` - List user's conversations
+- `get_conversation!/2` - Get a conversation by ID
+- `total_conversation_tokens/2` - Calculate total tokens for a conversation
+- `create_conversation/1` - Create a new conversation
+- `update_conversation/3` - Update a conversation
+- `delete_conversation/2` - Delete a conversation
+
+**Note:** Conversations is a legacy AI chat feature being phased out. This adapter implementation provides platform support during the transition period. The native adapter includes SQLite caching for offline viewing of conversation history.
+
+#### 5.11 API Endpoints Required ✅ COMPLETE
+
+For each context above, corresponding API endpoints now exist. Full API coverage:
+
+**All Endpoints Implemented:**
 
 - Auth: login, register, refresh, logout, me ✅
 - Auth TOTP/2FA: status, setup, enable, disable, verify, backup-codes/regenerate ✅
 - Auth Remember Me: remember-me/refresh ✅
 - Sync: user, posts, connections, groups, full ✅
 - Posts: CRUD ✅
+- Users: profile, email, password, visibility, avatar, notifications, onboarding, blocked ✅
+- Connections: CRUD, label, zen, photos, confirm, arrivals ✅
+- Statuses: status, visibility, activity tracking ✅
+- Groups: CRUD, join, members, blocks ✅
+- Group Messages: CRUD, previous messages, count ✅
+- Organizations: CRUD, members, memberships, invitations ✅
+- Conversations: CRUD, token-count (legacy) ✅
+- Messages: CRUD (legacy) ✅
 
-**Need to add:**
+**Files created:**
 
-- [ ] `PUT /api/users/profile` - Update user profile
-- [ ] `PUT /api/users/email` - Change email
-- [ ] `PUT /api/users/password` - Change password
-- [ ] `POST /api/users/reset-password` - Request password reset
-- [ ] Connections CRUD endpoints
-- [ ] Groups CRUD endpoints
-- [ ] Group messages CRUD endpoints
-- [ ] Messages CRUD endpoints
-- [ ] Statuses CRUD endpoints
-- [ ] Orgs CRUD endpoints
+- `lib/mosslet_web/controllers/api/group_controller.ex` - Groups CRUD + membership + blocks
+- `lib/mosslet_web/controllers/api/group_message_controller.ex` - Group chat messages
+- `lib/mosslet_web/controllers/api/org_controller.ex` - Organizations + memberships + invitations
+- `lib/mosslet_web/controllers/api/conversation_controller.ex` - AI conversations (legacy)
+- `lib/mosslet_web/controllers/api/message_controller.ex` - Conversation messages (legacy)
 
-#### 5.10 Caching Strategy
+**Test files created:**
+
+- `test/mosslet_web/controllers/api/group_controller_test.exs`
+- `test/mosslet_web/controllers/api/org_controller_test.exs`
+- `test/mosslet_web/controllers/api/conversation_controller_test.exs`
+
+**API Routes added to router.ex:**
+
+Groups:
+- `GET /api/groups` - List user's groups
+- `GET /api/groups/unconfirmed` - List unconfirmed groups
+- `GET /api/groups/public` - List public groups
+- `GET /api/groups/count` - Get group counts
+- `GET /api/groups/filter-with-users` - Filter groups with specific users
+- `GET /api/groups/:id` - Get specific group
+- `POST /api/groups` - Create group
+- `PUT /api/groups/:id` - Update group
+- `DELETE /api/groups/:id` - Delete group
+- `POST /api/groups/:id/join` - Join public group
+- `GET /api/groups/:group_id/members` - List group members
+- `GET /api/groups/:group_id/blocks` - List blocked users
+- `GET /api/groups/:group_id/blocks/check` - Check if user blocked
+- `POST /api/groups/:group_id/blocks` - Block user
+- `DELETE /api/groups/:group_id/blocks/:id` - Unblock user
+
+UserGroups:
+- `POST /api/user-groups` - Create membership
+- `GET /api/user-groups/:id` - Get membership
+- `PUT /api/user-groups/:id` - Update membership
+- `PUT /api/user-groups/role` - Update role
+- `DELETE /api/user-groups/:id` - Delete membership
+- `POST /api/user-groups/:id/confirm` - Confirm membership
+
+Group Messages:
+- `GET /api/groups/:group_id/messages` - List messages
+- `GET /api/groups/:group_id/messages/last-user-message` - Get last user message
+- `GET /api/groups/:group_id/messages/count` - Get message count
+- `GET /api/groups/:group_id/messages/previous` - Get previous messages
+- `POST /api/group-messages` - Create message
+- `GET /api/group-messages/:id` - Get message
+- `PUT /api/group-messages/:id` - Update message
+- `DELETE /api/group-messages/:id` - Delete message
+
+Organizations:
+- `GET /api/orgs` - List orgs
+- `GET /api/orgs/mine` - List user's orgs
+- `GET /api/orgs/by-id/:id` - Get org by ID
+- `GET /api/orgs/:id` - Get org by slug
+- `POST /api/orgs` - Create org
+- `PUT /api/orgs/:id` - Update org
+- `DELETE /api/orgs/:id` - Delete org
+- `GET /api/orgs/:org_id/members` - List members
+- `GET /api/orgs/:org_id/invitations/:id` - Get invitation
+- `POST /api/orgs/:org_id/invitations` - Create invitation
+
+Org Memberships:
+- `GET /api/org-memberships/:id` - Get membership
+- `PUT /api/org-memberships/:id` - Update membership
+- `DELETE /api/org-memberships/:id` - Delete membership
+
+Org Invitations:
+- `GET /api/org-invitations/mine` - List user's invitations
+- `DELETE /api/org-invitations/:id` - Delete invitation
+- `POST /api/org-invitations/:id/accept` - Accept invitation
+- `POST /api/org-invitations/:id/reject` - Reject invitation
+
+Conversations (legacy):
+- `GET /api/conversations` - List conversations
+- `GET /api/conversations/:id` - Get conversation
+- `GET /api/conversations/:id/token-count` - Get token count
+- `POST /api/conversations` - Create conversation
+- `PUT /api/conversations/:id` - Update conversation
+- `DELETE /api/conversations/:id` - Delete conversation
+
+Messages (legacy):
+- `GET /api/conversations/:conversation_id/messages` - List messages
+- `GET /api/conversations/:conversation_id/messages/last` - Get last message
+- `GET /api/conversations/:conversation_id/messages/:id` - Get message
+- `POST /api/conversations/:conversation_id/messages` - Create message
+- `PUT /api/conversations/:conversation_id/messages/:id` - Update message
+- `DELETE /api/conversations/:conversation_id/messages/:id` - Delete message
+
+#### 5.12 Caching Strategy
 
 - [ ] After successful API reads, cache data in SQLite via `Mosslet.Cache`
 - [ ] On API failure (offline), fall back to cached data
@@ -1241,4 +1394,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-31 (Phase 5.7 statuses ✅ COMPLETE - All status data access functions delegated to adapters. 5 adapter callbacks implemented. Phase 5 Context-Level Platform Routing is now COMPLETE!)_
+_Last updated: 2025-01-01 (Phase 5.11 API Endpoints ✅ COMPLETE - All API controllers implemented: GroupController, GroupMessageController, OrgController, ConversationController, MessageController. Full API coverage for native apps. Next: Phase 5.12 Caching Strategy or Phase 6 Mobile App Setup)_
