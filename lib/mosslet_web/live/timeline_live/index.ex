@@ -146,6 +146,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:loaded_read_posts_count, 0)
       |> assign(:cached_read_posts, [])
       |> assign(:cached_unread_posts, [])
+      |> assign(:subscribed_status_user_ids, MapSet.new())
+      |> assign(:user_statuses, %{})
       # Track dynamic stream limit
       |> assign(:stream_limit, @post_per_page_default)
       # Store user token for uploads
@@ -439,29 +441,42 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:status_updated, user}, socket) do
-    # Handle status updates for both current user and connected users
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
     if user.id == current_user.id do
+      updated_scope = %{socket.assigns.current_scope | user: user}
+      new_status = to_string(user.status || "offline")
+
       {:noreply,
        socket
-       |> assign(current_user: user)}
+       |> assign(current_user: user, current_scope: updated_scope)
+       |> push_event("update_user_status", %{
+         user_id: user.id,
+         status: new_status,
+         status_message: user.status_message
+       })}
     else
-      # Find the user_connection that represents our connection to this user
       case get_uconn_for_users(user, current_user) do
         %{} = _user_connection ->
-          # Use consolidated StatusHelpers for consistent status handling
           user_with_connection = Accounts.get_user_with_preloads(user.id)
-
+          can_view = can_view_status?(user_with_connection, current_user, key)
           status_info = get_user_status_info(user_with_connection, current_user, key)
 
           new_status = status_info.status || "offline"
           new_status_message = status_info.status_message
 
-          # Send JS event to update only status elements without disrupting the timeline
+          updated_statuses =
+            Map.put(socket.assigns.user_statuses, user.id, %{
+              status: new_status,
+              status_message: new_status_message,
+              can_view: can_view
+            })
+
           {:noreply,
-           push_event(socket, "update_user_status", %{
+           socket
+           |> assign(:user_statuses, updated_statuses)
+           |> push_event("update_user_status", %{
              user_id: user.id,
              status: new_status,
              status_message: new_status_message
@@ -474,59 +489,37 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info({:status_visibility_updated, user}, socket) do
-    # Handle status visibility updates - when someone changes their status visibility,
-    # we need to check if the current user can still see their status or not
     current_user = socket.assigns.current_user
     key = socket.assigns.key
 
-    # Only process if we have a connection to this user (i.e., they appear on our timeline)
     case get_uconn_for_users(user, current_user) do
       %{} = _user_connection ->
-        # Get the user with their connection data
         user_with_connection = Accounts.get_user_with_preloads(user.id)
+        can_view = can_view_status?(user_with_connection, current_user, key)
+        status_info = get_user_status_info(user_with_connection, current_user, key)
 
-        case can_view_status?(user_with_connection, current_user, key) do
-          true ->
-            # Check if current_user can see user's status with the new visibility settings
-            status_info = get_user_status_info(user_with_connection, current_user, key)
+        {new_status, new_status_message} =
+          if can_view do
+            {status_info.status, status_info.status_message}
+          else
+            {nil, nil}
+          end
 
-            case status_info do
-              %{status: status, status_message: status_message} when not is_nil(status) ->
-                # Current user can see the status - show it
-                {:noreply,
-                 push_event(socket, "update_user_status", %{
-                   user_id: user.id,
-                   status: status,
-                   status_message: status_message,
-                   visible: true
-                 })}
+        updated_statuses =
+          Map.put(socket.assigns.user_statuses, user.id, %{
+            status: new_status,
+            status_message: new_status_message,
+            can_view: can_view
+          })
 
-              %{status: nil} ->
-                # Current user cannot see the status - hide it
-                {:noreply,
-                 push_event(socket, "update_user_status", %{
-                   user_id: user.id,
-                   visible: false
-                 })}
-
-              _ ->
-                # Fallback - hide status
-                {:noreply,
-                 push_event(socket, "update_user_status", %{
-                   user_id: user.id,
-                   visible: false
-                 })}
-            end
-
-          false ->
-            {:noreply,
-             push_event(socket, "update_user_status", %{
-               status: nil,
-               status_message: nil,
-               user_id: user.id,
-               visible: false
-             })}
-        end
+        {:noreply,
+         socket
+         |> assign(:user_statuses, updated_statuses)
+         |> push_event("update_user_status", %{
+           user_id: user.id,
+           status: new_status,
+           status_message: new_status_message
+         })}
 
       nil ->
         {:noreply, socket}
@@ -654,29 +647,19 @@ defmodule MossletWeb.TimelineLive.Index do
       socket = update_unread_counts_for_new_reply(socket, post, reply, current_user)
 
       key = socket.assigns.key
-
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      reply_user = Accounts.get_user_with_preloads(reply.user_id)
-      status_info = get_user_status_info(reply_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
 
       post_with_limited_replies =
         get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
 
       socket =
         socket
+        |> ensure_user_status_cached(reply.user_id, current_user, key)
         |> stream_insert_post(post_with_limited_replies, current_user, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_reply_notification(reply, current_user, "created")
 
-      {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: current_user.id,
-         status: new_status,
-         status_message: new_status_message
-       })}
+      {:noreply, socket}
     else
       socket =
         socket
@@ -700,26 +683,17 @@ defmodule MossletWeb.TimelineLive.Index do
     if should_show_post and passes_content_filters do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      reply_user = Accounts.get_user_with_preloads(reply.user_id)
-      status_info = get_user_status_info(reply_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
 
       post_with_limited_replies =
         get_post_with_reply_limit(post.id, current_user.id, socket.assigns)
 
       socket =
         socket
+        |> ensure_user_status_cached(reply.user_id, current_user, key)
         |> stream_insert_post(post_with_limited_replies, current_user, at: -1)
         |> recalculate_counts_after_new_post(current_user, options)
 
-      {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: reply.user_id,
-         status: new_status,
-         status_message: new_status_message
-       })}
+      {:noreply, socket}
     else
       socket =
         socket
@@ -763,35 +737,22 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
-
-    # Apply content filtering to real-time posts
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      post_user = Accounts.get_user_with_preloads(post.user_id)
-      status_info = get_user_status_info(post_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
 
       socket =
         socket
+        |> ensure_user_status_cached(post.user_id, current_user, key)
         |> stream_insert_post(post, current_user, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_new_post_notification(post, current_user)
 
-      {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: current_user.id,
-         status: new_status,
-         status_message: new_status_message
-       })}
+      {:noreply, socket}
     else
-      # Post doesn't match current tab or is filtered out, but still update counts
       socket =
         socket
         |> recalculate_counts_after_new_post(current_user, options)
@@ -807,32 +768,20 @@ defmodule MossletWeb.TimelineLive.Index do
     options = socket.assigns.options
     content_filters = socket.assigns.content_filters
 
-    # Check if this updated post should appear in the current tab
     should_show_post = post_matches_current_tab?(post, current_tab, current_user)
-
-    # Apply content filtering to the updated post
     passes_content_filters = post_passes_content_filters?(post, content_filters)
 
     if should_show_post and passes_content_filters do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      post_user = Accounts.get_user_with_preloads(post.user_id)
-      status_info = get_user_status_info(post_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
 
       socket =
         socket
+        |> ensure_user_status_cached(post.user_id, current_user, key)
         |> stream_insert_post(post, current_user, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
 
-      {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: current_user.id,
-         status: new_status,
-         status_message: new_status_message
-       })}
+      {:noreply, socket}
     else
       socket =
         socket
@@ -943,24 +892,15 @@ defmodule MossletWeb.TimelineLive.Index do
     if should_show_post and passes_content_filters and is_share_recipient do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      post_user = Accounts.get_user_with_preloads(post.user_id)
-      status_info = get_user_status_info(post_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
 
       socket =
         socket
+        |> ensure_user_status_cached(post.user_id, current_user, key)
         |> stream_insert_post(post, current_user, at: 0, limit: socket.assigns.stream_limit)
         |> recalculate_counts_after_new_post(current_user, options)
         |> add_new_share_post_notification(post, current_user)
 
-      {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: post.user_id,
-         status: new_status,
-         status_message: new_status_message
-       })}
+      {:noreply, socket}
     else
       socket =
         socket
@@ -1081,24 +1021,16 @@ defmodule MossletWeb.TimelineLive.Index do
     if should_show_post and passes_content_filters do
       key = socket.assigns.key
       current_user = Accounts.get_user_with_preloads(current_user.id)
-      status_info = get_user_status_info(current_user, current_user, key)
-
-      new_status = status_info.status || "offline"
-      new_status_message = status_info.status_message
 
       socket =
         socket
+        |> ensure_user_status_cached(current_user.id, current_user, key)
         |> stream_insert_post(updated_post, current_user, at: -1)
         |> recalculate_counts_after_post_update(current_user, options)
         |> put_flash(:success, "Reply created!")
         |> push_event("hide-nested-reply-composer", %{reply_id: parent_reply_id})
 
-      {:noreply,
-       push_event(socket, "update_user_status", %{
-         user_id: current_user.id,
-         status: new_status,
-         status_message: new_status_message
-       })}
+      {:noreply, socket}
     else
       socket =
         socket
@@ -4052,6 +3984,11 @@ defmodule MossletWeb.TimelineLive.Index do
     unread_posts_with_dates = add_date_grouping_context(unread_posts)
     read_posts_with_dates = add_date_grouping_context(read_posts)
 
+    all_posts = unread_posts ++ read_posts
+
+    user_statuses =
+      build_user_statuses_map(all_posts, socket.assigns.current_user, socket.assigns.key)
+
     {:noreply,
      socket
      |> assign(:timeline_data, AsyncResult.ok(socket.assigns.timeline_data, timeline_result))
@@ -4068,6 +4005,7 @@ defmodule MossletWeb.TimelineLive.Index do
      |> assign(:loaded_read_posts_count, read_posts_count)
      |> assign(:cached_read_posts, read_posts_with_dates)
      |> assign(:cached_unread_posts, unread_posts_with_dates)
+     |> assign(:user_statuses, Map.merge(socket.assigns.user_statuses, user_statuses))
      |> stream(:posts, unread_posts_with_dates, reset: true)}
   end
 
@@ -5135,32 +5073,80 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
-  # Helper function to get the post author's status if visible to current user
-  # REPLACED: Now uses consolidated StatusHelpers for consistency
-  defp get_post_author_status(post, current_user, key) do
-    case Accounts.get_user_with_preloads(post.user_id) do
-      %{} = post_author ->
-        case get_user_status_info(post_author, current_user, key) do
-          %{status: status} when is_binary(status) -> status
-          _ -> nil
-        end
+  # Build a map of user_id => %{status: ..., status_message: ..., can_view: ...} for all post authors
+  # This is called once when timeline loads and then updated via PubSub events
+  defp build_user_statuses_map(posts, current_user, key) do
+    posts
+    |> Enum.map(& &1.user_id)
+    |> Enum.uniq()
+    |> Enum.reduce(%{}, fn user_id, acc ->
+      case Accounts.get_user_with_preloads(user_id) do
+        %{} = user ->
+          can_view = can_view_status?(user, current_user, key)
+          status_info = get_user_status_info(user, current_user, key)
 
-      nil ->
-        # User account not found
-        nil
+          Map.put(acc, user_id, %{
+            status: status_info.status,
+            status_message: status_info.status_message,
+            can_view: can_view
+          })
+
+        nil ->
+          Map.put(acc, user_id, %{status: nil, status_message: nil, can_view: false})
+      end
+    end)
+  end
+
+  # Get status from the cached user_statuses map, with fallback
+  defp get_cached_user_status(user_statuses, user_id) do
+    case Map.get(user_statuses, user_id) do
+      %{status: status} when is_binary(status) -> status
+      _ -> nil
     end
   end
 
-  # Helper function to get the post author's status message if visible to current user
-  # Uses consolidated StatusHelpers for consistency
-  defp get_post_author_status_message(post, current_user, key) do
-    case Accounts.get_user_with_preloads(post.user_id) do
-      %{} = post_author ->
-        get_user_status_message(post_author, current_user, key)
+  defp get_cached_user_status_message(user_statuses, user_id) do
+    case Map.get(user_statuses, user_id) do
+      %{status_message: msg} -> msg
+      _ -> nil
+    end
+  end
 
-      nil ->
-        # User account not found
-        nil
+  defp can_view_cached_status?(user_statuses, user_id) do
+    case Map.get(user_statuses, user_id) do
+      %{can_view: can_view} -> can_view
+      _ -> false
+    end
+  end
+
+  defp ensure_user_status_cached(socket, user_id, current_user, key) do
+    if Map.has_key?(socket.assigns.user_statuses, user_id) do
+      socket
+    else
+      case Accounts.get_user_with_preloads(user_id) do
+        %{} = user ->
+          can_view = can_view_status?(user, current_user, key)
+          status_info = get_user_status_info(user, current_user, key)
+
+          updated_statuses =
+            Map.put(socket.assigns.user_statuses, user_id, %{
+              status: status_info.status,
+              status_message: status_info.status_message,
+              can_view: can_view
+            })
+
+          assign(socket, :user_statuses, updated_statuses)
+
+        nil ->
+          updated_statuses =
+            Map.put(socket.assigns.user_statuses, user_id, %{
+              status: nil,
+              status_message: nil,
+              can_view: false
+            })
+
+          assign(socket, :user_statuses, updated_statuses)
+      end
     end
   end
 

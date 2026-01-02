@@ -353,15 +353,11 @@
                   _ -> "author"
                 end)}
                   user_avatar={get_post_author_avatar(post, @current_user, @key)}
-                  user_status={get_post_author_status(post, @current_user, @key)}
-                  user_status_message={get_post_author_status_message(post, @current_user, @key)}
-                  show_post_author_status={
-                    can_view_status?(
-                      Accounts.get_user_with_preloads(post.user_id),
-                      @current_user,
-                      @key
-                    )
+                  user_status={get_cached_user_status(@user_statuses, post.user_id)}
+                  user_status_message={
+                    get_cached_user_status_message(@user_statuses, post.user_id)
                   }
+                  show_post_author_status={can_view_cached_status?(@user_statuses, post.user_id)}
                   author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
                   author_profile_visibility={
                     get_post_author_profile_visibility(post, @current_user, @key)
@@ -518,16 +514,12 @@
                     _ -> "author"
                   end)}
                     user_avatar={get_post_author_avatar(post, @current_user, @key)}
-                    user_status={get_post_author_status(post, @current_user, @key)}
+                    user_status={get_cached_user_status(@user_statuses, post.user_id)}
                     user_status_message={
-                      get_post_author_status_message(post, @current_user, @key)
+                      get_cached_user_status_message(@user_statuses, post.user_id)
                     }
                     show_post_author_status={
-                      can_view_status?(
-                        Accounts.get_user_with_preloads(post.user_id),
-                        @current_user,
-                        @key
-                      )
+                      can_view_cached_status?(@user_statuses, post.user_id)
                     }
                     author_profile_slug={get_post_author_profile_slug(post, @current_user, @key)}
                     author_profile_visibility={
