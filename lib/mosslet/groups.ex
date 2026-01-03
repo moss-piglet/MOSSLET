@@ -326,7 +326,13 @@ defmodule Mosslet.Groups do
       Logger.debug("user_group.key present: #{user_group.key != nil}")
       Logger.debug("opts[:key] present: #{opts[:key] != nil}")
 
-      result = Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
+      result =
+        if group.public? do
+          d_group_key = Encrypted.Users.Utils.decrypt_public_item_key(user_group.key)
+          if d_group_key, do: {:ok, d_group_key}, else: {:error, :decryption_failed}
+        else
+          Encrypted.Users.Utils.decrypt_user_attrs_key(user_group.key, user, opts[:key])
+        end
 
       case result do
         {:ok, d_group_key} ->
