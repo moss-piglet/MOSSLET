@@ -485,20 +485,6 @@ defmodule Mosslet.Timeline.Adapters.Native do
   end
 
   @impl true
-  def count_group_posts(current_user, filter_prefs) do
-    token = get_token()
-
-    if Sync.online?() && token do
-      case Client.count_group_posts(token, current_user.id, filter_prefs) do
-        {:ok, %{count: count}} -> count
-        {:error, _reason} -> 0
-      end
-    else
-      0
-    end
-  end
-
-  @impl true
   def count_unread_group_posts(current_user, filter_prefs) do
     token = get_token()
 

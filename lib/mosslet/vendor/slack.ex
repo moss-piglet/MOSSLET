@@ -1,4 +1,4 @@
-defmodule Mosslet.Slack do
+defmodule Mosslet.Vendor.Slack do
   @moduledoc """
 
   Install instructions:

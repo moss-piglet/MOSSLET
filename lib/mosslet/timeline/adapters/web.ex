@@ -546,33 +546,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
-  def count_group_posts(current_user, filter_prefs) do
-    query =
-      Post
-      |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
-      |> where([p, up], up.user_id == ^current_user.id)
-      |> where([p], p.visibility == :specific_groups)
-      |> where([p], p.user_id != ^current_user.id)
-
-    query =
-      if filter_prefs != %{} do
-        apply_database_filters(query, %{
-          filter_prefs: filter_prefs,
-          current_user_id: current_user.id
-        })
-      else
-        query
-      end
-
-    count = Repo.aggregate(query, :count, :id)
-
-    case count do
-      nil -> 0
-      count -> count
-    end
-  end
-
-  @impl true
   def count_unread_group_posts(current_user, filter_prefs) do
     query =
       Post

@@ -117,7 +117,7 @@ defmodule Mosslet.Billing.Workers.ReferralPayoutWorker do
     Error: #{inspect(error)}
     """
 
-    Slack.send_message("#billing-alerts", message)
+    Slack.message(message)
 
     Logger.error(message)
   end

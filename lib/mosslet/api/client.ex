@@ -637,10 +637,6 @@ defmodule Mosslet.API.Client do
     )
   end
 
-  def count_group_posts(token, group_id, options) do
-    request(:get, "/api/groups/#{group_id}/posts/count", %{options: options}, auth: token)
-  end
-
   def count_discover_posts(token, user_id, options) do
     request(:get, "/api/timeline/counts/discover-posts", %{user_id: user_id, options: options},
       auth: token
