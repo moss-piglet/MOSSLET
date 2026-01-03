@@ -6,8 +6,8 @@ defmodule Mosslet.Application do
 
   @impl true
   def start(_type, _args) do
-    if Mosslet.Platform.native?() do
-      Desktop.identify_default_locale(MossletWeb.Gettext)
+    if Mosslet.Platform.native?() and Code.ensure_loaded?(Desktop) do
+      apply(Desktop, :identify_default_locale, [MossletWeb.Gettext])
       Mosslet.Platform.Config.ensure_data_directory!()
     end
 
@@ -38,7 +38,7 @@ defmodule Mosslet.Application do
   end
 
   defp native_children do
-    [
+    base = [
       MossletWeb.Telemetry,
       {Phoenix.PubSub, name: Mosslet.PubSub},
       MossletWeb.Presence,
@@ -52,9 +52,14 @@ defmodule Mosslet.Application do
       Mosslet.Vault.Native,
       Mosslet.Session.Native,
       Mosslet.Sync,
-      MossletWeb.Endpoint,
-      MossletWeb.Desktop.Window.child_spec()
+      MossletWeb.Endpoint
     ]
+
+    if Code.ensure_loaded?(MossletWeb.Desktop.Window) do
+      base ++ [apply(MossletWeb.Desktop.Window, :child_spec, [])]
+    else
+      base
+    end
   end
 
   defp web_children do

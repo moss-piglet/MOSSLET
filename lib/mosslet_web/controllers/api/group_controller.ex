@@ -496,7 +496,6 @@ defmodule MossletWeb.API.GroupController do
       name: encode_binary(group.name),
       name_hash: encode_binary(group.name_hash),
       description: encode_binary(group.description),
-      avatar_url: encode_binary(group.avatar_url),
       public: group.public?,
       require_password: group.require_password?,
       member_count: length(group.user_groups || []),

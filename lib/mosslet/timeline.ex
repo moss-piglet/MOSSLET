@@ -13,7 +13,7 @@ defmodule Mosslet.Timeline do
   import Ecto.Query, warn: false
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.{User, UserConnection}
+  alias Mosslet.Accounts.User
   alias Mosslet.Groups
   alias Mosslet.Platform
   alias Mosslet.Repo
@@ -116,14 +116,6 @@ defmodule Mosslet.Timeline do
   def public_reply_count(post, options), do: adapter().public_reply_count(post, options)
 
   def preload_group(post), do: adapter().preload_group(post)
-
-  # we use this subquery to fetch user connections
-  # to check them against a main query
-  defp user_connection_subquery(current_user_id) do
-    UserConnection
-    |> where([uc], uc.user_id == ^current_user_id)
-    |> select([uc], uc.reverse_user_id)
-  end
 
   @doc """
   Gets the total count of a group's Posts.
@@ -958,31 +950,6 @@ defmodule Mosslet.Timeline do
   def count_profile_posts_visible_to(profile_user, viewer) do
     adapter().count_profile_posts_visible_to(profile_user, viewer)
   end
-
-  defp filter_by_user_id(query, %{filter: %{user_id: ""}}), do: query
-
-  defp filter_by_user_id(query, %{filter: %{user_id: user_id}}) do
-    query
-    |> where([p, up, upr], p.user_id == ^user_id)
-  end
-
-  defp filter_by_user_id(query, _options), do: query
-
-  defp sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, %{post_sort_by: sort_by, post_sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp sort(query, _options), do: query
-
-  defp reply_sort(query, %{sort_by: sort_by, sort_order: sort_order}) do
-    order_by(query, {^sort_order, ^sort_by})
-  end
-
-  defp reply_sort(query, _options), do: query
 
   defp paginate(query, %{page: page, per_page: per_page}) do
     offset = max((page - 1) * per_page, 0)

@@ -29,7 +29,6 @@ defmodule MossletWeb.BillingLive do
   defp maybe_load_provider_data(socket) do
     user = socket.assigns.current_scope.user |> Repo.preload(:customer)
     payment_intent = socket.assigns[:payment_intent]
-    session_key = socket.assigns.current_scope.key
 
     assign_async(
       socket,
@@ -288,11 +287,11 @@ defmodule MossletWeb.BillingLive do
       socket
       |> assign(
         :invoices_async,
-        AsyncResult.ok(%{invoices_async: updated_invoices}, updated_invoices)
+        AsyncResult.ok(socket.assigns.invoices_async, updated_invoices)
       )
       |> assign(
         :invoices_has_more_async,
-        AsyncResult.ok(%{invoices_has_more_async: has_more}, has_more)
+        AsyncResult.ok(socket.assigns.invoices_has_more_async, has_more)
       )
 
     {:noreply, socket}

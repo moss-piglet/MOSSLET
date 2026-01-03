@@ -2,6 +2,7 @@ defmodule MossletWeb.GroupLive.Join do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
+  alias Mosslet.Accounts.Scope
   alias Mosslet.Groups
   alias Mosslet.Groups.Group
 

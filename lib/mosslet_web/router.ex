@@ -22,8 +22,8 @@ defmodule MossletWeb.Router do
   end
 
   defp maybe_desktop_auth(conn, _opts) do
-    if Mosslet.Platform.native?() do
-      MossletWeb.Plugs.DesktopAuth.call(conn, [])
+    if Mosslet.Platform.native?() and Code.ensure_loaded?(MossletWeb.Plugs.DesktopAuth) do
+      apply(MossletWeb.Plugs.DesktopAuth, :call, [conn, []])
     else
       conn
     end
