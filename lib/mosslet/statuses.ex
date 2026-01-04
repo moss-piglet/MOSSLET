@@ -26,13 +26,7 @@ defmodule Mosslet.Statuses do
   """
   def adapter do
     if Platform.native?() do
-      if Code.ensure_loaded?(Ecto.Adapters.SQLite3) do
-        Mosslet.Statuses.Adapters.Native
-      else
-        Logger.warning("SQLite3 not available when trying to load native platform in statuses.ex")
-        Logger.warning("SQLite3 not available statuses.ex — Defaulting to Web adapter")
-        Mosslet.Statuses.Adapters.Web
-      end
+      Module.concat([__MODULE__, Adapters, Native])
     else
       Mosslet.Statuses.Adapters.Web
     end

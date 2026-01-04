@@ -18,7 +18,7 @@ defmodule Mosslet.GroupMessages do
   """
   def adapter do
     if Platform.native?() do
-      Mosslet.GroupMessages.Adapters.Native
+      Module.concat([__MODULE__, Adapters, Native])
     else
       Mosslet.GroupMessages.Adapters.Web
     end

@@ -26,24 +26,26 @@ defmodule MossletWeb.SyncStatusHook do
   import Phoenix.LiveView
   import Phoenix.Component, only: [assign: 3]
 
-  alias Mosslet.Sync
-
   def on_mount(:default, _params, _session, socket) do
-    socket =
-      socket
-      |> assign(:sync_status, nil)
-      |> attach_hook(:sync_status_connected, :handle_info, &handle_info/2)
+    if Mosslet.Platform.native?() do
+      socket =
+        socket
+        |> assign(:sync_status, nil)
+        |> attach_hook(:sync_status_connected, :handle_info, &handle_info/2)
 
-    if connected?(socket) do
-      sync_status =
-        case Sync.subscribe_and_get_status() do
-          {:ok, status} -> status
-          {:error, :not_running} -> nil
-        end
+      if connected?(socket) do
+        sync_status =
+          case apply(Mosslet.Sync, :subscribe_and_get_status, []) do
+            {:ok, status} -> status
+            {:error, :not_running} -> nil
+          end
 
-      {:cont, assign(socket, :sync_status, sync_status)}
+        {:cont, assign(socket, :sync_status, sync_status)}
+      else
+        {:cont, socket}
+      end
     else
-      {:cont, socket}
+      {:cont, assign(socket, :sync_status, nil)}
     end
   end
 

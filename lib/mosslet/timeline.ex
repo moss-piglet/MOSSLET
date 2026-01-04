@@ -41,13 +41,7 @@ defmodule Mosslet.Timeline do
   """
   def adapter do
     if Platform.native?() do
-      if Code.ensure_loaded?(Ecto.Adapters.SQLite3) do
-        Mosslet.Timeline.Adapters.Native
-      else
-        Logger.warning("SQLite3 not available when trying to load native platform in timeline.ex")
-        Logger.warning("SQLite3 not available timeline.ex — Defaulting to Web adapter")
-        Mosslet.Timeline.Adapters.Web
-      end
+      Module.concat([__MODULE__, Adapters, Native])
     else
       Mosslet.Timeline.Adapters.Web
     end

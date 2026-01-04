@@ -29,8 +29,12 @@ defmodule Mosslet.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(:test), do: ["lib", "test/support"] ++ native_paths()
+  defp elixirc_paths(_), do: ["lib"] ++ native_paths()
+
+  defp native_paths do
+    if Mix.target() == :native, do: ["lib_native"], else: []
+  end
 
   defp deps do
     shared_deps() ++ target_deps(Mix.target())

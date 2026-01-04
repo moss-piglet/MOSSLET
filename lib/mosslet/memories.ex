@@ -24,7 +24,7 @@ defmodule Mosslet.Memories do
   """
   def adapter do
     if Platform.native?() do
-      Mosslet.Memories.Adapters.Native
+      Module.concat([__MODULE__, Adapters, Native])
     else
       Mosslet.Memories.Adapters.Web
     end

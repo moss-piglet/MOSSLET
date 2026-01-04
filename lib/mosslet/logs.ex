@@ -22,7 +22,7 @@ defmodule Mosslet.Logs do
   """
   def adapter do
     if Platform.native?() do
-      Mosslet.Logs.Adapters.Native
+      Module.concat([__MODULE__, Adapters, Native])
     else
       Mosslet.Logs.Adapters.Web
     end
