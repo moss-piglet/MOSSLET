@@ -4666,10 +4666,15 @@ defmodule MossletWeb.UserHomeLive do
     post_key = get_post_key(post, current_user)
 
     username =
-      if post.visibility == :public do
-        decrypt_public_field(post.username, post_key)
-      else
-        decr_item(post.username, current_user, post_key, key, post, "username")
+      cond do
+        is_nil(post_key) ->
+          nil
+
+        post.visibility == :public ->
+          decrypt_public_field(post.username, post_key)
+
+        true ->
+          decr_item(post.username, current_user, post_key, key, post, "username")
       end
 
     "@" <>
