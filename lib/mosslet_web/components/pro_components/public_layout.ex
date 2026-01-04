@@ -302,17 +302,30 @@ defmodule MossletWeb.PublicLayout do
                 </div>
               </div>
 
-              <%!-- Mobile user menu items with full liquid effects --%>
+              <.link
+                :if={@session_locked}
+                navigate={~p"/auth/unlock"}
+                class="group relative flex items-center px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 rounded-lg transition-all duration-300 ease-out overflow-hidden"
+              >
+                <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-amber-50/30 via-yellow-50/40 to-amber-50/30 dark:from-amber-900/8 dark:via-yellow-900/12 dark:to-amber-900/8 group-hover:opacity-100">
+                </div>
+                <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-amber-200/30 to-transparent dark:via-amber-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
+                </div>
+                <MossletWeb.CoreComponents.phx_icon
+                  name="hero-lock-open"
+                  class="relative mr-2 h-4 w-4 text-amber-500 dark:text-amber-400"
+                />
+                <span class="relative">Unlock Session</span>
+              </.link>
               <.link
                 :for={item <- @user_menu_items}
+                :if={!@session_locked || item.label == "Sign out"}
                 href={item.path}
                 class="group relative flex items-center px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all duration-300 ease-out overflow-hidden"
                 method={if item[:method], do: item[:method], else: nil}
               >
-                <%!-- Enhanced liquid background effect matching other nav items --%>
                 <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/30 via-emerald-50/40 to-cyan-50/30 dark:from-teal-900/8 dark:via-emerald-900/12 dark:to-cyan-900/8 group-hover:opacity-100">
                 </div>
-                <%!-- Shimmer effect matching other nav items --%>
                 <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full">
                 </div>
                 <span class="relative">{item.label}</span>
@@ -473,7 +486,36 @@ defmodule MossletWeb.PublicLayout do
         x-cloak
       >
         <.link
+          :if={@session_locked}
+          navigate={~p"/auth/unlock"}
+          class={[
+            "group relative flex items-center px-4 py-2.5 text-sm font-medium overflow-hidden",
+            "text-amber-600 dark:text-amber-400",
+            "hover:bg-gradient-to-r hover:from-amber-50 hover:via-yellow-50 hover:to-amber-50",
+            "dark:hover:from-amber-900/30 dark:hover:via-yellow-900/20 dark:hover:to-amber-900/30",
+            "hover:text-amber-700 dark:hover:text-amber-300",
+            "transition-all duration-200 ease-out transform-gpu",
+            "hover:scale-105 active:scale-95",
+            "first:rounded-t-lg last:rounded-b-lg"
+          ]}
+        >
+          <div class={[
+            "absolute inset-0 opacity-0 transition-all duration-500",
+            "bg-gradient-to-r from-transparent via-amber-100/50 to-transparent",
+            "dark:via-amber-400/20",
+            "group-hover:opacity-100 group-hover:translate-x-full transform -translate-x-full"
+          ]}>
+          </div>
+
+          <MossletWeb.CoreComponents.phx_icon
+            name="hero-lock-open"
+            class="relative mr-2 h-4 w-4 text-amber-500 dark:text-amber-400"
+          />
+          <span class="relative truncate">Unlock Session</span>
+        </.link>
+        <.link
           :for={item <- @user_menu_items}
+          :if={!@session_locked || item.label == "Sign out"}
           {if item[:method], do: %{method: item[:method], href: item[:path]}, else: %{navigate: item[:path]}}
           class={[
             "group relative flex items-center px-4 py-2.5 text-sm font-medium overflow-hidden",
@@ -486,7 +528,6 @@ defmodule MossletWeb.PublicLayout do
             "first:rounded-t-lg last:rounded-b-lg"
           ]}
         >
-          <%!-- Menu item shimmer --%>
           <div class={[
             "absolute inset-0 opacity-0 transition-all duration-500",
             "bg-gradient-to-r from-transparent via-emerald-100/50 to-transparent",
