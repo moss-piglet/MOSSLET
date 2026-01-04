@@ -69,6 +69,19 @@ button:disabled::before {
 }
 
 @layer base {
+  /* Hide browser's native password reveal/autofill buttons to avoid overlap with our custom eye icon */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear,
+  input[type="password"]::-webkit-credentials-auto-fill-button,
+  input[type="password"]::-webkit-textfield-decoration-container,
+  input::-webkit-strong-password-auto-fill-button,
+  input::-webkit-contacts-auto-fill-button,
+  input::-webkit-caps-lock-indicator {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
   /* Use the pointer for buttons */
   button:not(:disabled),
   [role="button"]:not(:disabled) {
