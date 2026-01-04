@@ -1139,7 +1139,7 @@ defmodule MossletWeb.CoreComponents do
                 @errors != [] && "border-rose-400 focus:border-rose-400"
               ],
               else: [
-                "w-full px-4 py-3 pr-12 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",
+                "w-full px-4 py-3 pr-20 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200",
                 "phx-no-feedback:border-slate-300 phx-no-feedback:focus:border-teal-400",
                 @errors == [] && "hover:border-slate-400 dark:hover:border-slate-500",
                 @errors != [] && "border-rose-400 focus:border-rose-400 hover:border-rose-500"
@@ -1148,7 +1148,7 @@ defmodule MossletWeb.CoreComponents do
           required={@required}
           {@rest}
         />
-        <div class="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-10">
+        <div class="absolute inset-y-0 right-10 flex items-center">
           <span
             id={"#{@id}-eye"}
             role="button"
