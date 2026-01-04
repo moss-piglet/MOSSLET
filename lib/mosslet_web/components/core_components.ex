@@ -1148,7 +1148,7 @@ defmodule MossletWeb.CoreComponents do
           required={@required}
           {@rest}
         />
-        <div class="absolute inset-y-0 right-0 flex items-center pr-10">
+        <div class="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-10">
           <span
             id={"#{@id}-eye"}
             role="button"
