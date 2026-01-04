@@ -466,15 +466,6 @@ defmodule MossletWeb.PostLive.FormComponent do
   end
 
   @impl true
-  def handle_event("set-group-default", %{"id" => id}, socket) do
-    options = socket.assigns.group_list
-
-    send_update(LiveSelect.Component, options: options, id: id)
-
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("set-group-default", %{"id" => id, "text" => text}, socket) do
     options =
       if text == "" do
@@ -490,10 +481,8 @@ defmodule MossletWeb.PostLive.FormComponent do
   end
 
   @impl true
-  def handle_event("set-user-default", %{"id" => id}, socket) do
-    options =
-      socket.assigns.shared_users
-      |> Enum.map(&value_mapper/1)
+  def handle_event("set-group-default", %{"id" => id}, socket) do
+    options = socket.assigns.group_list
 
     send_update(LiveSelect.Component, options: options, id: id)
 
@@ -509,6 +498,17 @@ defmodule MossletWeb.PostLive.FormComponent do
         socket.assigns.shared_users
         |> Enum.filter(&(String.downcase(&1[:label]) |> String.contains?(String.downcase(text))))
       end
+
+    send_update(LiveSelect.Component, options: options, id: id)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("set-user-default", %{"id" => id}, socket) do
+    options =
+      socket.assigns.shared_users
+      |> Enum.map(&value_mapper/1)
 
     send_update(LiveSelect.Component, options: options, id: id)
 

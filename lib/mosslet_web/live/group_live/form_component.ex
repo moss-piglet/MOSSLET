@@ -331,15 +331,6 @@ defmodule MossletWeb.GroupLive.FormComponent do
   end
 
   @impl true
-  def handle_event("set-default", %{"id" => id}, socket) do
-    options = socket.assigns.user_connections
-
-    send_update(LiveSelect.Component, options: options, id: id)
-
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("set-default", %{"id" => id, "text" => text}, socket) do
     options =
       if text == "" do
@@ -351,6 +342,15 @@ defmodule MossletWeb.GroupLive.FormComponent do
           label && String.downcase(label) |> String.contains?(String.downcase(text))
         end)
       end
+
+    send_update(LiveSelect.Component, options: options, id: id)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("set-default", %{"id" => id}, socket) do
+    options = socket.assigns.user_connections
 
     send_update(LiveSelect.Component, options: options, id: id)
 
