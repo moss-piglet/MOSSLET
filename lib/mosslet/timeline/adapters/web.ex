@@ -2019,6 +2019,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   @impl true
   def list_profile_posts_visible_to(profile_user, viewer, options) do
+    viewer_is_profile_user = viewer.id == profile_user.id
+
     is_connection =
       Repo.exists?(
         from(uc in UserConnection,
@@ -2028,28 +2030,44 @@ defmodule Mosslet.Timeline.Adapters.Web do
         )
       )
 
-    if is_connection do
-      from(p in Post,
-        join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.user_id == ^profile_user.id,
-        where: p.visibility in [:public, :connections],
-        order_by: [desc: p.inserted_at],
-        preload: [:user_posts, :user, :replies]
-      )
-      |> paginate(options)
-      |> Repo.all()
-    else
-      from(p in Post,
-        join: up in UserPost,
-        on: up.post_id == p.id,
-        where: p.user_id == ^profile_user.id,
-        where: p.visibility == :public,
-        order_by: [desc: p.inserted_at],
-        preload: [:user_posts, :user, :replies]
-      )
-      |> paginate(options)
-      |> Repo.all()
+    cond do
+      viewer_is_profile_user ->
+        from(p in Post,
+          join: up in UserPost,
+          on: up.post_id == p.id,
+          where: p.user_id == ^profile_user.id,
+          distinct: p.id,
+          order_by: [desc: p.inserted_at],
+          preload: [:user_posts, :user, :replies, :user_post_receipts]
+        )
+        |> paginate(options)
+        |> Repo.all()
+
+      is_connection ->
+        from(p in Post,
+          join: up in UserPost,
+          on: up.post_id == p.id,
+          where: p.user_id == ^profile_user.id,
+          where: p.visibility in [:public, :connections],
+          distinct: p.id,
+          order_by: [desc: p.inserted_at],
+          preload: [:user_posts, :user, :replies, :user_post_receipts]
+        )
+        |> paginate(options)
+        |> Repo.all()
+
+      true ->
+        from(p in Post,
+          join: up in UserPost,
+          on: up.post_id == p.id,
+          where: p.user_id == ^profile_user.id,
+          where: p.visibility == :public,
+          distinct: p.id,
+          order_by: [desc: p.inserted_at],
+          preload: [:user_posts, :user, :replies, :user_post_receipts]
+        )
+        |> paginate(options)
+        |> Repo.all()
     end
   end
 
@@ -2071,7 +2089,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
         from(p in Post,
           join: up in UserPost,
           on: up.post_id == p.id,
-          where: p.user_id == ^profile_user.id
+          where: p.user_id == ^profile_user.id,
+          distinct: p.id
         )
         |> Repo.aggregate(:count)
 
@@ -2080,7 +2099,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
           join: up in UserPost,
           on: up.post_id == p.id,
           where: p.user_id == ^profile_user.id,
-          where: p.visibility in [:public, :connections]
+          where: p.visibility in [:public, :connections],
+          distinct: p.id
         )
         |> Repo.aggregate(:count)
 
@@ -2089,7 +2109,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
           join: up in UserPost,
           on: up.post_id == p.id,
           where: p.user_id == ^profile_user.id,
-          where: p.visibility == :public
+          where: p.visibility == :public,
+          distinct: p.id
         )
         |> Repo.aggregate(:count)
     end
