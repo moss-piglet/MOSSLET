@@ -2301,13 +2301,56 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   defp filter_by_muted_keywords_count(query, []), do: query
-  defp filter_by_muted_keywords_count(query, _keywords), do: query
+
+  defp filter_by_muted_keywords_count(query, keywords) when is_list(keywords) do
+    keyword_strings =
+      keywords
+      |> Enum.map(fn
+        %{keyword: kw} when is_binary(kw) -> String.downcase(kw)
+        %{"keyword" => kw} when is_binary(kw) -> String.downcase(kw)
+        kw when is_binary(kw) -> String.downcase(kw)
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    Enum.reduce(keyword_strings, query, fn muted_hash, acc_query ->
+      where(
+        acc_query,
+        [p],
+        is_nil(p.content_warning_category_hash) or
+          p.content_warning_category_hash != ^muted_hash
+      )
+    end)
+  end
 
   defp filter_by_content_warnings_count(query, %{}), do: query
-  defp filter_by_content_warnings_count(query, _warnings), do: query
+  defp filter_by_content_warnings_count(query, nil), do: query
+
+  defp filter_by_content_warnings_count(query, content_warnings) when is_map(content_warnings) do
+    hidden_warnings =
+      content_warnings
+      |> Enum.filter(fn {_key, action} -> action == :hide end)
+      |> Enum.map(fn {key, _action} -> key end)
+
+    case hidden_warnings do
+      [] ->
+        query
+
+      warnings ->
+        where(query, [p], is_nil(p.content_warning) or p.content_warning not in ^warnings)
+    end
+  end
 
   defp filter_by_muted_users_count(query, []), do: query
-  defp filter_by_muted_users_count(query, _users), do: query
+
+  defp filter_by_muted_users_count(query, muted_users) when is_list(muted_users) do
+    user_ids = extract_user_ids_from_muted_users(muted_users)
+
+    case user_ids do
+      [] -> query
+      ids when is_list(ids) -> where(query, [p], p.user_id not in ^ids)
+    end
+  end
 
   defp filter_by_reposts_count(query, false), do: query
   defp filter_by_reposts_count(query, true), do: where(query, [p], is_nil(p.original_post_id))

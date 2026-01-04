@@ -175,7 +175,7 @@ defmodule Mosslet.Timeline.ContentFilter do
     # Muted users - only update if muted_users was explicitly provided in the original updates
     muted_users_list =
       if :muted_users in explicit_updates do
-        preferences[:muted_users]
+        normalize_muted_users_to_ids(preferences[:muted_users])
       else
         # Preserve existing muted users, but decrypt them first since schema will re-encrypt
         if prefs.muted_users != [] do
@@ -221,6 +221,19 @@ defmodule Mosslet.Timeline.ContentFilter do
         {:error, :transaction_failed}
     end
   end
+
+  defp normalize_muted_users_to_ids(muted_users) when is_list(muted_users) do
+    Enum.map(muted_users, fn
+      %{user_id: user_id} when is_binary(user_id) -> user_id
+      %{"user_id" => user_id} when is_binary(user_id) -> user_id
+      user_id when is_binary(user_id) -> user_id
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp normalize_muted_users_to_ids(_), do: []
 
   defp invalidate_user_timeline_cache(user_id) do
     TimelineCache.invalidate_timeline(user_id, :all)
