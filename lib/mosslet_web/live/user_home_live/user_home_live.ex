@@ -1901,7 +1901,7 @@ defmodule MossletWeb.UserHomeLive do
              url: download_url,
              filename: "timeline-image-#{index + 1}"
            })
-           |> push_event("restore-body-scroll", %{})
+           |> push_event("restore-body-scroll", %{downloading_image: true})
            |> put_flash(:info, "Downloading image...")}
 
         nil ->
@@ -1914,7 +1914,12 @@ defmodule MossletWeb.UserHomeLive do
   end
 
   def handle_event("restore-body-scroll", _params, socket) do
-    socket = put_flash(socket, :success, "Download complete!")
+    # this flash only displays after image download sent
+    socket =
+      socket
+      |> clear_flash(:info)
+      |> put_flash(:info, "Download complete!")
+
     {:noreply, socket}
   end
 

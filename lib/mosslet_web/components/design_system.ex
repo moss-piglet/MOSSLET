@@ -3515,7 +3515,7 @@ defmodule MossletWeb.DesignSystem do
               id="photo-upload-trigger"
               class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group cursor-pointer"
               phx-hook="TippyHook"
-              data-tippy-content="Add photos (JPG, PNG up to 10MB each)"
+              data-tippy-content="Add photos (GIF, JPG, PNG up to 15MB each)"
             >
               <.phx_icon
                 name="hero-photo"

@@ -13,7 +13,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   ## Usage
 
       allow_upload(:photos,
-        accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+        accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
         max_entries: 10,
         auto_upload: true,
         progress: &handle_upload_progress/3,
@@ -56,6 +56,8 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   @max_dimension 2560
   @folder "uploads/trix"
+
+  require Logger
 
   @impl true
   def init(opts) do
@@ -147,6 +149,77 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
     notify_progress(state, :validating, 45)
 
+    cond do
+      mime_type == "image/gif" ->
+        process_animated(binary, state)
+
+      mime_type == "image/webp" ->
+        process_webp(binary, state)
+
+      true ->
+        process_static_image(binary, mime_type, state)
+    end
+  end
+
+  defp process_webp(binary, state) do
+    case Image.from_binary(binary, pages: :all) do
+      {:ok, image} ->
+        if Image.pages(image) > 1 do
+          process_animated_with_image(image, state)
+        else
+          process_static_webp(binary, state)
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to load WebP: #{inspect(reason)}"}
+    end
+  end
+
+  defp process_static_webp(binary, state) do
+    with {:ok, image} <- Image.from_binary(binary),
+         {:ok, image} <- check_safety(image, state),
+         :ok <- notify_progress(state, :processing, 55),
+         {:ok, image} <- autorotate(image),
+         {:ok, image} <- remove_metadata(image),
+         {:ok, image} <- resize_image(image),
+         {:ok, image} <- to_srgb(image),
+         :ok <- notify_progress(state, :processing, 70),
+         {:ok, webp_binary} <- to_webp_binary(image),
+         :ok <- notify_progress(state, :processing, 90) do
+      {:ok, webp_binary}
+    end
+  end
+
+  defp process_animated(binary, state) do
+    case Image.from_binary(binary, pages: :all) do
+      {:ok, image} ->
+        process_animated_with_image(image, state)
+
+      {:error, reason} ->
+        {:error, "Failed to load animated image: #{inspect(reason)}"}
+    end
+  end
+
+  defp process_animated_with_image(image, state) do
+    Logger.debug(
+      "Animated image loaded: #{Image.pages(image)} pages, page-height: #{inspect(get_page_height(image))}"
+    )
+
+    with {:ok, image} <- check_safety(image, state),
+         :ok <- notify_progress(state, :processing, 55),
+         {:ok, image} <- resize_animated(image),
+         _ =
+           Logger.debug(
+             "After resize: #{Image.pages(image)} pages, page-height: #{inspect(get_page_height(image))}"
+           ),
+         :ok <- notify_progress(state, :processing, 70),
+         {:ok, webp_binary} <- to_animated_webp_binary(image),
+         :ok <- notify_progress(state, :processing, 90) do
+      {:ok, webp_binary}
+    end
+  end
+
+  defp process_static_image(binary, mime_type, state) do
     with {:ok, image} <- load_image(binary, mime_type),
          {:ok, image} <- check_safety(image, state),
          :ok <- notify_progress(state, :processing, 55),
@@ -172,7 +245,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   end
 
   defp load_image(binary, mime_type)
-       when mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"] do
+       when mime_type in ["image/jpeg", "image/jpg", "image/png", "image/webp"] do
     case Image.from_binary(binary) do
       {:ok, image} -> {:ok, image}
       {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
@@ -301,11 +374,44 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   defp resize_image(image) do
     width = Image.width(image)
     height = Image.height(image)
+    page_height = get_page_height(image)
 
-    if width > @max_dimension or height > @max_dimension do
+    actual_height = page_height || height
+
+    if width > @max_dimension or actual_height > @max_dimension do
       Image.thumbnail(image, "#{@max_dimension}x#{@max_dimension}")
     else
       {:ok, image}
+    end
+  end
+
+  defp resize_animated(image) do
+    width = Image.width(image)
+    page_height = get_page_height(image) || Image.height(image) |> div(max(Image.pages(image), 1))
+
+    if width > @max_dimension or page_height > @max_dimension do
+      Image.map_join_pages(image, fn page ->
+        Image.thumbnail(page, "#{@max_dimension}x#{@max_dimension}")
+      end)
+    else
+      {:ok, image}
+    end
+  end
+
+  defp to_animated_webp_binary(image) do
+    quality = calculate_adaptive_quality(image)
+    opts = [quality: quality, minimize_file_size: true]
+
+    case Image.write(image, :memory, suffix: ".webp", webp: opts) do
+      {:ok, binary} -> {:ok, binary}
+      {:error, reason} -> {:error, "Failed to convert animated GIF to WebP: #{inspect(reason)}"}
+    end
+  end
+
+  defp get_page_height(image) do
+    case Vix.Vips.Image.header_value(image, "page-height") do
+      {:ok, page_height} -> page_height
+      _ -> nil
     end
   end
 
@@ -315,8 +421,16 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   defp to_webp_binary(image) do
     quality = calculate_adaptive_quality(image)
+    is_animated = Image.pages(image) > 1
 
-    case Image.write(image, :memory, suffix: ".webp", webp: [quality: quality]) do
+    opts =
+      if is_animated do
+        [quality: quality, minimize_file_size: true]
+      else
+        [quality: quality]
+      end
+
+    case Image.write(image, :memory, suffix: ".webp", webp: opts) do
       {:ok, binary} -> {:ok, binary}
       {:error, reason} -> {:error, "Failed to convert to WebP: #{inspect(reason)}"}
     end

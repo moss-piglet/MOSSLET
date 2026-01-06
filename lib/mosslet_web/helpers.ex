@@ -711,7 +711,7 @@ defmodule MossletWeb.Helpers do
       cleaned_url = clean_url_for_display(url)
       suffix = String.slice(url, String.length(cleaned_url)..-1//1)
 
-      ~s(<a href="#{cleaned_url}" target="_blank" rel="noopener noreferrer" class="text-emerald-600 no-underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">#{cleaned_url}</a>#{suffix})
+      ~s(<a href="#{cleaned_url}" target="_blank" rel="noopener noreferrer" class="text-emerald-600 no-underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 break-all">#{cleaned_url}</a>#{suffix})
     end)
   end
 

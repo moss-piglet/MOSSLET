@@ -193,9 +193,9 @@ defmodule MossletWeb.TimelineLive.Index do
       |> stream(:read_posts, [])
       |> assign(:timeline_data, AsyncResult.loading())
       |> allow_upload(:photos,
-        accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+        accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
         max_entries: 10,
-        max_file_size: 10_000_000,
+        max_file_size: 15_000_000,
         auto_upload: true,
         progress: &handle_upload_progress/3,
         writer: fn _name, entry, socket ->
@@ -1536,7 +1536,12 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("restore-body-scroll", _params, socket) do
-    socket = put_flash(socket, :success, "Download complete!")
+    # this flash only displays after image download sent
+    socket =
+      socket
+      |> clear_flash(:info)
+      |> put_flash(:info, "Download complete!")
+
     {:noreply, socket}
   end
 
@@ -1699,11 +1704,11 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    ref_value = if is_binary(ref), do: String.to_integer(ref), else: ref
-    upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
+    ref_str = to_string(ref)
+    upload_stages = Map.delete(socket.assigns.upload_stages, ref_str)
 
     {removed, remaining} =
-      Enum.split_with(socket.assigns.completed_uploads, &(&1.ref == ref_value))
+      Enum.split_with(socket.assigns.completed_uploads, &(to_string(&1.ref) == ref_str))
 
     Enum.each(removed, fn upload ->
       if upload[:temp_path], do: cleanup_temp_upload(upload.temp_path)
@@ -1717,14 +1722,13 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_event("remove_completed_upload", %{"ref" => ref}, socket) do
-    ref_value = if is_binary(ref), do: String.to_integer(ref), else: ref
+    ref_str = to_string(ref)
 
-    upload_stages = Map.delete(socket.assigns.upload_stages, ref_value)
+    upload_stages = Map.delete(socket.assigns.upload_stages, ref_str)
 
     {removed, remaining} =
       Enum.split_with(socket.assigns.completed_uploads, fn upload ->
-        upload_ref = if is_binary(upload.ref), do: String.to_integer(upload.ref), else: upload.ref
-        upload_ref == ref_value
+        to_string(upload.ref) == ref_str
       end)
 
     Enum.each(removed, fn upload ->
@@ -1732,7 +1736,7 @@ defmodule MossletWeb.TimelineLive.Index do
     end)
 
     entry_exists? =
-      Enum.any?(socket.assigns.uploads.photos.entries, &(&1.ref == ref_value))
+      Enum.any?(socket.assigns.uploads.photos.entries, &(to_string(&1.ref) == ref_str))
 
     socket =
       if entry_exists? do
@@ -2382,6 +2386,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
             socket =
               socket
+              |> cancel_all_upload_entries(:photos)
               |> assign(:trix_key, nil)
               |> assign(:composer_trix_key, nil)
               |> assign(:post_form, to_form(clean_changeset))
@@ -6238,11 +6243,27 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp generate_thumbnail_preview(binary) do
-    case Image.from_binary(binary) do
+    case Image.from_binary(binary, pages: :all) do
       {:ok, image} ->
-        case Image.thumbnail(image, "400x400", crop: :attention) do
+        is_animated = Image.pages(image) > 1
+
+        thumb_result =
+          if is_animated do
+            Image.map_join_pages(image, fn page ->
+              Image.thumbnail(page, "400x400", crop: :attention)
+            end)
+          else
+            Image.thumbnail(image, "400x400", crop: :attention)
+          end
+
+        case thumb_result do
           {:ok, thumb} ->
-            case Image.write(thumb, :memory, suffix: ".webp", webp: [quality: 75]) do
+            write_opts =
+              if is_animated,
+                do: [suffix: ".webp", webp: [quality: 75, minimize_file_size: true]],
+                else: [suffix: ".webp", webp: [quality: 75]]
+
+            case Image.write(thumb, :memory, write_opts) do
               {:ok, thumb_binary} ->
                 "data:image/webp;base64,#{Base.encode64(thumb_binary)}"
 
@@ -6257,6 +6278,14 @@ defmodule MossletWeb.TimelineLive.Index do
       _ ->
         nil
     end
+  end
+
+  defp cancel_all_upload_entries(socket, upload_name) do
+    entries = socket.assigns.uploads[upload_name].entries
+
+    Enum.reduce(entries, socket, fn entry, acc ->
+      cancel_upload(acc, upload_name, entry.ref)
+    end)
   end
 
   defp cleanup_temp_upload(nil), do: :ok
