@@ -195,7 +195,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> allow_upload(:photos,
         accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
         max_entries: 10,
-        max_file_size: 15_000_000,
+        max_file_size: 10_000_000,
         auto_upload: true,
         progress: &handle_upload_progress/3,
         writer: fn _name, entry, socket ->

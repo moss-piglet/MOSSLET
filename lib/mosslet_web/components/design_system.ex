@@ -3515,7 +3515,7 @@ defmodule MossletWeb.DesignSystem do
               id="photo-upload-trigger"
               class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group cursor-pointer"
               phx-hook="TippyHook"
-              data-tippy-content="Add photos (GIF, JPG, PNG up to 15MB each)"
+              data-tippy-content="Add photos (GIF, JPG, PNG up to 10MB each)"
             >
               <.phx_icon
                 name="hero-photo"
@@ -3761,9 +3761,12 @@ defmodule MossletWeb.DesignSystem do
 
   # Privacy helper functions
   # Helper function to humanize upload errors
-  defp humanize_upload_error(:too_large), do: "File is too large (max 5MB)"
-  defp humanize_upload_error(:too_many_files), do: "Too many files (max 4 photos)"
-  defp humanize_upload_error(:not_accepted), do: "File type not supported (JPG, PNG only)"
+  defp humanize_upload_error(:too_large), do: "File is too large (max 10MB)"
+  defp humanize_upload_error(:too_many_files), do: "Too many files (max 10 photos)"
+
+  defp humanize_upload_error(:not_accepted),
+    do: "File type not supported (GIF, JPG, PNG, WEBP, HEIC/HEIF only)"
+
   defp humanize_upload_error(error), do: "Upload error: #{error}"
 
   @doc """
@@ -3961,7 +3964,7 @@ defmodule MossletWeb.DesignSystem do
               phx-click="remove_completed_upload"
               phx-value-ref={upload.ref}
               aria-label="Remove photo"
-              class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+              class="absolute top-1 right-1 z-10 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 hover:scale-110"
               phx-hook="TippyHook"
               data-tippy-content="Remove photo"
             >
@@ -4027,7 +4030,7 @@ defmodule MossletWeb.DesignSystem do
               phx-click="cancel_upload"
               phx-value-ref={entry.ref}
               aria-label="Remove photo"
-              class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+              class="absolute top-1 right-1 z-10 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 hover:scale-110"
               phx-hook="TippyHook"
               data-tippy-content="Remove photo"
             >

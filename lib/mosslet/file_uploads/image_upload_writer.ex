@@ -199,13 +199,22 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   end
 
   defp process_animated_with_image(image, state) do
-    with {:ok, image} <- check_safety(image, state),
+    with {:ok, first_frame} <- extract_first_frame(image),
+         {:ok, _} <- check_safety(first_frame, state),
          :ok <- notify_progress(state, :processing, 55),
          {:ok, image} <- resize_animated(image),
          :ok <- notify_progress(state, :processing, 70),
          {:ok, webp_binary} <- to_animated_webp_binary(image),
          :ok <- notify_progress(state, :processing, 90) do
       {:ok, webp_binary}
+    end
+  end
+
+  defp extract_first_frame(image) do
+    case Image.extract_pages(image) do
+      {:ok, [first | _]} -> {:ok, first}
+      {:ok, []} -> {:error, "No frames in animated image"}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -380,9 +389,8 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     page_height = get_page_height(image) || Image.height(image) |> div(max(Image.pages(image), 1))
 
     if width > @max_dimension or page_height > @max_dimension do
-      Image.map_join_pages(image, fn page ->
-        Image.thumbnail(page, "#{@max_dimension}x#{@max_dimension}")
-      end)
+      scale = min(@max_dimension / width, @max_dimension / page_height)
+      Vix.Vips.Operation.resize(image, scale)
     else
       {:ok, image}
     end
@@ -390,7 +398,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   defp to_animated_webp_binary(image) do
     quality = calculate_adaptive_quality(image)
-    opts = [quality: quality, minimize_file_size: true]
+    opts = [quality: quality]
 
     case Image.write(image, :memory, suffix: ".webp", webp: opts) do
       {:ok, binary} -> {:ok, binary}
@@ -415,7 +423,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
     opts =
       if is_animated do
-        [quality: quality, minimize_file_size: true]
+        [quality: quality, effort: 4, mixed: true, "smart-subsample": true, strip: true]
       else
         [quality: quality]
       end
