@@ -57,8 +57,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   @max_dimension 2560
   @folder "uploads/trix"
 
-  require Logger
-
   @impl true
   def init(opts) do
     user = Accounts.get_user_by_session_token(opts[:user_token])
@@ -201,17 +199,9 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   end
 
   defp process_animated_with_image(image, state) do
-    Logger.debug(
-      "Animated image loaded: #{Image.pages(image)} pages, page-height: #{inspect(get_page_height(image))}"
-    )
-
     with {:ok, image} <- check_safety(image, state),
          :ok <- notify_progress(state, :processing, 55),
          {:ok, image} <- resize_animated(image),
-         _ =
-           Logger.debug(
-             "After resize: #{Image.pages(image)} pages, page-height: #{inspect(get_page_height(image))}"
-           ),
          :ok <- notify_progress(state, :processing, 70),
          {:ok, webp_binary} <- to_animated_webp_binary(image),
          :ok <- notify_progress(state, :processing, 90) do
