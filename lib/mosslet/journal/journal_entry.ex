@@ -13,6 +13,7 @@ defmodule Mosslet.Journal.JournalEntry do
 
   alias Mosslet.Accounts.User
   alias Mosslet.Encrypted
+  alias Mosslet.Journal.JournalBook
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -26,13 +27,14 @@ defmodule Mosslet.Journal.JournalEntry do
     field :entry_date, :date
 
     belongs_to :user, User
+    belongs_to :book, JournalBook
 
     timestamps()
   end
 
   def changeset(journal_entry, attrs, opts \\ []) do
     journal_entry
-    |> cast(attrs, [:title, :body, :mood, :is_favorite, :entry_date, :user_id])
+    |> cast(attrs, [:title, :body, :mood, :is_favorite, :entry_date, :user_id, :book_id])
     |> validate_required([:body])
     |> validate_length(:title, max: 200)
     |> validate_length(:body, max: 50_000)

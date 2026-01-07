@@ -142,6 +142,7 @@ defmodule MossletWeb do
       alias Phoenix.LiveView.JS
 
       import MossletWeb.Components.MossletAuthLayout
+      import MossletWeb.ReaderLayout
 
       # Route Helpers
       alias MossletWeb.Router.Helpers, as: Routes
