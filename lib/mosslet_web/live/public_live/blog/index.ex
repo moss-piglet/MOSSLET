@@ -137,4 +137,8 @@ defmodule MossletWeb.PublicLive.Blog.Index do
        "Learn about privacy, our company, and our opinions on the latest privacy news"
      )}
   end
+
+  def handle_event("clipboard_copied", _params, socket) do
+    {:noreply, put_flash(socket, :info, "RSS feed URL copied to clipboard!")}
+  end
 end

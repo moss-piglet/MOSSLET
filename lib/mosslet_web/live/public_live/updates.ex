@@ -78,7 +78,7 @@ defmodule MossletWeb.PublicLive.Updates do
                   tag="Latest"
                   tag_color="emerald"
                 >
-                  <:title>Discover & RSS Feed 🌿</:title>
+                  <:title>Discover & RSS Feeds 🌿</:title>
                   <:description>
                     Explore public posts from the community and subscribe via RSS — plus GIF support and UI polish throughout.
                   </:description>
@@ -87,7 +87,7 @@ defmodule MossletWeb.PublicLive.Updates do
                       Discover page — browse public posts from the MOSSLET community
                     </.changelog_item>
                     <.changelog_item icon="hero-rss" color="amber">
-                      RSS feed — subscribe to public posts in your favorite feed reader
+                      RSS feeds — subscribe to public posts and our blog in your favorite feed reader
                     </.changelog_item>
                     <.changelog_item icon="hero-gif" color="purple">
                       GIF support — upload and share animated images in your posts

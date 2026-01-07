@@ -12,14 +12,31 @@ defmodule MossletWeb.PublicLive.Blog.Components do
         </div>
       </div>
 
-      <%!-- Main heading with liquid metal gradient --%>
-      <h1 class={[
-        "mx-2 mb-6 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl",
-        "bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm",
-        "transition-all duration-300 ease-out"
-      ]}>
-        MOSSLET updates
-      </h1>
+      <%!-- Main heading with RSS button --%>
+      <div class="flex items-center justify-center gap-3">
+        <h1 class={[
+          "mx-2 text-5xl font-bold tracking-tight text-pretty sm:text-6xl lg:text-7xl",
+          "bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent drop-shadow-sm",
+          "transition-all duration-300 ease-out"
+        ]}>
+          MOSSLET updates
+        </h1>
+        <button
+          id="blog-rss-feed-copy-btn"
+          phx-hook="ClipboardHook"
+          data-content={MossletWeb.Endpoint.url() <> "/feed/blog.xml"}
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
+        >
+          <span
+            id="blog-rss-feed-copy-tooltip"
+            phx-hook="TippyHook"
+            data-tippy-content="Copy RSS feed URL to clipboard"
+          >
+            <.phx_icon name="hero-rss" class="h-4 w-4" />
+            <span class="hidden sm:inline">RSS</span>
+          </span>
+        </button>
+      </div>
 
       <%!-- Subtitle with enhanced styling --%>
       <div class="mt-6 relative">

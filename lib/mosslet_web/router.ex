@@ -70,6 +70,7 @@ defmodule MossletWeb.Router do
 
   scope "/feed", MossletWeb do
     get "/public.xml", FeedController, :public
+    get "/blog.xml", FeedController, :blog
     get "/public/posts/:post_id/images/:index", PublicPostImageController, :show
   end
 
