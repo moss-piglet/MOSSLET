@@ -9,6 +9,7 @@ const TrixContentPostHook = {
   updated() {
     this.init_links();
     this.reset_photo_viewer_state();
+    this.cleanup_photo_viewer_listeners();
     this.setup_photo_viewer();
   },
 
@@ -35,11 +36,15 @@ const TrixContentPostHook = {
   },
 
   destroyed() {
+    this.cleanup_photo_viewer_listeners();
+    this.isModalOpening = false;
+  },
+
+  cleanup_photo_viewer_listeners() {
     this.eventListeners.forEach(({ event, handler }) => {
       window.removeEventListener(event, handler);
     });
     this.eventListeners = [];
-    this.isModalOpening = false;
   },
 
   setup_photo_viewer() {

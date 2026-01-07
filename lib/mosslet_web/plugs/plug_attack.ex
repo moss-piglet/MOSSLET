@@ -140,6 +140,38 @@ defmodule MossletWeb.Plugs.PlugAttack do
     end
   end
 
+  rule "throttle RSS feed requests", conn do
+    if conn.method == "GET" and conn.path_info == ["feed", "public.xml"] and conn.remote_ip do
+      throttle("feed_public:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 10,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "throttle blog RSS feed requests", conn do
+    if conn.method == "GET" and conn.path_info == ["feed", "blog.xml"] and conn.remote_ip do
+      throttle("feed_blog:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 10,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
+  rule "throttle public post image requests", conn do
+    if conn.method == "GET" and
+         match?(["feed", "public", "posts", _, "images", _], conn.path_info) and
+         conn.remote_ip do
+      throttle("feed_images:" <> hash_ip(@alg, convert_ip(conn.remote_ip)),
+        period: @minute,
+        limit: 100,
+        storage: {PlugAttack.Storage.Ets, MossletWeb.PlugAttack.Storage}
+      )
+    end
+  end
+
   def allow_action(conn, {:throttle, data}, opts) do
     conn
     |> add_throttling_headers(data)

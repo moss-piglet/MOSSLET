@@ -7,18 +7,25 @@ defmodule MossletWeb.PublicPostImageController do
   require Logger
 
   @cache_max_age 86400
+  @chunk_size 65_536
 
   def show(conn, %{"post_id" => post_id, "index" => index_str}) do
     with {index, ""} <- Integer.parse(index_str),
          %Timeline.Post{visibility: :public} = post <- Timeline.get_post_with_preloads(post_id),
          {:ok, post_key} <- get_public_post_key(post),
          {:ok, image_path} <- get_decrypted_image_path(post, index, post_key),
+         etag <- generate_etag(post_id, index, post.updated_at),
+         {:ok, conn} <- check_etag(conn, etag),
          {:ok, image_binary, content_type} <- fetch_and_decrypt_image(image_path, post_key) do
       conn
       |> put_resp_content_type(content_type)
       |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-      |> send_resp(200, image_binary)
+      |> put_resp_header("etag", etag)
+      |> stream_response(image_binary)
     else
+      {:not_modified, conn} ->
+        conn
+
       nil ->
         send_resp(conn, 404, "Post not found")
 
@@ -47,6 +54,53 @@ defmodule MossletWeb.PublicPostImageController do
   def show(conn, _params) do
     send_resp(conn, 400, "Bad request")
   end
+
+  defp generate_etag(post_id, index, updated_at) do
+    hash_input = "#{post_id}-#{index}-#{DateTime.to_unix(updated_at)}"
+    hash = :crypto.hash(:md5, hash_input) |> Base.encode16(case: :lower)
+    "\"#{hash}\""
+  end
+
+  defp check_etag(conn, etag) do
+    client_etag = get_req_header(conn, "if-none-match") |> List.first()
+
+    if client_etag == etag do
+      conn =
+        conn
+        |> put_resp_header("etag", etag)
+        |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+        |> send_resp(304, "")
+
+      {:not_modified, conn}
+    else
+      {:ok, conn}
+    end
+  end
+
+  defp stream_response(conn, image_binary) when byte_size(image_binary) <= @chunk_size do
+    send_resp(conn, 200, image_binary)
+  end
+
+  defp stream_response(conn, image_binary) do
+    conn = send_chunked(conn, 200)
+    stream_chunks(conn, image_binary)
+  end
+
+  defp stream_chunks(conn, <<chunk::binary-size(@chunk_size), rest::binary>>) do
+    case chunk(conn, chunk) do
+      {:ok, conn} -> stream_chunks(conn, rest)
+      {:error, _reason} -> conn
+    end
+  end
+
+  defp stream_chunks(conn, final_chunk) when byte_size(final_chunk) > 0 do
+    case chunk(conn, final_chunk) do
+      {:ok, conn} -> conn
+      {:error, _reason} -> conn
+    end
+  end
+
+  defp stream_chunks(conn, <<>>), do: conn
 
   defp get_public_post_key(post) do
     encrypted_key = get_post_key(post)
