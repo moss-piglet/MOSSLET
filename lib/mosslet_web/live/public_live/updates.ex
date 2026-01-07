@@ -73,10 +73,42 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.10.0"
-                  date="December 2025"
+                  version="0.11.0"
+                  date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Discover & RSS Feed 🌿</:title>
+                  <:description>
+                    Explore public posts from the community and subscribe via RSS — plus GIF support and UI polish throughout.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-globe-alt" color="emerald">
+                      Discover page — browse public posts from the MOSSLET community
+                    </.changelog_item>
+                    <.changelog_item icon="hero-rss" color="amber">
+                      RSS feed — subscribe to public posts in your favorite feed reader
+                    </.changelog_item>
+                    <.changelog_item icon="hero-gif" color="purple">
+                      GIF support — upload and share animated images in your posts
+                    </.changelog_item>
+                    <.changelog_item icon="hero-photo" color="blue">
+                      Image upload improvements — better handling and format support
+                    </.changelog_item>
+                    <.changelog_item icon="hero-device-phone-mobile" color="teal">
+                      Mobile polish — improved password inputs, tooltips, and image viewing
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="cyan">
+                      UI refinements — updated user dropdown, circle UI, and more
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.10.0"
+                  date="December 2025"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Referral Program & New Pricing 💸</:title>
                   <:description>
