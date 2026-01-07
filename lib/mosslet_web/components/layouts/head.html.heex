@@ -34,6 +34,20 @@
   <%!-- Helps keep 80% of duplicate content errors on Google away by default --%>
   <link rel="canonical" href={@conn.request_path} />
 
+  <%!-- RSS feed autodiscovery --%>
+  <link
+    rel="alternate"
+    type="application/rss+xml"
+    title="MOSSLET Blog"
+    href={~p"/feed/blog.xml"}
+  />
+  <link
+    rel="alternate"
+    type="application/rss+xml"
+    title="MOSSLET Public Timeline"
+    href={~p"/feed/public.xml"}
+  />
+
   <link async defer phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
 
   <%!-- tippy --%>
