@@ -398,7 +398,12 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
         %{"image_hash" => image_hash, "post_id" => post_id},
         socket
       ) do
-    case Mosslet.Extensions.URLPreviewImageProxy.regenerate_presigned_url(image_hash, post_id) do
+    actual_post_id = String.replace_prefix(post_id, "public-post-", "")
+
+    case Mosslet.Extensions.URLPreviewImageProxy.regenerate_presigned_url(
+           image_hash,
+           actual_post_id
+         ) do
       {:ok, new_presigned_url} ->
         {:reply, %{response: "success", presigned_url: new_presigned_url}, socket}
 
