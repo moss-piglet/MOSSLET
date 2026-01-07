@@ -30,6 +30,7 @@ import URLPreviewHook from "./url-preview-hook";
 import ScrollableTabs from "./scrollable-tabs";
 import TouchHoverHook from "./touch-hover-hook";
 import PublicPostImagesHook from "./public-post-images-hook";
+import ImageErrorHook from "./image-error-hook";
 
 export default {
   CharacterCounter,
@@ -64,4 +65,5 @@ export default {
   TouchHoverHook,
   URLPreviewHook,
   PublicPostImagesHook,
+  ImageErrorHook,
 };

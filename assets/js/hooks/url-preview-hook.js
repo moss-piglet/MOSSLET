@@ -7,6 +7,15 @@ const URLPreviewHook = {
     this.decryptAndDisplayImage();
   },
 
+  attachErrorHandler(img) {
+    if (!img || img._errorHandlerAttached) return;
+    
+    img._errorHandlerAttached = true;
+    img.addEventListener("error", () => {
+      this.showErrorState(img);
+    }, { once: true });
+  },
+
   decryptAndDisplayImage() {
     const postId = this.el.dataset.postId;
     const imageHash = this.el.dataset.imageHash;
@@ -39,7 +48,7 @@ const URLPreviewHook = {
     );
     const now = new Date();
 
-    const presignedUrl = img.src;
+    const presignedUrl = this.el.dataset.presignedUrl;
 
     if (now > offsetTime) {
       this.regenerateAndDecryptPreviewUrl(imageHash, postId, img);
@@ -75,6 +84,7 @@ const URLPreviewHook = {
         if (reply.response === "success" && reply.decrypted_image) {
           img.src = reply.decrypted_image;
           this.hideLoadingState(img);
+          this.attachErrorHandler(img);
         } else {
           console.error(
             "Failed to decrypt preview image for post",

@@ -3496,12 +3496,13 @@ defmodule MossletWeb.DesignSystem do
               <div
                 :if={@url_preview["image"] && @url_preview["image"] != ""}
                 class="w-20 h-14 shrink-0 overflow-hidden rounded-lg"
+                phx-hook="ImageErrorHook"
+                id={"url-preview-image-#{@id}"}
               >
                 <img
                   src={@url_preview["image"]}
                   alt={@url_preview["title"] || "Preview image"}
                   class="w-full h-full object-cover"
-                  onerror="this.parentElement.style.display='none'"
                 />
               </div>
 
@@ -5792,12 +5793,11 @@ defmodule MossletWeb.DesignSystem do
                 data-post-id={@post.id}
                 data-image-hash={@decrypted_url_preview["image_hash"]}
                 data-url-preview-fetched-at={@post.url_preview_fetched_at}
+                data-presigned-url={@decrypted_url_preview["image"]}
               >
                 <img
-                  src={@decrypted_url_preview["image"]}
                   alt={@decrypted_url_preview["title"] || "Preview image"}
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  onerror="this.parentElement.style.display='none'"
                 />
               </div>
 
@@ -13394,12 +13394,11 @@ defmodule MossletWeb.DesignSystem do
         data-post-id={@post_id}
         data-image-hash={@preview["image_hash"]}
         data-url-preview-fetched-at={@url_preview_fetched_at}
+        data-presigned-url={@preview["image"]}
       >
         <img
-          src={@preview["image"]}
           alt={@preview["title"] || "Preview image"}
           class="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-300"
-          onerror="this.parentElement.style.display='none'"
         />
       </div>
       <div class="flex-1 min-w-0 py-0.5">
