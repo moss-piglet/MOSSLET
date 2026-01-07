@@ -25,8 +25,8 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
      |> assign_new(:meta_description, fn ->
        "Explore public posts on MOSSLET. See what people are sharing in our privacy-first social network."
      end)
-     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/logo.svg")
-     |> assign(:og_image_type, "image/svg+xml")
+     |> assign(:og_image, MossletWeb.Endpoint.url() <> ~p"/images/discover/discover_og.png")
+     |> assign(:og_image_type, "image/png")
      |> assign(:og_image_alt, "MOSSLET Public Timeline")
      |> assign(:current_page, 1)
      |> assign(:loading, true)
