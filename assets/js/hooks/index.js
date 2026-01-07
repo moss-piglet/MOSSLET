@@ -1,4 +1,5 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
+import AutoResize from "./auto-resize";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
@@ -31,8 +32,10 @@ import ScrollableTabs from "./scrollable-tabs";
 import TouchHoverHook from "./touch-hover-hook";
 import PublicPostImagesHook from "./public-post-images-hook";
 import ImageErrorHook from "./image-error-hook";
+import UnsavedChanges from "./unsaved-changes";
 
 export default {
+  AutoResize,
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,
@@ -66,4 +69,5 @@ export default {
   URLPreviewHook,
   PublicPostImagesHook,
   ImageErrorHook,
+  UnsavedChanges,
 };

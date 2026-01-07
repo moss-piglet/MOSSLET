@@ -25,6 +25,7 @@ defmodule MossletWeb.CoreComponents do
   import MossletWeb.PublicLayout
   import MossletWeb.ModernSidebarLayout
   import MossletWeb.StackedLayout
+  import MossletWeb.FocusLayout
 
   alias Phoenix.LiveView.JS
 
@@ -2294,7 +2295,7 @@ defmodule MossletWeb.CoreComponents do
   For backwards compatibility, `current_user` and `key` are still accepted.
   When `current_scope` is provided, `current_user` and `key` are derived from it.
   """
-  attr :type, :string, default: "sidebar", values: ["sidebar", "stacked", "public"]
+  attr :type, :string, default: "sidebar", values: ["sidebar", "stacked", "public", "focus"]
   attr :current_page, :atom, required: true
   attr :sidebar_current_page, :atom, default: nil
   attr :current_scope, :map, default: nil, doc: "the scope containing user and key (preferred)"
@@ -2317,6 +2318,8 @@ defmodule MossletWeb.CoreComponents do
   attr :sync_status, :map,
     default: nil,
     doc: "sync status map with :online, :syncing, :last_sync, :pending_count keys"
+
+  attr :back_path, :string, default: nil, doc: "back path for focus layout"
 
   slot :logo_icon
   slot :inner_block
@@ -2417,6 +2420,13 @@ defmodule MossletWeb.CoreComponents do
           </:top_right>
           {render_slot(@inner_block)}
         </.mosslet_public_layout>
+      <% "focus" -> %>
+        <.focus_layout {assigns}>
+          <:top_right>
+            <MossletWeb.Layouts.theme_toggle />
+          </:top_right>
+          {render_slot(@inner_block)}
+        </.focus_layout>
     <% end %>
     """
   end

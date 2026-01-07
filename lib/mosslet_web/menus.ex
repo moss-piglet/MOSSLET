@@ -58,14 +58,14 @@ defmodule MossletWeb.Menus do
       # Regular users get normal app menu
       current_user.connection.profile ->
         build_menu(
-          [:home, :connections, :circles, :timeline, :settings, :subscribe],
+          [:home, :journal, :connections, :circles, :timeline, :settings, :subscribe],
           current_user
         )
 
       # Users without profile get dashboard menu
       true ->
         build_menu(
-          [:dashboard, :connections, :circles, :timeline, :settings, :subscribe],
+          [:dashboard, :journal, :connections, :circles, :timeline, :settings, :subscribe],
           current_user
         )
     end
@@ -444,6 +444,15 @@ defmodule MossletWeb.Menus do
       label: gettext("Timeline"),
       path: ~p"/app/timeline",
       icon: "hero-book-open"
+    }
+  end
+
+  def get_link(:journal = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Journal"),
+      path: ~p"/app/journal",
+      icon: "hero-pencil-square"
     }
   end
 

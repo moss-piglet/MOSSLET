@@ -1,0 +1,184 @@
+defmodule Mosslet.Journal.AI do
+  @moduledoc """
+  AI-powered features for journaling.
+
+  Provides:
+  - Journaling prompts - AI-generated reflection questions
+  - Content moderation helper - Feedback on post appropriateness before sharing
+  - Mood insights - Weekly AI-generated summaries of emotional patterns
+  """
+
+  @model "openrouter:openai/gpt-4o-mini"
+  @daily_prompt_limit 20
+  @prompt_cooldown_seconds 10
+  @ets_table :journal_ai_rate_limits
+
+  def daily_prompt_limit, do: @daily_prompt_limit
+  def prompt_cooldown_seconds, do: @prompt_cooldown_seconds
+
+  def ensure_ets_table do
+    case :ets.whereis(@ets_table) do
+      :undefined -> :ets.new(@ets_table, [:set, :public, :named_table])
+      _ -> @ets_table
+    end
+  end
+
+  def can_generate_prompt?(user_id) do
+    ensure_ets_table()
+    today = Date.utc_today()
+    cache_key = {user_id, today}
+
+    case :ets.lookup(@ets_table, cache_key) do
+      [] -> {:ok, @daily_prompt_limit}
+      [{_, count}] when count < @daily_prompt_limit -> {:ok, @daily_prompt_limit - count}
+      _ -> {:error, :limit_reached}
+    end
+  end
+
+  def increment_prompt_count(user_id) do
+    ensure_ets_table()
+    today = Date.utc_today()
+    cache_key = {user_id, today}
+
+    case :ets.lookup(@ets_table, cache_key) do
+      [] -> :ets.insert(@ets_table, {cache_key, 1})
+      [{_, count}] -> :ets.insert(@ets_table, {cache_key, count + 1})
+    end
+  end
+
+  def get_remaining_prompts(user_id) do
+    case can_generate_prompt?(user_id) do
+      {:ok, remaining} -> remaining
+      {:error, :limit_reached} -> 0
+    end
+  end
+
+  def generate_prompt(opts \\ []) do
+    mood = Keyword.get(opts, :mood)
+    theme = Keyword.get(opts, :theme)
+
+    system_prompt = """
+    You are a thoughtful journaling companion. Generate a single reflective journaling prompt.
+
+    Guidelines:
+    - Be warm and inviting, not clinical
+    - Encourage self-reflection and introspection
+    - Keep prompts open-ended to allow free expression
+    - Vary between gratitude, growth, relationships, goals, and emotions
+    - Keep the prompt to 1-2 sentences
+    #{if mood, do: "- The user is currently feeling #{mood}, tailor the prompt accordingly", else: ""}
+    #{if theme, do: "- Focus on the theme: #{theme}", else: ""}
+
+    Respond with ONLY the journaling prompt, nothing else.
+    """
+
+    case ReqLLM.generate_text(@model, "Generate a journaling prompt",
+           system_prompt: system_prompt
+         ) do
+      {:ok, response} ->
+        {:ok, ReqLLM.Response.text(response)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def check_content_appropriateness(content) do
+    system_prompt = """
+    You are a content moderation assistant. Analyze the following text that someone wants to share publicly.
+
+    Provide brief, helpful feedback on:
+    1. Whether it seems appropriate for public sharing
+    2. Any potentially sensitive information (personal details, locations, etc.)
+    3. Tone and how it might be perceived by others
+
+    Be supportive and non-judgmental. The goal is to help, not criticize.
+    Keep your response concise (2-4 sentences max).
+    """
+
+    case ReqLLM.generate_text(@model, content, system_prompt: system_prompt) do
+      {:ok, response} ->
+        {:ok, ReqLLM.Response.text(response)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def generate_mood_insights(entries) when is_list(entries) do
+    if Enum.empty?(entries) do
+      {:ok,
+       "Start journaling to see mood insights! Write a few entries and I'll help identify patterns."}
+    else
+      mood_data =
+        entries
+        |> Enum.map(fn entry ->
+          date = Calendar.strftime(entry.entry_date, "%b %d")
+          mood = entry.mood || "unspecified"
+          word_count = entry.word_count || 0
+          "#{date}: mood=#{mood}, words=#{word_count}"
+        end)
+        |> Enum.join("\n")
+
+      system_prompt = """
+      You are a compassionate journaling companion analyzing mood patterns.
+
+      Based on the journal entry data below, provide a brief, supportive insight about patterns you notice.
+
+      Guidelines:
+      - Be warm and encouraging
+      - Focus on positive observations when possible
+      - Gently note any patterns worth attention
+      - Keep response to 2-3 sentences
+      - Don't make clinical assessments or diagnoses
+
+      Journal data (date: mood, word count):
+      #{mood_data}
+
+      Respond with ONLY your insight, nothing else.
+      """
+
+      case ReqLLM.generate_text(@model, "Analyze these mood patterns",
+             system_prompt: system_prompt
+           ) do
+        {:ok, response} ->
+          {:ok, ReqLLM.Response.text(response)}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @prompt_themes [
+    "gratitude",
+    "personal growth",
+    "relationships",
+    "goals and dreams",
+    "challenges and resilience",
+    "self-care",
+    "creativity",
+    "mindfulness"
+  ]
+
+  def prompt_themes, do: @prompt_themes
+
+  def fallback_prompts do
+    [
+      "What made you smile today, even if just for a moment?",
+      "What's something you're looking forward to?",
+      "Describe a recent moment when you felt truly present.",
+      "What's a small win you can celebrate today?",
+      "Who in your life are you grateful for, and why?",
+      "What's something you'd like to let go of?",
+      "What would you tell your past self from a year ago?",
+      "What's giving you energy lately? What's draining it?",
+      "Describe your ideal tomorrow. What would make it great?",
+      "What's a lesson you've learned recently?"
+    ]
+  end
+
+  def random_fallback_prompt do
+    Enum.random(fallback_prompts())
+  end
+end

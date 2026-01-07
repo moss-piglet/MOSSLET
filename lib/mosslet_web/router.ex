@@ -359,6 +359,12 @@ defmodule MossletWeb.Router do
       live "/users/org-invitations", UserOrgInvitationsLive
       live "/users/two-factor-authentication", EditTotpLive
 
+      # Journal (private, user-only)
+      live "/journal", JournalLive.Index, :index
+      live "/journal/new", JournalLive.Entry, :new
+      live "/journal/:id", JournalLive.Entry, :show
+      live "/journal/:id/edit", JournalLive.Entry, :edit
+
       # moved to subscription routes
     end
   end

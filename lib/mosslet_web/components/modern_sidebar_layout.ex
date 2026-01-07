@@ -278,7 +278,7 @@ defmodule MossletWeb.ModernSidebarLayout do
         </header>
 
         <%!-- Page content --%>
-        <main>
+        <main class="pt-6 px-4 sm:px-6 lg:px-8">
           {render_slot(@inner_block)}
         </main>
       </div>

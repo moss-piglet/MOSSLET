@@ -692,7 +692,20 @@ defmodule MossletWeb.UserAuth do
     scope = conn.assigns[:current_scope]
     user = scope && scope.user
 
-    if conn.path_params["id"] do
+    paths_requiring_connection_check = [
+      "connections",
+      "posts",
+      "memories",
+      "groups"
+    ]
+
+    path_requires_check =
+      case conn.path_info do
+        ["app" | [segment | _]] -> segment in paths_requiring_connection_check
+        _ -> false
+      end
+
+    if path_requires_check && conn.path_params["id"] do
       if conn.path_params["id"] == user.id do
         conn
       else
