@@ -16,8 +16,8 @@ defmodule MossletWeb.Menus do
   # Public menu (marketing related pages)
   def public_menu_items(_user \\ nil),
     do: [
-      %{label: gettext("About"), path: "/about"},
       %{label: gettext("Blog"), path: "/blog"},
+      %{label: gettext("Discover"), path: "/discover"},
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Pricing"), path: "/pricing"}
     ]
@@ -26,6 +26,7 @@ defmodule MossletWeb.Menus do
     do: [
       %{label: gettext("About"), path: "/about"},
       %{label: gettext("Blog"), path: "/blog"},
+      %{label: gettext("Discover"), path: "/discover"},
       %{label: gettext("FAQ"), path: "/faq"},
       %{label: gettext("Features"), path: "/features"},
       %{label: gettext("Pricing"), path: "/pricing"},

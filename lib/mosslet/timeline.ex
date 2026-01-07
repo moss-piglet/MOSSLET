@@ -1292,6 +1292,8 @@ defmodule Mosslet.Timeline do
 
   def get_post(id), do: adapter().get_post(id)
 
+  def get_post_with_preloads(id), do: adapter().get_post_with_preloads(id)
+
   def get_user_post!(id), do: adapter().get_user_post!(id)
 
   def get_user_post_receipt!(id), do: adapter().get_user_post_receipt!(id)

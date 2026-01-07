@@ -68,6 +68,11 @@ defmodule MossletWeb.Router do
     plug :subscribed_user_only
   end
 
+  scope "/feed", MossletWeb do
+    get "/public.xml", FeedController, :public
+    get "/public/posts/:post_id/images/:index", PublicPostImageController, :show
+  end
+
   scope "/", MossletWeb do
     pipe_through [:browser]
 
@@ -98,6 +103,7 @@ defmodule MossletWeb.Router do
       live "/terms", PublicLive.Terms, :terms
       live "/updates", PublicLive.Updates, :updates
       live "/referrals", PublicLive.Referrals, :referrals
+      live "/discover", PublicLive.PublicTimeline, :public_timeline
     end
   end
 

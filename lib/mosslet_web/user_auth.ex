@@ -43,7 +43,8 @@ defmodule MossletWeb.UserAuth do
     "Terms",
     "Features",
     "Updates",
-    "Referrals"
+    "Referrals",
+    "PublicTimeline"
   ]
 
   @doc """

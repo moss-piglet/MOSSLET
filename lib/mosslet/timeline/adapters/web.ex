@@ -1864,7 +1864,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
             asc: coalesce(upr.is_read?, true),
             desc: p.inserted_at
           ],
-          preload: [:user_posts, :replies, :user_post_receipts]
+          preload: [:user_posts, :replies, :user_post_receipts, :user]
         )
 
       query =
@@ -1900,7 +1900,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       from(p in Post,
         where: p.id in subquery(public_post_ids),
         order_by: [desc: p.inserted_at],
-        preload: [:user_posts, :replies]
+        preload: [:user_posts, :replies, :user]
       )
       |> paginate(options)
       |> Repo.all()

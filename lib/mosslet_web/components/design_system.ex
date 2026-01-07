@@ -20,6 +20,7 @@ defmodule MossletWeb.DesignSystem do
       alpine_autofocus: 0,
       contains_html?: 1,
       format_decrypted_content: 1,
+      format_decrypted_content_orange: 1,
       decr: 3,
       decr_uconn: 4,
       html_block: 1,
@@ -135,7 +136,7 @@ defmodule MossletWeb.DesignSystem do
 
   attr :color, :string,
     default: "teal",
-    values: ~w(teal emerald blue purple amber rose cyan indigo slate)
+    values: ~w(teal emerald blue purple amber rose cyan indigo slate orange)
 
   attr :icon, :string, default: nil
   attr :disabled, :boolean, default: false
@@ -422,6 +423,28 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Social links with enhanced styling --%>
           <div class="flex items-center justify-center lg:justify-start gap-4">
             <.footer_social_link
+              href={~p"/terms"}
+              external={false}
+              aria_label="MOSSLET terms and conditions"
+              tooltip="MOSSLET terms and conditions"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="h-5 w-5"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+                />
+              </svg>
+            </.footer_social_link>
+
+            <.footer_social_link
               href="https://podcast.mosslet.com"
               external={true}
               aria_label="MOSSLET Podcast"
@@ -528,13 +551,13 @@ defmodule MossletWeb.DesignSystem do
     base_items = [
       %{path: "/about", label: "About"},
       %{path: "/blog", label: "Blog"},
+      %{path: "/discover", label: "Discover"},
       %{path: "/faq", label: "FAQ"},
       %{path: "/features", label: "Features"},
       %{path: "/pricing", label: "Pricing"},
       %{path: "/privacy", label: "Privacy"},
       %{path: "/referrals", label: "Referrals"},
       %{path: "/support", label: "Support"},
-      %{path: "/terms", label: "Terms"},
       %{path: "/updates", label: "Updates"}
     ]
 
@@ -892,6 +915,7 @@ defmodule MossletWeb.DesignSystem do
   defp gradient_for_color("cyan"), do: "bg-gradient-to-r from-cyan-500 to-teal-500"
   defp gradient_for_color("indigo"), do: "bg-gradient-to-r from-indigo-500 to-blue-500"
   defp gradient_for_color("slate"), do: "bg-gradient-to-r from-slate-500 to-slate-600"
+  defp gradient_for_color("orange"), do: "bg-gradient-to-r from-orange-500 to-amber-500"
   # fallback
   defp gradient_for_color(_), do: "bg-gradient-to-r from-teal-500 to-emerald-500"
 
@@ -905,6 +929,7 @@ defmodule MossletWeb.DesignSystem do
   defp primary_color_for("cyan"), do: "teal"
   defp primary_color_for("indigo"), do: "blue"
   defp primary_color_for("slate"), do: "slate"
+  defp primary_color_for("orange"), do: "amber"
   # fallback
   defp primary_color_for(_), do: "emerald"
 
@@ -918,6 +943,7 @@ defmodule MossletWeb.DesignSystem do
   defp secondary_color_for("cyan"), do: "teal"
   defp secondary_color_for("indigo"), do: "blue"
   defp secondary_color_for("slate"), do: "slate"
+  defp secondary_color_for("orange"), do: "amber"
   # fallback
   defp secondary_color_for(_), do: "emerald"
 
@@ -2968,9 +2994,9 @@ defmodule MossletWeb.DesignSystem do
       # This maps to purple-violet gradient
       "groups" -> "blue"
       # This maps to amber-orange gradient
-      "bookmarks" -> "purple"
+      "bookmarks" -> "orange"
       # This maps to indigo-blue gradient
-      "discover" -> "orange"
+      "discover" -> "purple"
       _ -> "slate"
     end
   end
@@ -3027,22 +3053,6 @@ defmodule MossletWeb.DesignSystem do
 
       "purple" ->
         %{
-          badge: "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/30",
-          focus_ring: "focus:ring-amber-500/50",
-          icon_hover: "group-hover:text-amber-600 dark:group-hover:text-amber-400",
-          icon_bg_hover:
-            "group-hover:from-amber-100 group-hover:to-orange-50 dark:group-hover:from-amber-900/40 dark:group-hover:to-orange-900/30",
-          spinner: "border-amber-500/30 border-t-amber-500",
-          divider_line: "via-amber-300/40 dark:via-amber-600/40",
-          button:
-            "bg-gradient-to-r from-amber-500 to-orange-600 text-white focus:ring-amber-500/50",
-          indicator: "bg-amber-400",
-          border: "border-amber-200/80 dark:border-amber-700/80",
-          hover_border: "hover:border-amber-300 dark:hover:border-amber-600"
-        }
-
-      "orange" ->
-        %{
           badge: "bg-gradient-to-br from-indigo-500 to-blue-600 shadow-indigo-500/30",
           focus_ring: "focus:ring-indigo-500/50",
           icon_hover: "group-hover:text-indigo-600 dark:group-hover:text-indigo-400",
@@ -3055,6 +3065,22 @@ defmodule MossletWeb.DesignSystem do
           indicator: "bg-indigo-400",
           border: "border-indigo-200/80 dark:border-indigo-700/80",
           hover_border: "hover:border-indigo-300 dark:hover:border-indigo-600"
+        }
+
+      "orange" ->
+        %{
+          badge: "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/30",
+          focus_ring: "focus:ring-amber-500/50",
+          icon_hover: "group-hover:text-amber-600 dark:group-hover:text-amber-400",
+          icon_bg_hover:
+            "group-hover:from-amber-100 group-hover:to-orange-50 dark:group-hover:from-amber-900/40 dark:group-hover:to-orange-900/30",
+          spinner: "border-amber-500/30 border-t-amber-500",
+          divider_line: "via-amber-300/40 dark:via-amber-600/40",
+          button:
+            "bg-gradient-to-r from-amber-500 to-orange-600 text-white focus:ring-amber-500/50",
+          indicator: "bg-amber-400",
+          border: "border-amber-200/80 dark:border-amber-700/80",
+          hover_border: "hover:border-amber-300 dark:hover:border-amber-600"
         }
 
       "cyan" ->
@@ -12798,25 +12824,54 @@ defmodule MossletWeb.DesignSystem do
   ## Examples
 
       <.liquid_timeline_date_separator date={~D[2024-01-15]} />
+      <.liquid_timeline_date_separator date={~D[2024-01-15]} color="orange" />
   """
   attr :date, Date, required: true
   attr :class, :any, default: ""
   attr :first, :boolean, default: false, doc: "Whether this is the first separator (no top line)"
+  attr :color, :string, default: "emerald", doc: "Color theme: emerald or orange"
 
   def liquid_timeline_date_separator(assigns) do
+    color_classes =
+      case assigns.color do
+        "orange" ->
+          %{
+            line_top: "bg-gradient-to-b from-transparent to-orange-400/50 dark:to-orange-500/40",
+            dot: "bg-orange-500 dark:bg-orange-400 shadow-orange-500/30",
+            line_bottom:
+              "bg-gradient-to-b from-orange-400/50 to-transparent dark:from-orange-500/40",
+            text: "text-orange-600 dark:text-orange-400"
+          }
+
+        _ ->
+          %{
+            line_top:
+              "bg-gradient-to-b from-transparent to-emerald-400/50 dark:to-emerald-500/40",
+            dot: "bg-emerald-500 dark:bg-emerald-400 shadow-emerald-500/30",
+            line_bottom:
+              "bg-gradient-to-b from-emerald-400/50 to-transparent dark:from-emerald-500/40",
+            text: "text-emerald-600 dark:text-emerald-400"
+          }
+      end
+
+    assigns = assign(assigns, :color_classes, color_classes)
+
     ~H"""
     <div class={["flex items-center py-1", @class]}>
       <div class="flex items-center gap-2.5 pl-1">
         <div class="flex flex-col items-center">
           <div class={[
             "w-px h-3",
-            !@first && "bg-gradient-to-b from-transparent to-emerald-400/50 dark:to-emerald-500/40",
+            !@first && @color_classes.line_top,
             @first && "bg-transparent"
           ]} />
-          <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shadow-sm shadow-emerald-500/30 ring-2 ring-white dark:ring-slate-900" />
-          <div class="w-px h-3 bg-gradient-to-b from-emerald-400/50 to-transparent dark:from-emerald-500/40" />
+          <div class={[
+            "w-2.5 h-2.5 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-900",
+            @color_classes.dot
+          ]} />
+          <div class={["w-px h-3", @color_classes.line_bottom]} />
         </div>
-        <div class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+        <div class={["flex items-center gap-1.5 text-xs font-medium", @color_classes.text]}>
           <.phx_icon name="hero-calendar-days-mini" class="w-3.5 h-3.5" />
           <span>{format_chat_date(@date)}</span>
         </div>
@@ -13054,4 +13109,323 @@ defmodule MossletWeb.DesignSystem do
     </div>
     """
   end
+
+  @doc """
+  A simplified timeline card for public/discover pages with orange/amber theme.
+
+  ## Examples
+
+      <.public_timeline_card
+        user_name="Jane Doe"
+        user_handle="@jane"
+        timestamp="2 hours ago"
+        content="This is a public post..."
+        images={["/uploads/image1.jpg"]}
+        stats={%{replies: 3, likes: 12}}
+      />
+  """
+  attr :id, :string, required: true
+  attr :user_name, :string, required: true
+  attr :user_handle, :string, required: true
+  attr :user_avatar, :string, default: nil
+  attr :author_profile_slug, :string, default: nil
+  attr :author_profile_visibility, :atom, default: nil
+  attr :timestamp, :string, required: true
+  attr :content, :string, required: true
+  attr :images, :list, default: []
+  attr :stats, :map, default: %{}
+  attr :content_warning?, :boolean, default: false
+  attr :content_warning, :any, default: nil
+  attr :content_warning_category, :any, default: nil
+  attr :decrypted_url_preview, :any, default: nil
+  attr :url_preview_fetched_at, :any, default: nil
+  attr :class, :any, default: ""
+
+  def public_timeline_card(assigns) do
+    ~H"""
+    <article
+      id={@id}
+      phx-hook="TouchHoverHook"
+      class={[
+        "group relative rounded-2xl transition-all duration-300 ease-out",
+        "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
+        "border border-orange-200/60 dark:border-orange-800/40",
+        "shadow-lg shadow-orange-900/5 dark:shadow-orange-900/20",
+        "hover:shadow-xl hover:shadow-orange-900/10 dark:hover:shadow-orange-900/30",
+        "hover:border-orange-300/60 dark:hover:border-orange-700/60",
+        "transform-gpu will-change-transform",
+        @class
+      ]}
+    >
+      <div class={[
+        "absolute inset-0 rounded-2xl opacity-0 transition-all duration-500 ease-out",
+        "group-hover:opacity-100 touch-hover:opacity-100",
+        "bg-gradient-to-br from-orange-50/30 via-amber-50/20 to-yellow-50/30 dark:from-orange-900/10 dark:via-amber-900/5 dark:to-yellow-900/10"
+      ]}>
+      </div>
+
+      <div class="absolute right-0 top-4 bottom-4 w-1 bg-gradient-to-b from-orange-400 via-amber-400 to-orange-400 dark:from-orange-500 dark:via-amber-500 dark:to-orange-500 rounded-l-full opacity-50">
+      </div>
+
+      <div class="relative p-4 sm:p-5">
+        <div class="flex items-start gap-3 sm:gap-4">
+          <%= if can_view_profile?(@author_profile_visibility) && @author_profile_slug do %>
+            <.link navigate={~p"/profile/#{@author_profile_slug}"} class="shrink-0 group/avatar">
+              <div class="relative">
+                <%= if @user_avatar do %>
+                  <img
+                    src={@user_avatar}
+                    alt={@user_name}
+                    class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover ring-2 ring-orange-200/50 dark:ring-orange-700/50 group-hover/avatar:ring-orange-300 dark:group-hover/avatar:ring-orange-600 transition-all duration-200"
+                  />
+                <% else %>
+                  <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center ring-2 ring-orange-200/50 dark:ring-orange-700/50 group-hover/avatar:ring-orange-300 dark:group-hover/avatar:ring-orange-600 transition-all duration-200">
+                    <span class="text-white font-semibold text-sm sm:text-base">
+                      {String.first(@user_name) |> String.upcase()}
+                    </span>
+                  </div>
+                <% end %>
+              </div>
+            </.link>
+          <% else %>
+            <div class="shrink-0">
+              <div class="relative">
+                <%= if @user_avatar do %>
+                  <img
+                    src={@user_avatar}
+                    alt={@user_name}
+                    class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover ring-2 ring-orange-200/50 dark:ring-orange-700/50"
+                  />
+                <% else %>
+                  <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center ring-2 ring-orange-200/50 dark:ring-orange-700/50">
+                    <span class="text-white font-semibold text-sm sm:text-base">
+                      {String.first(@user_name) |> String.upcase()}
+                    </span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <%= if can_view_profile?(@author_profile_visibility) && @author_profile_slug do %>
+                <.link
+                  navigate={~p"/profile/#{@author_profile_slug}"}
+                  class="font-semibold text-slate-900 dark:text-slate-100 hover:text-orange-600 dark:hover:text-orange-400 transition-colors truncate"
+                >
+                  {@user_name}
+                </.link>
+              <% else %>
+                <span class="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {@user_name}
+                </span>
+              <% end %>
+              <span class="text-slate-500 dark:text-slate-400 text-sm truncate">{@user_handle}</span>
+              <span class="text-slate-400 dark:text-slate-500">·</span>
+              <span class="text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
+                {@timestamp}
+              </span>
+            </div>
+
+            <div class="mt-2 sm:mt-3">
+              <%= if @content_warning? do %>
+                <.public_content_warning_wrapper
+                  id={@id}
+                  content_warning={@content_warning}
+                  content_warning_category={@content_warning_category}
+                >
+                  <.public_post_content
+                    content={@content}
+                    images={@images}
+                    url_preview={@decrypted_url_preview}
+                    post_id={@id}
+                    url_preview_fetched_at={@url_preview_fetched_at}
+                  />
+                </.public_content_warning_wrapper>
+              <% else %>
+                <.public_post_content
+                  content={@content}
+                  images={@images}
+                  url_preview={@decrypted_url_preview}
+                  post_id={@id}
+                  url_preview_fetched_at={@url_preview_fetched_at}
+                />
+              <% end %>
+            </div>
+
+            <div class="mt-3 sm:mt-4 flex items-center gap-4 sm:gap-6 text-slate-500 dark:text-slate-400">
+              <div class="flex items-center gap-1.5 text-sm">
+                <.phx_icon name="hero-chat-bubble-oval-left" class="h-4 w-4" />
+                <span>{Map.get(@stats, :replies, 0)}</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-sm">
+                <.phx_icon name="hero-heart" class="h-4 w-4" />
+                <span>{Map.get(@stats, :likes, 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :content_warning, :string, default: nil
+  attr :content_warning_category, :string, default: nil
+  slot :inner_block, required: true
+
+  defp public_content_warning_wrapper(assigns) do
+    ~H"""
+    <div id={"cw-wrapper-#{@id}"}>
+      <div
+        id={"cw-overlay-#{@id}"}
+        class="relative p-4 bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200/60 dark:border-amber-700/40"
+      >
+        <div class="flex items-start gap-3">
+          <div class="shrink-0 p-2 rounded-lg bg-amber-100 dark:bg-amber-900/40">
+            <.phx_icon name="hero-eye-slash" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-amber-800 dark:text-amber-200 text-sm">
+              Content Warning
+            </p>
+            <p :if={@content_warning} class="text-amber-700 dark:text-amber-300 text-sm mt-1">
+              {@content_warning}
+            </p>
+            <p
+              :if={@content_warning_category}
+              class="text-amber-600/80 dark:text-amber-400/80 text-xs mt-1"
+            >
+              Category: {@content_warning_category}
+            </p>
+            <button
+              type="button"
+              phx-click={
+                JS.hide(to: "#cw-overlay-#{@id}")
+                |> JS.show(to: "#cw-content-#{@id}")
+              }
+              class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-lg transition-colors"
+            >
+              <.phx_icon name="hero-eye" class="h-3.5 w-3.5" /> Show Content
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id={"cw-content-#{@id}"} class="hidden">
+        {render_slot(@inner_block)}
+        <button
+          type="button"
+          phx-click={
+            JS.show(to: "#cw-overlay-#{@id}")
+            |> JS.hide(to: "#cw-content-#{@id}")
+          }
+          class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-lg transition-colors"
+        >
+          <.phx_icon name="hero-eye-slash" class="h-3.5 w-3.5" /> Hide Content
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  attr :content, :string, required: true
+  attr :images, :list, default: []
+  attr :url_preview, :any, default: nil
+  attr :post_id, :string, required: true
+  attr :url_preview_fetched_at, :any, default: nil
+
+  defp public_post_content(assigns) do
+    assigns = assign(assigns, :image_count, length(assigns.images))
+
+    ~H"""
+    <div class="space-y-3">
+      <div class="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
+        {format_decrypted_content_orange(@content)}
+      </div>
+
+      <div
+        :if={@image_count > 0}
+        id={"public-post-images-#{@post_id}"}
+        phx-hook="PublicPostImagesHook"
+        data-post-id={@post_id}
+        data-image-count={@image_count}
+        class="relative rounded-xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 mt-3"
+      >
+        <div class="w-full h-24 sm:h-32 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-6 h-6 rounded-full border-2 border-orange-500/30 border-t-orange-500 animate-spin">
+            </div>
+            <span class="text-xs text-slate-500 dark:text-slate-400">Loading photos...</span>
+          </div>
+        </div>
+      </div>
+
+      <%= if @url_preview do %>
+        <.public_url_preview
+          preview={@url_preview}
+          post_id={@post_id}
+          url_preview_fetched_at={@url_preview_fetched_at}
+        />
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :preview, :map, required: true
+  attr :post_id, :string, required: true
+  attr :url_preview_fetched_at, :any, default: nil
+
+  defp public_url_preview(assigns) do
+    ~H"""
+    <a
+      :if={@preview["url"]}
+      href={@preview["url"]}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="flex gap-3 p-2 mt-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-800/50 hover:border-orange-300/60 dark:hover:border-orange-600/60 transition-all duration-200 group/preview"
+    >
+      <div
+        :if={@preview["image"] && @preview["image"] != ""}
+        class="w-20 h-14 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-700"
+        phx-hook="URLPreviewHook"
+        id={"url-preview-#{@post_id}"}
+        data-post-id={@post_id}
+        data-image-hash={@preview["image_hash"]}
+        data-url-preview-fetched-at={@url_preview_fetched_at}
+      >
+        <img
+          src={@preview["image"]}
+          alt={@preview["title"] || "Preview image"}
+          class="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-300"
+          onerror="this.parentElement.style.display='none'"
+        />
+      </div>
+      <div class="flex-1 min-w-0 py-0.5">
+        <div class="flex items-center gap-1.5 mb-0.5">
+          <.phx_icon name="hero-link" class="h-3 w-3 text-slate-400" />
+          <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+            {@preview["site_name"] || URI.parse(@preview["url"]).host}
+          </span>
+        </div>
+        <p
+          :if={@preview["title"]}
+          class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1 group-hover/preview:text-orange-600 dark:group-hover/preview:text-orange-400 transition-colors"
+        >
+          {@preview["title"]}
+        </p>
+        <p
+          :if={@preview["description"]}
+          class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5"
+        >
+          {@preview["description"]}
+        </p>
+      </div>
+    </a>
+    """
+  end
+
+  defp can_view_profile?(:public), do: true
+  defp can_view_profile?(_), do: false
 end

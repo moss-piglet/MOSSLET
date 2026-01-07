@@ -696,7 +696,7 @@ defmodule MossletWeb.Helpers do
   def format_decrypted_content(content) when is_binary(content) do
     content
     |> HtmlSanitizeEx.basic_html()
-    |> linkify_urls()
+    |> linkify_urls(:emerald)
     |> Phoenix.HTML.raw()
   end
 
@@ -704,16 +704,37 @@ defmodule MossletWeb.Helpers do
   def format_decrypted_content(nil), do: ""
   def format_decrypted_content(""), do: ""
 
-  defp linkify_urls(content) do
+  def format_decrypted_content_orange(content) when is_binary(content) do
+    content
+    |> HtmlSanitizeEx.basic_html()
+    |> linkify_urls(:orange)
+    |> Phoenix.HTML.raw()
+  end
+
+  def format_decrypted_content_orange(:failed_verification), do: "[Could not decrypt content]"
+  def format_decrypted_content_orange(nil), do: ""
+  def format_decrypted_content_orange(""), do: ""
+
+  defp linkify_urls(content, color) do
     https_url_regex = ~r/https?:\/\/[^\s<>\"]+/
 
     Regex.replace(https_url_regex, content, fn url ->
       cleaned_url = clean_url_for_display(url)
       suffix = String.slice(url, String.length(cleaned_url)..-1//1)
 
-      ~s(<a href="#{cleaned_url}" target="_blank" rel="noopener noreferrer" class="text-emerald-600 no-underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 break-all">#{cleaned_url}</a>#{suffix})
+      link_class = linkify_color_class(color)
+
+      ~s(<a href="#{cleaned_url}" target="_blank" rel="noopener noreferrer" class="#{link_class}">#{cleaned_url}</a>#{suffix})
     end)
   end
+
+  defp linkify_color_class(:emerald),
+    do:
+      "text-emerald-600 no-underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 break-all"
+
+  defp linkify_color_class(:orange),
+    do:
+      "text-orange-600 no-underline hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 break-all"
 
   defp clean_url_for_display(url) do
     graphemes = String.graphemes(url)

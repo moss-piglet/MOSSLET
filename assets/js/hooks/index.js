@@ -29,6 +29,7 @@ import StatusIndicatorHook from "./status-indicator-hook";
 import URLPreviewHook from "./url-preview-hook";
 import ScrollableTabs from "./scrollable-tabs";
 import TouchHoverHook from "./touch-hover-hook";
+import PublicPostImagesHook from "./public-post-images-hook";
 
 export default {
   CharacterCounter,
@@ -62,4 +63,5 @@ export default {
   StatusIndicatorHook,
   TouchHoverHook,
   URLPreviewHook,
+  PublicPostImagesHook,
 };
