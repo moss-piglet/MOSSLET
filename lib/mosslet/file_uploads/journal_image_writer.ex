@@ -19,8 +19,6 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
 
   @behaviour Phoenix.LiveView.UploadWriter
 
-  require Logger
-
   alias Mosslet.FileUploads.TempStorage
 
   @max_dimension 1280
@@ -95,8 +93,8 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
 
     result =
       with {:ok, mime_type} <- validate_mime_from_header(state.temp_path),
-           {:ok, binary} <- File.read(state.temp_path),
-           {:ok, processed_binary, final_mime} <- process_for_ocr(binary, mime_type, state),
+           {:ok, processed_binary, final_mime} <-
+             process_for_ocr(state.temp_path, mime_type, state),
            {:ok, extracted_text, extracted_date} <-
              extract_text_from_image(processed_binary, final_mime, state) do
         notify_progress(state, :ready, %{text: extracted_text, date: extracted_date})
@@ -159,11 +157,10 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
     end
   end
 
-  defp process_for_ocr(binary, mime_type, state) do
+  defp process_for_ocr(temp_path, mime_type, state) do
     notify_progress(state, :processing, 42)
 
-    with {:ok, image_binary, _working_mime} <- maybe_convert_heic(binary, mime_type),
-         {:ok, image} <- load_image(image_binary),
+    with {:ok, image} <- open_image(temp_path, mime_type),
          {:ok, resized} <- resize_for_ocr(image),
          {:ok, jpeg_binary} <- to_jpeg_binary(resized) do
       notify_progress(state, :processing, 50)
@@ -177,8 +174,38 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
     end
   end
 
-  defp load_image(binary) do
-    case Image.from_binary(binary) do
+  defp open_image(path, mime_type) when mime_type in ["image/heic", "image/heif"] do
+    tmp_jpg = TempStorage.temp_path(@temp_subdir, "heic_output")
+
+    try do
+      result =
+        case :os.type() do
+          {:unix, :darwin} ->
+            case System.cmd("sips", ["-s", "format", "jpeg", path, "--out", tmp_jpg],
+                   stderr_to_stdout: true
+                 ) do
+              {_output, 0} -> Image.open(tmp_jpg)
+              {_output, _code} -> {:error, "Failed to convert HEIC image"}
+            end
+
+          {:unix, _linux} ->
+            case System.cmd("heif-convert", ["-q", "85", path, tmp_jpg], stderr_to_stdout: true) do
+              {_output, 0} -> Image.open(tmp_jpg)
+              {_output, _code} -> {:error, "Failed to convert HEIC image"}
+            end
+
+          _ ->
+            {:error, "HEIC conversion not supported on this platform"}
+        end
+
+      result
+    after
+      TempStorage.cleanup(tmp_jpg)
+    end
+  end
+
+  defp open_image(path, _mime_type) do
+    case Image.open(path) do
       {:ok, image} -> {:ok, image}
       {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
     end
@@ -201,44 +228,6 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
       {:error, reason} -> {:error, "Failed to convert to JPEG: #{inspect(reason)}"}
     end
   end
-
-  defp maybe_convert_heic(binary, mime_type) when mime_type in ["image/heic", "image/heif"] do
-    tmp_heic = TempStorage.temp_path(@temp_subdir, "heic_input")
-    tmp_jpg = TempStorage.temp_path(@temp_subdir, "heic_output")
-
-    try do
-      :ok = File.write(tmp_heic, binary)
-
-      result =
-        case :os.type() do
-          {:unix, :darwin} ->
-            case System.cmd("sips", ["-s", "format", "jpeg", tmp_heic, "--out", tmp_jpg],
-                   stderr_to_stdout: true
-                 ) do
-              {_output, 0} -> {:ok, File.read!(tmp_jpg), "image/jpeg"}
-              {_output, _code} -> {:error, "Failed to convert HEIC image"}
-            end
-
-          {:unix, _linux} ->
-            case System.cmd("heif-convert", ["-q", "85", tmp_heic, tmp_jpg],
-                   stderr_to_stdout: true
-                 ) do
-              {_output, 0} -> {:ok, File.read!(tmp_jpg), "image/jpeg"}
-              {_output, _code} -> {:error, "Failed to convert HEIC image"}
-            end
-
-          _ ->
-            {:error, "HEIC conversion not supported on this platform"}
-        end
-
-      result
-    after
-      TempStorage.cleanup(tmp_heic)
-      TempStorage.cleanup(tmp_jpg)
-    end
-  end
-
-  defp maybe_convert_heic(binary, mime_type), do: {:ok, binary, mime_type}
 
   defp extract_text_from_image(binary, mime_type, state) do
     notify_progress(state, :extracting, 55)
