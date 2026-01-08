@@ -1,11 +1,11 @@
 defmodule Mosslet.FileUploads.ImageUploadWriter do
   @moduledoc """
-  A custom LiveView.UploadWriter that handles image processing with
+  A memory-efficient LiveView.UploadWriter that handles image processing with
   streaming progress feedback. Images are prepared but NOT uploaded until
   form submission.
 
-  This writer processes images in stages with real-time progress updates:
-  1. Receiving chunks (0-40% progress)
+  This writer streams chunks to disk (not memory) then processes in stages:
+  1. Receiving chunks → temp file (0-40% progress)
   2. NSFW safety check (40-50%)
   3. Image processing: metadata removal, resize, WebP conversion (50-90%)
   4. Ready state - image prepared for upload on submit (90-100%)
@@ -53,38 +53,49 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   alias Mosslet.Encrypted
   alias Mosslet.Accounts
+  alias Mosslet.FileUploads.TempStorage
 
   @max_dimension 2560
   @folder "uploads/trix"
+  @temp_subdir "image_processing"
 
   @impl true
   def init(opts) do
     user = Accounts.get_user_by_session_token(opts[:user_token])
+    entry_ref = opts[:entry_ref]
+    temp_path = TempStorage.temp_path(@temp_subdir, entry_ref)
 
     trix_key =
       opts[:trix_key] || generate_trix_key(user, opts[:visibility])
 
-    state = %{
-      chunks: [],
-      total_size: 0,
-      expected_size: opts[:expected_size],
-      lv_pid: opts[:lv_pid],
-      entry_ref: opts[:entry_ref],
-      user_token: opts[:user_token],
-      user: user,
-      key: opts[:key],
-      visibility: opts[:visibility] || "connections",
-      trix_key: trix_key,
-      processed_binary: nil,
-      error: nil,
-      stage: :receiving
-    }
+    case File.open(temp_path, [:write, :binary]) do
+      {:ok, file_handle} ->
+        state = %{
+          temp_path: temp_path,
+          file_handle: file_handle,
+          total_size: 0,
+          expected_size: opts[:expected_size],
+          lv_pid: opts[:lv_pid],
+          entry_ref: entry_ref,
+          user_token: opts[:user_token],
+          user: user,
+          key: opts[:key],
+          visibility: opts[:visibility] || "connections",
+          trix_key: trix_key,
+          processed_binary: nil,
+          error: nil,
+          stage: :receiving
+        }
 
-    if state.lv_pid do
-      send(state.lv_pid, {:upload_trix_key, state.entry_ref, trix_key})
+        if state.lv_pid do
+          send(state.lv_pid, {:upload_trix_key, state.entry_ref, trix_key})
+        end
+
+        {:ok, state}
+
+      {:error, reason} ->
+        {:error, "Failed to create temp file: #{inspect(reason)}"}
     end
-
-    {:ok, state}
   end
 
   @impl true
@@ -105,41 +116,58 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   def write_chunk(data, state) do
     size = byte_size(data)
     new_total = state.total_size + size
-    new_state = %{state | chunks: [data | state.chunks], total_size: new_total}
 
-    if state.lv_pid && state.expected_size && state.expected_size > 0 do
-      percent = min(40, round(new_total / state.expected_size * 40))
-      send(state.lv_pid, {:upload_progress, state.entry_ref, :receiving, percent})
+    case IO.binwrite(state.file_handle, data) do
+      :ok ->
+        if state.lv_pid && state.expected_size && state.expected_size > 0 do
+          percent = min(40, round(new_total / state.expected_size * 40))
+          send(state.lv_pid, {:upload_progress, state.entry_ref, :receiving, percent})
+        end
+
+        {:ok, %{state | total_size: new_total}}
+
+      {:error, reason} ->
+        {:error, "Failed to write chunk: #{inspect(reason)}"}
     end
-
-    {:ok, new_state}
   end
 
   @impl true
   def close(state, :done) do
-    binary = state.chunks |> Enum.reverse() |> IO.iodata_to_binary()
+    File.close(state.file_handle)
 
-    case process_image(binary, state) do
+    result =
+      with {:ok, binary} <- File.read(state.temp_path),
+           result <- process_image(binary, state) do
+        result
+      end
+
+    TempStorage.cleanup(state.temp_path)
+
+    case result do
       {:ok, processed_binary} ->
         notify_ready(state, processed_binary)
-        {:ok, %{state | processed_binary: processed_binary, chunks: []}}
+        {:ok, %{state | processed_binary: processed_binary, file_handle: nil}}
 
       {:error, reason} ->
         notify_progress(state, :error, reason)
-        {:ok, %{state | chunks: [], error: reason}}
+        {:ok, %{state | file_handle: nil, error: reason}}
 
       {:nsfw, message} ->
         notify_progress(state, :error, {:nsfw, message})
-        {:ok, %{state | chunks: [], error: {:nsfw, message}}}
+        {:ok, %{state | file_handle: nil, error: {:nsfw, message}}}
     end
   end
 
   def close(state, :cancel) do
-    {:ok, %{state | chunks: []}}
+    File.close(state.file_handle)
+    TempStorage.cleanup(state.temp_path)
+    {:ok, %{state | file_handle: nil}}
   end
 
   def close(state, {:error, _reason}) do
-    {:ok, %{state | chunks: []}}
+    File.close(state.file_handle)
+    TempStorage.cleanup(state.temp_path)
+    {:ok, %{state | file_handle: nil}}
   end
 
   defp process_image(binary, state) do
@@ -256,8 +284,8 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   end
 
   defp load_heic_with_sips(binary) do
-    tmp_heic = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.heic")
-    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
+    tmp_heic = TempStorage.temp_path(@temp_subdir, "heic_input")
+    tmp_png = TempStorage.temp_path(@temp_subdir, "heic_output")
 
     :ok = File.write(tmp_heic, binary)
 
@@ -269,7 +297,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
                ) do
             {_output, 0} ->
               png_binary = File.read!(tmp_png)
-
               Image.from_binary(png_binary)
 
             {_output, _code} ->
@@ -280,7 +307,6 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
           case System.cmd("heif-convert", [tmp_heic, tmp_png], stderr_to_stdout: true) do
             {_output, 0} ->
               png_binary = File.read!(tmp_png)
-
               Image.from_binary(png_binary)
 
             {_output, _code} ->
@@ -291,8 +317,8 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
           {:error, heic_error_message("Unsupported platform for HEIC conversion")}
       end
 
-    File.rm(tmp_heic)
-    File.rm(tmp_png)
+    TempStorage.cleanup(tmp_heic)
+    TempStorage.cleanup(tmp_png)
     result
   end
 

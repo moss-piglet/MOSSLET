@@ -1,64 +1,59 @@
 defmodule Mosslet.FileUploads.JournalImageWriter do
   @moduledoc """
-  A custom LiveView.UploadWriter that handles journal image OCR with
-  streaming progress feedback.
+  A memory-efficient LiveView.UploadWriter for journal image OCR.
 
-  This writer processes images in stages with real-time progress updates:
-  1. Receiving chunks (0-40% progress)
-  2. OCR text extraction (40-85%)
-  3. Date extraction from text (85-95%)
-  4. Ready state (95-100%)
+  Key features:
+  - Streams chunks to disk instead of accumulating in memory
+  - Validates MIME type from actual file content (magic bytes)
+  - Resizes large images to reduce memory during OCR
+  - Cleans up temp files automatically
+  - No encryption (images are ephemeral, deleted after OCR)
 
-  ## Usage
-
-      allow_upload(:journal_image,
-        accept: ~w(.gif .jpg .jpeg .png .webp .heic .heif),
-        max_entries: 1,
-        auto_upload: true,
-        progress: &handle_journal_upload_progress/3,
-        writer: fn _name, entry, socket ->
-          {Mosslet.FileUploads.JournalImageWriter, %{
-            lv_pid: self(),
-            entry_ref: entry.ref,
-            expected_size: entry.client_size
-          }}
-        end
-      )
-
-  ## Progress Events
-
-  The writer sends messages to the LiveView process:
-  - `{:journal_upload_progress, entry_ref, :receiving, percent}` - Chunk reception
-  - `{:journal_upload_progress, entry_ref, :extracting, percent}` - OCR in progress
-  - `{:journal_upload_progress, entry_ref, :analyzing, percent}` - Date extraction
-  - `{:journal_upload_progress, entry_ref, :ready, data}` - Ready with extracted data
-  - `{:journal_upload_progress, entry_ref, :error, reason}` - Error occurred
-
-  ## Consuming
-
-  When consuming, `meta` returns:
-  - `%{extracted_text: text, extracted_date: date}` - Extracted data
-  - `%{error: reason}` - If processing failed
+  Processing stages:
+  1. Receiving chunks → temp file (0-40% progress)
+  2. MIME validation & resize to JPEG (40-50%)
+  3. OCR text extraction (50-85%)
+  4. Date extraction from text (85-95%)
+  5. Ready state with cleanup (95-100%)
   """
 
   @behaviour Phoenix.LiveView.UploadWriter
 
+  require Logger
+
+  alias Mosslet.FileUploads.TempStorage
+
+  @max_dimension 1280
+  @allowed_mimes ~w(image/jpeg image/png image/heic image/heif)
+  @temp_subdir "journal_ocr"
+  @mime_header_size 12
+
   @impl true
   def init(opts) do
-    state = %{
-      chunks: [],
-      total_size: 0,
-      expected_size: opts[:expected_size],
-      lv_pid: opts[:lv_pid],
-      entry_ref: opts[:entry_ref],
-      mime_type: opts[:mime_type] || "image/jpeg",
-      extracted_text: nil,
-      extracted_date: nil,
-      error: nil,
-      stage: :receiving
-    }
+    entry_ref = opts[:entry_ref]
+    temp_path = TempStorage.temp_path(@temp_subdir, entry_ref)
 
-    {:ok, state}
+    case File.open(temp_path, [:write, :binary]) do
+      {:ok, file_handle} ->
+        state = %{
+          temp_path: temp_path,
+          file_handle: file_handle,
+          total_size: 0,
+          expected_size: opts[:expected_size],
+          lv_pid: opts[:lv_pid],
+          entry_ref: entry_ref,
+          client_mime: opts[:mime_type] || "image/jpeg",
+          extracted_text: nil,
+          extracted_date: nil,
+          error: nil,
+          stage: :receiving
+        }
+
+        {:ok, state}
+
+      {:error, reason} ->
+        {:error, "Failed to create temp file: #{inspect(reason)}"}
+    end
   end
 
   @impl true
@@ -79,63 +74,137 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
   def write_chunk(data, state) do
     size = byte_size(data)
     new_total = state.total_size + size
-    new_state = %{state | chunks: [data | state.chunks], total_size: new_total}
 
-    if state.lv_pid && state.expected_size && state.expected_size > 0 do
-      percent = min(40, round(new_total / state.expected_size * 40))
-      notify_progress(state, :receiving, percent)
+    case IO.binwrite(state.file_handle, data) do
+      :ok ->
+        if state.lv_pid && state.expected_size && state.expected_size > 0 do
+          percent = min(40, round(new_total / state.expected_size * 40))
+          notify_progress(state, :receiving, percent)
+        end
+
+        {:ok, %{state | total_size: new_total}}
+
+      {:error, reason} ->
+        {:error, "Failed to write chunk: #{inspect(reason)}"}
     end
-
-    {:ok, new_state}
   end
 
   @impl true
   def close(state, :done) do
-    binary = state.chunks |> Enum.reverse() |> IO.iodata_to_binary()
-    mime_type = detect_mime_type(binary, state.mime_type)
+    File.close(state.file_handle)
 
-    case process_journal_image(binary, mime_type, state) do
-      {:ok, extracted_text, extracted_date} ->
+    result =
+      with {:ok, mime_type} <- validate_mime_from_header(state.temp_path),
+           {:ok, binary} <- File.read(state.temp_path),
+           {:ok, processed_binary, final_mime} <- process_for_ocr(binary, mime_type, state),
+           {:ok, extracted_text, extracted_date} <-
+             extract_text_from_image(processed_binary, final_mime, state) do
         notify_progress(state, :ready, %{text: extracted_text, date: extracted_date})
+        {:ok, extracted_text, extracted_date}
+      end
 
+    TempStorage.cleanup(state.temp_path)
+
+    case result do
+      {:ok, extracted_text, extracted_date} ->
         {:ok,
-         %{state | extracted_text: extracted_text, extracted_date: extracted_date, chunks: []}}
+         %{
+           state
+           | extracted_text: extracted_text,
+             extracted_date: extracted_date,
+             file_handle: nil
+         }}
 
       {:error, reason} ->
         notify_progress(state, :error, reason)
-        {:ok, %{state | chunks: [], error: reason}}
+        {:ok, %{state | error: reason, file_handle: nil}}
     end
   end
 
   def close(state, :cancel) do
-    {:ok, %{state | chunks: []}}
+    File.close(state.file_handle)
+    TempStorage.cleanup(state.temp_path)
+    {:ok, %{state | file_handle: nil}}
   end
 
   def close(state, {:error, _reason}) do
-    {:ok, %{state | chunks: []}}
+    File.close(state.file_handle)
+    TempStorage.cleanup(state.temp_path)
+    {:ok, %{state | file_handle: nil}}
   end
 
-  defp detect_mime_type(binary, fallback) do
-    case ExMarcel.MimeType.for({:string, binary}) do
-      nil -> fallback
-      mime -> mime
+  defp validate_mime_from_header(path) do
+    case File.open(path, [:read, :binary]) do
+      {:ok, file} ->
+        header = IO.binread(file, @mime_header_size)
+        File.close(file)
+
+        case header do
+          {:error, reason} ->
+            {:error, "Failed to read file header: #{inspect(reason)}"}
+
+          data when is_binary(data) ->
+            detected_mime = ExMarcel.MimeType.for({:string, data})
+
+            if detected_mime in @allowed_mimes do
+              {:ok, detected_mime}
+            else
+              {:error,
+               "Invalid image type: #{detected_mime || "unknown"}. Allowed: JPEG, PNG, HEIC"}
+            end
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to open file: #{inspect(reason)}"}
     end
   end
 
-  defp process_journal_image(binary, mime_type, state) do
-    notify_progress(state, :extracting, 45)
+  defp process_for_ocr(binary, mime_type, state) do
+    notify_progress(state, :processing, 42)
 
-    binary
-    |> maybe_convert_heic(mime_type)
-    |> extract_text_from_image(state)
+    with {:ok, image_binary, _working_mime} <- maybe_convert_heic(binary, mime_type),
+         {:ok, image} <- load_image(image_binary),
+         {:ok, resized} <- resize_for_ocr(image),
+         {:ok, jpeg_binary} <- to_jpeg_binary(resized) do
+      notify_progress(state, :processing, 50)
+      {:ok, jpeg_binary, "image/jpeg"}
+    else
+      {:error, reason} when is_binary(reason) ->
+        {:error, reason}
+
+      {:error, reason} ->
+        {:error, "Image processing failed: #{inspect(reason)}"}
+    end
+  end
+
+  defp load_image(binary) do
+    case Image.from_binary(binary) do
+      {:ok, image} -> {:ok, image}
+      {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
+    end
+  end
+
+  defp resize_for_ocr(image) do
+    width = Image.width(image)
+    height = Image.height(image)
+
+    if width > @max_dimension or height > @max_dimension do
+      Image.thumbnail(image, "#{@max_dimension}x#{@max_dimension}")
+    else
+      {:ok, image}
+    end
+  end
+
+  defp to_jpeg_binary(image) do
+    case Image.write(image, :memory, suffix: ".jpg", quality: 85, strip_metadata: true) do
+      {:ok, binary} -> {:ok, binary}
+      {:error, reason} -> {:error, "Failed to convert to JPEG: #{inspect(reason)}"}
+    end
   end
 
   defp maybe_convert_heic(binary, mime_type) when mime_type in ["image/heic", "image/heif"] do
-    tmp_heic =
-      Path.join(System.tmp_dir!(), "journal_heic_#{:erlang.unique_integer([:positive])}.heic")
-
-    tmp_jpg =
-      Path.join(System.tmp_dir!(), "journal_heic_#{:erlang.unique_integer([:positive])}.jpg")
+    tmp_heic = TempStorage.temp_path(@temp_subdir, "heic_input")
+    tmp_jpg = TempStorage.temp_path(@temp_subdir, "heic_output")
 
     try do
       :ok = File.write(tmp_heic, binary)
@@ -164,17 +233,15 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
 
       result
     after
-      File.rm(tmp_heic)
-      File.rm(tmp_jpg)
+      TempStorage.cleanup(tmp_heic)
+      TempStorage.cleanup(tmp_jpg)
     end
   end
 
   defp maybe_convert_heic(binary, mime_type), do: {:ok, binary, mime_type}
 
-  defp extract_text_from_image({:error, reason}, _state), do: {:error, reason}
-
-  defp extract_text_from_image({:ok, binary, mime_type}, state) do
-    notify_progress(state, :extracting, 60)
+  defp extract_text_from_image(binary, mime_type, state) do
+    notify_progress(state, :extracting, 55)
 
     alias ReqLLM.Message.ContentPart
 

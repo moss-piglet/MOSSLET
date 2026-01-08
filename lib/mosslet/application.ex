@@ -91,6 +91,7 @@ defmodule Mosslet.Application do
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},
       Mosslet.Security.BotDefense,
       Mosslet.Security.BotDetector,
+      Mosslet.FileUploads.TempStorage,
       MossletWeb.Endpoint,
       {Mosslet.DelayedServing,
        serving_name: NsfwImageDetection,

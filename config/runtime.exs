@@ -165,6 +165,9 @@ if config_env() == :prod do
   config :bumblebee,
     offline: System.get_env("BUMBLEBEE_OFFLINE", "false") == "true"
 
+  # Use the persistent volume for upload temp files (same volume as bumblebee cache)
+  config :mosslet, :upload_temp_dir, "/data/uploads_temp"
+
   # Configure Stripe
   config :stripity_stripe,
     api_key: System.get_env("STRIPE_API_KEY"),

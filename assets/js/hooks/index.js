@@ -34,6 +34,7 @@ import PublicPostImagesHook from "./public-post-images-hook";
 import ImageErrorHook from "./image-error-hook";
 import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
+import ImageResizeUploadHook from "./image-resize-upload-hook";
 
 export default {
   AutoResize,
@@ -72,4 +73,5 @@ export default {
   ImageErrorHook,
   UnsavedChanges,
   SortableUploadsHook,
+  ImageResizeUploadHook,
 };

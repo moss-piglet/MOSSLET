@@ -43,6 +43,9 @@ config :mosslet, Mosslet.Security.BotDetector,
 # Configures the upload adapter for Trix uploads in dev
 config :mosslet, :uploader, adapter: Mosslet.FileUploads.Tigris
 
+# Temp directory for upload processing (uses System.tmp_dir! in dev, volume in prod)
+config :mosslet, :upload_temp_dir, nil
+
 config :mosslet, :language_options, [
   %{locale: "en", flag: "🇬🇧", label: "English"},
   %{locale: "fr", flag: "🇫🇷", label: "French"}

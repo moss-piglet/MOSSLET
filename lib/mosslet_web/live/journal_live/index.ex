@@ -493,7 +493,9 @@ defmodule MossletWeb.JournalLive.Index do
                 class="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl overflow-hidden hover:border-teal-400 dark:hover:border-teal-500 phx-drop-target-active:border-teal-500 phx-drop-target-active:bg-teal-50 dark:phx-drop-target-active:bg-teal-900/20 transition-colors"
                 phx-drop-target={@uploads.journal_image.ref}
               >
-                <.live_file_input upload={@uploads.journal_image} class="sr-only" />
+                <div id="upload-resize-wrapper" phx-hook="ImageResizeUploadHook">
+                  <.live_file_input upload={@uploads.journal_image} class="sr-only" />
+                </div>
                 <%= if @uploads.journal_image.entries == [] do %>
                   <label for={@uploads.journal_image.ref} class="block p-8 text-center cursor-pointer">
                     <div class="space-y-4">
@@ -859,7 +861,7 @@ defmodule MossletWeb.JournalLive.Index do
       |> allow_upload(:journal_image,
         accept: ~w(.jpg .jpeg .png .heic),
         max_entries: 10,
-        max_file_size: 10_000_000,
+        max_file_size: 5_000_000,
         auto_upload: true,
         progress: &handle_journal_upload_progress/3,
         writer: fn _name, entry, _socket ->
@@ -1283,6 +1285,23 @@ defmodule MossletWeb.JournalLive.Index do
   end
 
   @impl true
+  def handle_info({:journal_upload_progress, ref, :processing, percent}, socket) do
+    processing_images = Map.put(socket.assigns.processing_images, ref, {:processing, percent})
+
+    if socket.assigns.upload_step == :processing do
+      {avg_progress, stage} = calculate_aggregate_progress(processing_images)
+
+      {:noreply,
+       socket
+       |> assign(:upload_progress, avg_progress)
+       |> assign(:upload_stage, stage)
+       |> assign(:processing_images, processing_images)}
+    else
+      {:noreply, assign(socket, :processing_images, processing_images)}
+    end
+  end
+
+  @impl true
   def handle_info({:journal_upload_progress, ref, :extracting, percent}, socket) do
     processing_images = Map.put(socket.assigns.processing_images, ref, {:extracting, percent})
 
@@ -1433,7 +1452,13 @@ defmodule MossletWeb.JournalLive.Index do
   defp calculate_aggregate_progress(processing_images) do
     values = Map.values(processing_images)
     count = length(values)
-    total_progress = Enum.reduce(values, 0, fn {_stage, percent}, acc -> acc + percent end)
+
+    total_progress =
+      Enum.reduce(values, 0, fn
+        {_stage, percent}, acc when is_number(percent) -> acc + percent
+        _, acc -> acc
+      end)
+
     avg_progress = round(total_progress / count)
 
     current_stage =
@@ -1441,9 +1466,11 @@ defmodule MossletWeb.JournalLive.Index do
       |> Enum.map(fn {stage, _} -> stage end)
       |> Enum.min_by(fn
         :receiving -> 0
-        :extracting -> 1
-        :analyzing -> 2
-        :ready -> 3
+        :processing -> 1
+        :extracting -> 2
+        :analyzing -> 3
+        :ready -> 4
+        :error -> 5
         _ -> 0
       end)
 
