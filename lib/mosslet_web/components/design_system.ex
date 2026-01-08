@@ -13449,7 +13449,7 @@ defmodule MossletWeb.DesignSystem do
       assign(assigns, :id, assigns[:id] || "mood-picker-#{System.unique_integer([:positive])}")
 
     ~H"""
-    <div id={@id} class="mood-picker" x-data="{ open: false }">
+    <div id={@id} class="mood-picker relative" x-data="{ open: false }">
       <input type="hidden" name={@name} value={@value || ""} id={"#{@id}-input"} />
       <button
         type="button"
@@ -13487,16 +13487,16 @@ defmodule MossletWeb.DesignSystem do
         x-transition:leave-start="opacity-100 translate-y-0"
         x-transition:leave-end="opacity-0 -translate-y-2"
         @click.outside="open = false"
-        class="mt-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg w-64 sm:w-72"
+        class="absolute left-0 z-50 mt-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg w-72 sm:w-80"
         style="display: none;"
       >
-        <div class="max-h-64 sm:max-h-80 overflow-y-auto overscroll-contain p-3 sm:p-4">
-          <div class="space-y-2.5 sm:space-y-3">
-            <div :for={{category, moods} <- mood_categories()} class="space-y-1.5">
-              <div class="text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
+        <div class="max-h-[60vh] sm:max-h-80 overflow-y-auto overscroll-contain p-3 sm:p-4">
+          <div class="space-y-3 sm:space-y-4">
+            <div :for={{category, moods} <- mood_categories()} class="space-y-2">
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
                 {category}
               </div>
-              <div class="grid grid-cols-5 gap-1">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
                 <button
                   :for={{mood, emoji, label} <- moods}
                   type="button"
@@ -13506,20 +13506,20 @@ defmodule MossletWeb.DesignSystem do
                   @click="open = false"
                   phx-value-mood={mood}
                   class={[
-                    "group flex flex-col items-center justify-center p-2 rounded-lg text-center",
-                    "transition-all duration-150 ease-out",
-                    "hover:scale-105 active:scale-95",
+                    "group flex items-center gap-2 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-lg text-left min-w-0",
+                    "transition-colors duration-150 ease-out",
                     "focus:outline-none focus:ring-2 focus:ring-teal-500/50",
                     mood_grid_button_classes(mood, @value)
                   ]}
                   title={label}
                 >
-                  <span class="text-xl leading-none">{emoji}</span>
+                  <span class="text-lg sm:text-xl leading-none flex-shrink-0">{emoji}</span>
                   <span class={[
-                    "text-[10px] mt-1 leading-tight transition-opacity duration-150 w-full truncate",
+                    "text-xs sm:text-sm leading-tight transition-colors duration-150 truncate",
                     if(@value == mood,
-                      do: "opacity-100 font-medium",
-                      else: "opacity-70 group-hover:opacity-100"
+                      do: "font-medium",
+                      else:
+                        "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"
                     )
                   ]}>
                     {label}

@@ -61,7 +61,7 @@ defmodule MossletWeb.JournalLive.Index do
               class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
             >
               <.phx_icon name="hero-camera" class="h-4 w-4" />
-              <span class="hidden sm:inline">Upload</span>
+              <span class="sr-only sm:not-sr-only">Upload</span>
             </button>
             <.link
               navigate={~p"/app/journal/new"}
