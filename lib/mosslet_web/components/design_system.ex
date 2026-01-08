@@ -586,29 +586,6 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
-  # Helper function for footer menu items (kept for reference but no longer used in new layout)
-  defp footer_menu_items(current_user) do
-    base_items = [
-      %{path: "/about", label: "About"},
-      %{path: "/blog", label: "Blog"},
-      %{path: "/discover", label: "Discover"},
-      %{path: "/faq", label: "FAQ"},
-      %{path: "/features", label: "Features"},
-      %{path: "/pricing", label: "Pricing"},
-      %{path: "/privacy", label: "Privacy"},
-      %{path: "/referrals", label: "Referrals"},
-      %{path: "/support", label: "Support"},
-      %{path: "/updates", label: "Updates"}
-    ]
-
-    # Add conditional items based on user state
-    if current_user do
-      base_items
-    else
-      base_items
-    end
-  end
-
   @doc """
   Modern modal component with liquid metal styling.
 
@@ -758,6 +735,7 @@ defmodule MossletWeb.DesignSystem do
   attr :max_width, :string, default: "lg", values: ~w(sm md lg xl full)
   attr :class, :any, default: ""
   attr :no_padding_on_mobile, :boolean, default: false
+  attr :section_padding, :boolean, default: false
   attr :rest, :global
   slot :inner_block, required: true
 
@@ -774,6 +752,9 @@ defmodule MossletWeb.DesignSystem do
 
           # Responsive padding
           container_padding_classes(@no_padding_on_mobile),
+
+          # Section padding for marketing pages
+          @section_padding && "py-12 md:py-16 lg:py-20",
 
           # Custom classes
           @class

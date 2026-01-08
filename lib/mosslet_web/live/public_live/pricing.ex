@@ -33,7 +33,7 @@ defmodule MossletWeb.PublicLive.Pricing do
               </div>
             </div>
 
-            <div class="relative z-10 px-4 py-12 sm:px-6 lg:px-8 sm:py-16 lg:py-20">
+            <div class="relative z-10 px-4 pt-20 pb-12 sm:px-6 lg:px-8 sm:pt-24 sm:pb-16 lg:pt-20 lg:pb-20">
               <.pricing_header />
 
               <div class="mx-auto max-w-6xl">
@@ -47,7 +47,7 @@ defmodule MossletWeb.PublicLive.Pricing do
             </div>
           </div>
 
-          <.liquid_container max_width="xl" class="mt-32 sm:mt-40">
+          <.liquid_container max_width="xl" section_padding class="mt-32 sm:mt-40">
             <div class="text-center mb-16">
               <h2 class="text-4xl font-bold tracking-tight text-pretty sm:text-5xl lg:text-6xl text-slate-900 dark:text-white">
                 <span class="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -62,7 +62,7 @@ defmodule MossletWeb.PublicLive.Pricing do
             <.liquid_comparison_table />
           </.liquid_container>
 
-          <.liquid_container max_width="xl" class="mt-24">
+          <.liquid_container max_width="xl" section_padding class="mt-24">
             <div class="mx-auto max-w-4xl">
               <.liquid_card
                 padding="lg"
@@ -122,7 +122,7 @@ defmodule MossletWeb.PublicLive.Pricing do
             </div>
           </.liquid_container>
 
-          <.liquid_container max_width="xl" class="mt-32 sm:mt-48">
+          <.liquid_container max_width="xl" section_padding class="mt-32 sm:mt-48">
             <div class="mx-auto max-w-4xl">
               <.liquid_card
                 padding="lg"
