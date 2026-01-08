@@ -481,66 +481,131 @@ defmodule MossletWeb.JournalLive.Index do
         <:title>Upload Handwritten Entry</:title>
         <div class="space-y-6">
           <%= if @upload_step == :upload do %>
-            <.form for={%{}} phx-change="validate_upload" phx-submit="process_upload" id="upload-form">
-              <label
-                for={@uploads.journal_image.ref}
-                class="relative block border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl overflow-hidden hover:border-teal-400 dark:hover:border-teal-500 transition-colors cursor-pointer"
+            <.form
+              for={%{}}
+              phx-change="validate_upload"
+              phx-submit="digitize_uploads"
+              id="upload-form"
+            >
+              <div
+                id="upload-drop-zone"
+                phx-hook="SortableUploadsHook"
+                class="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl overflow-hidden hover:border-teal-400 dark:hover:border-teal-500 phx-drop-target-active:border-teal-500 phx-drop-target-active:bg-teal-50 dark:phx-drop-target-active:bg-teal-900/20 transition-colors"
                 phx-drop-target={@uploads.journal_image.ref}
               >
                 <.live_file_input upload={@uploads.journal_image} class="sr-only" />
                 <%= if @uploads.journal_image.entries == [] do %>
-                  <div class="p-8 text-center">
+                  <label for={@uploads.journal_image.ref} class="block p-8 text-center cursor-pointer">
                     <div class="space-y-4">
                       <div class="mx-auto w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                         <.phx_icon name="hero-camera" class="h-6 w-6 text-slate-400" />
                       </div>
                       <div>
                         <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
-                          Choose a photo
+                          Choose photos
                         </span>
                         <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                           or drag and drop
                         </p>
                       </div>
                       <p class="text-xs text-slate-500 dark:text-slate-400">
-                        PNG, JPG or HEIC up to 10MB
+                        PNG, JPG or HEIC up to 10MB each • Up to 10 pages
                       </p>
                     </div>
-                  </div>
+                  </label>
                 <% else %>
-                  <div :for={entry <- @uploads.journal_image.entries} class="relative">
-                    <.live_img_preview
-                      entry={entry}
-                      class="w-full h-48 object-cover"
-                    />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                      <div class="text-white">
-                        <p class="text-sm font-medium truncate max-w-[200px]">
-                          {entry.client_name}
-                        </p>
-                        <p class="text-xs text-white/70">
-                          {format_bytes(entry.client_size)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        phx-click="cancel_upload"
-                        phx-value-ref={entry.ref}
-                        class="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                  <div class="p-4">
+                    <div class="grid grid-cols-3 gap-3" data-sortable-container>
+                      <div
+                        :for={entry <- ordered_entries(@uploads.journal_image.entries, @page_order)}
+                        data-sortable-item
+                        data-ref={entry.ref}
+                        class="relative aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-grab active:cursor-grabbing select-none"
                       >
-                        <.phx_icon name="hero-x-mark" class="h-4 w-4" />
-                      </button>
+                        <.live_img_preview
+                          entry={entry}
+                          class="w-full h-full object-cover pointer-events-none"
+                          alt={"Journal page #{get_page_number(entry.ref, @uploads.journal_image.entries, @page_order)} preview"}
+                        />
+                        <% processing_status = Map.get(@processing_images, to_string(entry.ref)) %>
+                        <%= cond do %>
+                          <% processing_status && elem(processing_status, 0) == :ready -> %>
+                            <div class="absolute top-1.5 left-1.5 p-1 bg-emerald-500 rounded-full">
+                              <.phx_icon name="hero-check-mini" class="h-3 w-3 text-white" />
+                            </div>
+                          <% processing_status && elem(processing_status, 0) == :error -> %>
+                            <div class="absolute inset-0 bg-red-900/80 flex flex-col items-center justify-center gap-2 p-2">
+                              <div class="p-1.5 bg-red-500 rounded-full">
+                                <.phx_icon
+                                  name="hero-exclamation-triangle-mini"
+                                  class="h-4 w-4 text-white"
+                                />
+                              </div>
+                              <span class="text-xs text-white font-medium text-center">
+                                {elem(processing_status, 1)}
+                              </span>
+                            </div>
+                          <% processing_status -> %>
+                            <div class="absolute inset-0 bg-slate-900/70 flex flex-col items-center justify-center gap-2">
+                              <div class="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                              <span class="text-xs text-white font-medium">
+                                {format_processing_stage(processing_status)}
+                              </span>
+                              <span class="text-xs text-white/60">
+                                {elem(processing_status, 1)}%
+                              </span>
+                            </div>
+                          <% entry.progress < 100 -> %>
+                            <div class="absolute inset-0 bg-slate-200 dark:bg-slate-700 flex flex-col items-center justify-center gap-2">
+                              <div class="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                              <span class="text-xs text-slate-500 dark:text-slate-400">
+                                Uploading {entry.progress}%
+                              </span>
+                            </div>
+                          <% true -> %>
+                        <% end %>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                        <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none">
+                          <p class="text-xs text-white font-medium truncate">
+                            Page {get_page_number(
+                              entry.ref,
+                              @uploads.journal_image.entries,
+                              @page_order
+                            )}
+                          </p>
+                          <.phx_icon name="hero-arrows-up-down" class="h-3.5 w-3.5 text-white/70" />
+                        </div>
+                        <button
+                          type="button"
+                          phx-click="cancel_upload"
+                          phx-value-ref={entry.ref}
+                          aria-label="Remove image"
+                          class="absolute top-1.5 right-1.5 p-1 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors z-10"
+                        >
+                          <.phx_icon name="hero-x-mark" class="h-3.5 w-3.5" />
+                        </button>
+                        <div
+                          :for={err <- upload_errors(@uploads.journal_image, entry)}
+                          class="absolute inset-x-1.5 top-1.5 px-2 py-1 bg-red-500/90 text-white text-xs rounded"
+                        >
+                          {upload_error_to_string(err)}
+                        </div>
+                      </div>
                     </div>
-                    <div
-                      :for={err <- upload_errors(@uploads.journal_image, entry)}
-                      class="absolute top-3 left-3 right-3 px-3 py-2 bg-red-500/90 text-white text-sm rounded-lg"
+                    <label
+                      :if={length(@uploads.journal_image.entries) < 10}
+                      for={@uploads.journal_image.ref}
+                      class="mt-3 flex items-center justify-center gap-2 p-2 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 cursor-pointer hover:border-teal-400 dark:hover:border-teal-500 transition-colors"
                     >
-                      {upload_error_to_string(err)}
-                    </div>
+                      <.phx_icon name="hero-plus" class="h-4 w-4 text-slate-400" />
+                      <span class="text-xs text-slate-500 dark:text-slate-400">Add more pages</span>
+                    </label>
+                    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400 text-center">
+                      {length(@uploads.journal_image.entries)} of 10 pages • Drag images to reorder
+                    </p>
                   </div>
                 <% end %>
-              </label>
+              </div>
 
               <div
                 :for={err <- upload_errors(@uploads.journal_image)}
@@ -561,9 +626,33 @@ defmodule MossletWeb.JournalLive.Index do
                     Your privacy is protected
                   </p>
                   <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-                    Your photo is processed securely and deleted immediately after digitizing. The extracted text is encrypted with your personal key—only you can read it.
+                    Your photos are processed securely and deleted immediately after digitizing. The extracted text is encrypted with your personal key—only you can read it.
                   </p>
                 </div>
+              </div>
+
+              <div :if={@uploads.journal_image.entries != []} class="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  phx-click="cancel_upload_modal"
+                  class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={Enum.any?(@uploads.journal_image.entries, &(&1.progress < 100))}
+                  class={[
+                    "inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white rounded-xl shadow-sm transition-all duration-200",
+                    if(Enum.any?(@uploads.journal_image.entries, &(&1.progress < 100)),
+                      do: "bg-slate-400 cursor-not-allowed",
+                      else:
+                        "bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600"
+                    )
+                  ]}
+                >
+                  <.phx_icon name="hero-sparkles" class="h-4 w-4" /> Digitize
+                </button>
               </div>
             </.form>
           <% end %>
@@ -576,7 +665,10 @@ defmodule MossletWeb.JournalLive.Index do
                 <div class="relative w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
               </div>
               <p class="text-base font-medium text-slate-900 dark:text-slate-100 mb-2">
-                {upload_stage_text(@upload_stage)}
+                {upload_stage_text(@upload_stage, @total_images)}
+              </p>
+              <p :if={@total_images > 1} class="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                Processing page {@processed_images} of {@total_images}
               </p>
               <div class="w-full max-w-xs mx-auto mb-4">
                 <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -761,9 +853,12 @@ defmodule MossletWeb.JournalLive.Index do
       |> assign(:extracted_form, nil)
       |> assign(:extracted_date, nil)
       |> assign(:upload_error, nil)
+      |> assign(:processing_images, %{})
+      |> assign(:total_images, 0)
+      |> assign(:processed_images, 0)
       |> allow_upload(:journal_image,
         accept: ~w(.jpg .jpeg .png .heic),
-        max_entries: 1,
+        max_entries: 10,
         max_file_size: 10_000_000,
         auto_upload: true,
         progress: &handle_journal_upload_progress/3,
@@ -777,6 +872,7 @@ defmodule MossletWeb.JournalLive.Index do
            }}
         end
       )
+      |> assign(:page_order, [])
 
     if connected?(socket) && entry_count >= 3 do
       send(self(), :load_cached_insight)
@@ -954,6 +1050,11 @@ defmodule MossletWeb.JournalLive.Index do
 
   @impl true
   def handle_event("cancel_upload_modal", _params, socket) do
+    socket =
+      Enum.reduce(socket.assigns.uploads.journal_image.entries, socket, fn entry, acc ->
+        cancel_upload(acc, :journal_image, entry.ref)
+      end)
+
     {:noreply,
      socket
      |> assign(:show_upload_modal, false)
@@ -963,12 +1064,21 @@ defmodule MossletWeb.JournalLive.Index do
      |> assign(:extracted_form, nil)
      |> assign(:extracted_date, nil)
      |> assign(:upload_error, nil)
+     |> assign(:processing_images, %{})
+     |> assign(:total_images, 0)
+     |> assign(:processed_images, 0)
+     |> assign(:page_order, [])
      |> push_event("restore-body-scroll", %{})}
   end
 
   @impl true
   def handle_event("validate_upload", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("reorder_uploads", %{"order" => order}, socket) do
+    {:noreply, assign(socket, :page_order, order)}
   end
 
   @impl true
@@ -982,45 +1092,86 @@ defmodule MossletWeb.JournalLive.Index do
   end
 
   @impl true
-  def handle_event("process_upload", _params, socket) do
-    [entry] = socket.assigns.uploads.journal_image.entries
+  def handle_event("digitize_uploads", _params, socket) do
+    entries =
+      ordered_entries(socket.assigns.uploads.journal_image.entries, socket.assigns.page_order)
 
-    result =
-      consume_uploaded_entry(socket, entry, fn meta ->
-        case meta do
-          %{extracted_text: text, extracted_date: date} ->
-            {:ok, {:ok, text, date}}
+    total = length(entries)
 
-          %{error: :no_text_found} ->
-            {:ok, {:error, "No readable text was found in the image. Try a clearer photo."}}
+    socket =
+      socket
+      |> assign(:upload_step, :processing)
+      |> assign(:total_images, total)
+      |> assign(:processed_images, 0)
+      |> assign(:upload_progress, 5)
+      |> assign(:upload_stage, :extracting)
 
-          %{error: reason} ->
-            {:ok, {:error, "Something went wrong: #{inspect(reason)}"}}
+    results =
+      Enum.map(entries, fn entry ->
+        consume_uploaded_entry(socket, entry, fn meta ->
+          case meta do
+            %{extracted_text: text, extracted_date: date} ->
+              {:ok, {:ok, text, date}}
 
-          _ ->
-            {:ok, {:error, "Processing not complete. Please try again."}}
-        end
+            %{error: :no_text_found} ->
+              {:ok, {:error, "No readable text was found in the image. Try a clearer photo."}}
+
+            %{error: reason} ->
+              {:ok, {:error, "Something went wrong: #{inspect(reason)}"}}
+
+            _ ->
+              {:ok, {:error, "Processing not complete. Please try again."}}
+          end
+        end)
       end)
 
-    case result do
-      {:ok, text, date} ->
-        form = to_form(%{"title" => "", "body" => text, "book_id" => ""}, as: :extracted)
+    successful_results =
+      results
+      |> Enum.filter(fn
+        {:ok, _, _} -> true
+        _ -> false
+      end)
 
-        {:noreply,
-         socket
-         |> assign(:upload_step, :preview)
-         |> assign(:extracted_form, form)
-         |> assign(:extracted_date, date)
-         |> assign(:upload_progress, 100)
-         |> assign(:upload_stage, :ready)}
+    if successful_results == [] do
+      error_msg =
+        case List.first(results) do
+          {:error, msg} -> msg
+          _ -> "Could not process any images. Please try again."
+        end
 
-      {:error, message} ->
-        {:noreply,
-         socket
-         |> assign(:upload_step, :error)
-         |> assign(:upload_error, message)
-         |> assign(:upload_progress, 0)
-         |> assign(:upload_stage, nil)}
+      {:noreply,
+       socket
+       |> assign(:upload_step, :error)
+       |> assign(:upload_error, error_msg)
+       |> assign(:upload_progress, 0)
+       |> assign(:upload_stage, nil)}
+    else
+      combined_text =
+        successful_results
+        |> Enum.with_index(1)
+        |> Enum.map(fn {{:ok, text, _date}, idx} ->
+          if length(successful_results) > 1 do
+            "--- Page #{idx} ---\n\n#{text}"
+          else
+            text
+          end
+        end)
+        |> Enum.join("\n\n")
+
+      first_date =
+        successful_results
+        |> Enum.find_value(fn {:ok, _text, date} -> date end)
+
+      form = to_form(%{"title" => "", "body" => combined_text, "book_id" => ""}, as: :extracted)
+
+      {:noreply,
+       socket
+       |> assign(:upload_step, :preview)
+       |> assign(:extracted_form, form)
+       |> assign(:extracted_date, first_date)
+       |> assign(:upload_progress, 100)
+       |> assign(:upload_stage, :ready)
+       |> assign(:page_order, [])}
     end
   end
 
@@ -1031,7 +1182,11 @@ defmodule MossletWeb.JournalLive.Index do
      |> assign(:upload_step, :upload)
      |> assign(:upload_progress, 0)
      |> assign(:upload_stage, nil)
-     |> assign(:upload_error, nil)}
+     |> assign(:upload_error, nil)
+     |> assign(:processing_images, %{})
+     |> assign(:total_images, 0)
+     |> assign(:processed_images, 0)
+     |> assign(:page_order, [])}
   end
 
   @impl true
@@ -1106,70 +1261,109 @@ defmodule MossletWeb.JournalLive.Index do
     end
   end
 
-  defp handle_journal_upload_progress(:journal_image, entry, socket) do
-    if entry.done? do
-      {:noreply, assign(socket, :upload_step, :processing)}
+  defp handle_journal_upload_progress(:journal_image, _entry, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, ref, :receiving, percent}, socket) do
+    processing_images = Map.put(socket.assigns.processing_images, ref, {:receiving, percent})
+
+    if socket.assigns.upload_step == :processing do
+      {avg_progress, stage} = calculate_aggregate_progress(processing_images)
+
+      {:noreply,
+       socket
+       |> assign(:upload_progress, avg_progress)
+       |> assign(:upload_stage, stage)
+       |> assign(:processing_images, processing_images)}
     else
-      {:noreply, socket}
+      {:noreply, assign(socket, :processing_images, processing_images)}
     end
   end
 
   @impl true
-  def handle_info({:journal_upload_progress, _ref, :receiving, percent}, socket) do
-    {:noreply,
-     socket
-     |> assign(:upload_step, :processing)
-     |> assign(:upload_progress, percent)
-     |> assign(:upload_stage, :receiving)}
+  def handle_info({:journal_upload_progress, ref, :extracting, percent}, socket) do
+    processing_images = Map.put(socket.assigns.processing_images, ref, {:extracting, percent})
+
+    if socket.assigns.upload_step == :processing do
+      {avg_progress, stage} = calculate_aggregate_progress(processing_images)
+
+      {:noreply,
+       socket
+       |> assign(:upload_progress, avg_progress)
+       |> assign(:upload_stage, stage)
+       |> assign(:processing_images, processing_images)}
+    else
+      {:noreply, assign(socket, :processing_images, processing_images)}
+    end
   end
 
   @impl true
-  def handle_info({:journal_upload_progress, _ref, :extracting, percent}, socket) do
-    {:noreply,
-     socket
-     |> assign(:upload_progress, percent)
-     |> assign(:upload_stage, :extracting)}
+  def handle_info({:journal_upload_progress, ref, :analyzing, percent}, socket) do
+    processing_images = Map.put(socket.assigns.processing_images, ref, {:analyzing, percent})
+
+    if socket.assigns.upload_step == :processing do
+      {avg_progress, stage} = calculate_aggregate_progress(processing_images)
+
+      {:noreply,
+       socket
+       |> assign(:upload_progress, avg_progress)
+       |> assign(:upload_stage, stage)
+       |> assign(:processing_images, processing_images)}
+    else
+      {:noreply, assign(socket, :processing_images, processing_images)}
+    end
   end
 
   @impl true
-  def handle_info({:journal_upload_progress, _ref, :analyzing, percent}, socket) do
-    {:noreply,
-     socket
-     |> assign(:upload_progress, percent)
-     |> assign(:upload_stage, :analyzing)}
+  def handle_info({:journal_upload_progress, ref, :ready, %{text: _text, date: _date}}, socket) do
+    processing_images = Map.put(socket.assigns.processing_images, ref, {:ready, 100})
+
+    if socket.assigns.upload_step == :processing do
+      {avg_progress, _stage} = calculate_aggregate_progress(processing_images)
+
+      {:noreply,
+       socket
+       |> assign(:upload_progress, avg_progress)
+       |> assign(:processing_images, processing_images)}
+    else
+      {:noreply, assign(socket, :processing_images, processing_images)}
+    end
   end
 
   @impl true
-  def handle_info({:journal_upload_progress, _ref, :ready, %{text: text, date: date}}, socket) do
-    form = to_form(%{"title" => "", "body" => text, "book_id" => ""}, as: :extracted)
+  def handle_info({:journal_upload_progress, ref, :error, :no_text_found}, socket) do
+    if socket.assigns.upload_step == :processing do
+      {:noreply,
+       socket
+       |> assign(:upload_step, :error)
+       |> assign(:upload_error, "No readable text was found in the image. Try a clearer photo.")
+       |> assign(:upload_progress, 0)
+       |> assign(:upload_stage, nil)}
+    else
+      processing_images =
+        Map.put(socket.assigns.processing_images, ref, {:error, "No text found"})
 
-    {:noreply,
-     socket
-     |> assign(:upload_step, :preview)
-     |> assign(:extracted_form, form)
-     |> assign(:extracted_date, date)
-     |> assign(:upload_progress, 100)
-     |> assign(:upload_stage, :ready)}
+      {:noreply, assign(socket, :processing_images, processing_images)}
+    end
   end
 
   @impl true
-  def handle_info({:journal_upload_progress, _ref, :error, :no_text_found}, socket) do
-    {:noreply,
-     socket
-     |> assign(:upload_step, :error)
-     |> assign(:upload_error, "No readable text was found in the image. Try a clearer photo.")
-     |> assign(:upload_progress, 0)
-     |> assign(:upload_stage, nil)}
-  end
+  def handle_info({:journal_upload_progress, ref, :error, reason}, socket) do
+    if socket.assigns.upload_step == :processing do
+      {:noreply,
+       socket
+       |> assign(:upload_step, :error)
+       |> assign(:upload_error, "Something went wrong: #{inspect(reason)}")
+       |> assign(:upload_progress, 0)
+       |> assign(:upload_stage, nil)}
+    else
+      processing_images =
+        Map.put(socket.assigns.processing_images, ref, {:error, "Processing failed"})
 
-  @impl true
-  def handle_info({:journal_upload_progress, _ref, :error, reason}, socket) do
-    {:noreply,
-     socket
-     |> assign(:upload_step, :error)
-     |> assign(:upload_error, "Something went wrong: #{inspect(reason)}")
-     |> assign(:upload_progress, 0)
-     |> assign(:upload_stage, nil)}
+      {:noreply, assign(socket, :processing_images, processing_images)}
+    end
   end
 
   @impl true
@@ -1232,6 +1426,30 @@ defmodule MossletWeb.JournalLive.Index do
     end
   end
 
+  defp calculate_aggregate_progress(processing_images) when map_size(processing_images) == 0 do
+    {0, :receiving}
+  end
+
+  defp calculate_aggregate_progress(processing_images) do
+    values = Map.values(processing_images)
+    count = length(values)
+    total_progress = Enum.reduce(values, 0, fn {_stage, percent}, acc -> acc + percent end)
+    avg_progress = round(total_progress / count)
+
+    current_stage =
+      values
+      |> Enum.map(fn {stage, _} -> stage end)
+      |> Enum.min_by(fn
+        :receiving -> 0
+        :extracting -> 1
+        :analyzing -> 2
+        :ready -> 3
+        _ -> 0
+      end)
+
+    {avg_progress, current_stage}
+  end
+
   defp decrypt_books(books, user, key) do
     Enum.map(books, &decrypt_book(&1, user, key))
   end
@@ -1276,10 +1494,13 @@ defmodule MossletWeb.JournalLive.Index do
     end
   end
 
-  defp upload_stage_text(:receiving), do: "Uploading image..."
-  defp upload_stage_text(:extracting), do: "Reading your handwriting..."
-  defp upload_stage_text(:analyzing), do: "Detecting date..."
-  defp upload_stage_text(_), do: "Processing..."
+  defp upload_stage_text(:receiving, count) when count > 1, do: "Uploading images..."
+  defp upload_stage_text(:receiving, _), do: "Uploading image..."
+  defp upload_stage_text(:extracting, count) when count > 1, do: "Reading your handwriting..."
+  defp upload_stage_text(:extracting, _), do: "Reading your handwriting..."
+  defp upload_stage_text(:analyzing, count) when count > 1, do: "Detecting dates..."
+  defp upload_stage_text(:analyzing, _), do: "Detecting date..."
+  defp upload_stage_text(_, _), do: "Processing..."
 
   defp format_date(date) do
     today = Date.utc_today()
@@ -1304,15 +1525,46 @@ defmodule MossletWeb.JournalLive.Index do
   defp book_cover_gradient("yellow"), do: "bg-gradient-to-br from-yellow-400 to-amber-500"
   defp book_cover_gradient(_), do: "bg-gradient-to-br from-slate-500 to-slate-600"
 
-  defp format_bytes(bytes) when bytes < 1024, do: "#{bytes} B"
-  defp format_bytes(bytes) when bytes < 1_048_576, do: "#{Float.round(bytes / 1024, 1)} KB"
-  defp format_bytes(bytes), do: "#{Float.round(bytes / 1_048_576, 1)} MB"
-
   defp upload_error_to_string(:too_large), do: "File is too large (max 10MB)"
 
   defp upload_error_to_string(:not_accepted),
     do: "Invalid file type. Please use JPG, PNG, or HEIC"
 
-  defp upload_error_to_string(:too_many_files), do: "Only one image at a time"
+  defp upload_error_to_string(:too_many_files), do: "Maximum 10 images allowed"
   defp upload_error_to_string(_), do: "Upload error"
+
+  defp format_processing_stage({:receiving, _percent}), do: "Receiving..."
+  defp format_processing_stage({:extracting, _percent}), do: "Reading text..."
+  defp format_processing_stage({:analyzing, _percent}), do: "Analyzing..."
+  defp format_processing_stage({:ready, _}), do: "Ready"
+  defp format_processing_stage(_), do: "Processing..."
+
+  defp ordered_entries(entries, []), do: entries
+
+  defp ordered_entries(entries, page_order) do
+    entry_map = Map.new(entries, &{&1.ref, &1})
+
+    ordered =
+      Enum.reduce(page_order, [], fn ref, acc ->
+        case Map.get(entry_map, ref) do
+          nil -> acc
+          entry -> [entry | acc]
+        end
+      end)
+      |> Enum.reverse()
+
+    remaining_refs = MapSet.new(page_order)
+    remaining = Enum.reject(entries, &MapSet.member?(remaining_refs, &1.ref))
+
+    ordered ++ remaining
+  end
+
+  defp get_page_number(ref, entries, []) do
+    Enum.find_index(entries, &(&1.ref == ref)) + 1
+  end
+
+  defp get_page_number(ref, entries, page_order) do
+    ordered = ordered_entries(entries, page_order)
+    Enum.find_index(ordered, &(&1.ref == ref)) + 1
+  end
 end
