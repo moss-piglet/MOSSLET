@@ -352,7 +352,8 @@ defmodule MossletWeb.JournalLive.Book do
            accept: ~w(.jpg .jpeg .png .webp .heic .heif),
            max_entries: 1,
            max_file_size: 5_000_000,
-           auto_upload: true
+           auto_upload: true,
+           chunk_timeout: 30_000
          )}
     end
   end

@@ -224,11 +224,11 @@ The **same double-encrypted data** works for both platforms - the difference is 
 
 **Files created:**
 
-- `lib/mosslet/repo/sqlite.ex` - SQLite Ecto repo
-- `lib/mosslet/cache.ex` - Cache operations context
-- `lib/mosslet/cache/cached_item.ex` - CachedItem schema
-- `lib/mosslet/cache/sync_queue_item.ex` - SyncQueueItem schema
-- `lib/mosslet/cache/local_setting.ex` - LocalSetting schema
+- `lib_native/mosslet/repo/sqlite.ex` - SQLite Ecto repo
+- `lib_native/mosslet/cache.ex` - Cache operations context
+- `lib_native/mosslet/cache/cached_item.ex` - CachedItem schema
+- `lib_native/mosslet/cache/sync_queue_item.ex` - SyncQueueItem schema
+- `lib_native/mosslet/cache/local_setting.ex` - LocalSetting schema
 - `priv/repo_sqlite/migrations/20250120000001_create_cache_tables.exs` - Migration
 
 ### Phase 2.5: Device Keychain Cache Encryption ✅ COMPLETE
@@ -395,8 +395,9 @@ Authenticated (requires Bearer token):
 
 **Files created:**
 
-- `lib/mosslet/sync.ex` - Sync GenServer with polling, queue processing, and status broadcasting
-- `lib/mosslet/sync/conflict_resolver.ex` - Last-Write-Wins conflict resolution
+- `lib_native/mosslet/sync.ex` - Sync GenServer with polling, queue processing, and status broadcasting
+- `lib_native/mosslet/sync/conflict_resolver.ex` - Last-Write-Wins conflict resolution
+- `lib_native/mosslet/sync/connectivity.ex` - Online/offline detection with health checks
 
 **Features implemented:**
 
@@ -518,11 +519,78 @@ LiveView calls
 | ~~`groups.ex`~~         | ~~43~~     | ~~MEDIUM~~   | ✅ COMPLETE | ~~Group management~~         |
 | ~~`group_messages.ex`~~ | ~~15~~     | ~~MEDIUM~~   | ✅ COMPLETE | ~~Group chat~~               |
 | ~~`messages.ex`~~       | ~~9~~      | ~~MEDIUM~~   | ✅ COMPLETE | ~~Direct messages~~          |
+| ~~`journal.ex`~~        | ~~--~~     | ~~MEDIUM~~   | ✅ COMPLETE | ~~Journal entries (E2E)~~    |
 | ~~`orgs.ex`~~           | ~~25~~     | ~~LOW~~      | ✅ COMPLETE | ~~Organization features~~    |
 | ~~`statuses.ex`~~       | ~~9~~      | ~~LOW~~      | ✅ COMPLETE | ~~User statuses~~            |
 | ~~`logs.ex`~~           | ~~7~~      | ~~LOW~~      | ✅ COMPLETE | ~~Audit logs~~               |
 | ~~`memories.ex`~~       | ~~57~~     | ~~LOW~~      | ✅ COMPLETE | ~~Legacy - phasing out~~     |
 | ~~`conversations.ex`~~  | ~~9~~      | ~~LOW~~      | ✅ COMPLETE | ~~Legacy - phasing out~~     |
+
+---
+
+### Native Code Directory Pattern: `lib_native/`
+
+**Why `lib_native/`?**
+
+Native-only code (SQLite repos, native adapters, sync modules, cache) must be compiled only when building for desktop/mobile targets. Placing this code in `lib_native/` allows us to:
+
+1. **Conditionally include compilation paths** - The `mix.exs` adds `lib_native` to `elixirc_paths` only for the `:desktop` Mix environment
+2. **Avoid loading native dependencies on web** - SQLite, Desktop, and other native deps don't load on Fly.io
+3. **Clear separation** - Easy to identify what code is native-only vs shared
+
+**Directory Structure:**
+
+```
+lib_native/
+├── mosslet/
+│   ├── accounts/adapters/native.ex      # Native adapter for accounts
+│   ├── cache.ex                          # SQLite cache operations
+│   ├── cache/
+│   │   ├── cached_item.ex               # CachedItem schema (SQLite)
+│   │   ├── local_setting.ex             # LocalSetting schema (SQLite)
+│   │   └── sync_queue_item.ex           # SyncQueueItem schema (SQLite)
+│   ├── conversations/adapters/native.ex # Native adapter for conversations
+│   ├── group_messages/adapters/native.ex
+│   ├── groups/adapters/native.ex
+│   ├── journal/adapters/native.ex       # Native adapter for journal
+│   ├── logs/adapters/native.ex
+│   ├── memories/adapters/native.ex
+│   ├── messages/adapters/native.ex
+│   ├── orgs/adapters/native.ex
+│   ├── repo/sqlite.ex                   # SQLite Ecto repo
+│   ├── statuses/adapters/native.ex
+│   ├── sync.ex                          # Sync GenServer
+│   ├── sync/
+│   │   ├── conflict_resolver.ex         # LWW conflict resolution
+│   │   └── connectivity.ex              # Online/offline detection
+│   └── timeline/adapters/native.ex
+```
+
+**mix.exs Configuration:**
+
+```elixir
+defp elixirc_paths(:desktop), do: ["lib", "lib_native"]
+defp elixirc_paths(_), do: ["lib"]
+```
+
+**Adapter Loading Pattern:**
+
+The adapter behaviour modules in `lib/` reference the native adapter by module name. At runtime, `Platform.native?()` determines which adapter to use:
+
+```elixir
+# lib/mosslet/accounts/adapter.ex
+defmodule Mosslet.Accounts.Adapter do
+  def impl do
+    if Mosslet.Platform.native?() do
+      Mosslet.Accounts.Adapters.Native  # Lives in lib_native/
+    else
+      Mosslet.Accounts.Adapters.Web     # Lives in lib/
+    end
+  end
+end
+```
+
+The web adapter in `lib/` is always compiled. The native adapter in `lib_native/` is only compiled for desktop builds, preventing any native-only dependencies from being loaded on web deployments.
 
 #### 5.1 Authentication & Session (Priority: CRITICAL) - `accounts.ex` - ✅ COMPLETE
 
@@ -616,7 +684,7 @@ end
 
 - `lib/mosslet/accounts/adapter.ex` - Behaviour with 80+ callbacks
 - `lib/mosslet/accounts/adapters/web.ex` - Web adapter (Repo calls + queries)
-- `lib/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache + zero-knowledge decryption)
+- `lib_native/mosslet/accounts/adapters/native.ex` - Native adapter (API + cache + zero-knowledge decryption)
 - `lib/mosslet/session/native.ex` - JWT token + session key storage (from Phase 3)
 
 #### 5.2 Timeline & Posts (Priority: HIGH) - `timeline.ex` - ✅ COMPLETE
@@ -632,7 +700,7 @@ end
 
 - `lib/mosslet/timeline/adapter.ex` - Behaviour definition with 130+ callbacks
 - `lib/mosslet/timeline/adapters/web.ex` - Web adapter (Repo calls + filtering, ~2200 lines)
-- `lib/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache, ~1600 lines)
+- `lib_native/mosslet/timeline/adapters/native.ex` - Native adapter (API + cache, ~1600 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -739,7 +807,7 @@ Note: Complex CRUD operations (like `create_public_post`, `create_repost`, etc.)
 
 - `lib/mosslet/groups/adapter.ex` - Behaviour definition with 25+ callbacks
 - `lib/mosslet/groups/adapters/web.ex` - Web adapter (Repo calls, ~380 lines)
-- `lib/mosslet/groups/adapters/native.ex` - Native adapter (API + cache, ~520 lines)
+- `lib_native/mosslet/groups/adapters/native.ex` - Native adapter (API + cache, ~520 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -782,7 +850,7 @@ Utility Functions (2 functions):
 
 - `lib/mosslet/group_messages/adapter.ex` - Behaviour definition with 10 callbacks
 - `lib/mosslet/group_messages/adapters/web.ex` - Web adapter (Repo calls, ~90 lines)
-- `lib/mosslet/group_messages/adapters/native.ex` - Native adapter (API + cache, ~280 lines)
+- `lib_native/mosslet/group_messages/adapters/native.ex` - Native adapter (API + cache, ~280 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -808,7 +876,7 @@ Utility Functions (2 functions):
 
 - `lib/mosslet/messages/adapter.ex` - Behaviour definition with 6 callbacks
 - `lib/mosslet/messages/adapters/web.ex` - Web adapter (Repo calls, ~80 lines)
-- `lib/mosslet/messages/adapters/native.ex` - Native adapter (API + cache, ~230 lines)
+- `lib_native/mosslet/messages/adapters/native.ex` - Native adapter (API + cache, ~230 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -831,7 +899,7 @@ CRUD Operations (3 functions):
 
 - `lib/mosslet/orgs/adapter.ex` - Behaviour definition with 17 callbacks
 - `lib/mosslet/orgs/adapters/web.ex` - Web adapter (Repo calls, ~140 lines)
-- `lib/mosslet/orgs/adapters/native.ex` - Native adapter (API + cache, ~420 lines)
+- `lib_native/mosslet/orgs/adapters/native.ex` - Native adapter (API + cache, ~420 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -862,7 +930,7 @@ Utility (1 function):
 
 - `lib/mosslet/statuses/adapter.ex` - Behaviour definition with 5 callbacks
 - `lib/mosslet/statuses/adapters/web.ex` - Web adapter (Repo calls, ~110 lines)
-- `lib/mosslet/statuses/adapters/native.ex` - Native adapter (API + cache, ~140 lines)
+- `lib_native/mosslet/statuses/adapters/native.ex` - Native adapter (API + cache, ~140 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -887,7 +955,7 @@ Utility (1 function):
 
 - `lib/mosslet/logs/adapter.ex` - Behaviour definition with 7 callbacks
 - `lib/mosslet/logs/adapters/web.ex` - Web adapter (Repo calls, ~60 lines)
-- `lib/mosslet/logs/adapters/native.ex` - Native adapter (API calls, ~100 lines)
+- `lib_native/mosslet/logs/adapters/native.ex` - Native adapter (API calls, ~100 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -910,7 +978,7 @@ Log Operations (7 functions):
 
 - `lib/mosslet/memories/adapter.ex` - Behaviour definition with 40+ callbacks
 - `lib/mosslet/memories/adapters/web.ex` - Web adapter (Repo calls, ~400 lines)
-- `lib/mosslet/memories/adapters/native.ex` - Native adapter (API + cache, ~500 lines)
+- `lib_native/mosslet/memories/adapters/native.ex` - Native adapter (API + cache, ~500 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -947,7 +1015,7 @@ Utility Functions (8 functions):
 
 - `lib/mosslet/conversations/adapter.ex` - Behaviour definition with 6 callbacks
 - `lib/mosslet/conversations/adapters/web.ex` - Web adapter (Repo calls, ~70 lines)
-- `lib/mosslet/conversations/adapters/native.ex` - Native adapter (API + cache, ~180 lines)
+- `lib_native/mosslet/conversations/adapters/native.ex` - Native adapter (API + cache, ~180 lines)
 
 **Completed Functions (delegated to adapters):**
 
@@ -960,6 +1028,18 @@ Conversation Operations (6 functions):
 - `delete_conversation/2` - Delete a conversation
 
 **Note:** Conversations is a legacy AI chat feature being phased out. This adapter implementation provides platform support during the transition period. The native adapter includes SQLite caching for offline viewing of conversation history.
+
+#### 5.11 Journal - `journal.ex` (Priority: MEDIUM) - ✅ COMPLETE
+
+**Status:** Adapter pattern implementation complete. Full platform support for journal entries.
+
+**Files created:**
+
+- `lib/mosslet/journal/adapter.ex` - Behaviour definition with journal callbacks
+- `lib/mosslet/journal/adapters/web.ex` - Web adapter (Repo calls)
+- `lib_native/mosslet/journal/adapters/native.ex` - Native adapter (API + cache)
+
+**Note:** Journal entries are end-to-end encrypted per-user, making this a key feature for the zero-knowledge native app experience.
 
 #### 5.11 API Endpoints Required ✅ COMPLETE
 
@@ -1394,4 +1474,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-01 (Phase 5.11 API Endpoints ✅ COMPLETE - All API controllers implemented: GroupController, GroupMessageController, OrgController, ConversationController, MessageController. Full API coverage for native apps. Next: Phase 5.12 Caching Strategy or Phase 6 Mobile App Setup)_
+_Last updated: 2025-01-01 (Phase 5.11 Journal context ✅ COMPLETE - All contexts now have adapters. Added `lib_native/` directory pattern documentation for native-only code compilation. Native adapters live in `lib_native/` to enable conditional compilation via `elixirc_paths`. Next: Phase 5.12 Caching Strategy or Phase 6 Mobile App Setup)_

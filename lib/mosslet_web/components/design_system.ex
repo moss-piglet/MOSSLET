@@ -4661,7 +4661,7 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_journal_cover_upload(assigns) do
     ~H"""
-    <div class={["space-y-3", @class]}>
+    <div id="cover-upload-container" class={["space-y-3", @class]}>
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
         Cover Image (optional)
       </label>

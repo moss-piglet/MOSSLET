@@ -108,7 +108,7 @@ defmodule MossletWeb.Components.LandingPage do
             >
             </div>
           </div>
-          <div class="mx-auto max-w-2xl pb-16 pt-16 sm:pb-24 sm:pt-20 lg:pb-28">
+          <div class="mx-auto max-w-2xl pb-16 pt-20 sm:pb-24 sm:pt-20 lg:pb-28">
             <%!-- Liquid Metal Badge with Hover Effects --%>
             <div class="mb-6 sm:mb-8 flex justify-center">
               <div class="group relative overflow-hidden rounded-full px-4 py-2 text-sm leading-6 text-slate-600 dark:text-slate-400 transition-all duration-300 ease-out">
