@@ -73,10 +73,42 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.11.0"
+                  version="0.12.0"
                   date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Private Journal 📓</:title>
+                  <:description>
+                    Your private space for reflection — write freely with end-to-end encryption, track moods, build streaks, and even upload handwritten entries.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-book-open" color="emerald">
+                      Private journal entries — write freely, everything is encrypted with your personal key
+                    </.changelog_item>
+                    <.changelog_item icon="hero-folder" color="teal">
+                      Journal books — organize entries into themed collections like travel logs or gratitude journals
+                    </.changelog_item>
+                    <.changelog_item icon="hero-fire" color="amber">
+                      Writing streaks — build consistency with daily streak tracking
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="purple">
+                      AI mood insights — get gentle reflections on your emotional patterns over time
+                    </.changelog_item>
+                    <.changelog_item icon="hero-camera" color="blue">
+                      Handwritten upload — snap a photo of your paper journal and we'll digitize it
+                    </.changelog_item>
+                    <.changelog_item icon="hero-star" color="rose">
+                      Favorites — star meaningful entries to revisit later
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.11.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Discover & RSS Feeds 🌿</:title>
                   <:description>
