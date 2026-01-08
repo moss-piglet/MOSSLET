@@ -1176,6 +1176,16 @@ defmodule Mosslet.Accounts do
     end
   end
 
+  defp delete_data_filter(user, _attrs, _key, "journals") do
+    case adapter().delete_all_journals(user.id) do
+      {:ok, _count} ->
+        :ok
+
+      {:error, _reason} ->
+        {:error, "There was an error deleting all journals."}
+    end
+  end
+
   defp get_urls_from_deleted_posts(user, key, posts) when is_list(posts) do
     # loop through each post
     Enum.map(posts, fn post ->

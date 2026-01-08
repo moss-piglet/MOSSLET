@@ -178,12 +178,12 @@ defmodule MossletWeb.ManageDataLive do
 
                 <div class="space-y-3">
                   <.data_checkbox
-                    id="user_data_user_connections"
-                    name="user[data][user_connections]"
-                    icon="hero-users"
-                    label="Connections"
-                    description="Remove all your connection relationships with other users"
-                    checked={data_checked?(@form, "user_connections")}
+                    id="user_data_bookmarks"
+                    name="user[data][bookmarks]"
+                    icon="hero-bookmark"
+                    label="Bookmarks"
+                    description="Remove all your saved bookmarks and bookmark notes"
+                    checked={data_checked?(@form, "bookmarks")}
                   />
 
                   <.data_checkbox
@@ -196,21 +196,30 @@ defmodule MossletWeb.ManageDataLive do
                   />
 
                   <.data_checkbox
+                    id="user_data_user_connections"
+                    name="user[data][user_connections]"
+                    icon="hero-users"
+                    label="Connections"
+                    description="Remove all your connection relationships with other users"
+                    checked={data_checked?(@form, "user_connections")}
+                  />
+
+                  <.data_checkbox
+                    id="user_data_journals"
+                    name="user[data][journals]"
+                    icon="hero-pencil-square"
+                    label="Journals"
+                    description="Remove all your private journal entries and journal books"
+                    checked={data_checked?(@form, "journals")}
+                  />
+
+                  <.data_checkbox
                     id="user_data_posts"
                     name="user[data][posts]"
                     icon="hero-book-open"
                     label="Posts"
                     description="Remove all posts you've shared on your timeline (also deletes associated bookmarks)"
                     checked={data_checked?(@form, "posts")}
-                  />
-
-                  <.data_checkbox
-                    id="user_data_bookmarks"
-                    name="user[data][bookmarks]"
-                    icon="hero-bookmark"
-                    label="Bookmarks"
-                    description="Remove all your saved bookmarks and bookmark notes"
-                    checked={data_checked?(@form, "bookmarks")}
                   />
 
                   <.data_checkbox

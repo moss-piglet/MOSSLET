@@ -1634,6 +1634,33 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def delete_all_journals(user_id) do
+    alias Mosslet.Journal.{JournalBook, JournalEntry, JournalInsight}
+
+    entries_query = from(e in JournalEntry, where: e.user_id == ^user_id)
+    books_query = from(b in JournalBook, where: b.user_id == ^user_id)
+    insights_query = from(i in JournalInsight, where: i.user_id == ^user_id)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.delete_all(:delete_entries, entries_query)
+    |> Ecto.Multi.delete_all(:delete_books, books_query)
+    |> Ecto.Multi.delete_all(:delete_insights, insights_query)
+    |> Repo.transaction_on_primary()
+    |> case do
+      {:ok,
+       %{
+         delete_entries: {entries_count, _},
+         delete_books: {books_count, _},
+         delete_insights: {insights_count, _}
+       }} ->
+        {:ok, entries_count + books_count + insights_count}
+
+      {:error, _op, reason, _changes} ->
+        {:error, reason}
+    end
+  end
+
+  @impl true
   def cleanup_shared_users_from_posts(uconn_user_id, uconn_reverse_user_id) do
     posts_to_clean =
       from(p in Post, where: p.user_id == ^uconn_reverse_user_id)
