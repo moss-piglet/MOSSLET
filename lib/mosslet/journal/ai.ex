@@ -181,4 +181,44 @@ defmodule Mosslet.Journal.AI do
   def random_fallback_prompt do
     Enum.random(fallback_prompts())
   end
+
+  def extract_text_from_image(image_binary, mime_type) do
+    alias ReqLLM.Message.ContentPart
+
+    system_prompt = """
+    You are an expert OCR assistant that extracts handwritten text from journal images.
+
+    Guidelines:
+    - Extract ALL visible handwritten text from the image accurately
+    - Preserve paragraph breaks and line structure where sensible
+    - Correct obvious spelling errors only if you're highly confident
+    - If text is unclear, make your best interpretation
+    - Do not add any commentary, explanations, or metadata
+    - Return ONLY the extracted text, nothing else
+    - If the image contains no readable text, respond with: [No readable text found]
+
+    Privacy note: This content is private journal writing. Process it respectfully and return only the text.
+    """
+
+    content = [
+      ContentPart.image(image_binary, mime_type),
+      ContentPart.text("Please extract all the handwritten text from this journal image.")
+    ]
+
+    message = %ReqLLM.Message{role: :user, content: content}
+
+    case ReqLLM.generate_text(@model, [message], system_prompt: system_prompt) do
+      {:ok, response} ->
+        text = ReqLLM.Response.text(response)
+
+        if text == "[No readable text found]" do
+          {:error, :no_text_found}
+        else
+          {:ok, text}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 end

@@ -96,6 +96,7 @@ defmodule MossletWeb.Router do
       live "/blog/articles/09", PublicLive.Blog.Blog09
       live "/blog/articles/10", PublicLive.Blog.Blog10
       live "/blog/articles/11", PublicLive.Blog.Blog11
+      live "/blog/articles/12", PublicLive.Blog.Blog12
       live "/faq", PublicLive.Faq, :faq
       live "/support", PublicLive.Support, :support
       live "/features", PublicLive.Features, :features
@@ -362,6 +363,8 @@ defmodule MossletWeb.Router do
       # Journal (private, user-only)
       live "/journal", JournalLive.Index, :index
       live "/journal/new", JournalLive.Entry, :new
+      live "/journal/books/:book_id", JournalLive.Book, :show
+      live "/journal/books/:book_id/edit", JournalLive.Book, :edit
       live "/journal/:id", JournalLive.Entry, :show
       live "/journal/:id/edit", JournalLive.Entry, :edit
 

@@ -2326,6 +2326,22 @@ defmodule MossletWeb.CoreComponents do
   attr :back_path, :string, default: nil, doc: "back path for focus layout"
   attr :prev_path, :string, default: nil, doc: "previous entry path for reader layout"
   attr :next_path, :string, default: nil, doc: "next entry path for reader layout"
+  attr :book_title, :string, default: nil, doc: "book title for reader layout"
+  attr :current_book_id, :string, default: nil, doc: "current book id for reader layout"
+  attr :books, :list, default: [], doc: "list of books for reader layout navigation"
+  attr :has_loose_entries, :boolean, default: false, doc: "whether loose entries exist"
+  attr :entry_id, :string, default: nil, doc: "current entry id for reader layout"
+
+  attr :entry_matches_scope, :boolean,
+    default: true,
+    doc: "whether entry belongs to current scope"
+
+  attr :entry_book_title, :string,
+    default: nil,
+    doc: "title of entry's book if different from scope"
+
+  attr :has_unsaved_changes, :boolean, default: false, doc: "whether there are unsaved changes"
+  attr :saving, :boolean, default: false, doc: "whether content is being saved"
 
   slot :logo_icon
   slot :inner_block

@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_12"
+                date="January 07, 2026"
+                title="Introducing Our Referral Program: Share the Love, Get Paid"
+                preview="We wanted to create something where growth benefits everyone. When MOSSLET grows, it's because real people told real friends about something they genuinely value. And those people get rewarded for helping us build a community that respects privacy."
+                link={~p"/blog/articles/12"}
+              />
+              <.blog_entry
                 id="blog_11"
                 date="December 22, 2025"
                 title="Introducing Our Referral Program: Share the Love, Get Paid"

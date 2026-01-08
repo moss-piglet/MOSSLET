@@ -15,13 +15,48 @@ defmodule Mosslet.Journal.JournalEntry do
   alias Mosslet.Encrypted
   alias Mosslet.Journal.JournalBook
 
+  @moods [
+    "joyful",
+    "happy",
+    "excited",
+    "hopeful",
+    "grateful",
+    "loved",
+    "loving",
+    "romantic",
+    "content",
+    "peaceful",
+    "calm",
+    "relaxed",
+    "inspired",
+    "creative",
+    "curious",
+    "confident",
+    "proud",
+    "neutral",
+    "tired",
+    "bored",
+    "anxious",
+    "worried",
+    "stressed",
+    "frustrated",
+    "sad",
+    "lonely",
+    "angry",
+    "overwhelmed",
+    "nostalgic",
+    "melancholic"
+  ]
+
+  def moods, do: @moods
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "journal_entries" do
     field :title, Encrypted.Binary
     field :title_hash, Encrypted.HMAC
     field :body, Encrypted.Binary
-    field :mood, Ecto.Enum, values: [:grateful, :happy, :calm, :neutral, :anxious, :sad, :angry]
+    field :mood, Encrypted.Binary
     field :is_favorite, :boolean, default: false
     field :word_count, :integer, default: 0
     field :entry_date, :date
@@ -38,11 +73,21 @@ defmodule Mosslet.Journal.JournalEntry do
     |> validate_required([:body])
     |> validate_length(:title, max: 200)
     |> validate_length(:body, max: 50_000)
+    |> validate_mood()
     |> set_entry_date()
     |> calculate_word_count()
     |> add_title_hash()
     |> maybe_require_user_id(opts)
     |> encrypt_attrs(opts)
+  end
+
+  defp validate_mood(changeset) do
+    case get_change(changeset, :mood) do
+      nil -> changeset
+      "" -> changeset
+      mood when mood in @moods -> changeset
+      _invalid -> add_error(changeset, :mood, "is not a valid mood")
+    end
   end
 
   defp maybe_require_user_id(changeset, opts) do
@@ -89,6 +134,7 @@ defmodule Mosslet.Journal.JournalEntry do
       changeset
       |> maybe_encrypt_title(opts)
       |> encrypt_body(opts)
+      |> maybe_encrypt_mood(opts)
     else
       changeset
     end
@@ -113,6 +159,22 @@ defmodule Mosslet.Journal.JournalEntry do
       put_change(changeset, :body, encrypted_body)
     else
       changeset
+    end
+  end
+
+  defp maybe_encrypt_mood(changeset, opts) do
+    case get_change(changeset, :mood) do
+      nil ->
+        changeset
+
+      "" ->
+        put_change(changeset, :mood, nil)
+
+      mood ->
+        encrypted_mood =
+          Encrypted.Users.Utils.encrypt_user_data(mood, opts[:user], opts[:key])
+
+        put_change(changeset, :mood, encrypted_mood)
     end
   end
 end

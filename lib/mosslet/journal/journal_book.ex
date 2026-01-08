@@ -11,7 +11,7 @@ defmodule Mosslet.Journal.JournalBook do
   alias Mosslet.Encrypted
   alias Mosslet.Journal.JournalEntry
 
-  @cover_colors ~w(emerald teal cyan blue violet purple pink rose amber orange)
+  @cover_colors ~w(yellow amber orange rose pink purple violet blue cyan teal emerald)
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

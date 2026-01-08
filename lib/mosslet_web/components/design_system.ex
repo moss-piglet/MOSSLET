@@ -13427,4 +13427,329 @@ defmodule MossletWeb.DesignSystem do
 
   defp can_view_profile?(:public), do: true
   defp can_view_profile?(_), do: false
+
+  @doc """
+  A beautiful mood picker with emoji-based selection.
+
+  Displays moods organized by emotional valence (positive → negative) with
+  smooth transitions and clear visual feedback.
+
+  ## Examples
+
+      <.mood_picker name="journal_entry[mood]" value={@form[:mood].value} />
+      <.mood_picker name="mood" value="happy" on_change="mood_changed" />
+  """
+  attr :name, :string, required: true
+  attr :value, :string, default: nil
+  attr :id, :string, default: nil
+  attr :on_change, :string, default: nil
+
+  def mood_picker(assigns) do
+    assigns =
+      assign(assigns, :id, assigns[:id] || "mood-picker-#{System.unique_integer([:positive])}")
+
+    ~H"""
+    <div id={@id} class="mood-picker" x-data="{ open: false }">
+      <input type="hidden" name={@name} value={@value || ""} id={"#{@id}-input"} />
+      <button
+        type="button"
+        @click="open = !open"
+        class={[
+          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all duration-200",
+          "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500/50",
+          "dark:focus:ring-offset-slate-800",
+          if(@value,
+            do: "bg-slate-100/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300",
+            else:
+              "bg-slate-100/50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
+          )
+        ]}
+      >
+        <span :if={@value} class="text-base leading-none">{mood_emoji(@value)}</span>
+        <span :if={!@value} class="text-base leading-none opacity-60">😊</span>
+        <span class="text-xs font-medium">
+          {if @value, do: mood_label(@value), else: "How are you feeling?"}
+        </span>
+        <.phx_icon
+          name="hero-chevron-down"
+          class={[
+            "h-3.5 w-3.5 transition-transform duration-200",
+            "x-bind:class=\"open && 'rotate-180'\""
+          ]}
+        />
+      </button>
+      <div
+        x-show="open"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 -translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 -translate-y-2"
+        @click.outside="open = false"
+        class="mt-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg w-64 sm:w-72"
+        style="display: none;"
+      >
+        <div class="max-h-64 sm:max-h-80 overflow-y-auto overscroll-contain p-3 sm:p-4">
+          <div class="space-y-2.5 sm:space-y-3">
+            <div :for={{category, moods} <- mood_categories()} class="space-y-1.5">
+              <div class="text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
+                {category}
+              </div>
+              <div class="grid grid-cols-5 gap-1">
+                <button
+                  :for={{mood, emoji, label} <- moods}
+                  type="button"
+                  phx-click={
+                    JS.dispatch("mood:select", detail: %{mood: mood, input_id: "#{@id}-input"})
+                  }
+                  @click="open = false"
+                  phx-value-mood={mood}
+                  class={[
+                    "group flex flex-col items-center justify-center p-2 rounded-lg text-center",
+                    "transition-all duration-150 ease-out",
+                    "hover:scale-105 active:scale-95",
+                    "focus:outline-none focus:ring-2 focus:ring-teal-500/50",
+                    mood_grid_button_classes(mood, @value)
+                  ]}
+                  title={label}
+                >
+                  <span class="text-xl leading-none">{emoji}</span>
+                  <span class={[
+                    "text-[10px] mt-1 leading-tight transition-opacity duration-150 w-full truncate",
+                    if(@value == mood,
+                      do: "opacity-100 font-medium",
+                      else: "opacity-70 group-hover:opacity-100"
+                    )
+                  ]}>
+                    {label}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div :if={@value} class="border-t border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2">
+          <button
+            type="button"
+            phx-click={JS.dispatch("mood:select", detail: %{mood: "", input_id: "#{@id}-input"})}
+            @click="open = false"
+            class="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          >
+            <.phx_icon name="hero-x-mark" class="h-3.5 w-3.5" /> Clear mood
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp mood_categories do
+    [
+      {"Happy",
+       [
+         {"joyful", "🤩", "Joyful"},
+         {"happy", "😊", "Happy"},
+         {"excited", "🎉", "Excited"},
+         {"hopeful", "🌟", "Hopeful"},
+         {"grateful", "🙏", "Grateful"}
+       ]},
+      {"Love",
+       [
+         {"loved", "🥰", "Loved"},
+         {"loving", "💕", "Loving"},
+         {"romantic", "💘", "Romantic"}
+       ]},
+      {"Calm",
+       [
+         {"content", "😌", "Content"},
+         {"peaceful", "🕊️", "Peaceful"},
+         {"calm", "😶", "Calm"},
+         {"relaxed", "😎", "Relaxed"}
+       ]},
+      {"Motivated",
+       [
+         {"inspired", "💡", "Inspired"},
+         {"creative", "🎨", "Creative"},
+         {"curious", "🤔", "Curious"},
+         {"confident", "💪", "Confident"},
+         {"proud", "🏆", "Proud"}
+       ]},
+      {"Neutral",
+       [
+         {"neutral", "😐", "Neutral"},
+         {"tired", "😴", "Tired"},
+         {"bored", "😑", "Bored"}
+       ]},
+      {"Anxious",
+       [
+         {"anxious", "😰", "Anxious"},
+         {"worried", "😟", "Worried"},
+         {"stressed", "😫", "Stressed"}
+       ]},
+      {"Sad",
+       [
+         {"sad", "😢", "Sad"},
+         {"lonely", "🥺", "Lonely"},
+         {"nostalgic", "📷", "Nostalgic"},
+         {"melancholic", "🌧️", "Melancholy"}
+       ]},
+      {"Difficult",
+       [
+         {"frustrated", "😤", "Frustrated"},
+         {"angry", "😠", "Angry"},
+         {"overwhelmed", "🤯", "Overwhelmed"}
+       ]}
+    ]
+  end
+
+  defp mood_grid_button_classes(mood, current_value) when mood == current_value do
+    mood_color = mood_color_scheme(mood)
+
+    [
+      mood_color[:bg],
+      mood_color[:text],
+      "ring-1",
+      mood_color[:border]
+    ]
+  end
+
+  defp mood_grid_button_classes(_mood, _current_value) do
+    [
+      "bg-slate-50/50 dark:bg-slate-700/30",
+      "text-slate-600 dark:text-slate-400",
+      "hover:bg-slate-100 dark:hover:bg-slate-700/50"
+    ]
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(joyful happy excited hopeful grateful) do
+    %{
+      bg: "bg-amber-50 dark:bg-amber-900/30",
+      text: "text-amber-700 dark:text-amber-300",
+      border: "border-amber-200 dark:border-amber-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(loved loving romantic) do
+    %{
+      bg: "bg-pink-50 dark:bg-pink-900/30",
+      text: "text-pink-700 dark:text-pink-300",
+      border: "border-pink-200 dark:border-pink-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(content peaceful calm relaxed) do
+    %{
+      bg: "bg-teal-50 dark:bg-teal-900/30",
+      text: "text-teal-700 dark:text-teal-300",
+      border: "border-teal-200 dark:border-teal-700/50"
+    }
+  end
+
+  defp mood_color_scheme("neutral") do
+    %{
+      bg: "bg-slate-100 dark:bg-slate-700/50",
+      text: "text-slate-600 dark:text-slate-300",
+      border: "border-slate-200 dark:border-slate-600"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(tired bored) do
+    %{
+      bg: "bg-slate-100 dark:bg-slate-700/50",
+      text: "text-slate-500 dark:text-slate-400",
+      border: "border-slate-200 dark:border-slate-600"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(inspired creative curious confident proud) do
+    %{
+      bg: "bg-indigo-50 dark:bg-indigo-900/30",
+      text: "text-indigo-700 dark:text-indigo-300",
+      border: "border-indigo-200 dark:border-indigo-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(anxious worried stressed) do
+    %{
+      bg: "bg-purple-50 dark:bg-purple-900/30",
+      text: "text-purple-700 dark:text-purple-300",
+      border: "border-purple-200 dark:border-purple-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(frustrated angry) do
+    %{
+      bg: "bg-rose-50 dark:bg-rose-900/30",
+      text: "text-rose-700 dark:text-rose-300",
+      border: "border-rose-200 dark:border-rose-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(sad lonely overwhelmed nostalgic melancholic) do
+    %{
+      bg: "bg-blue-50 dark:bg-blue-900/30",
+      text: "text-blue-700 dark:text-blue-300",
+      border: "border-blue-200 dark:border-blue-700/50"
+    }
+  end
+
+  defp mood_color_scheme(_) do
+    %{
+      bg: "bg-slate-100 dark:bg-slate-700/50",
+      text: "text-slate-600 dark:text-slate-300",
+      border: "border-slate-200 dark:border-slate-600"
+    }
+  end
+
+  @doc """
+  Returns the emoji for a given mood string.
+  """
+  def mood_emoji(mood) when is_binary(mood) do
+    mood_map = %{
+      "joyful" => "🤩",
+      "happy" => "😊",
+      "excited" => "🎉",
+      "hopeful" => "🌟",
+      "grateful" => "🙏",
+      "loved" => "🥰",
+      "loving" => "💕",
+      "romantic" => "💘",
+      "content" => "😌",
+      "peaceful" => "🕊️",
+      "calm" => "😶",
+      "relaxed" => "😎",
+      "inspired" => "💡",
+      "creative" => "🎨",
+      "curious" => "🤔",
+      "confident" => "💪",
+      "proud" => "🏆",
+      "neutral" => "😐",
+      "tired" => "😴",
+      "bored" => "😑",
+      "anxious" => "😰",
+      "worried" => "😟",
+      "stressed" => "😫",
+      "frustrated" => "😤",
+      "sad" => "😢",
+      "lonely" => "🥺",
+      "angry" => "😠",
+      "overwhelmed" => "🤯",
+      "nostalgic" => "📷",
+      "melancholic" => "🌧️"
+    }
+
+    Map.get(mood_map, mood, "")
+  end
+
+  def mood_emoji(_), do: ""
+
+  @doc """
+  Returns the label for a given mood string.
+  """
+  def mood_label(mood) when is_binary(mood) do
+    String.capitalize(mood)
+  end
+
+  def mood_label(_), do: ""
 end

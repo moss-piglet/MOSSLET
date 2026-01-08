@@ -872,7 +872,10 @@ let liveSocket = new LiveSocket("/live", Socket, {
     },
     live_select
   ),
-  params: { _csrf_token: csrfToken },
+  params: {
+    _csrf_token: csrfToken,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  },
   dom: {
     onNodeAdded(el) {
       if (el.nodeType == 1 && el._x_marker) {
@@ -903,6 +906,16 @@ window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 liveSocket.getSocket().onOpen(() => execJS("#connection-status", "js-hide"));
 liveSocket.getSocket().onError(() => execJS("#connection-status", "js-show"));
 liveSocket.connect();
+
+// Mood picker custom event handler
+document.addEventListener("mood:select", (event) => {
+  const { mood, input_id } = event.detail;
+  const input = document.getElementById(input_id);
+  if (input) {
+    input.value = mood;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+});
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()

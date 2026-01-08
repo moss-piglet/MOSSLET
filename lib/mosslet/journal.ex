@@ -9,7 +9,7 @@ defmodule Mosslet.Journal do
   import Ecto.Query, warn: false
 
   alias Mosslet.Repo
-  alias Mosslet.Journal.{JournalBook, JournalEntry}
+  alias Mosslet.Journal.{JournalBook, JournalEntry, JournalInsight}
   alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
 
   # =====================
@@ -277,8 +277,8 @@ defmodule Mosslet.Journal do
     |> Repo.one()
   end
 
-  def streak_days(user) do
-    today = Date.utc_today()
+  def streak_days(user, today \\ nil) do
+    today = today || Date.utc_today()
 
     entries =
       from(j in JournalEntry,
@@ -317,7 +317,14 @@ defmodule Mosslet.Journal do
 
     body = EncryptedUtils.decrypt_user_data(entry.body, user, key)
 
-    %{entry | title: title, body: body}
+    mood =
+      if entry.mood do
+        EncryptedUtils.decrypt_user_data(entry.mood, user, key)
+      else
+        nil
+      end
+
+    %{entry | title: title, body: body, mood: mood}
   end
 
   def change_journal_entry(%JournalEntry{} = entry, attrs \\ %{}) do
@@ -326,14 +333,20 @@ defmodule Mosslet.Journal do
 
   def get_adjacent_entries(%JournalEntry{} = entry, user, opts \\ []) do
     book_id = Keyword.get(opts, :book_id)
+    loose_only = Keyword.get(opts, :loose_only, false)
 
     base_query = from(j in JournalEntry, where: j.user_id == ^user.id)
 
     base_query =
-      if book_id do
-        from(j in base_query, where: j.book_id == ^book_id)
-      else
-        base_query
+      cond do
+        book_id ->
+          from(j in base_query, where: j.book_id == ^book_id)
+
+        loose_only ->
+          from(j in base_query, where: is_nil(j.book_id))
+
+        true ->
+          base_query
       end
 
     prev_entry =
@@ -386,4 +399,68 @@ defmodule Mosslet.Journal do
   defp handle_transaction_result({:ok, {:ok, result}}), do: {:ok, result}
   defp handle_transaction_result({:ok, {:error, changeset}}), do: {:error, changeset}
   defp handle_transaction_result({:error, _} = error), do: error
+
+  # =====================
+  # Insight Functions
+  # =====================
+
+  @insight_auto_refresh_days 7
+  @insight_manual_cooldown_hours 24
+
+  def get_insight(user) do
+    from(i in JournalInsight, where: i.user_id == ^user.id)
+    |> Repo.one()
+  end
+
+  def decrypt_insight(%JournalInsight{} = insight, user, key) do
+    decrypted_text = EncryptedUtils.decrypt_user_data(insight.insight, user, key)
+    %{insight | insight: decrypted_text}
+  end
+
+  def insight_needs_auto_refresh?(nil), do: true
+
+  def insight_needs_auto_refresh?(%JournalInsight{} = insight) do
+    cutoff = DateTime.add(DateTime.utc_now(), -@insight_auto_refresh_days, :day)
+    DateTime.compare(insight.generated_at, cutoff) == :lt
+  end
+
+  def can_manually_refresh_insight?(nil), do: true
+
+  def can_manually_refresh_insight?(%JournalInsight{} = insight) do
+    cutoff = DateTime.add(DateTime.utc_now(), -@insight_manual_cooldown_hours, :hour)
+    DateTime.compare(insight.generated_at, cutoff) == :lt
+  end
+
+  def hours_until_manual_refresh(%JournalInsight{} = insight) do
+    next_refresh = DateTime.add(insight.generated_at, @insight_manual_cooldown_hours, :hour)
+    diff_seconds = DateTime.diff(next_refresh, DateTime.utc_now())
+    max(0, div(diff_seconds, 3600))
+  end
+
+  def upsert_insight(user, insight_text, key) do
+    now = DateTime.utc_now()
+
+    Repo.transaction_on_primary(fn ->
+      case get_insight(user) do
+        nil ->
+          %JournalInsight{}
+          |> JournalInsight.changeset(
+            %{insight: insight_text, generated_at: now, user_id: user.id},
+            user: user,
+            key: key
+          )
+          |> Repo.insert()
+
+        existing ->
+          existing
+          |> JournalInsight.changeset(
+            %{insight: insight_text, generated_at: now},
+            user: user,
+            key: key
+          )
+          |> Repo.update()
+      end
+    end)
+    |> handle_transaction_result()
+  end
 end

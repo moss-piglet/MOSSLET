@@ -1,17 +1,18 @@
 defmodule MossletWeb.JournalLive.Index do
   @moduledoc """
-  Journal index - displays list of journal entries with stats.
+  Journal index - displays books and loose entries with stats.
   """
   use MossletWeb, :live_view
 
   alias Mosslet.Journal
   alias Mosslet.Journal.AI, as: JournalAI
+  alias Mosslet.Journal.JournalBook
 
   @impl true
   def render(assigns) do
     ~H"""
     <.layout type="sidebar" current_scope={@current_scope} current_page={:journal}>
-      <div class="max-w-4xl mx-auto">
+      <div class="max-w-4xl mx-auto pb-8">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -22,12 +23,52 @@ defmodule MossletWeb.JournalLive.Index do
             </p>
           </div>
 
-          <.link
-            navigate={~p"/app/journal/new"}
-            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
-          >
-            <.phx_icon name="hero-pencil-square" class="h-4 w-4" /> New Entry
-          </.link>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              :if={@favorites != []}
+              id={"favorites-toggle-#{@current_scope.user.id}"}
+              type="button"
+              phx-click="toggle_favorites"
+              phx-hook="TippyHook"
+              data-tippy-content={if @show_favorites, do: "Hide favorites", else: "Show favorites"}
+              class={[
+                "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border shadow-sm transition-all duration-200",
+                if(@show_favorites,
+                  do:
+                    "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700",
+                  else:
+                    "text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:text-amber-600 dark:hover:text-amber-400"
+                )
+              ]}
+            >
+              <span class="text-base">★</span>
+              <span class="hidden sm:inline">{length(@favorites)}</span>
+            </button>
+            <button
+              type="button"
+              phx-click="new_book"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+            >
+              <.phx_icon name="hero-book-open" class="h-4 w-4" /> New Book
+            </button>
+            <button
+              type="button"
+              phx-click="show_upload_modal"
+              id="upload-handwritten-btn"
+              phx-hook="TippyHook"
+              data-tippy-content="Upload handwritten journal"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+            >
+              <.phx_icon name="hero-camera" class="h-4 w-4" />
+              <span class="hidden sm:inline">Upload</span>
+            </button>
+            <.link
+              navigate={~p"/app/journal/new"}
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+            >
+              <.phx_icon name="hero-pencil-square" class="h-4 w-4" /> New Entry
+            </.link>
+          </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4 mb-8">
@@ -63,29 +104,140 @@ defmodule MossletWeb.JournalLive.Index do
                   Mood Insights
                 </h2>
                 <p
-                  :if={@mood_insight}
+                  :if={@mood_insight && !@loading_insights}
                   class="text-sm text-violet-700 dark:text-violet-300 leading-relaxed"
                 >
                   {@mood_insight}
                 </p>
-                <p :if={@loading_insights} class="text-sm text-violet-600 dark:text-violet-400 italic">
-                  Analyzing your mood patterns...
-                </p>
+                <div :if={@loading_insights} class="space-y-2">
+                  <p class="text-sm text-violet-600 dark:text-violet-400 italic">
+                    {Enum.random([
+                      "Reading between the lines of your journal... ✨",
+                      "Discovering patterns in your reflections... 🌟",
+                      "Connecting the dots of your journey... 💫",
+                      "Finding the story in your words... 📖",
+                      "Brewing some insights just for you... ☕"
+                    ])}
+                  </p>
+                  <div class="flex gap-1">
+                    <div class="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.3s]" />
+                    <div class="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.15s]" />
+                    <div class="w-2 h-2 rounded-full bg-violet-400 animate-bounce" />
+                  </div>
+                </div>
               </div>
             </div>
-            <button
-              :if={!@loading_insights}
-              type="button"
-              phx-click="refresh_insights"
-              class="text-violet-400 hover:text-violet-600 dark:hover:text-violet-300"
-              title="Refresh insights"
-            >
-              <.phx_icon name="hero-arrow-path" class="h-4 w-4" />
-            </button>
+            <div :if={!@loading_insights} class="flex flex-col items-end gap-1">
+              <button
+                type="button"
+                phx-click="refresh_insights"
+                disabled={!@can_refresh}
+                class={[
+                  "p-1.5 rounded-lg transition-all",
+                  @can_refresh &&
+                    "text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50",
+                  !@can_refresh && "text-violet-300 dark:text-violet-600 cursor-not-allowed"
+                ]}
+                title={
+                  if @can_refresh,
+                    do: "Get fresh insights",
+                    else: "Available in #{@hours_until_refresh}h"
+                }
+              >
+                <.phx_icon name="hero-sparkles" class="h-4 w-4" />
+              </button>
+              <span
+                :if={!@can_refresh && @hours_until_refresh > 0}
+                class="text-[10px] text-violet-400 dark:text-violet-500"
+              >
+                {if @hours_until_refresh > 0, do: "#{@hours_until_refresh}h", else: ""}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div :if={@entries == []} class="text-center py-16">
+        <div :if={@books != []} class="mb-8">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Books</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div
+              :for={book <- @books}
+              class="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-pointer"
+              phx-click={JS.navigate(~p"/app/journal/books/#{book.id}")}
+            >
+              <div class={[
+                "h-24 flex items-center justify-center",
+                book_cover_gradient(book.cover_color)
+              ]}>
+                <.phx_icon
+                  name="hero-book-open"
+                  class="h-10 w-10 text-white/80 group-hover:scale-110 transition-transform"
+                />
+              </div>
+              <div class="p-3">
+                <h3 class="font-medium text-slate-900 dark:text-slate-100 truncate">
+                  {book.decrypted_title}
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {book.entry_count} {if book.entry_count == 1, do: "entry", else: "entries"}
+                </p>
+              </div>
+              <button
+                id={"tooltip-add-entry-to-book-#{book.id}"}
+                type="button"
+                phx-click="new_entry_in_book"
+                phx-value-book-id={book.id}
+                phx-hook="TippyHook"
+                data-tippy-content="Add entry to book"
+                aria-label="Add entry to book"
+                class="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-slate-800/90 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-slate-700"
+              >
+                <.phx_icon name="hero-plus" class="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div :if={@show_favorites && @favorites != []} class="mb-8">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Favorites
+            </h2>
+            <span class="text-sm text-slate-500 dark:text-slate-400">
+              {length(@favorites)} starred
+            </span>
+          </div>
+          <div class="space-y-3">
+            <div
+              :for={entry <- @favorites}
+              class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600 transition-colors cursor-pointer"
+              phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
+                      {entry.decrypted_title || "Untitled"}
+                    </h3>
+                    <span class="text-amber-500">★</span>
+                  </div>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                    {truncate_body(entry.decrypted_body)}
+                  </p>
+                </div>
+                <div class="flex flex-col items-end gap-1">
+                  <time class="text-xs text-slate-500 dark:text-slate-400">
+                    {format_date(entry.entry_date)}
+                  </time>
+                  <span :if={entry.mood} class="text-lg" title={entry.mood}>
+                    {mood_emoji(entry.mood)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div :if={@entries == [] && @books == []} class="text-center py-16">
           <.phx_icon
             name="hero-book-open"
             class="h-12 w-12 mx-auto text-slate-400 dark:text-slate-500 mb-4"
@@ -96,49 +248,82 @@ defmodule MossletWeb.JournalLive.Index do
           <p class="text-slate-600 dark:text-slate-400 mb-6">
             Capture your thoughts, feelings, and moments in a private space.
           </p>
-          <.link
-            navigate={~p"/app/journal/new"}
-            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
-          >
-            <.phx_icon name="hero-pencil-square" class="h-4 w-4" /> Write your first entry
-          </.link>
+          <div class="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              phx-click="new_book"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+            >
+              <.phx_icon name="hero-book-open" class="h-4 w-4" /> Create a book
+            </button>
+            <.link
+              navigate={~p"/app/journal/new"}
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+            >
+              <.phx_icon name="hero-pencil-square" class="h-4 w-4" /> Write your first entry
+            </.link>
+          </div>
         </div>
 
-        <div :if={@entries != []} class="space-y-3">
-          <div
-            :for={entry <- @entries}
-            class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors cursor-pointer"
-            phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
-          >
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <h2 class="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
-                    {entry.decrypted_title || "Untitled"}
-                  </h2>
-                  <span
-                    :if={entry.is_favorite}
-                    class="text-amber-500"
-                    title="Favorite"
-                  >
-                    ★
-                  </span>
+        <div :if={@entries != []}>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {if @books != [], do: "Loose Entries", else: "Entries"}
+            </h2>
+            <span class="text-sm text-slate-500 dark:text-slate-400">
+              {if @books != [], do: "#{@loose_entry_count} not in a book", else: ""}
+            </span>
+          </div>
+          <div class="space-y-3">
+            <div
+              :for={entry <- @entries}
+              class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors cursor-pointer"
+              phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
+                      {entry.decrypted_title || "Untitled"}
+                    </h3>
+                    <span
+                      :if={entry.is_favorite}
+                      class="text-amber-500"
+                      title="Favorite"
+                    >
+                      ★
+                    </span>
+                  </div>
+                  <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                    {truncate_body(entry.decrypted_body)}
+                  </p>
                 </div>
-                <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                  {truncate_body(entry.decrypted_body)}
-                </p>
-              </div>
-              <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                <time class="text-xs text-slate-500 dark:text-slate-400">
-                  {format_date(entry.entry_date)}
-                </time>
-                <span
-                  :if={entry.mood}
-                  class="text-lg"
-                  title={Atom.to_string(entry.mood)}
-                >
-                  {mood_emoji(entry.mood)}
-                </span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    :if={@books != []}
+                    type="button"
+                    id={"move-entry-#{entry.id}"}
+                    phx-click={JS.push("show_move_modal", value: %{entry_id: entry.id})}
+                    phx-hook="TippyHook"
+                    data-tippy-content="Move to book"
+                    aria-label="Move to book"
+                    class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                  >
+                    <.phx_icon name="hero-folder-plus" class="h-4 w-4" />
+                  </button>
+                  <div class="flex flex-col items-end gap-1">
+                    <time class="text-xs text-slate-500 dark:text-slate-400">
+                      {format_date(entry.entry_date)}
+                    </time>
+                    <span
+                      :if={entry.mood}
+                      class="text-lg"
+                      title={entry.mood}
+                    >
+                      {mood_emoji(entry.mood)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -153,6 +338,376 @@ defmodule MossletWeb.JournalLive.Index do
           </button>
         </div>
       </div>
+
+      <.liquid_modal
+        :if={@show_book_modal}
+        id="book-modal"
+        show={@show_book_modal}
+        on_cancel={JS.push("cancel_book_modal")}
+        size="md"
+      >
+        <:title>{if @editing_book, do: "Edit Book", else: "New Book"}</:title>
+        <.form for={@book_form} id="book-form" phx-change="validate_book" phx-submit="save_book">
+          <div class="space-y-6">
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              Create a book to organize related journal entries
+            </p>
+
+            <div>
+              <.phx_input
+                field={@book_form[:title]}
+                type="text"
+                label="Title"
+                placeholder="My Travel Journal"
+                required
+              />
+            </div>
+
+            <div>
+              <.phx_input
+                field={@book_form[:description]}
+                type="textarea"
+                label="Description (optional)"
+                placeholder="A collection of my travel memories..."
+                rows="2"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Cover Color
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <label
+                  :for={color <- JournalBook.cover_colors()}
+                  class={[
+                    "relative w-10 h-10 rounded-lg cursor-pointer transition-all",
+                    book_cover_gradient(color),
+                    if(@book_form[:cover_color].value == color,
+                      do: "ring-2 ring-offset-2 ring-slate-900 dark:ring-white",
+                      else: "hover:scale-110"
+                    )
+                  ]}
+                >
+                  <input
+                    type="radio"
+                    name="journal_book[cover_color]"
+                    value={color}
+                    checked={@book_form[:cover_color].value == color}
+                    class="sr-only"
+                  />
+                  <span class="sr-only">{Phoenix.Naming.humanize(color)} cover color</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4">
+              <button
+                type="button"
+                phx-click="cancel_book_modal"
+                class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!@book_form.source.valid?}
+                class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                {if @editing_book, do: "Update", else: "Create Book"}
+              </button>
+            </div>
+          </div>
+        </.form>
+      </.liquid_modal>
+
+      <.liquid_modal
+        :if={@show_move_modal}
+        id="move-modal"
+        show={@show_move_modal}
+        on_cancel={JS.push("cancel_move_modal")}
+        size="md"
+      >
+        <:title>Move to Book</:title>
+        <div class="space-y-6">
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            Select a book to move this entry into
+          </p>
+
+          <div class="space-y-2">
+            <button
+              :for={book <- @books}
+              type="button"
+              phx-click="move_to_book"
+              phx-value-book-id={book.id}
+              class="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
+            >
+              <div class={[
+                "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                book_cover_gradient(book.cover_color)
+              ]}>
+                <.phx_icon name="hero-book-open" class="h-5 w-5 text-white/80" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-slate-900 dark:text-slate-100 truncate">
+                  {book.decrypted_title}
+                </div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">
+                  {book.entry_count} {if book.entry_count == 1, do: "entry", else: "entries"}
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button
+              type="button"
+              phx-click="cancel_move_modal"
+              class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </.liquid_modal>
+
+      <.liquid_modal
+        :if={@show_upload_modal}
+        id="upload-modal"
+        show={@show_upload_modal}
+        on_cancel={JS.push("cancel_upload_modal")}
+        size="lg"
+      >
+        <:title>Upload Handwritten Entry</:title>
+        <div class="space-y-6">
+          <%= if @upload_step == :upload do %>
+            <.form for={%{}} phx-change="validate_upload" phx-submit="process_upload" id="upload-form">
+              <label
+                for={@uploads.journal_image.ref}
+                class="relative block border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl overflow-hidden hover:border-teal-400 dark:hover:border-teal-500 transition-colors cursor-pointer"
+                phx-drop-target={@uploads.journal_image.ref}
+              >
+                <.live_file_input upload={@uploads.journal_image} class="sr-only" />
+                <%= if @uploads.journal_image.entries == [] do %>
+                  <div class="p-8 text-center">
+                    <div class="space-y-4">
+                      <div class="mx-auto w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <.phx_icon name="hero-camera" class="h-6 w-6 text-slate-400" />
+                      </div>
+                      <div>
+                        <span class="text-sm font-medium text-teal-700 dark:text-teal-300">
+                          Choose a photo
+                        </span>
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          or drag and drop
+                        </p>
+                      </div>
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
+                        PNG, JPG or HEIC up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                <% else %>
+                  <div :for={entry <- @uploads.journal_image.entries} class="relative">
+                    <.live_img_preview
+                      entry={entry}
+                      class="w-full h-48 object-cover"
+                    />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                      <div class="text-white">
+                        <p class="text-sm font-medium truncate max-w-[200px]">
+                          {entry.client_name}
+                        </p>
+                        <p class="text-xs text-white/70">
+                          {format_bytes(entry.client_size)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="cancel_upload"
+                        phx-value-ref={entry.ref}
+                        class="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                      >
+                        <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div
+                      :for={err <- upload_errors(@uploads.journal_image, entry)}
+                      class="absolute top-3 left-3 right-3 px-3 py-2 bg-red-500/90 text-white text-sm rounded-lg"
+                    >
+                      {upload_error_to_string(err)}
+                    </div>
+                  </div>
+                <% end %>
+              </label>
+
+              <div
+                :for={err <- upload_errors(@uploads.journal_image)}
+                class="mt-2 text-sm text-red-600"
+              >
+                {upload_error_to_string(err)}
+              </div>
+
+              <div class="mt-6 flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-800/50 flex items-center justify-center">
+                  <.phx_icon
+                    name="hero-lock-closed"
+                    class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                    Your privacy is protected
+                  </p>
+                  <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                    Your photo is processed securely and deleted immediately after digitizing. The extracted text is encrypted with your personal key—only you can read it.
+                  </p>
+                </div>
+              </div>
+            </.form>
+          <% end %>
+
+          <%= if @upload_step == :processing do %>
+            <div class="py-8 text-center">
+              <div class="relative inline-flex items-center justify-center w-20 h-20 mb-6">
+                <div class="absolute inset-0 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 opacity-20 animate-ping" />
+                <div class="absolute inset-2 rounded-full bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30" />
+                <div class="relative w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+              <p class="text-base font-medium text-slate-900 dark:text-slate-100 mb-2">
+                {upload_stage_text(@upload_stage)}
+              </p>
+              <div class="w-full max-w-xs mx-auto mb-4">
+                <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-300"
+                    style={"width: #{@upload_progress}%"}
+                  />
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  {@upload_progress}% complete
+                </p>
+              </div>
+              <div class="flex justify-center gap-1.5">
+                <div class="w-2 h-2 rounded-full bg-teal-500 animate-bounce [animation-delay:-0.3s]" />
+                <div class="w-2 h-2 rounded-full bg-teal-500 animate-bounce [animation-delay:-0.15s]" />
+                <div class="w-2 h-2 rounded-full bg-teal-500 animate-bounce" />
+              </div>
+            </div>
+          <% end %>
+
+          <%= if @upload_step == :preview do %>
+            <.form for={@extracted_form} id="extracted-form" phx-submit="save_extracted_entry">
+              <div class="space-y-4">
+                <div>
+                  <.phx_input
+                    field={@extracted_form[:title]}
+                    type="text"
+                    label="Title (optional)"
+                    placeholder="Give your entry a title"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Entry Date
+                  </label>
+                  <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <.phx_icon name="hero-calendar" class="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                      type="date"
+                      name="extracted[entry_date]"
+                      value={
+                        if @extracted_date,
+                          do: Date.to_iso8601(@extracted_date),
+                          else: Date.to_iso8601(Date.utc_today())
+                      }
+                      class="w-full pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                  </div>
+                  <p
+                    :if={@extracted_date}
+                    class="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"
+                  >
+                    <.phx_icon name="hero-sparkles-mini" class="h-3 w-3" />
+                    Date detected from your entry
+                  </p>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Extracted Text
+                  </label>
+                  <textarea
+                    name="extracted[body]"
+                    rows="10"
+                    class="w-full px-3 py-2 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    placeholder="Extracted text will appear here..."
+                  >{@extracted_form[:body].value}</textarea>
+                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Review and edit the extracted text before saving
+                  </p>
+                </div>
+
+                <div :if={@books != []}>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Add to Book (optional)
+                  </label>
+                  <select
+                    name="extracted[book_id]"
+                    class="w-full px-3 py-2 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  >
+                    <option value="">No book (loose entry)</option>
+                    <option :for={book <- @books} value={book.id}>
+                      {book.decrypted_title}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="flex justify-end gap-3 pt-6">
+                <button
+                  type="button"
+                  phx-click="cancel_upload_modal"
+                  class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+                >
+                  Save Entry
+                </button>
+              </div>
+            </.form>
+          <% end %>
+
+          <%= if @upload_step == :error do %>
+            <div class="py-8 text-center">
+              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                <.phx_icon name="hero-exclamation-triangle" class="h-8 w-8 text-red-500" />
+              </div>
+              <p class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
+                Couldn't read the image
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                {@upload_error || "Please try with a clearer photo of your handwriting"}
+              </p>
+              <button
+                type="button"
+                phx-click="retry_upload"
+                class="px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          <% end %>
+        </div>
+      </.liquid_modal>
     </.layout>
     """
   end
@@ -162,24 +717,69 @@ defmodule MossletWeb.JournalLive.Index do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
 
-    entries = Journal.list_journal_entries(user, limit: 20)
+    books = Journal.list_books(user)
+    decrypted_books = decrypt_books(books, user, key)
+
+    entries = Journal.list_loose_entries(user, limit: 20)
     decrypted_entries = decrypt_entries(entries, user, key)
+
     entry_count = Journal.count_entries(user)
+    loose_entry_count = Journal.count_loose_entries(user)
+
+    favorites = Journal.list_favorite_entries(user, limit: 10)
+    decrypted_favorites = decrypt_entries(favorites, user, key)
+
+    local_today = get_local_today(socket)
 
     socket =
       socket
       |> assign(:page_title, "Journal")
+      |> assign(:books, decrypted_books)
       |> assign(:entries, decrypted_entries)
+      |> assign(:favorites, decrypted_favorites)
+      |> assign(:show_favorites, false)
       |> assign(:entry_count, entry_count)
+      |> assign(:loose_entry_count, loose_entry_count)
       |> assign(:total_words, Journal.total_word_count(user))
-      |> assign(:streak, Journal.streak_days(user))
+      |> assign(:streak, Journal.streak_days(user, local_today))
       |> assign(:offset, 20)
       |> assign(:has_more, length(entries) == 20)
       |> assign(:mood_insight, nil)
       |> assign(:loading_insights, false)
+      |> assign(:cached_insight, nil)
+      |> assign(:can_refresh, true)
+      |> assign(:hours_until_refresh, 0)
+      |> assign(:show_book_modal, false)
+      |> assign(:book_form, nil)
+      |> assign(:editing_book, nil)
+      |> assign(:show_move_modal, false)
+      |> assign(:moving_entry_id, nil)
+      |> assign(:show_upload_modal, false)
+      |> assign(:upload_step, :upload)
+      |> assign(:upload_progress, 0)
+      |> assign(:upload_stage, nil)
+      |> assign(:extracted_form, nil)
+      |> assign(:extracted_date, nil)
+      |> assign(:upload_error, nil)
+      |> allow_upload(:journal_image,
+        accept: ~w(.jpg .jpeg .png .heic),
+        max_entries: 1,
+        max_file_size: 10_000_000,
+        auto_upload: true,
+        progress: &handle_journal_upload_progress/3,
+        writer: fn _name, entry, _socket ->
+          {Mosslet.FileUploads.JournalImageWriter,
+           %{
+             lv_pid: self(),
+             entry_ref: entry.ref,
+             mime_type: entry.client_type,
+             expected_size: entry.client_size
+           }}
+        end
+      )
 
     if connected?(socket) && entry_count >= 3 do
-      send(self(), :fetch_mood_insights)
+      send(self(), :load_cached_insight)
       {:ok, assign(socket, :loading_insights, true)}
     else
       {:ok, socket}
@@ -192,7 +792,7 @@ defmodule MossletWeb.JournalLive.Index do
     key = socket.assigns.current_scope.key
     offset = socket.assigns.offset
 
-    new_entries = Journal.list_journal_entries(user, limit: 20, offset: offset)
+    new_entries = Journal.list_loose_entries(user, limit: 20, offset: offset)
     decrypted_new = decrypt_entries(new_entries, user, key)
 
     {:noreply,
@@ -203,26 +803,442 @@ defmodule MossletWeb.JournalLive.Index do
   end
 
   @impl true
-  def handle_event("refresh_insights", _params, socket) do
-    send(self(), :fetch_mood_insights)
-    {:noreply, assign(socket, :loading_insights, true)}
+  def handle_event("toggle_favorites", _params, socket) do
+    {:noreply, assign(socket, :show_favorites, !socket.assigns.show_favorites)}
   end
 
   @impl true
-  def handle_info(:fetch_mood_insights, socket) do
+  def handle_event("refresh_insights", _params, socket) do
+    cached_insight = socket.assigns.cached_insight
+
+    if Journal.can_manually_refresh_insight?(cached_insight) do
+      send(self(), :generate_new_insight)
+      {:noreply, assign(socket, :loading_insights, true)}
+    else
+      hours = Journal.hours_until_manual_refresh(cached_insight)
+
+      {:noreply,
+       socket
+       |> put_flash(
+         :info,
+         "New insights available in #{hours} hour#{if hours == 1, do: "", else: "s"} ✨"
+       )}
+    end
+  end
+
+  @impl true
+  def handle_event("new_book", _params, socket) do
+    changeset = Journal.change_book(%JournalBook{cover_color: "emerald"})
+
+    {:noreply,
+     socket
+     |> assign(:show_book_modal, true)
+     |> assign(:editing_book, nil)
+     |> assign(:book_form, to_form(changeset, as: :journal_book))}
+  end
+
+  @impl true
+  def handle_event("validate_book", %{"journal_book" => params}, socket) do
+    changeset =
+      %JournalBook{}
+      |> Journal.change_book(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :book_form, to_form(changeset, as: :journal_book))}
+  end
+
+  @impl true
+  def handle_event("save_book", %{"journal_book" => params}, socket) do
     user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Journal.create_book(user, params, key) do
+      {:ok, book} ->
+        decrypted_book =
+          book
+          |> Map.put(:entry_count, 0)
+          |> decrypt_book(user, key)
+
+        {:noreply,
+         socket
+         |> assign(:show_book_modal, false)
+         |> assign(:book_form, nil)
+         |> assign(:books, [decrypted_book | socket.assigns.books])
+         |> put_flash(:info, "Book created")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :book_form, to_form(changeset, as: :journal_book))}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_book_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_book_modal, false)
+     |> assign(:book_form, nil)
+     |> assign(:editing_book, nil)
+     |> push_event("restore-body-scroll", %{})}
+  end
+
+  @impl true
+  def handle_event("new_entry_in_book", %{"book-id" => book_id}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/app/journal/new?book_id=#{book_id}")}
+  end
+
+  @impl true
+  def handle_event("show_move_modal", %{"entry_id" => entry_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_move_modal, true)
+     |> assign(:moving_entry_id, entry_id)}
+  end
+
+  @impl true
+  def handle_event("cancel_move_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_move_modal, false)
+     |> assign(:moving_entry_id, nil)
+     |> push_event("restore-body-scroll", %{})}
+  end
+
+  @impl true
+  def handle_event("move_to_book", %{"book-id" => book_id}, socket) do
+    user = socket.assigns.current_scope.user
+    entry_id = socket.assigns.moving_entry_id
+
+    entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+    case Journal.move_entry_to_book(entry, book_id, user) do
+      {:ok, _} ->
+        books =
+          Enum.map(socket.assigns.books, fn book ->
+            if book.id == book_id do
+              %{book | entry_count: book.entry_count + 1}
+            else
+              book
+            end
+          end)
+
+        {:noreply,
+         socket
+         |> assign(:show_move_modal, false)
+         |> assign(:moving_entry_id, nil)
+         |> assign(:entries, Enum.reject(socket.assigns.entries, &(&1.id == entry_id)))
+         |> assign(:books, books)
+         |> assign(:loose_entry_count, socket.assigns.loose_entry_count - 1)
+         |> put_flash(:info, "Entry moved to book")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:show_move_modal, false)
+         |> assign(:moving_entry_id, nil)
+         |> put_flash(:error, "Could not move entry")
+         |> push_event("restore-body-scroll", %{})}
+    end
+  end
+
+  @impl true
+  def handle_event("show_upload_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_upload_modal, true)
+     |> assign(:upload_step, :upload)
+     |> assign(:extracted_form, nil)
+     |> assign(:upload_error, nil)}
+  end
+
+  @impl true
+  def handle_event("cancel_upload_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_upload_modal, false)
+     |> assign(:upload_step, :upload)
+     |> assign(:upload_progress, 0)
+     |> assign(:upload_stage, nil)
+     |> assign(:extracted_form, nil)
+     |> assign(:extracted_date, nil)
+     |> assign(:upload_error, nil)
+     |> push_event("restore-body-scroll", %{})}
+  end
+
+  @impl true
+  def handle_event("validate_upload", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> cancel_upload(:journal_image, ref)
+     |> assign(:upload_step, :upload)
+     |> assign(:upload_progress, 0)
+     |> assign(:upload_stage, nil)}
+  end
+
+  @impl true
+  def handle_event("process_upload", _params, socket) do
+    [entry] = socket.assigns.uploads.journal_image.entries
+
+    result =
+      consume_uploaded_entry(socket, entry, fn meta ->
+        case meta do
+          %{extracted_text: text, extracted_date: date} ->
+            {:ok, {:ok, text, date}}
+
+          %{error: :no_text_found} ->
+            {:ok, {:error, "No readable text was found in the image. Try a clearer photo."}}
+
+          %{error: reason} ->
+            {:ok, {:error, "Something went wrong: #{inspect(reason)}"}}
+
+          _ ->
+            {:ok, {:error, "Processing not complete. Please try again."}}
+        end
+      end)
+
+    case result do
+      {:ok, text, date} ->
+        form = to_form(%{"title" => "", "body" => text, "book_id" => ""}, as: :extracted)
+
+        {:noreply,
+         socket
+         |> assign(:upload_step, :preview)
+         |> assign(:extracted_form, form)
+         |> assign(:extracted_date, date)
+         |> assign(:upload_progress, 100)
+         |> assign(:upload_stage, :ready)}
+
+      {:error, message} ->
+        {:noreply,
+         socket
+         |> assign(:upload_step, :error)
+         |> assign(:upload_error, message)
+         |> assign(:upload_progress, 0)
+         |> assign(:upload_stage, nil)}
+    end
+  end
+
+  @impl true
+  def handle_event("retry_upload", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:upload_step, :upload)
+     |> assign(:upload_progress, 0)
+     |> assign(:upload_stage, nil)
+     |> assign(:upload_error, nil)}
+  end
+
+  @impl true
+  def handle_event("save_extracted_entry", %{"extracted" => params}, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    entry_date =
+      case params["entry_date"] do
+        "" -> nil
+        nil -> nil
+        date_str -> Date.from_iso8601!(date_str)
+      end
+
+    entry_params = %{
+      "title" => params["title"],
+      "body" => params["body"],
+      "entry_date" => entry_date,
+      "book_id" => if(params["book_id"] == "", do: nil, else: params["book_id"])
+    }
+
+    case Journal.create_journal_entry(user, entry_params, key) do
+      {:ok, entry} ->
+        decrypted_entry =
+          entry
+          |> Map.put(:decrypted_title, params["title"])
+          |> Map.put(:decrypted_body, params["body"])
+
+        updated_entries =
+          if is_nil(entry.book_id) do
+            [decrypted_entry | socket.assigns.entries]
+          else
+            socket.assigns.entries
+          end
+
+        updated_books =
+          if entry.book_id do
+            Enum.map(socket.assigns.books, fn book ->
+              if book.id == entry.book_id do
+                %{book | entry_count: book.entry_count + 1}
+              else
+                book
+              end
+            end)
+          else
+            socket.assigns.books
+          end
+
+        {:noreply,
+         socket
+         |> assign(:show_upload_modal, false)
+         |> assign(:upload_step, :upload)
+         |> assign(:upload_progress, 0)
+         |> assign(:upload_stage, nil)
+         |> assign(:extracted_form, nil)
+         |> assign(:extracted_date, nil)
+         |> assign(:entries, updated_entries)
+         |> assign(:books, updated_books)
+         |> assign(:entry_count, socket.assigns.entry_count + 1)
+         |> assign(
+           :loose_entry_count,
+           if(is_nil(entry.book_id),
+             do: socket.assigns.loose_entry_count + 1,
+             else: socket.assigns.loose_entry_count
+           )
+         )
+         |> put_flash(:info, "Journal entry created from your handwriting ✨")
+         |> push_event("restore-body-scroll", %{})}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not save entry")}
+    end
+  end
+
+  defp handle_journal_upload_progress(:journal_image, entry, socket) do
+    if entry.done? do
+      {:noreply, assign(socket, :upload_step, :processing)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, _ref, :receiving, percent}, socket) do
+    {:noreply,
+     socket
+     |> assign(:upload_step, :processing)
+     |> assign(:upload_progress, percent)
+     |> assign(:upload_stage, :receiving)}
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, _ref, :extracting, percent}, socket) do
+    {:noreply,
+     socket
+     |> assign(:upload_progress, percent)
+     |> assign(:upload_stage, :extracting)}
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, _ref, :analyzing, percent}, socket) do
+    {:noreply,
+     socket
+     |> assign(:upload_progress, percent)
+     |> assign(:upload_stage, :analyzing)}
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, _ref, :ready, %{text: text, date: date}}, socket) do
+    form = to_form(%{"title" => "", "body" => text, "book_id" => ""}, as: :extracted)
+
+    {:noreply,
+     socket
+     |> assign(:upload_step, :preview)
+     |> assign(:extracted_form, form)
+     |> assign(:extracted_date, date)
+     |> assign(:upload_progress, 100)
+     |> assign(:upload_stage, :ready)}
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, _ref, :error, :no_text_found}, socket) do
+    {:noreply,
+     socket
+     |> assign(:upload_step, :error)
+     |> assign(:upload_error, "No readable text was found in the image. Try a clearer photo.")
+     |> assign(:upload_progress, 0)
+     |> assign(:upload_stage, nil)}
+  end
+
+  @impl true
+  def handle_info({:journal_upload_progress, _ref, :error, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(:upload_step, :error)
+     |> assign(:upload_error, "Something went wrong: #{inspect(reason)}")
+     |> assign(:upload_progress, 0)
+     |> assign(:upload_stage, nil)}
+  end
+
+  @impl true
+  def handle_info(:load_cached_insight, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case Journal.get_insight(user) do
+      nil ->
+        send(self(), :generate_new_insight)
+        {:noreply, socket}
+
+      cached_insight ->
+        if Journal.insight_needs_auto_refresh?(cached_insight) do
+          send(self(), :generate_new_insight)
+          {:noreply, assign(socket, :cached_insight, cached_insight)}
+        else
+          decrypted = Journal.decrypt_insight(cached_insight, user, key)
+          can_refresh = Journal.can_manually_refresh_insight?(cached_insight)
+          hours = if can_refresh, do: 0, else: Journal.hours_until_manual_refresh(cached_insight)
+
+          {:noreply,
+           socket
+           |> assign(:mood_insight, decrypted.insight)
+           |> assign(:cached_insight, cached_insight)
+           |> assign(:can_refresh, can_refresh)
+           |> assign(:hours_until_refresh, hours)
+           |> assign(:loading_insights, false)}
+        end
+    end
+  end
+
+  @impl true
+  def handle_info(:generate_new_insight, socket) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     recent_entries = Journal.list_journal_entries(user, limit: 14)
 
-    insight =
+    insight_text =
       case JournalAI.generate_mood_insights(recent_entries) do
         {:ok, text} -> text
         {:error, _} -> "Keep journaling! More entries help me understand your patterns better."
       end
 
-    {:noreply,
-     socket
-     |> assign(:mood_insight, insight)
-     |> assign(:loading_insights, false)}
+    case Journal.upsert_insight(user, insight_text, key) do
+      {:ok, cached_insight} ->
+        {:noreply,
+         socket
+         |> assign(:mood_insight, insight_text)
+         |> assign(:cached_insight, cached_insight)
+         |> assign(:can_refresh, false)
+         |> assign(:hours_until_refresh, 24)
+         |> assign(:loading_insights, false)}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:mood_insight, insight_text)
+         |> assign(:loading_insights, false)}
+    end
+  end
+
+  defp decrypt_books(books, user, key) do
+    Enum.map(books, &decrypt_book(&1, user, key))
+  end
+
+  defp decrypt_book(book, user, key) do
+    decrypted = Journal.decrypt_book(book, user, key)
+    Map.put(book, :decrypted_title, decrypted.title)
   end
 
   defp decrypt_entries(entries, user, key) do
@@ -235,6 +1251,21 @@ defmodule MossletWeb.JournalLive.Index do
     end)
   end
 
+  defp get_local_today(socket) do
+    case get_connect_params(socket) do
+      %{"timezone" => tz} when is_binary(tz) and tz != "" ->
+        DateTime.utc_now()
+        |> DateTime.shift_zone(tz)
+        |> case do
+          {:ok, local_dt} -> DateTime.to_date(local_dt)
+          _ -> Date.utc_today()
+        end
+
+      _ ->
+        Date.utc_today()
+    end
+  end
+
   defp truncate_body(nil), do: ""
 
   defp truncate_body(body) do
@@ -244,6 +1275,11 @@ defmodule MossletWeb.JournalLive.Index do
       body
     end
   end
+
+  defp upload_stage_text(:receiving), do: "Uploading image..."
+  defp upload_stage_text(:extracting), do: "Reading your handwriting..."
+  defp upload_stage_text(:analyzing), do: "Detecting date..."
+  defp upload_stage_text(_), do: "Processing..."
 
   defp format_date(date) do
     today = Date.utc_today()
@@ -255,12 +1291,28 @@ defmodule MossletWeb.JournalLive.Index do
     end
   end
 
-  defp mood_emoji(:grateful), do: "🙏"
-  defp mood_emoji(:happy), do: "😊"
-  defp mood_emoji(:calm), do: "😌"
-  defp mood_emoji(:neutral), do: "😐"
-  defp mood_emoji(:anxious), do: "😰"
-  defp mood_emoji(:sad), do: "😢"
-  defp mood_emoji(:angry), do: "😠"
-  defp mood_emoji(_), do: ""
+  defp book_cover_gradient("emerald"), do: "bg-gradient-to-br from-emerald-500 to-teal-600"
+  defp book_cover_gradient("teal"), do: "bg-gradient-to-br from-teal-500 to-cyan-600"
+  defp book_cover_gradient("cyan"), do: "bg-gradient-to-br from-cyan-500 to-blue-600"
+  defp book_cover_gradient("blue"), do: "bg-gradient-to-br from-blue-500 to-indigo-600"
+  defp book_cover_gradient("violet"), do: "bg-gradient-to-br from-violet-500 to-purple-600"
+  defp book_cover_gradient("purple"), do: "bg-gradient-to-br from-purple-500 to-pink-600"
+  defp book_cover_gradient("pink"), do: "bg-gradient-to-br from-pink-500 to-rose-600"
+  defp book_cover_gradient("rose"), do: "bg-gradient-to-br from-rose-500 to-red-600"
+  defp book_cover_gradient("amber"), do: "bg-gradient-to-br from-amber-500 to-orange-600"
+  defp book_cover_gradient("orange"), do: "bg-gradient-to-br from-orange-500 to-red-600"
+  defp book_cover_gradient("yellow"), do: "bg-gradient-to-br from-yellow-400 to-amber-500"
+  defp book_cover_gradient(_), do: "bg-gradient-to-br from-slate-500 to-slate-600"
+
+  defp format_bytes(bytes) when bytes < 1024, do: "#{bytes} B"
+  defp format_bytes(bytes) when bytes < 1_048_576, do: "#{Float.round(bytes / 1024, 1)} KB"
+  defp format_bytes(bytes), do: "#{Float.round(bytes / 1_048_576, 1)} MB"
+
+  defp upload_error_to_string(:too_large), do: "File is too large (max 10MB)"
+
+  defp upload_error_to_string(:not_accepted),
+    do: "Invalid file type. Please use JPG, PNG, or HEIC"
+
+  defp upload_error_to_string(:too_many_files), do: "Only one image at a time"
+  defp upload_error_to_string(_), do: "Upload error"
 end

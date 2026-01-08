@@ -19,9 +19,16 @@ defmodule MossletWeb.JournalLive.Entry do
         type="reader"
         current_scope={@current_scope}
         current_page={:journal}
-        back_path={~p"/app/journal"}
+        back_path={@back_path}
         prev_path={@prev_path}
         next_path={@next_path}
+        book_title={@book_title}
+        current_book_id={@current_book_id}
+        books={@nav_books}
+        has_loose_entries={@has_loose_entries}
+        entry_id={@entry.id}
+        entry_matches_scope={@entry_matches_scope}
+        entry_book_title={@entry_book_title}
       >
         <div class="max-w-2xl mx-auto">
           <div class="space-y-6">
@@ -92,24 +99,10 @@ defmodule MossletWeb.JournalLive.Entry do
             phx-submit="save"
             class="space-y-6"
           >
-            <div class="flex items-center gap-3 mb-6">
+            <div class="flex flex-wrap items-center gap-3 mb-6">
               <time class="text-sm text-slate-500 dark:text-slate-400">
                 {format_date(@entry_date)}
               </time>
-              <select
-                name="journal_entry[mood]"
-                aria-label="Select mood"
-                class="text-2xl bg-transparent border-none focus:ring-0 cursor-pointer"
-              >
-                <option value="" selected={is_nil(@form[:mood].value)}>😶</option>
-                <option value="grateful" selected={@form[:mood].value == :grateful}>🙏</option>
-                <option value="happy" selected={@form[:mood].value == :happy}>😊</option>
-                <option value="calm" selected={@form[:mood].value == :calm}>😌</option>
-                <option value="neutral" selected={@form[:mood].value == :neutral}>😐</option>
-                <option value="anxious" selected={@form[:mood].value == :anxious}>😰</option>
-                <option value="sad" selected={@form[:mood].value == :sad}>😢</option>
-                <option value="angry" selected={@form[:mood].value == :angry}>😠</option>
-              </select>
               <button
                 type="button"
                 phx-click="get_prompt"
@@ -119,6 +112,10 @@ defmodule MossletWeb.JournalLive.Entry do
                 <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5" />
                 {if @loading_prompt, do: "Getting prompt...", else: "Inspire me"}
               </button>
+            </div>
+
+            <div class="mb-6">
+              <.mood_picker name="journal_entry[mood]" value={@form[:mood].value} id="entry-mood" />
             </div>
 
             <div
@@ -223,7 +220,15 @@ defmodule MossletWeb.JournalLive.Entry do
      |> assign(:auto_save_timer, nil)
      |> assign(:pending_params, nil)
      |> assign(:prev_path, nil)
-     |> assign(:next_path, nil)}
+     |> assign(:next_path, nil)
+     |> assign(:back_path, ~p"/app/journal")
+     |> assign(:book_title, nil)
+     |> assign(:current_book_id, nil)
+     |> assign(:nav_books, [])
+     |> assign(:has_loose_entries, false)
+     |> assign(:book_id, nil)
+     |> assign(:entry_matches_scope, true)
+     |> assign(:entry_book_title, nil)}
   end
 
   @impl true
@@ -231,12 +236,14 @@ defmodule MossletWeb.JournalLive.Entry do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :new, _params) do
+  defp apply_action(socket, :new, params) do
+    book_id = params["book_id"]
     changeset = Journal.change_journal_entry(%JournalEntry{})
 
     socket
     |> assign(:page_title, "New Entry")
     |> assign(:entry, nil)
+    |> assign(:book_id, book_id)
     |> assign(:form, to_form(changeset, as: :journal_entry))
     |> assign(:has_unsaved_changes, false)
     |> assign(:last_saved_at, nil)
@@ -256,7 +263,11 @@ defmodule MossletWeb.JournalLive.Entry do
         decrypted = Journal.decrypt_entry(entry, user, key)
 
         changeset =
-          Journal.change_journal_entry(entry, %{title: decrypted.title, body: decrypted.body})
+          Journal.change_journal_entry(entry, %{
+            title: decrypted.title,
+            body: decrypted.body,
+            mood: decrypted.mood
+          })
 
         socket
         |> assign(:page_title, "Edit Entry")
@@ -269,9 +280,10 @@ defmodule MossletWeb.JournalLive.Entry do
     end
   end
 
-  defp apply_action(socket, :show, %{"id" => id}) do
+  defp apply_action(socket, :show, params) do
     user = socket.assigns.user
     key = socket.assigns.key
+    id = params["id"]
 
     case Journal.get_journal_entry(id, user) do
       nil ->
@@ -281,10 +293,105 @@ defmodule MossletWeb.JournalLive.Entry do
 
       entry ->
         decrypted = Journal.decrypt_entry(entry, user, key)
-        adjacent = Journal.get_adjacent_entries(entry, user)
 
-        prev_path = if adjacent.prev_id, do: ~p"/app/journal/#{adjacent.prev_id}", else: nil
-        next_path = if adjacent.next_id, do: ~p"/app/journal/#{adjacent.next_id}", else: nil
+        books = Journal.list_books(user)
+        has_loose_entries = Journal.count_loose_entries(user) > 0
+
+        nav_books =
+          Enum.map(books, fn book ->
+            decrypted_book = Journal.decrypt_book(book, user, key)
+            %{id: book.id, title: decrypted_book.title, cover_color: book.cover_color}
+          end)
+
+        {nav_book_id, book_title, back_path} =
+          case params["scope"] do
+            "loose" ->
+              {nil, nil, ~p"/app/journal"}
+
+            "book" ->
+              scope_book_id = params["book_id"]
+              book = Enum.find(books, &(&1.id == scope_book_id))
+
+              if book do
+                decrypted_book = Journal.decrypt_book(book, user, key)
+                {scope_book_id, decrypted_book.title, ~p"/app/journal/books/#{scope_book_id}"}
+              else
+                {entry.book_id, nil, ~p"/app/journal"}
+              end
+
+            _ ->
+              if entry.book_id do
+                book = Enum.find(books, &(&1.id == entry.book_id))
+
+                if book do
+                  decrypted_book = Journal.decrypt_book(book, user, key)
+                  {entry.book_id, decrypted_book.title, ~p"/app/journal/books/#{entry.book_id}"}
+                else
+                  {nil, nil, ~p"/app/journal"}
+                end
+              else
+                {nil, nil, ~p"/app/journal"}
+              end
+          end
+
+        scope =
+          cond do
+            params["scope"] == "loose" -> :loose
+            params["scope"] == "book" && nav_book_id -> {:book, nav_book_id}
+            nav_book_id -> {:book, nav_book_id}
+            true -> :loose
+          end
+
+        entry_matches_scope =
+          case scope do
+            :loose -> is_nil(entry.book_id)
+            {:book, book_id} -> entry.book_id == book_id
+          end
+
+        nav_opts =
+          case scope do
+            :loose -> [loose_only: true]
+            {:book, book_id} -> [book_id: book_id]
+          end
+
+        adjacent = Journal.get_adjacent_entries(entry, user, nav_opts)
+
+        {prev_path, next_path} =
+          case scope do
+            :loose ->
+              prev =
+                if adjacent.prev_id,
+                  do: ~p"/app/journal/#{adjacent.prev_id}?scope=loose",
+                  else: nil
+
+              next =
+                if adjacent.next_id,
+                  do: ~p"/app/journal/#{adjacent.next_id}?scope=loose",
+                  else: nil
+
+              {prev, next}
+
+            {:book, book_id} ->
+              prev =
+                if adjacent.prev_id,
+                  do: ~p"/app/journal/#{adjacent.prev_id}?scope=book&book_id=#{book_id}",
+                  else: nil
+
+              next =
+                if adjacent.next_id,
+                  do: ~p"/app/journal/#{adjacent.next_id}?scope=book&book_id=#{book_id}",
+                  else: nil
+
+              {prev, next}
+          end
+
+        entry_book_title =
+          if entry.book_id && entry.book_id != nav_book_id do
+            book = Enum.find(books, &(&1.id == entry.book_id))
+            if book, do: Journal.decrypt_book(book, user, key).title, else: nil
+          else
+            nil
+          end
 
         socket
         |> assign(:page_title, decrypted.title || "Journal Entry")
@@ -293,6 +400,13 @@ defmodule MossletWeb.JournalLive.Entry do
         |> assign(:decrypted_body, decrypted.body)
         |> assign(:prev_path, prev_path)
         |> assign(:next_path, next_path)
+        |> assign(:back_path, back_path)
+        |> assign(:book_title, book_title)
+        |> assign(:current_book_id, nav_book_id)
+        |> assign(:nav_books, nav_books)
+        |> assign(:has_loose_entries, has_loose_entries)
+        |> assign(:entry_matches_scope, entry_matches_scope)
+        |> assign(:entry_book_title, entry_book_title)
     end
   end
 
@@ -422,6 +536,14 @@ defmodule MossletWeb.JournalLive.Entry do
   defp save_entry(socket, :new, params, opts) do
     user = socket.assigns.user
     key = socket.assigns.key
+    book_id = socket.assigns.book_id
+
+    params =
+      if book_id do
+        Map.put(params, "book_id", book_id)
+      else
+        params
+      end
 
     socket = assign(socket, :saving, true)
 
@@ -505,13 +627,4 @@ defmodule MossletWeb.JournalLive.Entry do
       true -> Calendar.strftime(date, "%A, %B %d, %Y")
     end
   end
-
-  defp mood_emoji(:grateful), do: "🙏"
-  defp mood_emoji(:happy), do: "😊"
-  defp mood_emoji(:calm), do: "😌"
-  defp mood_emoji(:neutral), do: "😐"
-  defp mood_emoji(:anxious), do: "😰"
-  defp mood_emoji(:sad), do: "😢"
-  defp mood_emoji(:angry), do: "😠"
-  defp mood_emoji(_), do: ""
 end
