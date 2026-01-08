@@ -4,6 +4,7 @@ defmodule MossletWeb.JournalLive.Book do
   """
   use MossletWeb, :live_view
 
+  alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.JournalBook
 
@@ -345,6 +346,22 @@ defmodule MossletWeb.JournalLive.Book do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not delete book")}
     end
+  end
+
+  @impl true
+  def handle_event("restore-body-scroll", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
+    user = Accounts.get_user_with_preloads(user_id)
+    {:noreply, assign(socket, :current_user, user)}
+  end
+
+  @impl true
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
   end
 
   defp decrypt_entries(entries, user, key) do

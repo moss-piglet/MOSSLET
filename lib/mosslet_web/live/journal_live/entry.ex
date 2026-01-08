@@ -5,6 +5,7 @@ defmodule MossletWeb.JournalLive.Entry do
   """
   use MossletWeb, :live_view
 
+  alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.AI, as: JournalAI
   alias Mosslet.Journal.JournalEntry
@@ -498,6 +499,11 @@ defmodule MossletWeb.JournalLive.Entry do
   end
 
   @impl true
+  def handle_event("restore-body-scroll", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info(:auto_save, socket) do
     params = socket.assigns.pending_params
 
@@ -531,6 +537,17 @@ defmodule MossletWeb.JournalLive.Entry do
   @impl true
   def handle_info(:clear_cooldown, socket) do
     {:noreply, assign(socket, :prompt_cooldown, false)}
+  end
+
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
+    user = Accounts.get_user_with_preloads(user_id)
+    {:noreply, assign(socket, :current_user, user)}
+  end
+
+  @impl true
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
   end
 
   defp save_entry(socket, :new, params, opts) do

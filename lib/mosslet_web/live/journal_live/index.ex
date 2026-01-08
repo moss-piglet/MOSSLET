@@ -4,6 +4,7 @@ defmodule MossletWeb.JournalLive.Index do
   """
   use MossletWeb, :live_view
 
+  alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.AI, as: JournalAI
   alias Mosslet.Journal.JournalBook
@@ -1444,6 +1445,12 @@ defmodule MossletWeb.JournalLive.Index do
          |> assign(:mood_insight, insight_text)
          |> assign(:loading_insights, false)}
     end
+  end
+
+  @impl true
+  def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
+    user = Accounts.get_user_with_preloads(user_id)
+    {:noreply, assign(socket, :current_user, user)}
   end
 
   @impl true
