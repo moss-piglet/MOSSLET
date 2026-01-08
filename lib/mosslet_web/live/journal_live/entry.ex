@@ -190,7 +190,7 @@ defmodule MossletWeb.JournalLive.Entry do
                 name="journal_entry[body]"
                 placeholder="What's on your mind?"
                 phx-hook="AutoResize"
-                phx-debounce="blur"
+                phx-debounce="1500"
                 id="journal-body"
                 class="w-full text-lg text-slate-700 dark:text-slate-300 bg-transparent border-none focus:ring-0 resize-none placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed overflow-hidden"
               >{@form[:body].value}</textarea>

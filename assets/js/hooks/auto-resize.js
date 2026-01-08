@@ -3,7 +3,12 @@ const AutoResize = {
     this.el.style.boxSizing = "border-box";
     this.offset = this.el.offsetHeight - this.el.clientHeight;
     this.resize();
-    this.el.addEventListener("input", () => this.resize());
+    this.handleInput = () => this.resize();
+    this.el.addEventListener("input", this.handleInput);
+  },
+
+  destroyed() {
+    this.el.removeEventListener("input", this.handleInput);
   },
 
   getFooterHeight() {
