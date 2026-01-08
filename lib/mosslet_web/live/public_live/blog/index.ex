@@ -31,8 +31,8 @@ defmodule MossletWeb.PublicLive.Blog.Index do
               <.blog_entry
                 id="blog_12"
                 date="January 07, 2026"
-                title="Introducing Our Referral Program: Share the Love, Get Paid"
-                preview="We wanted to create something where growth benefits everyone. When MOSSLET grows, it's because real people told real friends about something they genuinely value. And those people get rewarded for helping us build a community that respects privacy."
+                title="Introducing Journal: Your Private Space for Reflection"
+                preview="I think a lot about what kind of world my kids are growing up in. A world where every thought shared online becomes data to be harvested. Where moments of vulnerability become training data for algorithms designed to manipulate. Where there's nowhere left to just... be."
                 link={~p"/blog/articles/12"}
               />
               <.blog_entry

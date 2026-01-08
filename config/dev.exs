@@ -91,6 +91,7 @@ config :mosslet, :billing_products, [
     most_popular: false,
     features: [
       "Unlimited Connections, Circles, and Posts",
+      "Unlimited Journal entries & books",
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",
@@ -121,6 +122,7 @@ config :mosslet, :billing_products, [
     most_popular: true,
     features: [
       "Unlimited Connections, Circles, and Posts",
+      "Unlimited Journal entries & books",
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",
@@ -152,6 +154,7 @@ config :mosslet, :billing_products, [
     most_popular: false,
     features: [
       "Unlimited Connections, Circles, and Posts",
+      "Unlimited Journal entries & books",
       "Unlimited new features",
       "Streamlined settings",
       "Own your data",

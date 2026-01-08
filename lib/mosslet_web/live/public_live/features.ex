@@ -677,6 +677,32 @@ defmodule MossletWeb.PublicLive.Features do
                 </div>
               </.liquid_card>
 
+              <%!-- Private Journal --%>
+              <.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out"
+              >
+                <:title>
+                  <div class="flex items-center gap-4">
+                    <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 shadow-lg">
+                      <.phx_icon name="hero-book-open" class="size-7 text-white" />
+                    </div>
+                    <span class="bg-gradient-to-r from-amber-500 to-yellow-500 bg-clip-text text-transparent font-bold">
+                      Private Journal
+                    </span>
+                  </div>
+                </:title>
+                <p class="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                  Capture your thoughts in encrypted journals. Organize entries into books and reflect on your journey — completely private.
+                </p>
+                <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
+                  <div class="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-2">
+                    <.phx_icon name="hero-lock-closed" class="size-3" />
+                    Unlimited entries • Unlimited books • End-to-end encrypted
+                  </div>
+                </div>
+              </.liquid_card>
+
               <%!-- Healthy Design --%>
               <.liquid_card
                 padding="lg"
