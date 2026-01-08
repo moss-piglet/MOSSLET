@@ -1263,7 +1263,8 @@ defmodule MossletWeb.JournalLive.Index do
     end
   end
 
-  defp handle_journal_upload_progress(:journal_image, _entry, socket) do
+  @impl true
+  def handle_event("restore-body-scroll", _params, socket) do
     {:noreply, socket}
   end
 
@@ -1443,6 +1444,15 @@ defmodule MossletWeb.JournalLive.Index do
          |> assign(:mood_insight, insight_text)
          |> assign(:loading_insights, false)}
     end
+  end
+
+  @impl true
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
+  end
+
+  defp handle_journal_upload_progress(:journal_image, _entry, socket) do
+    {:noreply, socket}
   end
 
   defp calculate_aggregate_progress(processing_images) when map_size(processing_images) == 0 do
