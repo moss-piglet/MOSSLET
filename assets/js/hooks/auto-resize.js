@@ -1,73 +1,30 @@
 const AutoResize = {
   mounted() {
-    this.resizeSmooth();
-    this.el.addEventListener("input", () => this.handleInput());
+    this.el.style.boxSizing = "border-box";
+    this.offset = this.el.offsetHeight - this.el.clientHeight;
+    this.resize();
+    this.el.addEventListener("input", () => this.resize());
   },
 
-  handleInput() {
-    const scrollY = window.scrollY;
-    const caretAtEnd = this.isCaretAtEnd();
-    
-    this.resizeSmooth();
-    
-    if (caretAtEnd) {
-      const bottomOfTextarea = this.el.getBoundingClientRect().bottom;
-      const buffer = 180;
-      const viewportBottom = window.innerHeight - buffer;
-      
-      if (bottomOfTextarea > viewportBottom) {
-        window.scrollTo({
-          top: scrollY + (bottomOfTextarea - viewportBottom),
-          behavior: "instant",
-        });
-      }
+  getFooterHeight() {
+    const footer = document.querySelector("footer.fixed.bottom-0");
+    return footer ? footer.offsetHeight : 0;
+  },
+
+  resize() {
+    const el = this.el;
+    el.style.height = "auto";
+    const contentHeight = el.scrollHeight + this.offset;
+    const rect = el.getBoundingClientRect();
+    const footerHeight = this.getFooterHeight();
+    const availableBottom = window.innerHeight - footerHeight - 8;
+    const maxHeight = availableBottom - rect.top;
+
+    if (contentHeight > maxHeight && maxHeight > 100) {
+      el.style.height = maxHeight + "px";
+    } else {
+      el.style.height = contentHeight + "px";
     }
-  },
-
-  beforeUpdate() {
-    this.prevScrollY = window.scrollY;
-    this.wasAtEnd = this.isCaretAtEnd();
-  },
-
-  updated() {
-    requestAnimationFrame(() => {
-      this.resizeSmooth();
-      
-      if (this.wasAtEnd) {
-        const bottomOfTextarea = this.el.getBoundingClientRect().bottom;
-        const buffer = 180;
-        const viewportBottom = window.innerHeight - buffer;
-        
-        if (bottomOfTextarea > viewportBottom) {
-          window.scrollTo({
-            top: window.scrollY + (bottomOfTextarea - viewportBottom),
-            behavior: "instant",
-          });
-        }
-      } else {
-        window.scrollTo({
-          top: this.prevScrollY,
-          behavior: "instant",
-        });
-      }
-    });
-  },
-
-  resizeSmooth() {
-    const currentHeight = this.el.offsetHeight;
-    const scrollHeight = this.el.scrollHeight;
-    const minHeight = 400;
-    const targetHeight = Math.max(scrollHeight, minHeight);
-    
-    if (targetHeight !== currentHeight) {
-      this.el.style.height = targetHeight + "px";
-    }
-  },
-
-  isCaretAtEnd() {
-    const selection = this.el.selectionStart;
-    const length = this.el.value.length;
-    return selection !== null && selection >= length - 1;
   },
 };
 

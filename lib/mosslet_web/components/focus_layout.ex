@@ -14,6 +14,7 @@ defmodule MossletWeb.FocusLayout do
 
   slot :inner_block, required: true
   slot :top_right
+  slot :footer
 
   def focus_layout(assigns) do
     back_path = assigns[:back_path] || ~p"/app/journal"
@@ -23,9 +24,9 @@ defmodule MossletWeb.FocusLayout do
     ~H"""
     <div
       class="min-h-screen bg-gradient-to-br from-slate-50 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
-      x-data="{ composing: false, headerVisible: true }"
-      @focusin.window="if ($event.target.tagName === 'TEXTAREA' || ($event.target.tagName === 'INPUT' && $event.target.type === 'text')) { composing = true; headerVisible = false }"
-      @focusout.window="composing = false; headerVisible = true"
+      x-data="{ composing: false, headerVisible: true, footerVisible: true }"
+      @focusin.window="if ($event.target.tagName === 'TEXTAREA' || ($event.target.tagName === 'INPUT' && $event.target.type === 'text')) { composing = true; headerVisible = false; footerVisible = false }"
+      @focusout.window="composing = false; headerVisible = true; footerVisible = true"
       id="focus-layout"
       phx-hook={if @has_unsaved_changes, do: "UnsavedChanges", else: nil}
       data-has-unsaved={to_string(@has_unsaved_changes)}
@@ -33,9 +34,9 @@ defmodule MossletWeb.FocusLayout do
       <header
         class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'"
-        @mouseenter="headerVisible = true"
-        @mouseleave="if (composing) headerVisible = false"
-        @touchstart="headerVisible = true"
+        @mouseenter="headerVisible = true; footerVisible = true"
+        @mouseleave="if (composing) { headerVisible = false; footerVisible = false }"
+        @touchstart="headerVisible = true; footerVisible = true"
       >
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-14">
@@ -78,16 +79,40 @@ defmodule MossletWeb.FocusLayout do
       <div
         class="fixed top-0 left-0 right-0 h-4 z-50"
         x-show="composing && !headerVisible"
-        @mouseenter="headerVisible = true"
-        @touchstart="headerVisible = true"
+        @mouseenter="headerVisible = true; footerVisible = true"
+        @touchstart="headerVisible = true; footerVisible = true"
       >
       </div>
 
-      <main class="pt-14">
+      <main class={["pt-14", if(@footer != [], do: "pb-20", else: "")]}>
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {render_slot(@inner_block)}
         </div>
       </main>
+
+      <footer
+        :if={@footer != []}
+        class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
+        x-bind:class="footerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'"
+        @mouseenter="headerVisible = true; footerVisible = true"
+        @mouseleave="if (composing) { headerVisible = false; footerVisible = false }"
+        @touchstart="headerVisible = true; footerVisible = true"
+      >
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            {render_slot(@footer)}
+          </div>
+        </div>
+      </footer>
+
+      <div
+        :if={@footer != []}
+        class="fixed bottom-0 left-0 right-0 h-4 z-50"
+        x-show="composing && !footerVisible"
+        @mouseenter="headerVisible = true; footerVisible = true"
+        @touchstart="headerVisible = true; footerVisible = true"
+      >
+      </div>
     </div>
     """
   end

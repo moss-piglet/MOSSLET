@@ -2347,6 +2347,7 @@ defmodule MossletWeb.CoreComponents do
   slot :inner_block
   slot :top_right
   slot :logo
+  slot :footer
 
   def layout(assigns) do
     current_user =
@@ -2447,6 +2448,9 @@ defmodule MossletWeb.CoreComponents do
           <:top_right>
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>
+          <:footer :for={footer <- @footer}>
+            {render_slot([footer])}
+          </:footer>
           {render_slot(@inner_block)}
         </.focus_layout>
       <% "reader" -> %>

@@ -88,6 +88,40 @@ defmodule MossletWeb.JournalLive.Entry do
         has_unsaved_changes={@has_unsaved_changes}
         saving={@saving}
       >
+        <:footer>
+          <div class="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <span>{@word_count} words</span>
+            <span :if={@saving} class="flex items-center gap-1.5 text-teal-600 dark:text-teal-400">
+              <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent">
+              </span>
+              Saving...
+            </span>
+            <span
+              :if={@last_saved_at && !@saving && !@has_unsaved_changes}
+              class="text-emerald-600 dark:text-emerald-400"
+            >
+              ✓ Saved
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <.link
+              :if={@live_action == :edit}
+              phx-click="delete"
+              data-confirm="Are you sure you want to delete this entry?"
+              class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+            >
+              Delete
+            </.link>
+            <button
+              type="submit"
+              form="journal-form"
+              disabled={!@form.source.valid? || @saving}
+              class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {if @live_action == :new, do: "Save", else: "Update"}
+            </button>
+          </div>
+        </:footer>
         <div class="max-w-2xl mx-auto">
           <h1 class="sr-only">
             {if @live_action == :new, do: "New Journal Entry", else: "Edit Journal Entry"}
@@ -151,48 +185,15 @@ defmodule MossletWeb.JournalLive.Entry do
               />
             </div>
 
-            <div>
+            <div id="journal-body-container" phx-update="ignore">
               <textarea
                 name="journal_entry[body]"
                 placeholder="What's on your mind?"
                 phx-hook="AutoResize"
+                phx-debounce="blur"
                 id="journal-body"
-                class="w-full min-h-[400px] text-lg text-slate-700 dark:text-slate-300 bg-transparent border-none focus:ring-0 resize-none placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed overflow-hidden"
+                class="w-full text-lg text-slate-700 dark:text-slate-300 bg-transparent border-none focus:ring-0 resize-none placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed overflow-hidden"
               >{@form[:body].value}</textarea>
-            </div>
-
-            <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div class="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                <span>{@word_count} words</span>
-                <span :if={@saving} class="flex items-center gap-1.5 text-teal-600 dark:text-teal-400">
-                  <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent">
-                  </span>
-                  Saving...
-                </span>
-                <span
-                  :if={@last_saved_at && !@saving && !@has_unsaved_changes}
-                  class="text-emerald-600 dark:text-emerald-400"
-                >
-                  ✓ Saved
-                </span>
-              </div>
-              <div class="flex items-center gap-3">
-                <.link
-                  :if={@live_action == :edit}
-                  phx-click="delete"
-                  data-confirm="Are you sure you want to delete this entry?"
-                  class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
-                >
-                  Delete
-                </.link>
-                <button
-                  type="submit"
-                  disabled={!@form.source.valid? || @saving}
-                  class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  {if @live_action == :new, do: "Save", else: "Update"}
-                </button>
-              </div>
             </div>
           </.form>
         </div>
