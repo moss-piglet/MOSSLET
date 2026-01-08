@@ -1250,6 +1250,118 @@ defmodule Mosslet.API.Client do
     request(:post, "/api/logs", %{log: attrs}, auth: token)
   end
 
+  # =====================
+  # Journal Books
+  # =====================
+
+  def list_journal_books(token) do
+    request(:get, "/api/journal/books", %{}, auth: token)
+  end
+
+  def get_journal_book(token, id) do
+    request(:get, "/api/journal/books/#{id}", %{}, auth: token)
+  end
+
+  def create_journal_book(token, params) do
+    request(:post, "/api/journal/books", params, auth: token)
+  end
+
+  def update_journal_book(token, id, params) do
+    request(:put, "/api/journal/books/#{id}", params, auth: token)
+  end
+
+  def delete_journal_book(token, id) do
+    request(:delete, "/api/journal/books/#{id}", %{}, auth: token)
+  end
+
+  def update_journal_book_cover(token, id, params) do
+    request(:put, "/api/journal/books/#{id}/cover", params, auth: token)
+  end
+
+  def count_journal_book_entries(token, book_id) do
+    request(:get, "/api/journal/books/#{book_id}/entry-count", %{}, auth: token)
+  end
+
+  # =====================
+  # Journal Entries
+  # =====================
+
+  def list_journal_entries(token, params \\ %{}) do
+    request(:get, "/api/journal/entries", params, auth: token)
+  end
+
+  def list_loose_journal_entries(token, params \\ %{}) do
+    request(:get, "/api/journal/entries/loose", params, auth: token)
+  end
+
+  def count_loose_journal_entries(token) do
+    request(:get, "/api/journal/entries/loose/count", %{}, auth: token)
+  end
+
+  def list_favorite_journal_entries(token, params \\ %{}) do
+    request(:get, "/api/journal/entries/favorites", params, auth: token)
+  end
+
+  def list_journal_entries_by_date_range(token, params) do
+    request(:get, "/api/journal/entries/by-date-range", params, auth: token)
+  end
+
+  def count_journal_entries(token) do
+    request(:get, "/api/journal/entries/count", %{}, auth: token)
+  end
+
+  def total_journal_word_count(token) do
+    request(:get, "/api/journal/entries/word-count", %{}, auth: token)
+  end
+
+  def journal_streak_dates(token) do
+    request(:get, "/api/journal/entries/streak-dates", %{}, auth: token)
+  end
+
+  def get_journal_entry(token, id) do
+    request(:get, "/api/journal/entries/#{id}", %{}, auth: token)
+  end
+
+  def get_adjacent_journal_entries(token, id, params) do
+    request(:get, "/api/journal/entries/#{id}/adjacent", params, auth: token)
+  end
+
+  def get_journal_entry_position(token, id) do
+    request(:get, "/api/journal/entries/#{id}/position", %{}, auth: token)
+  end
+
+  def create_journal_entry(token, params) do
+    request(:post, "/api/journal/entries", params, auth: token)
+  end
+
+  def update_journal_entry(token, id, params) do
+    request(:put, "/api/journal/entries/#{id}", params, auth: token)
+  end
+
+  def delete_journal_entry(token, id) do
+    request(:delete, "/api/journal/entries/#{id}", %{}, auth: token)
+  end
+
+  def toggle_journal_entry_favorite(token, id) do
+    request(:post, "/api/journal/entries/#{id}/toggle-favorite", %{}, auth: token)
+  end
+
+  def move_journal_entry_to_book(token, id, params) do
+    request(:put, "/api/journal/entries/#{id}/move-to-book", params, auth: token)
+  end
+
+  # =====================
+  # Journal Insights
+  # =====================
+
+  def get_journal_insight(token) do
+    request(:get, "/api/journal/insight", %{}, auth: token)
+  end
+
+  def upsert_journal_insight(token, params) do
+    request(:post, "/api/journal/insight", params, auth: token)
+  end
+
   defp request(method, path, body_or_params, opts \\ []) do
     url = base_url() <> path
     headers = build_headers(opts)

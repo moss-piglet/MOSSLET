@@ -309,6 +309,37 @@ defmodule MossletWeb.Router do
     post "/conversations/:conversation_id/messages", MessageController, :create
     put "/conversations/:conversation_id/messages/:id", MessageController, :update
     delete "/conversations/:conversation_id/messages/:id", MessageController, :delete
+
+    # Journal books
+    get "/journal/books", JournalController, :list_books
+    get "/journal/books/:id", JournalController, :show_book
+    post "/journal/books", JournalController, :create_book
+    put "/journal/books/:id", JournalController, :update_book
+    delete "/journal/books/:id", JournalController, :delete_book
+    put "/journal/books/:id/cover", JournalController, :update_book_cover
+    get "/journal/books/:id/entry-count", JournalController, :count_book_entries
+
+    # Journal entries
+    get "/journal/entries", JournalController, :list_entries
+    get "/journal/entries/loose", JournalController, :list_loose_entries
+    get "/journal/entries/loose/count", JournalController, :count_loose_entries
+    get "/journal/entries/favorites", JournalController, :list_favorite_entries
+    get "/journal/entries/by-date-range", JournalController, :list_entries_by_date_range
+    get "/journal/entries/count", JournalController, :count_entries
+    get "/journal/entries/word-count", JournalController, :total_word_count
+    get "/journal/entries/streak-dates", JournalController, :streak_dates
+    get "/journal/entries/:id", JournalController, :show_entry
+    get "/journal/entries/:id/adjacent", JournalController, :adjacent_entries
+    get "/journal/entries/:id/position", JournalController, :entry_position
+    post "/journal/entries", JournalController, :create_entry
+    put "/journal/entries/:id", JournalController, :update_entry
+    delete "/journal/entries/:id", JournalController, :delete_entry
+    post "/journal/entries/:id/toggle-favorite", JournalController, :toggle_favorite
+    put "/journal/entries/:id/move-to-book", JournalController, :move_to_book
+
+    # Journal insights
+    get "/journal/insight", JournalController, :show_insight
+    post "/journal/insight", JournalController, :upsert_insight
   end
 
   ## Authentication routes

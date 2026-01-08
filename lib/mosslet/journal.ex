@@ -5,64 +5,56 @@ defmodule Mosslet.Journal do
   Provides a private journaling feature for personal reflection.
   Journal entries are encrypted with the user's personal key and
   are never shared with anyone.
-  """
-  import Ecto.Query, warn: false
 
-  alias Mosslet.Repo
+  This context uses platform-aware adapters for database operations:
+  - Web (Fly.io): Direct Postgres access via `Mosslet.Journal.Adapters.Web`
+  - Native (Desktop/Mobile): API calls via `Mosslet.Journal.Adapters.Native`
+
+  The adapter is selected at runtime based on `Mosslet.Platform.native?()`.
+  """
+
   alias Mosslet.Journal.{JournalBook, JournalEntry, JournalInsight}
   alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
+  alias Mosslet.Platform
+
+  @doc """
+  Returns the appropriate adapter module based on the current platform.
+  """
+  def adapter do
+    if Platform.native?() do
+      Module.concat([__MODULE__, Adapters, Native])
+    else
+      Mosslet.Journal.Adapters.Web
+    end
+  end
 
   # =====================
   # Book Functions
   # =====================
 
   def list_books(user) do
-    from(b in JournalBook,
-      where: b.user_id == ^user.id,
-      left_join: e in assoc(b, :entries),
-      group_by: b.id,
-      select: %{b | entry_count: count(e.id)},
-      order_by: [desc: b.updated_at]
-    )
-    |> Repo.all()
+    adapter().list_books(user)
   end
 
   def get_book!(id, user) do
-    from(b in JournalBook,
-      where: b.id == ^id and b.user_id == ^user.id,
-      left_join: e in assoc(b, :entries),
-      group_by: b.id,
-      select: %{b | entry_count: count(e.id)}
-    )
-    |> Repo.one!()
+    adapter().get_book!(id, user)
   end
 
   def get_book(id, user) do
-    from(b in JournalBook,
-      where: b.id == ^id and b.user_id == ^user.id,
-      left_join: e in assoc(b, :entries),
-      group_by: b.id,
-      select: %{b | entry_count: count(e.id)}
-    )
-    |> Repo.one()
+    adapter().get_book(id, user)
   end
 
   def create_book(user, attrs, key) do
-    Repo.transaction_on_primary(fn ->
+    changeset =
       %JournalBook{}
       |> JournalBook.changeset(Map.put(attrs, "user_id", user.id), user: user, key: key)
-      |> Repo.insert()
-    end)
-    |> handle_transaction_result()
+
+    adapter().create_book(changeset)
   end
 
   def update_book(%JournalBook{} = book, attrs, user, key) do
-    Repo.transaction_on_primary(fn ->
-      book
-      |> JournalBook.changeset(attrs, user: user, key: key)
-      |> Repo.update()
-    end)
-    |> handle_transaction_result()
+    changeset = JournalBook.changeset(book, attrs, user: user, key: key)
+    adapter().update_book(changeset)
   end
 
   def delete_book(%JournalBook{} = book, user, key \\ nil) do
@@ -72,10 +64,7 @@ defmodule Mosslet.Journal do
         Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(decrypted_url)
       end
 
-      Repo.transaction_on_primary(fn ->
-        Repo.delete(book)
-      end)
-      |> handle_transaction_result()
+      adapter().delete_book(book)
     else
       {:error, :unauthorized}
     end
@@ -107,22 +96,11 @@ defmodule Mosslet.Journal do
 
   def update_book_cover_image(%JournalBook{} = book, cover_image_url, user, key) do
     encrypted_url = EncryptedUtils.encrypt_user_data(cover_image_url, user, key)
-
-    Repo.transaction_on_primary(fn ->
-      book
-      |> Ecto.Changeset.change(cover_image_url: encrypted_url)
-      |> Repo.update()
-    end)
-    |> handle_transaction_result()
+    adapter().update_book_cover_image(book, encrypted_url)
   end
 
   def clear_book_cover_image(%JournalBook{} = book) do
-    Repo.transaction_on_primary(fn ->
-      book
-      |> Ecto.Changeset.change(cover_image_url: nil)
-      |> Repo.update()
-    end)
-    |> handle_transaction_result()
+    adapter().clear_book_cover_image(book)
   end
 
   # =====================
@@ -130,109 +108,49 @@ defmodule Mosslet.Journal do
   # =====================
 
   def list_journal_entries(user, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-    book_id = Keyword.get(opts, :book_id)
-
-    query =
-      from(j in JournalEntry,
-        where: j.user_id == ^user.id,
-        order_by: [desc: j.entry_date, desc: j.inserted_at],
-        limit: ^limit,
-        offset: ^offset
-      )
-
-    query =
-      if book_id do
-        from(j in query, where: j.book_id == ^book_id)
-      else
-        query
-      end
-
-    Repo.all(query)
+    adapter().list_journal_entries(user, opts)
   end
 
   def list_loose_entries(user, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-    offset = Keyword.get(opts, :offset, 0)
-
-    from(j in JournalEntry,
-      where: j.user_id == ^user.id and is_nil(j.book_id),
-      order_by: [desc: j.entry_date, desc: j.inserted_at],
-      limit: ^limit,
-      offset: ^offset
-    )
-    |> Repo.all()
+    adapter().list_loose_entries(user, opts)
   end
 
   def count_loose_entries(user) do
-    from(j in JournalEntry,
-      where: j.user_id == ^user.id and is_nil(j.book_id),
-      select: count(j.id)
-    )
-    |> Repo.one()
+    adapter().count_loose_entries(user)
   end
 
   def list_favorite_entries(user, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 20)
-
-    from(j in JournalEntry,
-      where: j.user_id == ^user.id and j.is_favorite == true,
-      order_by: [desc: j.entry_date, desc: j.inserted_at],
-      limit: ^limit
-    )
-    |> Repo.all()
+    adapter().list_favorite_entries(user, opts)
   end
 
   def list_entries_by_date_range(user, start_date, end_date) do
-    from(j in JournalEntry,
-      where:
-        j.user_id == ^user.id and
-          j.entry_date >= ^start_date and
-          j.entry_date <= ^end_date,
-      order_by: [desc: j.entry_date]
-    )
-    |> Repo.all()
+    adapter().list_entries_by_date_range(user, start_date, end_date)
   end
 
   def get_journal_entry!(id, user) do
-    from(j in JournalEntry,
-      where: j.id == ^id and j.user_id == ^user.id
-    )
-    |> Repo.one!()
+    adapter().get_journal_entry!(id, user)
   end
 
   def get_journal_entry(id, user) do
-    from(j in JournalEntry,
-      where: j.id == ^id and j.user_id == ^user.id
-    )
-    |> Repo.one()
+    adapter().get_journal_entry(id, user)
   end
 
   def create_journal_entry(user, attrs, key) do
-    Repo.transaction_on_primary(fn ->
+    changeset =
       %JournalEntry{}
       |> JournalEntry.changeset(Map.put(attrs, "user_id", user.id), user: user, key: key)
-      |> Repo.insert()
-    end)
-    |> handle_transaction_result()
+
+    adapter().create_journal_entry(changeset)
   end
 
   def update_journal_entry(%JournalEntry{} = entry, attrs, user, key) do
-    Repo.transaction_on_primary(fn ->
-      entry
-      |> JournalEntry.changeset(attrs, user: user, key: key)
-      |> Repo.update()
-    end)
-    |> handle_transaction_result()
+    changeset = JournalEntry.changeset(entry, attrs, user: user, key: key)
+    adapter().update_journal_entry(changeset)
   end
 
   def delete_journal_entry(%JournalEntry{} = entry, user) do
     if entry.user_id == user.id do
-      Repo.transaction_on_primary(fn ->
-        Repo.delete(entry)
-      end)
-      |> handle_transaction_result()
+      adapter().delete_journal_entry(entry)
     else
       {:error, :unauthorized}
     end
@@ -240,12 +158,7 @@ defmodule Mosslet.Journal do
 
   def toggle_favorite(%JournalEntry{} = entry, user) do
     if entry.user_id == user.id do
-      Repo.transaction_on_primary(fn ->
-        entry
-        |> Ecto.Changeset.change(is_favorite: !entry.is_favorite)
-        |> Repo.update()
-      end)
-      |> handle_transaction_result()
+      adapter().toggle_favorite(entry)
     else
       {:error, :unauthorized}
     end
@@ -253,47 +166,27 @@ defmodule Mosslet.Journal do
 
   def move_entry_to_book(%JournalEntry{} = entry, book_id, user) do
     if entry.user_id == user.id do
-      Repo.transaction_on_primary(fn ->
-        entry
-        |> Ecto.Changeset.change(book_id: book_id)
-        |> Repo.update()
-      end)
-      |> handle_transaction_result()
+      adapter().move_entry_to_book(entry, book_id)
     else
       {:error, :unauthorized}
     end
   end
 
   def count_entries(user) do
-    from(j in JournalEntry, where: j.user_id == ^user.id, select: count(j.id))
-    |> Repo.one()
+    adapter().count_entries(user)
   end
 
   def count_book_entries(book_id) do
-    from(j in JournalEntry, where: j.book_id == ^book_id, select: count(j.id))
-    |> Repo.one()
+    adapter().count_book_entries(book_id)
   end
 
   def total_word_count(user) do
-    from(j in JournalEntry,
-      where: j.user_id == ^user.id,
-      select: coalesce(sum(j.word_count), 0)
-    )
-    |> Repo.one()
+    adapter().total_word_count(user)
   end
 
   def streak_days(user, today \\ nil) do
     today = today || Date.utc_today()
-
-    entries =
-      from(j in JournalEntry,
-        where: j.user_id == ^user.id,
-        select: j.entry_date,
-        distinct: true,
-        order_by: [desc: j.entry_date]
-      )
-      |> Repo.all()
-
+    entries = adapter().streak_entry_dates(user)
     calculate_streak(entries, today, 0)
   end
 
@@ -337,73 +230,12 @@ defmodule Mosslet.Journal do
   end
 
   def get_adjacent_entries(%JournalEntry{} = entry, user, opts \\ []) do
-    book_id = Keyword.get(opts, :book_id)
-    loose_only = Keyword.get(opts, :loose_only, false)
-
-    base_query = from(j in JournalEntry, where: j.user_id == ^user.id)
-
-    base_query =
-      cond do
-        book_id ->
-          from(j in base_query, where: j.book_id == ^book_id)
-
-        loose_only ->
-          from(j in base_query, where: is_nil(j.book_id))
-
-        true ->
-          base_query
-      end
-
-    prev_entry =
-      from(j in base_query,
-        where:
-          j.entry_date < ^entry.entry_date or
-            (j.entry_date == ^entry.entry_date and j.inserted_at < ^entry.inserted_at),
-        order_by: [desc: j.entry_date, desc: j.inserted_at],
-        limit: 1,
-        select: %{id: j.id}
-      )
-      |> Repo.one()
-
-    next_entry =
-      from(j in base_query,
-        where:
-          j.entry_date > ^entry.entry_date or
-            (j.entry_date == ^entry.entry_date and j.inserted_at > ^entry.inserted_at),
-        order_by: [asc: j.entry_date, asc: j.inserted_at],
-        limit: 1,
-        select: %{id: j.id}
-      )
-      |> Repo.one()
-
-    %{
-      prev_id: if(prev_entry, do: prev_entry.id, else: nil),
-      next_id: if(next_entry, do: next_entry.id, else: nil)
-    }
+    adapter().get_adjacent_entries(entry, user, opts)
   end
 
   def get_entry_position_in_book(%JournalEntry{} = entry, user) do
-    if entry.book_id do
-      position =
-        from(j in JournalEntry,
-          where: j.user_id == ^user.id and j.book_id == ^entry.book_id,
-          where:
-            j.entry_date > ^entry.entry_date or
-              (j.entry_date == ^entry.entry_date and j.inserted_at > ^entry.inserted_at),
-          select: count(j.id)
-        )
-        |> Repo.one()
-
-      total = count_book_entries(entry.book_id)
-      {position + 1, total}
-    else
-      {nil, nil}
-    end
+    adapter().get_entry_position_in_book(entry, user)
   end
-
-  defp handle_transaction_result({:ok, {:ok, result}}), do: {:ok, result}
-  defp handle_transaction_result({:ok, {:error, changeset}}), do: {:error, changeset}
-  defp handle_transaction_result({:error, _} = error), do: error
 
   # =====================
   # Insight Functions
@@ -413,8 +245,7 @@ defmodule Mosslet.Journal do
   @insight_manual_cooldown_hours 24
 
   def get_insight(user) do
-    from(i in JournalInsight, where: i.user_id == ^user.id)
-    |> Repo.one()
+    adapter().get_insight(user)
   end
 
   def decrypt_insight(%JournalInsight{} = insight, user, key) do
@@ -444,28 +275,25 @@ defmodule Mosslet.Journal do
 
   def upsert_insight(user, insight_text, key) do
     now = DateTime.utc_now()
+    existing = adapter().get_insight(user)
 
-    Repo.transaction_on_primary(fn ->
-      case get_insight(user) do
-        nil ->
-          %JournalInsight{}
-          |> JournalInsight.changeset(
-            %{insight: insight_text, generated_at: now, user_id: user.id},
-            user: user,
-            key: key
-          )
-          |> Repo.insert()
-
-        existing ->
-          existing
-          |> JournalInsight.changeset(
-            %{insight: insight_text, generated_at: now},
-            user: user,
-            key: key
-          )
-          |> Repo.update()
+    changeset =
+      if existing do
+        JournalInsight.changeset(
+          existing,
+          %{insight: insight_text, generated_at: now},
+          user: user,
+          key: key
+        )
+      else
+        JournalInsight.changeset(
+          %JournalInsight{},
+          %{insight: insight_text, generated_at: now, user_id: user.id},
+          user: user,
+          key: key
+        )
       end
-    end)
-    |> handle_transaction_result()
+
+    adapter().upsert_insight(changeset, existing)
   end
 end
