@@ -92,7 +92,7 @@ defmodule MossletWeb.FocusLayout do
 
       <footer
         :if={@footer != []}
-        class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
+        class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300 pb-[env(safe-area-inset-bottom)]"
         x-bind:class="footerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'"
         @mouseenter="headerVisible = true; footerVisible = true"
         @mouseleave="if (composing) { headerVisible = false; footerVisible = false }"
