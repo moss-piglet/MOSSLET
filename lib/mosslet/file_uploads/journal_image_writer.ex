@@ -83,7 +83,7 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
         {:ok, %{state | total_size: new_total}}
 
       {:error, reason} ->
-        {:error, "Failed to write chunk: #{inspect(reason)}"}
+        {:error, "Failed to write chunk: #{inspect(reason)}", state}
     end
   end
 
