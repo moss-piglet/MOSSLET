@@ -65,8 +65,13 @@ defmodule Mosslet.Journal do
     |> handle_transaction_result()
   end
 
-  def delete_book(%JournalBook{} = book, user) do
+  def delete_book(%JournalBook{} = book, user, key \\ nil) do
     if book.user_id == user.id do
+      if book.cover_image_url && key do
+        decrypted_url = EncryptedUtils.decrypt_user_data(book.cover_image_url, user, key)
+        Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(decrypted_url)
+      end
+
       Repo.transaction_on_primary(fn ->
         Repo.delete(book)
       end)

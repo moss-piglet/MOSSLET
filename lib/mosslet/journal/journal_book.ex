@@ -34,7 +34,7 @@ defmodule Mosslet.Journal.JournalBook do
 
   def changeset(book, attrs, opts \\ []) do
     book
-    |> cast(attrs, [:title, :description, :cover_color, :user_id])
+    |> cast(attrs, [:title, :description, :cover_color, :cover_image_url, :user_id])
     |> validate_required([:title])
     |> validate_length(:title, max: 100)
     |> validate_length(:description, max: 500)

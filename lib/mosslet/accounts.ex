@@ -1176,7 +1176,24 @@ defmodule Mosslet.Accounts do
     end
   end
 
-  defp delete_data_filter(user, _attrs, _key, "journals") do
+  defp delete_data_filter(user, _attrs, key, "journals") do
+    alias Mosslet.Journal.JournalBook
+    alias Mosslet.FileUploads.JournalCoverUploadWriter
+    alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
+    alias Mosslet.Repo
+
+    books_with_covers =
+      from(b in JournalBook,
+        where: b.user_id == ^user.id and not is_nil(b.cover_image_url),
+        select: b.cover_image_url
+      )
+      |> Repo.all()
+
+    Enum.each(books_with_covers, fn encrypted_url ->
+      decrypted_url = EncryptedUtils.decrypt_user_data(encrypted_url, user, key)
+      JournalCoverUploadWriter.delete_cover_image(decrypted_url)
+    end)
+
     case adapter().delete_all_journals(user.id) do
       {:ok, _count} ->
         :ok

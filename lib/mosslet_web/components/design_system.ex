@@ -4627,10 +4627,185 @@ defmodule MossletWeb.DesignSystem do
   defp avatar_upload_border_class(_),
     do: "border-emerald-400/50 dark:border-emerald-500/50 animate-pulse"
 
+  @doc """
+  Journal book cover upload component with compact design.
+  Shows a square preview area and upload progress for book covers.
+  """
+  attr :upload, :map, required: true
+  attr :upload_stage, :any, default: nil
+  attr :current_cover_src, :string, default: nil
+  attr :cover_loading, :boolean, default: false
+  attr :on_delete, :string, default: nil
+  attr :class, :any, default: nil
+
+  def liquid_journal_cover_upload(assigns) do
+    ~H"""
+    <div class={["space-y-3", @class]}>
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        Cover Image (optional)
+      </label>
+
+      <div
+        phx-drop-target={@upload.ref}
+        class={[
+          "relative rounded-xl overflow-hidden border-2 border-dashed transition-all duration-200 text-center",
+          if(is_upload_complete?(@upload_stage),
+            do: "border-emerald-400 dark:border-emerald-500",
+            else:
+              "border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 phx-drop-target:border-emerald-500 phx-drop-target:bg-emerald-50 dark:phx-drop-target:bg-emerald-900/20"
+          )
+        ]}
+      >
+        <%= cond do %>
+          <% @cover_loading -> %>
+            <div class="aspect-[4/3] max-h-48 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700">
+              <div class="text-center">
+                <div class="w-8 h-8 border-3 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-2">
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Loading cover...</p>
+              </div>
+            </div>
+          <% Enum.any?(@upload.entries) -> %>
+            <% entry = List.first(@upload.entries) %>
+            <div class="relative w-full aspect-[4/3] max-h-48 bg-slate-100 dark:bg-slate-800">
+              <.live_img_preview
+                entry={entry}
+                class="w-full h-full object-cover"
+                alt="Cover preview"
+              />
+              <div
+                :if={entry.progress < 100}
+                class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2"
+              >
+                <div class="w-8 h-8 border-3 border-emerald-400 border-t-transparent rounded-full animate-spin">
+                </div>
+                <span class="text-xs text-white font-medium">
+                  Uploading {entry.progress}%
+                </span>
+              </div>
+              <div
+                :if={entry.progress == 100 && is_processing?(@upload_stage)}
+                class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2"
+              >
+                <div class="w-8 h-8 border-3 border-emerald-400 border-t-transparent rounded-full animate-spin">
+                </div>
+                <span class="text-xs text-white font-medium">
+                  {cover_stage_label(@upload_stage)}
+                </span>
+              </div>
+              <div
+                :if={is_upload_complete?(@upload_stage)}
+                class="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full shadow-md"
+              >
+                <.phx_icon name="hero-check" class="h-3.5 w-3.5" />
+                <span>Uploaded</span>
+              </div>
+              <button
+                :if={is_upload_complete?(@upload_stage)}
+                type="button"
+                phx-click="remove_cover"
+                class="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                aria-label="Remove cover"
+              >
+                <.phx_icon name="hero-trash" class="h-4 w-4" />
+              </button>
+              <button
+                :if={
+                  !is_processing?(@upload_stage) && !is_upload_complete?(@upload_stage) &&
+                    entry.progress == 100
+                }
+                type="button"
+                phx-click="cancel_cover_upload"
+                phx-value-ref={entry.ref}
+                class="absolute top-2 right-2 w-7 h-7 bg-slate-700/80 hover:bg-slate-700 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                aria-label="Cancel upload"
+              >
+                <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+              </button>
+            </div>
+          <% @current_cover_src -> %>
+            <div class="relative w-full aspect-[4/3] max-h-48 bg-slate-100 dark:bg-slate-800">
+              <img
+                src={@current_cover_src}
+                class="w-full h-full object-cover"
+                alt="Current cover"
+              />
+              <button
+                :if={@on_delete}
+                type="button"
+                phx-click={@on_delete}
+                data-confirm="Are you sure you want to remove this cover image?"
+                class="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110"
+                aria-label="Remove cover"
+              >
+                <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+              </button>
+            </div>
+          <% true -> %>
+            <label
+              for={@upload.ref}
+              class="w-full aspect-[4/3] max-h-48 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 cursor-pointer"
+            >
+              <div class="text-center px-4">
+                <.phx_icon
+                  name="hero-photo"
+                  class="h-8 w-8 text-slate-400 dark:text-slate-500 mx-auto mb-2"
+                />
+                <p class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                  Upload cover
+                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  or drag and drop
+                </p>
+              </div>
+            </label>
+        <% end %>
+      </div>
+
+      <.live_file_input upload={@upload} class="hidden" />
+
+      <%= if is_upload_error?(@upload_stage) do %>
+        <div class="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div class="flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+            <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+            <span>{get_upload_error_message(@upload_stage)}</span>
+          </div>
+        </div>
+      <% end %>
+
+      <%= for entry <- @upload.entries do %>
+        <%= for err <- upload_errors(@upload, entry) do %>
+          <div class="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div class="flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+              <.phx_icon name="hero-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+              <span>{humanize_upload_error(err)}</span>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        JPEG, PNG, WebP, or HEIC • Max 5MB
+      </p>
+    </div>
+    """
+  end
+
+  defp cover_stage_label({:receiving, _}), do: "Uploading..."
+  defp cover_stage_label({:checking, _}), do: "Checking..."
+  defp cover_stage_label({:processing, _}), do: "Processing..."
+  defp cover_stage_label({:encrypting, _}), do: "Encrypting..."
+  defp cover_stage_label({:uploading, _}), do: "Saving..."
+  defp cover_stage_label({:ready, _}), do: "Done!"
+  defp cover_stage_label(_), do: "Processing..."
+
   defp is_processing?(nil), do: false
   defp is_processing?({:ready, _}), do: false
   defp is_processing?({:error, _}), do: false
   defp is_processing?(_), do: true
+
+  defp is_upload_complete?({:ready, _}), do: true
+  defp is_upload_complete?(_), do: false
 
   defp is_upload_error?({:error, _}), do: true
   defp is_upload_error?(_), do: false

@@ -7,6 +7,7 @@ defmodule MossletWeb.JournalLive.Book do
   alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.JournalBook
+  alias MossletWeb.DesignSystem
 
   @impl true
   def render(assigns) do
@@ -21,47 +22,91 @@ defmodule MossletWeb.JournalLive.Book do
             <.phx_icon name="hero-arrow-left" class="h-4 w-4" /> Back to Journal
           </.link>
 
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex items-center gap-4">
-              <div class={[
-                "h-16 w-16 rounded-xl flex items-center justify-center",
-                book_cover_gradient(@book.cover_color)
-              ]}>
-                <.phx_icon name="hero-book-open" class="h-8 w-8 text-white/80" />
+          <%= if @decrypted_cover_image_url do %>
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+              <div class="flex items-center gap-4">
+                <div class="max-w-28 sm:max-w-32 flex-shrink-0">
+                  <img
+                    src={@decrypted_cover_image_url}
+                    class="w-full h-auto max-h-36 sm:max-h-40 rounded-xl shadow-lg"
+                    alt={"#{@decrypted_title} cover"}
+                  />
+                </div>
+                <div>
+                  <h1 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {@decrypted_title}
+                  </h1>
+                  <p
+                    :if={@decrypted_description}
+                    class="text-sm text-slate-600 dark:text-slate-400 mt-1"
+                  >
+                    {@decrypted_description}
+                  </p>
+                  <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {@book.entry_count} {if @book.entry_count == 1, do: "entry", else: "entries"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {@decrypted_title}
-                </h1>
-                <p
-                  :if={@decrypted_description}
-                  class="text-sm text-slate-600 dark:text-slate-400 mt-1"
+              <div class="flex items-center gap-2 sm:flex-shrink-0">
+                <button
+                  type="button"
+                  phx-click="edit_book"
+                  class="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  title="Edit book"
                 >
-                  {@decrypted_description}
-                </p>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  {@book.entry_count} {if @book.entry_count == 1, do: "entry", else: "entries"}
-                </p>
+                  <.phx_icon name="hero-pencil" class="h-5 w-5" />
+                </button>
+                <.link
+                  navigate={~p"/app/journal/new?book_id=#{@book.id}"}
+                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all"
+                >
+                  <.phx_icon name="hero-plus" class="h-4 w-4" /> Add Entry
+                </.link>
               </div>
             </div>
+          <% else %>
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class={[
+                  "h-16 w-16 rounded-xl flex items-center justify-center",
+                  book_cover_gradient(@book.cover_color)
+                ]}>
+                  <.phx_icon name="hero-book-open" class="h-8 w-8 text-white/80" />
+                </div>
+                <div>
+                  <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {@decrypted_title}
+                  </h1>
+                  <p
+                    :if={@decrypted_description}
+                    class="text-sm text-slate-600 dark:text-slate-400 mt-1"
+                  >
+                    {@decrypted_description}
+                  </p>
+                  <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {@book.entry_count} {if @book.entry_count == 1, do: "entry", else: "entries"}
+                  </p>
+                </div>
+              </div>
 
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                phx-click="edit_book"
-                class="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                title="Edit book"
-              >
-                <.phx_icon name="hero-pencil" class="h-5 w-5" />
-              </button>
-              <.link
-                navigate={~p"/app/journal/new?book_id=#{@book.id}"}
-                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
-              >
-                <.phx_icon name="hero-plus" class="h-4 w-4" /> Add Entry
-              </.link>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  phx-click="edit_book"
+                  class="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  title="Edit book"
+                >
+                  <.phx_icon name="hero-pencil" class="h-5 w-5" />
+                </button>
+                <.link
+                  navigate={~p"/app/journal/new?book_id=#{@book.id}"}
+                  class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+                >
+                  <.phx_icon name="hero-plus" class="h-4 w-4" /> Add Entry
+                </.link>
+              </div>
             </div>
-          </div>
+          <% end %>
         </div>
 
         <div :if={@entries == []} class="text-center py-16">
@@ -183,6 +228,30 @@ defmodule MossletWeb.JournalLive.Book do
               </div>
             </div>
 
+            <DesignSystem.liquid_journal_cover_upload
+              upload={@uploads.book_cover}
+              upload_stage={@cover_upload_stage}
+              current_cover_src={@current_cover_src}
+              cover_loading={@cover_loading}
+              on_delete="remove_cover"
+            />
+
+            <div
+              :if={
+                Enum.any?(@uploads.book_cover.entries) && !is_cover_processing?(@cover_upload_stage)
+              }
+              class="flex justify-end"
+            >
+              <button
+                type="button"
+                phx-click="upload_cover"
+                phx-disable-with="Uploading..."
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-sm hover:from-emerald-600 hover:to-teal-600 transition-all duration-200"
+              >
+                <.phx_icon name="hero-cloud-arrow-up" class="h-4 w-4" /> Upload Cover
+              </button>
+            </div>
+
             <div class="flex items-center justify-between pt-4">
               <button
                 type="button"
@@ -202,7 +271,10 @@ defmodule MossletWeb.JournalLive.Book do
                 </button>
                 <button
                   type="submit"
-                  disabled={!@book_form.source.valid?}
+                  disabled={
+                    !@book_form.source.valid? ||
+                      has_pending_cover_upload?(@uploads.book_cover.entries, @cover_upload_stage)
+                  }
                   class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   Update
@@ -233,17 +305,34 @@ defmodule MossletWeb.JournalLive.Book do
         entries = Journal.list_journal_entries(user, book_id: book_id, limit: 20)
         decrypted_entries = decrypt_entries(entries, user, key)
 
+        cover_src =
+          if decrypted.cover_image_url do
+            load_cover_image_src(decrypted.cover_image_url, user, key)
+          else
+            nil
+          end
+
         {:ok,
          socket
          |> assign(:page_title, decrypted.title)
          |> assign(:book, book)
          |> assign(:decrypted_title, decrypted.title)
          |> assign(:decrypted_description, decrypted.description)
+         |> assign(:decrypted_cover_image_url, cover_src)
          |> assign(:entries, decrypted_entries)
          |> assign(:offset, 20)
          |> assign(:has_more, length(entries) == 20)
          |> assign(:show_edit_modal, false)
-         |> assign(:book_form, nil)}
+         |> assign(:book_form, nil)
+         |> assign(:cover_upload_stage, nil)
+         |> assign(:current_cover_src, cover_src)
+         |> assign(:cover_loading, false)
+         |> allow_upload(:book_cover,
+           accept: ~w(.jpg .jpeg .png .webp .heic .heif),
+           max_entries: 1,
+           max_file_size: 5_000_000,
+           auto_upload: true
+         )}
     end
   end
 
@@ -282,7 +371,10 @@ defmodule MossletWeb.JournalLive.Book do
     {:noreply,
      socket
      |> assign(:show_edit_modal, true)
-     |> assign(:book_form, to_form(changeset, as: :journal_book))}
+     |> assign(:book_form, to_form(changeset, as: :journal_book))
+     |> assign(:current_cover_src, socket.assigns.decrypted_cover_image_url)
+     |> assign(:pending_cover_path, nil)
+     |> assign(:cover_upload_stage, nil)}
   end
 
   @impl true
@@ -301,9 +393,50 @@ defmodule MossletWeb.JournalLive.Book do
     key = socket.assigns.current_scope.key
     book = socket.assigns.book
 
+    cover_file_path = socket.assigns[:pending_cover_path]
+    consume_uploaded_entries(socket, :book_cover, fn _meta, _entry -> {:ok, nil} end)
+
     case Journal.update_book(book, params, user, key) do
       {:ok, updated_book} ->
+        updated_book =
+          cond do
+            cover_file_path ->
+              old_url = book.cover_image_url
+
+              if old_url do
+                decrypted_old =
+                  Mosslet.Encrypted.Users.Utils.decrypt_user_data(old_url, user, key)
+
+                Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(decrypted_old)
+              end
+
+              case Journal.update_book_cover_image(updated_book, cover_file_path, user, key) do
+                {:ok, with_cover} -> with_cover
+                {:error, _} -> updated_book
+              end
+
+            socket.assigns.current_cover_src == nil && book.cover_image_url ->
+              old_url = book.cover_image_url
+              decrypted_old = Mosslet.Encrypted.Users.Utils.decrypt_user_data(old_url, user, key)
+              Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(decrypted_old)
+
+              case Journal.clear_book_cover_image(updated_book) do
+                {:ok, cleared} -> cleared
+                {:error, _} -> updated_book
+              end
+
+            true ->
+              updated_book
+          end
+
         decrypted = Journal.decrypt_book(updated_book, user, key)
+
+        cover_src =
+          if decrypted.cover_image_url do
+            load_cover_image_src(decrypted.cover_image_url, user, key)
+          else
+            nil
+          end
 
         {:noreply,
          socket
@@ -312,6 +445,10 @@ defmodule MossletWeb.JournalLive.Book do
          |> assign(:book, %{updated_book | entry_count: book.entry_count})
          |> assign(:decrypted_title, decrypted.title)
          |> assign(:decrypted_description, decrypted.description)
+         |> assign(:decrypted_cover_image_url, cover_src)
+         |> assign(:current_cover_src, nil)
+         |> assign(:pending_cover_path, nil)
+         |> assign(:cover_upload_stage, nil)
          |> assign(:page_title, decrypted.title)
          |> put_flash(:info, "Book updated")
          |> push_event("restore-body-scroll", %{})}
@@ -323,19 +460,71 @@ defmodule MossletWeb.JournalLive.Book do
 
   @impl true
   def handle_event("cancel_edit", _params, socket) do
+    socket =
+      Enum.reduce(socket.assigns.uploads.book_cover.entries, socket, fn entry, acc ->
+        cancel_upload(acc, :book_cover, entry.ref)
+      end)
+
+    if socket.assigns[:pending_cover_path] do
+      Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(
+        socket.assigns.pending_cover_path
+      )
+    end
+
     {:noreply,
      socket
      |> assign(:show_edit_modal, false)
      |> assign(:book_form, nil)
+     |> assign(:cover_upload_stage, nil)
+     |> assign(:pending_cover_path, nil)
+     |> assign(:current_cover_src, socket.assigns.decrypted_cover_image_url)
      |> push_event("restore-body-scroll", %{})}
+  end
+
+  @impl true
+  def handle_event("cancel_cover_upload", %{"ref" => ref}, socket) do
+    {:noreply,
+     socket
+     |> cancel_upload(:book_cover, ref)
+     |> assign(:cover_upload_stage, nil)}
+  end
+
+  @impl true
+  def handle_event("upload_cover", _params, socket) do
+    entries = socket.assigns.uploads.book_cover.entries
+    in_progress? = Enum.any?(entries, &(&1.progress < 100))
+
+    if entries == [] or in_progress? do
+      {:noreply, socket}
+    else
+      do_upload_cover(socket)
+    end
+  end
+
+  @impl true
+  def handle_event("remove_cover", _params, socket) do
+    if socket.assigns[:pending_cover_path] do
+      Mosslet.FileUploads.JournalCoverUploadWriter.delete_cover_image(
+        socket.assigns.pending_cover_path
+      )
+    end
+
+    consume_uploaded_entries(socket, :book_cover, fn _meta, _entry -> {:ok, nil} end)
+
+    {:noreply,
+     socket
+     |> assign(:current_cover_src, nil)
+     |> assign(:pending_cover_path, nil)
+     |> assign(:cover_upload_stage, nil)}
   end
 
   @impl true
   def handle_event("delete_book", _params, socket) do
     user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     book = socket.assigns.book
 
-    case Journal.delete_book(book, user) do
+    case Journal.delete_book(book, user, key) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -354,6 +543,36 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   @impl true
+  def handle_info({:cover_upload_stage, stage}, socket) do
+    {:noreply, assign(socket, :cover_upload_stage, stage)}
+  end
+
+  @impl true
+  def handle_info({:cover_upload_complete, {:ok, file_path, preview_src}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:cover_upload_stage, {:ready, 100})
+     |> assign(:pending_cover_path, file_path)
+     |> assign(:current_cover_src, preview_src)}
+  end
+
+  @impl true
+  def handle_info({:cover_upload_complete, {:ok, file_path}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:cover_upload_stage, {:ready, 100})
+     |> assign(:pending_cover_path, file_path)}
+  end
+
+  @impl true
+  def handle_info({:cover_upload_complete, {:error, error}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:cover_upload_stage, {:error, error})
+     |> put_flash(:warning, error)}
+  end
+
+  @impl true
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
     {:noreply, assign(socket, :current_user, user)}
@@ -363,6 +582,35 @@ defmodule MossletWeb.JournalLive.Book do
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
+
+  defp load_cover_image_src(file_path, user, key) when is_binary(file_path) do
+    bucket = Mosslet.Encrypted.Session.memories_bucket()
+    host = Mosslet.Encrypted.Session.s3_host()
+    host_name = "https://#{bucket}.#{host}"
+
+    config = %{
+      region: Mosslet.Encrypted.Session.s3_region(),
+      access_key_id: Mosslet.Encrypted.Session.s3_access_key_id(),
+      secret_access_key: Mosslet.Encrypted.Session.s3_secret_key_access()
+    }
+
+    options = [virtual_host: true, bucket_as_host: true, expires_in: 600]
+
+    with {:ok, presigned_url} <-
+           ExAws.S3.presigned_url(config, :get, host_name, file_path, options),
+         {:ok, %{status: 200, body: encrypted_binary}} <-
+           Req.get(presigned_url, retry: :transient, receive_timeout: 10_000),
+         {:ok, d_user_key} <-
+           Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.user_key, user, key),
+         {:ok, decrypted_binary} <-
+           Mosslet.Encrypted.Utils.decrypt(%{key: d_user_key, payload: encrypted_binary}) do
+      "data:image/webp;base64,#{Base.encode64(decrypted_binary)}"
+    else
+      _ -> nil
+    end
+  end
+
+  defp load_cover_image_src(_, _, _), do: nil
 
   defp decrypt_entries(entries, user, key) do
     Enum.map(entries, fn entry ->
@@ -406,4 +654,232 @@ defmodule MossletWeb.JournalLive.Book do
   defp book_cover_gradient("orange"), do: "bg-gradient-to-br from-orange-500 to-red-600"
   defp book_cover_gradient("yellow"), do: "bg-gradient-to-br from-yellow-400 to-amber-500"
   defp book_cover_gradient(_), do: "bg-gradient-to-br from-slate-500 to-slate-600"
+
+  defp is_cover_processing?(nil), do: false
+  defp is_cover_processing?({:ready, _}), do: false
+  defp is_cover_processing?({:error, _}), do: false
+  defp is_cover_processing?(_), do: true
+
+  defp has_pending_cover_upload?([], _stage), do: false
+  defp has_pending_cover_upload?(_entries, {:ready, _}), do: false
+  defp has_pending_cover_upload?(_entries, _stage), do: true
+
+  defp do_upload_cover(socket) do
+    lv_pid = self()
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    bucket = Mosslet.Encrypted.Session.memories_bucket()
+
+    socket = assign(socket, :cover_upload_stage, {:receiving, 10})
+
+    cover_results =
+      consume_uploaded_entries(
+        socket,
+        :book_cover,
+        fn %{path: path}, entry ->
+          send(lv_pid, {:cover_upload_stage, {:receiving, 30}})
+          mime_type = ExMarcel.MimeType.for({:path, path})
+
+          if mime_type in [
+               "image/jpeg",
+               "image/jpg",
+               "image/png",
+               "image/webp",
+               "image/heic",
+               "image/heif"
+             ] do
+            send(lv_pid, {:cover_upload_stage, {:converting, 40}})
+
+            with {:ok, image} <- load_image_for_cover(path, mime_type),
+                 {:ok, image} <- autorotate_cover_image(image),
+                 _ <- send(lv_pid, {:cover_upload_stage, {:checking, 50}}),
+                 {:ok, safe_image} <- check_cover_safety(image),
+                 _ <- send(lv_pid, {:cover_upload_stage, {:resizing, 60}}),
+                 {:ok, resized_image} <- resize_cover_image(safe_image),
+                 {:ok, blob} <-
+                   Image.write(resized_image, :memory,
+                     suffix: ".webp",
+                     minimize_file_size: true
+                   ),
+                 _ <- send(lv_pid, {:cover_upload_stage, {:encrypting, 75}}),
+                 {:ok, e_blob} <- prepare_encrypted_cover_blob(blob, user, key),
+                 {:ok, file_path} <- prepare_cover_file_path(entry),
+                 _ <- send(lv_pid, {:cover_upload_stage, {:uploading, 85}}) do
+              case ExAws.S3.put_object(bucket, file_path, e_blob) |> ExAws.request() do
+                {:ok, %{status_code: 200}} ->
+                  preview_src = "data:image/webp;base64,#{Base.encode64(blob)}"
+                  {:ok, {entry, file_path, preview_src}}
+
+                {:ok, resp} ->
+                  {:postpone, {:error, "Upload failed: #{inspect(resp)}"}}
+
+                {:error, reason} ->
+                  {:postpone, {:error, reason}}
+              end
+            else
+              {:nsfw, message} ->
+                send(lv_pid, {:cover_upload_stage, {:error, message}})
+                {:postpone, {:nsfw, message}}
+
+              {:error, message} ->
+                send(lv_pid, {:cover_upload_stage, {:error, message}})
+                {:postpone, {:error, message}}
+            end
+          else
+            send(lv_pid, {:cover_upload_stage, {:error, "Incorrect file type."}})
+            {:postpone, :error}
+          end
+        end
+      )
+
+    case cover_results do
+      [nsfw: message] ->
+        {:noreply,
+         socket
+         |> assign(:cover_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [error: message] ->
+        {:noreply,
+         socket
+         |> assign(:cover_upload_stage, {:error, message})
+         |> put_flash(:warning, message)}
+
+      [:error] ->
+        {:noreply,
+         socket
+         |> assign(:cover_upload_stage, {:error, "Incorrect file type."})
+         |> put_flash(:warning, "Incorrect file type.")}
+
+      [{_entry, file_path, preview_src}] ->
+        send(lv_pid, {:cover_upload_complete, {:ok, file_path, preview_src}})
+        {:noreply, assign(socket, :cover_upload_stage, {:uploading, 95})}
+
+      _rest ->
+        error_msg =
+          "There was an error trying to upload your cover, please try a different image."
+
+        {:noreply,
+         socket
+         |> assign(:cover_upload_stage, {:error, error_msg})
+         |> put_flash(:warning, error_msg)}
+    end
+  end
+
+  defp load_image_for_cover(path, mime_type) when mime_type in ["image/heic", "image/heif"] do
+    binary = File.read!(path)
+
+    with {:ok, {heic_image, _metadata}} <- Vix.Vips.Operation.heifload_buffer(binary),
+         {:ok, materialized} <- materialize_cover_heic(heic_image) do
+      {:ok, materialized}
+    else
+      {:error, _reason} ->
+        load_cover_heic_with_sips(path)
+    end
+  end
+
+  defp load_image_for_cover(path, _mime_type) do
+    case Image.open(path) do
+      {:ok, image} -> {:ok, image}
+      {:error, reason} -> {:error, "Failed to load image: #{inspect(reason)}"}
+    end
+  end
+
+  defp materialize_cover_heic(image) do
+    case Image.to_colorspace(image, :srgb) do
+      {:ok, srgb_image} ->
+        case Image.write(srgb_image, :memory, suffix: ".png") do
+          {:ok, png_binary} -> Image.from_binary(png_binary)
+          {:error, _} -> fallback_cover_heic_materialization(srgb_image)
+        end
+
+      {:error, _} ->
+        fallback_cover_heic_materialization(image)
+    end
+  end
+
+  defp fallback_cover_heic_materialization(image) do
+    case Image.write(image, :memory, suffix: ".png") do
+      {:ok, png_binary} ->
+        Image.from_binary(png_binary)
+
+      {:error, _} ->
+        case Image.write(image, :memory, suffix: ".jpg") do
+          {:ok, jpg_binary} -> Image.from_binary(jpg_binary)
+          {:error, reason} -> {:error, "Failed to materialize HEIC image: #{inspect(reason)}"}
+        end
+    end
+  end
+
+  defp load_cover_heic_with_sips(path) do
+    tmp_png = Path.join(System.tmp_dir!(), "heic_#{:erlang.unique_integer([:positive])}.png")
+
+    result =
+      case :os.type() do
+        {:unix, :darwin} ->
+          case System.cmd("sips", ["-s", "format", "png", path, "--out", tmp_png],
+                 stderr_to_stdout: true
+               ) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
+          end
+
+        {:unix, _linux} ->
+          case System.cmd("heif-convert", [path, tmp_png], stderr_to_stdout: true) do
+            {_output, 0} ->
+              png_binary = File.read!(tmp_png)
+              Image.from_binary(png_binary)
+
+            {_output, _code} ->
+              {:error, "HEIC/HEIF files are not supported. Please convert to JPEG or PNG."}
+          end
+
+        _ ->
+          {:error, "HEIC/HEIF files are not supported on this platform."}
+      end
+
+    File.rm(tmp_png)
+    result
+  end
+
+  defp check_cover_safety(image) do
+    Mosslet.AI.Images.check_for_safety(image)
+  end
+
+  defp autorotate_cover_image(image) do
+    case Image.autorotate(image) do
+      {:ok, {rotated_image, _flags}} -> {:ok, rotated_image}
+      {:error, reason} -> {:error, "Failed to autorotate: #{inspect(reason)}"}
+    end
+  end
+
+  defp resize_cover_image(image) do
+    width = Image.width(image)
+    height = Image.height(image)
+    max_dimension = 800
+
+    if width > max_dimension or height > max_dimension do
+      Image.thumbnail(image, "#{max_dimension}x#{max_dimension}")
+    else
+      {:ok, image}
+    end
+  end
+
+  defp prepare_encrypted_cover_blob(blob, user, key) do
+    {:ok, d_user_key} =
+      Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user.user_key, user, key)
+
+    encrypted = Mosslet.Encrypted.Utils.encrypt(%{key: d_user_key, payload: blob})
+    {:ok, encrypted}
+  end
+
+  defp prepare_cover_file_path(_entry) do
+    storage_key = Ecto.UUID.generate()
+    file_path = "uploads/journal/covers/#{storage_key}.webp"
+    {:ok, file_path}
+  end
 end
