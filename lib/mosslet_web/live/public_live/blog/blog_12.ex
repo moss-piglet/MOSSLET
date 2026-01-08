@@ -85,7 +85,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog12 do
           </li>
           <li>
             <strong>Organize with Books:</strong>
-            Group related entries into books — maybe one for travel memories, another for gratitude practice, a third for working through something difficult. Each book gets its own cover color and description.
+            Group related entries into books — maybe one for travel memories, another for gratitude practice, a third for working through something difficult. Each book gets its own cover color (or upload a photo) and description.
           </li>
           <li>
             <strong>Track your progress:</strong>
@@ -94,6 +94,10 @@ defmodule MossletWeb.PublicLive.Blog.Blog12 do
           <li>
             <strong>Star your favorites:</strong>
             Mark entries that mean something special so you can find them again easily.
+          </li>
+          <li>
+            <strong>Privacy screen:</strong>
+            Quickly hide the content of your journals if someone enters the room, with a visual countdown until your password will be required to reveal them again.
           </li>
           <li>
             <strong>Auto-save:</strong>
