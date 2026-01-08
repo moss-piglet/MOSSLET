@@ -13748,7 +13748,12 @@ defmodule MossletWeb.DesignSystem do
          {"happy", "😊", "Happy"},
          {"excited", "🎉", "Excited"},
          {"hopeful", "🌟", "Hopeful"},
-         {"grateful", "🙏", "Grateful"}
+         {"goodday", "☀️", "Good Day"}
+       ]},
+      {"Grateful",
+       [
+         {"grateful", "🙏", "Grateful"},
+         {"thankful", "🌅", "Thankful"}
        ]},
       {"Love",
        [
@@ -13760,6 +13765,7 @@ defmodule MossletWeb.DesignSystem do
        [
          {"content", "😌", "Content"},
          {"peaceful", "🕊️", "Peaceful"},
+         {"serene", "🕊️", "Serene"},
          {"calm", "😶", "Calm"},
          {"relaxed", "😎", "Relaxed"}
        ]},
@@ -13769,13 +13775,21 @@ defmodule MossletWeb.DesignSystem do
          {"creative", "🎨", "Creative"},
          {"curious", "🤔", "Curious"},
          {"confident", "💪", "Confident"},
-         {"proud", "🏆", "Proud"}
+         {"proud", "🏆", "Proud"},
+         {"accomplished", "🎯", "Accomplished"}
+       ]},
+      {"Growth",
+       [
+         {"growing", "🪴", "Growing"},
+         {"breathing", "🌬️", "Letting Go"}
        ]},
       {"Neutral",
        [
          {"neutral", "😐", "Neutral"},
          {"tired", "😴", "Tired"},
-         {"bored", "😑", "Bored"}
+         {"bored", "😑", "Bored"},
+         {"mixed", "🌊", "Mixed"},
+         {"latenight", "🌙", "Late Night"}
        ]},
       {"Anxious",
        [
@@ -13787,8 +13801,12 @@ defmodule MossletWeb.DesignSystem do
        [
          {"sad", "😢", "Sad"},
          {"lonely", "🥺", "Lonely"},
-         {"nostalgic", "📷", "Nostalgic"},
          {"melancholic", "🌧️", "Melancholy"}
+       ]},
+      {"Reflective",
+       [
+         {"nostalgic", "📷", "Nostalgic"},
+         {"reminiscing", "📼", "Reminiscing"}
        ]},
       {"Difficult",
        [
@@ -13818,7 +13836,8 @@ defmodule MossletWeb.DesignSystem do
     ]
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(joyful happy excited hopeful grateful) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(joyful happy excited hopeful grateful thankful goodday) do
     %{
       bg: "bg-amber-50 dark:bg-amber-900/30",
       text: "text-amber-700 dark:text-amber-300",
@@ -13834,7 +13853,7 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(content peaceful calm relaxed) do
+  defp mood_color_scheme(mood) when mood in ~w(content peaceful serene calm relaxed) do
     %{
       bg: "bg-teal-50 dark:bg-teal-900/30",
       text: "text-teal-700 dark:text-teal-300",
@@ -13850,7 +13869,7 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(tired bored) do
+  defp mood_color_scheme(mood) when mood in ~w(tired bored latenight) do
     %{
       bg: "bg-slate-100 dark:bg-slate-700/50",
       text: "text-slate-500 dark:text-slate-400",
@@ -13858,7 +13877,8 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(inspired creative curious confident proud) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(inspired creative curious confident proud accomplished) do
     %{
       bg: "bg-indigo-50 dark:bg-indigo-900/30",
       text: "text-indigo-700 dark:text-indigo-300",
@@ -13882,11 +13902,28 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(sad lonely overwhelmed nostalgic melancholic) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(sad lonely overwhelmed nostalgic reminiscing melancholic) do
     %{
       bg: "bg-blue-50 dark:bg-blue-900/30",
       text: "text-blue-700 dark:text-blue-300",
       border: "border-blue-200 dark:border-blue-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(growing breathing) do
+    %{
+      bg: "bg-emerald-50 dark:bg-emerald-900/30",
+      text: "text-emerald-700 dark:text-emerald-300",
+      border: "border-emerald-200 dark:border-emerald-700/50"
+    }
+  end
+
+  defp mood_color_scheme("mixed") do
+    %{
+      bg: "bg-cyan-50 dark:bg-cyan-900/30",
+      text: "text-cyan-700 dark:text-cyan-300",
+      border: "border-cyan-200 dark:border-cyan-700/50"
     }
   end
 
@@ -13932,7 +13969,16 @@ defmodule MossletWeb.DesignSystem do
       "angry" => "😠",
       "overwhelmed" => "🤯",
       "nostalgic" => "📷",
-      "melancholic" => "🌧️"
+      "reminiscing" => "📼",
+      "melancholic" => "🌧️",
+      "thankful" => "🌅",
+      "goodday" => "☀️",
+      "serene" => "🕊️",
+      "accomplished" => "🎯",
+      "growing" => "🪴",
+      "breathing" => "🌬️",
+      "mixed" => "🌊",
+      "latenight" => "🌙"
     }
 
     Map.get(mood_map, mood, "")

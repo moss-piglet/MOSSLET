@@ -200,7 +200,7 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
 
-          <%!-- Hero App Preview Image --%>
+          <%!-- Hero App Preview Timeline Image --%>
           <div class="relative mt-16 sm:mt-20 mx-auto max-w-5xl px-6 lg:px-8">
             <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
               <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
@@ -329,6 +329,24 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
         </MossletWeb.DesignSystem.liquid_container>
+
+        <%!-- Hero App Preview Journal Image --%>
+        <div class="relative mt-16 sm:mt-20 mx-auto max-w-5xl px-6 lg:px-8">
+          <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+            <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
+            </div>
+            <img
+              src={~p"/images/screenshots/journal_light.png"}
+              alt="MOSSLET app preview showing the journal home"
+              class="relative w-full h-auto dark:hidden"
+            />
+            <img
+              src={~p"/images/screenshots/journal_dark.png"}
+              alt="MOSSLET app preview showing the journal home"
+              class="relative w-full h-auto hidden dark:block"
+            />
+          </div>
+        </div>
 
         <%!-- Journal Features Section with Violet/Purple Accent --%>
         <MossletWeb.DesignSystem.liquid_container
