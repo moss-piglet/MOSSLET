@@ -1838,7 +1838,7 @@ defmodule MossletWeb.JournalLive.Index do
                    ),
                  _ <- send(lv_pid, {:cover_upload_stage, {:encrypting, 75}}),
                  {:ok, e_blob} <- prepare_encrypted_cover_blob(blob, user, key),
-                 {:ok, file_path} <- prepare_cover_file_path(entry),
+                 {:ok, file_path} <- prepare_cover_file_path(entry, user.id),
                  _ <- send(lv_pid, {:cover_upload_stage, {:uploading, 85}}) do
               case ExAws.S3.put_object(bucket, file_path, e_blob) |> ExAws.request() do
                 {:ok, %{status_code: 200}} ->
@@ -2012,9 +2012,9 @@ defmodule MossletWeb.JournalLive.Index do
     {:ok, encrypted}
   end
 
-  defp prepare_cover_file_path(_entry) do
+  defp prepare_cover_file_path(_entry, user_id) do
     storage_key = Ecto.UUID.generate()
-    file_path = "uploads/journal/covers/#{storage_key}.webp"
+    file_path = "uploads/journal/covers/#{user_id}/#{storage_key}.webp"
     {:ok, file_path}
   end
 end
