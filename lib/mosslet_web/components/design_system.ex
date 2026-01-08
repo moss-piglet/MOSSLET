@@ -387,28 +387,55 @@ defmodule MossletWeb.DesignSystem do
           </.link>
         </div>
 
-        <%!-- Navigation links with enhanced liquid styling and improved responsive layout --%>
+        <%!-- Navigation links organized into grouped columns --%>
         <nav class="mb-16">
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 max-w-4xl mx-auto">
-            <.link
-              :for={item <- footer_menu_items(@current_scope && @current_scope.user)}
-              href={item.path}
-              class={[
-                "group relative px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out",
-                "text-slate-600 dark:text-slate-400",
-                "hover:text-emerald-600 dark:hover:text-emerald-400",
-                "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2",
-                "overflow-hidden backdrop-blur-sm",
-                "text-center"
-              ]}
-              method={if item[:method], do: item[:method], else: nil}
-            >
-              <div class="absolute inset-0 opacity-0 transition-all duration-300 ease-out bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40 dark:from-teal-900/15 dark:via-emerald-900/20 dark:to-cyan-900/15 group-hover:opacity-100 rounded-xl">
-              </div>
-              <div class="absolute inset-0 opacity-0 transition-all duration-500 ease-out bg-gradient-to-r from-transparent via-emerald-200/30 to-transparent dark:via-emerald-400/15 group-hover:opacity-100 group-hover:translate-x-full -translate-x-full rounded-xl">
-              </div>
-              <span class="relative">{item.label}</span>
-            </.link>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-8 max-w-4xl mx-auto">
+            <%!-- Company Column --%>
+            <div class="space-y-3">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                Company
+              </h3>
+              <ul class="space-y-2">
+                <.footer_link href="/about" label="About" />
+                <.footer_link href="/blog" label="Blog" />
+                <.footer_link href="/updates" label="Updates" />
+              </ul>
+            </div>
+
+            <%!-- Product Column --%>
+            <div class="space-y-3">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                Product
+              </h3>
+              <ul class="space-y-2">
+                <.footer_link href="/features" label="Features" />
+                <.footer_link href="/pricing" label="Pricing" />
+                <.footer_link href="/discover" label="Discover" />
+              </ul>
+            </div>
+
+            <%!-- Resources Column --%>
+            <div class="space-y-3">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                Resources
+              </h3>
+              <ul class="space-y-2">
+                <.footer_link href="/faq" label="FAQ" />
+                <.footer_link href="/support" label="Support" />
+                <.footer_link href="/referrals" label="Referrals" />
+              </ul>
+            </div>
+
+            <%!-- Legal Column --%>
+            <div class="space-y-3">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                Legal
+              </h3>
+              <ul class="space-y-2">
+                <.footer_link href="/privacy" label="Privacy" />
+                <.footer_link href="/terms" label="Terms" />
+              </ul>
+            </div>
           </div>
         </nav>
 
@@ -546,7 +573,20 @@ defmodule MossletWeb.DesignSystem do
     """
   end
 
-  # Helper function for footer menu items
+  defp footer_link(assigns) do
+    ~H"""
+    <li>
+      <.link
+        href={@href}
+        class="group relative text-sm text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200"
+      >
+        {@label}
+      </.link>
+    </li>
+    """
+  end
+
+  # Helper function for footer menu items (kept for reference but no longer used in new layout)
   defp footer_menu_items(current_user) do
     base_items = [
       %{path: "/about", label: "About"},
@@ -13964,7 +14004,7 @@ defmodule MossletWeb.DesignSystem do
           Privacy Mode Active
         </h2>
         <p class="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
-          Your journal content is hidden for your privacy. Click the button below when you're ready to continue reading.
+          Your journal content is hidden for your privacy. Click the button below when you're ready to continue journaling.
         </p>
 
         <%= if @needs_password do %>

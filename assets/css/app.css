@@ -62,6 +62,25 @@ button:disabled::before {
   100% { left: 100%; }
 }
 
+/* Slow shimmer animation for hero background */
+@keyframes shimmerSlow {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-shimmer-slow {
+  animation: shimmerSlow 8s ease-in-out infinite;
+}
+
 @plugin "./tailwind_heroicons.js";
 
 /* This file is for your main application CSS */
