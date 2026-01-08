@@ -72,6 +72,8 @@ defmodule Mosslet.Application do
       MossletWeb.Telemetry,
       {Phoenix.PubSub, name: Mosslet.PubSub},
       MossletWeb.Presence,
+      {Registry, keys: :unique, name: Mosslet.Journal.PrivacyTimerRegistry},
+      {DynamicSupervisor, name: Mosslet.Journal.PrivacyTimerSupervisor, strategy: :one_for_one},
       {Task.Supervisor, name: Mosslet.BackgroundTask},
       {Finch, name: Mosslet.Finch},
       {Finch, name: Mosslet.OpenAIFinch},

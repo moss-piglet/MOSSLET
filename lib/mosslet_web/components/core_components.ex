@@ -2343,6 +2343,9 @@ defmodule MossletWeb.CoreComponents do
   attr :has_unsaved_changes, :boolean, default: false, doc: "whether there are unsaved changes"
   attr :saving, :boolean, default: false, doc: "whether content is being saved"
 
+  attr :privacy_active, :boolean, default: false, doc: "whether privacy mode is active"
+  attr :privacy_countdown, :integer, default: 0, doc: "privacy countdown in seconds"
+
   slot :logo_icon
   slot :inner_block
   slot :top_right
@@ -2446,6 +2449,12 @@ defmodule MossletWeb.CoreComponents do
       <% "focus" -> %>
         <.focus_layout {assigns}>
           <:top_right>
+            <MossletWeb.DesignSystem.privacy_button
+              :if={Map.get(assigns, :privacy_active) != nil}
+              active={@privacy_active}
+              countdown={@privacy_countdown}
+              on_click="activate_privacy"
+            />
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           <:footer :for={footer <- @footer}>
@@ -2456,6 +2465,12 @@ defmodule MossletWeb.CoreComponents do
       <% "reader" -> %>
         <.reader_layout {assigns}>
           <:top_right>
+            <MossletWeb.DesignSystem.privacy_button
+              :if={Map.get(assigns, :privacy_active) != nil}
+              active={@privacy_active}
+              countdown={@privacy_countdown}
+              on_click="activate_privacy"
+            />
             <MossletWeb.Layouts.theme_toggle />
           </:top_right>
           {render_slot(@inner_block)}

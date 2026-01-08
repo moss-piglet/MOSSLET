@@ -8,6 +8,7 @@ defmodule MossletWeb.JournalLive.Book do
   alias Mosslet.Journal
   alias Mosslet.Journal.JournalBook
   alias MossletWeb.DesignSystem
+  alias MossletWeb.Helpers.JournalHelpers
 
   @impl true
   def render(assigns) do
@@ -48,6 +49,11 @@ defmodule MossletWeb.JournalLive.Book do
                 </div>
               </div>
               <div class="flex items-center gap-2 sm:flex-shrink-0">
+                <DesignSystem.privacy_button
+                  active={@privacy_active}
+                  countdown={@privacy_countdown}
+                  on_click="activate_privacy"
+                />
                 <button
                   type="button"
                   phx-click="edit_book"
@@ -90,6 +96,11 @@ defmodule MossletWeb.JournalLive.Book do
               </div>
 
               <div class="flex items-center gap-2">
+                <DesignSystem.privacy_button
+                  active={@privacy_active}
+                  countdown={@privacy_countdown}
+                  on_click="activate_privacy"
+                />
                 <button
                   type="button"
                   phx-click="edit_book"
@@ -284,6 +295,15 @@ defmodule MossletWeb.JournalLive.Book do
           </div>
         </.form>
       </.liquid_modal>
+
+      <DesignSystem.privacy_screen
+        active={@privacy_active}
+        countdown={@privacy_countdown}
+        needs_password={@privacy_needs_password}
+        on_activate="activate_privacy"
+        on_reveal="reveal_content"
+        on_password_submit="verify_privacy_password"
+      />
     </.layout>
     """
   end
@@ -327,6 +347,7 @@ defmodule MossletWeb.JournalLive.Book do
          |> assign(:cover_upload_stage, nil)
          |> assign(:current_cover_src, cover_src)
          |> assign(:cover_loading, false)
+         |> JournalHelpers.assign_privacy_state(user)
          |> allow_upload(:book_cover,
            accept: ~w(.jpg .jpeg .png .webp .heic .heif),
            max_entries: 1,
@@ -543,6 +564,56 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   @impl true
+  def handle_event("activate_privacy", _params, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Mosslet.Accounts.update_journal_privacy(user, true) do
+      {:ok, _user} ->
+        Mosslet.Journal.PrivacyTimer.activate(user.id)
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to enable privacy mode")}
+    end
+  end
+
+  @impl true
+  def handle_event("reveal_content", _params, socket) do
+    if socket.assigns.privacy_needs_password do
+      {:noreply, socket}
+    else
+      user = socket.assigns.current_scope.user
+
+      case Mosslet.Accounts.update_journal_privacy(user, false) do
+        {:ok, _user} ->
+          Mosslet.Journal.PrivacyTimer.deactivate(user.id)
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("verify_privacy_password", %{"password" => password}, socket) do
+    user = socket.assigns.current_scope.user
+
+    if Mosslet.Accounts.User.valid_password?(user, password) do
+      case Mosslet.Accounts.update_journal_privacy(user, false) do
+        {:ok, _user} ->
+          Mosslet.Journal.PrivacyTimer.deactivate(user.id)
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Incorrect password")}
+    end
+  end
+
+  @impl true
   def handle_info({:cover_upload_stage, stage}, socket) do
     {:noreply, assign(socket, :cover_upload_stage, stage)}
   end
@@ -576,6 +647,11 @@ defmodule MossletWeb.JournalLive.Book do
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
     {:noreply, assign(socket, :current_user, user)}
+  end
+
+  @impl true
+  def handle_info({:privacy_timer_update, state}, socket) do
+    {:noreply, JournalHelpers.handle_privacy_timer_update(socket, state)}
   end
 
   @impl true

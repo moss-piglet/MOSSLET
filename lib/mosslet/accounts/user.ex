@@ -63,6 +63,9 @@ defmodule Mosslet.Accounts.User do
     field :last_reply_notification_received_at, :utc_datetime
     field :last_replies_seen_at, :utc_datetime
 
+    field :journal_privacy_enabled, :boolean, default: false
+    field :journal_privacy_activated_at, :utc_datetime
+
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
     # User's custom status message (encrypted with user_key)
@@ -1440,6 +1443,14 @@ defmodule Mosslet.Accounts.User do
       %{} = changeset ->
         add_error(changeset, :calm_notifications, "did not change")
     end
+  end
+
+  @doc """
+  A user changeset for toggling the journal privacy screen.
+  """
+  def journal_privacy_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:journal_privacy_enabled, :journal_privacy_activated_at])
   end
 
   @doc """

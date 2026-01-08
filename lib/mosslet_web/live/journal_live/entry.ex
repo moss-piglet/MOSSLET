@@ -8,7 +8,9 @@ defmodule MossletWeb.JournalLive.Entry do
   alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.AI, as: JournalAI
+  alias MossletWeb.DesignSystem
   alias Mosslet.Journal.JournalEntry
+  alias MossletWeb.Helpers.JournalHelpers
 
   @auto_save_delay_ms 2_000
 
@@ -30,6 +32,8 @@ defmodule MossletWeb.JournalLive.Entry do
         entry_id={@entry.id}
         entry_matches_scope={@entry_matches_scope}
         entry_book_title={@entry_book_title}
+        privacy_active={@privacy_active}
+        privacy_countdown={@privacy_countdown}
       >
         <div class="max-w-2xl mx-auto">
           <div class="space-y-6">
@@ -52,12 +56,14 @@ defmodule MossletWeb.JournalLive.Entry do
                   {if @entry.is_favorite, do: "★", else: "☆"}
                 </button>
               </div>
-              <.link
-                navigate={~p"/app/journal/#{@entry.id}/edit"}
-                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-              >
-                <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
-              </.link>
+              <div class="flex items-center gap-2">
+                <.link
+                  navigate={~p"/app/journal/#{@entry.id}/edit"}
+                  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                >
+                  <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
+                </.link>
+              </div>
             </div>
 
             <h1
@@ -78,6 +84,15 @@ defmodule MossletWeb.JournalLive.Entry do
             </div>
           </div>
         </div>
+
+        <DesignSystem.privacy_screen
+          active={@privacy_active}
+          countdown={@privacy_countdown}
+          needs_password={@privacy_needs_password}
+          on_activate="activate_privacy"
+          on_reveal="reveal_content"
+          on_password_submit="verify_privacy_password"
+        />
       </.layout>
     <% else %>
       <.layout
@@ -87,6 +102,8 @@ defmodule MossletWeb.JournalLive.Entry do
         back_path={~p"/app/journal"}
         has_unsaved_changes={@has_unsaved_changes}
         saving={@saving}
+        privacy_active={@privacy_active}
+        privacy_countdown={@privacy_countdown}
       >
         <:footer>
           <div class="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
@@ -197,6 +214,15 @@ defmodule MossletWeb.JournalLive.Entry do
             </div>
           </.form>
         </div>
+
+        <DesignSystem.privacy_screen
+          active={@privacy_active}
+          countdown={@privacy_countdown}
+          needs_password={@privacy_needs_password}
+          on_activate="activate_privacy"
+          on_reveal="reveal_content"
+          on_password_submit="verify_privacy_password"
+        />
       </.layout>
     <% end %>
     """
@@ -230,7 +256,8 @@ defmodule MossletWeb.JournalLive.Entry do
      |> assign(:has_loose_entries, false)
      |> assign(:book_id, nil)
      |> assign(:entry_matches_scope, true)
-     |> assign(:entry_book_title, nil)}
+     |> assign(:entry_book_title, nil)
+     |> JournalHelpers.assign_privacy_state(user)}
   end
 
   @impl true
@@ -502,6 +529,61 @@ defmodule MossletWeb.JournalLive.Entry do
   @impl true
   def handle_event("restore-body-scroll", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("activate_privacy", _params, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Mosslet.Accounts.update_journal_privacy(user, true) do
+      {:ok, _user} ->
+        Mosslet.Journal.PrivacyTimer.activate(user.id)
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to enable privacy mode")}
+    end
+  end
+
+  @impl true
+  def handle_event("reveal_content", _params, socket) do
+    if socket.assigns.privacy_needs_password do
+      {:noreply, socket}
+    else
+      user = socket.assigns.current_scope.user
+
+      case Mosslet.Accounts.update_journal_privacy(user, false) do
+        {:ok, _user} ->
+          Mosslet.Journal.PrivacyTimer.deactivate(user.id)
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("verify_privacy_password", %{"password" => password}, socket) do
+    user = socket.assigns.current_scope.user
+
+    if Mosslet.Accounts.User.valid_password?(user, password) do
+      case Mosslet.Accounts.update_journal_privacy(user, false) do
+        {:ok, _user} ->
+          Mosslet.Journal.PrivacyTimer.deactivate(user.id)
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Incorrect password")}
+    end
+  end
+
+  @impl true
+  def handle_info({:privacy_timer_update, state}, socket) do
+    {:noreply, JournalHelpers.handle_privacy_timer_update(socket, state)}
   end
 
   @impl true

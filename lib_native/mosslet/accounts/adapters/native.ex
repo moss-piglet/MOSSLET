@@ -2194,6 +2194,23 @@ defmodule Mosslet.Accounts.Adapters.Native do
     end
   end
 
+  @impl true
+  def update_journal_privacy(user, enabled) when is_boolean(enabled) do
+    if Sync.online?() do
+      with {:ok, token} <- NativeSession.get_token(),
+           {:ok, %{user: user_data}} <-
+             Client.update_journal_privacy(token, enabled) do
+        cache_user(user_data)
+        {:ok, deserialize_user(user_data)}
+      else
+        {:error, {_status, error}} -> {:error, error}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - journal privacy update requires network"}
+    end
+  end
+
   defp deserialize_memory(data) when is_map(data) do
     struct(Mosslet.Memories.Memory, atomize_keys(data))
   rescue

@@ -1731,4 +1731,23 @@ defmodule Mosslet.Accounts.Adapters.Web do
     from(r in Reply, where: r.user_id == ^user_id, preload: [:post])
     |> Repo.all()
   end
+
+  @impl true
+  def update_journal_privacy(user, enabled) when is_boolean(enabled) do
+    attrs =
+      if enabled do
+        %{journal_privacy_enabled: true, journal_privacy_activated_at: DateTime.utc_now()}
+      else
+        %{journal_privacy_enabled: false, journal_privacy_activated_at: nil}
+      end
+
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.journal_privacy_changeset(attrs)
+        |> Repo.update()
+      end)
+
+    result
+  end
 end

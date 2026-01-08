@@ -840,4 +840,10 @@ defmodule Mosslet.Accounts.Adapter do
   Gets all replies for a user with post preloaded (for extracting URLs before deletion).
   """
   @callback get_all_replies_for_user(user_id :: String.t()) :: [any()]
+
+  @doc """
+  Updates the journal privacy screen setting for a user.
+  """
+  @callback update_journal_privacy(user :: User.t(), enabled :: boolean()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 end

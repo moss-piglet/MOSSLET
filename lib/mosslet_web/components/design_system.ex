@@ -13927,4 +13927,148 @@ defmodule MossletWeb.DesignSystem do
   end
 
   def mood_label(_), do: ""
+
+  attr :active, :boolean, required: true
+  attr :countdown, :integer, default: 0
+  attr :needs_password, :boolean, default: false
+  attr :on_activate, :string, default: "activate_privacy"
+  attr :on_reveal, :string, default: "reveal_content"
+  attr :on_password_submit, :string, default: "verify_privacy_password"
+
+  def privacy_screen(assigns) do
+    ~H"""
+    <div
+      :if={@active}
+      id="privacy-screen"
+      phx-hook="LockBodyScroll"
+      class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
+    >
+      <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gradient-to-br from-teal-200/20 to-emerald-200/20 dark:from-teal-800/10 dark:to-emerald-800/10 blur-3xl animate-pulse" />
+        <div class="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-gradient-to-br from-emerald-200/20 to-cyan-200/20 dark:from-emerald-800/10 dark:to-cyan-800/10 blur-3xl animate-pulse [animation-delay:1s]" />
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-gradient-to-br from-slate-200/30 to-slate-300/30 dark:from-slate-700/20 dark:to-slate-600/20 blur-2xl" />
+      </div>
+
+      <div class="relative text-center px-6 max-w-md">
+        <div class="mb-8">
+          <div class="relative inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-teal-500/5 to-emerald-500/5 dark:from-teal-400/10 dark:to-emerald-400/10" />
+            <MossletWeb.CoreComponents.phx_icon
+              name="hero-eye-slash"
+              class="h-12 w-12 text-slate-400 dark:text-slate-500"
+            />
+          </div>
+        </div>
+
+        <h2 class="text-2xl font-semibold text-slate-800 dark:text-slate-200 mb-3">
+          Privacy Mode Active
+        </h2>
+        <p class="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+          Your journal content is hidden for your privacy. Click the button below when you're ready to continue reading.
+        </p>
+
+        <%= if @needs_password do %>
+          <.privacy_password_form on_submit={@on_password_submit} />
+        <% else %>
+          <button
+            type="button"
+            phx-click={@on_reveal}
+            class="inline-flex items-center justify-center gap-3 px-8 py-4 text-base font-medium rounded-2xl transition-all duration-300 bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg hover:shadow-xl hover:from-teal-600 hover:to-emerald-600 transform hover:scale-[1.02]"
+          >
+            <MossletWeb.CoreComponents.phx_icon name="hero-eye" class="h-5 w-5" />
+            <%= if @countdown > 0 do %>
+              <span>Reveal Content</span>
+              <span class="tabular-nums font-mono text-white/80">
+                ({format_countdown(@countdown)})
+              </span>
+            <% else %>
+              <span>Reveal Content</span>
+            <% end %>
+          </button>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :on_submit, :string, required: true
+
+  defp privacy_password_form(assigns) do
+    ~H"""
+    <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-lg">
+      <div class="flex items-center gap-2 mb-4">
+        <MossletWeb.CoreComponents.phx_icon
+          name="hero-lock-closed"
+          class="h-5 w-5 text-amber-500"
+        />
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Enter your password to continue
+        </span>
+      </div>
+      <form phx-submit={@on_submit} class="space-y-4">
+        <div>
+          <input
+            type="password"
+            name="password"
+            placeholder="Your password"
+            autocomplete="current-password"
+            required
+            class="w-full px-4 py-3 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+        >
+          Unlock Journal
+        </button>
+      </form>
+    </div>
+    """
+  end
+
+  defp format_countdown(seconds) when seconds > 0 do
+    minutes = div(seconds, 60)
+    secs = rem(seconds, 60)
+
+    "#{String.pad_leading(Integer.to_string(minutes), 2, "0")}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
+  end
+
+  defp format_countdown(_), do: "00:00"
+
+  attr :active, :boolean, required: true
+  attr :countdown, :integer, default: 0
+  attr :on_click, :string, default: "activate_privacy"
+
+  def privacy_button(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click={@on_click}
+      id="privacy-button"
+      phx-hook="TippyHook"
+      data-tippy-content={if @active, do: "Privacy mode active", else: "Hide content quickly"}
+      class={[
+        "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border shadow-sm transition-all duration-200",
+        if(@active,
+          do:
+            "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700",
+          else:
+            "text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-600"
+        )
+      ]}
+    >
+      <MossletWeb.CoreComponents.phx_icon
+        name={if @active, do: "hero-eye-slash", else: "hero-eye-slash"}
+        class="h-5 w-5"
+      />
+      <span class="sr-only">
+        {if @active, do: "Privacy mode active", else: "Hide content quickly"}
+      </span>
+      <%= if @active && @countdown > 0 do %>
+        <span class="tabular-nums text-xs font-mono">{format_countdown(@countdown)}</span>
+      <% end %>
+    </button>
+    """
+  end
 end

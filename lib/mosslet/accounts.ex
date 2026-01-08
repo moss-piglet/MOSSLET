@@ -2548,4 +2548,11 @@ defmodule Mosslet.Accounts do
   def list_user_connections_for_sync(user, opts \\ []) do
     adapter().list_user_connections_for_sync(user, opts)
   end
+
+  @doc """
+  Toggles the journal privacy screen setting for a user.
+  """
+  def update_journal_privacy(user, enabled) when is_boolean(enabled) do
+    adapter().update_journal_privacy(user, enabled)
+  end
 end
