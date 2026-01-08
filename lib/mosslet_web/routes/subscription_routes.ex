@@ -62,6 +62,14 @@ defmodule MossletWeb.SubscriptionRoutes do
                GroupLive.GroupSettings.ModerateGroupMembersLive,
                :block_member
 
+          # Journal (private, user-only)
+          live "/journal", JournalLive.Index, :index
+          live "/journal/new", JournalLive.Entry, :new
+          live "/journal/books/:book_id", JournalLive.Book, :show
+          live "/journal/books/:book_id/edit", JournalLive.Book, :edit
+          live "/journal/:id", JournalLive.Entry, :show
+          live "/journal/:id/edit", JournalLive.Entry, :edit
+
           # Posts
           live "/posts/new", PostLive.Index, :new
           live "/posts/:id/edit", PostLive.Show, :edit
