@@ -5,10 +5,22 @@ const AutoResize = {
     this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     this.keyboardOpen = false;
     this.initialViewportHeight = window.visualViewport?.height || window.innerHeight;
+    this.lastHeight = null;
+    this.resizeScheduled = false;
+    this.lastCursorScreenY = null;
     
     this.resize();
     
-    this.handleInput = () => this.resize();
+    this.handleInput = () => {
+      if (!this.resizeScheduled) {
+        this.resizeScheduled = true;
+        requestAnimationFrame(() => {
+          this.resizeScheduled = false;
+          this.resize();
+          this.scrollCursorIntoView();
+        });
+      }
+    };
     this.el.addEventListener("input", this.handleInput);
     
     if (this.isIOS && window.visualViewport) {
@@ -23,6 +35,7 @@ const AutoResize = {
     }
     
     this.handleFocus = () => {
+      this.initCursorPosition();
       if (this.isIOS) {
         this.keyboardOpen = true;
         requestAnimationFrame(() => this.resize());
@@ -30,6 +43,7 @@ const AutoResize = {
     };
     
     this.handleBlur = () => {
+      this.lastCursorScreenY = null;
       if (this.isIOS) {
         this.keyboardOpen = false;
         this.resize();
@@ -65,10 +79,18 @@ const AutoResize = {
   resize() {
     const el = this.el;
     
-    if (this.isIOS && this.keyboardOpen) {
-      el.style.height = "auto";
-      const contentHeight = el.scrollHeight + this.offset;
-      el.style.height = contentHeight + "px";
+    if (this.isIOS) {
+      const currentHeight = el.offsetHeight;
+      const currentScrollHeight = el.scrollHeight;
+      
+      if (currentScrollHeight > currentHeight) {
+        el.style.height = (currentScrollHeight + this.offset) + "px";
+      } else if (this.lastHeight !== null && currentScrollHeight < this.lastHeight - 20) {
+        el.style.height = "auto";
+        el.style.height = (el.scrollHeight + this.offset) + "px";
+      }
+      
+      this.lastHeight = el.scrollHeight;
       return;
     }
     
@@ -80,11 +102,48 @@ const AutoResize = {
     const availableBottom = visibleHeight - footerHeight - 8;
     const maxHeight = availableBottom - rect.top;
 
-    if (contentHeight > maxHeight && maxHeight > 100) {
-      el.style.height = maxHeight + "px";
-    } else {
-      el.style.height = contentHeight + "px";
+    el.style.height = contentHeight + "px";
+    el.style.overflowY = "hidden";
+  },
+
+  scrollCursorIntoView() {
+    const el = this.el;
+    if (el.selectionStart === undefined) return;
+    
+    const text = el.value.substring(0, el.selectionStart);
+    const lines = text.split("\n").length;
+    const style = getComputedStyle(el);
+    const lineHeight = parseFloat(style.lineHeight) || 28;
+    const paddingTop = parseFloat(style.paddingTop) || 0;
+    
+    const cursorY = paddingTop + (lines * lineHeight);
+    const rect = el.getBoundingClientRect();
+    const cursorScreenY = rect.top + cursorY - el.scrollTop;
+    
+    if (this.lastCursorScreenY !== undefined && this.lastCursorScreenY !== null) {
+      const drift = cursorScreenY - this.lastCursorScreenY;
+      if (Math.abs(drift) > 2) {
+        window.scrollBy({ top: drift, behavior: "instant" });
+      }
     }
+    
+    const newRect = el.getBoundingClientRect();
+    this.lastCursorScreenY = newRect.top + cursorY - el.scrollTop;
+  },
+
+  initCursorPosition() {
+    const el = this.el;
+    if (el.selectionStart === undefined) return;
+    
+    const text = el.value.substring(0, el.selectionStart);
+    const lines = text.split("\n").length;
+    const style = getComputedStyle(el);
+    const lineHeight = parseFloat(style.lineHeight) || 28;
+    const paddingTop = parseFloat(style.paddingTop) || 0;
+    
+    const cursorY = paddingTop + (lines * lineHeight);
+    const rect = el.getBoundingClientRect();
+    this.lastCursorScreenY = rect.top + cursorY - el.scrollTop;
   },
 };
 
