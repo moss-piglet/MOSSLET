@@ -13781,6 +13781,7 @@ defmodule MossletWeb.DesignSystem do
       {"Growth",
        [
          {"growing", "🪴", "Growing"},
+         {"grounded", "🌿", "Grounded"},
          {"breathing", "🌬️", "Letting Go"}
        ]},
       {"Neutral",
@@ -13911,7 +13912,7 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(growing breathing) do
+  defp mood_color_scheme(mood) when mood in ~w(growing grounded breathing) do
     %{
       bg: "bg-emerald-50 dark:bg-emerald-900/30",
       text: "text-emerald-700 dark:text-emerald-300",
@@ -13976,6 +13977,7 @@ defmodule MossletWeb.DesignSystem do
       "serene" => "🕊️",
       "accomplished" => "🎯",
       "growing" => "🪴",
+      "grounded" => "🌿",
       "breathing" => "🌬️",
       "mixed" => "🌊",
       "latenight" => "🌙"

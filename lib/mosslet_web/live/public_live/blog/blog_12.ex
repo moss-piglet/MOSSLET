@@ -81,7 +81,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog12 do
         <ul>
           <li>
             <strong>Write freely:</strong>
-            Create entries with optional titles, track your mood from 30 different options (joyful, anxious, nostalgic, creative — whatever fits), and watch your word count grow as you reflect.
+            Create entries with optional titles, track your mood from 35+ different options (joyful, anxious, nostalgic, creative — whatever fits), and watch your word count grow as you reflect.
           </li>
           <li>
             <strong>Organize with Books:</strong>

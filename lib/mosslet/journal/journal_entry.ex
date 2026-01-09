@@ -37,6 +37,7 @@ defmodule Mosslet.Journal.JournalEntry do
     "proud",
     "accomplished",
     "growing",
+    "grounded",
     "goodday",
     "breathing",
     "neutral",
