@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "12",
+      date: "January 07, 2026",
+      title: "Introducing Journal: Your Private Space for Reflection",
+      preview:
+        "I think a lot about what kind of world my kids are growing up in. A world where every thought shared online becomes data to be harvested. Where moments of vulnerability become training data for algorithms designed to manipulate. Where there's nowhere left to just... be.",
+      path: "/blog/articles/12"
+    },
+    %{
       id: "11",
       date: "December 22, 2025",
       title: "Introducing Our Referral Program: Share the Love, Get Paid",
