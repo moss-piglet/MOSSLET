@@ -1167,3 +1167,19 @@ dialog[data-confirm] button[data-confirm-accept]:hover::before {
     opacity: 1;
   }
 }
+
+/* ===== iOS VIRTUAL KEYBOARD FIX ===== */
+@supports (-webkit-touch-callout: none) {
+  #journal-body-container textarea {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #focus-layout {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+  
+  #focus-layout main {
+    min-height: calc(100dvh - 56px);
+  }
+}
