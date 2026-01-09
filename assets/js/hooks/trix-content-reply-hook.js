@@ -1,5 +1,6 @@
 const TrixContentReplyHook = {
   mounted() {
+    this.eventListeners = [];
     this.init_links();
     this.image_placeholder();
 
@@ -7,18 +8,18 @@ const TrixContentReplyHook = {
     var userId = null;
     var checkLinks = this.el.querySelectorAll("img");
     if (checkLinks && checkLinks.length) {
-      // Get the reply's id (leave this independent of our replyBody variable)
       replyId = this.el.getAttribute("id").split("reply-body-")[1];
 
-      window.addEventListener(
-        `mosslet:show-reply-photos-${replyId}`,
-        (event) => {
-          if (event && event.detail.reply_id === replyId) {
-            userId = event.detail.user_id;
-            this.init_images(checkLinks, replyId, userId);
-          }
+      const eventName = `mosslet:show-reply-photos-${replyId}`;
+      const handler = (event) => {
+        if (event && event.detail.reply_id === replyId) {
+          userId = event.detail.user_id;
+          this.init_images(checkLinks, replyId, userId);
         }
-      );
+      };
+
+      window.addEventListener(eventName, handler);
+      this.eventListeners.push({ event: eventName, handler });
     }
   },
 
@@ -29,13 +30,18 @@ const TrixContentReplyHook = {
     var replyId = null;
     var checkLinks = this.el.querySelectorAll("img");
     if (checkLinks && checkLinks.length) {
-      // Get the reply's id (leave this independent of our replyBody variable)
       replyId = this.el.getAttribute("id").split("reply-body-")[1];
     }
   },
 
+  destroyed() {
+    this.eventListeners.forEach(({ event, handler }) => {
+      window.removeEventListener(event, handler);
+    });
+    this.eventListeners = [];
+  },
+
   init_links() {
-    // Get all <a> tags
     var links = this.el.querySelectorAll("a");
 
     links.forEach((link) => {
@@ -44,16 +50,12 @@ const TrixContentReplyHook = {
   },
 
   init_images(checkLinks, replyId, userId) {
-    // Check to first see if there are any images present in the reply
     if (checkLinks && checkLinks.length) {
       this.originalLinks = [];
       this.newLinks = [];
       this.newPresignedUrls = [];
       this.oldPresignedUrls = [];
 
-      // the time in milliseconds that the presigned_urls expire
-      // we set this slightly before the urls actual expiration
-      // this is in milliseconds (whereas tigris expires in is seconds)
       const URL_EXPIRES_IN = 590_000;
 
       var imagePromises = [];
@@ -65,10 +67,8 @@ const TrixContentReplyHook = {
       var replyUpdatedAt = null;
       var imageCounter = 0;
 
-      // Set an initial count of all images
       imageCounter = checkLinks.length;
 
-      // First update promise is to check if the urls are expired
       let updatePromise = new Promise((resolve, reject) => {
         timestampElement = document.querySelector(
           `#timestamp-${replyId}-updated time`
@@ -88,36 +88,23 @@ const TrixContentReplyHook = {
 
       Promise.all(updatePromises)
         .then(() => {
-          // Loop through the links and check if the innerHTML is NOT empty
-          // we use image_links and not the checkLinks because we want to
-          // update the <a> that wraps the <img> as well as the <img>
           this.el.querySelectorAll("a").forEach((link) => {
-            // This link has an innerHTML which will contain the image
             if (link.children.length > 0 && replyId) {
               if (link.querySelector("img")) {
-                // Store the original link in the list
                 this.originalLinks.push(link);
 
-                // Create a spinner for the link
                 let spinner = this.createSpinner();
 
-                // Insert the spinner before the link
                 link.parentNode.insertBefore(spinner, link);
                 this.spinners.push(spinner);
 
-                // Remove the old link element from the document
                 link.classList.add("hidden");
 
-                // Start the presigned_url regeneration
-                // we should send count of items and send back a full list of the urls.
-                // so we don't make mulitple trips to the server
                 if (imageCounter > 0) {
-                  // add the old presigned url to a list
                   this.oldPresignedUrls.push(
                     link.querySelector("img").getAttribute("src")
                   );
 
-                  // Decrement the imageCounter
                   imageCounter--;
                 }
               }
@@ -134,7 +121,6 @@ const TrixContentReplyHook = {
                 { src_list: this.oldPresignedUrls },
                 (reply, ref) => {
                   if (reply && reply.response === "success") {
-                    // Update the link and image elements with the new URLs
                     reply.presigned_url_list.forEach((presigned_url) => {
                       this.newPresignedUrls.push(presigned_url);
                     });
@@ -164,7 +150,6 @@ const TrixContentReplyHook = {
                 imageCounter === 0 &&
                 this.newPresignedUrls.length === this.oldPresignedUrls.length
               ) {
-                // Update the replyBody with the new URLs
                 let replaceLink = new Promise((resolve, reject) => {
                   var newLink = null;
 
@@ -175,7 +160,6 @@ const TrixContentReplyHook = {
                       .querySelector("img")
                       .setAttribute("src", this.newPresignedUrls[index]);
 
-                    // Add the newLink to a list
                     this.newLinks.push(newLink);
                   });
                   resolve();
@@ -184,20 +168,14 @@ const TrixContentReplyHook = {
 
                 Promise.all(replaceLinkPromises)
                   .then(() => {
-                    // Set the update counter to the length of originalLinks
                     var updateLinkCounter = this.originalLinks.length;
 
                     this.originalLinks.forEach((link, index) => {
-                      // This link has an innerHTML which will contain the image
-
-                      // Set the proper attributes based on the index
                       link.setAttribute("href", this.newLinks[index]);
                       link
                         .querySelector("img")
                         .setAttribute("src", this.newLinks[index]);
 
-                      // Remove the old link element from the document
-                      // We currently don't allow image downloads from Replies
                       link.classList.add("cursor-not-allowed");
                       link.classList.remove("hidden");
 
@@ -208,8 +186,6 @@ const TrixContentReplyHook = {
                       this.spinners.forEach((spinner) => {
                         this.removeSpinner(spinner);
                       });
-                      // Send the updated body to update the reply on the server
-                      // this.el is the reply's body content
                       this.pushEvent("update_reply_body", {
                         body: this.el.innerHTML,
                         id: replyId,
@@ -242,7 +218,6 @@ const TrixContentReplyHook = {
 
                 Promise.all(dbPromises)
                   .then(() => {
-                    // hide show photos button
                     photoButton = document.querySelector(
                       `#reply-${replyId}-show-photos-${userId}`
                     );
@@ -255,22 +230,16 @@ const TrixContentReplyHook = {
                       data: error,
                     });
 
-                    // Post not updated correctly, reinsert the spinners
                     this.el.querySelectorAll("a").forEach((link) => {
-                      // This link has an innerHTML which will contain the image
                       if (link.children.length > 0 && replyId) {
                         if (link.querySelector("img")) {
-                          // reset the original links list
-                          // and store the original link back in the list
                           this.originalLinks = [];
                           this.originalLinks.push(link);
                           let spinner = this.createSpinner();
 
-                          // Insert the spinner before the link
                           link.parentNode.insertBefore(spinner, link);
                           this.spinners.push(spinner);
 
-                          // Remove the old link element from the document
                           link.remove();
                         }
                       }
@@ -287,36 +256,26 @@ const TrixContentReplyHook = {
             });
         })
         .catch((_error) => {
-          // images don't need updating, just decrypt
-
-          // hide show photos button
           photoButton = document.querySelector(
             `#reply-${replyId}-show-photos-${userId}`
           );
           photoButton.style.display = "none";
 
-          // replace images with spinners while decrypting
           this.el.querySelectorAll("a").forEach((link) => {
-            // This link has an innerHTML which will contain the image
             if (link.children.length > 0 && replyId) {
               if (link.querySelector("img")) {
-                // Store the original link in the list
                 this.originalLinks.push(link);
 
-                // Create a spinner for the link
                 let spinner = this.createSpinner();
 
-                // Insert the spinner before the link
                 link.parentNode.insertBefore(spinner, link);
                 this.spinners.push(spinner);
 
-                // Remove the old link element from the document
                 link.classList.add("hidden");
               }
             }
           });
 
-          // build a list of src's (the checkLinks are the image elements)
           var imageSources = [];
           checkLinks.forEach((link) => {
             imageSources.push(link.getAttribute("src"));
@@ -334,16 +293,11 @@ const TrixContentReplyHook = {
                   var updateLinkCounter = this.originalLinks.length;
                   var decryptedBinaries = reply.decrypted_binaries;
                   this.originalLinks.forEach((link, index) => {
-                    // This link has an innerHTML which will contain the image
-
-                    // Set the proper attributes based on the index
                     link.setAttribute("href", decryptedBinaries[index]);
                     link
                       .querySelector("img")
                       .setAttribute("src", decryptedBinaries[index]);
 
-                    // Remove the old link element from the document
-                    // We currently don't allow image downloads from Replies
                     link.classList.add("cursor-not-allowed");
                     link.classList.remove("hidden");
 
@@ -377,25 +331,18 @@ const TrixContentReplyHook = {
       this.newLinks = [];
       this.spinners = [];
 
-      // Get the reply's id (leave this independent of our replyBody variable)
-      replyId = this.el.getAttribute("id").split("reply-body-")[1];
+      const replyId = this.el.getAttribute("id").split("reply-body-")[1];
 
-      // replace images with spinners while decrypting
       this.el.querySelectorAll("a").forEach((link) => {
-        // This link has an innerHTML which will contain the image
         if (link.children.length > 0 && replyId) {
           if (link.querySelector("img")) {
-            // Store the original link in the list
             this.originalLinks.push(link);
 
-            // Create a spinner for the link
             let spinner = this.createPlaceholderImage();
 
-            // Insert the spinner before the link
             link.parentNode.insertBefore(spinner, link);
             this.spinners.push(spinner);
 
-            // Remove the old link element from the document
             link.classList.add("hidden");
           }
         }
@@ -465,17 +412,14 @@ const TrixContentReplyHook = {
   },
 
   transform_link(link) {
-    // link will have inner html (presumably an image)
     if (link.children.length > 0) {
       link.setAttribute("target", "_blank");
       link.setAttribute("rel", "noopener noreferrer");
 
-      // Prevent image downloads currently
       link.addEventListener("click", function (event) {
         event.preventDefault();
       });
 
-      // Prevent image downloads currently
       link.addEventListener("contextmenu", function (event) {
         event.preventDefault();
       });
@@ -487,24 +431,15 @@ const TrixContentReplyHook = {
 
   isUrlExpired(replyUpdatedAt, urlExpiresIn) {
     var replyUpdatedAtDate = new Date(replyUpdatedAt);
-    // Adjust the timezone offset
     replyUpdatedAtDate.setMinutes(
       replyUpdatedAtDate.getMinutes() - replyUpdatedAtDate.getTimezoneOffset()
     );
     var expirationDate = new Date(
-      replyUpdatedAtDate.getTime() + urlExpiresIn * 1_000 // convert to seconds
+      replyUpdatedAtDate.getTime() + urlExpiresIn * 1_000
     );
     var currentDate = new Date();
     return currentDate > expirationDate;
   },
 };
-
-// Possible way to prevent default link behavior
-// on users that are not allowed to download a memory
-//
-// link.addEventListener("click", function(event) {
-//  event.preventDefault();
-//  console.log("ImageHook link clicked");
-// });
 
 export default TrixContentReplyHook;

@@ -77,7 +77,9 @@ const ImageResizeUploadHook = {
     const input = this.el.querySelector('input[type="file"]');
     if (!input) return;
 
-    input.addEventListener("change", async (e) => {
+    this.input = input;
+
+    this.handleChange = async (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
 
       e.stopImmediatePropagation();
@@ -90,9 +92,9 @@ const ImageResizeUploadHook = {
       input.files = dt.files;
 
       input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    };
 
-    this.el.addEventListener("drop", async (e) => {
+    this.handleDrop = async (e) => {
       if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
 
       e.stopImmediatePropagation();
@@ -112,8 +114,20 @@ const ImageResizeUploadHook = {
       setTimeout(() => {
         this.el.dispatchEvent(newEvent);
       }, 0);
-    }, { capture: true });
+    };
+
+    input.addEventListener("change", this.handleChange);
+    this.el.addEventListener("drop", this.handleDrop, { capture: true });
   },
+
+  destroyed() {
+    if (this.input && this.handleChange) {
+      this.input.removeEventListener("change", this.handleChange);
+    }
+    if (this.handleDrop) {
+      this.el.removeEventListener("drop", this.handleDrop, { capture: true });
+    }
+  }
 };
 
 export default ImageResizeUploadHook;
