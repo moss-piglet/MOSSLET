@@ -40,7 +40,7 @@ defmodule MossletWeb.JournalLive.Index do
               phx-hook="TippyHook"
               data-tippy-content={if @show_favorites, do: "Hide favorites", else: "Show favorites"}
               class={[
-                "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border shadow-sm transition-all duration-200",
+                "inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl border shadow-sm transition-all duration-200",
                 if(@show_favorites,
                   do:
                     "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700",
