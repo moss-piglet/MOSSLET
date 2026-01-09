@@ -78,8 +78,113 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </div>
 
+          <%!-- Social Features Section with Timeline Screenshot --%>
+          <.liquid_container max_width="full" class="relative mt-16 sm:mt-24 py-16 sm:py-20">
+            <div class="absolute inset-0 bg-gradient-to-b from-teal-50/30 via-emerald-50/20 to-transparent dark:from-teal-950/20 dark:via-emerald-950/10 dark:to-transparent">
+            </div>
+            <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-teal-400 dark:to-teal-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                  Social
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-teal-400 dark:to-teal-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+                  Connect simply with friends and family
+                </h2>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                  Share moments and memories with the people who matter most. Private, calm, and beautifully simple.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg">
+                        <.phx_icon name="hero-users" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Made for People
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Share photos, updates, and memories with your friends and family. No ads, no algorithms. Simple, genuine connections without the noise.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
+                        <.phx_icon name="hero-shield-check" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Your Privacy Protected
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Control who sees what with simple privacy settings. Your moments stay between you and the people you choose.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
+                        <.phx_icon name="hero-heart" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Calm and Peaceful
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    No endless scroll, no anxiety-inducing algorithms. Just a calm space to stay connected with loved ones.
+                  </p>
+                </.liquid_card>
+              </div>
+
+              <%!-- Timeline Screenshot --%>
+              <div class="relative mt-12 mx-auto max-w-5xl">
+                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-teal-500/5 via-transparent to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/timeline_light.png"}
+                    alt="MOSSLET timeline showing social posts from friends and family"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/timeline_dark.png"}
+                    alt="MOSSLET timeline showing social posts from friends and family"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+              </div>
+            </div>
+          </.liquid_container>
+
           <%!-- Actual Timeline Feature Preview Section --%>
-          <.liquid_container max_width="full" class="relative -mt-12 sm:mt-0 xl:-mt-8">
+          <.liquid_container max_width="full" class="relative mt-16 sm:mt-24">
             <div class="mx-auto max-w-7xl px-6 lg:px-8">
               <div class="text-center mb-12">
                 <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
@@ -508,6 +613,143 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
+          <%!-- Journal Features Section with Violet/Purple Accent --%>
+          <.liquid_container max_width="full" class="relative mt-24 sm:mt-32 py-16 sm:py-20">
+            <div class="absolute inset-0 bg-gradient-to-b from-violet-50/30 via-purple-50/20 to-transparent dark:from-violet-950/20 dark:via-purple-950/10 dark:to-transparent">
+            </div>
+            <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-violet-400 dark:to-violet-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+                  Journal
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-violet-400 dark:to-violet-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
+                  Connect with yourself
+                </h2>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                  Your private space for reflection. Our encrypted journal helps you capture thoughts, track your mood, and gain insights — just for you.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg">
+                        <.phx_icon name="hero-lock-closed" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Encrypted & Private
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Your journal entries are encrypted with your personal key. Only you can read them — not even we can access your private thoughts.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-pink-500 to-rose-500 shadow-lg">
+                        <.phx_icon name="hero-face-smile" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Mood Tracking
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Record how you're feeling with each entry. Track your emotional journey over time and discover patterns in your well-being.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
+                        <.phx_icon name="hero-light-bulb" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Privacy-First AI Insights
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Get thoughtful AI-generated reflections while your data stays encrypted. Insights are generated privately and never stored or used to train models.
+                  </p>
+                </.liquid_card>
+              </div>
+
+              <%!-- Journal Screenshot --%>
+              <div class="relative mt-12 mx-auto max-w-5xl">
+                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/journal_light.png"}
+                    alt="MOSSLET private journal for personal reflection and mood tracking"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/journal_dark.png"}
+                    alt="MOSSLET private journal for personal reflection and mood tracking"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+              </div>
+
+              <%!-- Additional Journal Screenshots Grid --%>
+              <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/journal_book_light.png"}
+                    alt="MOSSLET journal books for organizing your thoughts"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/journal_book_dark.png"}
+                    alt="MOSSLET journal books for organizing your thoughts"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-violet-500/5 via-transparent to-purple-500/5 dark:from-violet-500/10 dark:to-purple-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/journal_new_entry_light.png"}
+                    alt="MOSSLET new journal entry with mood tracking"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/journal_new_entry_dark.png"}
+                    alt="MOSSLET new journal entry with mood tracking"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+              </div>
+            </div>
+          </.liquid_container>
+
           <%!-- Real Timeline Experience Section --%>
           <.liquid_container max_width="full" class="mt-24 sm:mt-32 lg:mt-40">
             <div class="text-center mb-16">
@@ -729,6 +971,58 @@ defmodule MossletWeb.PublicLive.Features do
                 </div>
               </.liquid_card>
             </div>
+
+            <%!-- Connections & Profile Screenshots --%>
+            <div class="mt-16 mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400 dark:to-cyan-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                  Connections
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400 dark:to-cyan-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
+                  Your people, your way
+                </h3>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                  Manage your connections and share your profile with the people who matter most.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 via-transparent to-blue-500/5 dark:from-cyan-500/10 dark:to-blue-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/connections_light.png"}
+                    alt="MOSSLET connections - manage who you share with"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/connections_dark.png"}
+                    alt="MOSSLET connections - manage who you share with"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+                <div class="relative rounded-2xl overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 via-transparent to-blue-500/5 dark:from-cyan-500/10 dark:to-blue-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/profile_light.png"}
+                    alt="MOSSLET profile - your personal space"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/profile_dark.png"}
+                    alt="MOSSLET profile - your personal space"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+              </div>
+            </div>
           </.liquid_container>
 
           <%!-- Privacy & Encryption Deep Dive --%>
@@ -802,6 +1096,44 @@ defmodule MossletWeb.PublicLive.Features do
                   Choose who sees each post: private, connections, or public. Set expiration dates for posts, and when you delete something, it's gone everywhere — instantly and completely.
                 </p>
               </.liquid_card>
+            </div>
+
+            <%!-- Circles Chat Screenshots --%>
+            <div class="mt-16 mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-rose-400 dark:to-rose-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                  Circles
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-rose-400 dark:to-rose-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h3 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent">
+                  Private group conversations
+                </h3>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                  Create Circles for your closest groups — family, friends, or any community you choose.
+                </p>
+              </div>
+
+              <div class="relative mx-auto max-w-4xl">
+                <div class="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-rose-500/5 via-transparent to-pink-500/5 dark:from-rose-500/10 dark:to-pink-500/10">
+                  </div>
+                  <img
+                    src={~p"/images/screenshots/circles_chat_light.png"}
+                    alt="MOSSLET Circles - private group chat with your closest people"
+                    class="relative w-full h-auto dark:hidden"
+                  />
+                  <img
+                    src={~p"/images/screenshots/circles_chat_dark.png"}
+                    alt="MOSSLET Circles - private group chat with your closest people"
+                    class="relative w-full h-auto hidden dark:block"
+                  />
+                </div>
+              </div>
             </div>
           </.liquid_container>
 
