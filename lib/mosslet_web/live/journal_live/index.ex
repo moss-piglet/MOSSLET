@@ -49,6 +49,9 @@ defmodule MossletWeb.JournalLive.Index do
                 )
               ]}
             >
+              <span class="sr-only">
+                {if @show_favorites, do: "Hide favorites", else: "Show favorites"}
+              </span>
               <.phx_icon name="hero-star-solid" class="h-4 w-4" />
               <span class="hidden sm:inline">{length(@favorites)}</span>
             </button>
