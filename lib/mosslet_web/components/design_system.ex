@@ -14046,7 +14046,7 @@ defmodule MossletWeb.DesignSystem do
       :if={@active}
       id="privacy-screen"
       phx-hook="LockBodyScroll"
-      class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
+      class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-gradient-to-br from-slate-50 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
     >
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
         <div class="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gradient-to-br from-teal-200/20 to-emerald-200/20 dark:from-teal-800/10 dark:to-emerald-800/10 blur-3xl animate-pulse" />
@@ -14054,21 +14054,21 @@ defmodule MossletWeb.DesignSystem do
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-gradient-to-br from-slate-200/30 to-slate-300/30 dark:from-slate-700/20 dark:to-slate-600/20 blur-2xl" />
       </div>
 
-      <div class="relative text-center px-6 max-w-md">
-        <div class="mb-8">
-          <div class="relative inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 shadow-lg border border-slate-200/50 dark:border-slate-700/50">
-            <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-teal-500/5 to-emerald-500/5 dark:from-teal-400/10 dark:to-emerald-400/10" />
+      <div class="relative text-center px-6 py-6 sm:py-8 max-w-md my-auto">
+        <div class="mb-4 sm:mb-8">
+          <div class="relative inline-flex items-center justify-center w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <div class="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-teal-500/5 to-emerald-500/5 dark:from-teal-400/10 dark:to-emerald-400/10" />
             <MossletWeb.CoreComponents.phx_icon
               name="hero-eye-slash"
-              class="h-12 w-12 text-slate-400 dark:text-slate-500"
+              class="h-8 w-8 sm:h-12 sm:w-12 text-slate-400 dark:text-slate-500"
             />
           </div>
         </div>
 
-        <h2 class="text-2xl font-semibold text-slate-800 dark:text-slate-200 mb-3">
+        <h2 class="text-xl sm:text-2xl font-semibold text-slate-800 dark:text-slate-200 mb-2 sm:mb-3">
           Privacy Mode Active
         </h2>
-        <p class="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+        <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400 mb-6 sm:mb-8 leading-relaxed">
           Your journal content is hidden for your privacy. Click the button below when you're ready to continue journaling.
         </p>
 

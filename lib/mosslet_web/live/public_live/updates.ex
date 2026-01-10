@@ -73,10 +73,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.12.0"
+                  version="0.13.0"
                   date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Privacy-First Community Health 🛡️</:title>
+                  <:description>
+                    Building a healthier community with privacy-first moderation. Content and image checks for public posts, image-only checks for private content, plus automatic AI-generated image detection.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-shield-check" color="emerald">
+                      Privacy-first moderation — public posts are checked for harmful content and images, keeping the community safe
+                    </.changelog_item>
+                    <.changelog_item icon="hero-photo" color="blue">
+                      Image safety checks — all images (public and private) are screened while respecting your privacy
+                    </.changelog_item>
+                    <.changelog_item icon="hero-eye" color="teal">
+                      Non-public privacy — private posts only have image checks, your text content stays between you and your connections
+                    </.changelog_item>
+                    <.changelog_item icon="hero-sparkles" color="purple">
+                      AI-generated badge — automatically detect and label AI-generated imagery for full transparency
+                    </.changelog_item>
+                    <.changelog_item icon="hero-heart" color="rose">
+                      Community health — building trust through transparency and protecting what makes MOSSLET special
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.12.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Private Journal 📓</:title>
                   <:description>

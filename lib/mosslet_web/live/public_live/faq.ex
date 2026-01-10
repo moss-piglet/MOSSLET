@@ -73,6 +73,46 @@ defmodule MossletWeb.PublicLive.Faq do
         ]
       },
       %{
+        title: "AI Safety & Privacy",
+        questions: [
+          %{
+            q: "How do AI safety checks work on MOSSLET?",
+            a:
+              "We use privacy-first AI to help keep our community healthy. Public posts are checked for both content and images, while non-public posts only have image safety checks — your private text stays between you and your connections. All checks happen in real-time without storing your content."
+          },
+          %{
+            q: "Is my content used to train AI models?",
+            a:
+              "Absolutely not. Your content is never stored or used for AI training. We route requests through OpenRouter with all data retention and training options disabled. The AI processes your content, returns a result, and that's it — nothing is kept."
+          },
+          %{
+            q: "Can the AI provider see who I am?",
+            a:
+              "No. When we send content for safety checks, no account information is included. The AI provider only sees that a request came from mosslet.com — they have no way to know whose content it is or link it to any user account."
+          },
+          %{
+            q: "What happens to my content after an AI check?",
+            a:
+              "After the safety check completes, your content remains asymmetrically encrypted on our servers. The AI never sees your encrypted data — we only decrypt temporarily for the check, get the result, and your content stays protected. Nothing is logged or stored from the AI interaction."
+          },
+          %{
+            q: "Why do you check images on private posts but not text?",
+            a:
+              "We believe in minimal intervention. Image safety checks help prevent harmful visual content from spreading, even in private contexts. But your private conversations and written thoughts are yours — we don't read them, and neither does AI. Public posts have full checks because they're visible to everyone."
+          },
+          %{
+            q: "How do you detect AI-generated images?",
+            a:
+              "We use AI detection to identify generated imagery and display a clear badge when detected. This helps maintain authenticity in your connections — you'll always know if an image was created by AI. The detection follows the same privacy-first approach: no storage, no training, no account data sent."
+          },
+          %{
+            q: "What is OpenRouter and why do you use it?",
+            a:
+              "OpenRouter is a privacy-focused AI routing service that lets us access AI capabilities while maintaining strict data protection. We've disabled all data retention and model training options. It acts as a secure intermediary that never stores your content or links requests to user identities."
+          }
+        ]
+      },
+      %{
         title: "Pricing & Access",
         questions: [
           %{

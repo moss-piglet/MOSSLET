@@ -101,7 +101,7 @@ defmodule MossletWeb.PublicLive.Features do
                 </p>
               </div>
 
-              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+              <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
                 <.liquid_card
                   padding="lg"
                   class="group hover:scale-105 transition-all duration-300 ease-out h-full"
@@ -159,6 +159,66 @@ defmodule MossletWeb.PublicLive.Features do
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                     No endless scroll, no anxiety-inducing algorithms. Just a calm space to stay connected with loved ones.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-rose-500 to-pink-500 shadow-lg">
+                        <.phx_icon name="hero-shield-exclamation" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Community Health
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Privacy-first moderation keeps our community healthy. Public posts are checked for content and images, while non-public posts have image-only checks. AI-generated images are clearly labeled.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
+                        <.phx_icon name="hero-sparkles" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        AI Transparency
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    We automatically detect AI-generated imagery and display a clear badge so you always know what's real. Authenticity matters in meaningful connections.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
+                        <.phx_icon name="hero-cpu-chip" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Privacy-First AI
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Our AI checks never store or train on your content. Requests pass through OpenRouter with all data retention disabled, then your content stays asymmetrically encrypted. Safety without surveillance.
                   </p>
                 </.liquid_card>
               </div>
@@ -693,7 +753,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Get thoughtful AI-generated reflections while your data stays encrypted. Insights are generated privately and never stored or used to train models.
+                    Get thoughtful AI reflections while your data stays protected. Your content is never stored or used for training — requests pass through OpenRouter with all retention disabled, then everything stays asymmetrically encrypted.
                   </p>
                 </.liquid_card>
               </div>
