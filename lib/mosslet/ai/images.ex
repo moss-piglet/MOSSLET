@@ -222,6 +222,107 @@ defmodule Mosslet.AI.Images do
     end
   end
 
+  @ai_software_patterns [
+    ~r/midjourney/i,
+    ~r/stable.?diffusion/i,
+    ~r/dall[·\-\s]?e/i,
+    ~r/openai/i,
+    ~r/leonardo\.ai/i,
+    ~r/firefly/i,
+    ~r/imagen/i,
+    ~r/bing.?image.?creator/i,
+    ~r/copilot/i,
+    ~r/adobe.?ai/i,
+    ~r/generative.?ai/i,
+    ~r/flux/i,
+    ~r/ideogram/i,
+    ~r/playground.?ai/i,
+    ~r/nightcafe/i,
+    ~r/dreamstudio/i,
+    ~r/runwayml/i,
+    ~r/civitai/i,
+    ~r/comfyui/i,
+    ~r/automatic1111/i
+  ]
+
+  @ai_digital_source_types [
+    "trainedAlgorithmicMedia",
+    "compositeWithTrainedAlgorithmicMedia",
+    "algorithmicMedia"
+  ]
+
+  @doc """
+  Detects if an image has AI-generated metadata markers.
+  Should be called BEFORE metadata is stripped.
+
+  Returns `{:ok, ai_generated?}` where ai_generated? is true if AI markers found.
+
+  Checks for:
+  - IPTC DigitalSourceType (C2PA standard)
+  - XMP AI generation markers
+  - EXIF Software/UserComment fields mentioning AI tools
+  """
+  def detect_ai_generated(image) when is_struct(image, Vix.Vips.Image) do
+    ai_generated? =
+      check_xmp_for_ai(image) ||
+        check_exif_for_ai(image) ||
+        check_software_field(image)
+
+    {:ok, ai_generated?}
+  end
+
+  def detect_ai_generated(binary) when is_binary(binary) do
+    case Image.from_binary(binary) do
+      {:ok, image} -> detect_ai_generated(image)
+      {:error, _} -> {:ok, false}
+    end
+  end
+
+  defp check_xmp_for_ai(image) do
+    case Vix.Vips.Image.header_value_as_string(image, "xmp-data") do
+      {:ok, xmp_blob} ->
+        case Base.decode64(xmp_blob) do
+          {:ok, xmp_binary} ->
+            xmp_string = to_string(xmp_binary)
+
+            Enum.any?(@ai_digital_source_types, &String.contains?(xmp_string, &1)) ||
+              Enum.any?(@ai_software_patterns, &Regex.match?(&1, xmp_string))
+
+          :error ->
+            false
+        end
+
+      {:error, _} ->
+        false
+    end
+  end
+
+  defp check_exif_for_ai(image) do
+    case Image.exif(image) do
+      {:ok, exif} ->
+        software = Map.get(exif, :software, "") || ""
+        user_comment = Map.get(exif, :user_comment, "") || ""
+        make = Map.get(exif, :make, "") || ""
+        model = Map.get(exif, :model, "") || ""
+
+        combined = Enum.join([software, user_comment, make, model], " ")
+        Enum.any?(@ai_software_patterns, &Regex.match?(&1, combined))
+
+      {:error, _} ->
+        false
+    end
+  end
+
+  defp check_software_field(image) do
+    case Vix.Vips.Image.header_value_as_string(image, "software") do
+      {:ok, software} ->
+        Enum.any?(@ai_software_patterns, &Regex.match?(&1, software))
+
+      {:error, _} ->
+        false
+    end
+  end
+
   defp mime_suffix("image/jpeg"), do: ".jpg"
   defp mime_suffix("image/jpg"), do: ".jpg"
   defp mime_suffix("image/png"), do: ".png"

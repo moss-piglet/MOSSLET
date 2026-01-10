@@ -105,7 +105,11 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
         %{error: state.error}
 
       state.processed_binary ->
-        %{processed_binary: state.processed_binary, trix_key: state.trix_key}
+        %{
+          processed_binary: state.processed_binary,
+          trix_key: state.trix_key,
+          ai_generated: Map.get(state, :ai_generated, false)
+        }
 
       true ->
         %{stage: state.stage, trix_key: state.trix_key}
@@ -144,9 +148,22 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     TempStorage.cleanup(state.temp_path)
 
     case result do
+      {:ok, processed_binary, ai_generated} ->
+        notify_ready(state, processed_binary)
+
+        {:ok,
+         %{
+           state
+           | processed_binary: processed_binary,
+             file_handle: nil,
+             ai_generated: ai_generated
+         }}
+
       {:ok, processed_binary} ->
         notify_ready(state, processed_binary)
-        {:ok, %{state | processed_binary: processed_binary, file_handle: nil}}
+
+        {:ok,
+         %{state | processed_binary: processed_binary, file_handle: nil, ai_generated: false}}
 
       {:error, reason} ->
         notify_progress(state, :error, reason)
@@ -203,6 +220,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   defp process_static_webp(binary, state) do
     with {:ok, image} <- Image.from_binary(binary),
+         {:ok, ai_generated} <- Mosslet.AI.Images.detect_ai_generated(image),
          {:ok, image} <- check_safety(image, state),
          :ok <- notify_progress(state, :processing, 55),
          {:ok, image} <- autorotate(image),
@@ -212,7 +230,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
          :ok <- notify_progress(state, :processing, 70),
          {:ok, webp_binary} <- to_webp_binary(image),
          :ok <- notify_progress(state, :processing, 90) do
-      {:ok, webp_binary}
+      {:ok, webp_binary, ai_generated}
     end
   end
 
@@ -227,14 +245,15 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   end
 
   defp process_animated_with_image(image, state) do
-    with {:ok, first_frame} <- extract_first_frame(image),
+    with {:ok, ai_generated} <- Mosslet.AI.Images.detect_ai_generated(image),
+         {:ok, first_frame} <- extract_first_frame(image),
          {:ok, _} <- check_safety(first_frame, state),
          :ok <- notify_progress(state, :processing, 55),
          {:ok, image} <- resize_animated(image),
          :ok <- notify_progress(state, :processing, 70),
          {:ok, webp_binary} <- to_animated_webp_binary(image),
          :ok <- notify_progress(state, :processing, 90) do
-      {:ok, webp_binary}
+      {:ok, webp_binary, ai_generated}
     end
   end
 
@@ -248,6 +267,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   defp process_static_image(binary, mime_type, state) do
     with {:ok, image} <- load_image(binary, mime_type),
+         {:ok, ai_generated} <- Mosslet.AI.Images.detect_ai_generated(image),
          {:ok, image} <- check_safety(image, state),
          :ok <- notify_progress(state, :processing, 55),
          {:ok, image} <- autorotate(image),
@@ -257,7 +277,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
          :ok <- notify_progress(state, :processing, 70),
          {:ok, webp_binary} <- to_webp_binary(image),
          :ok <- notify_progress(state, :processing, 90) do
-      {:ok, webp_binary}
+      {:ok, webp_binary, ai_generated}
     end
   end
 
