@@ -5,8 +5,24 @@ defmodule MossletWeb.Helpers.JournalHelpers do
   """
 
   import Phoenix.Component, only: [assign: 3]
+  import Phoenix.LiveView, only: [get_connect_params: 1]
 
   alias Mosslet.Journal.PrivacyTimer
+
+  def get_local_today(socket) do
+    case get_connect_params(socket) do
+      %{"timezone" => tz} when is_binary(tz) and tz != "" ->
+        DateTime.utc_now()
+        |> DateTime.shift_zone(tz)
+        |> case do
+          {:ok, local_dt} -> DateTime.to_date(local_dt)
+          _ -> Date.utc_today()
+        end
+
+      _ ->
+        Date.utc_today()
+    end
+  end
 
   def assign_privacy_state(socket, user) do
     if Phoenix.LiveView.connected?(socket) do

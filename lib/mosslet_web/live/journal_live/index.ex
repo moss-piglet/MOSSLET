@@ -880,7 +880,7 @@ defmodule MossletWeb.JournalLive.Index do
     favorites = Journal.list_favorite_entries(user, limit: 10)
     decrypted_favorites = decrypt_entries(favorites, user, key)
 
-    local_today = get_local_today(socket)
+    local_today = JournalHelpers.get_local_today(socket)
 
     socket =
       socket
@@ -1326,11 +1326,12 @@ defmodule MossletWeb.JournalLive.Index do
   def handle_event("save_extracted_entry", %{"extracted" => params}, socket) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
+    local_today = JournalHelpers.get_local_today(socket)
 
     entry_date =
       case params["entry_date"] do
-        "" -> nil
-        nil -> nil
+        "" -> local_today
+        nil -> local_today
         date_str -> Date.from_iso8601!(date_str)
       end
 
@@ -1765,21 +1766,6 @@ defmodule MossletWeb.JournalLive.Index do
       |> Map.put(:decrypted_title, decrypted.title)
       |> Map.put(:decrypted_body, decrypted.body)
     end)
-  end
-
-  defp get_local_today(socket) do
-    case get_connect_params(socket) do
-      %{"timezone" => tz} when is_binary(tz) and tz != "" ->
-        DateTime.utc_now()
-        |> DateTime.shift_zone(tz)
-        |> case do
-          {:ok, local_dt} -> DateTime.to_date(local_dt)
-          _ -> Date.utc_today()
-        end
-
-      _ ->
-        Date.utc_today()
-    end
   end
 
   defp truncate_body(nil), do: ""

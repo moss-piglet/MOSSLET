@@ -233,11 +233,13 @@ defmodule MossletWeb.JournalLive.Entry do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
 
+    local_today = JournalHelpers.get_local_today(socket)
+
     {:ok,
      socket
      |> assign(:user, user)
      |> assign(:key, key)
-     |> assign(:entry_date, Date.utc_today())
+     |> assign(:entry_date, local_today)
      |> assign(:word_count, 0)
      |> assign(:ai_prompt, nil)
      |> assign(:loading_prompt, false)
@@ -637,13 +639,12 @@ defmodule MossletWeb.JournalLive.Entry do
     user = socket.assigns.user
     key = socket.assigns.key
     book_id = socket.assigns.book_id
+    entry_date = socket.assigns.entry_date
 
     params =
-      if book_id do
-        Map.put(params, "book_id", book_id)
-      else
-        params
-      end
+      params
+      |> Map.put("entry_date", entry_date)
+      |> then(fn p -> if book_id, do: Map.put(p, "book_id", book_id), else: p end)
 
     socket = assign(socket, :saving, true)
 
