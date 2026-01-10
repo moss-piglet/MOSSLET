@@ -40,11 +40,18 @@ defmodule MossletWeb.Helpers.JournalHelpers do
         needs_password: needs_password,
         active: active
       }) do
-    socket
-    |> assign(:privacy_active, active)
-    |> assign(:privacy_countdown, countdown)
-    |> assign(:privacy_needs_password, needs_password)
-    |> update_user_privacy_enabled(active)
+    socket =
+      socket
+      |> assign(:privacy_active, active)
+      |> assign(:privacy_countdown, countdown)
+      |> assign(:privacy_needs_password, needs_password)
+      |> update_user_privacy_enabled(active)
+
+    if active do
+      socket
+    else
+      Phoenix.LiveView.push_event(socket, "restore-body-scroll", %{})
+    end
   end
 
   defp update_user_privacy_enabled(socket, active) do
