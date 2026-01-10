@@ -1,17 +1,23 @@
 defmodule Mosslet.AI.Images do
   @moduledoc """
   Functions for processing images with AI.
+
+  Image moderation strategy:
+  - Public posts: Full GPT-4o-mini moderation (comprehensive check)
+  - Private posts: Privacy-focused illegal content check with Bumblebee fallback
   """
+
+  require Logger
 
   alias ReqLLM.Message.ContentPart
 
   @model "openrouter:openai/gpt-4o-mini"
 
   @doc """
-  Classifies an image as either "normal"
-  or "nsfw".
+  Classifies an image as either "normal" or "nsfw" using Bumblebee.
+  Used as a fallback when LLM moderation is unavailable.
   """
-  def check_for_safety(image_binary) do
+  def check_for_safety_bumblebee(image_binary) do
     with {:ok, resized} <- Image.thumbnail(image_binary, "224x224"),
          {:ok, flattened} <- Image.flatten(resized),
          {:ok, srgb} <- Image.to_colorspace(flattened, :srgb),
@@ -23,11 +29,117 @@ defmodule Mosslet.AI.Images do
          %{predictions: [%{label: label}]} <- Nx.Serving.batched_run(NsfwImageDetection, tensor) do
       case label do
         "normal" -> {:ok, image_binary}
-        "nsfw" -> {:nsfw, "Image is not safe for upload."}
+        "nsfw" -> {:nsfw, "Image flagged by safety check."}
         _ -> {:error, "There was an error trying to classify this image."}
       end
     else
       _ -> {:error, "There was an error trying to classify this image."}
+    end
+  end
+
+  @doc """
+  Privacy-focused safety check for private/non-public posts.
+  Only blocks truly illegal content (CSAM, etc.) - minimal false positives.
+
+  Uses LLM with Bumblebee as fallback if LLM is unavailable.
+  The LLM check is designed to discard the image immediately and not store it.
+  """
+  def check_for_safety(image_binary) do
+    case moderate_private_image_binary(image_binary, "image/webp") do
+      {:ok, :approved} ->
+        {:ok, image_binary}
+
+      {:error, :service_unavailable} ->
+        Logger.warning("LLM moderation unavailable, falling back to Bumblebee")
+        check_for_safety_bumblebee(image_binary)
+
+      {:error, reason} ->
+        {:nsfw, reason}
+    end
+  end
+
+  @doc """
+  Privacy-focused moderation for private/non-public posts.
+  Only checks for truly illegal content - respects user privacy.
+
+  Takes an Image struct (vips image) and the mime type.
+  """
+  def moderate_private_image(image, mime_type) do
+    with {:ok, resized} <- Image.thumbnail(image, "512x512"),
+         {:ok, binary} <- Image.write(resized, :memory, suffix: mime_suffix(mime_type)) do
+      moderate_private_image_binary(binary, mime_type)
+    else
+      {:error, reason} ->
+        {:error, "Unable to verify image: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Privacy-focused moderation for raw image binary.
+  Only blocks illegal content - designed to minimize false positives.
+  Returns {:error, :service_unavailable} if LLM cannot be reached (for fallback handling).
+  """
+  def moderate_private_image_binary(binary, mime_type) do
+    system_prompt = """
+    You are a safety system protecting against illegal content. This is a PRIVATE image.
+
+    ONLY BLOCK content that is clearly illegal:
+    - Child sexual abuse material (CSAM)
+    - Content depicting minors in sexual situations
+    - Bestiality
+    - Non-consensual intimate imagery
+
+    ALLOW everything else - we respect user privacy for private content:
+    - Adult nudity/sexual content (legal)
+    - Violence in media/games/art
+    - Gore/disturbing content
+    - Political content
+    - Any other legal content
+
+    Respond with ONLY:
+    SAFE
+    or
+    ILLEGAL: [brief reason]
+
+    Be EXTREMELY conservative in blocking - only block if clearly illegal.
+    When in ANY doubt, respond SAFE. We have a strong privacy-first policy.
+    """
+
+    content = [
+      ContentPart.image(binary, mime_type),
+      ContentPart.text("Safety check - is this image legal content?")
+    ]
+
+    message = %ReqLLM.Message{role: :user, content: content}
+
+    case ReqLLM.generate_text(@model, [message], system_prompt: system_prompt, timeout: 15_000) do
+      {:ok, response} ->
+        result = ReqLLM.Response.text(response) |> String.trim()
+
+        cond do
+          String.starts_with?(result, "SAFE") ->
+            {:ok, :approved}
+
+          String.starts_with?(result, "ILLEGAL:") ->
+            reason = String.replace_prefix(result, "ILLEGAL:", "") |> String.trim()
+            {:error, reason}
+
+          true ->
+            {:ok, :approved}
+        end
+
+      {:error, %Req.TransportError{}} ->
+        {:error, :service_unavailable}
+
+      {:error, %Req.HTTPError{}} ->
+        {:error, :service_unavailable}
+
+      {:error, :timeout} ->
+        {:error, :service_unavailable}
+
+      {:error, reason} ->
+        Logger.error("Private image moderation failed: #{inspect(reason)}")
+        {:error, :service_unavailable}
     end
   end
 
