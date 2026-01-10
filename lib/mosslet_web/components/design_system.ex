@@ -3977,7 +3977,9 @@ defmodule MossletWeb.DesignSystem do
             <% all_ready?(@uploads.photos.entries, @upload_stages) and entries_count > 0 -> %>
               <span class="text-emerald-600 dark:text-emerald-400">✓ Ready to post</span>
             <% any_error?(@uploads.photos.entries, @upload_stages) -> %>
-              <span class="text-red-500">Error processing</span>
+              <span class="text-red-500">
+                {get_first_error_reason(@uploads.photos.entries, @upload_stages)}
+              </span>
             <% entries_count > 0 -> %>
               <span class="text-amber-600 dark:text-amber-400">Processing...</span>
             <% true -> %>
@@ -4145,6 +4147,31 @@ defmodule MossletWeb.DesignSystem do
 
   defp is_entry_error?({:error, _}), do: true
   defp is_entry_error?(_), do: false
+
+  defp get_first_error_reason(entries, upload_stages) do
+    Enum.find_value(entries, "Error processing", fn entry ->
+      case Map.get(upload_stages, entry.ref) do
+        {:error, {:nsfw, details}} when is_map(details) ->
+          categories = Map.get(details, :flagged_categories, [])
+
+          if categories != [],
+            do: "Content flagged: #{Enum.join(categories, ", ")}",
+            else: "Content not allowed"
+
+        {:error, {:nsfw, _}} ->
+          "Content not allowed"
+
+        {:error, reason} when is_binary(reason) ->
+          reason
+
+        {:error, _} ->
+          "Upload failed"
+
+        _ ->
+          nil
+      end
+    end)
+  end
 
   defp format_error({:error, {:nsfw, _}}), do: "Content not allowed"
   defp format_error({:error, reason}) when is_binary(reason), do: reason

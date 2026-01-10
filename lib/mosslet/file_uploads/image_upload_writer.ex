@@ -373,17 +373,26 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   defp check_safety(image, state) do
     notify_progress(state, :validating, 50)
 
-    case Mosslet.AI.Images.check_for_safety(image) do
-      {:ok, _} ->
-        {:ok, image}
-
-      {:nsfw, message} ->
-        {:nsfw, message}
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, _} <- Mosslet.AI.Images.check_for_safety(image),
+         :ok <- maybe_moderate_public_image(image, state) do
+      {:ok, image}
     end
   end
+
+  defp maybe_moderate_public_image(image, %{visibility: visibility})
+       when visibility in ["public", :public] do
+    notify_progress(%{lv_pid: nil}, :moderating, 52)
+
+    case Mosslet.AI.Images.moderate_public_image(image, "image/webp") do
+      {:ok, :approved} ->
+        :ok
+
+      {:error, reason} ->
+        {:nsfw, "Image not suitable for public posts: #{reason}"}
+    end
+  end
+
+  defp maybe_moderate_public_image(_image, _state), do: :ok
 
   defp autorotate(image) do
     case Image.autorotate(image) do

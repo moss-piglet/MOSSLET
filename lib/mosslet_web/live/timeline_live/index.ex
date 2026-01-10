@@ -400,7 +400,8 @@ defmodule MossletWeb.TimelineLive.Index do
       client_name: (entry && entry.client_name) || "photo",
       temp_path: temp_path,
       trix_key: trix_key,
-      preview_data_url: preview_data_url
+      preview_data_url: preview_data_url,
+      upload_visibility: socket.assigns.selector
     }
 
     socket =
@@ -2297,100 +2298,111 @@ defmodule MossletWeb.TimelineLive.Index do
       current_user = socket.assigns.current_user
       key = socket.assigns.key
       post_shared_users = socket.assigns.post_shared_users
+      visibility = socket.assigns.selector
+      body = post_params["body"] || ""
 
-      # Process uploaded photos and get their URLs with trix_key
-      {uploaded_photo_urls, trix_key} =
-        process_uploaded_photos(socket, current_user, key)
-
-      post_params =
-        post_params
-        |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
-        |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
-        |> Map.put("visibility", socket.assigns.selector)
-        |> Map.put("user_id", current_user.id)
-        |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
-        |> maybe_put_url_preview(socket)
-        |> Map.put(
-          "url_preview_fetched_at",
-          if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
-        )
-        # Handle interaction controls - use stored values if not in form params
-        |> Map.put(
-          "allow_replies",
-          post_params["allow_replies"] || socket.assigns.allow_replies
-        )
-        |> Map.put(
-          "allow_shares",
-          post_params["allow_shares"] || socket.assigns.allow_shares
-        )
-        |> Map.put(
-          "allow_bookmarks",
-          post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
-        )
-        |> Map.put(
-          "is_ephemeral",
-          post_params["is_ephemeral"] || socket.assigns.is_ephemeral
-        )
-        |> Map.put(
-          "require_follow_to_reply",
-          post_params["require_follow_to_reply"] || socket.assigns.require_follow_to_reply
-        )
-        |> Map.put(
-          "mature_content",
-          post_params["mature_content"] || socket.assigns.mature_content
-        )
-        |> Map.put("local_only", post_params["local_only"] || socket.assigns.local_only)
-        |> Map.put(
-          "expires_at_option",
-          post_params["expires_at_option"] || socket.assigns.expires_at_option
-        )
-        # Handle visibility groups and users - use stored values if not in form params
-        |> Map.put(
-          "visibility_groups",
-          post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
-        )
-        |> Map.put(
-          "visibility_users",
-          post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
-        )
-        # Use the updated function to handle connections visibility
-        |> add_shared_users_list_for_new_post(post_shared_users, %{
-          visibility_setting: socket.assigns.selector,
-          current_user: current_user,
-          key: key
-        })
-
-      # Keep virtual fields for validation in Post changeset
-
-      if post_params["user_id"] == current_user.id do
-        visibility = socket.assigns.selector
-        body = post_params["body"] || ""
-
-        moderation_result =
-          if visibility == "public" && String.trim(body) != "" do
-            AI.moderate_public_post(body)
-          else
-            {:ok, :approved}
-          end
-
-        case moderation_result do
-          {:ok, :approved} ->
-            create_post_and_respond(socket, post_params, current_user, key, trix_key)
-
-          {:error, reason} ->
-            socket =
-              socket
-              |> put_flash(
-                :warning,
-                "This post wasn't shared because it may violate community guidelines: '#{reason}' You can edit it or change visibility to not be public."
-              )
-
-            {:noreply, socket}
+      text_moderation_result =
+        if visibility == "public" && String.trim(body) != "" do
+          AI.moderate_public_post(body)
+        else
+          {:ok, :approved}
         end
-      else
-        {:noreply,
-         socket
-         |> put_flash(:warning, "You do not have permission to create this post.")}
+
+      image_moderation_result =
+        if visibility == "public" do
+          moderate_uploads_for_public_visibility(socket.assigns.completed_uploads)
+        else
+          {:ok, :approved}
+        end
+
+      case {text_moderation_result, image_moderation_result} do
+        {{:error, reason}, _} ->
+          socket =
+            socket
+            |> put_flash(
+              :warning,
+              "This post wasn't shared because it may violate community guidelines: '#{reason}' You can edit it or change visibility to not be public."
+            )
+
+          {:noreply, socket}
+
+        {_, {:error, reason}} ->
+          socket =
+            socket
+            |> put_flash(
+              :warning,
+              "This post wasn't shared because an image may violate community guidelines: '#{reason}' You can remove the image or change visibility to not be public."
+            )
+
+          {:noreply, socket}
+
+        {{:ok, :approved}, {:ok, :approved}} ->
+          # Process uploaded photos and get their URLs with trix_key
+          {uploaded_photo_urls, trix_key} =
+            process_uploaded_photos(socket, current_user, key)
+
+          post_params =
+            post_params
+            |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
+            |> Map.put("image_urls_updated_at", NaiveDateTime.utc_now())
+            |> Map.put("visibility", socket.assigns.selector)
+            |> Map.put("user_id", current_user.id)
+            |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
+            |> maybe_put_url_preview(socket)
+            |> Map.put(
+              "url_preview_fetched_at",
+              if(socket.assigns.url_preview, do: NaiveDateTime.utc_now(), else: nil)
+            )
+            |> Map.put(
+              "allow_replies",
+              post_params["allow_replies"] || socket.assigns.allow_replies
+            )
+            |> Map.put(
+              "allow_shares",
+              post_params["allow_shares"] || socket.assigns.allow_shares
+            )
+            |> Map.put(
+              "allow_bookmarks",
+              post_params["allow_bookmarks"] || socket.assigns.allow_bookmarks
+            )
+            |> Map.put(
+              "is_ephemeral",
+              post_params["is_ephemeral"] || socket.assigns.is_ephemeral
+            )
+            |> Map.put(
+              "require_follow_to_reply",
+              post_params["require_follow_to_reply"] || socket.assigns.require_follow_to_reply
+            )
+            |> Map.put(
+              "mature_content",
+              post_params["mature_content"] || socket.assigns.mature_content
+            )
+            |> Map.put("local_only", post_params["local_only"] || socket.assigns.local_only)
+            |> Map.put(
+              "expires_at_option",
+              post_params["expires_at_option"] || socket.assigns.expires_at_option
+            )
+            |> Map.put(
+              "visibility_groups",
+              post_params["visibility_groups"] || socket.assigns.selected_visibility_groups || []
+            )
+            |> Map.put(
+              "visibility_users",
+              post_params["visibility_users"] || socket.assigns.selected_visibility_users || []
+            )
+            |> add_shared_users_list_for_new_post(post_shared_users, %{
+              visibility_setting: socket.assigns.selector,
+              current_user: current_user,
+              key: key
+            })
+
+          if post_params["user_id"] == current_user.id do
+            create_post_and_respond(socket, post_params, current_user, key, trix_key)
+          else
+            {:noreply,
+             socket
+             |> put_flash(:warning, "You do not have permission to create this post.")}
+          end
       end
     else
       {:noreply,
@@ -5459,6 +5471,55 @@ defmodule MossletWeb.TimelineLive.Index do
           paths = Enum.map(successful_results, fn {path, _key} -> path end)
           {paths, first_trix_key}
       end
+    end
+  end
+
+  defp moderate_uploads_for_public_visibility(completed_uploads) do
+    require Logger
+    Logger.info("📷 MODERATE_UPLOADS: checking #{length(completed_uploads)} uploads")
+
+    uploads_needing_moderation =
+      Enum.filter(completed_uploads, fn upload ->
+        Logger.info(
+          "📷 MODERATE_UPLOADS: upload visibility = #{inspect(upload[:upload_visibility])}"
+        )
+
+        upload[:upload_visibility] not in ["public", :public]
+      end)
+
+    Logger.info("📷 MODERATE_UPLOADS: #{length(uploads_needing_moderation)} need moderation")
+
+    if uploads_needing_moderation == [] do
+      {:ok, :approved}
+    else
+      Enum.reduce_while(uploads_needing_moderation, {:ok, :approved}, fn upload, _acc ->
+        Logger.info("📷 MODERATE_UPLOADS: reading #{upload.temp_path}")
+
+        case File.read(upload.temp_path) do
+          {:ok, binary} ->
+            Logger.info("📷 MODERATE_UPLOADS: got #{byte_size(binary)} bytes")
+
+            case Image.from_binary(binary) do
+              {:ok, image} ->
+                Logger.info("📷 MODERATE_UPLOADS: calling moderate_public_image")
+                result = Mosslet.AI.Images.moderate_public_image(image, "image/webp")
+                Logger.info("📷 MODERATE_UPLOADS: result = #{inspect(result)}")
+
+                case result do
+                  {:ok, :approved} -> {:cont, {:ok, :approved}}
+                  {:error, reason} -> {:halt, {:error, reason}}
+                end
+
+              {:error, reason} ->
+                Logger.info("📷 MODERATE_UPLOADS: Image.from_binary failed: #{inspect(reason)}")
+                {:cont, {:ok, :approved}}
+            end
+
+          {:error, reason} ->
+            Logger.info("📷 MODERATE_UPLOADS: File.read failed: #{inspect(reason)}")
+            {:cont, {:ok, :approved}}
+        end
+      end)
     end
   end
 
