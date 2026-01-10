@@ -2382,7 +2382,7 @@ defmodule MossletWeb.TimelineLive.Index do
               socket
               |> put_flash(
                 :warning,
-                "This post wasn't shared because it may violate community guidelines: #{reason} You can edit it or change visibility to not be public."
+                "This post wasn't shared because it may violate community guidelines: '#{reason}' You can edit it or change visibility to not be public."
               )
 
             {:noreply, socket}
