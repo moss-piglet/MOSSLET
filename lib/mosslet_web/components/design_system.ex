@@ -14003,6 +14003,7 @@ defmodule MossletWeb.DesignSystem do
   attr :on_activate, :string, default: "activate_privacy"
   attr :on_reveal, :string, default: "reveal_content"
   attr :on_password_submit, :string, default: "verify_privacy_password"
+  attr :privacy_form, Phoenix.HTML.Form, default: nil
 
   def privacy_screen(assigns) do
     ~H"""
@@ -14037,7 +14038,7 @@ defmodule MossletWeb.DesignSystem do
         </p>
 
         <%= if @needs_password do %>
-          <.privacy_password_form on_submit={@on_password_submit} />
+          <.privacy_password_form on_submit={@on_password_submit} form={@privacy_form} />
         <% else %>
           <button
             type="button"
@@ -14061,6 +14062,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   attr :on_submit, :string, required: true
+  attr :form, Phoenix.HTML.Form, required: true
 
   defp privacy_password_form(assigns) do
     ~H"""
@@ -14071,14 +14073,15 @@ defmodule MossletWeb.DesignSystem do
           class="h-5 w-5 text-amber-500"
         />
         <span class="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Enter your password to continue
+          Enter your password to continue<span class="text-red-500">*</span>
         </span>
       </div>
-      <form phx-submit={@on_submit} class="space-y-4">
+      <.form for={@form} id="privacy-unlock-form" phx-submit={@on_submit} class="space-y-4">
         <div>
           <input
             type="password"
-            name="password"
+            name={@form[:password].name}
+            id={@form[:password].id}
             placeholder="Your password"
             autocomplete="current-password"
             required
@@ -14091,7 +14094,7 @@ defmodule MossletWeb.DesignSystem do
         >
           Unlock Journal
         </button>
-      </form>
+      </.form>
     </div>
     """
   end

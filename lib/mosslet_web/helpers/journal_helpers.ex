@@ -4,7 +4,7 @@ defmodule MossletWeb.Helpers.JournalHelpers do
   Uses a shared GenServer to manage countdown state across LiveViews.
   """
 
-  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.Component, only: [assign: 3, to_form: 2]
   import Phoenix.LiveView, only: [get_connect_params: 1]
 
   alias Mosslet.Journal.PrivacyTimer
@@ -29,6 +29,8 @@ defmodule MossletWeb.Helpers.JournalHelpers do
       PrivacyTimer.subscribe(user.id)
     end
 
+    privacy_form = to_form(%{}, as: :privacy)
+
     if user.journal_privacy_enabled do
       state = PrivacyTimer.get_state(user.id)
 
@@ -37,17 +39,20 @@ defmodule MossletWeb.Helpers.JournalHelpers do
         |> assign(:privacy_active, true)
         |> assign(:privacy_countdown, state.countdown)
         |> assign(:privacy_needs_password, state.needs_password)
+        |> assign(:privacy_form, privacy_form)
       else
         socket
         |> assign(:privacy_active, true)
         |> assign(:privacy_countdown, 0)
         |> assign(:privacy_needs_password, true)
+        |> assign(:privacy_form, privacy_form)
       end
     else
       socket
       |> assign(:privacy_active, false)
       |> assign(:privacy_countdown, 0)
       |> assign(:privacy_needs_password, false)
+      |> assign(:privacy_form, privacy_form)
     end
   end
 

@@ -1123,7 +1123,7 @@ defmodule MossletWeb.CoreComponents do
   def phx_input(%{type: "password"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label for={@id} required={@required}>{@label}</.label>
+      <.label :if={@label} for={@id} required={@required}>{@label}</.label>
       <div :if={@description?} id={@id <> "_description"} class="mt-2 text-sm leading-6 text-zinc-600">
         {render_slot(@description_block)}
       </div>

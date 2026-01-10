@@ -92,6 +92,7 @@ defmodule MossletWeb.JournalLive.Entry do
           on_activate="activate_privacy"
           on_reveal="reveal_content"
           on_password_submit="verify_privacy_password"
+          privacy_form={@privacy_form}
         />
       </.layout>
     <% else %>
@@ -222,6 +223,7 @@ defmodule MossletWeb.JournalLive.Entry do
           on_activate="activate_privacy"
           on_reveal="reveal_content"
           on_password_submit="verify_privacy_password"
+          privacy_form={@privacy_form}
         />
       </.layout>
     <% end %>
@@ -566,7 +568,7 @@ defmodule MossletWeb.JournalLive.Entry do
   end
 
   @impl true
-  def handle_event("verify_privacy_password", %{"password" => password}, socket) do
+  def handle_event("verify_privacy_password", %{"privacy" => %{"password" => password}}, socket) do
     user = socket.assigns.current_scope.user
 
     if Mosslet.Accounts.User.valid_password?(user, password) do
