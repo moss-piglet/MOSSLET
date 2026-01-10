@@ -18,7 +18,8 @@ defmodule Mosslet.AI.Images do
   Used as a fallback when LLM moderation is unavailable.
   """
   def check_for_safety_bumblebee(image_binary) do
-    with {:ok, resized} <- Image.thumbnail(image_binary, "224x224"),
+    with {:ok, image} <- Image.from_binary(image_binary),
+         {:ok, resized} <- Image.thumbnail(image, "224x224"),
          {:ok, flattened} <- Image.flatten(resized),
          {:ok, srgb} <- Image.to_colorspace(flattened, :srgb),
          {:ok, tensor} <-
@@ -81,38 +82,26 @@ defmodule Mosslet.AI.Images do
   """
   def moderate_private_image_binary(binary, mime_type) do
     system_prompt = """
-    You are a safety system protecting against illegal content. This is a PRIVATE image.
+    You are an image safety classifier. Analyze the image and determine if it contains illegal content.
 
-    ONLY BLOCK content that is clearly illegal:
-    - Child sexual abuse material (CSAM)
-    - Content depicting minors in sexual situations
-    - Bestiality
-    - Non-consensual intimate imagery
+    Respond with exactly one of:
+    SAFE - if the image is legal
+    ILLEGAL: [reason] - only if the image depicts child exploitation or non-consensual intimate content
 
-    ALLOW everything else - we respect user privacy for private content:
-    - Adult nudity/sexual content (legal)
-    - Violence in media/games/art
-    - Gore/disturbing content
-    - Political content
-    - Any other legal content
-
-    Respond with ONLY:
-    SAFE
-    or
-    ILLEGAL: [brief reason]
-
-    Be EXTREMELY conservative in blocking - only block if clearly illegal.
-    When in ANY doubt, respond SAFE. We have a strong privacy-first policy.
+    Default to SAFE unless you are certain the content is illegal.
     """
 
     content = [
       ContentPart.image(binary, mime_type),
-      ContentPart.text("Safety check - is this image legal content?")
+      ContentPart.text("Classify this image.")
     ]
 
     message = %ReqLLM.Message{role: :user, content: content}
 
-    case ReqLLM.generate_text(@model, [message], system_prompt: system_prompt, timeout: 15_000) do
+    case ReqLLM.generate_text(@model, [message],
+           system_prompt: system_prompt,
+           receive_timeout: 15_000
+         ) do
       {:ok, response} ->
         result = ReqLLM.Response.text(response) |> String.trim()
 

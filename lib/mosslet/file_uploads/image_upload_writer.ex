@@ -51,6 +51,8 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
   @behaviour Phoenix.LiveView.UploadWriter
 
+  require Logger
+
   alias Mosslet.Encrypted
   alias Mosslet.Accounts
   alias Mosslet.FileUploads.TempStorage
@@ -84,7 +86,8 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
           trix_key: trix_key,
           processed_binary: nil,
           error: nil,
-          stage: :receiving
+          stage: :receiving,
+          ai_generated: false
         }
 
         if state.lv_pid do
@@ -149,7 +152,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
 
     case result do
       {:ok, processed_binary, ai_generated} ->
-        notify_ready(state, processed_binary)
+        notify_ready(state, processed_binary, ai_generated)
 
         {:ok,
          %{
@@ -160,7 +163,7 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
          }}
 
       {:ok, processed_binary} ->
-        notify_ready(state, processed_binary)
+        notify_ready(state, processed_binary, false)
 
         {:ok,
          %{state | processed_binary: processed_binary, file_handle: nil, ai_generated: false}}
@@ -393,9 +396,24 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
   defp check_safety(image, state) do
     notify_progress(state, :validating, 50)
 
-    with {:ok, _} <- Mosslet.AI.Images.check_for_safety(image),
-         :ok <- maybe_moderate_public_image(image, state) do
-      {:ok, image}
+    case Mosslet.AI.Images.moderate_private_image(image, "image/webp") do
+      {:ok, :approved} ->
+        case maybe_moderate_public_image(image, state) do
+          :ok -> {:ok, image}
+          error -> error
+        end
+
+      {:error, :service_unavailable} ->
+        Logger.warning("LLM moderation unavailable, falling back to Bumblebee")
+
+        with {:ok, binary} <- Image.write(image, :memory, suffix: ".webp"),
+             {:ok, _} <- Mosslet.AI.Images.check_for_safety_bumblebee(binary),
+             :ok <- maybe_moderate_public_image(image, state) do
+          {:ok, image}
+        end
+
+      {:error, reason} ->
+        {:nsfw, reason}
     end
   end
 
@@ -548,14 +566,15 @@ defmodule Mosslet.FileUploads.ImageUploadWriter do
     "Failed to process HEIC/HEIF image. Please try a different format."
   end
 
-  defp notify_ready(state, processed_binary) do
+  defp notify_ready(state, processed_binary, ai_generated) do
     if state.lv_pid do
       send(
         state.lv_pid,
         {:upload_ready, state.entry_ref,
          %{
            processed_binary: processed_binary,
-           trix_key: state.trix_key
+           trix_key: state.trix_key,
+           ai_generated: ai_generated
          }}
       )
     end

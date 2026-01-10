@@ -33,6 +33,7 @@ defmodule Mosslet.Timeline.Post do
     field :favs_count, :integer, default: 0
     field :reposts_count, :integer, default: 0
     field :repost, :boolean, default: false
+    field :ai_generated, :boolean, default: false
     field :last_reply_at, :utc_datetime
 
     field :visibility, Ecto.Enum,
@@ -134,6 +135,7 @@ defmodule Mosslet.Timeline.Post do
       :image_urls_updated_at,
       :url_preview,
       :url_preview_fetched_at,
+      :ai_generated,
       # Content warning fields
       :content_warning,
       :content_warning_category,

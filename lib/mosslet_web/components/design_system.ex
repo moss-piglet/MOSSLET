@@ -3884,9 +3884,17 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <div class="flex items-center justify-between px-2.5 py-1.5">
-        <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <.phx_icon name="hero-photo" class="h-3.5 w-3.5" />
-          <span>{@image_count} {if @image_count == 1, do: "photo", else: "photos"}</span>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <.phx_icon name="hero-photo" class="h-3.5 w-3.5" />
+            <span>{@image_count} {if @image_count == 1, do: "photo", else: "photos"}</span>
+          </div>
+          <span
+            :if={@post.ai_generated}
+            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400"
+          >
+            <.phx_icon name="hero-sparkles" class="h-2.5 w-2.5" /> AI
+          </span>
         </div>
 
         <button
@@ -4158,8 +4166,8 @@ defmodule MossletWeb.DesignSystem do
             do: "Content flagged: #{Enum.join(categories, ", ")}",
             else: "Content not allowed"
 
-        {:error, {:nsfw, _}} ->
-          "Content not allowed"
+        {:error, {:nsfw, reason}} ->
+          "#{reason}"
 
         {:error, reason} when is_binary(reason) ->
           reason

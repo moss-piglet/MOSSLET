@@ -385,7 +385,7 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   def handle_info(
-        {:upload_ready, entry_ref, %{processed_binary: binary, trix_key: trix_key}},
+        {:upload_ready, entry_ref, %{processed_binary: binary, trix_key: trix_key} = upload_data},
         socket
       ) do
     entry = Enum.find(socket.assigns.uploads.photos.entries, &(&1.ref == entry_ref))
@@ -401,7 +401,8 @@ defmodule MossletWeb.TimelineLive.Index do
       temp_path: temp_path,
       trix_key: trix_key,
       preview_data_url: preview_data_url,
-      upload_visibility: socket.assigns.selector
+      upload_visibility: socket.assigns.selector,
+      ai_generated: Map.get(upload_data, :ai_generated, false)
     }
 
     socket =
@@ -2341,6 +2342,11 @@ defmodule MossletWeb.TimelineLive.Index do
           {uploaded_photo_urls, trix_key} =
             process_uploaded_photos(socket, current_user, key)
 
+          any_ai_generated =
+            Enum.any?(socket.assigns.completed_uploads, fn upload ->
+              Map.get(upload, :ai_generated, false)
+            end)
+
           post_params =
             post_params
             |> Map.put("image_urls", socket.assigns.image_urls ++ uploaded_photo_urls)
@@ -2348,6 +2354,7 @@ defmodule MossletWeb.TimelineLive.Index do
             |> Map.put("visibility", socket.assigns.selector)
             |> Map.put("user_id", current_user.id)
             |> Map.put("content_warning?", socket.assigns.content_warning_enabled?)
+            |> Map.put("ai_generated", any_ai_generated)
             |> maybe_put_url_preview(socket)
             |> Map.put(
               "url_preview_fetched_at",
