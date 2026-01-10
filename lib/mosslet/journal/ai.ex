@@ -105,6 +105,64 @@ defmodule Mosslet.Journal.AI do
     end
   end
 
+  @doc """
+  Moderates content for public posts. Returns {:ok, :approved} if content is appropriate,
+  or {:error, reason} if content violates community guidelines.
+
+  This is specifically for public posts where we want to maintain civil discourse.
+  Critical opinions, disagreements, and strong viewpoints are allowed - just like
+  speaking in public in real life. Only genuinely harmful content is blocked.
+  """
+  def moderate_public_post(content) do
+    system_prompt = """
+    You are a content moderator for a social platform. Evaluate if this content is appropriate for PUBLIC sharing.
+
+    ALLOW (respond with APPROVED):
+    - Opinions, even strong or critical ones
+    - Disagreements and debates
+    - Personal experiences and stories
+    - News discussion and commentary
+    - Venting or expressing frustration (without targeting individuals)
+    - Satire and humor
+    - Political opinions
+
+    BLOCK (respond with BLOCKED and a brief reason):
+    - Direct harassment or targeted attacks on specific individuals
+    - Hate speech targeting protected groups (race, religion, gender, sexuality, disability)
+    - Explicit calls for violence
+    - Doxxing or sharing private information about others
+    - Spam or scam content
+    - Illegal content
+
+    Respond with ONLY one of these formats:
+    APPROVED
+    or
+    BLOCKED: [brief reason in 10 words or less]
+
+    Be lenient - when in doubt, approve. We value free expression.
+    """
+
+    case ReqLLM.generate_text(@model, content, system_prompt: system_prompt) do
+      {:ok, response} ->
+        result = ReqLLM.Response.text(response) |> String.trim()
+
+        cond do
+          String.starts_with?(result, "APPROVED") ->
+            {:ok, :approved}
+
+          String.starts_with?(result, "BLOCKED:") ->
+            reason = String.replace_prefix(result, "BLOCKED:", "") |> String.trim()
+            {:error, reason}
+
+          true ->
+            {:ok, :approved}
+        end
+
+      {:error, _reason} ->
+        {:ok, :approved}
+    end
+  end
+
   def generate_mood_insights(entries) when is_list(entries) do
     if Enum.empty?(entries) do
       {:ok,
