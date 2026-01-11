@@ -88,7 +88,7 @@ defmodule MossletWeb.PublicLive.Faq do
           %{
             q: "Can the AI provider see who I am?",
             a:
-              "No. When we send content for safety checks, no account information is included. The AI provider only sees that a request came from mosslet.com — they have no way to know whose content it is or link it to any user account."
+              "No. When we send content for safety checks, no account information is included. The AI provider only sees that a request came from OpenRouter (who only sees that it came from mosslet.com) — they have no way to know whose content it is or link it to any user account."
           },
           %{
             q: "What happens to my content after an AI check?",
