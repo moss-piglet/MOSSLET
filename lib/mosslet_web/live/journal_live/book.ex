@@ -605,7 +605,13 @@ defmodule MossletWeb.JournalLive.Book do
       case Mosslet.Accounts.update_journal_privacy(user, false) do
         {:ok, _user} ->
           Mosslet.Journal.PrivacyTimer.deactivate(user.id)
-          {:noreply, socket}
+
+          {:noreply,
+           socket
+           |> assign(:privacy_active, false)
+           |> assign(:privacy_countdown, 0)
+           |> assign(:privacy_needs_password, false)
+           |> push_event("restore-body-scroll", %{})}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Failed to disable privacy mode")}

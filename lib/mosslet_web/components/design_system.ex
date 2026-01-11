@@ -14125,7 +14125,7 @@ defmodule MossletWeb.DesignSystem do
         </div>
         <button
           type="submit"
-          class="w-full px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+          class="w-full px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200 cursor-pointer touch-manipulation active:scale-[0.98]"
         >
           Unlock Journal
         </button>
