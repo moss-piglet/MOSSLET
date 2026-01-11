@@ -324,7 +324,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
         {unread_posts, read_posts} =
           Enum.split_with(posts, fn post ->
-            is_post_unread?(post, user)
+            is_post_unread?(post, user, tab: current_tab_for_async)
           end)
 
         options_with_content_filters =
@@ -355,22 +355,25 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  defp is_post_unread?(post, current_user) do
+  defp is_post_unread?(post, current_user, opts) do
+    tab = Keyword.get(opts, :tab)
+    default_when_no_receipt = if tab == "discover", do: false, else: true
+
     cond do
       Ecto.assoc_loaded?(post.user_post_receipts) ->
         case Enum.find(post.user_post_receipts || [], fn receipt ->
                receipt.user_id == current_user.id
              end) do
-          nil -> true
+          nil -> default_when_no_receipt
           %{is_read?: is_read} -> !is_read
         end
 
       true ->
         case Timeline.get_user_post_receipt(current_user, post) do
-          nil -> true
+          nil -> default_when_no_receipt
           %{is_read?: true} -> false
           %{is_read?: false} -> true
-          _ -> true
+          _ -> default_when_no_receipt
         end
     end
   end
@@ -2669,7 +2672,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
     {_new_unread, new_read_posts} =
       Enum.split_with(new_posts, fn post ->
-        is_post_unread?(post, current_user)
+        is_post_unread?(post, current_user, tab: current_tab)
       end)
 
     new_loaded_read_count = loaded_read_posts_count + length(new_read_posts)
@@ -2743,7 +2746,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
         {unread_posts, read_posts} =
           Enum.split_with(posts, fn post ->
-            is_post_unread?(post, user)
+            is_post_unread?(post, user, tab: tab_for_async)
           end)
 
         options_with_content_filters =
@@ -2813,7 +2816,7 @@ defmodule MossletWeb.TimelineLive.Index do
 
         {unread_posts, read_posts} =
           Enum.split_with(posts, fn post ->
-            is_post_unread?(post, user)
+            is_post_unread?(post, user, tab: current_tab_for_async)
           end)
 
         options_with_content_filters =
@@ -5902,7 +5905,7 @@ defmodule MossletWeb.TimelineLive.Index do
     # CRITICAL FIX: Split posts by read/unread status like initial load does
     {unread_posts, read_posts} =
       Enum.split_with(posts, fn post ->
-        is_post_unread?(post, current_user)
+        is_post_unread?(post, current_user, tab: current_tab)
       end)
 
     # CRITICAL FIX: Recalculate timeline counts with new filters
@@ -6466,7 +6469,9 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp stream_insert_post(socket, post, current_user, opts) do
-    if is_post_unread?(post, current_user) do
+    current_tab = socket.assigns[:active_tab] || "home"
+
+    if is_post_unread?(post, current_user, tab: current_tab) do
       cached_unread_posts = socket.assigns[:cached_unread_posts] || []
       post_with_date = add_single_post_date_context(post, cached_unread_posts, opts)
       updated_cached = update_or_add_cached_post(cached_unread_posts, post_with_date)
@@ -6596,7 +6601,9 @@ defmodule MossletWeb.TimelineLive.Index do
   end
 
   defp move_post_between_streams(socket, post, current_user) do
-    if is_post_unread?(post, current_user) do
+    current_tab = socket.assigns[:active_tab] || "home"
+
+    if is_post_unread?(post, current_user, tab: current_tab) do
       cached_read_posts = socket.assigns[:cached_read_posts] || []
       updated_cached_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
       loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
