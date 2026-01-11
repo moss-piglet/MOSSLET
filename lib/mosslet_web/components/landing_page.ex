@@ -126,11 +126,11 @@ defmodule MossletWeb.Components.LandingPage do
                   <span class="text-center sm:text-left">Built for meaningful connections</span>
                   <.link
                     id="mosslet-demo-video-beta"
-                    href="https://www.loom.com/share/5fc4498f4ab44f7599bc97e5749aed49"
+                    href="https://www.loom.com/share/e088294ed8c043978e239dcca8e82e5f"
                     target="_blank"
                     rel="noopener noreferrer"
                     phx-hook="TippyHook"
-                    data-tippy-content="Watch our co-founder demo our beta (~15 min)"
+                    data-tippy-content="Watch a demo (~20 min)"
                     class="ml-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 transition-colors duration-200 whitespace-nowrap"
                   >
                     View demo
