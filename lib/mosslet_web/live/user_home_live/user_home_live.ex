@@ -415,60 +415,51 @@ defmodule MossletWeb.UserHomeLive do
     profile_user = socket.assigns.profile_user
     current_user = socket.assigns.current_scope.user
 
-    is_author? = post.user_id == profile_user.id or post.user_id == current_user.id
+    is_profile_user_post? = post.user_id == profile_user.id
 
     is_shared_with_current_user? =
       Enum.any?(post.shared_users || [], &(&1.user_id == current_user.id))
 
     cond do
-      is_author? and post_visible_on_profile?(post, profile_user, current_user) ->
+      is_profile_user_post? and post_visible_on_profile?(post, profile_user, current_user) ->
         cached_posts = socket.assigns.cached_profile_posts
-        post_with_date = add_single_post_date_context(post, cached_posts, at: 0)
-        updated_cached = [post_with_date | cached_posts]
+        already_in_profile_posts? = Enum.any?(cached_posts, &(&1.id == post.id))
 
-        socket =
-          socket
-          |> assign(:cached_profile_posts, updated_cached)
-          |> assign(:posts_count, socket.assigns.posts_count + 1)
-          |> maybe_update_old_first_post_separator(cached_posts, post_with_date, at: 0)
-          |> stream_insert(:profile_posts, post_with_date, at: 0)
+        if already_in_profile_posts? do
+          {:noreply, socket}
+        else
+          post_with_date = add_single_post_date_context(post, cached_posts, at: 0)
+          updated_cached = [post_with_date | cached_posts]
 
-        {:noreply, socket}
+          socket =
+            socket
+            |> assign(:cached_profile_posts, updated_cached)
+            |> assign(:posts_count, socket.assigns.posts_count + 1)
+            |> maybe_update_old_first_post_separator(cached_posts, post_with_date, at: 0)
+            |> stream_insert(:profile_posts, post_with_date, at: 0)
 
-      is_shared_with_current_user? ->
+          {:noreply, socket}
+        end
+
+      is_profile_user_post? and is_shared_with_current_user? ->
         cached_profile_posts = socket.assigns.cached_profile_posts
-        cached_read_posts = socket.assigns.cached_read_posts
-        is_profile_post? = post.user_id == profile_user.id
         already_in_profile_posts? = Enum.any?(cached_profile_posts, &(&1.id == post.id))
-        already_in_read_posts? = Enum.any?(cached_read_posts, &(&1.id == post.id))
 
-        socket =
-          cond do
-            is_profile_post? and not already_in_profile_posts? ->
-              post_with_date = add_single_post_date_context(post, cached_profile_posts, at: 0)
-              updated_cached = [post_with_date | cached_profile_posts]
+        if already_in_profile_posts? do
+          {:noreply, socket}
+        else
+          post_with_date = add_single_post_date_context(post, cached_profile_posts, at: 0)
+          updated_cached = [post_with_date | cached_profile_posts]
 
-              socket
-              |> assign(:cached_profile_posts, updated_cached)
-              |> assign(:posts_count, socket.assigns.posts_count + 1)
-              |> maybe_update_old_first_post_separator(cached_profile_posts, post_with_date,
-                at: 0
-              )
-              |> stream_insert(:profile_posts, post_with_date, at: 0)
+          socket =
+            socket
+            |> assign(:cached_profile_posts, updated_cached)
+            |> assign(:posts_count, socket.assigns.posts_count + 1)
+            |> maybe_update_old_first_post_separator(cached_profile_posts, post_with_date, at: 0)
+            |> stream_insert(:profile_posts, post_with_date, at: 0)
 
-            not already_in_read_posts? ->
-              post_with_date = add_single_post_date_context(post, cached_read_posts, at: 0)
-              updated_cached = [post_with_date | cached_read_posts]
-
-              socket
-              |> assign(:cached_read_posts, updated_cached)
-              |> stream_insert(:read_posts, post_with_date, at: 0)
-
-            true ->
-              socket
-          end
-
-        {:noreply, socket}
+          {:noreply, socket}
+        end
 
       true ->
         {:noreply, socket}
@@ -1055,26 +1046,39 @@ defmodule MossletWeb.UserHomeLive do
     if Enum.empty?(new_posts) do
       {:noreply, assign(socket, :load_more_loading, false)}
     else
-      {_new_unread, new_read_posts} =
+      {new_unread, new_read_posts} =
         Enum.split_with(new_posts, fn post ->
           is_post_unread?(post, current_user)
         end)
 
       cached_read_posts = socket.assigns.cached_read_posts
+      cached_profile_posts = socket.assigns.cached_profile_posts
+
+      new_unread_with_dates =
+        add_date_grouping_context_for_append(new_unread, cached_profile_posts)
 
       new_read_posts_with_dates =
         add_date_grouping_context_for_append(new_read_posts, cached_read_posts)
 
+      updated_cached_profile = cached_profile_posts ++ new_unread_with_dates
       updated_cached_read = cached_read_posts ++ new_read_posts_with_dates
 
       socket =
-        new_read_posts_with_dates
-        |> Enum.reduce(socket, fn post, acc_socket ->
-          stream_insert(acc_socket, :read_posts, post, at: -1)
-        end)
+        socket
         |> assign(:posts_page, next_page)
+        |> assign(:cached_profile_posts, updated_cached_profile)
         |> assign(:cached_read_posts, updated_cached_read)
         |> assign(:load_more_loading, false)
+
+      socket =
+        Enum.reduce(new_unread_with_dates, socket, fn post, acc_socket ->
+          stream_insert(acc_socket, :profile_posts, post, at: -1)
+        end)
+
+      socket =
+        Enum.reduce(new_read_posts_with_dates, socket, fn post, acc_socket ->
+          stream_insert(acc_socket, :read_posts, post, at: -1)
+        end)
 
       {:noreply, socket}
     end
@@ -4515,20 +4519,26 @@ defmodule MossletWeb.UserHomeLive do
         if Enum.empty?(new_posts) do
           {:halt, {acc_socket, next_page}}
         else
-          {_new_unread, new_read_posts} =
+          {new_unread, new_read_posts} =
             Enum.split_with(new_posts, fn post ->
               is_post_unread?(post, current_user)
             end)
 
-          current_cached = acc_socket.assigns.cached_read_posts
+          current_cached_read = acc_socket.assigns.cached_read_posts
+          current_cached_profile = acc_socket.assigns.cached_profile_posts
+
+          new_unread_with_dates =
+            add_date_grouping_context_for_append(new_unread, current_cached_profile)
 
           new_read_posts_with_dates =
-            add_date_grouping_context_for_append(new_read_posts, current_cached)
+            add_date_grouping_context_for_append(new_read_posts, current_cached_read)
 
-          updated_cached_read = current_cached ++ new_read_posts_with_dates
+          updated_cached_profile = current_cached_profile ++ new_unread_with_dates
+          updated_cached_read = current_cached_read ++ new_read_posts_with_dates
 
           acc_socket = assign(acc_socket, :posts_page, next_page)
           acc_socket = assign(acc_socket, :cached_read_posts, updated_cached_read)
+          acc_socket = assign(acc_socket, :cached_profile_posts, updated_cached_profile)
 
           if length(updated_cached_read) >= length(cached_read_posts) + needed do
             {:halt, {acc_socket, next_page}}
@@ -4633,10 +4643,10 @@ defmodule MossletWeb.UserHomeLive do
   defp get_async_banner_src(%Phoenix.LiveView.AsyncResult{ok?: true, result: result}), do: result
   defp get_async_banner_src(_), do: nil
 
-  defp get_profile_post_author_name(post, profile_user, current_user, key, user_connection) do
-    profile_owner? = current_user.id == profile_user.id
+  defp get_profile_post_author_name(post, _profile_user, current_user, key, user_connection) do
+    is_post_author? = post.user_id == current_user.id
 
-    if profile_owner? or post.user_id == current_user.id do
+    if is_post_author? do
       case user_name(current_user, key) do
         name when is_binary(name) -> name
         _ -> "Private Author"
@@ -4689,10 +4699,10 @@ defmodule MossletWeb.UserHomeLive do
       end
   end
 
-  defp get_profile_post_author_avatar(post, profile_user, current_user, key, user_connection) do
-    profile_owner? = current_user.id == profile_user.id
+  defp get_profile_post_author_avatar(post, _profile_user, current_user, key, user_connection) do
+    is_post_author? = post.user_id == current_user.id
 
-    if profile_owner? or post.user_id == current_user.id do
+    if is_post_author? do
       if current_user.connection.profile.show_avatar? do
         maybe_get_user_avatar(current_user, key) || "/images/logo.svg"
       else
@@ -5089,12 +5099,13 @@ defmodule MossletWeb.UserHomeLive do
     cached_read_posts = socket.assigns[:cached_read_posts] || []
     updated_cached_read = Enum.reject(cached_read_posts, &(&1.id == post.id))
 
-    cached_unread_posts = socket.assigns[:cached_unread_posts] || []
-    updated_cached_unread = Enum.reject(cached_unread_posts, &(&1.id == post.id))
+    cached_profile_posts = socket.assigns[:cached_profile_posts] || []
+    updated_cached_profile = Enum.reject(cached_profile_posts, &(&1.id == post.id))
 
     socket
     |> assign(:cached_read_posts, updated_cached_read)
-    |> assign(:cached_unread_posts, updated_cached_unread)
+    |> assign(:cached_profile_posts, updated_cached_profile)
+    |> assign(:posts_count, max(0, socket.assigns.posts_count - 1))
     |> stream_delete(:profile_posts, post)
     |> stream_delete(:read_posts, post)
   end
