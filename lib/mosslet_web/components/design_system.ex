@@ -13783,26 +13783,49 @@ defmodule MossletWeb.DesignSystem do
          {"happy", "😊", "Happy"},
          {"excited", "🎉", "Excited"},
          {"hopeful", "🌟", "Hopeful"},
-         {"goodday", "☀️", "Good Day"}
+         {"goodday", "☀️", "Good Day"},
+         {"cheerful", "😄", "Cheerful"},
+         {"elated", "🥳", "Elated"},
+         {"blissful", "😇", "Blissful"},
+         {"optimistic", "🌈", "Optimistic"}
        ]},
       {"Grateful",
        [
          {"grateful", "🙏", "Grateful"},
-         {"thankful", "🌅", "Thankful"}
+         {"thankful", "🌅", "Thankful"},
+         {"blessed", "✨", "Blessed"},
+         {"appreciative", "💫", "Appreciative"},
+         {"fortunate", "🍀", "Fortunate"}
        ]},
       {"Love",
        [
          {"loved", "🥰", "Loved"},
          {"loving", "💕", "Loving"},
-         {"romantic", "💘", "Romantic"}
+         {"romantic", "💘", "Romantic"},
+         {"affectionate", "🤗", "Affectionate"},
+         {"tender", "💗", "Tender"},
+         {"adoring", "😍", "Adoring"}
        ]},
       {"Calm",
        [
          {"content", "😌", "Content"},
          {"peaceful", "🕊️", "Peaceful"},
-         {"serene", "🕊️", "Serene"},
+         {"serene", "🧘", "Serene"},
          {"calm", "😶", "Calm"},
-         {"relaxed", "😎", "Relaxed"}
+         {"relaxed", "😎", "Relaxed"},
+         {"tranquil", "🌸", "Tranquil"},
+         {"centered", "☯️", "Centered"},
+         {"mellow", "🍃", "Mellow"},
+         {"cozy", "☕", "Cozy"}
+       ]},
+      {"Energized",
+       [
+         {"energized", "⚡", "Energized"},
+         {"refreshed", "🌱", "Refreshed"},
+         {"alive", "🌻", "Alive"},
+         {"vibrant", "💥", "Vibrant"},
+         {"awake", "🌞", "Awake"},
+         {"invigorated", "🏃", "Invigorated"}
        ]},
       {"Motivated",
        [
@@ -13811,13 +13834,39 @@ defmodule MossletWeb.DesignSystem do
          {"curious", "🤔", "Curious"},
          {"confident", "💪", "Confident"},
          {"proud", "🏆", "Proud"},
-         {"accomplished", "🎯", "Accomplished"}
+         {"accomplished", "🎯", "Accomplished"},
+         {"determined", "🔥", "Determined"},
+         {"focused", "🧠", "Focused"},
+         {"ambitious", "🚀", "Ambitious"},
+         {"driven", "⭐", "Driven"}
+       ]},
+      {"Playful",
+       [
+         {"playful", "🎮", "Playful"},
+         {"silly", "🤪", "Silly"},
+         {"adventurous", "🗺️", "Adventurous"},
+         {"spontaneous", "🎲", "Spontaneous"},
+         {"carefree", "🦋", "Carefree"},
+         {"mischievous", "😏", "Mischievous"}
+       ]},
+      {"Connected",
+       [
+         {"supported", "🤝", "Supported"},
+         {"connected", "🫂", "Connected"},
+         {"belonging", "🏠", "Belonging"},
+         {"understood", "💭", "Understood"},
+         {"included", "👥", "Included"},
+         {"social", "🎊", "Social"}
        ]},
       {"Growth",
        [
          {"growing", "🪴", "Growing"},
          {"grounded", "🌿", "Grounded"},
-         {"breathing", "🌬️", "Letting Go"}
+         {"breathing", "🌬️", "Letting Go"},
+         {"healing", "🩹", "Healing"},
+         {"learning", "📚", "Learning"},
+         {"evolving", "🌀", "Evolving"},
+         {"patient", "🐢", "Patient"}
        ]},
       {"Neutral",
        [
@@ -13825,30 +13874,91 @@ defmodule MossletWeb.DesignSystem do
          {"tired", "😴", "Tired"},
          {"bored", "😑", "Bored"},
          {"mixed", "🌊", "Mixed"},
-         {"latenight", "🌙", "Late Night"}
+         {"latenight", "🌙", "Late Night"},
+         {"drained", "🔋", "Drained"},
+         {"indifferent", "🤷", "Indifferent"},
+         {"okay", "👍", "Okay"},
+         {"meh", "😶‍🌫️", "Meh"}
+       ]},
+      {"Surprised",
+       [
+         {"surprised", "😲", "Surprised"},
+         {"amazed", "🤯", "Amazed"},
+         {"shocked", "😱", "Shocked"},
+         {"astonished", "😮", "Astonished"},
+         {"bewildered", "😵‍💫", "Bewildered"}
        ]},
       {"Anxious",
        [
          {"anxious", "😰", "Anxious"},
          {"worried", "😟", "Worried"},
-         {"stressed", "😫", "Stressed"}
+         {"stressed", "😫", "Stressed"},
+         {"nervous", "😬", "Nervous"},
+         {"restless", "🌀", "Restless"},
+         {"uneasy", "😧", "Uneasy"},
+         {"tense", "😣", "Tense"},
+         {"panicked", "😨", "Panicked"}
        ]},
       {"Sad",
        [
          {"sad", "😢", "Sad"},
          {"lonely", "🥺", "Lonely"},
-         {"melancholic", "🌧️", "Melancholy"}
+         {"melancholic", "🌧️", "Melancholy"},
+         {"heartbroken", "💔", "Heartbroken"},
+         {"grieving", "🖤", "Grieving"},
+         {"down", "😞", "Down"},
+         {"hopeless", "🕳️", "Hopeless"},
+         {"disappointed", "😔", "Disappointed"},
+         {"empty", "🫥", "Empty"}
        ]},
       {"Reflective",
        [
          {"nostalgic", "📷", "Nostalgic"},
-         {"reminiscing", "📼", "Reminiscing"}
+         {"reminiscing", "📼", "Reminiscing"},
+         {"thoughtful", "🤔", "Thoughtful"},
+         {"contemplative", "🌌", "Contemplative"},
+         {"introspective", "🪞", "Introspective"},
+         {"pensive", "💭", "Pensive"},
+         {"wistful", "🍂", "Wistful"}
        ]},
       {"Difficult",
        [
          {"frustrated", "😤", "Frustrated"},
          {"angry", "😠", "Angry"},
-         {"overwhelmed", "🤯", "Overwhelmed"}
+         {"overwhelmed", "🤯", "Overwhelmed"},
+         {"irritated", "😒", "Irritated"},
+         {"resentful", "😾", "Resentful"},
+         {"bitter", "🍋", "Bitter"},
+         {"annoyed", "🙄", "Annoyed"},
+         {"rageful", "🔴", "Rageful"}
+       ]},
+      {"Vulnerable",
+       [
+         {"hurt", "🩹", "Hurt"},
+         {"embarrassed", "😳", "Embarrassed"},
+         {"ashamed", "😣", "Ashamed"},
+         {"insecure", "🐚", "Insecure"},
+         {"exposed", "🥀", "Exposed"},
+         {"fragile", "🥚", "Fragile"},
+         {"scared", "😨", "Scared"},
+         {"jealous", "💚", "Jealous"}
+       ]},
+      {"Confused",
+       [
+         {"confused", "😵‍💫", "Confused"},
+         {"lost", "🧭", "Lost"},
+         {"uncertain", "❓", "Uncertain"},
+         {"conflicted", "⚖️", "Conflicted"},
+         {"torn", "💭", "Torn"},
+         {"doubtful", "🤨", "Doubtful"}
+       ]},
+      {"Relief",
+       [
+         {"relieved", "😮‍💨", "Relieved"},
+         {"free", "🕊️", "Free"},
+         {"liberated", "🦅", "Liberated"},
+         {"unburdened", "🎈", "Unburdened"},
+         {"light", "🪶", "Light"}
        ]}
     ]
   end
@@ -13873,7 +13983,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   defp mood_color_scheme(mood)
-       when mood in ~w(joyful happy excited hopeful grateful thankful goodday) do
+       when mood in ~w(joyful happy excited hopeful goodday cheerful elated blissful optimistic grateful thankful blessed appreciative fortunate) do
     %{
       bg: "bg-amber-50 dark:bg-amber-900/30",
       text: "text-amber-700 dark:text-amber-300",
@@ -13881,7 +13991,8 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(loved loving romantic) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(loved loving romantic affectionate tender adoring) do
     %{
       bg: "bg-pink-50 dark:bg-pink-900/30",
       text: "text-pink-700 dark:text-pink-300",
@@ -13889,11 +14000,21 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(content peaceful serene calm relaxed) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(content peaceful serene calm relaxed tranquil centered mellow cozy) do
     %{
       bg: "bg-teal-50 dark:bg-teal-900/30",
       text: "text-teal-700 dark:text-teal-300",
       border: "border-teal-200 dark:border-teal-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood)
+       when mood in ~w(energized refreshed alive vibrant awake invigorated) do
+    %{
+      bg: "bg-yellow-50 dark:bg-yellow-900/30",
+      text: "text-yellow-700 dark:text-yellow-300",
+      border: "border-yellow-200 dark:border-yellow-700/50"
     }
   end
 
@@ -13905,7 +14026,8 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(tired bored latenight) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(tired bored latenight drained indifferent okay meh) do
     %{
       bg: "bg-slate-100 dark:bg-slate-700/50",
       text: "text-slate-500 dark:text-slate-400",
@@ -13914,7 +14036,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   defp mood_color_scheme(mood)
-       when mood in ~w(inspired creative curious confident proud accomplished) do
+       when mood in ~w(inspired creative curious confident proud accomplished determined focused ambitious driven) do
     %{
       bg: "bg-indigo-50 dark:bg-indigo-900/30",
       text: "text-indigo-700 dark:text-indigo-300",
@@ -13922,7 +14044,34 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(anxious worried stressed) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(playful silly adventurous spontaneous carefree mischievous) do
+    %{
+      bg: "bg-orange-50 dark:bg-orange-900/30",
+      text: "text-orange-700 dark:text-orange-300",
+      border: "border-orange-200 dark:border-orange-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood)
+       when mood in ~w(supported connected belonging understood included social) do
+    %{
+      bg: "bg-sky-50 dark:bg-sky-900/30",
+      text: "text-sky-700 dark:text-sky-300",
+      border: "border-sky-200 dark:border-sky-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(surprised amazed shocked astonished bewildered) do
+    %{
+      bg: "bg-fuchsia-50 dark:bg-fuchsia-900/30",
+      text: "text-fuchsia-700 dark:text-fuchsia-300",
+      border: "border-fuchsia-200 dark:border-fuchsia-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood)
+       when mood in ~w(anxious worried stressed nervous restless uneasy tense panicked) do
     %{
       bg: "bg-purple-50 dark:bg-purple-900/30",
       text: "text-purple-700 dark:text-purple-300",
@@ -13930,7 +14079,8 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(frustrated angry) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(frustrated angry irritated resentful bitter annoyed rageful) do
     %{
       bg: "bg-rose-50 dark:bg-rose-900/30",
       text: "text-rose-700 dark:text-rose-300",
@@ -13939,7 +14089,7 @@ defmodule MossletWeb.DesignSystem do
   end
 
   defp mood_color_scheme(mood)
-       when mood in ~w(sad lonely overwhelmed nostalgic reminiscing melancholic) do
+       when mood in ~w(sad lonely overwhelmed nostalgic reminiscing melancholic heartbroken grieving down hopeless disappointed empty thoughtful contemplative introspective pensive wistful) do
     %{
       bg: "bg-blue-50 dark:bg-blue-900/30",
       text: "text-blue-700 dark:text-blue-300",
@@ -13947,7 +14097,34 @@ defmodule MossletWeb.DesignSystem do
     }
   end
 
-  defp mood_color_scheme(mood) when mood in ~w(growing grounded breathing) do
+  defp mood_color_scheme(mood)
+       when mood in ~w(hurt embarrassed ashamed insecure exposed fragile scared jealous) do
+    %{
+      bg: "bg-violet-50 dark:bg-violet-900/30",
+      text: "text-violet-700 dark:text-violet-300",
+      border: "border-violet-200 dark:border-violet-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood)
+       when mood in ~w(confused lost uncertain conflicted torn doubtful) do
+    %{
+      bg: "bg-gray-50 dark:bg-gray-900/30",
+      text: "text-gray-700 dark:text-gray-300",
+      border: "border-gray-200 dark:border-gray-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood) when mood in ~w(relieved free liberated unburdened light) do
+    %{
+      bg: "bg-lime-50 dark:bg-lime-900/30",
+      text: "text-lime-700 dark:text-lime-300",
+      border: "border-lime-200 dark:border-lime-700/50"
+    }
+  end
+
+  defp mood_color_scheme(mood)
+       when mood in ~w(growing grounded breathing healing learning evolving patient) do
     %{
       bg: "bg-emerald-50 dark:bg-emerald-900/30",
       text: "text-emerald-700 dark:text-emerald-300",
@@ -13980,42 +14157,131 @@ defmodule MossletWeb.DesignSystem do
       "happy" => "😊",
       "excited" => "🎉",
       "hopeful" => "🌟",
+      "goodday" => "☀️",
+      "cheerful" => "😄",
+      "elated" => "🥳",
+      "blissful" => "😇",
+      "optimistic" => "🌈",
       "grateful" => "🙏",
+      "thankful" => "🌅",
+      "blessed" => "✨",
+      "appreciative" => "💫",
+      "fortunate" => "🍀",
       "loved" => "🥰",
       "loving" => "💕",
       "romantic" => "💘",
+      "affectionate" => "🤗",
+      "tender" => "💗",
+      "adoring" => "😍",
       "content" => "😌",
       "peaceful" => "🕊️",
+      "serene" => "🧘",
       "calm" => "😶",
       "relaxed" => "😎",
+      "tranquil" => "🌸",
+      "centered" => "☯️",
+      "mellow" => "🍃",
+      "cozy" => "☕",
+      "energized" => "⚡",
+      "refreshed" => "🌱",
+      "alive" => "🌻",
+      "vibrant" => "💥",
+      "awake" => "🌞",
+      "invigorated" => "🏃",
       "inspired" => "💡",
       "creative" => "🎨",
       "curious" => "🤔",
       "confident" => "💪",
       "proud" => "🏆",
-      "neutral" => "😐",
-      "tired" => "😴",
-      "bored" => "😑",
-      "anxious" => "😰",
-      "worried" => "😟",
-      "stressed" => "😫",
-      "frustrated" => "😤",
-      "sad" => "😢",
-      "lonely" => "🥺",
-      "angry" => "😠",
-      "overwhelmed" => "🤯",
-      "nostalgic" => "📷",
-      "reminiscing" => "📼",
-      "melancholic" => "🌧️",
-      "thankful" => "🌅",
-      "goodday" => "☀️",
-      "serene" => "🕊️",
       "accomplished" => "🎯",
+      "determined" => "🔥",
+      "focused" => "🧠",
+      "ambitious" => "🚀",
+      "driven" => "⭐",
+      "playful" => "🎮",
+      "silly" => "🤪",
+      "adventurous" => "🗺️",
+      "spontaneous" => "🎲",
+      "carefree" => "🦋",
+      "mischievous" => "😏",
+      "supported" => "🤝",
+      "connected" => "🫂",
+      "belonging" => "🏠",
+      "understood" => "💭",
+      "included" => "👥",
+      "social" => "🎊",
       "growing" => "🪴",
       "grounded" => "🌿",
       "breathing" => "🌬️",
+      "healing" => "🩹",
+      "learning" => "📚",
+      "evolving" => "🌀",
+      "patient" => "🐢",
+      "neutral" => "😐",
+      "tired" => "😴",
+      "bored" => "😑",
       "mixed" => "🌊",
-      "latenight" => "🌙"
+      "latenight" => "🌙",
+      "drained" => "🔋",
+      "indifferent" => "🤷",
+      "okay" => "👍",
+      "meh" => "😶‍🌫️",
+      "surprised" => "😲",
+      "amazed" => "🤯",
+      "shocked" => "😱",
+      "astonished" => "😮",
+      "bewildered" => "😵‍💫",
+      "anxious" => "😰",
+      "worried" => "😟",
+      "stressed" => "😫",
+      "nervous" => "😬",
+      "restless" => "🌀",
+      "uneasy" => "😧",
+      "tense" => "😣",
+      "panicked" => "😨",
+      "sad" => "😢",
+      "lonely" => "🥺",
+      "melancholic" => "🌧️",
+      "heartbroken" => "💔",
+      "grieving" => "🖤",
+      "down" => "😞",
+      "hopeless" => "🕳️",
+      "disappointed" => "😔",
+      "empty" => "🫥",
+      "nostalgic" => "📷",
+      "reminiscing" => "📼",
+      "thoughtful" => "🤔",
+      "contemplative" => "🌌",
+      "introspective" => "🪞",
+      "pensive" => "💭",
+      "wistful" => "🍂",
+      "frustrated" => "😤",
+      "angry" => "😠",
+      "overwhelmed" => "🤯",
+      "irritated" => "😒",
+      "resentful" => "😾",
+      "bitter" => "🍋",
+      "annoyed" => "🙄",
+      "rageful" => "🔴",
+      "hurt" => "🩹",
+      "embarrassed" => "😳",
+      "ashamed" => "😣",
+      "insecure" => "🐚",
+      "exposed" => "🥀",
+      "fragile" => "🥚",
+      "scared" => "😨",
+      "jealous" => "💚",
+      "confused" => "😵‍💫",
+      "lost" => "🧭",
+      "uncertain" => "❓",
+      "conflicted" => "⚖️",
+      "torn" => "💭",
+      "doubtful" => "🤨",
+      "relieved" => "😮‍💨",
+      "free" => "🕊️",
+      "liberated" => "🦅",
+      "unburdened" => "🎈",
+      "light" => "🪶"
     }
 
     Map.get(mood_map, mood, "")
