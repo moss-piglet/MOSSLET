@@ -2032,11 +2032,16 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
     cond do
       viewer_is_profile_user ->
+        post_ids_subquery =
+          from(p in Post,
+            join: up in UserPost,
+            on: up.post_id == p.id,
+            where: p.user_id == ^profile_user.id,
+            select: p.id
+          )
+
         from(p in Post,
-          join: up in UserPost,
-          on: up.post_id == p.id,
-          where: p.user_id == ^profile_user.id,
-          distinct: p.id,
+          where: p.id in subquery(post_ids_subquery),
           order_by: [desc: p.inserted_at],
           preload: [:user_posts, :user, :replies, :user_post_receipts]
         )
@@ -2044,15 +2049,20 @@ defmodule Mosslet.Timeline.Adapters.Web do
         |> Repo.all()
 
       is_connection ->
+        post_ids_subquery =
+          from(p in Post,
+            left_join: up in UserPost,
+            on: up.post_id == p.id and up.user_id == ^viewer.id,
+            where: p.user_id == ^profile_user.id,
+            where:
+              p.visibility == :public or
+                (p.visibility in [:connections, :specific_users, :specific_groups] and
+                   not is_nil(up.id)),
+            select: p.id
+          )
+
         from(p in Post,
-          left_join: up in UserPost,
-          on: up.post_id == p.id and up.user_id == ^viewer.id,
-          where: p.user_id == ^profile_user.id,
-          where:
-            p.visibility == :public or
-              (p.visibility in [:connections, :specific_users, :specific_groups] and
-                 not is_nil(up.id)),
-          distinct: p.id,
+          where: p.id in subquery(post_ids_subquery),
           order_by: [desc: p.inserted_at],
           preload: [:user_posts, :user, :replies, :user_post_receipts]
         )
@@ -2063,7 +2073,6 @@ defmodule Mosslet.Timeline.Adapters.Web do
         from(p in Post,
           where: p.user_id == ^profile_user.id,
           where: p.visibility == :public,
-          distinct: p.id,
           order_by: [desc: p.inserted_at],
           preload: [:user_posts, :user, :replies, :user_post_receipts]
         )
