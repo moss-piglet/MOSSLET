@@ -25,14 +25,9 @@ defmodule Mosslet.Billing.Subscriptions.Subscription do
     field :current_period_start, :naive_datetime
     field :plan, :map, virtual: true
 
-    # Original fields (to be removed after migration)
-    field :provider_subscription_id, :string
-    field :provider_subscription_items, {:array, :map}
-
-    # Encrypted fields (temporary names during migration)
-    field :encrypted_provider_subscription_id, Encrypted.Binary, redact: true
+    field :provider_subscription_id, Encrypted.Binary, redact: true
     field :provider_subscription_id_hash, Encrypted.HMAC, redact: true
-    field :encrypted_provider_subscription_items, Encrypted.MapList, redact: true
+    field :provider_subscription_items, Encrypted.MapList, redact: true
 
     belongs_to :customer, Mosslet.Billing.Customers.Customer,
       foreign_key: :billing_customer_id,
@@ -63,16 +58,11 @@ defmodule Mosslet.Billing.Subscriptions.Subscription do
       :billing_customer_id
     ])
     |> validate_inclusion(:status, @status_options)
-    |> put_encrypted_fields()
+    |> put_hashed_fields()
   end
 
-  defp put_encrypted_fields(changeset) do
-    provider_subscription_id = get_field(changeset, :provider_subscription_id)
-    provider_subscription_items = get_field(changeset, :provider_subscription_items)
-
+  defp put_hashed_fields(changeset) do
     changeset
-    |> put_change(:encrypted_provider_subscription_id, provider_subscription_id)
-    |> put_change(:provider_subscription_id_hash, provider_subscription_id)
-    |> put_change(:encrypted_provider_subscription_items, provider_subscription_items)
+    |> put_change(:provider_subscription_id_hash, get_field(changeset, :provider_subscription_id))
   end
 end
