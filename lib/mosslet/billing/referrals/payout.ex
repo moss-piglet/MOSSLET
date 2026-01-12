@@ -13,9 +13,9 @@ defmodule Mosslet.Billing.Referrals.Payout do
   schema "billing_payouts" do
     field :amount, :integer
     field :status, :string, default: "pending"
-    field :stripe_transfer_id, Encrypted.Binary
-    field :stripe_transfer_id_hash, Encrypted.HMAC
-    field :failure_reason, Encrypted.Binary
+    field :stripe_transfer_id, Encrypted.Binary, redact: true
+    field :stripe_transfer_id_hash, Encrypted.HMAC, redact: true
+    field :failure_reason, Encrypted.Binary, redact: true
     field :processed_at, :utc_datetime
     field :period_start, :utc_datetime
     field :period_end, :utc_datetime

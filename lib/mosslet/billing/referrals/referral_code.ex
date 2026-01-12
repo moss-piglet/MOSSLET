@@ -10,12 +10,12 @@ defmodule Mosslet.Billing.Referrals.ReferralCode do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "billing_referral_codes" do
-    field :code, Encrypted.Binary
-    field :code_hash, Encrypted.HMAC
-    field :payout_email, Encrypted.Binary
-    field :payout_email_hash, Encrypted.HMAC
-    field :stripe_connect_account_id, Encrypted.Binary
-    field :stripe_connect_account_id_hash, Encrypted.HMAC
+    field :code, Encrypted.Binary, redact: true
+    field :code_hash, Encrypted.HMAC, redact: true
+    field :payout_email, Encrypted.Binary, redact: true
+    field :payout_email_hash, Encrypted.HMAC, redact: true
+    field :stripe_connect_account_id, Encrypted.Binary, redact: true
+    field :stripe_connect_account_id_hash, Encrypted.HMAC, redact: true
     field :connect_onboarding_complete, :boolean, default: false
     field :connect_payouts_enabled, :boolean, default: false
     field :is_active, :boolean, default: true

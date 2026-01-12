@@ -12,8 +12,8 @@ defmodule Mosslet.Billing.Referrals.Commission do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "billing_commissions" do
-    field :stripe_invoice_id, Encrypted.Binary
-    field :stripe_invoice_id_hash, Encrypted.HMAC
+    field :stripe_invoice_id, Encrypted.Binary, redact: true
+    field :stripe_invoice_id_hash, Encrypted.HMAC, redact: true
     field :gross_amount, :integer
     field :commission_amount, :integer
     field :status, :string, default: "pending"
