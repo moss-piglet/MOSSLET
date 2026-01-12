@@ -329,13 +329,13 @@ defmodule MossletWeb.API.JournalController do
     |> json(%{count: count})
   end
 
-  def streak_dates(conn, _params) do
+  def streak_timestamps(conn, _params) do
     user = conn.assigns.current_user
-    dates = Journal.adapter().streak_entry_dates(user)
+    timestamps = Journal.adapter().streak_entry_timestamps(user)
 
     conn
     |> put_status(:ok)
-    |> json(%{dates: Enum.map(dates, &Date.to_iso8601/1)})
+    |> json(%{timestamps: Enum.map(timestamps, &NaiveDateTime.to_iso8601/1)})
   end
 
   def adjacent_entries(conn, %{"id" => id} = params) do

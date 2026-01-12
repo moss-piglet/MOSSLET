@@ -252,12 +252,11 @@ defmodule Mosslet.Journal.Adapters.Web do
   end
 
   @impl true
-  def streak_entry_dates(user) do
+  def streak_entry_timestamps(user) do
     from(j in JournalEntry,
       where: j.user_id == ^user.id,
-      select: j.entry_date,
-      distinct: true,
-      order_by: [desc: j.entry_date]
+      select: j.inserted_at,
+      order_by: [desc: j.inserted_at]
     )
     |> Repo.all()
   end

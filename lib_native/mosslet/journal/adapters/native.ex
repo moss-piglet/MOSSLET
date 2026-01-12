@@ -325,11 +325,11 @@ defmodule Mosslet.Journal.Adapters.Native do
   end
 
   @impl true
-  def streak_entry_dates(_user) do
+  def streak_entry_timestamps(_user) do
     if Sync.online?() do
-      case Client.journal_streak_dates(get_token()) do
-        {:ok, %{dates: dates}} ->
-          Enum.map(dates, &Date.from_iso8601!/1)
+      case Client.journal_streak_timestamps(get_token()) do
+        {:ok, %{timestamps: timestamps}} ->
+          Enum.map(timestamps, &NaiveDateTime.from_iso8601!/1)
 
         {:error, _reason} ->
           []

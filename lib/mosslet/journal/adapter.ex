@@ -98,7 +98,7 @@ defmodule Mosslet.Journal.Adapter do
 
   @callback total_word_count(user :: any()) :: non_neg_integer()
 
-  @callback streak_entry_dates(user :: any()) :: [Date.t()]
+  @callback streak_entry_timestamps(user :: any()) :: [NaiveDateTime.t()]
 
   @callback get_adjacent_entries(entry :: JournalEntry.t(), user :: any(), opts :: keyword()) ::
               %{prev_id: binary() | nil, next_id: binary() | nil}

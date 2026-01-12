@@ -1314,8 +1314,8 @@ defmodule Mosslet.API.Client do
     request(:get, "/api/journal/entries/word-count", %{}, auth: token)
   end
 
-  def journal_streak_dates(token) do
-    request(:get, "/api/journal/entries/streak-dates", %{}, auth: token)
+  def journal_streak_timestamps(token) do
+    request(:get, "/api/journal/entries/streak-timestamps", %{}, auth: token)
   end
 
   def get_journal_entry(token, id) do

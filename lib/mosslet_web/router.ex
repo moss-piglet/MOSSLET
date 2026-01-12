@@ -327,7 +327,7 @@ defmodule MossletWeb.Router do
     get "/journal/entries/by-date-range", JournalController, :list_entries_by_date_range
     get "/journal/entries/count", JournalController, :count_entries
     get "/journal/entries/word-count", JournalController, :total_word_count
-    get "/journal/entries/streak-dates", JournalController, :streak_dates
+    get "/journal/entries/streak-timestamps", JournalController, :streak_timestamps
     get "/journal/entries/:id", JournalController, :show_entry
     get "/journal/entries/:id/adjacent", JournalController, :adjacent_entries
     get "/journal/entries/:id/position", JournalController, :entry_position

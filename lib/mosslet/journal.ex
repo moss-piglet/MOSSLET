@@ -184,11 +184,50 @@ defmodule Mosslet.Journal do
     adapter().total_word_count(user)
   end
 
-  def streak_days(user, today \\ nil) do
-    today = today || Date.utc_today()
-    entries = adapter().streak_entry_dates(user)
-    calculate_streak(entries, today, 0)
+  @grace_hours 4
+
+  @doc """
+  Calculates the current journaling streak for a user.
+
+  Uses a "forgiving" approach where entries created before 4 AM count as the
+  previous day's journaling. This handles late-night journaling better from a UX
+  perspective - if you journal at 2 AM Sunday, it feels like part of your
+  Saturday routine.
+
+  The `local_now` parameter should be the user's current local DateTime.
+  """
+  def streak_days(user, local_now \\ nil) do
+    local_now = local_now || DateTime.utc_now()
+    timestamps = adapter().streak_entry_timestamps(user)
+    journaling_dates = timestamps_to_journaling_dates(timestamps)
+    current_journaling_day = to_journaling_day(local_now)
+    calculate_streak(journaling_dates, current_journaling_day, 0)
   end
+
+  defp timestamps_to_journaling_dates(timestamps) do
+    timestamps
+    |> Enum.map(&to_journaling_day/1)
+    |> Enum.uniq()
+    |> Enum.sort(:desc)
+  end
+
+  defp to_journaling_day(%DateTime{} = dt) do
+    if dt.hour < @grace_hours do
+      Date.add(DateTime.to_date(dt), -1)
+    else
+      DateTime.to_date(dt)
+    end
+  end
+
+  defp to_journaling_day(%NaiveDateTime{} = ndt) do
+    if ndt.hour < @grace_hours do
+      Date.add(NaiveDateTime.to_date(ndt), -1)
+    else
+      NaiveDateTime.to_date(ndt)
+    end
+  end
+
+  defp to_journaling_day(%Date{} = date), do: date
 
   defp calculate_streak([], _expected_date, count), do: count
 

@@ -881,7 +881,8 @@ defmodule MossletWeb.JournalLive.Index do
     favorites = Journal.list_favorite_entries(user, limit: 10)
     decrypted_favorites = decrypt_entries(favorites, user, key)
 
-    local_today = JournalHelpers.get_local_today(socket)
+    local_now = JournalHelpers.get_local_now(socket)
+    local_today = DateTime.to_date(local_now)
 
     socket =
       socket
@@ -894,7 +895,7 @@ defmodule MossletWeb.JournalLive.Index do
       |> assign(:entry_count, entry_count)
       |> assign(:loose_entry_count, loose_entry_count)
       |> assign(:total_words, Journal.total_word_count(user))
-      |> assign(:streak, Journal.streak_days(user, local_today))
+      |> assign(:streak, Journal.streak_days(user, local_now))
       |> assign(:offset, 20)
       |> assign(:has_more, length(entries) == 20)
       |> assign(:mood_insight, nil)

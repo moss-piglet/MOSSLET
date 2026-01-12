@@ -9,19 +9,23 @@ defmodule MossletWeb.Helpers.JournalHelpers do
 
   alias Mosslet.Journal.PrivacyTimer
 
-  def get_local_today(socket) do
+  def get_local_now(socket) do
     case get_connect_params(socket) do
       %{"timezone" => tz} when is_binary(tz) and tz != "" ->
         DateTime.utc_now()
         |> DateTime.shift_zone(tz)
         |> case do
-          {:ok, local_dt} -> DateTime.to_date(local_dt)
-          _ -> Date.utc_today()
+          {:ok, local_dt} -> local_dt
+          _ -> DateTime.utc_now()
         end
 
       _ ->
-        Date.utc_today()
+        DateTime.utc_now()
     end
+  end
+
+  def get_local_today(socket) do
+    get_local_now(socket) |> DateTime.to_date()
   end
 
   def assign_privacy_state(socket, user) do
