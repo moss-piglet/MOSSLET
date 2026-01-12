@@ -591,6 +591,22 @@ defmodule MossletWeb.SubscribeLive do
               current_subscription={@current_subscription}
               key={@key}
             />
+
+            <div
+              :if={@item.interval == :year}
+              id={"affirm-disclosure-#{@item.id}"}
+              phx-hook="TippyHook"
+              data-tippy-content={
+                gettext(
+                  "Payment options through Affirm are subject to eligibility, may not be available in all states, and are provided by these lending partners: affirm.com/lenders."
+                )
+              }
+              class="mt-4 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 cursor-help hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+            >
+              <.phx_icon name="hero-credit-card" class="w-3.5 h-3.5" />
+              <span>{gettext("Split payments with Affirm")}</span>
+              <.phx_icon name="hero-information-circle" class="w-3.5 h-3.5" />
+            </div>
           </div>
 
           <div class="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/50">
