@@ -1125,6 +1125,44 @@ dialog[data-confirm] button[data-confirm-accept]:hover::before {
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
+@keyframes privacy-breathe {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.privacy-placeholder {
+  animation: privacy-breathe 4s ease-in-out infinite;
+  background: linear-gradient(90deg, 
+    var(--tw-gradient-from, rgb(226 232 240)) 0%, 
+    var(--tw-gradient-to, rgb(203 213 225)) 50%, 
+    var(--tw-gradient-from, rgb(226 232 240)) 100%
+  );
+  background-size: 200% 100%;
+  animation: privacy-breathe 4s ease-in-out infinite, privacy-shimmer 8s ease-in-out infinite;
+}
+
+@keyframes privacy-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+:is(.dark .privacy-placeholder) {
+  background: linear-gradient(90deg, 
+    rgb(51 65 85 / 0.5) 0%, 
+    rgb(71 85 105 / 0.6) 50%, 
+    rgb(51 65 85 / 0.5) 100%
+  );
+  background-size: 200% 100%;
+}
+
 .photos-loading .grid > div {
   animation: pulse 1.5s ease-in-out infinite;
 }

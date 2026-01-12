@@ -283,10 +283,11 @@ defmodule MossletWeb.JournalLive.Index do
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
                     <h3 class={[
-                      "text-base font-medium truncate transition-all",
+                      "text-base font-medium truncate transition-all duration-500",
                       if(entry.id in @revealed_entries,
                         do: "text-slate-900 dark:text-slate-100",
-                        else: "text-transparent bg-slate-200 dark:bg-slate-700 rounded select-none"
+                        else:
+                          "text-slate-400/70 dark:text-slate-500/70 privacy-placeholder rounded-md px-1 select-none"
                       )
                     ]}>
                       {if entry.id in @revealed_entries,
@@ -296,10 +297,11 @@ defmodule MossletWeb.JournalLive.Index do
                     <span class="text-amber-500">★</span>
                   </div>
                   <p class={[
-                    "text-sm line-clamp-2 transition-all",
+                    "text-sm line-clamp-2 transition-all duration-500",
                     if(entry.id in @revealed_entries,
                       do: "text-slate-600 dark:text-slate-400",
-                      else: "text-transparent bg-slate-100 dark:bg-slate-700/50 rounded select-none"
+                      else:
+                        "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
                     )
                   ]}>
                     {if entry.id in @revealed_entries,
@@ -391,10 +393,11 @@ defmodule MossletWeb.JournalLive.Index do
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
                     <h3 class={[
-                      "text-base font-medium truncate transition-all",
+                      "text-base font-medium truncate transition-all duration-500",
                       if(entry.id in @revealed_entries,
                         do: "text-slate-900 dark:text-slate-100",
-                        else: "text-transparent bg-slate-200 dark:bg-slate-700 rounded select-none"
+                        else:
+                          "text-slate-400/70 dark:text-slate-500/70 privacy-placeholder rounded-md px-1 select-none"
                       )
                     ]}>
                       {if entry.id in @revealed_entries,
@@ -410,10 +413,11 @@ defmodule MossletWeb.JournalLive.Index do
                     </span>
                   </div>
                   <p class={[
-                    "text-sm line-clamp-2 transition-all",
+                    "text-sm line-clamp-2 transition-all duration-500",
                     if(entry.id in @revealed_entries,
                       do: "text-slate-600 dark:text-slate-400",
-                      else: "text-transparent bg-slate-100 dark:bg-slate-700/50 rounded select-none"
+                      else:
+                        "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
                     )
                   ]}>
                     {if entry.id in @revealed_entries,
