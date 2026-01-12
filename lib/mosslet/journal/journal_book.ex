@@ -21,6 +21,7 @@ defmodule Mosslet.Journal.JournalBook do
     field :description, Encrypted.Binary, redact: true
     field :cover_color, :string, default: "emerald"
     field :cover_image_url, Encrypted.Binary, redact: true
+    field :position, :integer, default: 0
 
     field :entry_count, :integer, virtual: true, default: 0
 

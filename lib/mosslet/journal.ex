@@ -103,6 +103,11 @@ defmodule Mosslet.Journal do
     adapter().clear_book_cover_image(book)
   end
 
+  def update_book_positions(user, book_ids) when is_list(book_ids) do
+    positions = Enum.with_index(book_ids, fn book_id, index -> {book_id, index} end)
+    adapter().update_book_positions(user, positions)
+  end
+
   # =====================
   # Entry Functions
   # =====================

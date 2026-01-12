@@ -24,7 +24,7 @@ defmodule Mosslet.Journal.Adapters.Web do
       left_join: e in assoc(b, :entries),
       group_by: b.id,
       select: %{b | entry_count: count(e.id)},
-      order_by: [desc: b.updated_at]
+      order_by: [asc: b.position, desc: b.updated_at]
     )
     |> Repo.all()
   end
@@ -93,6 +93,24 @@ defmodule Mosslet.Journal.Adapters.Web do
       |> Repo.update()
     end)
     |> handle_transaction_result()
+  end
+
+  @impl true
+  def update_book_positions(user, positions) do
+    Repo.transaction_on_primary(fn ->
+      Enum.each(positions, fn {book_id, position} ->
+        from(b in JournalBook,
+          where: b.id == ^book_id and b.user_id == ^user.id
+        )
+        |> Repo.update_all(set: [position: position])
+      end)
+
+      :ok
+    end)
+    |> case do
+      {:ok, :ok} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   # =====================

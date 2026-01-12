@@ -54,6 +54,9 @@ defmodule Mosslet.Journal.Adapter do
   @callback clear_book_cover_image(book :: JournalBook.t()) ::
               {:ok, JournalBook.t()} | {:error, Ecto.Changeset.t()}
 
+  @callback update_book_positions(user :: any(), positions :: list({binary(), integer()})) ::
+              :ok | {:error, term()}
+
   # =====================
   # Entry Functions
   # =====================

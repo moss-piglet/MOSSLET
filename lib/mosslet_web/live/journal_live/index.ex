@@ -210,15 +210,25 @@ defmodule MossletWeb.JournalLive.Index do
         </div>
 
         <div :if={@books != []} class="mb-8">
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Books</h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Books</h2>
+            <span :if={length(@books) > 1} class="text-xs text-slate-400 dark:text-slate-500">
+              Drag to reorder
+            </span>
+          </div>
           <p :if={@entries != []} class="text-xs text-slate-500 dark:text-slate-400 mb-3">
             Drag entries onto books to organize them
           </p>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div
+            id="sortable-books-container"
+            phx-hook="SortableBooksHook"
+            class="grid grid-cols-2 sm:grid-cols-3 gap-4"
+          >
             <div
               :for={book <- @books}
+              data-book-id={book.id}
               data-drop-target-book={book.id}
-              class="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-pointer"
+              class="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-grab active:cursor-grabbing"
               phx-click={JS.navigate(~p"/app/journal/books/#{book.id}")}
             >
               <%= if book.decrypted_cover_image_url do %>
@@ -1361,6 +1371,20 @@ defmodule MossletWeb.JournalLive.Index do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  def handle_event("reorder_books", %{"order" => order}, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Journal.update_book_positions(user, order) do
+      :ok ->
+        books_map = Map.new(socket.assigns.books, &{&1.id, &1})
+        reordered_books = Enum.map(order, &Map.get(books_map, &1)) |> Enum.filter(& &1)
+        {:noreply, assign(socket, :books, reordered_books)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not save book order")}
     end
   end
 

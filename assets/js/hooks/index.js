@@ -35,6 +35,7 @@ import PublicPostImagesHook from "./public-post-images-hook";
 import ImageErrorHook from "./image-error-hook";
 import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
+import SortableBooksHook from "./sortable-books-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 
@@ -76,6 +77,7 @@ export default {
   ImageErrorHook,
   UnsavedChanges,
   SortableUploadsHook,
+  SortableBooksHook,
   ImageResizeUploadHook,
   JournalDragDropHook,
 };
