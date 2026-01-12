@@ -15,7 +15,11 @@ defmodule MossletWeb.JournalLive.Index do
   def render(assigns) do
     ~H"""
     <.layout type="sidebar" current_scope={@current_scope} current_page={:journal}>
-      <div class="max-w-4xl mx-auto pb-8">
+      <div
+        id="journal-drag-drop-container"
+        phx-hook="JournalDragDropHook"
+        class="max-w-4xl mx-auto pb-8"
+      >
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -207,9 +211,13 @@ defmodule MossletWeb.JournalLive.Index do
 
         <div :if={@books != []} class="mb-8">
           <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Books</h2>
+          <p :if={@entries != []} class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            Drag entries onto books to organize them
+          </p>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div
               :for={book <- @books}
+              data-drop-target-book={book.id}
               class="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-pointer"
               phx-click={JS.navigate(~p"/app/journal/books/#{book.id}")}
             >
@@ -268,28 +276,64 @@ defmodule MossletWeb.JournalLive.Index do
           <div class="space-y-3">
             <div
               :for={entry <- @favorites}
-              class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600 transition-colors cursor-pointer"
+              class="group relative bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600 transition-colors cursor-pointer"
               phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
             >
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <h3 class="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
-                      {entry.decrypted_title || "Untitled"}
+                    <h3 class={[
+                      "text-base font-medium truncate transition-all",
+                      if(entry.id in @revealed_entries,
+                        do: "text-slate-900 dark:text-slate-100",
+                        else: "text-transparent bg-slate-200 dark:bg-slate-700 rounded select-none"
+                      )
+                    ]}>
+                      {if entry.id in @revealed_entries,
+                        do: entry.decrypted_title || "Untitled",
+                        else: "████████████"}
                     </h3>
                     <span class="text-amber-500">★</span>
                   </div>
-                  <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                    {truncate_body(entry.decrypted_body)}
+                  <p class={[
+                    "text-sm line-clamp-2 transition-all",
+                    if(entry.id in @revealed_entries,
+                      do: "text-slate-600 dark:text-slate-400",
+                      else: "text-transparent bg-slate-100 dark:bg-slate-700/50 rounded select-none"
+                    )
+                  ]}>
+                    {if entry.id in @revealed_entries,
+                      do: truncate_body(entry.decrypted_body),
+                      else: "████████ ███████████ ██████ ████████████ ██████████"}
                   </p>
                 </div>
-                <div class="flex flex-col items-end gap-1">
-                  <time class="text-xs text-slate-500 dark:text-slate-400">
-                    {format_date(entry.entry_date)}
-                  </time>
-                  <span :if={entry.mood} class="text-lg" title={entry.mood}>
-                    {mood_emoji(entry.mood)}
-                  </span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    id={"reveal-fav-entry-#{entry.id}"}
+                    phx-click={JS.push("toggle_entry_reveal", value: %{entry_id: entry.id})}
+                    phx-hook="TippyHook"
+                    data-tippy-content={
+                      if entry.id in @revealed_entries, do: "Conceal preview", else: "Reveal preview"
+                    }
+                    aria-label={
+                      if entry.id in @revealed_entries, do: "Conceal preview", else: "Reveal preview"
+                    }
+                    class="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
+                  >
+                    <.phx_icon
+                      name={if entry.id in @revealed_entries, do: "hero-eye-slash", else: "hero-eye"}
+                      class="h-4 w-4"
+                    />
+                  </button>
+                  <div class="flex flex-col items-end gap-1">
+                    <time class="text-xs text-slate-500 dark:text-slate-400">
+                      {format_date(entry.entry_date)}
+                    </time>
+                    <span :if={entry.mood} class="text-lg" title={entry.mood}>
+                      {mood_emoji(entry.mood)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -336,14 +380,26 @@ defmodule MossletWeb.JournalLive.Index do
           <div class="space-y-3">
             <div
               :for={entry <- @entries}
-              class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors cursor-pointer"
+              data-draggable-entry={if @books != [], do: entry.id, else: nil}
+              class={[
+                "group relative bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all cursor-pointer",
+                @books != [] && "cursor-grab active:cursor-grabbing"
+              ]}
               phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
             >
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <h3 class="text-base font-medium text-slate-900 dark:text-slate-100 truncate">
-                      {entry.decrypted_title || "Untitled"}
+                    <h3 class={[
+                      "text-base font-medium truncate transition-all",
+                      if(entry.id in @revealed_entries,
+                        do: "text-slate-900 dark:text-slate-100",
+                        else: "text-transparent bg-slate-200 dark:bg-slate-700 rounded select-none"
+                      )
+                    ]}>
+                      {if entry.id in @revealed_entries,
+                        do: entry.decrypted_title || "Untitled",
+                        else: "████████████"}
                     </h3>
                     <span
                       :if={entry.is_favorite}
@@ -353,11 +409,37 @@ defmodule MossletWeb.JournalLive.Index do
                       ★
                     </span>
                   </div>
-                  <p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                    {truncate_body(entry.decrypted_body)}
+                  <p class={[
+                    "text-sm line-clamp-2 transition-all",
+                    if(entry.id in @revealed_entries,
+                      do: "text-slate-600 dark:text-slate-400",
+                      else: "text-transparent bg-slate-100 dark:bg-slate-700/50 rounded select-none"
+                    )
+                  ]}>
+                    {if entry.id in @revealed_entries,
+                      do: truncate_body(entry.decrypted_body),
+                      else: "████████ ███████████ ██████ ████████████ ██████████"}
                   </p>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    id={"reveal-entry-#{entry.id}"}
+                    phx-click={JS.push("toggle_entry_reveal", value: %{entry_id: entry.id})}
+                    phx-hook="TippyHook"
+                    data-tippy-content={
+                      if entry.id in @revealed_entries, do: "Conceal preview", else: "Reveal preview"
+                    }
+                    aria-label={
+                      if entry.id in @revealed_entries, do: "Conceal preview", else: "Reveal preview"
+                    }
+                    class="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
+                  >
+                    <.phx_icon
+                      name={if entry.id in @revealed_entries, do: "hero-eye-slash", else: "hero-eye"}
+                      class="h-4 w-4"
+                    />
+                  </button>
                   <button
                     :if={@books != []}
                     type="button"
@@ -936,6 +1018,7 @@ defmodule MossletWeb.JournalLive.Index do
       |> assign(:streak, Journal.streak_days(user, local_now))
       |> assign(:offset, 20)
       |> assign(:has_more, length(entries) == 20)
+      |> assign(:revealed_entries, MapSet.new())
       |> assign(:mood_insight, nil)
       |> assign(:loading_insights, false)
       |> assign(:cached_insight, nil)
@@ -1243,6 +1326,52 @@ defmodule MossletWeb.JournalLive.Index do
          |> put_flash(:error, "Could not move entry")
          |> push_event("restore-body-scroll", %{})}
     end
+  end
+
+  @impl true
+  def handle_event("drop_entry_to_book", %{"entry_id" => entry_id, "book_id" => book_id}, socket) do
+    user = socket.assigns.current_scope.user
+    entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+    if entry do
+      case Journal.move_entry_to_book(entry, book_id, user) do
+        {:ok, _} ->
+          books =
+            Enum.map(socket.assigns.books, fn book ->
+              if book.id == book_id do
+                %{book | entry_count: book.entry_count + 1}
+              else
+                book
+              end
+            end)
+
+          {:noreply,
+           socket
+           |> assign(:entries, Enum.reject(socket.assigns.entries, &(&1.id == entry_id)))
+           |> assign(:books, books)
+           |> assign(:loose_entry_count, socket.assigns.loose_entry_count - 1)
+           |> put_flash(:info, "Entry moved to book")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not move entry")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_entry_reveal", %{"entry_id" => entry_id}, socket) do
+    revealed = socket.assigns.revealed_entries
+
+    new_revealed =
+      if MapSet.member?(revealed, entry_id) do
+        MapSet.delete(revealed, entry_id)
+      else
+        MapSet.put(revealed, entry_id)
+      end
+
+    {:noreply, assign(socket, :revealed_entries, new_revealed)}
   end
 
   @impl true
@@ -1860,11 +1989,29 @@ defmodule MossletWeb.JournalLive.Index do
   defp truncate_body(nil), do: ""
 
   defp truncate_body(body) do
-    if String.length(body) > 150 do
-      String.slice(body, 0, 150) <> "..."
+    plain_text = strip_markdown(body)
+
+    if String.length(plain_text) > 150 do
+      String.slice(plain_text, 0, 150) <> "..."
     else
-      body
+      plain_text
     end
+  end
+
+  defp strip_markdown(text) do
+    text
+    |> String.replace(~r/^#+\s+/m, "")
+    |> String.replace(~r/\*\*(.+?)\*\*/, "\\1")
+    |> String.replace(~r/\*(.+?)\*/, "\\1")
+    |> String.replace(~r/__(.+?)__/, "\\1")
+    |> String.replace(~r/_(.+?)_/, "\\1")
+    |> String.replace(~r/`(.+?)`/, "\\1")
+    |> String.replace(~r/\[(.+?)\]\(.+?\)/, "\\1")
+    |> String.replace(~r/^\s*[-*+]\s+/m, "")
+    |> String.replace(~r/^\s*\d+\.\s+/m, "")
+    |> String.replace(~r/^>\s+/m, "")
+    |> String.replace(~r/\n+/, " ")
+    |> String.trim()
   end
 
   defp upload_stage_text(:receiving, count) when count > 1, do: "Uploading images..."

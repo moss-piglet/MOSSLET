@@ -36,6 +36,7 @@ import ImageErrorHook from "./image-error-hook";
 import UnsavedChanges from "./unsaved-changes";
 import SortableUploadsHook from "./sortable-uploads-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
+import JournalDragDropHook from "./journal-drag-drop-hook";
 
 export default {
   AutoResize,
@@ -76,4 +77,5 @@ export default {
   UnsavedChanges,
   SortableUploadsHook,
   ImageResizeUploadHook,
+  JournalDragDropHook,
 };
