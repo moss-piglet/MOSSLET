@@ -44,10 +44,14 @@ async function resizeImage(file) {
         (blob) => {
           URL.revokeObjectURL(img.src);
           if (blob) {
-            const resizedFile = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
-              type: "image/jpeg",
-              lastModified: file.lastModified,
-            });
+            const resizedFile = new File(
+              [blob],
+              file.name.replace(/\.[^.]+$/, ".jpg"),
+              {
+                type: "image/jpeg",
+                lastModified: file.lastModified,
+              }
+            );
             resolve(resizedFile);
           } else {
             resolve(file);
@@ -87,13 +91,8 @@ const ImageResizeUploadHook = {
       e.stopImmediatePropagation();
       e.preventDefault();
 
-      console.log("[ImageResizeUploadHook] Original files:", Array.from(e.target.files).map(f => ({name: f.name, size: f.size})));
-      
       const resizedFiles = await processFiles(e.target.files);
-      
-      console.log("[ImageResizeUploadHook] Resized files:", resizedFiles.map(f => ({name: f.name, size: f.size})));
-      console.log("[ImageResizeUploadHook] Uploading to:", this.uploadName);
-      
+
       this.upload(this.uploadName, resizedFiles);
     };
 
@@ -105,7 +104,7 @@ const ImageResizeUploadHook = {
       e.preventDefault();
 
       const resizedFiles = await processFiles(e.dataTransfer.files);
-      
+
       this.upload(this.uploadName, resizedFiles);
     };
 
@@ -115,12 +114,14 @@ const ImageResizeUploadHook = {
 
   destroyed() {
     if (this.input && this.handleChange) {
-      this.input.removeEventListener("change", this.handleChange, { capture: true });
+      this.input.removeEventListener("change", this.handleChange, {
+        capture: true,
+      });
     }
     if (this.handleDrop) {
       this.el.removeEventListener("drop", this.handleDrop, { capture: true });
     }
-  }
+  },
 };
 
 export default ImageResizeUploadHook;
