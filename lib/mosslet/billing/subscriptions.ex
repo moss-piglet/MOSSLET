@@ -13,9 +13,15 @@ defmodule Mosslet.Billing.Subscriptions do
   def get_subscription_by(attrs), do: Repo.get_by(Subscription, attrs)
 
   def get_subscription_by_provider_subscription_id(id) do
-    Subscription
-    |> Repo.get_by(provider_subscription_id: id)
-    |> Repo.preload(:customer)
+    subscription =
+      Subscription
+      |> Repo.get_by(provider_subscription_id_hash: id)
+
+    subscription = subscription || Repo.get_by(Subscription, provider_subscription_id: id)
+
+    if subscription do
+      Repo.preload(subscription, :customer)
+    end
   end
 
   def get_active_subscription_by_customer_id(customer_id) do
