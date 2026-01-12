@@ -71,21 +71,21 @@ defmodule MossletWeb.JournalLive.Book do
               </div>
             </div>
           <% else %>
-            <div class="flex items-start justify-between gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div class="flex items-center gap-4">
                 <div class={[
-                  "h-16 w-16 rounded-xl flex items-center justify-center",
+                  "h-14 w-14 sm:h-16 sm:w-16 rounded-xl flex items-center justify-center flex-shrink-0",
                   book_cover_gradient(@book.cover_color)
                 ]}>
-                  <.phx_icon name="hero-book-open" class="h-8 w-8 text-white/80" />
+                  <.phx_icon name="hero-book-open" class="h-7 w-7 sm:h-8 sm:w-8 text-white/80" />
                 </div>
-                <div>
-                  <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <div class="min-w-0">
+                  <h1 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
                     {@decrypted_title}
                   </h1>
                   <p
                     :if={@decrypted_description}
-                    class="text-sm text-slate-600 dark:text-slate-400 mt-1"
+                    class="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2"
                   >
                     {@decrypted_description}
                   </p>
@@ -95,7 +95,7 @@ defmodule MossletWeb.JournalLive.Book do
                 </div>
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 sm:flex-shrink-0">
                 <DesignSystem.privacy_button
                   active={@privacy_active}
                   countdown={@privacy_countdown}
@@ -111,7 +111,7 @@ defmodule MossletWeb.JournalLive.Book do
                 </button>
                 <.link
                   navigate={~p"/app/journal/new?book_id=#{@book.id}"}
-                  class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all duration-200"
+                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all"
                 >
                   <.phx_icon name="hero-plus" class="h-4 w-4" /> Add Entry
                 </.link>
