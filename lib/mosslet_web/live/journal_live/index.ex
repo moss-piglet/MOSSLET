@@ -104,7 +104,7 @@ defmodule MossletWeb.JournalLive.Index do
         </div>
 
         <div
-          :if={@entry_count >= 3}
+          :if={@entry_count >= 3 && @current_scope.user.mood_insights_enabled}
           class="mb-8 p-4 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl border border-violet-100 dark:border-violet-800"
         >
           <div class="flex items-start justify-between gap-3">
@@ -138,32 +138,70 @@ defmodule MossletWeb.JournalLive.Index do
                 </div>
               </div>
             </div>
-            <div :if={!@loading_insights} class="flex flex-col items-end gap-1">
+            <div :if={!@loading_insights} class="flex items-center gap-2">
               <button
                 type="button"
                 phx-click="refresh_insights"
                 disabled={!@can_refresh}
+                id="refresh-insights-btn"
+                phx-hook="TippyHook"
+                aria-label={
+                  if @can_refresh,
+                    do: "Get fresh insights",
+                    else: "Available in #{@hours_until_refresh}h"
+                }
+                data-tippy-content={
+                  if @can_refresh,
+                    do: "Get fresh insights",
+                    else: "Available in #{@hours_until_refresh}h"
+                }
                 class={[
                   "p-1.5 rounded-lg transition-all",
                   @can_refresh &&
                     "text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50",
                   !@can_refresh && "text-violet-300 dark:text-violet-600 cursor-not-allowed"
                 ]}
-                title={
-                  if @can_refresh,
-                    do: "Get fresh insights",
-                    else: "Available in #{@hours_until_refresh}h"
-                }
               >
                 <.phx_icon name="hero-sparkles" class="h-4 w-4" />
               </button>
-              <span
-                :if={!@can_refresh && @hours_until_refresh > 0}
-                class="text-[10px] text-violet-400 dark:text-violet-500"
+              <button
+                type="button"
+                phx-click="toggle_mood_insights"
+                id="disable-insights-btn"
+                phx-hook="TippyHook"
+                aria-label="Disable mood insights"
+                data-tippy-content="Disable mood insights"
+                class="p-1.5 rounded-lg text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50 transition-all"
               >
-                {if @hours_until_refresh > 0, do: "#{@hours_until_refresh}h", else: ""}
-              </span>
+                <.phx_icon name="hero-x-mark" class="h-4 w-4" />
+              </button>
             </div>
+          </div>
+        </div>
+
+        <div
+          :if={@entry_count >= 3 && !@current_scope.user.mood_insights_enabled}
+          class="mb-8 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 flex-1">
+              <span class="text-lg opacity-60">🔮</span>
+              <div class="flex-1">
+                <h2 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Mood Insights
+                </h2>
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Get AI-powered mood reflections on your journal entries. Your entries stay encrypted and private—insights are generated without storing or sharing your data.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              phx-click="toggle_mood_insights"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 hover:bg-violet-200 dark:hover:bg-violet-900/60 rounded-lg transition-colors"
+            >
+              <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5" /> Enable
+            </button>
           </div>
         </div>
 
@@ -948,7 +986,7 @@ defmodule MossletWeb.JournalLive.Index do
       )
       |> assign(:page_order, [])
 
-    if connected?(socket) && entry_count >= 3 do
+    if connected?(socket) && entry_count >= 3 && user.mood_insights_enabled do
       send(self(), :load_cached_insight)
       {:ok, assign(socket, :loading_insights, true)}
     else
@@ -975,6 +1013,39 @@ defmodule MossletWeb.JournalLive.Index do
   @impl true
   def handle_event("toggle_favorites", _params, socket) do
     {:noreply, assign(socket, :show_favorites, !socket.assigns.show_favorites)}
+  end
+
+  @impl true
+  def handle_event("toggle_mood_insights", _params, socket) do
+    user = socket.assigns.current_scope.user
+    new_value = !user.mood_insights_enabled
+
+    case Mosslet.Accounts.update_mood_insights_enabled(user, new_value) do
+      {:ok, updated_user} ->
+        current_scope = %{socket.assigns.current_scope | user: updated_user}
+
+        socket =
+          socket
+          |> assign(:current_scope, current_scope)
+
+        if new_value && socket.assigns.entry_count >= 3 do
+          send(self(), :load_cached_insight)
+
+          {:noreply,
+           socket
+           |> assign(:loading_insights, true)
+           |> put_flash(:info, "Mood insights enabled ✨")}
+        else
+          {:noreply,
+           socket
+           |> assign(:mood_insight, nil)
+           |> assign(:loading_insights, false)
+           |> put_flash(:info, "Mood insights disabled")}
+        end
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update mood insights setting")}
+    end
   end
 
   @impl true

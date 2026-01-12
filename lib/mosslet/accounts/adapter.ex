@@ -846,4 +846,10 @@ defmodule Mosslet.Accounts.Adapter do
   """
   @callback update_journal_privacy(user :: User.t(), enabled :: boolean()) ::
               {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
+  Updates the mood insights enabled setting for a user.
+  """
+  @callback update_mood_insights_enabled(user :: User.t(), enabled :: boolean()) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 end

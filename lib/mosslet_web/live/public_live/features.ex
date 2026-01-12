@@ -753,7 +753,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Get thoughtful AI reflections while your data stays protected. Your content is never stored or used for training — requests pass through OpenRouter with all retention disabled, then everything stays asymmetrically encrypted.
+                    Get thoughtful AI reflections on your journal entries to help you understand patterns and gain perspective. Disabled by default — toggle on or off anytime.
                   </p>
                 </.liquid_card>
               </div>

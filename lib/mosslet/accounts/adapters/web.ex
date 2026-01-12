@@ -1750,4 +1750,16 @@ defmodule Mosslet.Accounts.Adapters.Web do
 
     result
   end
+
+  @impl true
+  def update_mood_insights_enabled(user, enabled) when is_boolean(enabled) do
+    {:ok, result} =
+      Repo.transaction_on_primary(fn ->
+        user
+        |> User.mood_insights_changeset(%{mood_insights_enabled: enabled})
+        |> Repo.update()
+      end)
+
+    result
+  end
 end

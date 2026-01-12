@@ -2555,4 +2555,11 @@ defmodule Mosslet.Accounts do
   def update_journal_privacy(user, enabled) when is_boolean(enabled) do
     adapter().update_journal_privacy(user, enabled)
   end
+
+  @doc """
+  Toggles the mood insights feature for a user.
+  """
+  def update_mood_insights_enabled(user, enabled) when is_boolean(enabled) do
+    adapter().update_mood_insights_enabled(user, enabled)
+  end
 end

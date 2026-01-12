@@ -65,6 +65,7 @@ defmodule Mosslet.Accounts.User do
 
     field :journal_privacy_enabled, :boolean, default: false
     field :journal_privacy_activated_at, :utc_datetime
+    field :mood_insights_enabled, :boolean, default: false
 
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
@@ -1451,6 +1452,14 @@ defmodule Mosslet.Accounts.User do
   def journal_privacy_changeset(user, attrs) do
     user
     |> cast(attrs, [:journal_privacy_enabled, :journal_privacy_activated_at])
+  end
+
+  @doc """
+  A user changeset for toggling mood insights feature.
+  """
+  def mood_insights_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:mood_insights_enabled])
   end
 
   @doc """
