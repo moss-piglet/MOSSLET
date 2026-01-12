@@ -886,6 +886,7 @@ defmodule MossletWeb.JournalLive.Index do
     socket =
       socket
       |> assign(:page_title, "Journal")
+      |> assign(:local_today, local_today)
       |> assign(:books, decrypted_books)
       |> assign(:entries, decrypted_entries)
       |> assign(:favorites, decrypted_favorites)
@@ -1335,7 +1336,7 @@ defmodule MossletWeb.JournalLive.Index do
   def handle_event("save_extracted_entry", %{"extracted" => params}, socket) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
-    local_today = JournalHelpers.get_local_today(socket)
+    local_today = socket.assigns.local_today
 
     entry_date =
       case params["entry_date"] do
