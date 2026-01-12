@@ -96,7 +96,7 @@ defmodule MossletWeb.PublicLive.Updates do
                       Mood insights toggle — choose whether to enable AI-powered mood analysis for each entry
                     </.changelog_item>
                     <.changelog_item icon="hero-lock-closed" color="amber">
-                      Privacy placeholder — see encrypted content indicators while entries load
+                      Privacy placeholder — click to reveal or conceal your encrypted entries
                     </.changelog_item>
                   </:items>
                 </.changelog_entry>
