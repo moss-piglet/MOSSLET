@@ -35,36 +35,30 @@ defmodule MossletWeb.AdminDashLive do
                 </div>
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <.link
                   navigate={~p"/admin/moderation"}
-                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  <.phx_icon name="hero-shield-check" class="h-4 w-4" /> Moderation
+                  <.phx_icon name="hero-shield-check" class="h-4 w-4 shrink-0" /> Moderation
                 </.link>
                 <.link
                   navigate={~p"/admin/key-rotation"}
-                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  <.phx_icon name="hero-key" class="h-4 w-4" /> Key Rotation
+                  <.phx_icon name="hero-key" class="h-4 w-4 shrink-0" /> Key Rotation
                 </.link>
                 <.link
                   navigate={~p"/admin/bot-defense"}
-                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  <.phx_icon name="hero-shield-exclamation" class="h-4 w-4" /> Bot Defense
+                  <.phx_icon name="hero-shield-exclamation" class="h-4 w-4 shrink-0" /> Bot Defense
                 </.link>
                 <.link
                   navigate={~p"/admin/backups"}
-                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  <.phx_icon name="hero-server-stack" class="h-4 w-4" /> Backups
-                </.link>
-                <.link
-                  navigate={~p"/admin/backups"}
-                  class="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-                >
-                  <.phx_icon name="hero-server-stack" class="h-4 w-4" /> Backups
+                  <.phx_icon name="hero-server-stack" class="h-4 w-4 shrink-0" /> Backups
                 </.link>
               </div>
             </div>

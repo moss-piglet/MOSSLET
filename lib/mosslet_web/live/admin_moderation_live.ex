@@ -1024,7 +1024,7 @@ defmodule MossletWeb.AdminModerationLive do
             Report Reason
           </div>
           <div class="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-            {decrypt_report_reason(@report, @current_scope.user)}
+            {decrypt_report_reason(@report, @current_user)}
           </div>
         </div>
 
@@ -1036,7 +1036,7 @@ defmodule MossletWeb.AdminModerationLive do
               Additional Details
             </div>
             <div class="text-xs sm:text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
-              {decrypt_report_details(@report, @current_scope.user)}
+              {decrypt_report_details(@report, @current_user)}
             </div>
           </div>
         <% end %>

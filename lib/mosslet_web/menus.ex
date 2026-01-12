@@ -46,6 +46,7 @@ defmodule MossletWeb.Menus do
       admin?(current_user) ->
         build_menu(
           [
+            :admin_backups,
             :admin_bot_defense,
             :admin_dashboard,
             :admin_key_rotation,
@@ -499,6 +500,17 @@ defmodule MossletWeb.Menus do
   end
 
   # Admin menu items
+  def get_link(:admin_backups = name, current_user) do
+    if current_user.is_admin? && current_user.confirmed_at do
+      %{
+        name: name,
+        label: gettext("Backups"),
+        path: ~p"/admin/backups",
+        icon: "hero-archive-box"
+      }
+    end
+  end
+
   def get_link(:admin_bot_defense = name, current_user) do
     if current_user.is_admin? && current_user.confirmed_at do
       %{
