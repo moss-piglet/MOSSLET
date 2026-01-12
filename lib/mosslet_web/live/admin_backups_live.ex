@@ -138,13 +138,40 @@ defmodule MossletWeb.AdminBackupsLive do
                     </p>
                   </div>
                 </div>
-                <div :if={backup.status == "completed"} class="shrink-0">
+                <div :if={backup.status == "completed"} class="shrink-0 flex items-center gap-1">
                   <button
                     phx-click="download_backup"
                     phx-value-id={backup.id}
                     class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <.phx_icon name="hero-arrow-down-tray" class="h-3.5 w-3.5" /> Download
+                  </button>
+                  <button
+                    phx-click="delete_backup"
+                    phx-value-id={backup.id}
+                    data-confirm="Are you sure you want to delete this backup?"
+                    aria-label="Delete backup"
+                    class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                  >
+                    <.phx_icon name="hero-trash" class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div :if={backup.status == "failed"} class="shrink-0 flex items-center gap-1">
+                  <button
+                    phx-click="retry_backup"
+                    phx-value-id={backup.id}
+                    class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                  >
+                    <.phx_icon name="hero-arrow-path" class="h-3.5 w-3.5" /> Retry
+                  </button>
+                  <button
+                    phx-click="delete_backup"
+                    phx-value-id={backup.id}
+                    data-confirm="Are you sure you want to delete this backup record?"
+                    aria-label="Delete backup"
+                    class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                  >
+                    <.phx_icon name="hero-trash" class="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -294,6 +321,39 @@ defmodule MossletWeb.AdminBackupsLive do
     end
   end
 
+  def handle_event("delete_backup", %{"id" => id}, socket) do
+    backup = Backups.get_backup!(id)
+
+    case Backups.delete_backup(backup) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> stream_delete(:backups, backup)
+         |> refresh_stats()
+         |> put_flash(:info, "Backup deleted")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete backup")}
+    end
+  end
+
+  def handle_event("retry_backup", %{"id" => id}, socket) do
+    backup = Backups.get_backup!(id)
+    Backups.delete_backup(backup)
+
+    case DatabaseBackupWorker.enqueue_manual_backup() do
+      {:ok, _job} ->
+        {:noreply,
+         socket
+         |> stream_delete(:backups, backup)
+         |> assign(:backup_in_progress, true)
+         |> put_flash(:info, "Retrying backup...")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to start backup")}
+    end
+  end
+
   def handle_info(:refresh_stats, socket) do
     status_counts = Backups.count_backups_by_status()
 
@@ -318,13 +378,26 @@ defmodule MossletWeb.AdminBackupsLive do
     {:noreply,
      socket
      |> stream_insert(:backups, backup, at: 0)
-     |> assign(:backup_in_progress, false)}
+     |> refresh_stats()}
   end
 
   def handle_info({:backup_failed, backup}, socket) do
     {:noreply,
      socket
      |> stream_insert(:backups, backup, at: 0)
-     |> assign(:backup_in_progress, false)}
+     |> refresh_stats()}
+  end
+
+  defp refresh_stats(socket) do
+    status_counts = Backups.count_backups_by_status()
+
+    socket
+    |> assign(:stats, %{
+      total: Enum.sum(Map.values(status_counts)),
+      completed: Map.get(status_counts, "completed", 0),
+      failed: Map.get(status_counts, "failed", 0)
+    })
+    |> assign(:total_size, Backups.total_backup_size())
+    |> assign(:backup_in_progress, has_backup_in_progress?(status_counts))
   end
 end

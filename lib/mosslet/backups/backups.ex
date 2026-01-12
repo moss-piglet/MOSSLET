@@ -48,6 +48,14 @@ defmodule Mosslet.Backups do
     |> Repo.update()
   end
 
+  def delete_backup(%DatabaseBackup{} = backup) do
+    if backup.status == "completed" and backup.storage_key do
+      delete_backup_from_storage(backup)
+    end
+
+    Repo.delete(backup)
+  end
+
   def count_backups_by_status do
     DatabaseBackup
     |> group_by([b], b.status)
@@ -79,14 +87,24 @@ defmodule Mosslet.Backups do
 
     case do_pg_dump_and_upload(storage_key) do
       {:ok, size_bytes} ->
-        update_backup(backup, %{status: "completed", size_bytes: size_bytes})
+        {:ok, updated_backup} =
+          update_backup(backup, %{status: "completed", size_bytes: size_bytes})
+
+        broadcast_backup_update(:backup_completed, updated_backup)
         cleanup_old_backups()
-        {:ok, backup}
+        {:ok, updated_backup}
 
       {:error, reason} ->
-        update_backup(backup, %{status: "failed", error_message: reason})
+        {:ok, updated_backup} =
+          update_backup(backup, %{status: "failed", error_message: reason})
+
+        broadcast_backup_update(:backup_failed, updated_backup)
         {:error, reason}
     end
+  end
+
+  defp broadcast_backup_update(event, backup) do
+    Phoenix.PubSub.broadcast(Mosslet.PubSub, "backups", {event, backup})
   end
 
   defp do_pg_dump_and_upload(storage_key) do
