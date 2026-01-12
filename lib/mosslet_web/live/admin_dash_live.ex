@@ -193,6 +193,10 @@ defmodule MossletWeb.AdminDashLive do
     {:noreply, assign(socket, :post_count, socket.assigns.post_count - 1)}
   end
 
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
+  end
+
   defp get_active_payment_intents() do
     users = Repo.all(User) |> Repo.preload(customer: :payment_intents)
 

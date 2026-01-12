@@ -63,7 +63,8 @@ defmodule MossletWeb.SubscribeSuccessLive do
   @impl true
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
-    {:noreply, assign(socket, :current_user, user)}
+    current_scope = %{socket.assigns.current_scope | user: user}
+    {:noreply, assign(socket, :current_scope, current_scope)}
   end
 
   @impl true

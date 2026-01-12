@@ -533,7 +533,8 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
-    {:noreply, assign(socket, :current_user, user)}
+    current_scope = %{socket.assigns.current_scope | user: user}
+    {:noreply, assign(socket, :current_scope, current_scope)}
   end
 
   def handle_info({_ref, {"get_user_avatar", post_id, post_list, _user_id}}, socket) do
@@ -4209,77 +4210,6 @@ defmodule MossletWeb.TimelineLive.Index do
 
   def handle_async(:url_preview_task, {:exit, _reason}, socket) do
     {:noreply, assign(socket, url_preview: nil, url_preview_loading: false)}
-  end
-
-  defp create_post_and_respond(socket, post_params, current_user, key, trix_key) do
-    case Timeline.create_post(post_params, user: current_user, key: key, trix_key: trix_key) do
-      {:ok, post} ->
-        Accounts.track_user_activity(current_user, :post)
-        process_email_notifications_for_offline_users(post, current_user, key)
-
-        clean_changeset =
-          Timeline.change_post(
-            %Post{},
-            %{
-              "visibility" => socket.assigns.selector,
-              "user_id" => current_user.id,
-              "username" => username(current_user, key) || "",
-              "content_warning" => "",
-              "content_warning_category" => ""
-            },
-            user: current_user
-          )
-
-        socket =
-          socket
-          |> cancel_all_upload_entries(:photos)
-          |> assign(:trix_key, nil)
-          |> assign(:composer_trix_key, nil)
-          |> assign(:post_form, to_form(clean_changeset))
-          |> assign(:image_urls, [])
-          |> assign(:upload_stages, %{})
-          |> assign(:completed_uploads, [])
-          |> assign(:content_warning_enabled?, false)
-          |> assign(:selected_visibility_groups, [])
-          |> assign(:selected_visibility_users, [])
-          |> assign(:url_preview, nil)
-          |> assign(:url_preview_loading, false)
-          |> assign(:current_preview_url, nil)
-          |> put_flash(:success, "Post created successfully")
-
-        current_tab = socket.assigns.active_tab || "home"
-        options = socket.assigns.options
-        content_filters = socket.assigns.content_filters
-
-        should_show_post = post_matches_current_tab?(post, current_tab, current_user)
-        passes_content_filters = post_passes_content_filters?(post, content_filters)
-
-        socket =
-          if should_show_post and passes_content_filters do
-            socket
-            |> stream_insert_post(post, current_user,
-              at: 0,
-              limit: socket.assigns.stream_limit
-            )
-            |> recalculate_counts_after_new_post(current_user, options)
-          else
-            socket
-            |> recalculate_counts_after_new_post(current_user, options)
-          end
-
-        {:noreply, socket}
-
-      {:error, changeset} ->
-        error_message =
-          MossletWeb.CoreComponents.combine_changeset_error_messages_sans_key(changeset)
-
-        socket =
-          socket
-          |> assign(:post_form, to_form(changeset, action: :validate))
-          |> put_flash(:warning, String.trim(error_message))
-
-        {:noreply, socket}
-    end
   end
 
   defp create_post_and_respond(socket, post_params, current_user, key, trix_key) do

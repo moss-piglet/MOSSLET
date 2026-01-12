@@ -353,7 +353,8 @@ defmodule MossletWeb.PostLive.Show do
 
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
-    {:noreply, assign(socket, :current_user, user)}
+    current_scope = %{socket.assigns.current_scope | user: user}
+    {:noreply, assign(socket, :current_scope, current_scope)}
   end
 
   def handle_info({_ref, {"get_user_avatar", post_id, _post_list, _user_id}}, socket) do

@@ -2,7 +2,6 @@ defmodule MossletWeb.GroupLive.Join do
   use MossletWeb, :live_view
 
   alias Mosslet.Accounts
-  alias Mosslet.Accounts.Scope
   alias Mosslet.Groups
   alias Mosslet.Groups.Group
 
@@ -160,9 +159,8 @@ defmodule MossletWeb.GroupLive.Join do
   @impl true
   def handle_info({_ref, {"get_user_avatar", user_id}}, socket) do
     user = Accounts.get_user_with_preloads(user_id)
-
-    {:noreply,
-     assign(socket, :current_scope, Scope.for_user(user, key: socket.assigns.current_scope.key))}
+    current_scope = %{socket.assigns.current_scope | user: user}
+    {:noreply, assign(socket, :current_scope, current_scope)}
   end
 
   @impl true
