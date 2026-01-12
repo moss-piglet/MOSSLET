@@ -140,7 +140,9 @@ config :mosslet, Oban,
        # Process referral payouts on 1st of each month at 9 AM UTC
        {"0 9 1 * *", Mosslet.Billing.Workers.MonthlyPayoutOrchestratorWorker},
        # Check for commissions that became available (hold period expired) daily at 6 AM UTC
-       {"0 6 * * *", Mosslet.Billing.Workers.CommissionAvailabilityWorker}
+       {"0 6 * * *", Mosslet.Billing.Workers.CommissionAvailabilityWorker},
+       # Database backup daily at 3 AM UTC
+       {"0 3 * * *", Mosslet.Workers.DatabaseBackupWorker, args: %{"type" => "scheduled"}}
      ]}
   ],
   queues: [
@@ -153,7 +155,8 @@ config :mosslet, Oban,
     ephemeral_cleanup: 3,
     email_notifications: 5,
     security: 3,
-    key_rotation: 5
+    key_rotation: 5,
+    backups: 1
   ],
   peer: Oban.Peers.Global
 
