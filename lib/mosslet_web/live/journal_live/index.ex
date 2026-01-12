@@ -306,18 +306,19 @@ defmodule MossletWeb.JournalLive.Index do
                     </h3>
                     <span class="text-amber-500">★</span>
                   </div>
-                  <p class={[
+                  <div class={[
                     "text-sm line-clamp-2 transition-all duration-500",
                     if(entry.id in @revealed_entries,
-                      do: "text-slate-600 dark:text-slate-400",
+                      do:
+                        "text-slate-600 dark:text-slate-400 prose prose-sm dark:prose-invert prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 max-w-none",
                       else:
                         "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
                     )
                   ]}>
                     {if entry.id in @revealed_entries,
-                      do: truncate_body(entry.decrypted_body),
+                      do: render_preview_markdown(entry.decrypted_body),
                       else: "████████ ███████████ ██████ ████████████ ██████████"}
-                  </p>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <button
@@ -422,18 +423,19 @@ defmodule MossletWeb.JournalLive.Index do
                       ★
                     </span>
                   </div>
-                  <p class={[
+                  <div class={[
                     "text-sm line-clamp-2 transition-all duration-500",
                     if(entry.id in @revealed_entries,
-                      do: "text-slate-600 dark:text-slate-400",
+                      do:
+                        "text-slate-600 dark:text-slate-400 prose prose-sm dark:prose-invert prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 max-w-none",
                       else:
                         "text-slate-400/60 dark:text-slate-500/60 privacy-placeholder rounded-md px-1 select-none"
                     )
                   ]}>
                     {if entry.id in @revealed_entries,
-                      do: truncate_body(entry.decrypted_body),
+                      do: render_preview_markdown(entry.decrypted_body),
                       else: "████████ ███████████ ██████ ████████████ ██████████"}
-                  </p>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <button
@@ -624,12 +626,22 @@ defmodule MossletWeb.JournalLive.Index do
               phx-value-book-id={book.id}
               class="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
             >
-              <div class={[
-                "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                book_cover_gradient(book.cover_color)
-              ]}>
-                <.phx_icon name="hero-book-open" class="h-5 w-5 text-white/80" />
-              </div>
+              <%= if book.decrypted_cover_image_url do %>
+                <div class="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0">
+                  <img
+                    src={book.decrypted_cover_image_url}
+                    class="w-full h-full object-cover"
+                    alt={"#{book.decrypted_title} cover"}
+                  />
+                </div>
+              <% else %>
+                <div class={[
+                  "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                  book_cover_gradient(book.cover_color)
+                ]}>
+                  <.phx_icon name="hero-book-open" class="h-5 w-5 text-white/80" />
+                </div>
+              <% end %>
               <div class="flex-1 min-w-0">
                 <div class="font-medium text-slate-900 dark:text-slate-100 truncate">
                   {book.decrypted_title}
@@ -2014,32 +2026,21 @@ defmodule MossletWeb.JournalLive.Index do
     end)
   end
 
-  defp truncate_body(nil), do: ""
+  defp render_preview_markdown(nil), do: ""
+  defp render_preview_markdown(""), do: ""
 
-  defp truncate_body(body) do
-    plain_text = strip_markdown(body)
+  defp render_preview_markdown(body) do
+    truncated =
+      if String.length(body) > 300 do
+        body
+        |> String.slice(0, 300)
+        |> String.replace(~r/\s+\S*$/, "")
+        |> Kernel.<>("...")
+      else
+        body
+      end
 
-    if String.length(plain_text) > 150 do
-      String.slice(plain_text, 0, 150) <> "..."
-    else
-      plain_text
-    end
-  end
-
-  defp strip_markdown(text) do
-    text
-    |> String.replace(~r/^#+\s+/m, "")
-    |> String.replace(~r/\*\*(.+?)\*\*/, "\\1")
-    |> String.replace(~r/\*(.+?)\*/, "\\1")
-    |> String.replace(~r/__(.+?)__/, "\\1")
-    |> String.replace(~r/_(.+?)_/, "\\1")
-    |> String.replace(~r/`(.+?)`/, "\\1")
-    |> String.replace(~r/\[(.+?)\]\(.+?\)/, "\\1")
-    |> String.replace(~r/^\s*[-*+]\s+/m, "")
-    |> String.replace(~r/^\s*\d+\.\s+/m, "")
-    |> String.replace(~r/^>\s+/m, "")
-    |> String.replace(~r/\n+/, " ")
-    |> String.trim()
+    Mosslet.MarkdownRenderer.to_html(truncated) |> Phoenix.HTML.raw()
   end
 
   defp upload_stage_text(:receiving, count) when count > 1, do: "Uploading images..."

@@ -73,10 +73,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.13.0"
+                  version="0.14.0"
                   date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Journal Enhancements 📝</:title>
+                  <:description>
+                    Your private journal just got even better — format entries with markdown, organize with drag and drop, and take control of your mood insights.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-document-text" color="emerald">
+                      Markdown support — format your entries with headers, bold, italics, lists, and more
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrows-up-down" color="teal">
+                      Drag and drop entries — easily move entries between books by dragging them
+                    </.changelog_item>
+                    <.changelog_item icon="hero-queue-list" color="blue">
+                      Drag and drop books — reorder your journal books exactly how you want them
+                    </.changelog_item>
+                    <.changelog_item icon="hero-light-bulb" color="purple">
+                      Mood insights toggle — choose whether to enable AI-powered mood analysis for each entry
+                    </.changelog_item>
+                    <.changelog_item icon="hero-lock-closed" color="amber">
+                      Privacy placeholder — see encrypted content indicators while entries load
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.13.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Privacy-First Community Health 🛡️</:title>
                   <:description>
