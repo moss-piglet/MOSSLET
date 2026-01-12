@@ -2405,8 +2405,31 @@ defmodule Mosslet.Timeline.Adapters.Web do
     |> where([p], p.user_id not in subquery(blocker_ids))
   end
 
-  defp add_nested_replies_to_posts(posts, _options) when is_list(posts), do: posts
-  defp add_nested_replies_to_posts(post, _options), do: post
+  defp add_nested_replies_to_posts(posts, options) when is_list(posts) do
+    alias Mosslet.Timeline
+    reply_options = Map.put_new(options, :limit, 5)
+
+    Enum.map(posts, fn post ->
+      nested_replies = Timeline.get_nested_replies_for_post(post.id, reply_options)
+      total_reply_count = Timeline.count_replies_for_post(post.id, options)
+
+      post
+      |> Map.put(:replies, nested_replies)
+      |> Map.put(:total_reply_count, total_reply_count)
+    end)
+  end
+
+  defp add_nested_replies_to_posts(post, options) do
+    alias Mosslet.Timeline
+    reply_options = Map.put_new(options, :limit, 5)
+
+    nested_replies = Timeline.get_nested_replies_for_post(post.id, reply_options)
+    total_reply_count = Timeline.count_replies_for_post(post.id, options)
+
+    post
+    |> Map.put(:replies, nested_replies)
+    |> Map.put(:total_reply_count, total_reply_count)
+  end
 
   defp unwrap_transaction({:ok, {:ok, result}}), do: {:ok, result}
   defp unwrap_transaction({:ok, {:error, changeset}}), do: {:error, changeset}
