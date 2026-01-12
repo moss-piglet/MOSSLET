@@ -78,51 +78,44 @@ const ImageResizeUploadHook = {
     if (!input) return;
 
     this.input = input;
+    this.uploadName = input.getAttribute("name").replace("[]", "");
 
     this.handleChange = async (e) => {
       if (!e.target.files || e.target.files.length === 0) return;
+      if (!e.isTrusted) return;
 
       e.stopImmediatePropagation();
       e.preventDefault();
 
+      console.log("[ImageResizeUploadHook] Original files:", Array.from(e.target.files).map(f => ({name: f.name, size: f.size})));
+      
       const resizedFiles = await processFiles(e.target.files);
-
-      const dt = new DataTransfer();
-      resizedFiles.forEach((file) => dt.items.add(file));
-      input.files = dt.files;
-
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      
+      console.log("[ImageResizeUploadHook] Resized files:", resizedFiles.map(f => ({name: f.name, size: f.size})));
+      console.log("[ImageResizeUploadHook] Uploading to:", this.uploadName);
+      
+      this.upload(this.uploadName, resizedFiles);
     };
 
     this.handleDrop = async (e) => {
       if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
+      if (!e.isTrusted) return;
 
       e.stopImmediatePropagation();
       e.preventDefault();
 
       const resizedFiles = await processFiles(e.dataTransfer.files);
-
-      const dt = new DataTransfer();
-      resizedFiles.forEach((file) => dt.items.add(file));
-
-      const newEvent = new DragEvent("drop", {
-        bubbles: true,
-        cancelable: true,
-        dataTransfer: dt,
-      });
-
-      setTimeout(() => {
-        this.el.dispatchEvent(newEvent);
-      }, 0);
+      
+      this.upload(this.uploadName, resizedFiles);
     };
 
-    input.addEventListener("change", this.handleChange);
+    input.addEventListener("change", this.handleChange, { capture: true });
     this.el.addEventListener("drop", this.handleDrop, { capture: true });
   },
 
   destroyed() {
     if (this.input && this.handleChange) {
-      this.input.removeEventListener("change", this.handleChange);
+      this.input.removeEventListener("change", this.handleChange, { capture: true });
     }
     if (this.handleDrop) {
       this.el.removeEventListener("drop", this.handleDrop, { capture: true });

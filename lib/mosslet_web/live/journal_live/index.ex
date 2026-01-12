@@ -923,7 +923,7 @@ defmodule MossletWeb.JournalLive.Index do
       |> allow_upload(:journal_image,
         accept: ~w(.jpg .jpeg .png .heic),
         max_entries: 10,
-        max_file_size: 5_000_000,
+        max_file_size: 10 * 1024 * 1024,
         auto_upload: true,
         progress: &handle_journal_upload_progress/3,
         writer: fn _name, entry, _socket ->
@@ -939,7 +939,7 @@ defmodule MossletWeb.JournalLive.Index do
       |> allow_upload(:book_cover,
         accept: ~w(.jpg .jpeg .png .webp .heic .heif),
         max_entries: 1,
-        max_file_size: 5_000_000,
+        max_file_size: 5 * 1024 * 1024,
         auto_upload: true,
         chunk_size: 64_000,
         chunk_timeout: 30_000
@@ -1207,6 +1207,14 @@ defmodule MossletWeb.JournalLive.Index do
 
   @impl true
   def handle_event("validate_upload", _params, socket) do
+    for entry <- socket.assigns.uploads.journal_image.entries do
+      require Logger
+
+      Logger.info(
+        "Upload entry: #{entry.client_name} - client_size: #{entry.client_size} bytes (#{Float.round(entry.client_size / 1024 / 1024, 2)} MB), valid?: #{entry.valid?}"
+      )
+    end
+
     {:noreply, socket}
   end
 

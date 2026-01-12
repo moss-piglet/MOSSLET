@@ -6,21 +6,31 @@ const SortableUploadsHook = {
   },
 
   updated() {
-    if (this.sortable) {
-      this.sortable.destroy();
-    }
-    this.initSortable();
+    this.destroySortable();
+    requestAnimationFrame(() => {
+      this.initSortable();
+    });
   },
 
   destroyed() {
+    this.destroySortable();
+  },
+
+  destroySortable() {
     if (this.sortable) {
-      this.sortable.destroy();
+      try {
+        this.sortable.destroy();
+      } catch (e) {}
+      this.sortable = null;
     }
   },
 
   initSortable() {
     const container = this.el.querySelector("[data-sortable-container]");
     if (!container) return;
+
+    const items = container.querySelectorAll("[data-sortable-item]");
+    if (items.length === 0) return;
 
     this.sortable = new Sortable(container, {
       animation: 150,
