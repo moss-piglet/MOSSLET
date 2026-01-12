@@ -12,9 +12,9 @@ defmodule Mosslet.Groups.Group do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "groups" do
-    field :name, Encrypted.Binary
-    field :name_hash, Encrypted.HMAC
-    field :description, Encrypted.Binary
+    field :name, Encrypted.Binary, redact: true
+    field :name_hash, Encrypted.HMAC, redact: true
+    field :description, Encrypted.Binary, redact: true
     field :user_group_map, :map, virtual: true
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true

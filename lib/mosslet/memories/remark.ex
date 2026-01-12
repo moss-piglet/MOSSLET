@@ -11,7 +11,7 @@ defmodule Mosslet.Memories.Remark do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "remarks" do
-    field :body, Encrypted.Binary
+    field :body, Encrypted.Binary, redact: true
     field :mood, Ecto.Enum, values: [:excited, :loved, :happy, :sad, :thumbsy, :nothing]
     field :visibility, Ecto.Enum, values: [:public, :private, :connections]
 

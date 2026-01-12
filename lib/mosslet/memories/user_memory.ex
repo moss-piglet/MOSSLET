@@ -10,7 +10,7 @@ defmodule Mosslet.Memories.UserMemory do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_memories" do
-    field :key, Encrypted.Binary
+    field :key, Encrypted.Binary, redact: true
 
     belongs_to :memory, Memory
     belongs_to :user, User

@@ -11,8 +11,8 @@ defmodule Mosslet.Groups.GroupBlock do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "group_blocks" do
-    field :reason, Encrypted.Binary
-    field :blocked_moniker, Encrypted.Binary
+    field :reason, Encrypted.Binary, redact: true
+    field :blocked_moniker, Encrypted.Binary, redact: true
 
     belongs_to :group, Mosslet.Groups.Group
     belongs_to :user, Mosslet.Accounts.User

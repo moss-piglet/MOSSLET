@@ -7,14 +7,14 @@ defmodule Mosslet.Billing.PaymentIntents.PaymentIntent do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "billing_payment_intents" do
-    field :provider_payment_intent_id, Encrypted.Binary
-    field :provider_payment_intent_id_hash, Encrypted.HMAC
-    field :provider_customer_id, Encrypted.Binary
-    field :provider_customer_id_hash, Encrypted.HMAC
-    field :provider_latest_charge_id, Encrypted.Binary
-    field :provider_latest_charge_id_hash, Encrypted.HMAC
-    field :provider_payment_method_id, Encrypted.Binary
-    field :provider_payment_method_id_hash, Encrypted.HMAC
+    field :provider_payment_intent_id, Encrypted.Binary, redact: true
+    field :provider_payment_intent_id_hash, Encrypted.HMAC, redact: true
+    field :provider_customer_id, Encrypted.Binary, redact: true
+    field :provider_customer_id_hash, Encrypted.HMAC, redact: true
+    field :provider_latest_charge_id, Encrypted.Binary, redact: true
+    field :provider_latest_charge_id_hash, Encrypted.HMAC, redact: true
+    field :provider_payment_method_id, Encrypted.Binary, redact: true
+    field :provider_payment_method_id_hash, Encrypted.HMAC, redact: true
 
     field :provider_created_at, :utc_datetime
     field :amount, :integer

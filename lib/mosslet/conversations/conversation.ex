@@ -7,8 +7,8 @@ defmodule Mosslet.Conversations.Conversation do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "conversations" do
-    field :name, Encrypted.Binary
-    field :model, Encrypted.Binary
+    field :name, Encrypted.Binary, redact: true
+    field :model, Encrypted.Binary, redact: true
 
     field :temperature, :float, default: 1.0
     field :frequency_penalty, :float, default: 0.0

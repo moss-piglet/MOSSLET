@@ -152,10 +152,10 @@ defmodule Mosslet.Journal.JournalEntry do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "journal_entries" do
-    field :title, Encrypted.Binary
-    field :title_hash, Encrypted.HMAC
-    field :body, Encrypted.Binary
-    field :mood, Encrypted.Binary
+    field :title, Encrypted.Binary, redact: true
+    field :title_hash, Encrypted.HMAC, redact: true
+    field :body, Encrypted.Binary, redact: true
+    field :mood, Encrypted.Binary, redact: true
     field :is_favorite, :boolean, default: false
     field :word_count, :integer, default: 0
     field :entry_date, :date

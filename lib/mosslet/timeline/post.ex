@@ -14,22 +14,33 @@ defmodule Mosslet.Timeline.Post do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "posts" do
-    field :avatar_url, Encrypted.Binary
-    field :body, Encrypted.Binary
-    field :username, Encrypted.Binary
-    field :username_hash, Encrypted.HMAC
-    field :image_urls, Encrypted.StringList, default: [], skip_default_validation: true
+    field :avatar_url, Encrypted.Binary, redact: true
+    field :body, Encrypted.Binary, redact: true
+    field :username, Encrypted.Binary, redact: true
+    field :username_hash, Encrypted.HMAC, redact: true
+
+    field :image_urls, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
     field :image_urls_updated_at, :naive_datetime
-    field :favs_list, Encrypted.StringList, default: [], skip_default_validation: true
-    field :url_preview, Encrypted.Map
+
+    field :favs_list, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
+    field :url_preview, Encrypted.Map, redact: true
     field :url_preview_fetched_at, Encrypted.NaiveDateTime
 
     field :reposts_list, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
-    field :favs_list_hash, Encrypted.HMAC
-    field :reposts_list_hash, Encrypted.HMAC
+    field :favs_list_hash, Encrypted.HMAC, redact: true
+    field :reposts_list_hash, Encrypted.HMAC, redact: true
     field :favs_count, :integer, default: 0
     field :reposts_count, :integer, default: 0
     field :repost, :boolean, default: false
@@ -65,11 +76,11 @@ defmodule Mosslet.Timeline.Post do
 
     # CONTENT WARNING FIELDS (encrypted with post_key for consistency)
     # Custom warning text (enacl encrypted with post_key, then Cloak at rest)
-    field :content_warning, Encrypted.Binary
+    field :content_warning, Encrypted.Binary, redact: true
     # Category name (Cloak encrypted)
-    field :content_warning_category, Encrypted.Binary
+    field :content_warning_category, Encrypted.Binary, redact: true
     # Searchable hash for filtering (hash of the category)
-    field :content_warning_category_hash, Encrypted.HMAC
+    field :content_warning_category_hash, Encrypted.HMAC, redact: true
     # Quick filter flag
     field :content_warning?, :boolean, default: false
 

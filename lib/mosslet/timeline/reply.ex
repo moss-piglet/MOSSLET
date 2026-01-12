@@ -12,14 +12,18 @@ defmodule Mosslet.Timeline.Reply do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "replies" do
-    field :body, Encrypted.Binary
-    field :username, Encrypted.Binary
-    field :username_hash, Encrypted.HMAC
+    field :body, Encrypted.Binary, redact: true
+    field :username, Encrypted.Binary, redact: true
+    field :username_hash, Encrypted.HMAC, redact: true
 
     field :visibility, Ecto.Enum,
       values: [:public, :private, :connections, :specific_groups, :specific_users]
 
-    field :image_urls, Encrypted.StringList, default: [], skip_default_validation: true
+    field :image_urls, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
     field :image_urls_updated_at, :naive_datetime
     field :favs_list, {:array, :binary_id}, default: []
     field :favs_count, :integer, default: 0

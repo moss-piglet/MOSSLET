@@ -11,19 +11,19 @@ defmodule Mosslet.Accounts.UserConnection do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_connections" do
-    field :key, Encrypted.Binary
+    field :key, Encrypted.Binary, redact: true
     field :photos?, :boolean
     field :zen?, :boolean
-    field :label, Encrypted.Binary
-    field :label_hash, Encrypted.HMAC
+    field :label, Encrypted.Binary, redact: true
+    field :label_hash, Encrypted.HMAC, redact: true
     field :confirmed_at, :naive_datetime
     field :username, :string, virtual: true
     field :email, :string, virtual: true
     field :temp_label, :string, virtual: true
-    field :request_username, Encrypted.Binary
-    field :request_email, Encrypted.Binary
-    field :request_username_hash, Encrypted.HMAC
-    field :request_email_hash, Encrypted.HMAC
+    field :request_username, Encrypted.Binary, redact: true
+    field :request_email, Encrypted.Binary, redact: true
+    field :request_username_hash, Encrypted.HMAC, redact: true
+    field :request_email_hash, Encrypted.HMAC, redact: true
 
     field :color, Ecto.Enum,
       values: [

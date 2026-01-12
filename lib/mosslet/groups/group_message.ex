@@ -11,7 +11,7 @@ defmodule Mosslet.Groups.GroupMessage do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "group_messages" do
-    field :content, Encrypted.Binary
+    field :content, Encrypted.Binary, redact: true
     belongs_to :group, Group
     belongs_to :sender, UserGroup
 

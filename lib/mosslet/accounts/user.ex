@@ -18,24 +18,24 @@ defmodule Mosslet.Accounts.User do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "users" do
-    field :email, Encrypted.Binary
-    field :email_hash, Encrypted.HMAC
+    field :email, Encrypted.Binary, redact: true
+    field :email_hash, Encrypted.HMAC, redact: true
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
-    field :avatar_url, Encrypted.Binary
-    field :avatar_url_hash, Encrypted.HMAC
-    field :name, Encrypted.Binary
-    field :name_hash, Encrypted.HMAC
-    field :username, Encrypted.Binary
-    field :username_hash, Encrypted.HMAC
+    field :avatar_url, Encrypted.Binary, redact: true
+    field :avatar_url_hash, Encrypted.HMAC, redact: true
+    field :name, Encrypted.Binary, redact: true
+    field :name_hash, Encrypted.HMAC, redact: true
+    field :username, Encrypted.Binary, redact: true
+    field :username_hash, Encrypted.HMAC, redact: true
     field :is_admin?, :boolean, default: false
     field :is_suspended?, :boolean, default: false
     field :is_deleted?, :boolean, default: false
     field :is_onboarded?, :boolean, default: false
     field :is_forgot_pwd?, :boolean, default: false
-    field :key_hash, Encrypted.Binary
-    field :key, Encrypted.Binary
-    field :key_pair, {:map, Encrypted.Binary}
+    field :key_hash, Encrypted.Binary, redact: true
+    field :key, Encrypted.Binary, redact: true
+    field :key_pair, {:map, Encrypted.Binary}, redact: true
     field :user_key, Encrypted.Binary, redact: true
     field :conn_key, Encrypted.Binary, redact: true
     field :ai_tokens, :decimal
@@ -48,14 +48,14 @@ defmodule Mosslet.Accounts.User do
 
     field :stripe_id, :string
     field :trial_ends_at, :utc_datetime
-    field :payment_type, Encrypted.Binary
-    field :payment_id, Encrypted.Binary
-    field :payment_last_four, Encrypted.Binary
+    field :payment_type, Encrypted.Binary, redact: true
+    field :payment_id, Encrypted.Binary, redact: true
+    field :payment_last_four, Encrypted.Binary, redact: true
 
     field :oban_reset_token_id, :integer
 
-    field :last_signed_in_ip, Encrypted.Binary
-    field :last_signed_in_ip_hash, Encrypted.HMAC
+    field :last_signed_in_ip, Encrypted.Binary, redact: true
+    field :last_signed_in_ip_hash, Encrypted.HMAC, redact: true
     field :last_signed_in_datetime, :utc_datetime
     field :calm_notifications, :boolean, default: false
     field :email_notifications, :boolean, default: false
@@ -69,9 +69,9 @@ defmodule Mosslet.Accounts.User do
     # User Status System - Personal status (encrypted with user_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
     # User's custom status message (encrypted with user_key)
-    field :status_message, Encrypted.Binary
+    field :status_message, Encrypted.Binary, redact: true
     # Hash for searching status messages
-    field :status_message_hash, Encrypted.HMAC
+    field :status_message_hash, Encrypted.HMAC, redact: true
     # When status was last updated (plaintext for performance)
     field :status_updated_at, :naive_datetime
     # Whether to auto-update status from activity

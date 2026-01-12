@@ -8,7 +8,7 @@ defmodule Mosslet.Messages.Message do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "messages" do
-    field :content, Encrypted.Binary
+    field :content, Encrypted.Binary, redact: true
     field :edited, :boolean, default: false
     field :tokens, :decimal
 

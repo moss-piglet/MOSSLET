@@ -14,7 +14,7 @@ defmodule Mosslet.Journal.JournalInsight do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "journal_insights" do
-    field :insight, Encrypted.Binary
+    field :insight, Encrypted.Binary, redact: true
     field :generated_at, :utc_datetime_usec
 
     belongs_to :user, User

@@ -19,10 +19,10 @@ defmodule Mosslet.Accounts.UserToken do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "users_tokens" do
-    field :token, :binary
+    field :token, :binary, redact: true
     field :context, :string
-    field :sent_to, Encrypted.Binary
-    field :sent_to_hash, Encrypted.HMAC
+    field :sent_to, Encrypted.Binary, redact: true
+    field :sent_to_hash, Encrypted.HMAC, redact: true
     belongs_to :user, Mosslet.Accounts.User
 
     timestamps(updated_at: false)

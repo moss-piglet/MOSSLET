@@ -16,11 +16,11 @@ defmodule Mosslet.Journal.JournalBook do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "journal_books" do
-    field :title, Encrypted.Binary
-    field :title_hash, Encrypted.HMAC
-    field :description, Encrypted.Binary
+    field :title, Encrypted.Binary, redact: true
+    field :title_hash, Encrypted.HMAC, redact: true
+    field :description, Encrypted.Binary, redact: true
     field :cover_color, :string, default: "emerald"
-    field :cover_image_url, Encrypted.Binary
+    field :cover_image_url, Encrypted.Binary, redact: true
 
     field :entry_count, :integer, virtual: true, default: 0
 

@@ -13,12 +13,12 @@ defmodule Mosslet.Billing.Customers.Customer do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "billing_customers" do
-    field :email, Encrypted.Binary
-    field :email_hash, Encrypted.HMAC
-    field :provider, Encrypted.Binary
-    field :provider_customer_id, Encrypted.Binary
-    field :provider_hash, Encrypted.HMAC
-    field :provider_customer_id_hash, Encrypted.HMAC
+    field :email, Encrypted.Binary, redact: true
+    field :email_hash, Encrypted.HMAC, redact: true
+    field :provider, Encrypted.Binary, redact: true
+    field :provider_customer_id, Encrypted.Binary, redact: true
+    field :provider_hash, Encrypted.HMAC, redact: true
+    field :provider_customer_id_hash, Encrypted.HMAC, redact: true
     field :trial_used_at, :utc_datetime
 
     belongs_to :user, Mosslet.Accounts.User

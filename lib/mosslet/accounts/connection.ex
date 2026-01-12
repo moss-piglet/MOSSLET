@@ -12,21 +12,21 @@ defmodule Mosslet.Accounts.Connection do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "connections" do
-    field :name, Encrypted.Binary
-    field :name_hash, Encrypted.HMAC
-    field :email, Encrypted.Binary
-    field :email_hash, Encrypted.HMAC
-    field :username, Encrypted.Binary
-    field :username_hash, Encrypted.HMAC
-    field :avatar_url, Encrypted.Binary
-    field :avatar_url_hash, Encrypted.HMAC
+    field :name, Encrypted.Binary, redact: true
+    field :name_hash, Encrypted.HMAC, redact: true
+    field :email, Encrypted.Binary, redact: true
+    field :email_hash, Encrypted.HMAC, redact: true
+    field :username, Encrypted.Binary, redact: true
+    field :username_hash, Encrypted.HMAC, redact: true
+    field :avatar_url, Encrypted.Binary, redact: true
+    field :avatar_url_hash, Encrypted.HMAC, redact: true
 
     # Status fields - shared with connections (encrypted with conn_key)
     field :status, Ecto.Enum, values: [:offline, :calm, :active, :busy, :away], default: :offline
     # Status message shared with connections (conn_key)
-    field :status_message, Encrypted.Binary
+    field :status_message, Encrypted.Binary, redact: true
     # Hash for searching connection status messages
-    field :status_message_hash, Encrypted.HMAC
+    field :status_message_hash, Encrypted.HMAC, redact: true
     # When status was last updated
     field :status_updated_at, :naive_datetime
 
@@ -38,31 +38,37 @@ defmodule Mosslet.Accounts.Connection do
     # Encrypted lists of group/user IDs who can see status (encrypted with conn_key)
     field :status_visible_to_groups, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
     field :status_visible_to_users, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
     # Online presence controls
     field :show_online_presence, :boolean, default: false
 
     field :presence_visible_to_groups, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
     field :presence_visible_to_users, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
     # Expanded user lists from groups (for access control)
     field :status_visible_to_groups_user_ids, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
     field :presence_visible_to_groups_user_ids, Encrypted.StringList,
       default: [],
-      skip_default_validation: true
+      skip_default_validation: true,
+      redact: true
 
     embeds_one :profile, ConnectionProfile, on_replace: :update do
       field :name, Encrypted.Binary

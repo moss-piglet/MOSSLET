@@ -7,12 +7,12 @@ defmodule Mosslet.Accounts.UserTOTP do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "users_totps" do
-    field :secret, :binary
-    field :code, :string, virtual: true
+    field :secret, :binary, redact: true
+    field :code, :string, virtual: true, redact: true
     belongs_to :user, Mosslet.Accounts.User
 
     embeds_many :backup_codes, BackupCode, on_replace: :delete do
-      field :code, Encrypted.Binary
+      field :code, Encrypted.Binary, redact: true
       field :used_at, :utc_datetime_usec
     end
 

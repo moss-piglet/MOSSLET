@@ -12,12 +12,12 @@ defmodule Mosslet.Groups.UserGroup do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_groups" do
-    field :key, Encrypted.Binary
+    field :key, Encrypted.Binary, redact: true
     field :role, Ecto.Enum, values: @roles
-    field :name, Encrypted.Binary
-    field :name_hash, Encrypted.HMAC
-    field :moniker, Encrypted.Binary
-    field :avatar_img, Encrypted.Binary
+    field :name, Encrypted.Binary, redact: true
+    field :name_hash, Encrypted.HMAC, redact: true
+    field :moniker, Encrypted.Binary, redact: true
+    field :avatar_img, Encrypted.Binary, redact: true
     field :confirmed_at, :naive_datetime
 
     belongs_to :group, Mosslet.Groups.Group

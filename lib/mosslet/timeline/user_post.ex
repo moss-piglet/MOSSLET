@@ -12,8 +12,8 @@ defmodule Mosslet.Timeline.UserPost do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "user_posts" do
-    field :key, Encrypted.Binary
-    field :share_note, Encrypted.Binary
+    field :key, Encrypted.Binary, redact: true
+    field :share_note, Encrypted.Binary, redact: true
 
     belongs_to :post, Post
     belongs_to :user, User

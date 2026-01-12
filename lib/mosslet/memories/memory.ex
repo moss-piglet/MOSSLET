@@ -13,16 +13,16 @@ defmodule Mosslet.Memories.Memory do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "memories" do
-    field :memory_url, Encrypted.Binary
-    field :memory_url_hash, Encrypted.HMAC
-    field :username, Encrypted.Binary
-    field :username_hash, Encrypted.HMAC
+    field :memory_url, Encrypted.Binary, redact: true
+    field :memory_url_hash, Encrypted.HMAC, redact: true
+    field :username, Encrypted.Binary, redact: true
+    field :username_hash, Encrypted.HMAC, redact: true
     field :favs_list, {:array, :binary_id}, default: []
     field :favs_count, :integer, default: 0
     field :visibility, Ecto.Enum, values: [:public, :private, :connections], default: :private
     field :size, :decimal
     field :type, :string
-    field :blurb, Encrypted.Binary
+    field :blurb, Encrypted.Binary, redact: true
     field :blur, :boolean, default: false
 
     field :user_memory_map, :map, virtual: true
