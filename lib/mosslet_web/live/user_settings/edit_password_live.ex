@@ -11,6 +11,7 @@ defmodule MossletWeb.EditPasswordLive do
      assign(socket,
        page_title: "Settings",
        trigger_submit: false,
+       current_password: "",
        form: to_form(Accounts.change_user_password(socket.assigns.current_scope.user))
      )}
   end
@@ -104,7 +105,7 @@ defmodule MossletWeb.EditPasswordLive do
               <%!-- Hidden email field for form submission --%>
               <input
                 type="hidden"
-                name="email"
+                name="user[email]"
                 value={decr(@current_user.email, @current_user, @key)}
               />
 
@@ -137,6 +138,8 @@ defmodule MossletWeb.EditPasswordLive do
                     id="user_current_password"
                     name="user[current_password]"
                     required
+                    value={@current_password}
+                    phx-debounce="blur"
                     class={[
                       "relative block w-full rounded-xl px-4 py-3 pr-12 text-slate-900 dark:text-slate-100",
                       "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
@@ -239,6 +242,7 @@ defmodule MossletWeb.EditPasswordLive do
                       id="user_password"
                       name="user[password]"
                       required
+                      phx-debounce="300"
                       class={[
                         "relative block w-full rounded-xl px-4 py-3 pr-12 text-slate-900 dark:text-slate-100",
                         "bg-slate-50 dark:bg-slate-900 placeholder:text-slate-500 dark:placeholder:text-slate-400",
@@ -305,6 +309,7 @@ defmodule MossletWeb.EditPasswordLive do
                 label="Confirm New Password"
                 placeholder="Confirm your new password"
                 required
+                phx-debounce="300"
               />
 
               <%!-- Action buttons --%>
@@ -445,8 +450,8 @@ defmodule MossletWeb.EditPasswordLive do
   end
 
   def handle_event("validate_password", params, socket) do
-    current_password = Map.get(params, "current_password", "")
     user_params = Map.get(params, "user", %{})
+    current_password = Map.get(user_params, "current_password", "")
 
     form =
       socket.assigns.current_scope.user
@@ -458,8 +463,8 @@ defmodule MossletWeb.EditPasswordLive do
   end
 
   def handle_event("update_password", params, socket) do
-    current_password = Map.get(params, "current_password", "")
     user_params = Map.get(params, "user", %{})
+    current_password = Map.get(user_params, "current_password", "")
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
 
