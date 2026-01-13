@@ -119,6 +119,13 @@ defmodule MossletWeb.DesignSystem do
     |> JS.pop_focus()
   end
 
+  defp word_count(nil), do: 0
+  defp word_count(""), do: 0
+
+  defp word_count(text) when is_binary(text) do
+    text |> String.split(~r/\s+/, trim: true) |> length()
+  end
+
   @doc """
   Primary button with liquid metal styling.
 
@@ -3341,7 +3348,7 @@ defmodule MossletWeb.DesignSystem do
   attr :user_name, :string, required: true
   attr :user_avatar, :string, default: nil
   attr :placeholder, :string, default: "What's on your mind?"
-  attr :character_limit, :integer, default: 500
+  attr :word_limit, :integer, default: 500
   attr :privacy_level, :string, default: "connections", values: ~w(public connections private)
   attr :selector, :string, default: "connections"
   attr :form, :any, required: true
@@ -3458,26 +3465,25 @@ defmodule MossletWeb.DesignSystem do
                 name={@form[:body].name}
                 placeholder={@placeholder}
                 rows="3"
-                maxlength={@character_limit}
                 class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-lg leading-relaxed focus:outline-none focus:ring-0"
-                phx-hook="CharacterCounter"
+                phx-hook="WordCounter"
                 phx-debounce="500"
-                data-limit={@character_limit}
+                data-limit={@word_limit}
                 value={@form[:body].value}
                 {alpine_autofocus()}
               >{@form[:body].value}</textarea>
 
-              <%!-- Character counter (shows when textarea has content) --%>
+              <%!-- Word counter (shows when textarea has content) --%>
               <div
                 class={[
                   "absolute bottom-2 right-2 transition-all duration-300 ease-out",
                   (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") ||
                     "opacity-0"
                 ]}
-                id={"char-counter-#{@character_limit}"}
+                id={"word-counter-#{@word_limit}"}
               >
                 <span class="text-xs text-slate-500 dark:text-slate-400 bg-white/95 dark:bg-slate-800/95 px-3 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-lg">
-                  <span class="js-char-count">{String.length(@form[:body].value || "")}</span>/{@character_limit}
+                  <span class="js-word-count">{word_count(@form[:body].value)}</span>/{@word_limit} words
                 </span>
               </div>
             </div>
@@ -6274,7 +6280,7 @@ defmodule MossletWeb.DesignSystem do
           do: maybe_get_user_avatar(@current_scope.user, @current_scope.key) || "/images/logo.svg",
           else: "/images/logo.svg"
       }
-      character_limit={280}
+      word_limit={500}
       username={decr(@current_scope.user.username, @current_scope.user, @current_scope.key)}
       class=""
     />
@@ -8863,9 +8869,11 @@ defmodule MossletWeb.DesignSystem do
               </span>
             </div>
 
-            <%!-- Reply content --%>
-            <div class="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
-              {get_decrypted_reply_content(@reply, @current_scope.user, @current_scope.key)}
+            <%!-- Reply content with markdown support --%>
+            <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-1.5 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline">
+              {format_decrypted_content(
+                get_decrypted_reply_content(@reply, @current_scope.user, @current_scope.key)
+              )}
             </div>
 
             <%!-- Reply actions (mobile-optimized) - only show for connected users or own replies --%>

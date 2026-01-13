@@ -13,13 +13,13 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
   end
 
   def update(assigns, socket) do
-    # Create or update the reply form for this specific post
     form = get_or_create_reply_form(assigns)
 
     socket =
       socket
       |> assign(assigns)
       |> assign(:form, form)
+      |> assign_new(:word_limit, fn -> 500 end)
 
     {:ok, socket}
   end
@@ -141,25 +141,24 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                       name={@form[:body].name}
                       placeholder="Write a thoughtful reply..."
                       rows="2"
-                      maxlength={@character_limit}
                       class="w-full resize-none border-0 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-emerald-600/70 dark:placeholder:text-emerald-400/70 text-base leading-relaxed focus:outline-none focus:ring-0"
-                      phx-hook="CharacterCounter"
-                      data-limit={@character_limit}
+                      phx-hook="WordCounter"
+                      data-limit={@word_limit}
                       phx-debounce="300"
                       phx-target={@myself}
                     ><%= @form[:body].value %></textarea>
 
-                    <%!-- Character counter for replies --%>
+                    <%!-- Word counter for replies --%>
                     <div
                       class={[
                         "absolute bottom-1 right-1 transition-all duration-300 ease-out",
                         (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") ||
                           "opacity-0"
                       ]}
-                      id={"reply-char-counter-#{@post_id}"}
+                      id={"reply-word-counter-#{@post_id}"}
                     >
                       <span class="text-xs text-emerald-600 dark:text-emerald-400 bg-white/95 dark:bg-slate-800/95 px-2 py-1 rounded-full backdrop-blur-sm border border-emerald-200/60 dark:border-emerald-700/60 shadow-sm">
-                        <span class="js-char-count"><%= String.length(@form[:body].value || "") %></span>/{@character_limit}
+                        <span class="js-word-count"><%= word_count(@form[:body].value) %></span>/{@word_limit} words
                       </span>
                     </div>
                   </div>
@@ -295,5 +294,12 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
       })
 
     to_form(changeset)
+  end
+
+  defp word_count(nil), do: 0
+  defp word_count(""), do: 0
+
+  defp word_count(text) when is_binary(text) do
+    text |> String.split(~r/\s+/, trim: true) |> length()
   end
 end

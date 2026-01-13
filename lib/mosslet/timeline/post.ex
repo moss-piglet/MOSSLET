@@ -166,7 +166,7 @@ defmodule Mosslet.Timeline.Post do
       :local_only
     ])
     |> validate_required([:body, :username, :user_id])
-    |> validate_length(:body, max: 500)
+    |> validate_word_count(:body, max: 500)
     |> add_username_hash()
     |> validate_visibility(opts)
     # Enhanced privacy validation
@@ -366,6 +366,24 @@ defmodule Mosslet.Timeline.Post do
       changeset
       |> add_error(:username, "invalid or does not exist")
     end
+  end
+
+  defp validate_word_count(changeset, field, opts) do
+    max = Keyword.get(opts, :max, 500)
+
+    validate_change(changeset, field, fn _field, value ->
+      if is_binary(value) do
+        word_count = value |> String.split(~r/\s+/, trim: true) |> length()
+
+        if word_count > max do
+          [{field, "cannot exceed #{max} words (currently #{word_count} words)"}]
+        else
+          []
+        end
+      else
+        []
+      end
+    end)
   end
 
   defp add_username_hash(changeset) do

@@ -57,7 +57,7 @@ defmodule Mosslet.Timeline.Reply do
     |> cast_assoc(:post)
     |> cast_assoc(:user)
     |> validate_required([:body, :username, :visibility, :post_id, :user_id])
-    |> validate_length(:body, max: 100_000)
+    |> validate_word_count(:body, max: 500)
     |> add_username_hash()
     |> encrypt_attrs(opts)
   end
@@ -83,6 +83,24 @@ defmodule Mosslet.Timeline.Reply do
     else
       changeset
     end
+  end
+
+  defp validate_word_count(changeset, field, opts) do
+    max = Keyword.get(opts, :max, 500)
+
+    validate_change(changeset, field, fn _field, value ->
+      if is_binary(value) do
+        word_count = value |> String.split(~r/\s+/, trim: true) |> length()
+
+        if word_count > max do
+          [{field, "cannot exceed #{max} words (currently #{word_count} words)"}]
+        else
+          []
+        end
+      else
+        []
+      end
+    end)
   end
 
   # We take the current decrypted temp_key associated

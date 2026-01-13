@@ -29,14 +29,14 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
         })
 
       form = to_form(changeset)
-      character_limit = 280
+      word_limit = 500
 
       {:ok,
        socket
        |> assign(assigns)
        |> assign(:post, post)
        |> assign(:form, form)
-       |> assign(:character_limit, character_limit)}
+       |> assign(:word_limit, word_limit)}
     else
       # Handle missing assigns gracefully
       {:ok, assign(socket, assigns)}
@@ -194,32 +194,31 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
           value={@post.visibility}
         />
 
-        <%!-- Reply textarea with character counter --%>
+        <%!-- Reply textarea with word counter --%>
         <div class="relative">
           <textarea
             id={"nested-reply-textarea-#{@parent_reply.id}"}
             name={@form[:body].name}
             placeholder="Write your reply..."
             rows="3"
-            maxlength={@character_limit}
             class="w-full resize-none border-emerald-200/60 dark:border-emerald-700/40 focus:border-emerald-400 dark:focus:border-emerald-500 focus:ring-emerald-500/30 bg-white/80 dark:bg-slate-800/80 rounded-lg px-3 py-2"
-            phx-hook="CharacterCounter"
-            data-limit={@character_limit}
+            phx-hook="WordCounter"
+            data-limit={@word_limit}
             phx-debounce="300"
             phx-target={@myself}
           ><%= @form[:body].value %></textarea>
 
-          <%!-- Character counter --%>
+          <%!-- Word counter --%>
           <div
             class={[
               "absolute bottom-4 right-2 transition-all duration-300 ease-out",
               (@form[:body].value && String.trim(@form[:body].value) != "" && "opacity-100") ||
                 "opacity-0"
             ]}
-            id={"nested-reply-char-counter-#{@parent_reply.id}"}
+            id={"nested-reply-word-counter-#{@parent_reply.id}"}
           >
             <span class="text-xs text-emerald-600 dark:text-emerald-400 bg-white/95 dark:bg-slate-800/95 px-2 py-1 rounded-full backdrop-blur-sm border border-emerald-200/60 dark:border-emerald-700/60 shadow-sm">
-              <span class="js-char-count"><%= String.length(@form[:body].value || "") %></span>/{@character_limit}
+              <span class="js-word-count"><%= word_count(@form[:body].value) %></span>/{@word_limit} words
             </span>
           </div>
         </div>
@@ -278,5 +277,12 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
       </.form>
     </div>
     """
+  end
+
+  defp word_count(nil), do: 0
+  defp word_count(""), do: 0
+
+  defp word_count(text) when is_binary(text) do
+    text |> String.split(~r/\s+/, trim: true) |> length()
   end
 end
