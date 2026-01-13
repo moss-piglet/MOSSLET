@@ -73,10 +73,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.14.0"
+                  version="0.15.0"
                   date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Markdown Everywhere & Circle Improvements ✨</:title>
+                  <:description>
+                    Express yourself with rich text formatting across MOSSLET — posts, replies, circle chats, journal entries, and even public RSS feeds now support markdown. Plus, circles get a fresh new look and better accessibility.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-document-text" color="emerald">
+                      Markdown support — format posts, replies, circle chats, and journal entries with bold, italics, lists, code, and more
+                    </.changelog_item>
+                    <.changelog_item icon="hero-rss" color="amber">
+                      RSS markdown — public feed now renders beautifully formatted content
+                    </.changelog_item>
+                    <.changelog_item icon="hero-circle-stack" color="teal">
+                      Updated circles UI/UX — refreshed design for a cleaner, more intuitive experience
+                    </.changelog_item>
+                    <.changelog_item icon="hero-book-open" color="blue">
+                      Handy markdown guide — quick reference right where you need it when composing
+                    </.changelog_item>
+                    <.changelog_item icon="hero-face-smile" color="purple">
+                      Accessible emoji picker in circles — the a11y dino 🦖 brought full keyboard navigation to circle chats
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.14.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Journal Enhancements 📝</:title>
                   <:description>
