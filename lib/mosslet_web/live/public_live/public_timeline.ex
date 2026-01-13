@@ -646,26 +646,18 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
   end
 
   defp get_post_author_avatar(post, current_user, post_key) do
-    import MossletWeb.Helpers, only: [get_uconn_for_shared_item: 2, show_avatar?: 1]
+    import MossletWeb.Helpers, only: [show_avatar?: 1]
 
-    cond do
-      post.user_id == current_user.id ->
-        user_connection = get_author_user_connection(post)
+    if post.user_id == current_user.id do
+      user_connection = get_author_user_connection(post)
 
-        if show_avatar?(user_connection) do
-          decrypt_avatar(post, post_key)
-        else
-          nil
-        end
-
-      true ->
-        user_connection = get_uconn_for_shared_item(post, current_user)
-
-        if show_avatar?(user_connection) do
-          decrypt_avatar(post, post_key)
-        else
-          nil
-        end
+      if show_avatar?(user_connection) do
+        decrypt_avatar(post, post_key)
+      else
+        nil
+      end
+    else
+      nil
     end
   end
 

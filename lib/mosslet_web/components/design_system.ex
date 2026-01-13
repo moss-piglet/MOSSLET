@@ -12889,7 +12889,10 @@ defmodule MossletWeb.DesignSystem do
             </div>
             <div :if={@is_grouped && !@is_own_message} class="w-9 sm:w-10 flex-shrink-0" />
 
-            <div class="flex-1 min-w-0">
+            <div class={[
+              "min-w-0",
+              if(@is_own_message, do: "flex flex-col items-end", else: "flex-1")
+            ]}>
               <div
                 :if={!@is_grouped}
                 class={[
@@ -12967,7 +12970,7 @@ defmodule MossletWeb.DesignSystem do
 
               <div class="flex items-center gap-2">
                 <div
-                  :if={@is_grouped && @can_delete && @on_delete && !@is_own_message}
+                  :if={@is_grouped && @can_delete && @on_delete && @is_own_message}
                   class="flex-shrink-0"
                 >
                   <button
@@ -13019,7 +13022,7 @@ defmodule MossletWeb.DesignSystem do
                   </div>
                 </div>
                 <div
-                  :if={@is_grouped && @can_delete && @on_delete && @is_own_message}
+                  :if={@is_grouped && @can_delete && @on_delete && !@is_own_message}
                   class="flex-shrink-0"
                 >
                   <button
@@ -13028,8 +13031,7 @@ defmodule MossletWeb.DesignSystem do
                     phx-value-id={@id}
                     class={[
                       "p-1 rounded-lg opacity-0 group-hover/msg:opacity-100 focus:opacity-100",
-                      "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
-                      "hover:bg-red-50 dark:hover:bg-red-900/20",
+                      "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
                       "transition-all duration-200"
                     ]}
                     aria-label="Delete message"
