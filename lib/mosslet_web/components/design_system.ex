@@ -5985,7 +5985,7 @@ defmodule MossletWeb.DesignSystem do
           </span>
         </button>
 
-        <%!-- Post content --%>
+        <%!-- Post content with markdown support --%>
         <div class="mb-4">
           <%!-- Legacy posts with HTML (sanitized and rendered) --%>
           <p
@@ -5995,10 +5995,10 @@ defmodule MossletWeb.DesignSystem do
             {html_block(@content)}
           </p>
 
-          <%!-- Modern posts with plain text (linkified and sanitized) --%>
+          <%!-- Modern posts with markdown rendering --%>
           <div
             :if={!contains_html?(@content)}
-            class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
+            class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline"
           >
             {format_decrypted_content(@content)}
           </div>
@@ -12941,7 +12941,7 @@ defmodule MossletWeb.DesignSystem do
                   else: ""
                 )
               ]}>
-                <div class="text-slate-700 dark:text-slate-200 break-words">
+                <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline break-words">
                   {render_slot(@inner_block)}
                 </div>
               </div>

@@ -690,13 +690,12 @@ defmodule MossletWeb.Helpers do
   def contains_html?(""), do: false
 
   @doc """
-  Formats and linkifies plain text content after decryption.
-  Sanitizes any HTML and converts URLs into clickable links with proper styling.
+  Formats and renders markdown content after decryption.
+  Uses MDEx for markdown rendering with syntax highlighting and built-in sanitization.
   """
   def format_decrypted_content(content) when is_binary(content) do
     content
-    |> HtmlSanitizeEx.basic_html()
-    |> linkify_urls(:emerald)
+    |> Mosslet.MarkdownRenderer.to_html()
     |> Phoenix.HTML.raw()
   end
 
@@ -706,91 +705,13 @@ defmodule MossletWeb.Helpers do
 
   def format_decrypted_content_orange(content) when is_binary(content) do
     content
-    |> HtmlSanitizeEx.basic_html()
-    |> linkify_urls(:orange)
+    |> Mosslet.MarkdownRenderer.to_html()
     |> Phoenix.HTML.raw()
   end
 
   def format_decrypted_content_orange(:failed_verification), do: "[Could not decrypt content]"
   def format_decrypted_content_orange(nil), do: ""
   def format_decrypted_content_orange(""), do: ""
-
-  defp linkify_urls(content, color) do
-    https_url_regex = ~r/https?:\/\/[^\s<>\"]+/
-
-    Regex.replace(https_url_regex, content, fn url ->
-      cleaned_url = clean_url_for_display(url)
-      suffix = String.slice(url, String.length(cleaned_url)..-1//1)
-
-      link_class = linkify_color_class(color)
-
-      ~s(<a href="#{cleaned_url}" target="_blank" rel="noopener noreferrer" class="#{link_class}">#{cleaned_url}</a>#{suffix})
-    end)
-  end
-
-  defp linkify_color_class(:emerald),
-    do:
-      "text-emerald-600 no-underline hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 break-all"
-
-  defp linkify_color_class(:orange),
-    do:
-      "text-orange-600 no-underline hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 break-all"
-
-  defp clean_url_for_display(url) do
-    graphemes = String.graphemes(url)
-
-    reversed_valid =
-      graphemes
-      |> Enum.reverse()
-      |> drop_trailing_punctuation([])
-      |> Enum.reverse()
-
-    result = Enum.join(reversed_valid)
-    balance_parentheses(result)
-  end
-
-  defp drop_trailing_punctuation([], acc), do: acc
-
-  defp drop_trailing_punctuation([char | rest] = all_chars, acc) do
-    cond do
-      char in [")", "]", "}"] ->
-        matching_open = matching_bracket(char)
-
-        open_in_rest = Enum.count(rest, &(&1 == matching_open))
-        close_in_all = Enum.count(all_chars, &(&1 == char))
-        close_in_acc = Enum.count(acc, &(&1 == char))
-
-        close_in_rest = close_in_all - close_in_acc - 1
-
-        if close_in_rest >= open_in_rest do
-          drop_trailing_punctuation(rest, acc)
-        else
-          [char | rest]
-        end
-
-      char in ["!", "?", ".", ",", ";", ":", "'", "\""] and acc == [] ->
-        drop_trailing_punctuation(rest, acc)
-
-      true ->
-        all_chars
-    end
-  end
-
-  defp matching_bracket(")"), do: "("
-  defp matching_bracket("]"), do: "["
-  defp matching_bracket("}"), do: "{"
-
-  defp balance_parentheses(url) do
-    graphemes = String.graphemes(url)
-    open_parens = Enum.count(graphemes, &(&1 == "("))
-    close_parens = Enum.count(graphemes, &(&1 == ")"))
-
-    if open_parens > close_parens do
-      url <> String.duplicate(")", open_parens - close_parens)
-    else
-      url
-    end
-  end
 
   def initials(name) do
     case HumanName.initials(name) do

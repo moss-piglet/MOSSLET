@@ -151,7 +151,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       show_date_separator={@show_date_separator}
       message_date={@message_date}
     >
-      {@content}
+      {Mosslet.MarkdownRenderer.to_html(@content) |> Phoenix.HTML.raw()}
     </DesignSystem.liquid_chat_message>
     """
   end
