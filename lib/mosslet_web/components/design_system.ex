@@ -648,14 +648,14 @@ defmodule MossletWeb.DesignSystem do
 
       <%!-- Modal container with proper z-index --%>
       <div
-        class="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6"
+        class="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-1 sm:p-4 lg:p-6"
         aria-labelledby={"#{@id}-title"}
         aria-describedby={"#{@id}-description"}
         role="dialog"
         aria-modal="true"
         style="position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;"
       >
-        <div class="flex min-h-full items-center justify-center p-2 sm:p-4 lg:p-6">
+        <div class="flex min-h-full items-center justify-center p-1 sm:p-4 lg:p-6">
           <.focus_wrap
             id={"#{@id}-container"}
             phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
@@ -663,7 +663,7 @@ defmodule MossletWeb.DesignSystem do
             phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
             class={
               [
-                "relative w-full max-h-[95vh] min-h-0 flex flex-col overflow-y-auto",
+                "relative w-full max-h-[90dvh] sm:max-h-[95vh] min-h-0 flex flex-col overflow-y-auto",
                 "transform-gpu transition-all duration-300 ease-out",
                 "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95 hidden",
                 "rounded-xl sm:rounded-2xl",
