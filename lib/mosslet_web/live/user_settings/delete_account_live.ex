@@ -573,17 +573,24 @@ defmodule MossletWeb.DeleteAccountLive do
         nil
       end
 
+    referrer_info = socket.assigns.referrer_info
+    referred_info = socket.assigns.referred_info
+
+    user_email =
+      if referrer_info.has_connect_account do
+        Encrypted.Users.Utils.decrypt_user_data(user.email, user, key)
+      else
+        nil
+      end
+
+    # Handle referral cleanup BEFORE deleting the account to avoid stale entry errors
+    # (referral codes are cascade-deleted when user is deleted)
+    handle_referral_cleanup(referrer_info, referred_info, user_email, user, key)
+
     # Cancel Stripe subscription.
     case Accounts.delete_user_account(user, user_params["current_password"], user_params) do
       {:ok, user} ->
         maybe_delete_custom_banner(user, key)
-
-        handle_referral_cleanup(
-          socket.assigns.referrer_info,
-          socket.assigns.referred_info,
-          user,
-          key
-        )
 
         case cancel_subscription(user, socket) do
           :canceled ->
@@ -904,13 +911,12 @@ defmodule MossletWeb.DeleteAccountLive do
     end
   end
 
-  defp handle_referral_cleanup(referrer_info, referred_info, user, key) do
+  defp handle_referral_cleanup(referrer_info, referred_info, user_email, user, key) do
     if referrer_info.has_referral_code do
       Referrals.handle_referrer_account_deletion(referrer_info, user, key)
 
-      if referrer_info.has_connect_account do
-        email = Encrypted.Users.Utils.decrypt_user_data(user.email, user, key)
-        send_referral_account_deletion_email(email, referrer_info)
+      if referrer_info.has_connect_account and user_email do
+        send_referral_account_deletion_email(user_email, referrer_info)
       end
     end
 
