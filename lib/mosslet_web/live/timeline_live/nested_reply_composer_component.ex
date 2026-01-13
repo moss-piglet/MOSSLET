@@ -242,6 +242,11 @@ defmodule MossletWeb.TimelineLive.NestedReplyComposerComponent do
                   class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
                 />
               </button>
+
+              <MossletWeb.DesignSystem.liquid_markdown_guide_trigger
+                id={"nested-reply-markdown-guide-trigger-#{@parent_reply.id}"}
+                on_click={Phoenix.LiveView.JS.push("open_markdown_guide")}
+              />
             </div>
 
             <%!-- Right side: Clear and Reply buttons --%>
