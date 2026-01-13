@@ -25,6 +25,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
           id="blog-rss-feed-copy-btn"
           phx-hook="ClipboardHook"
           data-content={MossletWeb.Endpoint.url() <> "/feed/blog.xml"}
+          aria-label="Copy RSS feed URL"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
         >
           <span

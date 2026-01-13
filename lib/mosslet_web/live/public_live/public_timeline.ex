@@ -768,7 +768,7 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
             </div>
 
             <div class="overflow-hidden">
-              <div class="mx-auto max-w-3xl px-4 sm:px-6 pb-16 pt-24 sm:pt-32 lg:px-8">
+              <div class="mx-auto max-w-3xl lg:max-w-4xl px-4 sm:px-6 pb-16 pt-24 sm:pt-32 lg:px-8">
                 <div class="text-center mb-8 sm:mb-12">
                   <div class="flex items-center justify-center gap-3">
                     <h1 class="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
@@ -778,6 +778,7 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
                       id="rss-feed-copy-btn"
                       phx-hook="ClipboardHook"
                       data-content={url(~p"/feed/public.xml")}
+                      aria-label="Copy RSS feed URL"
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-sm font-medium hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors cursor-pointer"
                     >
                       <span

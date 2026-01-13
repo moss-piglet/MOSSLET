@@ -13641,7 +13641,7 @@ defmodule MossletWeb.DesignSystem do
 
     ~H"""
     <div class="space-y-3">
-      <div class="text-slate-800 dark:text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
+      <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-orange-600 dark:prose-code:text-orange-400 prose-a:text-orange-600 dark:prose-a:text-orange-400 prose-a:no-underline hover:prose-a:underline">
         {format_decrypted_content_orange(@content)}
       </div>
 
