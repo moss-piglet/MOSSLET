@@ -221,6 +221,26 @@ defmodule MossletWeb.PublicLive.Features do
                     Our AI checks never store or train on your content. Requests pass through OpenRouter with all data retention disabled, then your content stays asymmetrically encrypted. Safety without surveillance.
                   </p>
                 </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg">
+                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Rich Text & Emoji
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Format your posts and replies with full Markdown support. Use our accessible emoji picker to add personality, with a handy Markdown guide always available.
+                  </p>
+                </.liquid_card>
               </div>
 
               <%!-- Timeline Screenshot --%>
@@ -696,14 +716,14 @@ defmodule MossletWeb.PublicLive.Features do
                 </p>
               </div>
 
-              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+              <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
                 <.liquid_card
                   padding="lg"
                   class="group hover:scale-105 transition-all duration-300 ease-out h-full"
                 >
                   <:title>
                     <div class="flex items-center gap-3 mb-4">
-                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
                         <.phx_icon name="hero-lock-closed" class="h-5 w-5 text-white" />
                       </div>
                       <span class="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -754,6 +774,46 @@ defmodule MossletWeb.PublicLive.Features do
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                     Get thoughtful AI reflections on your journal entries to help you understand patterns and gain perspective. Disabled by default — toggle on or off anytime.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
+                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Rich Formatting
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Write beautifully with full Markdown support and an accessible emoji picker. A handy Markdown guide helps you format your thoughts just right.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-500 shadow-lg">
+                        <.phx_icon name="hero-arrows-up-down" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Drag & Drop
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Organize your thoughts intuitively. Drag entries between books and rearrange your bookshelf — like organizing a real journal collection.
                   </p>
                 </.liquid_card>
               </div>
@@ -1193,6 +1253,68 @@ defmodule MossletWeb.PublicLive.Features do
                     class="relative w-full h-auto hidden dark:block"
                   />
                 </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto mt-12">
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-rose-500 to-pink-500 shadow-lg">
+                        <.phx_icon name="hero-key" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Circle-Level Encryption
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Each Circle is encrypted with its own unique private key. Our privacy-first architecture means we can't read your conversations — only Circle members can.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-pink-500 to-fuchsia-500 shadow-lg">
+                        <.phx_icon name="hero-bolt" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Realtime Updates
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Messages appear instantly as they're sent. Stay connected with live updates that keep everyone in the loop without refreshing.
+                  </p>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-fuchsia-500 to-purple-500 shadow-lg">
+                        <.phx_icon name="hero-pencil-square" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Rich Messaging
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Express yourself with full Markdown support and an accessible emoji picker. A handy Markdown guide helps you format messages beautifully.
+                  </p>
+                </.liquid_card>
               </div>
             </div>
           </.liquid_container>

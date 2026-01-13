@@ -445,7 +445,7 @@ defmodule MossletWeb.Components.LandingPage do
               </MossletWeb.DesignSystem.liquid_card>
             </div>
 
-            <div class="mt-16 mb-20 text-center">
+            <div class="mt-16 mb-8 text-center">
               <MossletWeb.DesignSystem.liquid_button
                 navigate="/features"
                 variant="secondary"
@@ -459,6 +459,8 @@ defmodule MossletWeb.Components.LandingPage do
             </div>
           </div>
         </MossletWeb.DesignSystem.liquid_container>
+
+        <.liquid_testimonials />
       </DesignSystem.liquid_container>
     </section>
     """
@@ -4340,6 +4342,275 @@ defmodule MossletWeb.Components.LandingPage do
         {@title}
       </h2>
     </div>
+    """
+  end
+
+  @doc """
+  A beautiful liquid metal testimonials section that matches the design system.
+  """
+  def liquid_testimonials(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:title, fn -> "Why people love it here" end)
+      |> assign_new(:subtitle, fn ->
+        "Join a community that values genuine connections, calm spaces, and putting people first."
+      end)
+      |> assign_new(:testimonials, fn ->
+        [
+          %{
+            quote:
+              "I'm done with Facebook. I'd like a place where I own the data and that is generally positive vs. all the negativity that gets put into my feed.",
+            name: "Private Member",
+            role: "Early Access Invitee",
+            accent: "teal"
+          },
+          %{
+            quote:
+              "I like the idea of being able to share stories about the grandchildren in our family with other parents and grandparents without someone I don't know having access.",
+            name: "Private Member",
+            role: "Early Access Invitee",
+            accent: "emerald"
+          },
+          %{
+            quote: "Because it's amazing ✨",
+            name: "Private Member",
+            role: "Early Access Invitee",
+            accent: "cyan"
+          },
+          %{
+            quote:
+              "Tired of being profiled everywhere, would love to experience something that ain't harvesting me.",
+            name: "Private Member",
+            role: "Early Access Invitee",
+            accent: "violet"
+          },
+          %{
+            quote:
+              "Having a safe place to share photos of our little bears feels so amazing. Thank you for creating this.",
+            name: "Private Member",
+            role: "Early Access Invitee",
+            accent: "purple"
+          },
+          %{
+            quote:
+              "Finally, a social platform that respects my privacy and doesn't try to manipulate me with algorithms.",
+            name: "Private Member",
+            role: "Early Access Invitee",
+            accent: "pink"
+          }
+        ]
+      end)
+
+    ~H"""
+    <section
+      id="testimonials"
+      aria-label="What our members are saying"
+      class="relative py-20 sm:py-28 overflow-hidden"
+    >
+      <div class="absolute inset-0 bg-gradient-to-b from-slate-50/50 via-teal-50/30 to-slate-50/50 dark:from-slate-900/50 dark:via-teal-950/30 dark:to-slate-900/50">
+      </div>
+
+      <div class="absolute inset-0 opacity-30">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-teal-400/20 to-emerald-400/20 dark:from-teal-600/10 dark:to-emerald-600/10 rounded-full blur-3xl">
+        </div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-br from-cyan-400/20 to-teal-400/20 dark:from-cyan-600/10 dark:to-teal-600/10 rounded-full blur-3xl">
+        </div>
+      </div>
+
+      <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="flex items-center justify-center gap-3 mb-4">
+          <div class="h-px w-12 bg-gradient-to-r from-transparent to-emerald-400 dark:to-emerald-600">
+          </div>
+          <span class="text-sm font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            Testimonials
+          </span>
+          <div class="h-px w-12 bg-gradient-to-l from-transparent to-emerald-400 dark:to-emerald-600">
+          </div>
+        </div>
+
+        <div class="mx-auto max-w-2xl text-center mb-12">
+          <h2 class="text-3xl font-bold tracking-tight sm:text-4xl bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+            {@title}
+          </h2>
+          <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400">
+            {@subtitle}
+          </p>
+        </div>
+
+        <.featured_testimonial />
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-10">
+          <%= for {testimonial, index} <- Enum.with_index(@testimonials) do %>
+            <.testimonial_card testimonial={testimonial} index={index} />
+          <% end %>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  defp featured_testimonial(assigns) do
+    ~H"""
+    <figure class="relative mx-auto max-w-4xl">
+      <div class="absolute -inset-4 rounded-3xl bg-gradient-to-r from-teal-500/20 via-emerald-500/20 to-cyan-500/20 dark:from-teal-500/10 dark:via-emerald-500/10 dark:to-cyan-500/10 blur-xl">
+      </div>
+
+      <div class="relative rounded-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-8 sm:p-10 ring-1 ring-emerald-200/60 dark:ring-emerald-700/40 shadow-2xl shadow-emerald-900/10 dark:shadow-emerald-900/30">
+        <div class="absolute -top-4 left-8 sm:left-10">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full shadow-lg bg-gradient-to-br from-teal-500 to-emerald-500 ring-4 ring-white dark:ring-slate-800">
+            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+            </svg>
+          </div>
+        </div>
+
+        <blockquote class="pt-4">
+          <p class="text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
+            <span class="font-semibold text-teal-700 dark:text-teal-300">
+              I didn't realize how exhausting big social networks had become until I started using Mosslet.
+            </span>
+            Here I don't feel tracked, profiled, or pressured to perform. There are no ads, no engagement tricks – just a calm space to share little pieces of my life and connect with people who want the same.
+          </p>
+          <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
+            I also love
+            <span class="font-semibold bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
+              Journal
+            </span>
+            on Mosslet: a fully private, encrypted space just for me. I can write freely, track my mood, and (when I want to) turn on gentle AI reflections to notice patterns in how I'm feeling.
+          </p>
+          <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
+            Whether I'm connecting with friends and family or just checking in with myself, Mosslet gives me a quieter, more intentional way to be online. It's small, privacy-first, and built by my partner as a solo developer – and it already feels more human than anything "mainstream" I've used in years.
+          </p>
+        </blockquote>
+
+        <figcaption class="mt-8 flex items-center gap-4 border-t border-slate-200/60 dark:border-slate-700/60 pt-6">
+          <div
+            class="relative h-14 w-14 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-800 shadow-lg overflow-hidden select-none"
+            oncontextmenu="return false;"
+          >
+            <img
+              src={~p"/images/features/isabella-avatar.jpeg"}
+              alt=""
+              class="h-full w-full object-cover pointer-events-none"
+              draggable="false"
+            />
+          </div>
+          <div>
+            <div class="font-semibold text-lg text-slate-900 dark:text-slate-100">
+              @justagirl
+            </div>
+            <div class="text-slate-500 dark:text-slate-400">
+              Isabella · Early Member
+            </div>
+          </div>
+        </figcaption>
+      </div>
+    </figure>
+    """
+  end
+
+  defp testimonial_card(assigns) do
+    accent_colors = %{
+      "teal" => %{
+        gradient: "from-teal-500 to-emerald-500",
+        ring: "ring-teal-200/50 dark:ring-teal-700/50",
+        hover_ring: "group-hover:ring-teal-300/70 dark:group-hover:ring-teal-600/70",
+        quote_bg: "from-teal-500/10 to-emerald-500/10 dark:from-teal-500/5 dark:to-emerald-500/5",
+        icon_bg: "from-teal-500 to-emerald-500"
+      },
+      "emerald" => %{
+        gradient: "from-emerald-500 to-cyan-500",
+        ring: "ring-emerald-200/50 dark:ring-emerald-700/50",
+        hover_ring: "group-hover:ring-emerald-300/70 dark:group-hover:ring-emerald-600/70",
+        quote_bg: "from-emerald-500/10 to-cyan-500/10 dark:from-emerald-500/5 dark:to-cyan-500/5",
+        icon_bg: "from-emerald-500 to-cyan-500"
+      },
+      "cyan" => %{
+        gradient: "from-cyan-500 to-teal-500",
+        ring: "ring-cyan-200/50 dark:ring-cyan-700/50",
+        hover_ring: "group-hover:ring-cyan-300/70 dark:group-hover:ring-cyan-600/70",
+        quote_bg: "from-cyan-500/10 to-teal-500/10 dark:from-cyan-500/5 dark:to-teal-500/5",
+        icon_bg: "from-cyan-500 to-teal-500"
+      },
+      "violet" => %{
+        gradient: "from-violet-500 to-purple-500",
+        ring: "ring-violet-200/50 dark:ring-violet-700/50",
+        hover_ring: "group-hover:ring-violet-300/70 dark:group-hover:ring-violet-600/70",
+        quote_bg:
+          "from-violet-500/10 to-purple-500/10 dark:from-violet-500/5 dark:to-purple-500/5",
+        icon_bg: "from-violet-500 to-purple-500"
+      },
+      "purple" => %{
+        gradient: "from-purple-500 to-pink-500",
+        ring: "ring-purple-200/50 dark:ring-purple-700/50",
+        hover_ring: "group-hover:ring-purple-300/70 dark:group-hover:ring-purple-600/70",
+        quote_bg: "from-purple-500/10 to-pink-500/10 dark:from-purple-500/5 dark:to-pink-500/5",
+        icon_bg: "from-purple-500 to-pink-500"
+      },
+      "pink" => %{
+        gradient: "from-pink-500 to-rose-500",
+        ring: "ring-pink-200/50 dark:ring-pink-700/50",
+        hover_ring: "group-hover:ring-pink-300/70 dark:group-hover:ring-pink-600/70",
+        quote_bg: "from-pink-500/10 to-rose-500/10 dark:from-pink-500/5 dark:to-rose-500/5",
+        icon_bg: "from-pink-500 to-rose-500"
+      }
+    }
+
+    accent = assigns.testimonial.accent || "teal"
+    colors = accent_colors[accent] || accent_colors["teal"]
+
+    assigns = assign(assigns, :colors, colors)
+
+    ~H"""
+    <figure class={[
+      "group relative rounded-2xl p-6 transition-all duration-300 ease-out",
+      "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
+      "ring-1 #{@colors.ring} #{@colors.hover_ring}",
+      "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
+      "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-emerald-900/20",
+      "hover:-translate-y-1 transform-gpu"
+    ]}>
+      <div class={[
+        "absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+        "bg-gradient-to-br #{@colors.quote_bg}"
+      ]}>
+      </div>
+
+      <div class="absolute -top-3 -left-2">
+        <div class={[
+          "flex h-8 w-8 items-center justify-center rounded-full shadow-lg",
+          "bg-gradient-to-br #{@colors.icon_bg}"
+        ]}>
+          <svg class="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+          </svg>
+        </div>
+      </div>
+
+      <blockquote class="relative pt-4">
+        <p class="text-base leading-7 text-slate-700 dark:text-slate-300">
+          "{@testimonial.quote}"
+        </p>
+      </blockquote>
+
+      <figcaption class="relative mt-6 flex items-center gap-4 border-t border-slate-200/60 dark:border-slate-700/60 pt-6">
+        <div class={[
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+          "bg-gradient-to-br #{@colors.icon_bg}",
+          "ring-2 ring-white dark:ring-slate-800 shadow-md"
+        ]}>
+          <.phx_icon name="hero-user" class="h-6 w-6 text-white" />
+        </div>
+        <div>
+          <div class="font-semibold text-slate-900 dark:text-slate-100">
+            {@testimonial.name}
+          </div>
+          <div class="text-sm text-slate-500 dark:text-slate-400">
+            {@testimonial.role}
+          </div>
+        </div>
+      </figcaption>
+    </figure>
     """
   end
 end
