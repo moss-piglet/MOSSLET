@@ -8,11 +8,19 @@ defmodule MossletWeb.DeleteAccountLive do
 
   alias Mosslet.Accounts
   alias Mosslet.Encrypted
+  alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
   alias Mosslet.Billing.Subscriptions.Subscription
   alias MossletWeb.DesignSystem
 
   defp billing_provider, do: Application.get_env(:mosslet, :billing_provider)
+
+  defp format_cents(cents) when is_integer(cents) do
+    dollars = cents / 100
+    "$#{:erlang.float_to_binary(dollars, decimals: 2)}"
+  end
+
+  defp format_cents(_), do: "$0.00"
 
   def render(assigns) do
     ~H"""
@@ -115,6 +123,144 @@ defmodule MossletWeb.DeleteAccountLive do
                         Make your profile private
                       </DesignSystem.liquid_button>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DesignSystem.liquid_card>
+
+          <%!-- Referral Earnings Warning Card --%>
+          <DesignSystem.liquid_card
+            :if={@referrer_info.total_unpaid > 0}
+            class="bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-900/20 dark:to-orange-900/10 border-amber-200/60 dark:border-amber-700/60"
+          >
+            <:title>
+              <div class="flex items-center gap-3">
+                <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 dark:from-amber-900/30 dark:via-orange-900/25 dark:to-amber-900/30">
+                  <.phx_icon
+                    name="hero-currency-dollar"
+                    class="h-4 w-4 text-amber-600 dark:text-amber-400"
+                  />
+                </div>
+                <span class="text-amber-800 dark:text-amber-200">Referral Earnings</span>
+              </div>
+            </:title>
+
+            <div class="space-y-4">
+              <div class="bg-gradient-to-r from-amber-100/80 to-orange-100/80 dark:from-amber-900/30 dark:to-orange-900/30 rounded-xl p-4 border border-amber-200/60 dark:border-amber-700/60">
+                <p class="text-amber-700 dark:text-amber-300 font-medium mb-3">
+                  💰 You have unpaid referral earnings:
+                </p>
+                <div class="space-y-2 text-amber-700 dark:text-amber-300">
+                  <div
+                    :if={@referrer_info.available_for_payout > 0}
+                    class="flex items-center justify-between"
+                  >
+                    <span class="flex items-center gap-2">
+                      <.phx_icon name="hero-check-circle" class="h-4 w-4 text-emerald-500" />
+                      Available for payout now
+                    </span>
+                    <span class="font-semibold">
+                      {format_cents(@referrer_info.available_for_payout)}
+                    </span>
+                  </div>
+                  <div
+                    :if={@referrer_info.pending_in_waiting_period > 0}
+                    class="flex items-center justify-between"
+                  >
+                    <span class="flex items-center gap-2">
+                      <.phx_icon name="hero-clock" class="h-4 w-4 text-amber-500" />
+                      Pending (in waiting period)
+                    </span>
+                    <span class="font-semibold">
+                      {format_cents(@referrer_info.pending_in_waiting_period)}
+                    </span>
+                  </div>
+                  <div class="border-t border-amber-300/50 dark:border-amber-600/50 pt-2 mt-2 flex items-center justify-between font-semibold">
+                    <span>Total</span>
+                    <span>{format_cents(@referrer_info.total_unpaid)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                :if={
+                  @referrer_info.available_for_payout > 0 and @referrer_info.connect_payouts_enabled
+                }
+                class="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10 rounded-xl p-4 border border-emerald-200/60 dark:border-emerald-700/60"
+              >
+                <div class="flex items-start gap-3">
+                  <.phx_icon
+                    name="hero-check-circle"
+                    class="h-5 w-5 mt-0.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+                  />
+                  <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                    <strong>Good news:</strong>
+                    We'll attempt to transfer your available earnings ({format_cents(
+                      @referrer_info.available_for_payout
+                    )}) to your connected Stripe account before deletion.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                :if={@referrer_info.pending_in_waiting_period > 0}
+                class="bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-xl p-4 border border-blue-200/60 dark:border-blue-700/60"
+              >
+                <div class="flex items-start gap-3">
+                  <.phx_icon
+                    name="hero-clock"
+                    class="h-5 w-5 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0"
+                  />
+                  <p class="text-sm text-blue-700 dark:text-blue-300">
+                    <strong>Pending earnings:</strong>
+                    The {format_cents(@referrer_info.pending_in_waiting_period)} in pending earnings will still be transferred to your Stripe account when they clear. We'll send you an email with instructions to access your Stripe dashboard.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                :if={@referrer_info.has_connect_account}
+                class="bg-gradient-to-br from-slate-50/50 to-slate-100/30 dark:from-slate-800/50 dark:to-slate-700/30 rounded-xl p-4 border border-slate-200/60 dark:border-slate-700/60"
+              >
+                <div class="flex items-start gap-3">
+                  <.phx_icon
+                    name="hero-envelope"
+                    class="h-5 w-5 mt-0.5 text-slate-600 dark:text-slate-400 flex-shrink-0"
+                  />
+                  <p class="text-sm text-slate-700 dark:text-slate-300">
+                    <strong>Your Stripe account stays active:</strong>
+                    After deletion, we'll email you instructions to access your Stripe Express dashboard where you can manage your payouts, update bank details, or close your account.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                :if={
+                  @referrer_info.available_for_payout > 0 and
+                    not @referrer_info.connect_payouts_enabled
+                }
+                class="bg-gradient-to-r from-rose-100/80 to-pink-100/80 dark:from-rose-900/30 dark:to-pink-900/30 rounded-xl p-4 border border-rose-200/60 dark:border-rose-700/60"
+              >
+                <div class="flex items-start gap-3">
+                  <.phx_icon
+                    name="hero-exclamation-triangle"
+                    class="h-5 w-5 mt-0.5 text-rose-600 dark:text-rose-400 flex-shrink-0"
+                  />
+                  <div class="space-y-2">
+                    <p class="text-sm text-rose-700 dark:text-rose-300">
+                      <strong>Action needed:</strong>
+                      You have {format_cents(@referrer_info.available_for_payout)} available but your Stripe Connect account isn't set up for payouts. Complete your payout setup first to receive your earnings.
+                    </p>
+                    <DesignSystem.liquid_button
+                      href="/app/referrals"
+                      variant="secondary"
+                      color="rose"
+                      size="sm"
+                      icon="hero-arrow-right"
+                    >
+                      Set up payouts first
+                    </DesignSystem.liquid_button>
                   </div>
                 </div>
               </div>
@@ -366,6 +512,12 @@ defmodule MossletWeb.DeleteAccountLive do
 
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_scope.user
+    session_key = socket.assigns.current_scope.key
+
+    referrer_info =
+      Referrals.get_referrer_deletion_info(current_user.id, current_user, session_key)
+
+    referred_info = Referrals.get_referred_user_deletion_info(current_user.id)
 
     {:ok,
      assign(socket,
@@ -373,6 +525,8 @@ defmodule MossletWeb.DeleteAccountLive do
        current_password: nil,
        source: socket.assigns.live_action,
        billing_provider: billing_provider(),
+       referrer_info: referrer_info,
+       referred_info: referred_info,
        form: to_form(Accounts.change_user_delete_account(current_user))
      )}
   end
@@ -423,6 +577,13 @@ defmodule MossletWeb.DeleteAccountLive do
     case Accounts.delete_user_account(user, user_params["current_password"], user_params) do
       {:ok, user} ->
         maybe_delete_custom_banner(user, key)
+
+        handle_referral_cleanup(
+          socket.assigns.referrer_info,
+          socket.assigns.referred_info,
+          user,
+          key
+        )
 
         case cancel_subscription(user, socket) do
           :canceled ->
@@ -741,5 +902,32 @@ defmodule MossletWeb.DeleteAccountLive do
         make_async_banner_delete_request(banners_bucket, banner_url)
       end
     end
+  end
+
+  defp handle_referral_cleanup(referrer_info, referred_info, user, key) do
+    if referrer_info.has_referral_code do
+      Referrals.handle_referrer_account_deletion(referrer_info, user, key)
+
+      if referrer_info.has_connect_account do
+        email = Encrypted.Users.Utils.decrypt_user_data(user.email, user, key)
+        send_referral_account_deletion_email(email, referrer_info)
+      end
+    end
+
+    Referrals.handle_referred_user_deletion(referred_info)
+  end
+
+  defp send_referral_account_deletion_email(email, referrer_info) do
+    alias Mosslet.Accounts.UserNotifier
+
+    assigns = %{
+      email: email,
+      available_payout: referrer_info.available_for_payout,
+      available_payout_formatted: format_cents(referrer_info.available_for_payout),
+      pending_amount: referrer_info.pending_in_waiting_period,
+      pending_amount_formatted: format_cents(referrer_info.pending_in_waiting_period)
+    }
+
+    UserNotifier.deliver_referral_account_deletion_email(email, assigns)
   end
 end

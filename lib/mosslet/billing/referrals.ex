@@ -542,4 +542,168 @@ defmodule Mosslet.Billing.Referrals do
       |> Repo.update_all(set: [status: "voided"])
     end)
   end
+
+  @doc """
+  Gets detailed account deletion info for a user who is a referrer.
+  Returns info about their referral code, Connect account, and unpaid earnings.
+  """
+  def get_referrer_deletion_info(user_id, current_user, session_key) do
+    case get_referral_code_by_user(user_id) do
+      nil ->
+        %{
+          has_referral_code: false,
+          has_connect_account: false,
+          connect_payouts_enabled: false,
+          available_for_payout: 0,
+          pending_in_waiting_period: 0,
+          total_unpaid: 0
+        }
+
+      %ReferralCode{} = code ->
+        connect_account_id =
+          MossletWeb.Helpers.maybe_decrypt_user_data(
+            code.stripe_connect_account_id,
+            current_user,
+            session_key
+          )
+
+        available = sum_available_commissions(code.id)
+        pending = sum_commissions_in_waiting_period(code.id)
+
+        %{
+          has_referral_code: true,
+          referral_code: code,
+          has_connect_account: !is_nil(connect_account_id),
+          connect_account_id: connect_account_id,
+          connect_payouts_enabled: code.connect_payouts_enabled == true,
+          available_for_payout: available,
+          pending_in_waiting_period: pending,
+          total_unpaid: available + pending
+        }
+    end
+  end
+
+  @doc """
+  Gets info about whether a deleting user was referred by someone.
+  Returns the referral if found, so we can void the referrer's pending commissions.
+  """
+  def get_referred_user_deletion_info(user_id) do
+    case get_referral_by_user(user_id) do
+      nil ->
+        %{was_referred: false}
+
+      %Referral{} = referral ->
+        referral = Repo.preload(referral, [:commissions, referral_code: :user])
+
+        pending_commissions =
+          Enum.filter(referral.commissions, &(&1.status in ["pending", "available"]))
+
+        pending_amount = Enum.reduce(pending_commissions, 0, &(&1.commission_amount + &2))
+
+        %{
+          was_referred: true,
+          referral: referral,
+          referrer_user_id: referral.referral_code.user_id,
+          pending_commissions_count: length(pending_commissions),
+          pending_commissions_amount: pending_amount
+        }
+    end
+  end
+
+  @doc """
+  Handles cleanup when a referrer deletes their account.
+  - Attempts final payout if eligible
+  - Deactivates referral code
+  - Does NOT delete Stripe Connect account (user retains access via Stripe directly)
+  """
+  def handle_referrer_account_deletion(referrer_info, current_user, session_key) do
+    require Logger
+
+    results = %{payout_result: nil, code_deactivated: false}
+
+    results =
+      if referrer_info.available_for_payout > 0 and referrer_info.connect_payouts_enabled do
+        case attempt_final_payout(referrer_info, current_user, session_key) do
+          {:ok, payout} ->
+            %{results | payout_result: {:ok, payout}}
+
+          {:error, reason} ->
+            Logger.warning("Final payout failed for user #{current_user.id}: #{inspect(reason)}")
+            %{results | payout_result: {:error, reason}}
+        end
+      else
+        results
+      end
+
+    case deactivate_code(referrer_info.referral_code) do
+      {:ok, _} -> %{results | code_deactivated: true}
+      _ -> results
+    end
+  end
+
+  defp attempt_final_payout(referrer_info, current_user, session_key) do
+    alias Mosslet.Billing.Providers.Stripe.Services.StripeConnect
+
+    code = referrer_info.referral_code
+    amount = referrer_info.available_for_payout
+
+    case StripeConnect.create_transfer(
+           code,
+           amount,
+           "Final payout - account deletion",
+           current_user,
+           session_key
+         ) do
+      {:ok, transfer} ->
+        commission_ids =
+          list_available_commissions(code.id)
+          |> Enum.map(& &1.id)
+
+        mark_commissions_paid_out(commission_ids)
+
+        {:ok, payout} =
+          create_payout(
+            %{
+              referral_code_id: code.id,
+              amount: amount,
+              status: "completed",
+              stripe_transfer_id: transfer.id,
+              period_start: Date.utc_today() |> Date.beginning_of_month(),
+              period_end: Date.utc_today()
+            },
+            current_user,
+            session_key
+          )
+
+        {:ok, payout}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Handles cleanup when a referred user deletes their account.
+  Voids any pending/available commissions the referrer would have earned from this user.
+  """
+  def handle_referred_user_deletion(referred_info) do
+    require Logger
+
+    if referred_info.was_referred do
+      case void_pending_commissions(referred_info.referral) do
+        {:ok, {count, _}} ->
+          Logger.info(
+            "Voided #{count} commissions for referral #{referred_info.referral.id} due to referred user deletion"
+          )
+
+          {:ok, count}
+
+        error ->
+          Logger.warning("Failed to void commissions: #{inspect(error)}")
+          error
+      end
+    else
+      {:ok, 0}
+    end
+  end
 end

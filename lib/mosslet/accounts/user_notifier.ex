@@ -110,4 +110,13 @@ defmodule Mosslet.Accounts.UserNotifier do
         true
     end
   end
+
+  @doc """
+  Deliver instructions for managing Stripe Connect account after account deletion.
+  """
+  def deliver_referral_account_deletion_email(email, assigns) do
+    email
+    |> Email.referral_account_deletion(assigns)
+    |> deliver()
+  end
 end

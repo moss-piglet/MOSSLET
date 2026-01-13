@@ -1,0 +1,75 @@
+<h1>Your Referral Payout Account</h1>
+
+<p>
+  Your MOSSLET account has been deleted as requested, but we wanted to make sure you know about your Stripe Express payout account.
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.status type="info">
+  <strong>💰 Your Stripe Account Is Still Active</strong>
+  <p style="margin-top: 8px;">
+    Your Stripe Express account (where referral payouts are sent) remains active and is completely separate from your MOSSLET account.
+  </p>
+</EmailComponents.status>
+
+<EmailComponents.gap />
+
+<%= if @available_payout > 0 do %>
+  <EmailComponents.status type="success">
+    <strong>✅ Final Payout Processed</strong>
+    <p style="margin-top: 8px;">
+      We transferred <strong>{@available_payout_formatted}</strong>
+      to your Stripe account before deletion.
+    </p>
+  </EmailComponents.status>
+  <EmailComponents.gap />
+<% end %>
+
+<%= if @pending_amount > 0 do %>
+  <EmailComponents.status type="warning">
+    <strong>⏳ Pending Earnings: {@pending_amount_formatted}</strong>
+    <p style="margin-top: 8px;">
+      You have earnings still in the waiting period (protection against chargebacks). These will automatically be transferred to your Stripe account when they clear — no action needed from you.
+    </p>
+  </EmailComponents.status>
+  <EmailComponents.gap />
+<% end %>
+
+<h2>How to Access Your Stripe Account</h2>
+
+<p>
+  You can manage your Stripe Express account, view your balance, update your bank details, or close it directly through Stripe:
+</p>
+
+<EmailComponents.button_centered
+  to="https://connect.stripe.com/express_login"
+  color="blue"
+  size="lg"
+>
+  Go to Stripe Express Dashboard
+</EmailComponents.button_centered>
+
+<EmailComponents.gap />
+
+<p>
+  When you visit the link above, Stripe will send a login link to your email address (<strong>{@email}</strong>).
+</p>
+
+<EmailComponents.gap />
+
+<EmailComponents.top_border>
+  <EmailComponents.small_text>
+    <strong>What you can do in your Stripe dashboard:</strong>
+    <ul style="margin-top: 8px;">
+      <li>View your current balance and payout history</li>
+      <li>Update your bank account or debit card for payouts</li>
+      <li>Download tax documents (1099 forms)</li>
+      <li>Close your Stripe account when you're ready</li>
+    </ul>
+  </EmailComponents.small_text>
+
+  <EmailComponents.small_text>
+    If you have any questions, feel free to reach out to us at <a href="mailto:support@mosslet.com">support@mosslet.com</a>.
+  </EmailComponents.small_text>
+</EmailComponents.top_border>

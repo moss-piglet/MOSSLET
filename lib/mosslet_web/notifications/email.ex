@@ -137,6 +137,14 @@ defmodule Mosslet.Notifications.Email do
   end
 
   # Inlines your CSS and adds a text option (email clients prefer this)
+  def referral_account_deletion(email, assigns) do
+    base_email()
+    |> to(email)
+    |> subject(gettext("Your MOSSLET Referral Payout Account"))
+    |> render_body("referral_account_deletion.html", assigns)
+    |> premail()
+  end
+
   defp premail(email) do
     html = Premailex.to_inline_css(email.html_body)
     text = Premailex.to_text(email.html_body)
