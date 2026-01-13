@@ -100,4 +100,16 @@ defmodule Mosslet.GroupMessages do
   def get_message_count_for_group(group_id) do
     adapter().get_message_count_for_group(group_id)
   end
+
+  def get_next_message_after(message) do
+    adapter().get_next_message_after(message)
+  end
+
+  def get_previous_message_before(message) do
+    adapter().get_previous_message_before(message)
+  end
+
+  def get_last_message_for_group(group_id) do
+    adapter().get_last_message_for_group(group_id)
+  end
 end

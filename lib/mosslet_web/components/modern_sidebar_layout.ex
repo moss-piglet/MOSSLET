@@ -222,7 +222,7 @@ defmodule MossletWeb.ModernSidebarLayout do
 
       <%!-- Main content --%>
       <div
-        class="transition-all duration-300 ease-out"
+        class="h-screen flex flex-col transition-all duration-300 ease-out"
         x-bind:class="sidebarCollapsed ? 'xl:pl-20' : 'xl:pl-72'"
       >
         <%!-- Top bar --%>
@@ -278,7 +278,7 @@ defmodule MossletWeb.ModernSidebarLayout do
         </header>
 
         <%!-- Page content --%>
-        <main class="pt-6 px-4 sm:px-6 lg:px-8">
+        <main class="flex-1 min-h-0 overflow-y-auto">
           {render_slot(@inner_block)}
         </main>
       </div>

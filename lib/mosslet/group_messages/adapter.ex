@@ -53,4 +53,10 @@ defmodule Mosslet.GroupMessages.Adapter do
             ) :: [GroupMessage.t()]
 
   @callback get_message_count_for_group(group_id :: String.t()) :: non_neg_integer()
+
+  @callback get_next_message_after(message :: GroupMessage.t()) :: GroupMessage.t() | nil
+
+  @callback get_previous_message_before(message :: GroupMessage.t()) :: GroupMessage.t() | nil
+
+  @callback get_last_message_for_group(group_id :: String.t()) :: GroupMessage.t() | nil
 end

@@ -12860,18 +12860,19 @@ defmodule MossletWeb.DesignSystem do
       <div
         id={@id}
         class={[
-          "group/msg relative",
+          "group/msg relative flex",
+          if(@is_own_message, do: "justify-end", else: "justify-start"),
           @class
         ]}
       >
         <div class={[
-          "relative rounded-2xl transition-all duration-300 ease-out",
+          "relative rounded-2xl transition-all duration-300 ease-out max-w-[85%] sm:max-w-[75%]",
           "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50",
           "dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20",
-          if(@is_grouped, do: "py-0.5 px-3 sm:px-4", else: "py-2.5 px-3 sm:px-4")
+          if(@is_grouped, do: "py-1 px-3 sm:px-4", else: "py-2.5 px-3 sm:px-4")
         ]}>
-          <div class={["flex items-start", if(@is_grouped, do: "gap-0", else: "gap-3")]}>
-            <div :if={!@is_grouped} class="flex-shrink-0 pt-0.5">
+          <div class="flex items-start gap-3">
+            <div :if={!@is_grouped && !@is_own_message} class="flex-shrink-0 pt-0.5">
               <div class={[
                 "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden",
                 "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900",
@@ -12886,12 +12887,18 @@ defmodule MossletWeb.DesignSystem do
                 ]} />
               </div>
             </div>
-            <div :if={@is_grouped} class="w-9 sm:w-10 flex-shrink-0" />
+            <div :if={@is_grouped && !@is_own_message} class="w-9 sm:w-10 flex-shrink-0" />
 
             <div class="flex-1 min-w-0">
-              <div :if={!@is_grouped} class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
+              <div
+                :if={!@is_grouped}
+                class={[
+                  "flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5",
+                  if(@is_own_message, do: "justify-end", else: "justify-start")
+                ]}
+              >
                 <span
-                  :if={@sender_name}
+                  :if={@sender_name && !@is_own_message}
                   class={[
                     "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
                     "text-slate-900 dark:text-slate-100",
@@ -12902,11 +12909,14 @@ defmodule MossletWeb.DesignSystem do
                   {@sender_name}
                 </span>
 
-                <span class={[
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                  "transition-all duration-200",
-                  liquid_chat_role_badge(@role)
-                ]}>
+                <span
+                  :if={!@is_own_message}
+                  class={[
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                    "transition-all duration-200",
+                    liquid_chat_role_badge(@role)
+                  ]}
+                >
                   <.phx_icon name="hero-finger-print" class="w-3 h-3" />
                   <span class="truncate max-w-[60px] sm:max-w-[100px]">{@moniker}</span>
                 </span>
@@ -12915,9 +12925,9 @@ defmodule MossletWeb.DesignSystem do
                   :if={@is_own_message}
                   class={[
                     "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium",
-                    "bg-gradient-to-r from-cyan-100 to-teal-100 text-cyan-700",
-                    "dark:from-cyan-900/40 dark:to-teal-900/40 dark:text-cyan-300",
-                    "border border-cyan-200/60 dark:border-cyan-700/40"
+                    "bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-700",
+                    "dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300",
+                    "border border-teal-200/60 dark:border-teal-700/40"
                   ]}
                 >
                   <.phx_icon name="hero-check-mini" class="w-3 h-3" />
@@ -12937,51 +12947,97 @@ defmodule MossletWeb.DesignSystem do
                 >
                   <.local_time id={@id <> "-created"} for={@timestamp} preset="TIME_SIMPLE" />
                 </time>
+
+                <button
+                  :if={@can_delete && @on_delete}
+                  type="button"
+                  phx-click={@on_delete}
+                  phx-value-id={@id}
+                  class={[
+                    "p-1 rounded-lg opacity-0 group-hover/msg:opacity-100 focus:opacity-100",
+                    "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
+                    "hover:bg-red-50 dark:hover:bg-red-900/20",
+                    "transition-all duration-200"
+                  ]}
+                  aria-label="Delete message"
+                >
+                  <.phx_icon name="hero-trash" class="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <div class={[
-                "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
-                "text-sm leading-relaxed",
-                "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
-                "border border-slate-200/60 dark:border-slate-700/50",
-                "shadow-sm",
-                "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
-                "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5",
-                "transition-all duration-200",
-                if(@is_own_message,
-                  do:
-                    "bg-gradient-to-br from-teal-50/50 to-emerald-50/30 dark:from-teal-900/20 dark:to-emerald-900/10",
-                  else: ""
-                )
-              ]}>
-                <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline break-words">
-                  {render_slot(@inner_block)}
+              <div class="flex items-center gap-2">
+                <div
+                  :if={@is_grouped && @can_delete && @on_delete && !@is_own_message}
+                  class="flex-shrink-0"
+                >
+                  <button
+                    type="button"
+                    phx-click={@on_delete}
+                    phx-value-id={@id}
+                    class={[
+                      "p-1 rounded-lg opacity-0 group-hover/msg:opacity-100 focus:opacity-100",
+                      "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20",
+                      "transition-all duration-200"
+                    ]}
+                    aria-label="Delete message"
+                  >
+                    <.phx_icon name="hero-trash" class="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div class={[
+                  "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
+                  "text-sm leading-relaxed",
+                  "shadow-sm",
+                  "transition-all duration-200",
+                  if(@is_own_message,
+                    do: [
+                      "bg-gradient-to-r from-teal-500 to-emerald-500 dark:from-teal-600 dark:to-emerald-600",
+                      "text-white",
+                      "border border-teal-400/40 dark:border-teal-500/50",
+                      "shadow-lg shadow-teal-500/25 dark:shadow-teal-500/15",
+                      "group-hover/msg:shadow-xl group-hover/msg:shadow-teal-500/30 dark:group-hover/msg:shadow-teal-400/20",
+                      "group-hover/msg:scale-[1.01]"
+                    ],
+                    else: [
+                      "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
+                      "border border-slate-200/60 dark:border-slate-700/50",
+                      "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
+                      "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5"
+                    ]
+                  )
+                ]}>
+                  <div class={[
+                    "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
+                    if(@is_own_message,
+                      do:
+                        "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
+                      else:
+                        "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
+                    )
+                  ]}>
+                    {render_slot(@inner_block)}
+                  </div>
+                </div>
+                <div
+                  :if={@is_grouped && @can_delete && @on_delete && @is_own_message}
+                  class="flex-shrink-0"
+                >
+                  <button
+                    type="button"
+                    phx-click={@on_delete}
+                    phx-value-id={@id}
+                    class={[
+                      "p-1 rounded-lg opacity-0 group-hover/msg:opacity-100 focus:opacity-100",
+                      "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
+                      "hover:bg-red-50 dark:hover:bg-red-900/20",
+                      "transition-all duration-200"
+                    ]}
+                    aria-label="Delete message"
+                  >
+                    <.phx_icon name="hero-trash" class="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <div
-              :if={@can_delete && @on_delete}
-              class={[
-                "absolute top-2 right-2 flex items-center",
-                "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100",
-                "transition-all duration-200"
-              ]}
-            >
-              <button
-                type="button"
-                phx-click={@on_delete}
-                phx-value-id={@id}
-                class={[
-                  "p-1.5 rounded-lg",
-                  "text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400",
-                  "hover:bg-red-50 dark:hover:bg-red-900/20",
-                  "transition-all duration-200"
-                ]}
-                aria-label="Delete message"
-              >
-                <.phx_icon name="hero-trash" class="w-4 h-4" />
-              </button>
             </div>
           </div>
         </div>

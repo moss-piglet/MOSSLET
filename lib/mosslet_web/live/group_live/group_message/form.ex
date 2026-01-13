@@ -49,7 +49,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             <button
               type="button"
               id="group-message-emoji-button"
-              class="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
+              class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
               phx-hook="GroupMessageEmojiPicker"
               title="Add emoji"
             >

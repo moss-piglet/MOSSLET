@@ -122,12 +122,7 @@ defmodule MossletWeb.GroupLive.Show do
 
   @impl true
   def handle_info(%{event: "deleted_message", payload: %{message: message}}, socket) do
-    # Someone else's message - remove from stream AND decrement count
-    {:noreply,
-     socket
-     |> stream_delete(:messages, message)
-     |> update(:total_messages_count, &max(&1 - 1, 0))
-     |> assign_last_user_message(message)}
+    {:noreply, handle_message_deletion(socket, message)}
   end
 
   @impl true
@@ -548,7 +543,6 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   def insert_updated_message(socket, message) do
-    # For updated messages, don't change the count - just update the stream
     socket
     |> stream_insert(:messages, GroupMessages.preload_message_sender(message), at: -1)
   end
@@ -557,6 +551,76 @@ defmodule MossletWeb.GroupLive.Show do
     socket
     |> stream_delete(:messages, message)
     |> update(:total_messages_count, &max(&1 - 1, 0))
+  end
+
+  defp handle_message_deletion(socket, deleted_message) do
+    next_message = GroupMessages.get_next_message_after(deleted_message)
+    prev_message = GroupMessages.get_previous_message_before(deleted_message)
+
+    socket
+    |> stream_delete(:messages, deleted_message)
+    |> update(:total_messages_count, &max(&1 - 1, 0))
+    |> maybe_update_next_message_grouping(next_message, prev_message, deleted_message)
+    |> assign_last_user_message(deleted_message)
+    |> update_last_message_info_after_deletion(deleted_message)
+  end
+
+  defp update_last_message_info_after_deletion(socket, deleted_message) do
+    last_info = socket.assigns[:last_message_info]
+
+    if last_info && last_info.sender_id == deleted_message.sender_id &&
+         last_info.inserted_at == deleted_message.inserted_at do
+      last_message = GroupMessages.get_last_message_for_group(socket.assigns.group.id)
+
+      if last_message do
+        assign(socket, :last_message_info, extract_message_info(last_message))
+      else
+        assign(socket, :last_message_info, nil)
+      end
+    else
+      socket
+    end
+  end
+
+  defp maybe_update_next_message_grouping(socket, nil, _prev_message, _deleted_message),
+    do: socket
+
+  defp maybe_update_next_message_grouping(socket, next_message, prev_message, deleted_message) do
+    next_date = get_message_date(next_message.inserted_at)
+
+    {new_is_grouped, new_show_date_separator} =
+      if prev_message do
+        prev_date = get_message_date(prev_message.inserted_at)
+        same_sender = prev_message.sender_id == next_message.sender_id
+        same_date = prev_date == next_date
+
+        within_window =
+          within_grouping_window?(prev_message.inserted_at, next_message.inserted_at)
+
+        is_grouped = same_sender && same_date && within_window
+        show_date_separator = !same_date
+
+        {is_grouped, show_date_separator}
+      else
+        {false, true}
+      end
+
+    was_grouped_with_deleted =
+      deleted_message.sender_id == next_message.sender_id &&
+        get_message_date(deleted_message.inserted_at) == next_date &&
+        within_grouping_window?(deleted_message.inserted_at, next_message.inserted_at)
+
+    if was_grouped_with_deleted do
+      updated_next =
+        next_message
+        |> Map.put(:is_grouped, new_is_grouped)
+        |> Map.put(:show_date_separator, new_show_date_separator)
+        |> Map.put(:message_date, next_date)
+
+      stream_insert(socket, :messages, updated_next, at: -1)
+    else
+      socket
+    end
   end
 
   def assign_active_group_messages(socket) do

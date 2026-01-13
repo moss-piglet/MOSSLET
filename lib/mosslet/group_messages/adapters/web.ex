@@ -94,4 +94,30 @@ defmodule Mosslet.GroupMessages.Adapters.Web do
     from(m in GroupMessage, where: m.group_id == ^group_id)
     |> Repo.aggregate(:count, :id)
   end
+
+  @impl true
+  def get_next_message_after(message) do
+    GroupMessages.Query.next_message_after(message)
+    |> Repo.one()
+    |> case do
+      nil -> nil
+      msg -> Repo.preload(msg, :sender)
+    end
+  end
+
+  @impl true
+  def get_previous_message_before(message) do
+    GroupMessages.Query.previous_message_before(message)
+    |> Repo.one()
+    |> case do
+      nil -> nil
+      msg -> Repo.preload(msg, :sender)
+    end
+  end
+
+  @impl true
+  def get_last_message_for_group(group_id) do
+    GroupMessages.Query.last_message_for_group(group_id)
+    |> Repo.one()
+  end
 end
