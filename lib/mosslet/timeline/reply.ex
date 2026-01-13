@@ -57,6 +57,7 @@ defmodule Mosslet.Timeline.Reply do
     |> cast_assoc(:post)
     |> cast_assoc(:user)
     |> validate_required([:body, :username, :visibility, :post_id, :user_id])
+    |> validate_length(:body, max: 10_000)
     |> validate_word_count(:body, max: 500)
     |> add_username_hash()
     |> encrypt_attrs(opts)

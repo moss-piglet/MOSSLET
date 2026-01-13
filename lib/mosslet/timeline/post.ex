@@ -166,6 +166,7 @@ defmodule Mosslet.Timeline.Post do
       :local_only
     ])
     |> validate_required([:body, :username, :user_id])
+    |> validate_length(:body, max: 10_000)
     |> validate_word_count(:body, max: 500)
     |> add_username_hash()
     |> validate_visibility(opts)
