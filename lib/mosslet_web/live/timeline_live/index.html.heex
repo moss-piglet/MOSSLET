@@ -746,5 +746,12 @@
       can_download={@can_download_images}
       on_cancel={JS.push("close_image_modal")}
     />
+
+    <%!-- Markdown guide modal --%>
+    <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+      id="markdown-guide-modal"
+      show={@show_markdown_guide}
+      on_cancel={JS.push("close_markdown_guide")}
+    />
   </div>
 </.layout>

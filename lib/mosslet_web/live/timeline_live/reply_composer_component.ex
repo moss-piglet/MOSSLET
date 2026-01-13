@@ -186,6 +186,7 @@ defmodule MossletWeb.TimelineLive.ReplyComposerComponent do
                         <MossletWeb.DesignSystem.liquid_markdown_guide_trigger
                           id={"reply-markdown-guide-trigger-#{@post_id}"}
                           on_click={Phoenix.LiveView.JS.push("open_markdown_guide")}
+                          size="sm"
                         />
                       </div>
 

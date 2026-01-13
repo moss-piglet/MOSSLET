@@ -183,6 +183,8 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:share_post_username, nil)
       |> assign(:removing_shared_user_id, nil)
       |> assign(:adding_shared_user, nil)
+      # Markdown guide modal state
+      |> assign(:show_markdown_guide, false)
       |> assign(:loaded_replies_counts, %{})
       |> assign(:loaded_nested_replies, %{})
       |> assign(:unread_replies_by_post, %{})
@@ -3585,6 +3587,17 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:report_user_id, nil)
 
     {:noreply, socket}
+  end
+
+  def handle_event("open_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, true)}
+  end
+
+  def handle_event("close_markdown_guide", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_markdown_guide, false)
+     |> push_event("restore-body-scroll", %{})}
   end
 
   def handle_event("submit_report", %{"report" => report_params}, socket) do

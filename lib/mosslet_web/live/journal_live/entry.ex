@@ -163,6 +163,11 @@ defmodule MossletWeb.JournalLive.Entry do
                 <.phx_icon name="hero-sparkles" class="h-3.5 w-3.5" />
                 {if @loading_prompt, do: "Getting prompt...", else: "Inspire me"}
               </button>
+              <DesignSystem.liquid_markdown_guide_trigger
+                id="journal-markdown-guide-trigger"
+                size="sm"
+                on_click={JS.push("open_markdown_guide")}
+              />
             </div>
 
             <div class="mb-6">
@@ -223,6 +228,12 @@ defmodule MossletWeb.JournalLive.Entry do
           on_password_submit="verify_privacy_password"
           privacy_form={@privacy_form}
         />
+
+        <DesignSystem.liquid_markdown_guide_modal
+          id="journal-markdown-guide-modal"
+          show={@show_markdown_guide}
+          on_cancel={JS.push("close_markdown_guide")}
+        />
       </.layout>
     <% end %>
     """
@@ -259,6 +270,7 @@ defmodule MossletWeb.JournalLive.Entry do
      |> assign(:book_id, nil)
      |> assign(:entry_matches_scope, true)
      |> assign(:entry_book_title, nil)
+     |> assign(:show_markdown_guide, false)
      |> JournalHelpers.assign_privacy_state(user)}
   end
 
@@ -526,6 +538,19 @@ defmodule MossletWeb.JournalLive.Entry do
   @impl true
   def handle_event("dismiss_prompt", _params, socket) do
     {:noreply, assign(socket, :ai_prompt, nil)}
+  end
+
+  @impl true
+  def handle_event("open_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, true)}
+  end
+
+  @impl true
+  def handle_event("close_markdown_guide", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_markdown_guide, false)
+     |> push_event("restore-body-scroll", %{})}
   end
 
   @impl true

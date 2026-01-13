@@ -114,6 +114,7 @@ defmodule MossletWeb.UserHomeLive do
       |> assign(:block_update?, false)
       |> assign(:profile_user_block, profile_user_block)
       |> assign(:removing_self_from_post_id, nil)
+      |> assign(:show_markdown_guide, false)
       |> assign(:show_image_modal, false)
       |> assign(:current_images, [])
       |> assign(:current_image_index, 0)
@@ -1031,6 +1032,14 @@ defmodule MossletWeb.UserHomeLive do
       true ->
         socket
     end
+  end
+
+  def handle_event("open_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, true)}
+  end
+
+  def handle_event("close_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, false)}
   end
 
   def handle_event("load_more_posts", _params, socket) do
@@ -3014,6 +3023,12 @@ defmodule MossletWeb.UserHomeLive do
         can_download={@can_download_images}
         on_cancel={JS.push("close_image_modal")}
       />
+
+      <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+        id="markdown-guide-modal"
+        show={@show_markdown_guide}
+        on_cancel={JS.push("close_markdown_guide")}
+      />
     </.layout>
     """
   end
@@ -3600,6 +3615,12 @@ defmodule MossletWeb.UserHomeLive do
         current_index={@current_image_index}
         can_download={@can_download_images}
         on_cancel={JS.push("close_image_modal")}
+      />
+
+      <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+        id="markdown-guide-modal"
+        show={@show_markdown_guide}
+        on_cancel={JS.push("close_markdown_guide")}
       />
     </.layout>
     """
@@ -4292,6 +4313,12 @@ defmodule MossletWeb.UserHomeLive do
           current_index={@current_image_index}
           can_download={@can_download_images}
           on_cancel={JS.push("close_image_modal")}
+        />
+
+        <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+          id="markdown-guide-modal"
+          show={@show_markdown_guide}
+          on_cancel={JS.push("close_markdown_guide")}
         />
       </div>
     </.layout>

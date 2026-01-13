@@ -614,11 +614,11 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_modal(assigns) do
     ~H"""
-    <.portal :if={@modal_portal} id={"#{@id}-portal"} target="body">
+    <.portal :if={@modal_portal && @show} id={"#{@id}-portal"} target="body">
       <.liquid_modal_content {assigns} />
     </.portal>
 
-    <.liquid_modal_content :if={!@modal_portal} {assigns} />
+    <.liquid_modal_content :if={!@modal_portal && @show} {assigns} />
     """
   end
 
@@ -14464,7 +14464,7 @@ defmodule MossletWeb.DesignSystem do
         </div>
       </:title>
 
-      <div class="space-y-6">
+      <div class="space-y-5">
         <p class="text-sm text-slate-600 dark:text-slate-400">
           You can use markdown to format your posts. Here's a quick reference:
         </p>
@@ -14473,68 +14473,67 @@ defmodule MossletWeb.DesignSystem do
           <.markdown_guide_section
             title="Text Formatting"
             items={[
-              {"**bold**", "bold"},
-              {"*italic*", "italic"},
-              {"~~strikethrough~~", "<s>strikethrough</s>"},
-              {"^superscript^", "superscript<sup>*</sup>"}
+              {"**bold**", "<strong>bold</strong>"},
+              {"*italic*", "<em>italic</em>"},
+              {"~~strike~~", "<s>strikethrough</s>"},
+              {"^super^", "super<sup>script</sup>"}
             ]}
           />
 
           <.markdown_guide_section
             title="Headers"
             items={[
-              {"# Heading 1", "<span class='text-xl font-bold'>Heading 1</span>"},
-              {"## Heading 2", "<span class='text-lg font-bold'>Heading 2</span>"},
-              {"### Heading 3", "<span class='text-base font-semibold'>Heading 3</span>"}
+              {"# H1", "<span class='font-bold'>Heading 1</span>"},
+              {"## H2", "<span class='font-semibold'>Heading 2</span>"},
+              {"### H3", "<span class='font-medium'>Heading 3</span>"}
             ]}
           />
 
           <.markdown_guide_section
             title="Lists"
             items={[
-              {"- Item one\n- Item two", "• Item one<br/>• Item two"},
-              {"1. First\n2. Second", "1. First<br/>2. Second"},
-              {"- [ ] Task\n- [x] Done", "☐ Task<br/>☑ Done"}
+              {"- item", "• bullet list"},
+              {"1. item", "1. numbered list"},
+              {"- [x] done", "☑ task list"}
             ]}
           />
 
           <.markdown_guide_section
             title="Links & Images"
             items={[
-              {"[link text](url)",
-               "<span class='text-emerald-600 dark:text-emerald-400 underline'>link text</span>"},
-              {"![alt](image-url)", "<span class='text-slate-500'>📷 image</span>"},
-              {"https://example.com",
-               "<span class='text-emerald-600 dark:text-emerald-400 underline'>https://example.com</span>"}
+              {"[text](url)",
+               "<span class='text-emerald-600 dark:text-emerald-400 underline'>link</span>"},
+              {"![alt](url)", "🖼️ image"},
+              {"auto-links",
+               "<span class='text-emerald-600 dark:text-emerald-400'>urls → links</span>"}
             ]}
           />
 
           <.markdown_guide_section
             title="Code"
             items={[
-              {"`inline code`",
-               "<code class='px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-sm font-mono'>inline code</code>"},
-              {"```\ncode block\n```",
-               "<code class='px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-sm font-mono'>code block</code>"}
+              {"`code`",
+               "<code class='px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-600 text-xs'>inline</code>"},
+              {"```lang block```",
+               "<code class='px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-600 text-xs'>syntax hl block</code>"}
             ]}
           />
 
           <.markdown_guide_section
             title="Other"
             items={[
-              {"> Quote",
-               "<span class='border-l-2 border-slate-300 dark:border-slate-600 pl-2 italic'>Quote</span>"},
-              {"---", "<span class='text-slate-400'>─────────</span>"},
-              {"| Col | Col |\n|-----|-----|\n| A | B |",
-               "<span class='text-slate-500'>📊 table</span>"}
+              {"> quote",
+               "<span class='border-l-2 border-emerald-400 pl-2 italic text-slate-600 dark:text-slate-400'>quote</span>"},
+              {"---", "<span class='text-slate-400'>───</span> divider"},
+              {"| table |", "📊 tables"}
             ]}
           />
         </div>
 
-        <div class="pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+        <div class="pt-3 border-t border-slate-200/60 dark:border-slate-700/60">
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            <span class="font-medium text-slate-600 dark:text-slate-300">Tip:</span>
-            URLs are automatically converted to links. Syntax highlighting is available for code blocks.
+            <span class="font-medium text-emerald-600 dark:text-emerald-400">Tip:</span>
+            URLs auto-link and code blocks have syntax highlighting.
           </p>
         </div>
       </div>
@@ -14548,18 +14547,18 @@ defmodule MossletWeb.DesignSystem do
   defp markdown_guide_section(assigns) do
     ~H"""
     <div class="rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
-      <div class="px-3 py-2 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/60 dark:border-slate-700/60">
+      <div class="px-3 py-2 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-800/80 dark:to-slate-800/40 border-b border-slate-200/60 dark:border-slate-700/60">
         <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300">{@title}</h4>
       </div>
-      <div class="divide-y divide-slate-100 dark:divide-slate-700/50">
-        <div :for={{syntax, preview} <- @items} class="px-3 py-2.5 flex items-start gap-3">
-          <div class="flex-1 min-w-0">
-            <code class="text-xs font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded whitespace-pre-wrap break-all">
-              {syntax}
-            </code>
-          </div>
-          <div class="flex-shrink-0 text-slate-500 dark:text-slate-400">→</div>
-          <div class="flex-1 min-w-0 text-sm text-slate-700 dark:text-slate-300">
+      <div class="divide-y divide-slate-100 dark:divide-slate-700/50 bg-white/50 dark:bg-slate-800/30">
+        <div
+          :for={{syntax, preview} <- @items}
+          class="px-3 py-2 flex items-center justify-between gap-4"
+        >
+          <code class="text-xs font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded flex-shrink-0">
+            {syntax}
+          </code>
+          <div class="text-sm text-slate-600 dark:text-slate-400 text-right">
             {Phoenix.HTML.raw(preview)}
           </div>
         </div>
@@ -14574,9 +14573,11 @@ defmodule MossletWeb.DesignSystem do
   ## Examples
 
       <.liquid_markdown_guide_trigger on_click={JS.push("open_markdown_guide")} />
+      <.liquid_markdown_guide_trigger on_click={JS.push("open_markdown_guide")} size="sm" />
   """
   attr :id, :string, default: "markdown-guide-trigger"
   attr :on_click, JS, default: %JS{}
+  attr :size, :string, default: "md", values: ~w(sm md)
   attr :class, :any, default: ""
 
   def liquid_markdown_guide_trigger(assigns) do
@@ -14587,17 +14588,22 @@ defmodule MossletWeb.DesignSystem do
       phx-click={@on_click}
       phx-hook="TippyHook"
       data-tippy-content="Markdown formatting guide"
+      aria-label="Markdown formatting guide"
       class={[
-        "p-1.5 rounded-lg text-slate-400 dark:text-slate-500",
+        "rounded-lg text-slate-500 dark:text-slate-400",
         "hover:text-emerald-600 dark:hover:text-emerald-400",
         "hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20",
         "transition-all duration-200 ease-out group",
+        if(@size == "sm", do: "p-1.5", else: "p-2"),
         @class
       ]}
     >
       <.phx_icon
-        name="hero-question-mark-circle"
-        class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
+        name="hero-document-text"
+        class={[
+          "transition-transform duration-200 group-hover:scale-110",
+          if(@size == "sm", do: "h-4 w-4", else: "h-5 w-5")
+        ]}
       />
     </button>
     """
