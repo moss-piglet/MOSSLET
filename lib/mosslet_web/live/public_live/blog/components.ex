@@ -16646,6 +16646,7 @@ defmodule MossletWeb.PublicLive.Blog.Components do
           "dark:prose-a:text-emerald-400 dark:hover:prose-a:text-emerald-300",
           "prose-strong:text-slate-900 dark:prose-strong:text-slate-100",
           "prose-code:text-emerald-600 dark:prose-code:text-emerald-400",
+          "[&_pre_code]:text-inherit [&_pre_*]:text-inherit",
           "prose-blockquote:border-l-emerald-500 prose-blockquote:bg-emerald-50/50",
           "dark:prose-blockquote:bg-emerald-900/20",
           "prose-hr:border-slate-200 dark:prose-hr:border-slate-700",

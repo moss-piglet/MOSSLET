@@ -498,7 +498,7 @@
               <div
                 :for={{dom_id, post} <- @streams.read_posts}
                 id={dom_id}
-                class="timeline-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
+                class="timeline-post-container"
                 data-user-id={post.user_id}
               >
                 <MossletWeb.DesignSystem.liquid_timeline_date_separator

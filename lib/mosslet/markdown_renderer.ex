@@ -22,7 +22,7 @@ defmodule Mosslet.MarkdownRenderer do
       hardbreaks: true
     ],
     syntax_highlight: [
-      formatter: {:html_inline, theme: "onedark"}
+      formatter: {:html_inline, theme: "catppuccin_mocha"}
     ],
     sanitize: MDEx.Document.default_sanitize_options()
   ]

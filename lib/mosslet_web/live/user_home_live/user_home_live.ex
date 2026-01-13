@@ -2735,7 +2735,7 @@ defmodule MossletWeb.UserHomeLive do
                   <div
                     :for={{dom_id, post} <- @streams.read_posts}
                     id={dom_id}
-                    class="profile-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
+                    class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
@@ -3418,7 +3418,7 @@ defmodule MossletWeb.UserHomeLive do
                   <div
                     :for={{dom_id, post} <- @streams.read_posts}
                     id={dom_id}
-                    class="profile-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
+                    class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
@@ -4067,7 +4067,7 @@ defmodule MossletWeb.UserHomeLive do
                   <div
                     :for={{dom_id, post} <- @streams.read_posts}
                     id={dom_id}
-                    class="profile-post-container opacity-75 hover:opacity-100 transition-opacity duration-300"
+                    class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
                       :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}

@@ -6009,7 +6009,7 @@ defmodule MossletWeb.DesignSystem do
           <%!-- Modern posts with markdown rendering --%>
           <div
             :if={!contains_html?(@content)}
-            class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline"
+            class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
           >
             {format_decrypted_content(@content)}
           </div>
@@ -8875,7 +8875,7 @@ defmodule MossletWeb.DesignSystem do
             </div>
 
             <%!-- Reply content with markdown support --%>
-            <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-1.5 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline">
+            <div class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-1.5 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit">
               {format_decrypted_content(
                 get_decrypted_reply_content(@reply, @current_scope.user, @current_scope.key)
               )}
