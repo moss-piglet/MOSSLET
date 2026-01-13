@@ -2,6 +2,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
   @moduledoc false
   use MossletWeb, :live_component
   import MossletWeb.CoreComponents
+  import MossletWeb.DesignSystem, only: [liquid_markdown_guide_trigger: 1]
 
   alias Mosslet.GroupMessages
   alias Mosslet.Groups.GroupMessage
@@ -41,17 +42,36 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             apply_classes?={true}
             phx-debounce="500"
             classes={[
-              "block w-full resize-none bg-slate-50/60 dark:bg-slate-900/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-2xl py-3 pl-4 pr-14 text-base sm:text-sm leading-relaxed min-h-[48px] max-h-32 border border-slate-200/60 dark:border-slate-700/60 focus:border-teal-400/60 dark:focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:outline-none transition-all duration-200"
+              "block w-full resize-none bg-slate-50/60 dark:bg-slate-900/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-2xl py-3 pl-4 pr-28 text-base sm:text-sm leading-relaxed min-h-[48px] max-h-32 border border-slate-200/60 dark:border-slate-700/60 focus:border-teal-400/60 dark:focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:outline-none transition-all duration-200"
             ]}
           />
-          <button
-            type="submit"
-            class="group/btn absolute right-2 bottom-2 inline-flex items-center justify-center gap-1.5 h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
-          >
-            <span class="hidden sm:inline text-sm font-medium">Send</span>
-            <.phx_icon name="hero-paper-airplane" class="w-4 h-4 sm:w-4 sm:h-4" />
-            <span class="sr-only sm:hidden">Send message</span>
-          </button>
+          <div class="absolute right-2 bottom-2 flex items-center gap-1">
+            <button
+              type="button"
+              id="group-message-emoji-button"
+              class="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-200 ease-out group"
+              phx-hook="GroupMessageEmojiPicker"
+              title="Add emoji"
+            >
+              <.phx_icon
+                name="hero-face-smile"
+                class="h-4 w-4 transition-transform duration-200 group-hover:scale-110"
+              />
+            </button>
+            <.liquid_markdown_guide_trigger
+              id="group-message-markdown-guide-trigger"
+              on_click={JS.push("open_markdown_guide")}
+              size="sm"
+            />
+            <button
+              type="submit"
+              class="group/btn inline-flex items-center justify-center gap-1.5 h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
+            >
+              <span class="hidden sm:inline text-sm font-medium">Send</span>
+              <.phx_icon name="hero-paper-airplane" class="w-4 h-4 sm:w-4 sm:h-4" />
+              <span class="sr-only sm:hidden">Send message</span>
+            </button>
+          </div>
         </div>
 
         <.phx_input type="hidden" field={@message_form[:group_id]} value={@group_id} />

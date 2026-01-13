@@ -270,4 +270,10 @@
       user_connections={@user_connections}
     />
   </MossletWeb.DesignSystem.liquid_modal>
+
+  <MossletWeb.DesignSystem.liquid_markdown_guide_modal
+    id="markdown-guide-modal"
+    show={@show_markdown_guide}
+    on_cancel={JS.push("close_markdown_guide")}
+  />
 </.layout>

@@ -36,6 +36,7 @@ defmodule MossletWeb.GroupLive.Show do
      |> assign(:slide_over, false)
      |> assign(:slide_over_content, "")
      |> assign(:current_page, :circles)
+     |> assign(:show_markdown_guide, false)
      |> assign_active_group()
      |> assign_scrolled_to_top()
      |> assign_last_user_message(), layout: {MossletWeb.Layouts, :app}}
@@ -296,6 +297,16 @@ defmodule MossletWeb.GroupLive.Show do
     {:noreply,
      socket
      |> assign_scrolled_to_top("false")}
+  end
+
+  @impl true
+  def handle_event("open_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, true)}
+  end
+
+  @impl true
+  def handle_event("close_markdown_guide", _params, socket) do
+    {:noreply, assign(socket, :show_markdown_guide, false)}
   end
 
   @impl true

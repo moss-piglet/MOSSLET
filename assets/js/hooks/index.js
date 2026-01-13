@@ -3,6 +3,7 @@ import AutoResize from "./auto-resize";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
+import GroupMessageEmojiPicker from "./group-message-emoji-picker";
 import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
 import Flash from "./flash";
@@ -45,6 +46,7 @@ export default {
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,
+  GroupMessageEmojiPicker,
   KeywordFilterInput,
   ClearFlashHook,
   Flash,
