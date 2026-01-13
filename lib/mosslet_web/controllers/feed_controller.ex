@@ -245,7 +245,8 @@ defmodule MossletWeb.FeedController do
 
     content_html =
       if content do
-        safe_content = String.replace(content, "]]>", "]]&gt;")
+        rendered = Mosslet.MarkdownRenderer.to_html(content)
+        safe_content = String.replace(rendered, "]]>", "]]&gt;")
         "<![CDATA[#{safe_content}]]>"
       else
         "<![CDATA[Content unavailable]]>"
