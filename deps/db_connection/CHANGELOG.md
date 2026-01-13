@@ -1,13 +1,20 @@
 # Changelog
 
+## v2.9.0 (2026-01-10)
+
+* Enhancements
+  * Whenever possible, have error messages that include a PID also include ancestors and one of process label, name, or initial call
+  * Allow clients to retry when specified
+  * Remove sensitive options before calling `after_connect`
+
 ## v2.8.1 (2025-06-24)
 
-* Enhancement
+* Enhancements
   * Automatically set and read process labels in error reports
 
 ## v2.8.0 (2025-06-24)
 
-* Enhancement
+* Enhancements
   * Allow `unallow_existing` as an opt to `ownership_allow/4`
   * Improve ETS performance by enabling descentralized counters
   * Increase default queue interval to 2000ms

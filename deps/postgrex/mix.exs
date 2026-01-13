@@ -2,13 +2,13 @@ defmodule Postgrex.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/elixir-ecto/postgrex"
-  @version "0.21.1"
+  @version "0.22.0"
 
   def project do
     [
       app: :postgrex,
       version: @version,
-      elixir: "~> 1.13",
+      elixir: "~> 1.15",
       deps: deps(),
       name: "Postgrex",
       description: "PostgreSQL driver for Elixir",
@@ -23,7 +23,7 @@ defmodule Postgrex.Mixfile do
     [
       extra_applications: [:logger, :crypto, :ssl],
       mod: {Postgrex.App, []},
-      env: [type_server_reap_after: 3 * 60_000, json_library: Jason]
+      env: [type_server_reap_after: 3 * 60_000, type_server_timeout: 60_000, json_library: Jason]
     ]
   end
 
@@ -33,7 +33,7 @@ defmodule Postgrex.Mixfile do
       {:jason, "~> 1.0", optional: true},
       {:table, "~> 0.1.0", optional: true},
       {:decimal, "~> 1.5 or ~> 2.0"},
-      {:db_connection, "~> 2.1"}
+      {:db_connection, "~> 2.9"}
     ]
   end
 
@@ -80,7 +80,10 @@ defmodule Postgrex.Mixfile do
     [
       maintainers: ["Eric Meadows-Jönsson", "José Valim", "Greg Rychlewski", "Wojtek Mach"],
       licenses: ["Apache-2.0"],
-      links: %{"GitHub" => @source_url}
+      links: %{
+        "GitHub" => @source_url,
+        "Changelog" => "https://hexdocs.pm/postgrex/changelog.html"
+      }
     ]
   end
 end
