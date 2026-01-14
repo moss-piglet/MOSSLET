@@ -18,6 +18,9 @@
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 
+// Mobile native bridge for iOS/Android apps
+import MobileNative from "./mobile_native";
+
 import Alpine from "../vendor/alpinejs";
 import collapse from "../vendor/@alpinejs/collapse";
 import focus from "../vendor/@alpinejs/focus";
