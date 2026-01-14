@@ -10958,13 +10958,11 @@ defmodule MossletWeb.DesignSystem do
 
   def liquid_empty_state(assigns) do
     ~H"""
-    <div class={["text-center py-12 sm:py-16", @class]}>
-      <%!-- Icon container with semantic color styling --%>
+    <div class={["text-center py-6 sm:py-8", @class]}>
       <div class={[
-        "mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center mb-6 relative overflow-hidden group transition-all duration-300",
+        "mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-xl border flex items-center justify-center mb-4 relative overflow-hidden group transition-all duration-300",
         get_empty_state_icon_styles(@color)
       ]}>
-        <%!-- Shimmer effect with semantic color --%>
         <div class={[
           "absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out",
           get_empty_state_shimmer(@color)
@@ -10974,32 +10972,30 @@ defmodule MossletWeb.DesignSystem do
         <.phx_icon
           name={@icon}
           class={[
-            "w-8 h-8 sm:w-10 sm:h-10 relative z-10 transition-transform duration-300 group-hover:scale-110",
+            "w-6 h-6 sm:w-7 sm:h-7 relative z-10 transition-transform duration-300 group-hover:scale-110",
             get_empty_state_icon_color(@color)
           ]}
         />
       </div>
 
-      <%!-- Content with semantic color theming --%>
-      <div class="space-y-3 mb-6">
+      <div class="space-y-1.5 mb-4">
         <.dynamic_heading
           level={@heading_level}
           class={[
-            "text-lg sm:text-xl font-semibold",
+            "text-base sm:text-lg font-semibold",
             get_empty_state_title_color(@color)
           ]}
         >
           {@title}
         </.dynamic_heading>
         <p class={[
-          "max-w-md mx-auto leading-relaxed",
+          "text-sm max-w-sm mx-auto leading-relaxed",
           get_empty_state_description_color(@color)
         ]}>
           {@description}
         </p>
       </div>
 
-      <%!-- Action button with semantic color --%>
       <div :if={@action_label}>
         <.liquid_button
           navigate={@action_navigate}
@@ -11007,6 +11003,7 @@ defmodule MossletWeb.DesignSystem do
           phx-click={@action_click}
           icon="hero-plus"
           color={@color}
+          size="sm"
           class="justify-center"
         >
           {@action_label}

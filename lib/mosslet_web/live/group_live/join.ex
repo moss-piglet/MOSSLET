@@ -9,7 +9,7 @@ defmodule MossletWeb.GroupLive.Join do
   def render(assigns) do
     ~H"""
     <.layout current_scope={@current_scope} current_page={@current_page} type="sidebar">
-      <div class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-amber-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-amber-900/10">
+      <div class="bg-gradient-to-br from-slate-50/30 via-transparent to-amber-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-amber-900/10">
         <div class="flex min-h-[80vh] items-center justify-center p-4">
           <div class="w-full max-w-md">
             <div class="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-slate-900/5 dark:shadow-slate-900/30 overflow-hidden">

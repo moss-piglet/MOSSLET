@@ -6,33 +6,13 @@
 >
   <div
     id="groups-container"
-    class="min-h-screen bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10"
+    class="bg-gradient-to-br from-slate-50/30 via-transparent to-teal-50/20 dark:from-slate-900/30 dark:via-transparent dark:to-teal-900/10"
   >
     <MossletWeb.DesignSystem.liquid_container
       max_width="xl"
       class="space-y-6 sm:space-y-8 pt-6 sm:pt-8"
     >
       <MossletWeb.DesignSystem.liquid_circles_header id="circles-header" />
-      <div class="p-4 bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-amber-50/60 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-amber-900/20 backdrop-blur-md rounded-2xl border border-amber-200/40 dark:border-amber-700/40 shadow-lg shadow-amber-500/5 dark:shadow-amber-500/10">
-        <div class="flex gap-3">
-          <.phx_icon
-            name="hero-wrench-screwdriver"
-            class="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
-          />
-          <div class="text-sm text-amber-700 dark:text-amber-300">
-            <p class="font-medium mb-1">Circles are actively under construction 🚧</p>
-            <p class="text-amber-600 dark:text-amber-400">
-              If you have any feedback or suggestions, we would love to hear from you.
-              <a
-                href="mailto:support@mosslet.com"
-                class="underline hover:text-amber-800 dark:hover:text-amber-200"
-              >
-                Reach out
-              </a>
-            </p>
-          </div>
-        </div>
-      </div>
 
       <div
         :if={@live_action != :joining_group}
