@@ -4474,12 +4474,12 @@ defmodule MossletWeb.Components.LandingPage do
           <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
             My favorite part is
             <span class="font-semibold bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
-              Journal
+              Journal.
             </span>
-            . It's this private, encrypted space that's just for me. I use it to brain-dump, track my mood, and sometimes turn on the AI reflections when I'm curious about patterns in how I've been feeling. It feels more like a personal notebook than a “feature.”
+            It's this private, encrypted space that's just for me. I use it to brain-dump, track my mood, and sometimes turn on the AI reflections when I'm curious about patterns in how I've been feeling. It feels more like a personal notebook than a “feature.”
           </p>
           <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
-            Mosslet is quiet, kind of cozy, and very intentional. It's privacy-first and built by my partner as a solo dev, but honestly, that's not why I stay. I stay because it already feels more human than any mainstream social app I've used in years.
+            Mosslet is quiet, kind of cozy, and very intentional. It's privacy-first and built by my partner, but honestly, that's not why I stay. I stay because it already feels more human than any mainstream social app I've used in years.
           </p>
         </blockquote>
 
