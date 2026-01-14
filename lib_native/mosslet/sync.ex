@@ -273,22 +273,127 @@ defmodule Mosslet.Sync do
   end
 
   defp sync_create(item, token) do
+    payload = decode_payload(item.payload)
+
     case item.resource_type do
-      "post" -> Client.create_post(token, decode_payload(item.payload))
+      "post" -> Client.create_post(token, payload)
+      "reply" -> Client.create_reply(token, payload)
+      "user_connection" -> Client.create_connection(token, payload)
+      "group" -> Client.create_group(token, payload)
+      "user_group" -> Client.create_user_group(token, payload)
+      "group_message" -> Client.create_group_message(token, payload)
+      "memory" -> Client.create_memory(token, payload)
+      "remark" -> Client.create_remark(token, payload)
+      "conversation" -> Client.create_conversation(token, payload)
       _ -> {:error, {:unknown_resource_type, item.resource_type}}
     end
   end
 
   defp sync_update(item, token) do
-    case item.resource_type do
-      "post" -> Client.update_post(token, item.resource_id, decode_payload(item.payload))
-      _ -> {:error, {:unknown_resource_type, item.resource_type}}
+    payload = decode_payload(item.payload)
+
+    case {item.resource_type, item.action} do
+      {"post", _} ->
+        Client.update_post(token, item.resource_id, payload)
+
+      {"reply", _} ->
+        Client.update_reply(token, item.resource_id, payload)
+
+      {"reply", "mark_read_for_post"} ->
+        Client.mark_replies_read_for_post(token, payload["post_id"], payload["user_id"])
+
+      {"reply", "mark_all_read"} ->
+        Client.mark_all_replies_read_for_user(token, payload["user_id"])
+
+      {"reply", "mark_nested_read"} ->
+        Client.mark_nested_replies_read_for_parent(token, payload["parent_id"], payload["user_id"])
+
+      {"receipt", "mark_read"} ->
+        Client.mark_post_as_read(token, payload["post_id"], payload["user_id"])
+
+      {"user_connection", "update"} ->
+        Client.update_connection(token, item.resource_id, payload)
+
+      {"user_connection", "update_label"} ->
+        Client.update_connection_label(token, item.resource_id, payload["label"], payload["label_hash"])
+
+      {"user_connection", "update_zen"} ->
+        Client.update_connection_zen(token, item.resource_id, payload["zen"])
+
+      {"user_connection", "update_photos"} ->
+        Client.update_connection_photos(token, item.resource_id, payload["photos"])
+
+      {"user", "update_name"} ->
+        Client.update_user_name(token, payload)
+
+      {"user", "update_username"} ->
+        Client.update_user_username(token, payload)
+
+      {"user", "update_visibility"} ->
+        Client.update_user_visibility(token, payload["visibility"])
+
+      {"user", "update_onboarding"} ->
+        Client.update_user_onboarding(token, payload)
+
+      {"user", "update_onboarding_profile"} ->
+        Client.update_user_onboarding_profile(token, payload)
+
+      {"user", "update_notifications"} ->
+        Client.update_user_notifications(token, payload["enabled"])
+
+      {"user", "update_tokens"} ->
+        Client.update_user_tokens(token, payload["tokens"])
+
+      {"user", "create_visibility_group"} ->
+        Client.create_visibility_group(token, payload)
+
+      {"user", "update_visibility_group"} ->
+        Client.update_visibility_group(token, payload["id"], payload)
+
+      {"group", _} ->
+        Client.update_group(token, item.resource_id, payload)
+
+      {"user_group", _} ->
+        Client.update_user_group(token, item.resource_id, payload)
+
+      {"group_message", _} ->
+        Client.update_group_message(token, item.resource_id, payload)
+
+      {"memory", _} ->
+        Client.update_memory(token, item.resource_id, payload)
+
+      {"conversation", _} ->
+        Client.update_conversation(token, item.resource_id, payload)
+
+      {"message", _} ->
+        conversation_id = payload["conversation_id"]
+        Client.update_message(token, conversation_id, item.resource_id, payload)
+
+      {"org", _} ->
+        Client.update_org(token, item.resource_id, payload)
+
+      {"status", "update"} ->
+        Client.update_user_status(token, payload)
+
+      _ ->
+        {:error, {:unknown_resource_type, item.resource_type, item.action}}
     end
   end
 
   defp sync_delete(item, token) do
+    payload = decode_payload(item.payload)
+
     case item.resource_type do
       "post" -> Client.delete_post(token, item.resource_id)
+      "reply" -> Client.delete_reply(token, item.resource_id)
+      "user_connection" -> Client.delete_connection(token, item.resource_id)
+      "group" -> Client.delete_group(token, item.resource_id)
+      "user_group" -> Client.delete_user_group(token, item.resource_id)
+      "group_message" -> Client.delete_group_message(token, item.resource_id)
+      "memory" -> Client.delete_memory(token, item.resource_id)
+      "remark" -> Client.delete_remark(token, item.resource_id)
+      "conversation" -> Client.delete_conversation(token, item.resource_id)
+      "message" -> Client.delete_message(token, payload["conversation_id"], item.resource_id)
       _ -> {:error, {:unknown_resource_type, item.resource_type}}
     end
   end

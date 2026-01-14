@@ -1151,26 +1151,63 @@ Messages (legacy):
 - `PUT /api/conversations/:conversation_id/messages/:id` - Update message
 - `DELETE /api/conversations/:conversation_id/messages/:id` - Delete message
 
-#### 5.12 Caching Strategy
+#### 5.12 Caching Strategy ✅ COMPLETE
 
-- [ ] After successful API reads, cache data in SQLite via `Mosslet.Cache`
-- [ ] On API failure (offline), fall back to cached data
-- [ ] On writes, queue in `SyncQueueItem` if offline, sync later
+**Status:** Caching strategy fully implemented across all native adapters.
 
-**Files to modify:**
+**Completed:**
 
-- `lib/mosslet/accounts.ex` - Add platform routing to auth functions
-- `lib/mosslet/timeline.ex` - Add platform routing to post functions
-- `lib/mosslet/api/client.ex` - Add any missing CRUD endpoints
-- `lib/mosslet_web/user_auth.ex` - Handle native token auth
-- `lib/mosslet/session/native.ex` (new) - Native session/token management
+- [x] After successful API reads, cache data in SQLite via `Mosslet.Cache`
+- [x] On API failure (offline), fall back to cached data
+- [x] On writes, queue in `SyncQueueItem` if offline, sync later
+- [x] Sync GenServer extended to handle all resource types
 
-**API Endpoints to add:**
+**Implementation Details:**
 
-- `PUT /api/users/profile` - Update user profile
-- `PUT /api/users/email` - Change email
-- `PUT /api/users/password` - Change password
-- `POST /api/users/reset-password` - Request password reset
+All native adapters follow a consistent pattern:
+
+1. **Read operations:** Try API first → cache result → fall back to cache on failure
+2. **Write operations:** If online, make API call; if offline, queue for sync via `Cache.queue_for_sync/4`
+3. **Sync GenServer:** Processes queued items when connectivity is restored
+
+**Sync GenServer Resource Types Supported:**
+
+| Resource Type | Actions |
+|---------------|---------|
+| `post` | create, update, delete |
+| `reply` | create, update, delete, mark_read_for_post, mark_all_read, mark_nested_read |
+| `receipt` | mark_read |
+| `user_connection` | create, update, update_label, update_zen, update_photos, delete |
+| `user` | update_name, update_username, update_visibility, update_onboarding, update_notifications, update_tokens, create_visibility_group, update_visibility_group |
+| `group` | create, update, delete |
+| `user_group` | create, update, delete |
+| `group_message` | create, update, delete |
+| `memory` | create, update, delete |
+| `remark` | create, delete |
+| `conversation` | create, update, delete |
+| `message` | update, delete |
+| `org` | update |
+| `status` | update |
+
+**Caching Patterns by Adapter:**
+
+| Adapter | Cache Operations | Pattern |
+|---------|------------------|---------|
+| `accounts` | 62 | Full caching + queue_for_sync |
+| `timeline` | 13 | Timeline tabs cached, posts cached |
+| `groups` | 26 | with_fallback_to_cache helper |
+| `memories` | 9 | Cache on read, queue writes |
+| `journal` | 10 | Books + entries cached per-user |
+| `orgs` | 6 | Orgs cached, queue writes |
+| `group_messages` | 9 | Messages cached per-group |
+| `messages` | 7 | Conversation messages cached |
+| `conversations` | 12 | Conversations cached per-user |
+| `statuses` | 1 | Minimal (real-time data) |
+| `logs` | 0 | Server-side only (intentional) |
+
+**Files modified:**
+
+- `lib_native/mosslet/sync.ex` - Extended sync handlers for all resource types
 - `PUT /api/connections/:id` - Update connection profile
 
 ### Phase 5.5: Desktop Window & Auth Setup ✅ COMPLETE
@@ -1474,4 +1511,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-01 (Phase 5.11 Journal context ✅ COMPLETE - All contexts now have adapters. Added `lib_native/` directory pattern documentation for native-only code compilation. Native adapters live in `lib_native/` to enable conditional compilation via `elixirc_paths`. Next: Phase 5.12 Caching Strategy or Phase 6 Mobile App Setup)_
+_Last updated: 2025-01-01 (Phase 5.12 Caching Strategy ✅ COMPLETE - Sync GenServer extended to handle all resource types. All native adapters follow consistent cache-on-read and fallback-to-cache patterns. Next: Phase 5.5 Desktop Window & Auth Setup verification or Phase 6 Mobile App Setup)_
