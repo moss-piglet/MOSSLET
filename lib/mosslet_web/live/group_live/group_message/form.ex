@@ -36,11 +36,13 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
             phx-keydown={show_modal("edit_message")}
             phx-key="ArrowUp"
             phx-focus="unpin_scrollbar_from_top"
+            phx-hook="SubmitOnEnter"
             field={@message_form[:content]}
             type="textarea"
             placeholder="Type your message..."
             apply_classes?={true}
             phx-debounce="500"
+            aria-label="Message input. Press Enter to send, Shift+Enter for new line"
             classes={[
               "block w-full resize-none bg-slate-50/60 dark:bg-slate-900/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-2xl py-3 pl-4 pr-28 text-base sm:text-sm leading-relaxed min-h-[48px] max-h-32 border border-slate-200/60 dark:border-slate-700/60 focus:border-teal-400/60 dark:focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:outline-none transition-all duration-200"
             ]}

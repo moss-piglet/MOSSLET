@@ -40,6 +40,7 @@ import SortableBooksHook from "./sortable-books-hook";
 import ImageResizeUploadHook from "./image-resize-upload-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import WordCounter from "./word-counter";
+import SubmitOnEnter from "./submit-on-enter";
 
 export default {
   AutoResize,
@@ -84,4 +85,5 @@ export default {
   ImageResizeUploadHook,
   JournalDragDropHook,
   WordCounter,
+  SubmitOnEnter,
 };
