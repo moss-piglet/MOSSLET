@@ -18,7 +18,7 @@ defmodule MossletWeb.JournalLive.Index do
       <div
         id="journal-drag-drop-container"
         phx-hook="JournalDragDropHook"
-        class="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-8"
+        class="max-w-4xl mx-auto px-3 sm:px-6 pt-4 sm:pt-8 pb-24 sm:pb-8"
       >
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>

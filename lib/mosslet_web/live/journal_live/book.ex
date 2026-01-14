@@ -14,7 +14,7 @@ defmodule MossletWeb.JournalLive.Book do
   def render(assigns) do
     ~H"""
     <.layout type="sidebar" current_scope={@current_scope} current_page={:journal}>
-      <div class="max-w-4xl mx-auto">
+      <div class="max-w-4xl mx-auto px-3 sm:px-6 pt-4 sm:pt-8 pb-24 sm:pb-8">
         <div class="mb-8">
           <.link
             navigate={~p"/app/journal"}
