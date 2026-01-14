@@ -14,6 +14,8 @@ defmodule Mosslet.Cache do
 
   - `cache_item/4` - Cache an encrypted blob from the server
   - `get_cached_item/2` - Retrieve a cached item by type and ID
+  - `get_cached_item/3` - Retrieve a user-scoped cached item
+  - `get_cached_items_by_type/2` - Get all cached items of a type with options
   - `invalidate_cache/2` - Remove a cached item
   - `clear_cache/0` - Clear all cached items
 
@@ -42,28 +44,39 @@ defmodule Mosslet.Cache do
   - `resource_type` - Type of resource (e.g., "post", "message")
   - `resource_id` - UUID of the resource
   - `encrypted_data` - The enacl-encrypted blob
-  - `opts` - Optional: `:encrypted_key`, `:etag`
+  - `opts` - Optional: `:encrypted_key`, `:etag`, `:user_id`
 
   ## Examples
 
       iex> Mosslet.Cache.cache_item("post", post_id, encrypted_blob, encrypted_key: key, etag: "abc123")
+      {:ok, %CachedItem{}}
+
+      iex> Mosslet.Cache.cache_item("journal_entry", entry_id, data, user_id: user_id)
       {:ok, %CachedItem{}}
   """
   def cache_item(resource_type, resource_id, encrypted_data, opts \\ []) do
     attrs = %{
       resource_type: resource_type,
       resource_id: normalize_id(resource_id),
+      user_id: opts[:user_id] && normalize_id(opts[:user_id]),
       encrypted_data: encrypted_data,
       encrypted_key: opts[:encrypted_key],
       etag: opts[:etag],
       cached_at: DateTime.utc_now()
     }
 
+    conflict_target =
+      if opts[:user_id] do
+        [:resource_type, :resource_id, :user_id]
+      else
+        [:resource_type, :resource_id]
+      end
+
     %CachedItem{}
     |> CachedItem.changeset(attrs)
     |> SQLite.insert(
       on_conflict: {:replace, [:encrypted_data, :encrypted_key, :etag, :cached_at]},
-      conflict_target: [:resource_type, :resource_id]
+      conflict_target: conflict_target
     )
   end
 
@@ -78,18 +91,53 @@ defmodule Mosslet.Cache do
   end
 
   @doc """
+  Retrieve a user-scoped cached item by type, ID and user_id.
+  """
+  def get_cached_item(resource_type, resource_id, opts) when is_list(opts) do
+    user_id = opts[:user_id]
+
+    if user_id do
+      SQLite.get_by(CachedItem,
+        resource_type: resource_type,
+        resource_id: normalize_id(resource_id),
+        user_id: normalize_id(user_id)
+      )
+    else
+      get_cached_item(resource_type, resource_id)
+    end
+  end
+
+  @doc """
   Get all cached items of a specific type.
   """
   def list_cached_items(resource_type, opts \\ []) do
     limit = opts[:limit] || 100
     offset = opts[:offset] || 0
+    user_id = opts[:user_id]
 
-    CachedItem
-    |> where([c], c.resource_type == ^resource_type)
-    |> order_by([c], desc: c.cached_at)
-    |> limit(^limit)
-    |> offset(^offset)
-    |> SQLite.all()
+    query =
+      CachedItem
+      |> where([c], c.resource_type == ^resource_type)
+      |> order_by([c], desc: c.cached_at)
+      |> limit(^limit)
+      |> offset(^offset)
+
+    query =
+      if user_id do
+        where(query, [c], c.user_id == ^normalize_id(user_id))
+      else
+        query
+      end
+
+    SQLite.all(query)
+  end
+
+  @doc """
+  Get all cached items of a specific type with user_id filtering.
+  Alias for list_cached_items with user_id option.
+  """
+  def get_cached_items_by_type(resource_type, opts \\ []) do
+    list_cached_items(resource_type, opts)
   end
 
   @doc """
@@ -103,10 +151,29 @@ defmodule Mosslet.Cache do
   end
 
   @doc """
-  Delete a cached item. Alias for `invalidate_cache/2`.
+  Delete a cached item.
   """
   def delete_cached_item(resource_type, resource_id) do
     invalidate_cache(resource_type, resource_id)
+  end
+
+  @doc """
+  Delete a user-scoped cached item.
+  """
+  def delete_cached_item(resource_type, resource_id, opts) when is_list(opts) do
+    user_id = opts[:user_id]
+
+    if user_id do
+      CachedItem
+      |> where([c], c.resource_type == ^resource_type)
+      |> where([c], c.resource_id == ^normalize_id(resource_id))
+      |> where([c], c.user_id == ^normalize_id(user_id))
+      |> SQLite.delete_all()
+
+      :ok
+    else
+      delete_cached_item(resource_type, resource_id)
+    end
   end
 
   @doc """
@@ -122,15 +189,26 @@ defmodule Mosslet.Cache do
   end
 
   @doc """
-  Clear all cached items, optionally filtered by type.
+  Remove a user-scoped cached item.
   """
-  def clear_cache(resource_type \\ nil) do
+  def invalidate_cache(resource_type, resource_id, opts) when is_list(opts) do
+    delete_cached_item(resource_type, resource_id, opts)
+  end
+
+  @doc """
+  Clear all cached items, optionally filtered by type and/or user_id.
+  """
+  def clear_cache(resource_type \\ nil, opts \\ []) do
+    user_id = opts[:user_id]
+
     query =
-      if resource_type do
-        CachedItem |> where([c], c.resource_type == ^resource_type)
-      else
-        CachedItem
-      end
+      CachedItem
+      |> then(fn q ->
+        if resource_type, do: where(q, [c], c.resource_type == ^resource_type), else: q
+      end)
+      |> then(fn q ->
+        if user_id, do: where(q, [c], c.user_id == ^normalize_id(user_id)), else: q
+      end)
 
     SQLite.delete_all(query)
     :ok
@@ -280,6 +358,7 @@ defmodule Mosslet.Cache do
     |> Map.new(fn s -> {s.key, s.value} end)
   end
 
+  defp normalize_id(nil), do: nil
   defp normalize_id(id) when is_binary(id), do: id
 
   defp normalize_id(id) do

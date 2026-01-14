@@ -23,6 +23,7 @@ defmodule Mosslet.Cache.CachedItem do
   schema "cached_items" do
     field :resource_type, :string
     field :resource_id, :binary_id
+    field :user_id, :binary_id
     field :encrypted_data, Native.Binary
     field :encrypted_key, Native.Binary
     field :etag, :string
@@ -34,6 +35,7 @@ defmodule Mosslet.Cache.CachedItem do
     |> cast(attrs, [
       :resource_type,
       :resource_id,
+      :user_id,
       :encrypted_data,
       :encrypted_key,
       :etag,

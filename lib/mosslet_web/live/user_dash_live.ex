@@ -16,7 +16,9 @@ defmodule MossletWeb.UserDashLive do
         <h1 class="sr-only">Dashboard</h1>
         <%!-- Profile creation section for new users --%>
         <div
-          :if={is_nil(@current_scope.user.connection.profile) && @current_scope.user.confirmed_at}
+          :if={
+            is_nil(@current_scope.user.connection.profile.slug) && @current_scope.user.confirmed_at
+          }
           class="mb-8"
         >
           <.liquid_card padding="lg" class="max-w-2xl mx-auto">
@@ -45,7 +47,9 @@ defmodule MossletWeb.UserDashLive do
           </.liquid_card>
         </div>
         <.alert
-          :if={is_nil(@current_scope.user.connection.profile) && !@current_scope.user.confirmed_at}
+          :if={
+            is_nil(@current_scope.user.connection.profile.slug) && !@current_scope.user.confirmed_at
+          }
           color="warning"
           class="my-5 max-w-prose"
           heading={gettext("🤫 Unconfirmed account")}
@@ -70,8 +74,10 @@ defmodule MossletWeb.UserDashLive do
   def mount(_params, _session, socket) do
     current_user = socket.assigns.current_scope.user
 
-    if current_user.connection.profile do
-      {:ok, socket |> push_navigate(to: ~p"/app/profile/#{current_user.connection.profile.slug}")}
+    profile = current_user.connection.profile
+
+    if profile && profile.slug do
+      {:ok, socket |> push_navigate(to: ~p"/app/profile/#{profile.slug}")}
     else
       if connected?(socket) do
         Accounts.private_subscribe(current_user)

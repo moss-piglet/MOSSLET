@@ -391,14 +391,21 @@ defmodule MossletWeb.Menus do
   end
 
   def get_link(:home = name, current_user) do
-    if current_user.connection.profile do
-      %{
-        name: name,
-        label: gettext("Home"),
-        path: ~p"/app/profile/#{current_user.connection.profile.slug}",
-        icon: "hero-home"
-      }
-    end
+    profile = current_user.connection.profile
+
+    path =
+      if profile && profile.slug do
+        ~p"/app/profile/#{profile.slug}"
+      else
+        ~p"/app"
+      end
+
+    %{
+      name: name,
+      label: gettext("Home"),
+      path: path,
+      icon: "hero-home"
+    }
   end
 
   def get_link(:connections = name, _current_user) do

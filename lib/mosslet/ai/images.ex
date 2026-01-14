@@ -44,8 +44,33 @@ defmodule Mosslet.AI.Images do
 
   Uses LLM with Bumblebee as fallback if LLM is unavailable.
   The LLM check is designed to discard the image immediately and not store it.
+
+  Accepts either a Vix.Vips.Image struct or raw binary data.
   """
-  def check_for_safety(image_binary) do
+  def check_for_safety(%Vix.Vips.Image{} = image) do
+    case moderate_private_image(image, "image/webp") do
+      {:ok, :approved} ->
+        {:ok, image}
+
+      {:error, :service_unavailable} ->
+        Logger.warning("LLM moderation unavailable, falling back to Bumblebee")
+
+        with {:ok, binary} <- Image.write(image, :memory, suffix: ".webp") do
+          case check_for_safety_bumblebee(binary) do
+            {:ok, _binary} -> {:ok, image}
+            {:nsfw, message} -> {:nsfw, message}
+            {:error, reason} -> {:error, reason}
+          end
+        else
+          {:error, reason} -> {:error, "Failed to convert image: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        {:nsfw, reason}
+    end
+  end
+
+  def check_for_safety(image_binary) when is_binary(image_binary) do
     case moderate_private_image_binary(image_binary, "image/webp") do
       {:ok, :approved} ->
         {:ok, image_binary}
