@@ -337,7 +337,11 @@ defmodule MossletWeb.EditProfileLive do
                   </div>
 
                   <div class="border-t border-slate-200 dark:border-slate-700 pt-6">
-                    <div class="flex items-center gap-3 mb-4">
+                    <p :if={is_nil(@profile)} class="text-sm text-slate-500 dark:text-slate-400">
+                      Create your profile to upload a custom banner.
+                    </p>
+
+                    <div :if={@profile} class="flex items-center gap-3 mb-4">
                       <label class="relative cursor-pointer group flex items-center gap-3">
                         <input
                           type="radio"
@@ -365,7 +369,7 @@ defmodule MossletWeb.EditProfileLive do
                       </label>
                     </div>
 
-                    <div :if={@banner_image == :custom} class="space-y-4">
+                    <div :if={@banner_image == :custom && @profile} class="space-y-4">
                       <DesignSystem.liquid_banner_upload
                         upload={@uploads.banner}
                         upload_stage={@banner_upload_stage}
@@ -405,7 +409,7 @@ defmodule MossletWeb.EditProfileLive do
                     </div>
 
                     <p
-                      :if={@banner_image != :custom}
+                      :if={@banner_image != :custom && @profile}
                       class="text-sm text-slate-500 dark:text-slate-400 mt-2"
                     >
                       Select "Use custom banner image" to upload your own banner.
@@ -935,45 +939,58 @@ defmodule MossletWeb.EditProfileLive do
   def handle_info({:banner_upload_complete, {:ok, {e_blob, file_path}}}, socket) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
+    profile = Map.get(user.connection, :profile)
 
-    {:ok, d_conn_key} =
-      Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
+    if is_nil(profile) do
+      {:noreply,
+       socket
+       |> assign(:banner_upload_stage, {:error, "Please create your profile first"})
+       |> put_flash(
+         :warning,
+         gettext(
+           "Please create your profile first by clicking 'Create Profile', then you can upload a custom banner."
+         )
+       )}
+    else
+      {:ok, d_conn_key} =
+        Encrypted.Users.Utils.decrypt_user_attrs_key(user.conn_key, user, key)
 
-    encrypted_file_path = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: file_path})
+      encrypted_file_path = Encrypted.Utils.encrypt(%{key: d_conn_key, payload: file_path})
 
-    profile_attrs =
-      %{
-        "profile" => %{
-          "custom_banner_url" => encrypted_file_path,
-          "banner_image" => "custom"
+      profile_attrs =
+        %{
+          "profile" => %{
+            "custom_banner_url" => encrypted_file_path,
+            "banner_image" => "custom"
+          }
         }
-      }
 
-    case Accounts.update_user_profile(user, profile_attrs,
-           key: key,
-           user: user,
-           update_profile: true
-         ) do
-      {:ok, _conn} ->
-        Mosslet.Extensions.BannerProcessor.put_banner(user.connection.id, e_blob)
+      case Accounts.update_user_profile(user, profile_attrs,
+             key: key,
+             user: user,
+             update_profile: true
+           ) do
+        {:ok, _conn} ->
+          Mosslet.Extensions.BannerProcessor.put_banner(user.connection.id, e_blob)
 
-        Phoenix.PubSub.broadcast(
-          Mosslet.PubSub,
-          "banner_cache_global",
-          {:banner_updated, user.connection.id, e_blob}
-        )
+          Phoenix.PubSub.broadcast(
+            Mosslet.PubSub,
+            "banner_cache_global",
+            {:banner_updated, user.connection.id, e_blob}
+          )
 
-        {:noreply,
-         socket
-         |> assign(:banner_upload_stage, {:ready, 100})
-         |> put_flash(:success, gettext("Your custom banner has been uploaded successfully."))
-         |> push_navigate(to: ~p"/app/users/edit-profile")}
+          {:noreply,
+           socket
+           |> assign(:banner_upload_stage, {:ready, 100})
+           |> put_flash(:success, gettext("Your custom banner has been uploaded successfully."))
+           |> push_navigate(to: ~p"/app/users/edit-profile")}
 
-      {:error, _changeset} ->
-        {:noreply,
-         socket
-         |> assign(:banner_upload_stage, {:error, "Update failed"})
-         |> put_flash(:error, gettext("Failed to save banner. Please try again."))}
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> assign(:banner_upload_stage, {:error, "Update failed"})
+           |> put_flash(:error, gettext("Failed to save banner. Please try again."))}
+      end
     end
   end
 
