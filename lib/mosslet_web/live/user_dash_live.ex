@@ -10,14 +10,21 @@ defmodule MossletWeb.UserDashLive do
 
   def render(assigns) do
     ~H"""
-    <.layout current_page={:dashboard} current_scope={@current_scope} type="sidebar">
+    <.layout
+      current_page={:dashboard}
+      sidebar_current_page={:dashboard}
+      current_scope={@current_scope}
+      type="sidebar"
+    >
       <%!-- Calm dashboard with liquid metal styling like the sidebar --%>
       <.liquid_container class="py-8">
         <h1 class="sr-only">Dashboard</h1>
         <%!-- Profile creation section for new users --%>
         <div
           :if={
-            is_nil(@current_scope.user.connection.profile.slug) && @current_scope.user.confirmed_at
+            is_nil(@current_scope.user.connection.profile) ||
+              (is_nil(@current_scope.user.connection.profile.slug) &&
+                 @current_scope.user.confirmed_at)
           }
           class="mb-8"
         >
@@ -48,7 +55,9 @@ defmodule MossletWeb.UserDashLive do
         </div>
         <.alert
           :if={
-            is_nil(@current_scope.user.connection.profile.slug) && !@current_scope.user.confirmed_at
+            (is_nil(@current_scope.user.connection.profile) ||
+               is_nil(@current_scope.user.connection.profile.slug)) &&
+              !@current_scope.user.confirmed_at
           }
           color="warning"
           class="my-5 max-w-prose"

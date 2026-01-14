@@ -22,6 +22,7 @@ defmodule MossletWeb.JournalLive.Entry do
         type="reader"
         current_scope={@current_scope}
         current_page={:journal}
+        sidebar_current_page={:journal}
         back_path={@back_path}
         prev_path={@prev_path}
         next_path={@next_path}

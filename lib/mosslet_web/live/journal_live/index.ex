@@ -14,7 +14,12 @@ defmodule MossletWeb.JournalLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <.layout type="sidebar" current_scope={@current_scope} current_page={:journal}>
+    <.layout
+      type="sidebar"
+      current_scope={@current_scope}
+      current_page={:journal}
+      sidebar_current_page={:journal}
+    >
       <div
         id="journal-drag-drop-container"
         phx-hook="JournalDragDropHook"

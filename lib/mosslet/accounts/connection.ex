@@ -616,19 +616,20 @@ defmodule Mosslet.Accounts.Connection do
   end
 
   defp maybe_generate_key(opts_map) do
-    if Map.get(opts_map, :update_profile) do
+    profile = opts_map.user.connection.profile
+    profile_key = profile && profile.profile_key
+
+    if Map.get(opts_map, :update_profile) && profile_key do
       profile_viz = Map.get(opts_map.user.connection.profile, :visibility)
 
       case profile_viz do
         :public ->
-          Encrypted.Users.Utils.decrypt_public_item_key(
-            opts_map.user.connection.profile.profile_key
-          )
+          Encrypted.Users.Utils.decrypt_public_item_key(profile_key)
 
         _rest ->
           {:ok, d_profile_key} =
             Encrypted.Users.Utils.decrypt_user_attrs_key(
-              opts_map.user.connection.profile.profile_key,
+              profile_key,
               opts_map.user,
               opts_map.key
             )
