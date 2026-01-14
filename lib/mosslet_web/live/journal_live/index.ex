@@ -1630,6 +1630,8 @@ defmodule MossletWeb.JournalLive.Index do
             socket.assigns.books
           end
 
+        updated_revealed = MapSet.put(socket.assigns.revealed_entries, entry.id)
+
         {:noreply,
          socket
          |> assign(:show_upload_modal, false)
@@ -1648,6 +1650,7 @@ defmodule MossletWeb.JournalLive.Index do
              else: socket.assigns.loose_entry_count
            )
          )
+         |> assign(:revealed_entries, updated_revealed)
          |> put_flash(:info, "Journal entry created from your handwriting ✨")
          |> push_event("restore-body-scroll", %{})}
 
