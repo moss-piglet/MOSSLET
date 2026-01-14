@@ -13,7 +13,31 @@ const SubmitOnEnter = {
           e.preventDefault();
           const form = this.el.closest("form");
           if (form) {
-            form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+            const formData = new FormData(form);
+            const params = {};
+            for (const [key, val] of formData.entries()) {
+              const keys = key.match(/[^\[\]]+/g);
+              if (keys.length === 1) {
+                params[keys[0]] = val;
+              } else {
+                let obj = params;
+                for (let i = 0; i < keys.length - 1; i++) {
+                  obj[keys[i]] = obj[keys[i]] || {};
+                  obj = obj[keys[i]];
+                }
+                obj[keys[keys.length - 1]] = val;
+              }
+            }
+
+            this.el.value = "";
+            this.el.dispatchEvent(new Event("input", { bubbles: true }));
+
+            const target = form.getAttribute("phx-target");
+            if (target) {
+              this.pushEventTo(target, "save", params);
+            } else {
+              this.pushEvent("save", params);
+            }
           }
         }
       }
