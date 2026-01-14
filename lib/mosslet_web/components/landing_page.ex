@@ -4467,19 +4467,19 @@ defmodule MossletWeb.Components.LandingPage do
         <blockquote class="pt-4">
           <p class="text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
             <span class="font-semibold text-teal-700 dark:text-teal-300">
-              I didn't realize how exhausting big social networks had become until I started using Mosslet.
+              I didn't realize how tired I was of the big social apps until I tried Mosslet.
             </span>
-            Here I don't feel tracked, profiled, or pressured to perform. There are no ads, no engagement tricks – just a calm space to share little pieces of my life and connect with people who want the same.
+            It feels… smaller, in a good way. There's no sense that I'm being watched or pushed to post for likes. I can just share little bits of my life and chat with people without all the noise.
           </p>
           <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
-            I also love
+            My favorite part is
             <span class="font-semibold bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">
               Journal
             </span>
-            on Mosslet: a fully private, encrypted space just for me. I can write freely, track my mood, and (when I want to) turn on gentle AI reflections to notice patterns in how I'm feeling.
+            . It's this private, encrypted space that's just for me. I use it to brain-dump, track my mood, and sometimes turn on the AI reflections when I'm curious about patterns in how I've been feeling. It feels more like a personal notebook than a “feature.”
           </p>
           <p class="mt-4 text-lg sm:text-xl leading-8 text-slate-700 dark:text-slate-300">
-            Whether I'm connecting with friends and family or just checking in with myself, Mosslet gives me a quieter, more intentional way to be online. It's small, privacy-first, and built by my partner as a solo developer – and it already feels more human than anything "mainstream" I've used in years.
+            Mosslet is quiet, kind of cozy, and very intentional. It's privacy-first and built by my partner as a solo dev, but honestly, that's not why I stay. I stay because it already feels more human than any mainstream social app I've used in years.
           </p>
         </blockquote>
 

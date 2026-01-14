@@ -1044,7 +1044,10 @@ defmodule MossletWeb.JournalLive.Index do
       |> assign(:streak, Journal.streak_days(user, local_now))
       |> assign(:offset, 20)
       |> assign(:has_more, length(entries) == 20)
-      |> assign(:revealed_entries, MapSet.new())
+      |> assign(
+        :revealed_entries,
+        MapSet.new(Enum.map(decrypted_entries, & &1.id) ++ Enum.map(decrypted_favorites, & &1.id))
+      )
       |> assign(:mood_insight, nil)
       |> assign(:loading_insights, false)
       |> assign(:cached_insight, nil)
@@ -1111,12 +1114,14 @@ defmodule MossletWeb.JournalLive.Index do
 
     new_entries = Journal.list_loose_entries(user, limit: 20, offset: offset)
     decrypted_new = decrypt_entries(new_entries, user, key)
+    new_entry_ids = MapSet.new(Enum.map(decrypted_new, & &1.id))
 
     {:noreply,
      socket
      |> assign(:entries, socket.assigns.entries ++ decrypted_new)
      |> assign(:offset, offset + 20)
-     |> assign(:has_more, length(new_entries) == 20)}
+     |> assign(:has_more, length(new_entries) == 20)
+     |> assign(:revealed_entries, MapSet.union(socket.assigns.revealed_entries, new_entry_ids))}
   end
 
   @impl true
