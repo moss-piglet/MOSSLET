@@ -1199,7 +1199,9 @@ defmodule Mosslet.Timeline.Adapters.Native do
     if Sync.online?() && token do
       case Client.fetch_connection_posts(token, current_user.id, options) do
         {:ok, %{posts: posts_data}} ->
-          Enum.map(posts_data || [], &deserialize_post/1)
+          posts_data = posts_data || []
+          cache_posts_for_tab("connections", current_user.id, posts_data)
+          Enum.map(posts_data, &deserialize_post/1)
 
         {:error, _reason} ->
           get_cached_posts_for_tab("connections", current_user.id)
@@ -1218,7 +1220,9 @@ defmodule Mosslet.Timeline.Adapters.Native do
 
       case Client.fetch_discover_posts(token, user_id, options) do
         {:ok, %{posts: posts_data}} ->
-          Enum.map(posts_data || [], &deserialize_post/1)
+          posts_data = posts_data || []
+          if current_user, do: cache_posts_for_tab("discover", current_user.id, posts_data)
+          Enum.map(posts_data, &deserialize_post/1)
 
         {:error, _reason} ->
           if current_user, do: get_cached_posts_for_tab("discover", current_user.id), else: []
@@ -1235,7 +1239,9 @@ defmodule Mosslet.Timeline.Adapters.Native do
     if Sync.online?() && token do
       case Client.fetch_user_own_posts(token, current_user.id, options) do
         {:ok, %{posts: posts_data}} ->
-          Enum.map(posts_data || [], &deserialize_post/1)
+          posts_data = posts_data || []
+          cache_posts_for_tab("home", current_user.id, posts_data)
+          Enum.map(posts_data, &deserialize_post/1)
 
         {:error, _reason} ->
           get_cached_posts_for_tab("home", current_user.id)
@@ -1252,13 +1258,15 @@ defmodule Mosslet.Timeline.Adapters.Native do
     if Sync.online?() && token do
       case Client.fetch_home_timeline(token, current_user.id, options) do
         {:ok, %{posts: posts_data}} ->
-          Enum.map(posts_data || [], &deserialize_post/1)
+          posts_data = posts_data || []
+          cache_posts_for_tab("home_timeline", current_user.id, posts_data)
+          Enum.map(posts_data, &deserialize_post/1)
 
         {:error, _reason} ->
-          get_cached_posts_for_tab("home", current_user.id)
+          get_cached_posts_for_tab("home_timeline", current_user.id)
       end
     else
-      get_cached_posts_for_tab("home", current_user.id)
+      get_cached_posts_for_tab("home_timeline", current_user.id)
     end
   end
 
@@ -1269,7 +1277,9 @@ defmodule Mosslet.Timeline.Adapters.Native do
     if Sync.online?() && token do
       case Client.fetch_group_posts(token, current_user.id, options) do
         {:ok, %{posts: posts_data}} ->
-          Enum.map(posts_data || [], &deserialize_post/1)
+          posts_data = posts_data || []
+          cache_posts_for_tab("groups", current_user.id, posts_data)
+          Enum.map(posts_data, &deserialize_post/1)
 
         {:error, _reason} ->
           get_cached_posts_for_tab("groups", current_user.id)
@@ -1458,6 +1468,10 @@ defmodule Mosslet.Timeline.Adapters.Native do
       _ ->
         []
     end
+  end
+
+  defp cache_posts_for_tab(tab, user_id, posts_data) do
+    Cache.cache_item("timeline_#{tab}", user_id, Jason.encode!(posts_data))
   end
 
   defp deserialize_bookmark(nil), do: nil
