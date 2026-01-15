@@ -89,10 +89,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func applicationWillResignActive(_ application: UIApplication) {
         notifyElixir(event: "app_will_resign_active")
+        notifyWebViewAppState("inactive")
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
         notifyElixir(event: "app_did_enter_background")
+        notifyWebViewAppState("background")
     }
     
     func applicationWillEnterForeground(_ application: UIApplication) {
@@ -101,12 +103,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func applicationDidBecomeActive(_ application: UIApplication) {
         notifyElixir(event: "app_did_become_active")
+        notifyWebViewAppState("active")
         UIApplication.shared.applicationIconBadgeNumber = 0
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
         notifyElixir(event: "app_will_terminate")
         stopErlangRuntime()
+    }
+    
+    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        guard erlangStarted else {
+            completionHandler(.noData)
+            return
+        }
+        
+        notifyWebViewBackgroundSync()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) {
+            completionHandler(.newData)
+        }
+    }
+    
+    private func notifyWebViewBackgroundSync() {
+        guard let webView = webView else { return }
+        
+        let js = """
+            window.dispatchEvent(new CustomEvent('mosslet-background-sync', {}));
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
     
     private func showMainApp() {
@@ -150,6 +175,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private func notifyElixir(event: String) {
         guard erlangStarted else { return }
         Bridge.sendEvent(event)
+    }
+    
+    private func notifyWebViewAppState(_ state: String) {
+        guard let webView = webView else { return }
+        
+        let js = """
+            window.dispatchEvent(new CustomEvent('mosslet-app-state', {
+                detail: { state: '\(state)' }
+            }));
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

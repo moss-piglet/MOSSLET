@@ -44,6 +44,7 @@ import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
 import SyncStatusHook from "./sync-status-hook";
 import PushNotificationHook from "./push-notification-hook";
+import BackgroundSyncHook from "./background-sync-hook";
 
 export default {
   AutoResize,
@@ -92,4 +93,5 @@ export default {
   SubmitOnEnter,
   SyncStatusHook,
   PushNotificationHook,
+  BackgroundSyncHook,
 };

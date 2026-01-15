@@ -1412,7 +1412,25 @@ config :mosslet, :mobile_product_mapping, %{
   - **Configuration Required:**
     - iOS: Replace `TEAM_ID` in `WellKnownController` with actual Apple Team ID
     - Android: Replace `SHA256_FINGERPRINT` with app signing certificate fingerprint
-- [ ] Background sync
+- [x] Background sync - ✅ COMPLETE
+  - `Mosslet.Sync` GenServer enhanced with app state awareness (foreground/background)
+  - `BackgroundSyncHook` - JavaScript hook for app lifecycle and network events
+  - `MobileNative.lifecycle` - JS API for app state management
+  - `MobileNative.sync` - JS API for sync control
+  - `MobileNative.network` - JS API for network status
+  - `MossletWeb.SyncHelpers` - Enhanced LiveView helpers for background sync events
+  - iOS: Background Fetch support via `performFetchWithCompletionHandler`
+  - iOS: App lifecycle events notify WebView of state changes
+  - Android: WorkManager `BackgroundSyncWorker` for periodic background sync
+  - Android: App lifecycle events via `onResume`/`onPause`
+  - **Sync Intervals:**
+    - Active (foreground): 5 minute intervals
+    - Background/Inactive: 15 minute intervals
+    - Health checks: 10s (active), 1m (background)
+  - **Automatic sync triggers:**
+    - App becomes active (foreground)
+    - Network connectivity restored
+    - OS background fetch (iOS/Android)
 - [x] Offline mode indicators
   - `MossletWeb.DesignSystem.sync_status_indicator/1` - Compact status pill
   - `MossletWeb.DesignSystem.offline_banner/1` - Full-width offline banner
@@ -1689,4 +1707,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (server + JS hook), Deep linking ✅ COMPLETE, Offline mode indicators ✅ COMPLETE. Next: Push notification native client integration, Background sync, Native file picker)_
+_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (server + JS hook), Deep linking ✅ COMPLETE, Background sync ✅ COMPLETE, Offline mode indicators ✅ COMPLETE. Next: Push notification native client integration, Native file picker)_

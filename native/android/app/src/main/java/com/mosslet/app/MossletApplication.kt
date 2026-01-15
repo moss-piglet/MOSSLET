@@ -22,6 +22,8 @@ class MossletApplication : Application() {
         
         PushNotificationService.createNotificationChannel(this)
         
+        BackgroundSyncWorker.schedule(this)
+        
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
                 when (event) {

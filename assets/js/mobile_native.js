@@ -255,6 +255,122 @@ window.addEventListener("mosslet-deep-link", (e) => {
   MobileNative.deepLink._handleLink(e.detail.url, e.detail.path);
 });
 
+MobileNative.lifecycle = {
+  _state: "active",
+  _listeners: [],
+
+  getState() {
+    return this._state;
+  },
+
+  isActive() {
+    return this._state === "active";
+  },
+
+  isBackground() {
+    return this._state === "background" || this._state === "inactive";
+  },
+
+  onStateChange(callback) {
+    this._listeners.push(callback);
+    return () => {
+      const idx = this._listeners.indexOf(callback);
+      if (idx > -1) {
+        this._listeners.splice(idx, 1);
+      }
+    };
+  },
+
+  _setState(newState) {
+    const oldState = this._state;
+    this._state = newState;
+    this._listeners.forEach((cb) => cb(newState, oldState));
+  },
+};
+
+window.addEventListener("mosslet-app-state", (e) => {
+  MobileNative.lifecycle._setState(e.detail.state);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!MobileNative.isNative()) {
+    const state = document.visibilityState === "visible" ? "active" : "background";
+    MobileNative.lifecycle._setState(state);
+  }
+});
+
+MobileNative.sync = {
+  _pendingCallback: null,
+
+  requestSync() {
+    if (window.MossletNative && window.MossletNative.sync) {
+      window.MossletNative.sync.requestSync();
+    } else if (window.AndroidBridge) {
+      window.AndroidBridge.postMessage(JSON.stringify({ action: "request_sync" }));
+    }
+  },
+
+  onBackgroundSync(callback) {
+    this._pendingCallback = callback;
+    return () => {
+      this._pendingCallback = null;
+    };
+  },
+
+  _handleBackgroundSync() {
+    if (this._pendingCallback) {
+      this._pendingCallback();
+    }
+  },
+};
+
+window.addEventListener("mosslet-background-sync", () => {
+  MobileNative.sync._handleBackgroundSync();
+});
+
+MobileNative.network = {
+  _status: navigator.onLine ? "online" : "offline",
+  _listeners: [],
+
+  isOnline() {
+    return this._status === "online";
+  },
+
+  getStatus() {
+    return this._status;
+  },
+
+  onStatusChange(callback) {
+    this._listeners.push(callback);
+    return () => {
+      const idx = this._listeners.indexOf(callback);
+      if (idx > -1) {
+        this._listeners.splice(idx, 1);
+      }
+    };
+  },
+
+  _setStatus(status) {
+    const oldStatus = this._status;
+    this._status = status;
+    if (oldStatus !== status) {
+      this._listeners.forEach((cb) => cb(status, oldStatus));
+    }
+  },
+};
+
+window.addEventListener("mosslet-network-status", (e) => {
+  MobileNative.network._setStatus(e.detail.status);
+});
+
+window.addEventListener("online", () => {
+  MobileNative.network._setStatus("online");
+});
+
+window.addEventListener("offline", () => {
+  MobileNative.network._setStatus("offline");
+});
+
 window.MobileNative = MobileNative;
 
 export default MobileNative;

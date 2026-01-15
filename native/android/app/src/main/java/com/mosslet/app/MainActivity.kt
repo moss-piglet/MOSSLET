@@ -320,18 +320,36 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         Bridge.sendEvent("app_resumed")
         webView.onResume()
+        notifyWebViewAppState("active")
     }
 
     override fun onPause() {
         super.onPause()
         Bridge.sendEvent("app_paused")
         webView.onPause()
+        notifyWebViewAppState("background")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         Bridge.sendEvent("app_destroyed")
         webView.destroy()
+    }
+    
+    private fun notifyWebViewAppState(state: String) {
+        val js = """
+            window.dispatchEvent(new CustomEvent('mosslet-app-state', {
+                detail: { state: '$state' }
+            }));
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+    
+    fun triggerBackgroundSync() {
+        val js = """
+            window.dispatchEvent(new CustomEvent('mosslet-background-sync', {}));
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
     }
 
     @Deprecated("Deprecated in Java")
