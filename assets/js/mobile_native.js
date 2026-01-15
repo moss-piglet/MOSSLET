@@ -300,7 +300,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 MobileNative.sync = {
-  _pendingCallback: null,
+  _listeners: [],
 
   requestSync() {
     if (window.MossletNative && window.MossletNative.sync) {
@@ -311,16 +311,17 @@ MobileNative.sync = {
   },
 
   onBackgroundSync(callback) {
-    this._pendingCallback = callback;
+    this._listeners.push(callback);
     return () => {
-      this._pendingCallback = null;
+      const idx = this._listeners.indexOf(callback);
+      if (idx > -1) {
+        this._listeners.splice(idx, 1);
+      }
     };
   },
 
   _handleBackgroundSync() {
-    if (this._pendingCallback) {
-      this._pendingCallback();
-    }
+    this._listeners.forEach((cb) => cb());
   },
 };
 
