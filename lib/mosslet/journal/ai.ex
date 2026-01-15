@@ -6,9 +6,12 @@ defmodule Mosslet.Journal.AI do
   - Journaling prompts - AI-generated reflection questions
   - Content moderation helper - Feedback on post appropriateness before sharing
   - Mood insights - Weekly AI-generated summaries of emotional patterns
+
+  Uses privacy-first providers via OpenRouter (Together AI).
   """
 
-  @model "openrouter:openai/gpt-4o-mini"
+  alias Mosslet.AI.Config
+
   @daily_prompt_limit 20
   @prompt_cooldown_seconds 10
   @ets_table :journal_ai_rate_limits
@@ -72,8 +75,10 @@ defmodule Mosslet.Journal.AI do
     Respond with ONLY the journaling prompt, nothing else.
     """
 
-    case ReqLLM.generate_text(@model, "Generate a journaling prompt",
-           system_prompt: system_prompt
+    case ReqLLM.generate_text(
+           Config.text_model(),
+           "Generate a journaling prompt",
+           Config.text_opts(system_prompt: system_prompt)
          ) do
       {:ok, response} ->
         {:ok, ReqLLM.Response.text(response)}
@@ -96,7 +101,11 @@ defmodule Mosslet.Journal.AI do
     Keep your response concise (2-4 sentences max).
     """
 
-    case ReqLLM.generate_text(@model, content, system_prompt: system_prompt) do
+    case ReqLLM.generate_text(
+           Config.text_model(),
+           content,
+           Config.text_opts(system_prompt: system_prompt)
+         ) do
       {:ok, response} ->
         {:ok, ReqLLM.Response.text(response)}
 
@@ -115,34 +124,39 @@ defmodule Mosslet.Journal.AI do
   """
   def moderate_public_post(content) do
     system_prompt = """
-    You are a content moderator for a social platform. Evaluate if this content is appropriate for PUBLIC sharing.
+    You are a content moderator for a social platform focused on healthy public discourse.
 
     ALLOW (respond with APPROVED):
-    - Opinions, even strong or critical ones
-    - Disagreements and debates
-    - Personal experiences and stories
-    - News discussion and commentary
-    - Venting or expressing frustration (without targeting individuals)
-    - Satire and humor
-    - Political opinions
+    - Opinions, even strong or unpopular ones
+    - Disagreements, debates, and criticism of ideas/organizations/public figures
+    - Personal experiences, stories, and venting about situations
+    - News discussion and political commentary
+    - Frustration expressed constructively (e.g., "I'm so frustrated with this situation")
+    - Satire, humor, and sarcasm
+    - Mild profanity used expressively (e.g., "that was a damn good movie")
 
     BLOCK (respond with BLOCKED and a brief reason):
-    - Direct harassment or targeted attacks on specific individuals
-    - Hate speech targeting protected groups (race, religion, gender, sexuality, disability)
-    - Explicit calls for violence
-    - Doxxing or sharing private information about others
-    - Spam or scam content
-    - Illegal content
+    - Abusive language directed at people (e.g., "fuck you", "you're an idiot", personal insults)
+    - Harassment, threats, or intimidation toward any individual or group
+    - Hate speech targeting protected characteristics (race, religion, gender, sexuality, disability, etc.)
+    - Calls for violence or harm
+    - Doxxing or sharing others' private information (addresses, phone numbers, etc.)
+    - Spam, scams, or deceptive content
+    - Content promoting illegal activity
 
-    Respond with ONLY one of these formats:
+    KEY DISTINCTION: Venting about situations is fine ("fuck this traffic!"), but directing hostility at people is not ("fuck you!").
+
+    Respond with ONLY:
     APPROVED
     or
-    BLOCKED: [brief reason in 10 words or less]
-
-    Be lenient - when in doubt, approve. We value free expression.
+    BLOCKED: [reason in 10 words or less]
     """
 
-    case ReqLLM.generate_text(@model, content, system_prompt: system_prompt) do
+    case ReqLLM.generate_text(
+           Config.text_model(),
+           content,
+           Config.text_opts(system_prompt: system_prompt, max_tokens: 1000)
+         ) do
       {:ok, response} ->
         result = ReqLLM.Response.text(response) |> String.trim()
 
@@ -196,8 +210,10 @@ defmodule Mosslet.Journal.AI do
       Respond with ONLY your insight, nothing else.
       """
 
-      case ReqLLM.generate_text(@model, "Analyze these mood patterns",
-             system_prompt: system_prompt
+      case ReqLLM.generate_text(
+             Config.text_model(),
+             "Analyze these mood patterns",
+             Config.text_opts(system_prompt: system_prompt)
            ) do
         {:ok, response} ->
           {:ok, ReqLLM.Response.text(response)}
@@ -265,7 +281,11 @@ defmodule Mosslet.Journal.AI do
 
     message = %ReqLLM.Message{role: :user, content: content}
 
-    case ReqLLM.generate_text(@model, [message], system_prompt: system_prompt) do
+    case ReqLLM.generate_text(
+           Config.vision_model(),
+           [message],
+           Config.vision_opts(system_prompt: system_prompt)
+         ) do
       {:ok, response} ->
         text = ReqLLM.Response.text(response)
 

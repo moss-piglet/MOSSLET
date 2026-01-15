@@ -460,6 +460,118 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </MossletWeb.DesignSystem.liquid_container>
 
+        <%!-- Privacy-First AI Section with Amber/Orange Accent --%>
+        <MossletWeb.DesignSystem.liquid_container
+          max_width="full"
+          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
+        >
+          <div class="absolute inset-0 bg-gradient-to-b from-amber-50/30 via-orange-50/20 to-transparent dark:from-amber-950/20 dark:via-orange-950/10 dark:to-transparent">
+          </div>
+          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+            <div class="flex items-center justify-center gap-3 mb-4">
+              <div class="h-px w-12 bg-gradient-to-r from-transparent to-amber-400 dark:to-amber-600">
+              </div>
+              <span class="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Privacy-First AI
+              </span>
+              <div class="h-px w-12 bg-gradient-to-l from-transparent to-amber-400 dark:to-amber-600">
+              </div>
+            </div>
+            <div class="text-center mb-12">
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                AI that respects your privacy
+              </h2>
+              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                Smart features that enhance your experience without compromising your data. No storage, no training, no surveillance — just helpful AI that works for you.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-rose-500 to-pink-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-shield-exclamation"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Image Safety
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Every image is checked for safety via OpenRouter with data collection disabled. A local Bumblebee model serves as fallback — your data is never collected, logged, stored, or used for training and analysis.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-chat-bubble-left-right"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Content Moderation
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Public posts get text and image moderation. Private and connections posts only check images for illegal content — in every case we respect your privacy.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-cpu-chip"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Zero Data Collection
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  AI requests pass through OpenRouter with data collection disabled. Your content is never stored or used to train models — then it's asymmetrically encrypted.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
+
+            <div class="mt-12 text-center">
+              <MossletWeb.DesignSystem.liquid_button
+                navigate="/features#privacy-first-ai"
+                variant="secondary"
+                color="amber"
+                icon="hero-arrow-right"
+                size="lg"
+                shimmer="page"
+              >
+                Learn how our AI works
+              </MossletWeb.DesignSystem.liquid_button>
+            </div>
+          </div>
+        </MossletWeb.DesignSystem.liquid_container>
+
         <.liquid_testimonials />
       </DesignSystem.liquid_container>
     </section>
@@ -569,7 +681,7 @@ defmodule MossletWeb.Components.LandingPage do
                 Circles, Memories, Posts, and more.
               </dt>
               <dd class="inline">
-                Make Circles to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. All images are checked for safety against a fine-tuned, pre-trained AI model running on our private servers before being uploaded.
+                Make Circles to chat live, store photos for yourself or share with others in Memories, and express your thoughts with Posts — always in real-time with the privacy you need. All images are checked for safety via OpenRouter with data collection disabled, with a local Bumblebee model as fallback.
               </dd>
             </div>
             <div class="relative pl-9">

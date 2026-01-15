@@ -3,15 +3,16 @@ defmodule Mosslet.AI.Images do
   Functions for processing images with AI.
 
   Image moderation strategy:
-  - Public posts: Full GPT-4o-mini moderation (comprehensive check)
+  - Public posts: Full vision model moderation (comprehensive check)
   - Private posts: Privacy-focused illegal content check with Bumblebee fallback
+
+  Uses privacy-first providers via OpenRouter (Together AI).
   """
 
   require Logger
 
+  alias Mosslet.AI.Config
   alias ReqLLM.Message.ContentPart
-
-  @model "openrouter:openai/gpt-4o-mini"
 
   @doc """
   Classifies an image as either "normal" or "nsfw" using Bumblebee.
@@ -123,9 +124,10 @@ defmodule Mosslet.AI.Images do
 
     message = %ReqLLM.Message{role: :user, content: content}
 
-    case ReqLLM.generate_text(@model, [message],
-           system_prompt: system_prompt,
-           receive_timeout: 15_000
+    case ReqLLM.generate_text(
+           Config.vision_model(),
+           [message],
+           Config.vision_opts(system_prompt: system_prompt, receive_timeout: 15_000)
          ) do
       {:ok, response} ->
         result = ReqLLM.Response.text(response) |> String.trim()
@@ -198,7 +200,7 @@ defmodule Mosslet.AI.Images do
     - Hate symbols or imagery targeting protected groups
     - Content promoting self-harm
     - Illegal content
-    - Personal/private information visible (doxxing)
+    - Personal/private information visible (doxxing): license plates, home addresses, phone numbers, ID documents, credit cards
 
     Respond with ONLY one of these formats:
     APPROVED
@@ -215,7 +217,11 @@ defmodule Mosslet.AI.Images do
 
     message = %ReqLLM.Message{role: :user, content: content}
 
-    case ReqLLM.generate_text(@model, [message], system_prompt: system_prompt) do
+    case ReqLLM.generate_text(
+           Config.vision_model(),
+           [message],
+           Config.vision_opts(system_prompt: system_prompt)
+         ) do
       {:ok, response} ->
         result = ReqLLM.Response.text(response) |> String.trim()
 
