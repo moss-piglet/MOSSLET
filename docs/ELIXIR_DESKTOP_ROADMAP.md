@@ -1300,13 +1300,75 @@ MobileNative.haptic(style)   // Haptic feedback
 3. Test on simulators/emulators
 4. Configure app signing for distribution
 
-### Phase 7: Mobile Billing
+### Phase 7: Mobile Billing ✅ COMPLETE
 
-- [ ] Create `Mosslet.Billing.Providers.AppleIAP` module
-- [ ] Create `Mosslet.Billing.Providers.GooglePlay` module
-- [ ] Add receipt validation endpoints
-- [ ] Handle subscription sync across platforms
-- [ ] Update billing UI for platform-specific flows
+**Status:** Full mobile billing infrastructure implemented for iOS and Android.
+
+- [x] Create `Mosslet.Billing.Providers.AppleIAP` module
+- [x] Create `Mosslet.Billing.Providers.GooglePlay` module
+- [x] Create `Mosslet.Billing.Providers.MobileIAP` shared utilities
+- [x] Add receipt validation endpoints
+- [x] Handle subscription sync across platforms
+- [x] Add webhook endpoints for Apple/Google server notifications
+- [x] Add restore purchases endpoint for app reinstalls
+
+**Files created:**
+
+- `lib/mosslet/billing/providers/apple_iap.ex` - Apple App Store Server API v2 integration
+- `lib/mosslet/billing/providers/google_play.ex` - Google Play Developer API integration
+- `lib/mosslet/billing/providers/mobile_iap.ex` - Shared utilities (product mapping, receipt processing)
+- `lib/mosslet_web/controllers/api/billing_controller.ex` - Mobile billing API endpoints
+- `lib/mosslet_web/controllers/api/webhooks_controller.ex` - Apple/Google webhook handlers
+- `test/mosslet_web/controllers/api/billing_controller_test.exs` - Tests
+
+**API Endpoints:**
+
+Authenticated (requires Bearer token):
+- `POST /api/billing/apple/validate` - Validate Apple IAP purchase (StoreKit 2 transactionId)
+- `POST /api/billing/google/validate` - Validate Google Play purchase (productId + purchaseToken)
+- `GET /api/billing/subscription` - Get current subscription status
+- `GET /api/billing/products` - Get available products with mobile product IDs
+- `POST /api/billing/restore` - Restore purchases after reinstall/new device
+
+Webhooks (server-to-server, no auth):
+- `POST /api/webhooks/apple` - Apple App Store Server Notifications V2
+- `POST /api/webhooks/google-play` - Google Play Real-time Developer Notifications (RTDN)
+
+**Configuration Required:**
+
+```elixir
+# config/runtime.exs
+config :mosslet, Mosslet.Billing.Providers.AppleIAP,
+  bundle_id: "com.mosslet.app",
+  issuer_id: System.get_env("APPLE_ISSUER_ID"),
+  key_id: System.get_env("APPLE_KEY_ID"),
+  private_key: System.get_env("APPLE_PRIVATE_KEY"),
+  environment: :production  # or :sandbox
+
+config :mosslet, Mosslet.Billing.Providers.GooglePlay,
+  package_name: "com.mosslet.app",
+  service_account_json: System.get_env("GOOGLE_SERVICE_ACCOUNT_JSON")
+  # OR provide credentials directly:
+  # client_email: System.get_env("GOOGLE_CLIENT_EMAIL"),
+  # private_key: System.get_env("GOOGLE_PRIVATE_KEY")
+
+config :mosslet, :mobile_product_mapping, %{
+  "com.mosslet.personal.monthly" => "personal-monthly",
+  "com.mosslet.personal.yearly" => "personal-yearly",
+  "com.mosslet.personal.lifetime" => "personal-lifetime"
+}
+```
+
+**Mobile App Flow:**
+
+1. User purchases in native app (StoreKit 2 / Google Play Billing)
+2. App receives transaction/purchase token
+3. App calls `/api/billing/apple/validate` or `/api/billing/google/validate`
+4. Server validates with Apple/Google, creates/updates subscription
+5. Server returns subscription status to app
+6. Apple/Google send renewal/cancellation webhooks for ongoing subscription management
+
+**Note:** The existing web UI (`SubscribeLive`) handles Stripe checkout for web users. Native apps bypass this and use native purchase UIs provided by Apple/Google, then validate via the API endpoints
 
 ### Phase 8: Native Features
 
@@ -1584,4 +1646,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-20 (Phase 6 Mobile App Setup ✅ COMPLETE - iOS and Android wrapper projects created with WebView integration, JS bridge, secure storage, and app lifecycle handling. Next: Build Erlang releases for mobile targets, then Phase 7 Mobile Billing)_
+_Last updated: 2025-01-21 (Phase 7 Mobile Billing ✅ COMPLETE - Apple IAP, Google Play Billing, receipt validation API, webhooks, restore purchases. Next: Phase 8 Native Features - push notifications, deep linking, background sync)_
