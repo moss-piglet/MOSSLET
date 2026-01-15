@@ -41,6 +41,8 @@ import ImageResizeUploadHook from "./image-resize-upload-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
+import SyncStatusHook from "./sync-status-hook";
+import PushNotificationHook from "./push-notification-hook";
 
 export default {
   AutoResize,
@@ -86,4 +88,6 @@ export default {
   JournalDragDropHook,
   WordCounter,
   SubmitOnEnter,
+  SyncStatusHook,
+  PushNotificationHook,
 };

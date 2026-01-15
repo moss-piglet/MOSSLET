@@ -1,5 +1,6 @@
 import UIKit
 import WebKit
+import UserNotifications
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -9,6 +10,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     private var serverPort: Int = 0
     private var erlangStarted = false
+    private var pendingDeviceToken: String?
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
@@ -16,6 +18,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let loadingVC = LoadingViewController()
         window?.rootViewController = loadingVC
         window?.makeKeyAndVisible()
+        
+        UNUserNotificationCenter.current().delegate = self
         
         startErlangRuntime { [weak self] port in
             self?.serverPort = port
@@ -42,6 +46,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func applicationDidBecomeActive(_ application: UIApplication) {
         notifyElixir(event: "app_did_become_active")
+        UIApplication.shared.applicationIconBadgeNumber = 0
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
@@ -56,11 +61,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let config = WKWebViewConfiguration()
         bridge = JsonBridge(config: config)
         bridge?.delegate = mainVC
+        bridge?.pushDelegate = self
         
         mainVC.configure(with: config)
         
         window?.rootViewController = mainVC
         webView = mainVC.webView
+        
+        if let token = pendingDeviceToken {
+            bridge?.notifyPushTokenReceived(token)
+            pendingDeviceToken = nil
+        }
     }
     
     private func startErlangRuntime(completion: @escaping (Int) -> Void) {
@@ -77,6 +88,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private func notifyElixir(event: String) {
         guard erlangStarted else { return }
         Bridge.sendEvent(event)
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        
+        if let bridge = bridge {
+            bridge.notifyPushTokenReceived(token)
+        } else {
+            pendingDeviceToken = token
+        }
+    }
+    
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("Failed to register for remote notifications: \(error.localizedDescription)")
+        bridge?.notifyPushRegistrationFailed(error.localizedDescription)
     }
 }
 
@@ -101,5 +127,63 @@ extension AppDelegate: MainViewControllerDelegate {
         default:
             break
         }
+    }
+}
+
+extension AppDelegate: JsonBridgePushDelegate {
+    func requestPushPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, error in
+            DispatchQueue.main.async {
+                if granted {
+                    UIApplication.shared.registerForRemoteNotifications()
+                    self?.bridge?.notifyPushPermissionResult(granted: true)
+                } else {
+                    self?.bridge?.notifyPushPermissionResult(granted: false)
+                }
+            }
+        }
+    }
+    
+    func getPushPermissionStatus(completion: @escaping (String) -> Void) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                switch settings.authorizationStatus {
+                case .authorized:
+                    completion("granted")
+                case .denied:
+                    completion("denied")
+                case .notDetermined:
+                    completion("not_determined")
+                case .provisional:
+                    completion("provisional")
+                case .ephemeral:
+                    completion("ephemeral")
+                @unknown default:
+                    completion("unknown")
+                }
+            }
+        }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        let userInfo = notification.request.content.userInfo
+        
+        if let data = userInfo["data"] as? [String: Any] {
+            bridge?.notifyPushReceived(data, foreground: true)
+        }
+        
+        completionHandler([.banner, .badge, .sound])
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        
+        if let data = userInfo["data"] as? [String: Any] {
+            bridge?.notifyPushTapped(data)
+        }
+        
+        completionHandler()
     }
 }

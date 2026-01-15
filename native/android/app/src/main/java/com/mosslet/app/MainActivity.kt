@@ -1,13 +1,14 @@
 package com.mosslet.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
-import android.view.WindowInsetsController
 import android.webkit.*
 import android.widget.ProgressBar
 import androidx.appcompat.app.AlertDialog
@@ -23,7 +24,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var loadingView: View
     private lateinit var progressBar: ProgressBar
+    private lateinit var jsonBridge: JsonBridge
     private var serverPort: Int = 0
+
+    companion object {
+        const val NOTIFICATION_PERMISSION_CODE = 1001
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +62,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.addJavascriptInterface(JsonBridge(this), "AndroidBridge")
+        jsonBridge = JsonBridge(this)
+        webView.addJavascriptInterface(jsonBridge, "AndroidBridge")
+        jsonBridge.setWebView(webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -80,6 +88,7 @@ class MainActivity : AppCompatActivity() {
                 loadingView.visibility = View.GONE
                 webView.visibility = View.VISIBLE
                 injectSafeAreaInsets()
+                injectAndroidBridgeScript()
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
@@ -119,6 +128,58 @@ class MainActivity : AppCompatActivity() {
             WebView.setWebContentsDebuggingEnabled(true)
         }
     }
+    
+    private fun injectAndroidBridgeScript() {
+        val script = """
+            if (!window.MossletNative) {
+                window.MossletNative = {
+                    postMessage: function(message) {
+                        AndroidBridge.postMessage(JSON.stringify(message));
+                    },
+                    
+                    openURL: function(url) {
+                        this.postMessage({ action: 'open_url', url: url });
+                    },
+                    
+                    share: function(text, url) {
+                        this.postMessage({ action: 'share', text: text, url: url });
+                    },
+                    
+                    haptic: function(style) {
+                        this.postMessage({ action: 'haptic', style: style || 'medium' });
+                    },
+                    
+                    isNative: function() {
+                        return true;
+                    },
+                    
+                    getPlatform: function() {
+                        return 'android';
+                    },
+                    
+                    push: {
+                        requestPermission: function() {
+                            AndroidBridge.postMessage(JSON.stringify({ action: 'push_request_permission' }));
+                        },
+                        
+                        getPermissionStatus: function() {
+                            AndroidBridge.postMessage(JSON.stringify({ action: 'push_get_permission_status' }));
+                        },
+                        
+                        onPermissionResult: null,
+                        onPermissionStatus: null,
+                        onTokenReceived: null,
+                        onTokenError: null,
+                        onNotificationReceived: null,
+                        onNotificationTapped: null
+                    }
+                };
+                
+                window.dispatchEvent(new CustomEvent('mosslet-native-ready'));
+            }
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+    }
 
     private fun startErlangAndLoadApp() {
         lifecycleScope.launch {
@@ -157,11 +218,34 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Exit") { _, _ -> finish() }
             .show()
     }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handlePushNotificationIntent(intent)
+    }
+    
+    private fun handlePushNotificationIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("from_notification", false) == true) {
+            val data = mutableMapOf<String, String>()
+            intent.extras?.keySet()?.forEach { key ->
+                if (key.startsWith("push_")) {
+                    val value = intent.getStringExtra(key)
+                    if (value != null) {
+                        data[key.removePrefix("push_")] = value
+                    }
+                }
+            }
+            if (data.isNotEmpty()) {
+                PushNotificationService.handleNotificationTapped(data)
+            }
+        }
+    }
 
     override fun onResume() {
         super.onResume()
         Bridge.sendEvent("app_resumed")
         webView.onResume()
+        handlePushNotificationIntent(intent)
     }
 
     override fun onPause() {
@@ -182,6 +266,20 @@ class MainActivity : AppCompatActivity() {
             webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        if (requestCode == NOTIFICATION_PERMISSION_CODE) {
+            val granted = grantResults.isNotEmpty() && 
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            jsonBridge.onPermissionResult(granted)
         }
     }
 

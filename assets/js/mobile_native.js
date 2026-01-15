@@ -64,6 +64,89 @@ const MobileNative = {
       window.addEventListener("mosslet-native-ready", callback, { once: true });
     }
   },
+
+  push: {
+    _tokenCallback: null,
+    _permissionCallback: null,
+
+    requestPermission() {
+      return new Promise((resolve) => {
+        if (!MobileNative.isNative()) {
+          resolve(false);
+          return;
+        }
+
+        this._permissionCallback = resolve;
+
+        window.addEventListener(
+          "mosslet-push-permission",
+          (e) => {
+            resolve(e.detail.granted);
+          },
+          { once: true },
+        );
+
+        if (window.MossletNative && window.MossletNative.push) {
+          window.MossletNative.push.requestPermission();
+        } else if (window.AndroidBridge) {
+          window.AndroidBridge.postMessage(
+            JSON.stringify({ action: "push_request_permission" }),
+          );
+        }
+      });
+    },
+
+    getPermissionStatus() {
+      return new Promise((resolve) => {
+        if (!MobileNative.isNative()) {
+          resolve("unavailable");
+          return;
+        }
+
+        window.addEventListener(
+          "mosslet-push-permission-status",
+          (e) => {
+            resolve(e.detail.status);
+          },
+          { once: true },
+        );
+
+        if (window.MossletNative && window.MossletNative.push) {
+          window.MossletNative.push.getPermissionStatus();
+        } else if (window.AndroidBridge) {
+          window.AndroidBridge.postMessage(
+            JSON.stringify({ action: "push_get_permission_status" }),
+          );
+        }
+      });
+    },
+
+    onTokenReceived(callback) {
+      this._tokenCallback = callback;
+
+      window.addEventListener("mosslet-push-token", (e) => {
+        callback(e.detail.token);
+      });
+    },
+
+    onTokenError(callback) {
+      window.addEventListener("mosslet-push-token-error", (e) => {
+        callback(e.detail.error);
+      });
+    },
+
+    onNotificationReceived(callback) {
+      window.addEventListener("mosslet-push-received", (e) => {
+        callback(e.detail.data, e.detail.foreground);
+      });
+    },
+
+    onNotificationTapped(callback) {
+      window.addEventListener("mosslet-push-tapped", (e) => {
+        callback(e.detail.data);
+      });
+    },
+  },
 };
 
 window.MobileNative = MobileNative;

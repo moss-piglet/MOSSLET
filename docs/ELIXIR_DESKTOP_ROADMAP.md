@@ -1372,10 +1372,27 @@ config :mosslet, :mobile_product_mapping, %{
 
 ### Phase 8: Native Features
 
-- [ ] Push notifications (APNs, FCM)
+**Status:** In progress
+
+- [x] Push notifications (APNs, FCM) - ✅ COMPLETE
+  - `Mosslet.Notifications.Push` context with zero-knowledge design
+  - `Mosslet.Notifications.Push.APNs` - Apple Push Notification service (HTTP/2 + JWT)
+  - `Mosslet.Notifications.Push.FCM` - Firebase Cloud Messaging (HTTP v1 + OAuth)
+  - `Mosslet.Notifications.DeviceToken` schema with encrypted storage
+  - `MossletWeb.API.DeviceController` - API endpoints for token registration
+  - Database migration for `device_tokens` table
+  - `PushNotificationHook` - JavaScript hook for native push integration with proper cleanup
+  - `MobileNative.push` - JS bridge for iOS/Android push APIs
+  - ⬜ iOS client integration (APNs delegate, permission request, token registration)
+  - ⬜ Android client integration (FCM setup, token handling)
 - [ ] Deep linking / Universal links
 - [ ] Background sync
-- [ ] Offline mode indicators
+- [x] Offline mode indicators
+  - `MossletWeb.DesignSystem.sync_status_indicator/1` - Compact status pill
+  - `MossletWeb.DesignSystem.offline_banner/1` - Full-width offline banner
+  - `MossletWeb.SyncHelpers` - LiveView helpers for sync status subscription
+  - `SyncStatusHook` - JavaScript hook for real-time status updates
+  - Integrated into app layout (shows banner when offline)
 - [ ] Native file picker integration
 
 ### Phase 9: Packaging & Distribution
@@ -1646,4 +1663,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-21 (Phase 7 Mobile Billing ✅ COMPLETE - Apple IAP, Google Play Billing, receipt validation API, webhooks, restore purchases. Next: Phase 8 Native Features - push notifications, deep linking, background sync)_
+_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (server + JS hook), Offline mode indicators ✅ COMPLETE. Next: Push notification native client integration, Deep linking, Background sync)_
