@@ -1,5 +1,6 @@
 const URLPreviewHook = {
   mounted() {
+    this.errorHandlerImages = new WeakSet();
     this.decryptAndDisplayImage();
   },
 
@@ -8,9 +9,9 @@ const URLPreviewHook = {
   },
 
   attachErrorHandler(img) {
-    if (!img || img._errorHandlerAttached) return;
+    if (!img || this.errorHandlerImages.has(img)) return;
     
-    img._errorHandlerAttached = true;
+    this.errorHandlerImages.add(img);
     img.addEventListener("error", () => {
       this.showErrorState(img);
     }, { once: true });
