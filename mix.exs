@@ -12,12 +12,30 @@ defmodule Mosslet.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      releases: releases(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
       dialyzer: [
         plt_core_path: "priv/plts/core.plt",
         plt_file: {:no_warn, "priv/plts/project.plt"},
         plt_add_apps: [:ex_unit]
+      ]
+    ]
+  end
+
+  defp releases do
+    [
+      mosslet: [
+        include_executables_for: [:unix]
+      ],
+      mobile: [
+        include_executables_for: [],
+        applications: [
+          runtime_tools: :permanent,
+          mosslet: :permanent
+        ],
+        strip_beams: [keep: ["Docs"]],
+        cookie: "mosslet_mobile_#{@version}"
       ]
     ]
   end

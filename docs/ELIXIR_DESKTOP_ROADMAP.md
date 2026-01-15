@@ -1448,16 +1448,632 @@ config :mosslet, :mobile_product_mapping, %{
   - `MossletWeb.SyncHelpers` - LiveView helpers for sync status subscription
   - `SyncStatusHook` - JavaScript hook for real-time status updates
   - Integrated into app layout (shows banner when offline)
-- [ ] Native file picker integration
+- [x] Native file picker integration - **SKIPPED** (Phoenix LiveView `live_file_input` works in WebViews, no native integration needed)
 
 ### Phase 9: Packaging & Distribution
 
-- [ ] macOS app signing and notarization
-- [ ] Windows installer (NSIS)
-- [ ] Linux packages (AppImage, deb, rpm)
+**Status:** In Progress
+
+#### 9.1 Build Erlang/OTP for Mobile Targets ⏳ IN PROGRESS
+
+The elixir-desktop project requires cross-compiled Erlang/OTP for each target platform.
+
+**Prerequisites:**
+- Xcode (for iOS)
+- Android NDK (for Android)
+- Docker (optional, for reproducible builds)
+
+**iOS Build Steps:**
+- [ ] Set up iOS build environment (Xcode Command Line Tools)
+- [ ] Clone `elixir-desktop/otp_build` repository
+- [ ] Build OTP for iOS Simulator (arm64 + x86_64)
+- [ ] Build OTP for iOS Device (arm64)
+- [ ] Create universal xcframework
+
+**Android Build Steps:**
+- [ ] Set up Android NDK (r25+)
+- [ ] Build OTP for Android arm64-v8a
+- [ ] Build OTP for Android armeabi-v7a (optional, older devices)
+- [ ] Build OTP for Android x86_64 (emulator)
+
+**Build Automation:** ✅ COMPLETE
+- [x] `scripts/build_mobile.sh` - Main build orchestration script
+- [x] `scripts/package_ios.sh` - Package release for iOS bundle
+- [x] `scripts/package_android.sh` - Package release for Android assets
+- [x] `native/MOBILE_BUILD_GUIDE.md` - Comprehensive build documentation
+- [x] `.github/workflows/mobile-build.yml` - CI/CD for automated builds
+
+**Resources:**
+- [otp_build repository](https://github.com/nickvander/otp_build) - Scripts for cross-compiling OTP
+- [elixir-desktop iOS example](https://github.com/nickvander/ios-elixir-example)
+- [elixir-desktop Android example](https://github.com/nickvander/android-elixir-example)
+
+#### 9.2 Create Release Configurations ✅ COMPLETE
+
+- [x] Configure `mix release` for mobile target in `mix.exs`
+- [x] Configure release for iOS (strip debug, optimize for size)
+- [x] Configure release for Android (strip debug, optimize for size)
+- [x] Set up asset compilation for releases
+
+#### 9.3 Integrate Releases with Native Projects ✅ COMPLETE
+
+**iOS:**
+- [x] Updated `Bridge.swift` to start Erlang VM with proper environment
+- [x] Configure app to extract and run BEAM files
+- [x] Bundle compiled BEAM files and assets via `package_ios.sh`
+- [ ] Test on iOS Simulator (requires OTP build)
+
+**Android:**
+- [x] Updated `Bridge.kt` to start Erlang VM with proper environment
+- [x] Configure app to extract release from assets
+- [x] Bundle compiled BEAM files and assets via `package_android.sh`
+- [ ] Test on Android Emulator (requires OTP build)
+
+#### 9.4 Desktop Packaging ⏳ IN PROGRESS
+
+**Status:** Desktop wrapper projects and build infrastructure to be created.
+
+**Overview:** Desktop apps use the same elixir-desktop architecture as mobile, but with simpler native wrappers since we can use wxWidgets (cross-platform) or platform-specific WebView wrappers.
+
+##### 9.4.1 macOS Desktop App
+
+**Project Structure (`native/macos/`):**
+
+```
+native/macos/
+├── Mosslet.xcodeproj/           # Xcode project
+└── Mosslet/
+    ├── AppDelegate.swift         # App lifecycle, Erlang startup
+    ├── MainWindowController.swift # WKWebView window controller
+    ├── Bridge.swift              # Erlang runtime bridge (reuse from iOS)
+    ├── JsonBridge.swift          # JS ↔ Swift via webkit.messageHandlers
+    ├── Keychain.swift            # macOS Keychain wrapper
+    ├── MenuBuilder.swift         # Native macOS menu bar
+    ├── Preferences.swift         # System preferences integration
+    ├── Assets.xcassets/          # App icons
+    ├── Info.plist
+    ├── Mosslet.entitlements
+    └── Mosslet-Bridging-Header.h # For Erlang NIF integration
+```
+
+**Implementation Checklist:**
+
+- [ ] Create Xcode macOS project with WKWebView
+- [ ] Port `Bridge.swift` from iOS (Erlang VM startup)
+- [ ] Port `JsonBridge.swift` from iOS (JS ↔ Native bridge)
+- [ ] Implement `MenuBuilder.swift` for native menu bar
+  - File menu (New Window, Close, Quit)
+  - Edit menu (Undo, Redo, Cut, Copy, Paste, Select All)
+  - View menu (Zoom, Fullscreen)
+  - Window menu (Minimize, Bring All to Front)
+  - Help menu (About, Documentation)
+- [ ] Implement `Keychain.swift` for secure credential storage
+- [ ] Configure window sizing and resizing (min 900x600, remember last size)
+- [ ] Add Dock icon and badge support
+- [ ] Add Touch Bar support (optional)
+- [ ] Configure sandboxing entitlements:
+  - `com.apple.security.network.client` (API access)
+  - `com.apple.security.files.user-selected.read-write` (file uploads)
+
+**Signing & Notarization:**
+
+- [ ] Apple Developer Program enrollment ($99/year)
+- [ ] Create Developer ID Application certificate
+- [ ] Configure Hardened Runtime entitlements
+- [ ] Set up notarization workflow via `xcrun notarytool`
+- [ ] Create DMG installer with background image and Applications shortcut
+
+**Distribution:**
+
+- [ ] DMG direct download (from mosslet.com)
+- [ ] Mac App Store submission (optional)
+- [ ] Sparkle auto-update framework integration
+
+##### 9.4.2 Windows Desktop App
+
+**Project Structure (`native/windows/`):**
+
+```
+native/windows/
+├── Mosslet.sln                   # Visual Studio solution
+├── Mosslet/
+│   ├── Mosslet.csproj            # C# WPF project
+│   ├── App.xaml                  # Application entry
+│   ├── App.xaml.cs
+│   ├── MainWindow.xaml           # WebView2 window
+│   ├── MainWindow.xaml.cs
+│   ├── Bridge.cs                 # Erlang runtime bridge
+│   ├── JsonBridge.cs             # JS ↔ C# via WebView2 messaging
+│   ├── SecureStorage.cs          # DPAPI credential storage
+│   ├── SingleInstance.cs         # Single instance enforcement
+│   └── Properties/
+│       ├── AssemblyInfo.cs
+│       └── Resources.resx
+├── Installer/
+│   ├── installer.nsi             # NSIS installer script
+│   └── banner.bmp
+└── README.md
+```
+
+**Implementation Checklist:**
+
+- [ ] Create .NET 8 WPF project with WebView2
+- [ ] Implement `Bridge.cs` for Erlang VM startup
+- [ ] Implement `JsonBridge.cs` for JS ↔ Native messaging
+- [ ] Implement `SecureStorage.cs` using Windows DPAPI
+- [ ] Configure window chrome (custom title bar optional)
+- [ ] Add system tray icon support
+- [ ] Implement single instance check via Mutex
+- [ ] Add jump list items (New Window, Settings)
+
+**Installer (NSIS):**
+
+- [ ] Create NSIS installer script
+- [ ] Configure Start Menu shortcuts
+- [ ] Configure Desktop shortcut (optional)
+- [ ] Add uninstaller with proper registry cleanup
+- [ ] Create portable ZIP distribution
+
+**Code Signing:**
+
+- [ ] Obtain EV Code Signing Certificate (~$300-500/year)
+- [ ] Configure SignTool in build process
+- [ ] Submit for SmartScreen reputation (first runs)
+
+**Distribution:**
+
+- [ ] Direct download installer (.exe)
+- [ ] Portable ZIP (no admin required)
+- [ ] Microsoft Store (MSIX package, optional)
+- [ ] WinGet package manifest
+
+##### 9.4.3 Linux Desktop App
+
+**Project Structure (`native/linux/`):**
+
+```
+native/linux/
+├── src/
+│   ├── main.c                    # GTK4 + WebKitGTK entry point
+│   ├── bridge.c                  # Erlang runtime bridge
+│   ├── bridge.h
+│   ├── json_bridge.c             # JS ↔ C via WebKit messaging
+│   ├── json_bridge.h
+│   ├── secure_storage.c          # libsecret integration
+│   └── secure_storage.h
+├── resources/
+│   ├── mosslet.desktop           # Desktop entry
+│   ├── mosslet.appdata.xml       # AppStream metadata
+│   └── icons/
+│       ├── 16x16/mosslet.png
+│       ├── 32x32/mosslet.png
+│       ├── 48x48/mosslet.png
+│       ├── 128x128/mosslet.png
+│       ├── 256x256/mosslet.png
+│       └── scalable/mosslet.svg
+├── packaging/
+│   ├── appimage/
+│   │   └── AppDir/               # AppImage structure
+│   ├── deb/
+│   │   └── DEBIAN/control
+│   ├── rpm/
+│   │   └── mosslet.spec
+│   └── flatpak/
+│       └── com.mosslet.Mosslet.yml
+├── meson.build                   # Meson build system
+└── README.md
+```
+
+**Implementation Checklist:**
+
+- [ ] Create GTK4 + WebKitGTK application
+- [ ] Implement `bridge.c` for Erlang VM startup
+- [ ] Implement `json_bridge.c` for JS ↔ Native messaging
+- [ ] Implement `secure_storage.c` using libsecret (Secret Service API)
+- [ ] Configure XDG desktop integration (icons, mime types)
+- [ ] Add system tray/indicator support (libappindicator)
+- [ ] Support both X11 and Wayland
+
+**Packaging Formats:**
+
+- [ ] **AppImage** (universal, no dependencies)
+  - Bundle all dependencies
+  - Configure `appimagetool`
+  - Add `AppRun` entry script
+- [ ] **Flatpak** (sandboxed, Flathub distribution)
+  - Create Flatpak manifest
+  - Configure permissions (network, files)
+  - Submit to Flathub
+- [ ] **Deb** (Debian/Ubuntu)
+  - Create control file with dependencies
+  - Post-install scripts for icon cache
+- [ ] **RPM** (Fedora/RHEL)
+  - Create spec file
+  - Configure for Copr or direct download
+- [ ] **AUR** (Arch Linux)
+  - Create PKGBUILD
+  - Submit to AUR
+
+**Distribution:**
+
+- [ ] Flathub (primary)
+- [ ] AppImage direct download
+- [ ] PPA for Ubuntu (optional)
+- [ ] Copr for Fedora (optional)
+
+##### 9.4.4 Desktop Build Scripts
+
+**Files to create:**
+
+- [ ] `scripts/build_desktop.sh` - Main desktop build orchestration
+- [ ] `scripts/package_macos.sh` - Package release for macOS app bundle
+- [ ] `scripts/package_windows.sh` - Package release for Windows
+- [ ] `scripts/package_linux.sh` - Package release for Linux formats
+- [ ] `native/DESKTOP_BUILD_GUIDE.md` - Comprehensive desktop build docs
+
+**`scripts/build_desktop.sh` implementation:**
+
+```bash
+#!/bin/bash
+# Build script for Mosslet desktop apps
+# Usage: ./scripts/build_desktop.sh {macos|windows|linux|all} [--release]
+
+PLATFORM="${1:-all}"
+BUILD_TYPE="${2:-debug}"
+
+case $PLATFORM in
+    macos)   build_macos ;;
+    windows) build_windows ;;
+    linux)   build_linux ;;
+    all)     build_macos; build_windows; build_linux ;;
+esac
+```
+
+##### 9.4.5 Desktop-Specific Features
+
+| Feature | macOS | Windows | Linux |
+|---------|-------|---------|-------|
+| WebView | WKWebView | WebView2 | WebKitGTK |
+| Secure Storage | Keychain | DPAPI | libsecret |
+| Notifications | UNUserNotificationCenter | ToastNotification | libnotify |
+| System Tray | NSStatusItem | NotifyIcon | AppIndicator |
+| Auto-Update | Sparkle | WinSparkle / built-in | AppImage updates |
+| Global Shortcuts | NSEvent | RegisterHotKey | X11/Wayland specific |
+| File Associations | Info.plist UTIs | Registry | .desktop mimetypes |
+
+##### 9.4.6 Desktop OTP Build
+
+Unlike mobile, desktop OTP can use prebuilt binaries or compile from source:
+
+**macOS:**
+- Use Homebrew: `brew install erlang` (development)
+- Bundle prebuilt OTP for distribution
+- Universal binary (arm64 + x86_64) for Apple Silicon + Intel
+
+**Windows:**
+- Use official Erlang installer (development)
+- Bundle prebuilt OTP for distribution
+- x64 architecture only (modern Windows)
+
+**Linux:**
+- Use system package manager (development)
+- Bundle in AppImage/Flatpak for distribution
+- x86_64 architecture (primary), aarch64 (Raspberry Pi, etc.)
+
+#### 9.5 App Store Submission
+
 - [ ] iOS App Store submission
+  - [ ] App Store Connect setup
+  - [ ] Screenshots and metadata
+  - [ ] Privacy policy and data handling declarations
+  - [ ] TestFlight beta testing
 - [ ] Android Play Store submission
-- [ ] CI/CD for multi-platform builds
+  - [ ] Google Play Console setup
+  - [ ] Screenshots and metadata
+  - [ ] Privacy policy
+  - [ ] Internal/closed testing track
+
+#### 9.6 CI/CD Pipeline ✅ COMPLETE
+
+- [x] GitHub Actions workflow for multi-platform builds (`.github/workflows/mobile-build.yml`)
+- [x] Automated OTP caching for faster builds
+- [x] Automated deployment to TestFlight (when secrets configured)
+- [x] Automated deployment to Play Store internal track (when secrets configured)
+- [ ] Automated testing on simulators/emulators
+
+#### 9.7 Unified Build System ⏳ PENDING
+
+**Goal:** Single `mix build.native` task that builds all native apps across all platforms.
+
+##### Mix Task Implementation
+
+**File: `lib/mix/tasks/build/native.ex`**
+
+```elixir
+defmodule Mix.Tasks.Build.Native do
+  @moduledoc """
+  Build native apps for all platforms.
+
+  ## Usage
+
+      # Build all platforms (current host only)
+      mix build.native
+
+      # Build specific platform(s)
+      mix build.native --platform ios
+      mix build.native --platform android
+      mix build.native --platform macos
+      mix build.native --platform windows
+      mix build.native --platform linux
+
+      # Build multiple platforms
+      mix build.native --platform ios --platform android
+
+      # Build with release optimization
+      mix build.native --release
+
+      # Build all mobile
+      mix build.native --mobile
+
+      # Build all desktop
+      mix build.native --desktop
+
+  ## Options
+
+      --platform, -p   Target platform(s): ios, android, macos, windows, linux
+      --release, -r    Build optimized release (default: debug)
+      --mobile, -m     Build all mobile platforms (ios + android)
+      --desktop, -d    Build all desktop platforms (macos + windows + linux)
+      --all, -a        Build all platforms
+      --parallel       Build platforms in parallel (requires more resources)
+      --skip-otp       Skip OTP build check (use cached)
+      --clean          Clean build artifacts before building
+      --output DIR     Output directory (default: _build/native)
+
+  ## Environment Variables
+
+      OTP_BUILD_DIR       Path to otp_build repo (default: ~/otp_build)
+      ANDROID_NDK_HOME    Android NDK path
+      ANDROID_SDK_ROOT    Android SDK path
+  """
+
+  use Mix.Task
+
+  @shortdoc "Build native apps for mobile and desktop"
+
+  @switches [
+    platform: [:string, :keep],
+    release: :boolean,
+    mobile: :boolean,
+    desktop: :boolean,
+    all: :boolean,
+    parallel: :boolean,
+    skip_otp: :boolean,
+    clean: :boolean,
+    output: :string
+  ]
+
+  @aliases [p: :platform, r: :release, m: :mobile, d: :desktop, a: :all]
+
+  @impl Mix.Task
+  def run(args) do
+    {opts, _} = OptionParser.parse!(args, strict: @switches, aliases: @aliases)
+
+    platforms = resolve_platforms(opts)
+    build_type = if opts[:release], do: :release, else: :debug
+
+    Mix.shell().info("Building native apps for: #{Enum.join(platforms, ", ")}")
+    Mix.shell().info("Build type: #{build_type}")
+
+    if opts[:clean], do: clean_build()
+
+    if opts[:parallel] do
+      build_parallel(platforms, build_type, opts)
+    else
+      build_sequential(platforms, build_type, opts)
+    end
+
+    Mix.shell().info("\\n✅ Build complete!")
+    print_artifacts(platforms, opts)
+  end
+
+  defp resolve_platforms(opts) do
+    cond do
+      opts[:all] -> [:ios, :android, :macos, :windows, :linux]
+      opts[:mobile] -> [:ios, :android]
+      opts[:desktop] -> [:macos, :windows, :linux]
+      opts[:platform] -> Keyword.get_values(opts, :platform) |> Enum.map(&String.to_atom/1)
+      true -> detect_host_platforms()
+    end
+  end
+
+  defp detect_host_platforms do
+    case :os.type() do
+      {:unix, :darwin} -> [:macos, :ios]
+      {:unix, _} -> [:linux]
+      {:win32, _} -> [:windows]
+    end
+  end
+
+  # ... implementation continues
+end
+```
+
+##### Build Scripts Structure
+
+```
+scripts/
+├── build_native.sh          # Main entry point (calls mix task)
+├── build_mobile.sh          # Mobile-specific (existing) ✅
+├── build_desktop.sh         # Desktop-specific (new)
+├── package_ios.sh           # iOS packaging (existing) ✅
+├── package_android.sh       # Android packaging (existing) ✅
+├── package_macos.sh         # macOS packaging (new)
+├── package_windows.sh       # Windows packaging (new)
+├── package_linux.sh         # Linux packaging (new)
+├── notarize_macos.sh        # macOS notarization
+├── sign_windows.sh          # Windows code signing
+└── ci/
+    ├── build_all.sh         # CI full build
+    ├── build_matrix.sh      # Matrix build helper
+    └── upload_artifacts.sh  # Upload to distribution
+```
+
+##### CI/CD Integration
+
+**File: `.github/workflows/native-build.yml`**
+
+```yaml
+name: Build Native Apps
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build (comma-separated: ios,android,macos,windows,linux)'
+        default: 'all'
+      release:
+        description: 'Build release version'
+        type: boolean
+        default: true
+
+jobs:
+  build-mobile:
+    strategy:
+      matrix:
+        include:
+          - platform: ios
+            os: macos-latest
+          - platform: android
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.0'
+          elixir-version: '1.17'
+      - name: Build ${{ matrix.platform }}
+        run: mix build.native --platform ${{ matrix.platform }} --release
+
+  build-desktop:
+    strategy:
+      matrix:
+        include:
+          - platform: macos
+            os: macos-latest
+          - platform: windows
+            os: windows-latest
+          - platform: linux
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.0'
+          elixir-version: '1.17'
+      - name: Build ${{ matrix.platform }}
+        run: mix build.native --platform ${{ matrix.platform }} --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslet-${{ matrix.platform }}
+          path: _build/native/${{ matrix.platform }}/
+
+  release:
+    needs: [build-mobile, build-desktop]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            mosslet-ios/*.ipa
+            mosslet-android/*.apk
+            mosslet-android/*.aab
+            mosslet-macos/*.dmg
+            mosslet-windows/*.exe
+            mosslet-linux/*.AppImage
+```
+
+##### Output Structure
+
+```
+_build/native/
+├── ios/
+│   ├── Mosslet.ipa              # App Store / Ad-hoc
+│   └── Mosslet.xcarchive/       # Xcode archive
+├── android/
+│   ├── mosslet-debug.apk        # Debug APK
+│   ├── mosslet-release.apk      # Release APK
+│   └── mosslet-release.aab      # Play Store bundle
+├── macos/
+│   ├── Mosslet.app/             # App bundle
+│   ├── Mosslet.dmg              # Installer
+│   └── Mosslet.zip              # Notarized zip
+├── windows/
+│   ├── Mosslet-Setup.exe        # NSIS installer
+│   ├── Mosslet-Portable.zip     # Portable version
+│   └── Mosslet.msix             # Store package
+└── linux/
+    ├── Mosslet.AppImage         # Universal package
+    ├── mosslet_1.0.0_amd64.deb  # Debian package
+    ├── mosslet-1.0.0.x86_64.rpm # RPM package
+    └── mosslet.flatpak          # Flatpak bundle
+```
+
+##### Implementation Checklist
+
+- [ ] Create `lib/mix/tasks/build/native.ex` Mix task
+- [ ] Create `lib/mix/tasks/build/ios.ex` iOS-specific task
+- [ ] Create `lib/mix/tasks/build/android.ex` Android-specific task
+- [ ] Create `lib/mix/tasks/build/macos.ex` macOS-specific task
+- [ ] Create `lib/mix/tasks/build/windows.ex` Windows-specific task
+- [ ] Create `lib/mix/tasks/build/linux.ex` Linux-specific task
+- [ ] Create `scripts/build_desktop.sh` shell script
+- [ ] Create `scripts/package_macos.sh` packaging script
+- [ ] Create `scripts/package_windows.sh` packaging script
+- [ ] Create `scripts/package_linux.sh` packaging script
+- [ ] Create `scripts/notarize_macos.sh` notarization script
+- [ ] Create `scripts/sign_windows.sh` code signing script
+- [ ] Update `.github/workflows/` with unified CI/CD
+- [ ] Create `native/DESKTOP_BUILD_GUIDE.md` documentation
+- [ ] Add progress indicators and build summaries
+- [ ] Add build caching for faster incremental builds
+- [ ] Add build validation (check dependencies, tools, signing certs)
+
+##### Quick Start Commands
+
+After implementation, developers can use:
+
+```bash
+# Build everything for current platform
+mix build.native
+
+# Build all mobile apps
+mix build.native --mobile --release
+
+# Build all desktop apps
+mix build.native --desktop --release
+
+# Build everything (requires CI or multi-machine setup)
+mix build.native --all --release
+
+# Build specific platform
+mix build.native -p macos -r
+
+# Clean and rebuild
+mix build.native --clean --release
+
+# Parallel build (faster, more resources)
+mix build.native --all --parallel --release
+```
 
 ---
 
@@ -1716,6 +2332,16 @@ Implement polling sync with exponential backoff for failures.
 - [Apple In-App Purchase docs](https://developer.apple.com/in-app-purchase/)
 - [Google Play Billing](https://developer.android.com/google/play/billing)
 
+**Desktop-specific:**
+
+- [WKWebView (macOS)](https://developer.apple.com/documentation/webkit/wkwebview)
+- [WebView2 (Windows)](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+- [WebKitGTK (Linux)](https://webkitgtk.org/)
+- [Sparkle (macOS auto-update)](https://sparkle-project.org/)
+- [NSIS Installer](https://nsis.sourceforge.io/)
+- [AppImage](https://appimage.org/)
+- [Flatpak](https://flatpak.org/)
+
 ---
 
-_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (full iOS + Android client integration), Deep linking ✅ COMPLETE, Background sync ✅ COMPLETE, Offline mode indicators ✅ COMPLETE. Next: Native file picker)_
+_Last updated: 2025-01-21 (Phase 9.4 expanded with detailed desktop implementation tasks for macOS, Windows, and Linux. Phase 9.7 added for unified `mix build.native` task. Next step: create desktop wrapper projects and build scripts.)_
