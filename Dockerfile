@@ -89,6 +89,9 @@ ENV ERL_AFLAGS "-proto_dist inet6_tcp"
 WORKDIR "/app"
 RUN chown nobody /app
 
+# Create Bumblebee cache directory for Fly volume mount
+RUN mkdir -p /data/bumblebee && chown nobody:root /data/bumblebee
+
 # set runner ENV
 ENV MIX_ENV="prod"
 

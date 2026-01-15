@@ -11,7 +11,7 @@ primary_region = "ewr"
 [mounts]
   source = "bumblebee_cache"
   destination = "/data/bumblebee"
-  initial_size = "1gb"
+  initial_size = "3gb"
 
 [deploy]
   release_command = "/app/bin/migrate"
@@ -21,6 +21,7 @@ primary_region = "ewr"
   PHX_HOST = "mosslet.com"
   PORT = "8080"
   BUMBLEBEE_CACHE_DIR = "/data/bumblebee"
+  BUMBLEBEE_OFFLINE = "false"
   
 
 [http_service]

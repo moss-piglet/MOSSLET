@@ -41,6 +41,7 @@ import ImageResizeUploadHook from "./image-resize-upload-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
+import PrivacyFirstAI from "./privacy-first-ai";
 
 export default {
   AutoResize,
@@ -86,4 +87,5 @@ export default {
   JournalDragDropHook,
   WordCounter,
   SubmitOnEnter,
+  PrivacyFirstAI,
 };

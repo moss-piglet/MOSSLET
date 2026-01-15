@@ -96,9 +96,7 @@ defmodule Mosslet.Application do
       Mosslet.Security.BotDetector,
       Mosslet.FileUploads.TempStorage,
       MossletWeb.Endpoint,
-      {Mosslet.DelayedServing,
-       serving_name: NsfwImageDetection,
-       serving_fn: fn -> Mosslet.AI.NsfwImageDetection.serving() end}
+      Mosslet.AI.ServingManager
     ]
   end
 
