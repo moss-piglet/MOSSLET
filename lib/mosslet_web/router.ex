@@ -355,6 +355,12 @@ defmodule MossletWeb.Router do
     get "/billing/subscription", BillingController, :subscription_status
     get "/billing/products", BillingController, :products
     post "/billing/restore", BillingController, :restore_purchases
+
+    # Device tokens (push notifications)
+    post "/devices/token", DeviceController, :register_token
+    delete "/devices/token", DeviceController, :unregister_token
+    get "/devices/tokens", DeviceController, :list_tokens
+    post "/devices/test-push", DeviceController, :test_push
   end
 
   ## Authentication routes

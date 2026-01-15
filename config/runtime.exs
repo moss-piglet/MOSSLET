@@ -191,6 +191,24 @@ if config_env() == :prod do
       private_key: System.get_env("GOOGLE_PLAY_PRIVATE_KEY")
   end
 
+  # Configure Apple Push Notifications (APNs)
+  if System.get_env("APNS_KEY_ID") do
+    config :mosslet, Mosslet.Notifications.Push.APNs,
+      key_id: System.get_env("APNS_KEY_ID"),
+      team_id: System.get_env("APNS_TEAM_ID"),
+      bundle_id: System.get_env("APNS_BUNDLE_ID", "com.mosslet.app"),
+      private_key: System.get_env("APNS_PRIVATE_KEY"),
+      environment: if(config_env() == :prod, do: :production, else: :sandbox)
+  end
+
+  # Configure Firebase Cloud Messaging (FCM)
+  if System.get_env("FCM_PROJECT_ID") do
+    config :mosslet, Mosslet.Notifications.Push.FCM,
+      project_id: System.get_env("FCM_PROJECT_ID"),
+      client_email: System.get_env("FCM_CLIENT_EMAIL"),
+      private_key: System.get_env("FCM_PRIVATE_KEY")
+  end
+
   csp =
     System.get_env("CSP_HEADER") ||
       "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-prod.fly.storage.tigris.dev/ https://res.cloudinary.com/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self';"

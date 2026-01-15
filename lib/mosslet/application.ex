@@ -86,6 +86,7 @@ defmodule Mosslet.Application do
       Mosslet.Notifications.EmailNotificationsProcessor,
       {Mosslet.Notifications.EmailNotificationsGenServer, []},
       {Mosslet.Notifications.ReplyNotificationsGenServer, []},
+      {Mosslet.Notifications.PushNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},
       {Task.Supervisor, name: Mosslet.StorjTask},
       {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
