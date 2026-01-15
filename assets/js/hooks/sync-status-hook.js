@@ -17,7 +17,11 @@ const SyncStatusHook = {
     if (!online) {
       el.classList.remove("hidden");
       if (statusDot) {
-        statusDot.classList.remove("bg-emerald-500", "bg-amber-500", "animate-pulse");
+        statusDot.classList.remove(
+          "bg-emerald-500",
+          "bg-amber-500",
+          "animate-pulse"
+        );
         statusDot.classList.add("bg-red-500");
       }
       if (statusText) statusText.textContent = "Offline";
@@ -50,8 +54,12 @@ const SyncStatusHook = {
   },
 
   destroyed() {
-    window.removeEventListener("online", () => this.pushEvent("network_online"));
-    window.removeEventListener("offline", () => this.pushEvent("network_offline"));
+    window.removeEventListener("online", () =>
+      this.pushEvent("network_online")
+    );
+    window.removeEventListener("offline", () =>
+      this.pushEvent("network_offline")
+    );
   },
 };
 
