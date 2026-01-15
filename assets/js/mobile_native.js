@@ -66,8 +66,10 @@ const MobileNative = {
   },
 
   push: {
-    _tokenCallback: null,
-    _permissionCallback: null,
+    _tokenListeners: [],
+    _tokenErrorListeners: [],
+    _notificationListeners: [],
+    _tappedListeners: [],
 
     requestPermission() {
       return new Promise((resolve) => {
@@ -76,15 +78,13 @@ const MobileNative = {
           return;
         }
 
-        this._permissionCallback = resolve;
+        const handler = (e) => {
+          resolve(e.detail.granted);
+        };
 
-        window.addEventListener(
-          "mosslet-push-permission",
-          (e) => {
-            resolve(e.detail.granted);
-          },
-          { once: true },
-        );
+        window.addEventListener("mosslet-push-permission", handler, {
+          once: true,
+        });
 
         if (window.MossletNative && window.MossletNative.push) {
           window.MossletNative.push.requestPermission();
@@ -103,13 +103,13 @@ const MobileNative = {
           return;
         }
 
-        window.addEventListener(
-          "mosslet-push-permission-status",
-          (e) => {
-            resolve(e.detail.status);
-          },
-          { once: true },
-        );
+        const handler = (e) => {
+          resolve(e.detail.status);
+        };
+
+        window.addEventListener("mosslet-push-permission-status", handler, {
+          once: true,
+        });
 
         if (window.MossletNative && window.MossletNative.push) {
           window.MossletNative.push.getPermissionStatus();
@@ -122,29 +122,70 @@ const MobileNative = {
     },
 
     onTokenReceived(callback) {
-      this._tokenCallback = callback;
-
-      window.addEventListener("mosslet-push-token", (e) => {
-        callback(e.detail.token);
-      });
+      const handler = (e) => callback(e.detail.token);
+      this._tokenListeners.push({ callback, handler });
+      window.addEventListener("mosslet-push-token", handler);
+      return () => {
+        window.removeEventListener("mosslet-push-token", handler);
+        this._tokenListeners = this._tokenListeners.filter(
+          (l) => l.callback !== callback,
+        );
+      };
     },
 
     onTokenError(callback) {
-      window.addEventListener("mosslet-push-token-error", (e) => {
-        callback(e.detail.error);
-      });
+      const handler = (e) => callback(e.detail.error);
+      this._tokenErrorListeners.push({ callback, handler });
+      window.addEventListener("mosslet-push-token-error", handler);
+      return () => {
+        window.removeEventListener("mosslet-push-token-error", handler);
+        this._tokenErrorListeners = this._tokenErrorListeners.filter(
+          (l) => l.callback !== callback,
+        );
+      };
     },
 
     onNotificationReceived(callback) {
-      window.addEventListener("mosslet-push-received", (e) => {
-        callback(e.detail.data, e.detail.foreground);
-      });
+      const handler = (e) => callback(e.detail.data, e.detail.foreground);
+      this._notificationListeners.push({ callback, handler });
+      window.addEventListener("mosslet-push-received", handler);
+      return () => {
+        window.removeEventListener("mosslet-push-received", handler);
+        this._notificationListeners = this._notificationListeners.filter(
+          (l) => l.callback !== callback,
+        );
+      };
     },
 
     onNotificationTapped(callback) {
-      window.addEventListener("mosslet-push-tapped", (e) => {
-        callback(e.detail.data);
+      const handler = (e) => callback(e.detail.data);
+      this._tappedListeners.push({ callback, handler });
+      window.addEventListener("mosslet-push-tapped", handler);
+      return () => {
+        window.removeEventListener("mosslet-push-tapped", handler);
+        this._tappedListeners = this._tappedListeners.filter(
+          (l) => l.callback !== callback,
+        );
+      };
+    },
+
+    cleanup() {
+      this._tokenListeners.forEach(({ handler }) => {
+        window.removeEventListener("mosslet-push-token", handler);
       });
+      this._tokenErrorListeners.forEach(({ handler }) => {
+        window.removeEventListener("mosslet-push-token-error", handler);
+      });
+      this._notificationListeners.forEach(({ handler }) => {
+        window.removeEventListener("mosslet-push-received", handler);
+      });
+      this._tappedListeners.forEach(({ handler }) => {
+        window.removeEventListener("mosslet-push-tapped", handler);
+      });
+      this._tokenListeners = [];
+      this._tokenErrorListeners = [];
+      this._notificationListeners = [];
+      this._tappedListeners = [];
     },
   },
 
@@ -159,6 +200,13 @@ const MobileNative = {
         callback(this._pendingLink.url, this._pendingLink.path);
         this._pendingLink = null;
       }
+
+      return () => {
+        const idx = this._callbacks.indexOf(callback);
+        if (idx > -1) {
+          this._callbacks.splice(idx, 1);
+        }
+      };
     },
 
     _handleLink(url, path) {
@@ -169,11 +217,25 @@ const MobileNative = {
       }
     },
 
+    _isValidPath(path) {
+      if (typeof path !== "string") return false;
+      if (!path.startsWith("/")) return false;
+      if (path.includes("..")) return false;
+      if (path.includes("//")) return false;
+
+      return true;
+    },
+
     navigate(path) {
+      if (!this._isValidPath(path)) {
+        console.warn("MobileNative.deepLink.navigate: blocked invalid path", path);
+        return;
+      }
+
       if (window.liveSocket && window.liveSocket.main) {
         window.liveSocket.main.pushEvent("navigate", { path });
       } else {
-        window.location.href = path;
+        window.location.pathname = path;
       }
     },
 

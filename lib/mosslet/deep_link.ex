@@ -142,7 +142,21 @@ defmodule Mosslet.DeepLink do
   def to_path({:journal, :books}), do: "/app/journal/books"
   def to_path({:connections, :index}), do: "/app/connections"
   def to_path({:home, _}), do: "/app/timeline"
-  def to_path({:unknown, path}), do: path
+  def to_path({:unknown, path}), do: sanitize_path(path)
+
+  defp sanitize_path(path) when is_binary(path) do
+    path = String.trim(path)
+
+    cond do
+      not String.starts_with?(path, "/") -> "/app/timeline"
+      String.contains?(path, "..") -> "/app/timeline"
+      String.contains?(path, "//") -> "/app/timeline"
+      String.match?(path, ~r/^[a-z]+:/i) -> "/app/timeline"
+      true -> path
+    end
+  end
+
+  defp sanitize_path(_), do: "/app/timeline"
 
   @doc """
   Checks if a route requires authentication.
