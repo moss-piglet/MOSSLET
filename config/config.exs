@@ -345,6 +345,19 @@ config :mosslet, :billing_products, [
   }
 ]
 
+# Mobile In-App Purchase Product Mapping
+# Maps mobile store product IDs to our internal plan IDs
+config :mosslet, :mobile_product_mapping, %{
+  # iOS product IDs (configured in App Store Connect)
+  "com.mosslet.personal.monthly" => "personal-monthly",
+  "com.mosslet.personal.yearly" => "personal-yearly",
+  "com.mosslet.personal.lifetime" => "personal-lifetime",
+  # Android product IDs (configured in Google Play Console)
+  "personal_monthly" => "personal-monthly",
+  "personal_yearly" => "personal-yearly",
+  "personal_lifetime" => "personal-lifetime"
+}
+
 # Referral Program Configuration
 config :mosslet, :referral_program,
   enabled: true,

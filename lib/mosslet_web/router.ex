@@ -123,6 +123,14 @@ defmodule MossletWeb.Router do
     end
   end
 
+  # Public webhook endpoints (no auth required)
+  scope "/api/webhooks", MossletWeb.API do
+    pipe_through :api
+
+    post "/apple", WebhooksController, :apple
+    post "/google-play", WebhooksController, :google_play
+  end
+
   # Other scopes may use custom stacks.
   scope "/api", MossletWeb.API do
     pipe_through :api
@@ -340,6 +348,13 @@ defmodule MossletWeb.Router do
     # Journal insights
     get "/journal/insight", JournalController, :show_insight
     post "/journal/insight", JournalController, :upsert_insight
+
+    # Mobile billing (Apple IAP / Google Play)
+    post "/billing/apple/validate", BillingController, :validate_apple
+    post "/billing/google/validate", BillingController, :validate_google
+    get "/billing/subscription", BillingController, :subscription_status
+    get "/billing/products", BillingController, :products
+    post "/billing/restore", BillingController, :restore_purchases
   end
 
   ## Authentication routes

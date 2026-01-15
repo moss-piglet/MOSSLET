@@ -173,6 +173,24 @@ if config_env() == :prod do
     api_key: System.get_env("STRIPE_API_KEY"),
     signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
+  # Configure Apple In-App Purchase (iOS)
+  if System.get_env("APPLE_IAP_ISSUER_ID") do
+    config :mosslet, Mosslet.Billing.Providers.AppleIAP,
+      bundle_id: System.get_env("APPLE_IAP_BUNDLE_ID", "com.mosslet.app"),
+      issuer_id: System.get_env("APPLE_IAP_ISSUER_ID"),
+      key_id: System.get_env("APPLE_IAP_KEY_ID"),
+      private_key: System.get_env("APPLE_IAP_PRIVATE_KEY"),
+      environment: if(config_env() == :prod, do: :production, else: :sandbox)
+  end
+
+  # Configure Google Play Billing (Android)
+  if System.get_env("GOOGLE_PLAY_PACKAGE_NAME") do
+    config :mosslet, Mosslet.Billing.Providers.GooglePlay,
+      package_name: System.get_env("GOOGLE_PLAY_PACKAGE_NAME", "com.mosslet.app"),
+      client_email: System.get_env("GOOGLE_PLAY_CLIENT_EMAIL"),
+      private_key: System.get_env("GOOGLE_PLAY_PRIVATE_KEY")
+  end
+
   csp =
     System.get_env("CSP_HEADER") ||
       "default-src 'none'; form-action 'self'; script-src 'self' 'unsafe-eval' https://unpkg.com/@popperjs/core@2.11.8/dist/umd/popper.min.js https://unpkg.com/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js https://unpkg.com/trix@2.1.13/dist/trix.umd.min.js https://cdn.usefathom.com/script.js; style-src 'self' 'unsafe-inline' https://unpkg.com/trix@2.1.13/dist/trix.css; img-src 'self' data: blob: https://cdn.usefathom.com/ https://mosslet-prod.fly.storage.tigris.dev/ https://res.cloudinary.com/; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://mosslet.com https://mosslet.com; frame-ancestors 'self'; object-src 'self'; base-uri 'self'; frame-src 'self'; manifest-src 'self';"
