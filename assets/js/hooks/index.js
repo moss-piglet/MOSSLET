@@ -3,6 +3,7 @@ import AutoResize from "./auto-resize";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
+import DeepLinkHook from "./deep-link-hook";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
 import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
@@ -41,13 +42,20 @@ import ImageResizeUploadHook from "./image-resize-upload-hook";
 import JournalDragDropHook from "./journal-drag-drop-hook";
 import WordCounter from "./word-counter";
 import SubmitOnEnter from "./submit-on-enter";
+<<<<<<< HEAD
 import PrivacyFirstAI from "./privacy-first-ai";
+=======
+import SyncStatusHook from "./sync-status-hook";
+import PushNotificationHook from "./push-notification-hook";
+import BackgroundSyncHook from "./background-sync-hook";
+>>>>>>> main
 
 export default {
   AutoResize,
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,
+  DeepLinkHook,
   GroupMessageEmojiPicker,
   KeywordFilterInput,
   ClearFlashHook,
@@ -87,5 +95,11 @@ export default {
   JournalDragDropHook,
   WordCounter,
   SubmitOnEnter,
+<<<<<<< HEAD
   PrivacyFirstAI,
+=======
+  SyncStatusHook,
+  PushNotificationHook,
+  BackgroundSyncHook,
+>>>>>>> main
 };

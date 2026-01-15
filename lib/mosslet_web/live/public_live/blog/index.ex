@@ -29,6 +29,13 @@ defmodule MossletWeb.PublicLive.Blog.Index do
             <%!-- Blog entries --%>
             <div class="space-y-8">
               <.blog_entry
+                id="blog_13"
+                date="January 15, 2026"
+                title="How We Built Privacy-First AI (And Why It Matters)"
+                preview="Today I want to pull back the curtain on exactly how we've built AI into MOSSLET without compromising on privacy. No vague promises. No marketing speak. Just the technical reality of how this actually works."
+                link={~p"/blog/articles/13"}
+              />
+              <.blog_entry
                 id="blog_12"
                 date="January 07, 2026"
                 title="Introducing Journal: Your Private Space for Reflection"

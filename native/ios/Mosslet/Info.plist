@@ -61,6 +61,18 @@
     <array>
         <string>fetch</string>
         <string>processing</string>
+        <string>remote-notification</string>
+    </array>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>mosslet</string>
+            </array>
+            <key>CFBundleURLName</key>
+            <string>com.mosslet.app</string>
+        </dict>
     </array>
 </dict>
 </plist>

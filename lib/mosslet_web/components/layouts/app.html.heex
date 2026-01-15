@@ -1,3 +1,5 @@
+<%!-- Offline banner at the very top when offline --%>
+<MossletWeb.DesignSystem.offline_banner :if={assigns[:sync_status]} sync_status={@sync_status} />
 <%!-- Flash notifications positioned relative to viewport --%>
 <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
   <.phx_flash_group flash={@flash} />

@@ -1,0 +1,315 @@
+name: Mobile Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - ios
+          - android
+          - all
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+env:
+  ELIXIR_VERSION: '1.19.5'
+  OTP_VERSION: '28'
+  NODE_VERSION: '20'
+
+jobs:
+  build-elixir-release:
+    name: Build Elixir Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+
+      - name: Cache _build
+        uses: actions/cache@v4
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-native-${{ hashFiles('**/mix.lock') }}
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep '@version' mix.exs | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          MIX_TARGET=native mix deps.get
+
+      - name: Compile
+        run: MIX_TARGET=native MIX_ENV=prod mix compile
+
+      - name: Build assets
+        run: |
+          mix assets.deploy
+
+      - name: Create release
+        run: MIX_TARGET=native MIX_ENV=prod mix release mobile --overwrite
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: elixir-release
+          path: _build/native_prod/rel/mobile
+          retention-days: 1
+
+  build-ios:
+    name: Build iOS
+    needs: build-elixir-release
+    runs-on: macos-14
+    if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Elixir release
+        uses: actions/download-artifact@v4
+        with:
+          name: elixir-release
+          path: _build/native_prod/rel/mobile
+
+      - name: Cache OTP build
+        uses: actions/cache@v4
+        id: otp-cache
+        with:
+          path: ~/otp_build/build/ios
+          key: otp-ios-${{ env.OTP_VERSION }}
+
+      - name: Clone OTP build tools
+        if: steps.otp-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/nickvander/otp_build ~/otp_build
+
+      - name: Build OTP for iOS
+        if: steps.otp-cache.outputs.cache-hit != 'true'
+        run: |
+          cd ~/otp_build
+          ./build_ios.sh
+
+      - name: Copy OTP framework
+        run: |
+          mkdir -p native/ios/Frameworks
+          cp -R ~/otp_build/build/ios/OTP.xcframework native/ios/Frameworks/
+
+      - name: Package release for iOS
+        run: ./scripts/package_ios.sh
+
+      - name: Install Apple certificate
+        if: github.event.inputs.build_type == 'release' || github.event_name == 'push'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          
+          echo -n "$APPLE_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PROFILE_PATH
+          
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          
+          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build iOS app (Debug)
+        if: github.event.inputs.build_type != 'release' && github.event_name != 'push'
+        run: |
+          cd native/ios
+          xcodebuild -project Mosslet.xcodeproj \
+            -scheme Mosslet \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -archivePath $RUNNER_TEMP/Mosslet.xcarchive \
+            clean build
+
+      - name: Build iOS app (Release)
+        if: github.event.inputs.build_type == 'release' || github.event_name == 'push'
+        run: |
+          cd native/ios
+          xcodebuild -project Mosslet.xcodeproj \
+            -scheme Mosslet \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/Mosslet.xcarchive \
+            clean archive
+          
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Mosslet.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-${{ needs.build-elixir-release.outputs.version }}
+          path: |
+            ${{ runner.temp }}/Mosslet.xcarchive
+            ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+
+      - name: Upload to TestFlight
+        if: (github.event.inputs.build_type == 'release' || github.event_name == 'push') && secrets.APP_STORE_CONNECT_API_KEY_ID != ''
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          API_KEY_PATH=$RUNNER_TEMP/api_key.p8
+          echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode -o $API_KEY_PATH
+          
+          xcrun altool --upload-app \
+            --file $RUNNER_TEMP/export/Mosslet.ipa \
+            --type ios \
+            --apiKey $APP_STORE_CONNECT_API_KEY_ID \
+            --apiIssuer $APP_STORE_CONNECT_API_ISSUER_ID \
+            --apiKeyPath $API_KEY_PATH
+
+  build-android:
+    name: Build Android
+    needs: build-elixir-release
+    runs-on: ubuntu-latest
+    if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Elixir release
+        uses: actions/download-artifact@v4
+        with:
+          name: elixir-release
+          path: _build/native_prod/rel/mobile
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache OTP build
+        uses: actions/cache@v4
+        id: otp-cache
+        with:
+          path: ~/otp_build/build/android
+          key: otp-android-${{ env.OTP_VERSION }}
+
+      - name: Clone OTP build tools
+        if: steps.otp-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/nickvander/otp_build ~/otp_build
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;26.1.10909125"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+
+      - name: Build OTP for Android
+        if: steps.otp-cache.outputs.cache-hit != 'true'
+        run: |
+          cd ~/otp_build
+          ./build_android.sh
+
+      - name: Copy OTP libraries
+        run: |
+          mkdir -p native/android/app/src/main/jniLibs
+          cp -R ~/otp_build/build/android/jniLibs/* native/android/app/src/main/jniLibs/
+
+      - name: Package release for Android
+        run: ./scripts/package_android.sh
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build Android app (Debug)
+        if: github.event.inputs.build_type != 'release' && github.event_name != 'push'
+        run: |
+          cd native/android
+          ./gradlew assembleDebug
+
+      - name: Decode keystore
+        if: github.event.inputs.build_type == 'release' || github.event_name == 'push'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo -n "$KEYSTORE_BASE64" | base64 --decode > native/android/mosslet-release.keystore
+
+      - name: Build Android app (Release)
+        if: github.event.inputs.build_type == 'release' || github.event_name == 'push'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          cd native/android
+          ./gradlew bundleRelease
+
+      - name: Upload Android artifact (Debug)
+        if: github.event.inputs.build_type != 'release' && github.event_name != 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app-debug-${{ needs.build-elixir-release.outputs.version }}
+          path: native/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload Android artifact (Release)
+        if: github.event.inputs.build_type == 'release' || github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app-release-${{ needs.build-elixir-release.outputs.version }}
+          path: native/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Upload to Play Store
+        if: (github.event.inputs.build_type == 'release' || github.event_name == 'push') && secrets.PLAY_SERVICE_ACCOUNT_JSON != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.mosslet.app
+          releaseFiles: native/android/app/build/outputs/bundle/release/*.aab
+          track: internal
+          status: draft

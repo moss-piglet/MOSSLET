@@ -74,6 +74,13 @@ defmodule MossletWeb.Router do
     get "/public/posts/:post_id/images/:index", PublicPostImageController, :show
   end
 
+  scope "/.well-known", MossletWeb do
+    pipe_through :api
+
+    get "/apple-app-site-association", WellKnownController, :apple_app_site_association
+    get "/assetlinks.json", WellKnownController, :assetlinks
+  end
+
   scope "/", MossletWeb do
     pipe_through [:browser]
 
@@ -97,6 +104,7 @@ defmodule MossletWeb.Router do
       live "/blog/articles/10", PublicLive.Blog.Blog10
       live "/blog/articles/11", PublicLive.Blog.Blog11
       live "/blog/articles/12", PublicLive.Blog.Blog12
+      live "/blog/articles/13", PublicLive.Blog.Blog13
       live "/faq", PublicLive.Faq, :faq
       live "/support", PublicLive.Support, :support
       live "/features", PublicLive.Features, :features

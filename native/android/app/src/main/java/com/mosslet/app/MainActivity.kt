@@ -1,13 +1,14 @@
 package com.mosslet.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
-import android.view.WindowInsetsController
 import android.webkit.*
 import android.widget.ProgressBar
 import androidx.appcompat.app.AlertDialog
@@ -23,7 +24,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var loadingView: View
     private lateinit var progressBar: ProgressBar
+    private lateinit var jsonBridge: JsonBridge
     private var serverPort: Int = 0
+    private var pendingDeepLink: Uri? = null
+    private var erlangStarted = false
+
+    companion object {
+        const val NOTIFICATION_PERMISSION_CODE = 1001
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,8 +43,64 @@ class MainActivity : AppCompatActivity() {
         loadingView = findViewById(R.id.loadingView)
         progressBar = findViewById(R.id.progressBar)
 
+        handleIntent(intent)
+
         setupWebView()
         startErlangAndLoadApp()
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        
+        val uri = intent.data
+        if (uri != null) {
+            if (erlangStarted) {
+                handleDeepLink(uri)
+            } else {
+                pendingDeepLink = uri
+            }
+        }
+        
+        handlePushNotificationIntent(intent)
+    }
+
+    private fun handleDeepLink(uri: Uri) {
+        val path = extractPath(uri)
+        notifyDeepLinkReceived(uri.toString(), path)
+        navigateWebView(path)
+    }
+
+    private fun extractPath(uri: Uri): String {
+        return when (uri.scheme) {
+            "mosslet" -> uri.path ?: "/"
+            else -> uri.path ?: "/"
+        }
+    }
+
+    private fun navigateWebView(path: String) {
+        val escapedPath = path.replace("'", "\\'")
+        val js = """
+            (function() {
+                if (window.liveSocket && window.liveSocket.main) {
+                    window.liveSocket.main.pushEvent('navigate', { path: '$escapedPath' });
+                } else {
+                    window.location.href = 'http://localhost:$serverPort$path';
+                }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    private fun notifyDeepLinkReceived(url: String, path: String) {
+        val escapedUrl = url.replace("'", "\\'")
+        val escapedPath = path.replace("'", "\\'")
+        val js = """
+            if (window.MossletNative && window.MossletNative.deepLink && window.MossletNative.deepLink.onReceived) {
+                window.MossletNative.deepLink.onReceived('$escapedUrl', '$escapedPath');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-deep-link', { detail: { url: '$escapedUrl', path: '$escapedPath' } }));
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -56,7 +120,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.addJavascriptInterface(JsonBridge(this), "AndroidBridge")
+        jsonBridge = JsonBridge(this)
+        webView.addJavascriptInterface(jsonBridge, "AndroidBridge")
+        jsonBridge.setWebView(webView)
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -80,6 +146,12 @@ class MainActivity : AppCompatActivity() {
                 loadingView.visibility = View.GONE
                 webView.visibility = View.VISIBLE
                 injectSafeAreaInsets()
+                injectAndroidBridgeScript()
+                
+                pendingDeepLink?.let { uri ->
+                    handleDeepLink(uri)
+                    pendingDeepLink = null
+                }
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
@@ -119,12 +191,69 @@ class MainActivity : AppCompatActivity() {
             WebView.setWebContentsDebuggingEnabled(true)
         }
     }
+    
+    private fun injectAndroidBridgeScript() {
+        val script = """
+            if (!window.MossletNative) {
+                window.MossletNative = {
+                    postMessage: function(message) {
+                        AndroidBridge.postMessage(JSON.stringify(message));
+                    },
+                    
+                    openURL: function(url) {
+                        this.postMessage({ action: 'open_url', url: url });
+                    },
+                    
+                    share: function(text, url) {
+                        this.postMessage({ action: 'share', text: text, url: url });
+                    },
+                    
+                    haptic: function(style) {
+                        this.postMessage({ action: 'haptic', style: style || 'medium' });
+                    },
+                    
+                    isNative: function() {
+                        return true;
+                    },
+                    
+                    getPlatform: function() {
+                        return 'android';
+                    },
+                    
+                    push: {
+                        requestPermission: function() {
+                            AndroidBridge.postMessage(JSON.stringify({ action: 'push_request_permission' }));
+                        },
+                        
+                        getPermissionStatus: function() {
+                            AndroidBridge.postMessage(JSON.stringify({ action: 'push_get_permission_status' }));
+                        },
+                        
+                        onPermissionResult: null,
+                        onPermissionStatus: null,
+                        onTokenReceived: null,
+                        onTokenError: null,
+                        onNotificationReceived: null,
+                        onNotificationTapped: null
+                    },
+                    
+                    deepLink: {
+                        onReceived: null
+                    }
+                };
+                
+                window.dispatchEvent(new CustomEvent('mosslet-native-ready'));
+            }
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+    }
 
     private fun startErlangAndLoadApp() {
         lifecycleScope.launch {
             serverPort = withContext(Dispatchers.IO) {
                 Bridge.startErlang(this@MainActivity)
             }
+            erlangStarted = true
             loadApp()
         }
     }
@@ -157,23 +286,70 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Exit") { _, _ -> finish() }
             .show()
     }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+    
+    private fun handlePushNotificationIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("from_notification", false) == true) {
+            val data = mutableMapOf<String, String>()
+            intent.extras?.keySet()?.forEach { key ->
+                if (key.startsWith("push_")) {
+                    val value = intent.getStringExtra(key)
+                    if (value != null) {
+                        data[key.removePrefix("push_")] = value
+                    }
+                }
+            }
+            if (data.isNotEmpty()) {
+                PushNotificationService.handleNotificationTapped(data)
+                
+                data["path"]?.let { path ->
+                    if (erlangStarted) {
+                        navigateWebView(path)
+                    }
+                }
+            }
+        }
+    }
 
     override fun onResume() {
         super.onResume()
         Bridge.sendEvent("app_resumed")
         webView.onResume()
+        notifyWebViewAppState("active")
     }
 
     override fun onPause() {
         super.onPause()
         Bridge.sendEvent("app_paused")
         webView.onPause()
+        notifyWebViewAppState("background")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         Bridge.sendEvent("app_destroyed")
         webView.destroy()
+    }
+    
+    private fun notifyWebViewAppState(state: String) {
+        val js = """
+            window.dispatchEvent(new CustomEvent('mosslet-app-state', {
+                detail: { state: '$state' }
+            }));
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+    
+    fun triggerBackgroundSync() {
+        val js = """
+            window.dispatchEvent(new CustomEvent('mosslet-background-sync', {}));
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
     }
 
     @Deprecated("Deprecated in Java")
@@ -182,6 +358,20 @@ class MainActivity : AppCompatActivity() {
             webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        if (requestCode == NOTIFICATION_PERMISSION_CODE) {
+            val granted = grantResults.isNotEmpty() && 
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            jsonBridge.onPermissionResult(granted)
         }
     }
 

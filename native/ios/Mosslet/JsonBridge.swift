@@ -5,14 +5,25 @@ protocol JsonBridgeDelegate: AnyObject {
     func jsonBridge(_ bridge: JsonBridge, didReceiveMessage message: [String: Any])
 }
 
+protocol JsonBridgePushDelegate: AnyObject {
+    func requestPushPermission()
+    func getPushPermissionStatus(completion: @escaping (String) -> Void)
+}
+
 class JsonBridge: NSObject {
     weak var delegate: JsonBridgeDelegate?
+    weak var pushDelegate: JsonBridgePushDelegate?
     private let handlerName = "nativeBridge"
+    private weak var webView: WKWebView?
     
     init(config: WKWebViewConfiguration) {
         super.init()
         config.userContentController.add(self, name: handlerName)
         injectBridgeScript(into: config)
+    }
+    
+    func setWebView(_ webView: WKWebView) {
+        self.webView = webView
     }
     
     private func injectBridgeScript(into config: WKWebViewConfiguration) {
@@ -40,6 +51,30 @@ class JsonBridge: NSObject {
                 
                 getPlatform: function() {
                     return 'ios';
+                },
+                
+                // Push notification methods
+                push: {
+                    requestPermission: function() {
+                        window.webkit.messageHandlers.nativeBridge.postMessage({ action: 'push_request_permission' });
+                    },
+                    
+                    getPermissionStatus: function() {
+                        window.webkit.messageHandlers.nativeBridge.postMessage({ action: 'push_get_permission_status' });
+                    },
+                    
+                    // Callbacks set by JS
+                    onPermissionResult: null,
+                    onPermissionStatus: null,
+                    onTokenReceived: null,
+                    onTokenError: null,
+                    onNotificationReceived: null,
+                    onNotificationTapped: null
+                },
+                
+                // Deep link methods
+                deepLink: {
+                    onReceived: null
                 }
             };
             
@@ -53,6 +88,97 @@ class JsonBridge: NSObject {
         )
         config.userContentController.addUserScript(userScript)
     }
+    
+    func notifyPushPermissionResult(granted: Bool) {
+        let script = """
+            if (window.MossletNative && window.MossletNative.push.onPermissionResult) {
+                window.MossletNative.push.onPermissionResult(\(granted));
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-push-permission', { detail: { granted: \(granted) } }));
+        """
+        executeJavaScript(script)
+    }
+    
+    func notifyPushPermissionStatus(_ status: String) {
+        let script = """
+            if (window.MossletNative && window.MossletNative.push.onPermissionStatus) {
+                window.MossletNative.push.onPermissionStatus('\(status)');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-push-permission-status', { detail: { status: '\(status)' } }));
+        """
+        executeJavaScript(script)
+    }
+    
+    func notifyPushTokenReceived(_ token: String) {
+        let script = """
+            if (window.MossletNative && window.MossletNative.push.onTokenReceived) {
+                window.MossletNative.push.onTokenReceived('\(token)');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-push-token', { detail: { token: '\(token)' } }));
+        """
+        executeJavaScript(script)
+    }
+    
+    func notifyPushRegistrationFailed(_ error: String) {
+        let escapedError = error.replacingOccurrences(of: "'", with: "\\'")
+        let script = """
+            if (window.MossletNative && window.MossletNative.push.onTokenError) {
+                window.MossletNative.push.onTokenError('\(escapedError)');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-push-token-error', { detail: { error: '\(escapedError)' } }));
+        """
+        executeJavaScript(script)
+    }
+    
+    func notifyPushReceived(_ data: [String: Any], foreground: Bool) {
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            let script = """
+                var data = \(jsonString);
+                if (window.MossletNative && window.MossletNative.push.onNotificationReceived) {
+                    window.MossletNative.push.onNotificationReceived(data, \(foreground));
+                }
+                window.dispatchEvent(new CustomEvent('mosslet-push-received', { detail: { data: data, foreground: \(foreground) } }));
+            """
+            executeJavaScript(script)
+        }
+    }
+    
+    func notifyPushTapped(_ data: [String: Any]) {
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            let script = """
+                var data = \(jsonString);
+                if (window.MossletNative && window.MossletNative.push.onNotificationTapped) {
+                    window.MossletNative.push.onNotificationTapped(data);
+                }
+                window.dispatchEvent(new CustomEvent('mosslet-push-tapped', { detail: { data: data } }));
+            """
+            executeJavaScript(script)
+        }
+    }
+    
+    func notifyDeepLinkReceived(_ url: String, path: String) {
+        let escapedUrl = url.replacingOccurrences(of: "'", with: "\\'")
+        let escapedPath = path.replacingOccurrences(of: "'", with: "\\'")
+        let script = """
+            if (window.MossletNative && window.MossletNative.deepLink && window.MossletNative.deepLink.onReceived) {
+                window.MossletNative.deepLink.onReceived('\(escapedUrl)', '\(escapedPath)');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-deep-link', { detail: { url: '\(escapedUrl)', path: '\(escapedPath)' } }));
+        """
+        executeJavaScript(script)
+    }
+    
+    private func executeJavaScript(_ script: String) {
+        DispatchQueue.main.async { [weak self] in
+            self?.webView?.evaluateJavaScript(script) { _, error in
+                if let error = error {
+                    print("JavaScript execution error: \(error)")
+                }
+            }
+        }
+    }
 }
 
 extension JsonBridge: WKScriptMessageHandler {
@@ -61,6 +187,21 @@ extension JsonBridge: WKScriptMessageHandler {
               let body = message.body as? [String: Any] else {
             return
         }
-        delegate?.jsonBridge(self, didReceiveMessage: body)
+        
+        guard let action = body["action"] as? String else {
+            delegate?.jsonBridge(self, didReceiveMessage: body)
+            return
+        }
+        
+        switch action {
+        case "push_request_permission":
+            pushDelegate?.requestPushPermission()
+        case "push_get_permission_status":
+            pushDelegate?.getPushPermissionStatus { [weak self] status in
+                self?.notifyPushPermissionStatus(status)
+            }
+        default:
+            delegate?.jsonBridge(self, didReceiveMessage: body)
+        }
     }
 }

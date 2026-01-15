@@ -14359,4 +14359,110 @@ defmodule MossletWeb.DesignSystem do
     </button>
     """
   end
+
+  @doc """
+  Renders a sync status indicator for native apps.
+
+  Shows online/offline status, syncing state, and pending changes count.
+  Hidden by default when online with no pending changes.
+
+  ## Examples
+
+      <.sync_status_indicator sync_status={@sync_status} />
+
+  """
+  attr :sync_status, :map, default: nil
+  attr :class, :string, default: nil
+
+  def sync_status_indicator(assigns) do
+    ~H"""
+    <div
+      :if={@sync_status}
+      id="sync-status-indicator"
+      phx-hook="SyncStatusHook"
+      class={[
+        "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300",
+        sync_status_classes(@sync_status),
+        @class,
+        @sync_status.online && !@sync_status.syncing && @sync_status.pending_count == 0 && "hidden"
+      ]}
+    >
+      <span
+        data-status-dot
+        class={[
+          "w-2 h-2 rounded-full transition-colors duration-300",
+          sync_dot_classes(@sync_status)
+        ]}
+      >
+      </span>
+      <span data-status-text>{sync_status_text(@sync_status)}</span>
+      <span
+        :if={@sync_status.pending_count > 0}
+        data-pending-badge
+        class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-[10px] font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"
+      >
+        {@sync_status.pending_count}
+      </span>
+    </div>
+    """
+  end
+
+  defp sync_status_classes(%{online: false}) do
+    "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800"
+  end
+
+  defp sync_status_classes(%{syncing: true}) do
+    "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+  end
+
+  defp sync_status_classes(%{pending_count: count}) when count > 0 do
+    "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+  end
+
+  defp sync_status_classes(_) do
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+  end
+
+  defp sync_dot_classes(%{online: false}), do: "bg-red-500"
+  defp sync_dot_classes(%{syncing: true}), do: "bg-amber-500 animate-pulse"
+  defp sync_dot_classes(%{pending_count: count}) when count > 0, do: "bg-amber-500"
+  defp sync_dot_classes(_), do: "bg-emerald-500"
+
+  defp sync_status_text(%{online: false}), do: "Offline"
+  defp sync_status_text(%{syncing: true}), do: "Syncing..."
+  defp sync_status_text(%{pending_count: count}) when count > 0, do: "#{count} pending"
+  defp sync_status_text(_), do: "Synced"
+
+  @doc """
+  Renders an offline banner that displays prominently when the app is offline.
+
+  This is a larger, more visible indicator meant to be shown at the top of the page.
+
+  ## Examples
+
+      <.offline_banner sync_status={@sync_status} />
+
+  """
+  attr :sync_status, :map, default: nil
+
+  def offline_banner(assigns) do
+    ~H"""
+    <div
+      :if={@sync_status && !@sync_status.online}
+      class="bg-gradient-to-r from-red-500 via-red-600 to-red-500 text-white px-4 py-2 text-center text-sm font-medium shadow-lg"
+      role="alert"
+    >
+      <div class="flex items-center justify-center gap-2">
+        <.phx_icon name="hero-signal-slash" class="w-4 h-4" />
+        <span>You're offline. Changes will sync when you're back online.</span>
+        <span
+          :if={@sync_status.pending_count > 0}
+          class="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-2 text-xs font-bold rounded-full bg-white/20"
+        >
+          {@sync_status.pending_count} pending
+        </span>
+      </div>
+    </div>
+    """
+  end
 end

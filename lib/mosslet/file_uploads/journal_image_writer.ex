@@ -9,6 +9,8 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
   - Cleans up temp files automatically
   - No encryption (images are ephemeral, deleted after OCR)
 
+  Uses privacy-first providers via OpenRouter (Together AI).
+
   Processing stages:
   1. Receiving chunks → temp file (0-40% progress)
   2. MIME validation & resize to JPEG (40-50%)
@@ -232,6 +234,7 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
   defp extract_text_from_image(binary, mime_type, state) do
     notify_progress(state, :extracting, 55)
 
+    alias Mosslet.AI.Config
     alias ReqLLM.Message.ContentPart
 
     system_prompt = """
@@ -258,8 +261,10 @@ defmodule Mosslet.FileUploads.JournalImageWriter do
 
     notify_progress(state, :extracting, 70)
 
-    case ReqLLM.generate_text("openrouter:openai/gpt-4o-mini", [message],
-           system_prompt: system_prompt
+    case ReqLLM.generate_text(
+           Config.vision_model(),
+           [message],
+           Config.vision_opts(system_prompt: system_prompt)
          ) do
       {:ok, response} ->
         text = ReqLLM.Response.text(response)

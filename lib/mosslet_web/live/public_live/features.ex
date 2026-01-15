@@ -218,7 +218,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </:title>
 
                   <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Our AI checks never store or train on your content. Requests pass through OpenRouter with all data retention disabled, then your content stays asymmetrically encrypted. Safety without surveillance.
+                    AI requests route through OpenRouter with data collection disabled — your content is never stored or used for training. After processing, everything is asymmetrically encrypted. Safety without surveillance.
                   </p>
                 </.liquid_card>
 
@@ -1145,6 +1145,489 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
+          <%!-- Privacy-First AI Deep Dive Section --%>
+          <.liquid_container
+            max_width="full"
+            class="relative mt-24 sm:mt-32 py-16 sm:py-20"
+            id="privacy-first-ai"
+          >
+            <div class="absolute inset-0 bg-gradient-to-b from-amber-50/30 via-orange-50/20 to-transparent dark:from-amber-950/20 dark:via-orange-950/10 dark:to-transparent">
+            </div>
+            <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-amber-400 dark:to-amber-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Privacy-First AI
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-amber-400 dark:to-amber-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                  How our AI respects your privacy
+                </h2>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+                  We believe AI should enhance your experience without compromising your privacy. Here's how we've built every AI feature with your data protection in mind.
+                </p>
+              </div>
+
+              <%!-- Core Privacy Principles --%>
+              <div class="mb-16">
+                <div class="max-w-4xl mx-auto">
+                  <.liquid_card
+                    padding="lg"
+                    class="bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-amber-50/60 dark:from-amber-900/20 dark:via-orange-900/15 dark:to-amber-900/20 border-amber-200/60 dark:border-amber-700/40"
+                  >
+                    <:title>
+                      <div class="flex items-center gap-4 mb-6">
+                        <div class="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
+                          <.phx_icon name="hero-shield-check" class="size-8 text-white" />
+                        </div>
+                        <div>
+                          <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                            Our AI Privacy Promise
+                          </h3>
+                          <p class="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                            Safety without surveillance
+                          </p>
+                        </div>
+                      </div>
+                    </:title>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                          <.phx_icon
+                            name="hero-x-mark"
+                            class="w-4 h-4 text-amber-600 dark:text-amber-400"
+                          />
+                        </div>
+                        <div>
+                          <p class="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                            No Storage
+                          </p>
+                          <p class="text-xs text-slate-600 dark:text-slate-400">
+                            Data collection explicitly disabled on AI requests
+                          </p>
+                        </div>
+                      </div>
+                      <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                          <.phx_icon
+                            name="hero-x-mark"
+                            class="w-4 h-4 text-amber-600 dark:text-amber-400"
+                          />
+                        </div>
+                        <div>
+                          <p class="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                            No Training
+                          </p>
+                          <p class="text-xs text-slate-600 dark:text-slate-400">
+                            Your data is never used to train AI models
+                          </p>
+                        </div>
+                      </div>
+                      <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                          <.phx_icon
+                            name="hero-check"
+                            class="w-4 h-4 text-amber-600 dark:text-amber-400"
+                          />
+                        </div>
+                        <div>
+                          <p class="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                            Encrypted After
+                          </p>
+                          <p class="text-xs text-slate-600 dark:text-slate-400">
+                            All content is asymmetrically encrypted after passing safety checks
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </.liquid_card>
+                </div>
+              </div>
+
+              <%!-- AI Features Grid --%>
+              <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 max-w-6xl mx-auto">
+                <%!-- Image Safety Checking --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg">
+                        <.phx_icon name="hero-shield-exclamation" class="size-7 text-white" />
+                      </div>
+                      <div>
+                        <span class="bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent font-bold text-lg">
+                          Image Safety Checking
+                        </span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">All uploaded images</p>
+                      </div>
+                    </div>
+                  </:title>
+                  <div class="space-y-4">
+                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Every image uploaded to MOSSLET — whether for posts, memories, or profile photos — passes through our safety check to protect our community from harmful content.
+                    </p>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-rose-500" />
+                        How it works
+                      </h4>
+                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            Images are analyzed via OpenRouter with data collection disabled — with a local Bumblebee model as fallback
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            Public posts get full moderation; private posts only check for illegal content
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            AI-generated images are detected via metadata (EXIF, XMP) and labeled with a badge
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            Once approved, images are asymmetrically encrypted and stored securely
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </.liquid_card>
+
+                <%!-- Content Moderation --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 shadow-lg">
+                        <.phx_icon name="hero-chat-bubble-left-right" class="size-7 text-white" />
+                      </div>
+                      <div>
+                        <span class="bg-gradient-to-r from-indigo-500 to-violet-500 bg-clip-text text-transparent font-bold text-lg">
+                          Content Moderation
+                        </span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Public posts only</p>
+                      </div>
+                    </div>
+                  </:title>
+                  <div class="space-y-4">
+                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Public posts are checked for community guideline compliance to keep MOSSLET a healthy space. Private and connections-only content is never moderated for text content.
+                    </p>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-indigo-500" />
+                        Privacy tiers
+                      </h4>
+                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-globe-alt"
+                            class="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            <strong class="text-slate-900 dark:text-slate-100">Public posts:</strong>
+                            Text and images are checked
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-user-group"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            <strong class="text-slate-900 dark:text-slate-100">
+                              Connections posts:
+                            </strong>
+                            Images only are checked
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-lock-closed"
+                            class="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            <strong class="text-slate-900 dark:text-slate-100">Private posts:</strong>
+                            Images only are checked
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-lg">
+                      <.phx_icon name="hero-shield-check" class="w-4 h-4" />
+                      Your private thoughts stay private — we only moderate what you choose to share publicly
+                    </div>
+                  </div>
+                </.liquid_card>
+
+                <%!-- Mood Insights --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 shadow-lg">
+                        <.phx_icon name="hero-heart" class="size-7 text-white" />
+                      </div>
+                      <div>
+                        <span class="bg-gradient-to-r from-pink-500 to-rose-500 bg-clip-text text-transparent font-bold text-lg">
+                          Mood Insights
+                        </span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          Journal feature • Opt-in
+                        </p>
+                      </div>
+                    </div>
+                  </:title>
+                  <div class="space-y-4">
+                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Get thoughtful AI-generated insights about your emotional patterns over time. This feature is completely optional and disabled by default — you're always in control.
+                    </p>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-pink-500" />
+                        How it works
+                      </h4>
+                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            Only metadata is sent: entry date, mood label, and word count —
+                            <strong class="text-slate-900 dark:text-slate-100">
+                              never your actual journal content
+                            </strong>
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>OpenRouter processes with data collection disabled</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>Insights are generated and immediately encrypted with your key</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>Only you can read the insights — we can't access them</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-pink-600 dark:text-pink-400 font-medium bg-pink-50 dark:bg-pink-900/30 px-3 py-2 rounded-lg">
+                      <.phx_icon name="hero-adjustments-horizontal" class="w-4 h-4" />
+                      Toggle on or off anytime in your journal settings
+                    </div>
+                  </div>
+                </.liquid_card>
+
+                <%!-- Journal Prompts --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg">
+                        <.phx_icon name="hero-light-bulb" class="size-7 text-white" />
+                      </div>
+                      <div>
+                        <span class="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent font-bold text-lg">
+                          Journal Prompts
+                        </span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          Journal feature • On-demand
+                        </p>
+                      </div>
+                    </div>
+                  </:title>
+                  <div class="space-y-4">
+                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Stuck on what to write? Get AI-generated prompts to inspire your journaling. Prompts are generated fresh each time you request them.
+                    </p>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-amber-500" />
+                        How it works
+                      </h4>
+                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            Prompts are generated without sending any of your journal content
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>
+                            Only basic context (like time of day) is used for relevant prompts
+                          </span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>Completely optional — use them when you want inspiration</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </.liquid_card>
+
+                <%!-- Handwritten Upload Digitization --%>
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-[1.02] transition-all duration-300 ease-out h-full lg:col-span-2"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex size-12 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 shadow-lg">
+                        <.phx_icon name="hero-pencil" class="size-7 text-white" />
+                      </div>
+                      <div>
+                        <span class="bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent font-bold text-lg">
+                          Handwritten Journal Digitization
+                        </span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          Journal feature • On-demand
+                        </p>
+                      </div>
+                    </div>
+                  </:title>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                      <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                        Upload photos of your handwritten journal pages and let AI transcribe them into digital text. Perfect for preserving old journals or switching between paper and digital.
+                      </p>
+                      <div class="flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium bg-teal-50 dark:bg-teal-900/30 px-3 py-2 rounded-lg">
+                        <.phx_icon name="hero-camera" class="w-4 h-4" />
+                        Just snap a photo of your handwritten page and upload
+                      </div>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-teal-500" />
+                        How it works
+                      </h4>
+                      <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>Image is sent via OpenRouter with data retention disabled</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>AI extracts the text from your handwriting</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>Transcribed text is immediately encrypted with your key</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                          <.phx_icon
+                            name="hero-check-circle"
+                            class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                          />
+                          <span>Original image is not stored — only the encrypted text remains</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </.liquid_card>
+              </div>
+
+              <%!-- Technical Details Callout --%>
+              <div class="mt-12 max-w-4xl mx-auto">
+                <.liquid_card
+                  padding="lg"
+                  class="bg-gradient-to-br from-slate-50/80 via-slate-100/60 to-slate-50/80 dark:from-slate-800/60 dark:via-slate-700/40 dark:to-slate-800/60 border-slate-200/60 dark:border-slate-700/40"
+                >
+                  <div class="flex flex-col md:flex-row md:items-center gap-6">
+                    <div class="flex-shrink-0">
+                      <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-600 to-slate-700 shadow-lg">
+                        <.phx_icon name="hero-server-stack" class="h-7 w-7 text-white" />
+                      </div>
+                    </div>
+                    <div class="flex-1">
+                      <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
+                        Technical Implementation
+                      </h3>
+                      <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        AI requests are routed through
+                        <strong class="text-slate-900 dark:text-slate-100">OpenRouter</strong>
+                        with
+                        <code class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-xs">
+                          data_collection: "deny"
+                        </code>
+                        in provider preferences — meaning your content is never logged, stored, or used for training. Your data is then encrypted using
+                        <strong class="text-slate-900 dark:text-slate-100">
+                          asymmetric encryption
+                        </strong>
+                        via libsodium (enacl) with your password-derived key, then wrapped in an additional layer of
+                        <strong class="text-slate-900 dark:text-slate-100">AES-256-GCM</strong>
+                        symmetric encryption at rest. Even our team cannot access your encrypted data — and we can't see your data as it flows through our automated, privacy-first AI safety checks.
+                      </p>
+                    </div>
+                  </div>
+                </.liquid_card>
+              </div>
+            </div>
+          </.liquid_container>
+
           <%!-- Privacy & Encryption Deep Dive --%>
           <.liquid_container max_width="full" class="mt-16">
             <div class="text-center mb-12">
@@ -1173,7 +1656,7 @@ defmodule MossletWeb.PublicLive.Features do
                   </div>
                 </:title>
                 <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Your posts and messages are encrypted with password-derived keys. SHA-512 hashing for searchable data and AES-GCM encryption at rest add extra layers of protection.
+                  Your posts and messages are asymmetrically encrypted using libsodium with your password-derived key. SHA-512 HMAC for searchable data, plus AES-256-GCM encryption at rest provides double-layer protection.
                 </p>
               </.liquid_card>
 

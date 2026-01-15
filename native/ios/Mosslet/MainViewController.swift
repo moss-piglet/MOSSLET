@@ -55,6 +55,10 @@ class MainViewController: UIViewController {
         webView.navigationDelegate = self
         webView.uiDelegate = self
         
+        if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+            appDelegate.bridge?.setWebView(webView)
+        }
+        
         if #available(iOS 16.4, *) {
             webView.isInspectable = true
         }

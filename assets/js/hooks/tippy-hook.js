@@ -1,18 +1,25 @@
 const TippyHook = {
   mounted() {
-    this.run("mounted", this.el);
+    this.createTippy();
   },
 
   updated() {
-    this.run("updated", this.el);
+    if (this.tippyInstance) {
+      this.tippyInstance.destroy();
+      this.tippyInstance = null;
+    }
+    this.createTippy();
   },
 
   destroyed() {
-    this.run("destroyed", this.el);
+    if (this.tippyInstance) {
+      this.tippyInstance.destroy();
+      this.tippyInstance = null;
+    }
   },
 
-  run(lifecycleMethod, el) {
-    const tippyInstance = tippy(el, {
+  createTippy() {
+    this.tippyInstance = tippy(this.el, {
       touch: ["hold", 500],
       hideOnClick: true,
       trigger: "mouseenter focus",
@@ -23,12 +30,9 @@ const TippyHook = {
       },
     });
 
-    const disableOnMount = el.dataset.disableTippyOnMount === "true";
-
-    if (lifecycleMethod === "mounted" && disableOnMount) {
-      tippyInstance.disable();
-    } else if (lifecycleMethod === "destroyed") {
-      tippyInstance.destroy();
+    const disableOnMount = this.el.dataset.disableTippyOnMount === "true";
+    if (disableOnMount) {
+      this.tippyInstance.disable();
     }
   },
 };

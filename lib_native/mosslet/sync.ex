@@ -7,6 +7,8 @@ defmodule Mosslet.Sync do
   - Processing the sync queue (pending local changes)
   - Online/offline detection with exponential backoff
   - Broadcasting sync status changes via PubSub
+  - App lifecycle awareness (foreground/background states)
+  - Background sync triggered by OS (iOS Background Fetch / Android WorkManager)
 
   ## Usage
 
@@ -22,7 +24,14 @@ defmodule Mosslet.Sync do
   Check current status:
 
       Mosslet.Sync.status()
-      # => %{online: true, syncing: false, last_sync: ~U[...], pending_count: 2}
+      # => %{online: true, syncing: false, last_sync: ~U[...], pending_count: 2, app_state: :active}
+
+  ## App State Awareness
+
+  The sync intervals adjust based on app state:
+  - Active (foreground): 5 minute sync interval
+  - Inactive/Background: 15 minute sync interval
+  - Background sync can also be triggered by OS via `background_sync/0`
   """
 
   use GenServer
@@ -33,10 +42,12 @@ defmodule Mosslet.Sync do
   alias Mosslet.Cache
   alias Mosslet.Sync.ConflictResolver
 
-  @sync_interval :timer.minutes(5)
+  @foreground_sync_interval :timer.minutes(5)
+  @background_sync_interval :timer.minutes(15)
   @retry_interval :timer.seconds(30)
   @max_retry_interval :timer.minutes(10)
   @health_check_interval :timer.seconds(10)
+  @background_health_check_interval :timer.minutes(1)
 
   defstruct [
     :token,
@@ -45,7 +56,8 @@ defmodule Mosslet.Sync do
     online: false,
     syncing: false,
     retry_count: 0,
-    pending_count: 0
+    pending_count: 0,
+    app_state: :active
   ]
 
   def start_link(opts) do
@@ -70,6 +82,51 @@ defmodule Mosslet.Sync do
 
   def online? do
     GenServer.call(__MODULE__, :online?)
+  end
+
+  @doc """
+  Update the app state (active, inactive, background).
+
+  Called by BackgroundSyncHook when app lifecycle changes.
+  """
+  def set_app_state(state) when state in [:active, :inactive, :background] do
+    GenServer.cast(__MODULE__, {:set_app_state, state})
+  end
+
+  def set_app_state(state) when is_binary(state) do
+    atom_state =
+      case state do
+        "active" -> :active
+        "inactive" -> :inactive
+        "background" -> :background
+        _ -> :active
+      end
+
+    set_app_state(atom_state)
+  end
+
+  @doc """
+  Trigger a background sync.
+
+  Called when:
+  - iOS Background Fetch triggers
+  - Android WorkManager triggers
+  - App comes back to foreground
+  - Network connectivity is restored
+
+  Returns immediately, sync happens asynchronously.
+  """
+  def background_sync do
+    GenServer.cast(__MODULE__, :background_sync)
+  end
+
+  @doc """
+  Notify that network connectivity was restored.
+
+  Triggers an immediate sync attempt.
+  """
+  def network_restored do
+    GenServer.cast(__MODULE__, :network_restored)
   end
 
   @doc """
@@ -121,7 +178,7 @@ defmodule Mosslet.Sync do
 
   @impl true
   def init(_opts) do
-    schedule_health_check()
+    schedule_health_check(:active)
     {:ok, %__MODULE__{}}
   end
 
@@ -131,7 +188,8 @@ defmodule Mosslet.Sync do
       online: state.online,
       syncing: state.syncing,
       last_sync: state.last_sync,
-      pending_count: state.pending_count
+      pending_count: state.pending_count,
+      app_state: state.app_state
     }
 
     {:reply, status, state}
@@ -160,10 +218,44 @@ defmodule Mosslet.Sync do
     {:noreply, %{state | token: nil, user_id: nil, last_sync: nil}}
   end
 
+  def handle_cast({:set_app_state, new_app_state}, state) do
+    old_state = state.app_state
+
+    if new_app_state == :active and old_state != :active do
+      Logger.debug("App became active, triggering sync")
+      send(self(), :sync)
+    end
+
+    {:noreply, %{state | app_state: new_app_state}}
+  end
+
+  def handle_cast(:background_sync, state) do
+    Logger.debug("Background sync triggered")
+
+    if state.token && !state.syncing do
+      send(self(), :sync)
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_cast(:network_restored, state) do
+    Logger.debug("Network restored, triggering sync")
+
+    new_state = %{state | online: true}
+    broadcast_status(new_state)
+
+    if state.token && !state.syncing do
+      send(self(), :sync)
+    end
+
+    {:noreply, new_state}
+  end
+
   @impl true
   def handle_info(:health_check, state) do
     new_state = check_connectivity(state)
-    schedule_health_check()
+    schedule_health_check(state.app_state)
     {:noreply, new_state}
   end
 
@@ -190,7 +282,7 @@ defmodule Mosslet.Sync do
         }
 
         broadcast_status(new_state)
-        schedule_sync()
+        schedule_sync(new_state.app_state)
         {:noreply, new_state}
 
       {:error, :offline, new_state} ->
@@ -479,8 +571,12 @@ defmodule Mosslet.Sync do
     end
   end
 
-  defp schedule_sync do
-    Process.send_after(self(), :sync, @sync_interval)
+  defp schedule_sync(:active) do
+    Process.send_after(self(), :sync, @foreground_sync_interval)
+  end
+
+  defp schedule_sync(_background_or_inactive) do
+    Process.send_after(self(), :sync, @background_sync_interval)
   end
 
   defp schedule_retry(retry_count) do
@@ -488,8 +584,12 @@ defmodule Mosslet.Sync do
     Process.send_after(self(), :sync, trunc(delay))
   end
 
-  defp schedule_health_check do
+  defp schedule_health_check(:active) do
     Process.send_after(self(), :health_check, @health_check_interval)
+  end
+
+  defp schedule_health_check(_background_or_inactive) do
+    Process.send_after(self(), :health_check, @background_health_check_interval)
   end
 
   defp broadcast_status(state) do
@@ -501,7 +601,8 @@ defmodule Mosslet.Sync do
          online: state.online,
          syncing: state.syncing,
          last_sync: state.last_sync,
-         pending_count: state.pending_count
+         pending_count: state.pending_count,
+         app_state: state.app_state
        }}
     )
   end

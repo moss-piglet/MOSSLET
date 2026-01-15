@@ -10,5 +10,12 @@
     <array>
         <string>$(AppIdentifierPrefix)com.mosslet.app</string>
     </array>
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>applinks:mosslet.com</string>
+        <string>webcredentials:mosslet.com</string>
+    </array>
+    <key>aps-environment</key>
+    <string>development</string>
 </dict>
 </plist>

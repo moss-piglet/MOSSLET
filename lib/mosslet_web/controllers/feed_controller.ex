@@ -8,6 +8,14 @@ defmodule MossletWeb.FeedController do
 
   @blog_entries [
     %{
+      id: "13",
+      date: "January 15, 2026",
+      title: "How We Built Privacy-First AI (And Why It Matters)",
+      preview:
+        "We get this question a lot: \"Wait, you have AI features? How is that private?\" Today I want to pull back the curtain on exactly how we've built AI into MOSSLET without compromising on privacy. No vague promises. No marketing speak. Just the technical reality of how this actually works.",
+      path: "/blog/articles/13"
+    },
+    %{
       id: "12",
       date: "January 07, 2026",
       title: "Introducing Journal: Your Private Space for Reflection",

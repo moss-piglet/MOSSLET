@@ -1,12 +1,14 @@
 const TrixContentPostHook = {
   mounted() {
     this.eventListeners = [];
+    this.linkListeners = new WeakMap();
     this.isModalOpening = false;
     this.init_links();
     this.setup_photo_viewer();
   },
 
   updated() {
+    this.cleanup_link_listeners();
     this.init_links();
     this.reset_photo_viewer_state();
     this.cleanup_photo_viewer_listeners();
@@ -36,8 +38,21 @@ const TrixContentPostHook = {
   },
 
   destroyed() {
+    this.cleanup_link_listeners();
     this.cleanup_photo_viewer_listeners();
     this.isModalOpening = false;
+  },
+
+  cleanup_link_listeners() {
+    const links = this.el.querySelectorAll("a");
+    links.forEach((link) => {
+      const handlers = this.linkListeners.get(link);
+      if (handlers) {
+        link.removeEventListener("click", handlers.click);
+        link.removeEventListener("contextmenu", handlers.contextmenu);
+        this.linkListeners.delete(link);
+      }
+    });
   },
 
   cleanup_photo_viewer_listeners() {
@@ -705,17 +720,30 @@ const TrixContentPostHook = {
   },
 
   transform_link(link) {
+    if (this.linkListeners.has(link)) {
+      return;
+    }
+
+    const handlers = {
+      click: (event) => {
+        if (link.children.length > 0) {
+          event.preventDefault();
+        }
+      },
+      contextmenu: (event) => {
+        if (link.children.length > 0) {
+          event.preventDefault();
+        }
+      },
+    };
+
+    this.linkListeners.set(link, handlers);
+
     if (link.children.length > 0) {
       link.setAttribute("target", "_blank");
       link.setAttribute("rel", "noopener noreferrer");
-
-      link.addEventListener("click", function (event) {
-        event.preventDefault();
-      });
-
-      link.addEventListener("contextmenu", function (event) {
-        event.preventDefault();
-      });
+      link.addEventListener("click", handlers.click);
+      link.addEventListener("contextmenu", handlers.contextmenu);
     } else {
       link.setAttribute("target", "_blank");
       link.setAttribute("rel", "noopener noreferrer");

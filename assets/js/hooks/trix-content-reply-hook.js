@@ -1,6 +1,7 @@
 const TrixContentReplyHook = {
   mounted() {
     this.eventListeners = [];
+    this.linkListeners = new WeakMap();
     this.init_links();
     this.image_placeholder();
 
@@ -24,6 +25,7 @@ const TrixContentReplyHook = {
   },
 
   updated() {
+    this.cleanup_link_listeners();
     this.init_links();
     this.image_placeholder();
 
@@ -35,10 +37,23 @@ const TrixContentReplyHook = {
   },
 
   destroyed() {
+    this.cleanup_link_listeners();
     this.eventListeners.forEach(({ event, handler }) => {
       window.removeEventListener(event, handler);
     });
     this.eventListeners = [];
+  },
+
+  cleanup_link_listeners() {
+    const links = this.el.querySelectorAll("a");
+    links.forEach((link) => {
+      const handlers = this.linkListeners.get(link);
+      if (handlers) {
+        link.removeEventListener("click", handlers.click);
+        link.removeEventListener("contextmenu", handlers.contextmenu);
+        this.linkListeners.delete(link);
+      }
+    });
   },
 
   init_links() {
@@ -412,17 +427,30 @@ const TrixContentReplyHook = {
   },
 
   transform_link(link) {
+    if (this.linkListeners.has(link)) {
+      return;
+    }
+
+    const handlers = {
+      click: (event) => {
+        if (link.children.length > 0) {
+          event.preventDefault();
+        }
+      },
+      contextmenu: (event) => {
+        if (link.children.length > 0) {
+          event.preventDefault();
+        }
+      },
+    };
+
+    this.linkListeners.set(link, handlers);
+
     if (link.children.length > 0) {
       link.setAttribute("target", "_blank");
       link.setAttribute("rel", "noopener noreferrer");
-
-      link.addEventListener("click", function (event) {
-        event.preventDefault();
-      });
-
-      link.addEventListener("contextmenu", function (event) {
-        event.preventDefault();
-      });
+      link.addEventListener("click", handlers.click);
+      link.addEventListener("contextmenu", handlers.contextmenu);
     } else {
       link.setAttribute("target", "_blank");
       link.setAttribute("rel", "noopener noreferrer");
