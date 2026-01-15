@@ -1385,7 +1385,33 @@ config :mosslet, :mobile_product_mapping, %{
   - `MobileNative.push` - JS bridge for iOS/Android push APIs
   - ⬜ iOS client integration (APNs delegate, permission request, token registration)
   - ⬜ Android client integration (FCM setup, token handling)
-- [ ] Deep linking / Universal links
+- [x] Deep linking / Universal links - ✅ COMPLETE
+  - `Mosslet.DeepLink` - URL parsing, route resolution, and link generation
+  - `MossletWeb.WellKnownController` - Serves `apple-app-site-association` and `assetlinks.json`
+  - `DeepLinkHook` - JavaScript hook for deep link navigation integration
+  - `MobileNative.deepLink` - JS bridge for deep link handling
+  - iOS: Universal Links + custom `mosslet://` scheme support
+    - Updated `Mosslet.entitlements` with `applinks:mosslet.com` and `webcredentials:mosslet.com`
+    - Updated `Info.plist` with `CFBundleURLTypes` for custom scheme
+    - `AppDelegate.swift` handles `application(_:continue:restorationHandler:)` for Universal Links
+    - `AppDelegate.swift` handles `application(_:open:options:)` for custom scheme
+    - `JsonBridge.swift` notifies WebView of incoming deep links
+  - Android: App Links + custom `mosslet://` scheme support
+    - Updated `AndroidManifest.xml` with `android:autoVerify="true"` intent filters for `mosslet.com`
+    - `MainActivity.kt` handles `onNewIntent` for deep link processing
+    - Supports HTTPS links with pathPrefix: `/app`, `/profile`, `/invite`, `/group`, `/post`
+  - **Supported Routes:**
+    - Profiles: `/profile/:slug`
+    - Posts: `/app/posts/:id`, `/post/:id`
+    - Groups: `/app/groups/:id`, `/group/:id`
+    - Invites: `/invite/:token`, `/invite/group/:token`
+    - Email confirmation: `/users/settings/confirm-email/:token`
+    - Settings: `/app/users/edit-*`
+    - Timeline: `/app/timeline`, `/app/timeline/connections`, `/app/timeline/groups`, `/app/timeline/discover`
+    - Journal: `/app/journal`, `/app/journal/new`, `/app/journal/books`
+  - **Configuration Required:**
+    - iOS: Replace `TEAM_ID` in `WellKnownController` with actual Apple Team ID
+    - Android: Replace `SHA256_FINGERPRINT` with app signing certificate fingerprint
 - [ ] Background sync
 - [x] Offline mode indicators
   - `MossletWeb.DesignSystem.sync_status_indicator/1` - Compact status pill
@@ -1663,4 +1689,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (server + JS hook), Offline mode indicators ✅ COMPLETE. Next: Push notification native client integration, Deep linking, Background sync)_
+_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (server + JS hook), Deep linking ✅ COMPLETE, Offline mode indicators ✅ COMPLETE. Next: Push notification native client integration, Background sync, Native file picker)_

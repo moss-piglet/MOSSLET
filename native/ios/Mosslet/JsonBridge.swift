@@ -70,6 +70,11 @@ class JsonBridge: NSObject {
                     onTokenError: null,
                     onNotificationReceived: null,
                     onNotificationTapped: null
+                },
+                
+                // Deep link methods
+                deepLink: {
+                    onReceived: null
                 }
             };
             
@@ -151,6 +156,18 @@ class JsonBridge: NSObject {
             """
             executeJavaScript(script)
         }
+    }
+    
+    func notifyDeepLinkReceived(_ url: String, path: String) {
+        let escapedUrl = url.replacingOccurrences(of: "'", with: "\\'")
+        let escapedPath = path.replacingOccurrences(of: "'", with: "\\'")
+        let script = """
+            if (window.MossletNative && window.MossletNative.deepLink && window.MossletNative.deepLink.onReceived) {
+                window.MossletNative.deepLink.onReceived('\(escapedUrl)', '\(escapedPath)');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-deep-link', { detail: { url: '\(escapedUrl)', path: '\(escapedPath)' } }));
+        """
+        executeJavaScript(script)
     }
     
     private func executeJavaScript(_ script: String) {

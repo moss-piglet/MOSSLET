@@ -147,7 +147,51 @@ const MobileNative = {
       });
     },
   },
+
+  deepLink: {
+    _callbacks: [],
+    _pendingLink: null,
+
+    onReceived(callback) {
+      this._callbacks.push(callback);
+
+      if (this._pendingLink) {
+        callback(this._pendingLink.url, this._pendingLink.path);
+        this._pendingLink = null;
+      }
+    },
+
+    _handleLink(url, path) {
+      if (this._callbacks.length > 0) {
+        this._callbacks.forEach((cb) => cb(url, path));
+      } else {
+        this._pendingLink = { url, path };
+      }
+    },
+
+    navigate(path) {
+      if (window.liveSocket && window.liveSocket.main) {
+        window.liveSocket.main.pushEvent("navigate", { path });
+      } else {
+        window.location.href = path;
+      }
+    },
+
+    generateLink(route, options = {}) {
+      const scheme = options.scheme || "https";
+      const host = options.host || "mosslet.com";
+
+      if (scheme === "custom") {
+        return `mosslet:/${route}`;
+      }
+      return `${scheme}://${host}${route}`;
+    },
+  },
 };
+
+window.addEventListener("mosslet-deep-link", (e) => {
+  MobileNative.deepLink._handleLink(e.detail.url, e.detail.path);
+});
 
 window.MobileNative = MobileNative;
 

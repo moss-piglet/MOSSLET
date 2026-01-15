@@ -11,6 +11,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var serverPort: Int = 0
     private var erlangStarted = false
     private var pendingDeviceToken: String?
+    private var pendingDeepLink: URL?
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
@@ -21,6 +22,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         UNUserNotificationCenter.current().delegate = self
         
+        if let url = launchOptions?[.url] as? URL {
+            pendingDeepLink = url
+        }
+        
         startErlangRuntime { [weak self] port in
             self?.serverPort = port
             self?.erlangStarted = true
@@ -30,6 +35,56 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         
         return true
+    }
+    
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        handleDeepLink(url)
+        return true
+    }
+    
+    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL else {
+            return false
+        }
+        
+        handleDeepLink(url)
+        return true
+    }
+    
+    private func handleDeepLink(_ url: URL) {
+        guard erlangStarted, let webView = webView else {
+            pendingDeepLink = url
+            return
+        }
+        
+        let path = extractPath(from: url)
+        bridge?.notifyDeepLinkReceived(url.absoluteString, path: path)
+        
+        navigateWebView(to: path)
+    }
+    
+    private func extractPath(from url: URL) -> String {
+        if url.scheme == "mosslet" {
+            return url.path.isEmpty ? "/" : url.path
+        } else {
+            return url.path
+        }
+    }
+    
+    private func navigateWebView(to path: String) {
+        guard let webView = webView else { return }
+        
+        let js = """
+            (function() {
+                if (window.liveSocket && window.liveSocket.main) {
+                    window.liveSocket.main.pushEvent('navigate', { path: '\(path.replacingOccurrences(of: "'", with: "\\'"))' });
+                } else {
+                    window.location.href = 'http://localhost:\(serverPort)\(path)';
+                }
+            })();
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
@@ -71,6 +126,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if let token = pendingDeviceToken {
             bridge?.notifyPushTokenReceived(token)
             pendingDeviceToken = nil
+        }
+        
+        if let deepLink = pendingDeepLink {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.handleDeepLink(deepLink)
+            }
+            pendingDeepLink = nil
         }
     }
     
@@ -182,6 +244,10 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         
         if let data = userInfo["data"] as? [String: Any] {
             bridge?.notifyPushTapped(data)
+            
+            if let path = data["path"] as? String {
+                navigateWebView(to: path)
+            }
         }
         
         completionHandler()

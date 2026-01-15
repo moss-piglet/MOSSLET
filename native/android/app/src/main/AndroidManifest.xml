@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".MossletApplication"
@@ -30,12 +31,52 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <intent-filter android:autoVerify="true">
+            <!-- Custom URL scheme (fallback) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="mosslet" />
             </intent-filter>
+
+            <!-- Android App Links (verified) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="mosslet.com"
+                    android:pathPrefix="/app" />
+                <data
+                    android:scheme="https"
+                    android:host="mosslet.com"
+                    android:pathPrefix="/profile" />
+                <data
+                    android:scheme="https"
+                    android:host="mosslet.com"
+                    android:pathPrefix="/invite" />
+                <data
+                    android:scheme="https"
+                    android:host="mosslet.com"
+                    android:pathPrefix="/group" />
+                <data
+                    android:scheme="https"
+                    android:host="mosslet.com"
+                    android:pathPrefix="/post" />
+                <data
+                    android:scheme="https"
+                    android:host="mosslet.com"
+                    android:pathPrefix="/users/settings/confirm-email" />
+            </intent-filter>
         </activity>
+
+        <service
+            android:name=".PushNotificationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

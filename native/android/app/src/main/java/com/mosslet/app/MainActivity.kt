@@ -26,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var jsonBridge: JsonBridge
     private var serverPort: Int = 0
+    private var pendingDeepLink: Uri? = null
+    private var erlangStarted = false
 
     companion object {
         const val NOTIFICATION_PERMISSION_CODE = 1001
@@ -41,8 +43,64 @@ class MainActivity : AppCompatActivity() {
         loadingView = findViewById(R.id.loadingView)
         progressBar = findViewById(R.id.progressBar)
 
+        handleIntent(intent)
+
         setupWebView()
         startErlangAndLoadApp()
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        
+        val uri = intent.data
+        if (uri != null) {
+            if (erlangStarted) {
+                handleDeepLink(uri)
+            } else {
+                pendingDeepLink = uri
+            }
+        }
+        
+        handlePushNotificationIntent(intent)
+    }
+
+    private fun handleDeepLink(uri: Uri) {
+        val path = extractPath(uri)
+        notifyDeepLinkReceived(uri.toString(), path)
+        navigateWebView(path)
+    }
+
+    private fun extractPath(uri: Uri): String {
+        return when (uri.scheme) {
+            "mosslet" -> uri.path ?: "/"
+            else -> uri.path ?: "/"
+        }
+    }
+
+    private fun navigateWebView(path: String) {
+        val escapedPath = path.replace("'", "\\'")
+        val js = """
+            (function() {
+                if (window.liveSocket && window.liveSocket.main) {
+                    window.liveSocket.main.pushEvent('navigate', { path: '$escapedPath' });
+                } else {
+                    window.location.href = 'http://localhost:$serverPort$path';
+                }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    private fun notifyDeepLinkReceived(url: String, path: String) {
+        val escapedUrl = url.replace("'", "\\'")
+        val escapedPath = path.replace("'", "\\'")
+        val js = """
+            if (window.MossletNative && window.MossletNative.deepLink && window.MossletNative.deepLink.onReceived) {
+                window.MossletNative.deepLink.onReceived('$escapedUrl', '$escapedPath');
+            }
+            window.dispatchEvent(new CustomEvent('mosslet-deep-link', { detail: { url: '$escapedUrl', path: '$escapedPath' } }));
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -89,6 +147,11 @@ class MainActivity : AppCompatActivity() {
                 webView.visibility = View.VISIBLE
                 injectSafeAreaInsets()
                 injectAndroidBridgeScript()
+                
+                pendingDeepLink?.let { uri ->
+                    handleDeepLink(uri)
+                    pendingDeepLink = null
+                }
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
@@ -172,6 +235,10 @@ class MainActivity : AppCompatActivity() {
                         onTokenError: null,
                         onNotificationReceived: null,
                         onNotificationTapped: null
+                    },
+                    
+                    deepLink: {
+                        onReceived: null
                     }
                 };
                 
@@ -186,6 +253,7 @@ class MainActivity : AppCompatActivity() {
             serverPort = withContext(Dispatchers.IO) {
                 Bridge.startErlang(this@MainActivity)
             }
+            erlangStarted = true
             loadApp()
         }
     }
@@ -221,7 +289,8 @@ class MainActivity : AppCompatActivity() {
     
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        handlePushNotificationIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
     }
     
     private fun handlePushNotificationIntent(intent: Intent?) {
@@ -237,6 +306,12 @@ class MainActivity : AppCompatActivity() {
             }
             if (data.isNotEmpty()) {
                 PushNotificationService.handleNotificationTapped(data)
+                
+                data["path"]?.let { path ->
+                    if (erlangStarted) {
+                        navigateWebView(path)
+                    }
+                }
             }
         }
     }
@@ -245,7 +320,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         Bridge.sendEvent("app_resumed")
         webView.onResume()
-        handlePushNotificationIntent(intent)
     }
 
     override fun onPause() {
