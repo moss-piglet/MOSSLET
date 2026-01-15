@@ -1383,8 +1383,19 @@ config :mosslet, :mobile_product_mapping, %{
   - Database migration for `device_tokens` table
   - `PushNotificationHook` - JavaScript hook for native push integration with proper cleanup
   - `MobileNative.push` - JS bridge for iOS/Android push APIs
-  - ⬜ iOS client integration (APNs delegate, permission request, token registration)
-  - ⬜ Android client integration (FCM setup, token handling)
+  - ✅ iOS client integration complete:
+    - `AppDelegate.swift` - APNs delegate, `UNUserNotificationCenterDelegate`
+    - `JsonBridge.swift` - Push permission/token bridge to WebView
+    - `Info.plist` - `UIBackgroundModes` includes `remote-notification`
+    - `Mosslet.entitlements` - `aps-environment` configured
+  - ✅ Android client integration complete:
+    - `PushNotificationService.kt` - `FirebaseMessagingService` with `onNewToken`/`onMessageReceived`
+    - `JsonBridge.kt` - Permission request handling, FCM token registration
+    - `MainActivity.kt` - Permission result handling, notification tap intents
+    - `MossletApplication.kt` - Notification channel creation
+    - Firebase dependencies added to `build.gradle`
+    - ProGuard rules for Firebase
+  - See `native/PUSH_NOTIFICATION_SETUP.md` for configuration guide
 - [x] Deep linking / Universal links - ✅ COMPLETE
   - `Mosslet.DeepLink` - URL parsing, route resolution, and link generation
   - `MossletWeb.WellKnownController` - Serves `apple-app-site-association` and `assetlinks.json`
@@ -1707,4 +1718,4 @@ Implement polling sync with exponential backoff for failures.
 
 ---
 
-_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (server + JS hook), Deep linking ✅ COMPLETE, Background sync ✅ COMPLETE, Offline mode indicators ✅ COMPLETE. Next: Push notification native client integration, Native file picker)_
+_Last updated: 2025-01-21 (Phase 8 Native Features - Push notifications ✅ COMPLETE (full iOS + Android client integration), Deep linking ✅ COMPLETE, Background sync ✅ COMPLETE, Offline mode indicators ✅ COMPLETE. Next: Native file picker)_
