@@ -21,8 +21,8 @@ async function loadDictionary() {
   if (dictionaryCache) return dictionaryCache;
   
   if (dictionaryLoading) {
-    return new Promise((resolve, reject) => {
-      dictionaryCallbacks.push({ resolve, reject });
+    return new Promise((resolve) => {
+      dictionaryCallbacks.push(resolve);
     });
   }
   
@@ -38,14 +38,14 @@ async function loadDictionary() {
     dictionaryArrayCache = words;
     dictionaryLoading = false;
     
-    dictionaryCallbacks.forEach(cb => cb.resolve(dictionaryCache));
+    dictionaryCallbacks.forEach(cb => cb(dictionaryCache));
     dictionaryCallbacks = [];
     
     return dictionaryCache;
   } catch (e) {
     console.warn("Failed to load spell check dictionary:", e);
     dictionaryLoading = false;
-    dictionaryCallbacks.forEach(cb => cb.resolve(null));
+    dictionaryCallbacks.forEach(cb => cb(null));
     dictionaryCallbacks = [];
     return null;
   }
@@ -55,8 +55,8 @@ async function loadDefinitions() {
   if (definitionsCache) return definitionsCache;
   
   if (definitionsLoading) {
-    return new Promise((resolve, reject) => {
-      definitionsCallbacks.push({ resolve, reject });
+    return new Promise((resolve) => {
+      definitionsCallbacks.push(resolve);
     });
   }
   
@@ -70,14 +70,14 @@ async function loadDefinitions() {
     definitionsCache = await response.json();
     definitionsLoading = false;
     
-    definitionsCallbacks.forEach(cb => cb.resolve(definitionsCache));
+    definitionsCallbacks.forEach(cb => cb(definitionsCache));
     definitionsCallbacks = [];
     
     return definitionsCache;
   } catch (e) {
     console.warn("Failed to load definitions dictionary:", e);
     definitionsLoading = false;
-    definitionsCallbacks.forEach(cb => cb.resolve(null));
+    definitionsCallbacks.forEach(cb => cb(null));
     definitionsCallbacks = [];
     return null;
   }
@@ -825,13 +825,7 @@ const AutoResize = {
     svg.setAttribute("viewBox", "0 0 20 20");
     svg.setAttribute("fill", "currentColor");
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    if (iconPath.includes("fill-rule")) {
-      path.setAttribute("fill-rule", "evenodd");
-      path.setAttribute("clip-rule", "evenodd");
-      path.setAttribute("d", iconPath.replace(/fill-rule.*?clip-rule.*?d="/, "").replace(/"$/, ""));
-    } else {
-      path.setAttribute("d", iconPath);
-    }
+    path.setAttribute("d", iconPath);
     svg.appendChild(path);
     btn.appendChild(svg);
     
@@ -1095,11 +1089,6 @@ const AutoResize = {
     }, { once: true });
   },
 
-  escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  },
 };
 
 export default AutoResize;
