@@ -22,6 +22,7 @@ async function loadDictionary() {
     const words = await response.json();
     dictionaryCache = new Set(words);
     dictionaryArrayCache = words;
+    dictionaryLoading = false;
     
     dictionaryCallbacks.forEach(cb => cb(dictionaryCache));
     dictionaryCallbacks = [];
@@ -30,6 +31,8 @@ async function loadDictionary() {
   } catch (e) {
     console.warn("Failed to load spell check dictionary:", e);
     dictionaryLoading = false;
+    dictionaryCallbacks.forEach(cb => cb(null));
+    dictionaryCallbacks = [];
     return null;
   }
 }
@@ -48,6 +51,7 @@ async function loadDefinitions() {
   try {
     const response = await fetch("/dictionary/en-definitions.json");
     definitionsCache = await response.json();
+    definitionsLoading = false;
     
     definitionsCallbacks.forEach(cb => cb(definitionsCache));
     definitionsCallbacks = [];
@@ -56,6 +60,8 @@ async function loadDefinitions() {
   } catch (e) {
     console.warn("Failed to load definitions dictionary:", e);
     definitionsLoading = false;
+    definitionsCallbacks.forEach(cb => cb(null));
+    definitionsCallbacks = [];
     return null;
   }
 }
