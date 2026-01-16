@@ -846,7 +846,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   defp filter_by_muted_keywords(query, _muted_keywords), do: query
 
-  defp filter_by_content_warnings(query, %{}), do: query
+  defp filter_by_content_warnings(query, cw_settings) when cw_settings == %{}, do: query
 
   defp filter_by_content_warnings(query, cw_settings) do
     hide_all = Map.get(cw_settings || %{}, :hide_all, false)
@@ -2355,7 +2355,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     end)
   end
 
-  defp filter_by_content_warnings_count(query, %{}), do: query
+  defp filter_by_content_warnings_count(query, cw) when cw == %{}, do: query
   defp filter_by_content_warnings_count(query, nil), do: query
 
   defp filter_by_content_warnings_count(query, content_warnings) when is_map(content_warnings) do
