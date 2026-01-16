@@ -1254,7 +1254,7 @@ defmodule MossletWeb.TimelineLive.Index do
              key: key,
              trix_key: decrypted_post_key
            ) do
-        {:ok, _shared_post} ->
+        {:ok, shared_post} ->
           {:ok, post} = Timeline.inc_reposts(post)
           updated_reposts = [user.id | decrypted_reposts]
           encrypted_post_key = get_post_key(post, user)
@@ -1271,22 +1271,40 @@ defmodule MossletWeb.TimelineLive.Index do
           Accounts.track_user_activity(user, :interaction)
 
           recipient_count = length(selected_user_ids)
+          current_tab = socket.assigns.active_tab || "home"
+          options = socket.assigns.options
+          content_filters = socket.assigns.content_filters
 
-          {:noreply,
-           socket
-           |> assign(:show_share_modal, false)
-           |> assign(:share_post_id, nil)
-           |> assign(:share_post_body, nil)
-           |> assign(:share_post_username, nil)
-           |> put_flash(
-             :success,
-             "Shared with #{recipient_count} #{if recipient_count == 1, do: "person", else: "people"}!"
-           )
-           |> push_event("update_post_repost_count", %{
-             post_id: post.id,
-             reposts_count: post.reposts_count,
-             can_repost: false
-           })}
+          should_show_post = post_matches_current_tab?(shared_post, current_tab, user)
+          passes_content_filters = post_passes_content_filters?(shared_post, content_filters)
+
+          socket =
+            socket
+            |> assign(:show_share_modal, false)
+            |> assign(:share_post_id, nil)
+            |> assign(:share_post_body, nil)
+            |> assign(:share_post_username, nil)
+            |> put_flash(
+              :success,
+              "Shared with #{recipient_count} #{if recipient_count == 1, do: "person", else: "people"}!"
+            )
+            |> push_event("update_post_repost_count", %{
+              post_id: post.id,
+              reposts_count: post.reposts_count,
+              can_repost: false
+            })
+
+          socket =
+            if should_show_post and passes_content_filters do
+              socket
+              |> stream_insert_post(shared_post, user, at: 0, limit: socket.assigns.stream_limit)
+              |> recalculate_counts_after_new_post(user, options)
+            else
+              socket
+              |> recalculate_counts_after_new_post(user, options)
+            end
+
+          {:noreply, socket}
 
         {:error, _changeset} ->
           {:noreply,
