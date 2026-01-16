@@ -5,16 +5,22 @@ let dictionaryCallbacks = [];
 let definitionsCache = null;
 let definitionsLoading = false;
 let definitionsCallbacks = [];
+let urbanCache = null;
+let urbanLoading = false;
+let urbanCallbacks = [];
 let activeInstanceCount = 0;
 
 function clearGlobalCaches() {
   dictionaryCache = null;
   dictionaryArrayCache = null;
   definitionsCache = null;
+  urbanCache = null;
   dictionaryLoading = false;
   definitionsLoading = false;
+  urbanLoading = false;
   dictionaryCallbacks = [];
   definitionsCallbacks = [];
+  urbanCallbacks = [];
 }
 
 async function loadDictionary() {
@@ -83,11 +89,55 @@ async function loadDefinitions() {
   }
 }
 
+async function loadUrbanDictionary() {
+  if (urbanCache) return urbanCache;
+  
+  if (urbanLoading) {
+    return new Promise((resolve) => {
+      urbanCallbacks.push(resolve);
+    });
+  }
+  
+  urbanLoading = true;
+  
+  try {
+    const response = await fetch("/dictionary/en-urban.json");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    urbanCache = await response.json();
+    urbanLoading = false;
+    
+    urbanCallbacks.forEach(cb => cb(urbanCache));
+    urbanCallbacks = [];
+    
+    return urbanCache;
+  } catch (e) {
+    console.warn("Failed to load urban dictionary:", e);
+    urbanLoading = false;
+    urbanCallbacks.forEach(cb => cb(null));
+    urbanCallbacks = [];
+    return null;
+  }
+}
+
+function isUrbanWord(word) {
+  if (!urbanCache) return false;
+  return urbanCache.hasOwnProperty(word.toLowerCase());
+}
+
 function getDefinition(word) {
-  if (!definitionsCache || !dictionaryCache) return null;
+  if (!dictionaryCache) return null;
   const lowerWord = word.toLowerCase();
   if (!dictionaryCache.has(lowerWord)) return null;
-  return definitionsCache[lowerWord] || null;
+  
+  if (urbanCache && urbanCache[lowerWord]) {
+    return { defs: urbanCache[lowerWord], source: "urban" };
+  }
+  if (definitionsCache && definitionsCache[lowerWord]) {
+    return { defs: definitionsCache[lowerWord], source: "standard" };
+  }
+  return null;
 }
 
 function damerauLevenshtein(a, b) {
@@ -173,6 +223,7 @@ function findSpellingSuggestions(word, maxSuggestions = 3) {
   for (const dictWord of dictionaryArrayCache) {
     if (Math.abs(dictWord.length - wordLen) > 2) continue;
     if (dictWord.length < 2) continue;
+    if (isUrbanWord(dictWord)) continue;
     
     const distance = damerauLevenshtein(lowerWord, dictWord);
     
@@ -489,6 +540,7 @@ const AutoResize = {
 
     this.dictionary = await loadDictionary();
     this.definitions = await loadDefinitions();
+    this.urban = await loadUrbanDictionary();
     
     if (this.dictionary) {
       this.runSpellCheck();
@@ -1029,8 +1081,11 @@ const AutoResize = {
   },
 
   showDefinitionPopup(word) {
-    const definitions = getDefinition(word);
-    if (!definitions || !Array.isArray(definitions) || definitions.length === 0) return;
+    const result = getDefinition(word);
+    if (!result || !result.defs || !Array.isArray(result.defs) || result.defs.length === 0) return;
+    
+    const definitions = result.defs;
+    const isUrban = result.source === "urban";
 
     const fragment = document.createDocumentFragment();
     
@@ -1041,6 +1096,13 @@ const AutoResize = {
     wordSpan.className = "definition-popup-word";
     wordSpan.textContent = word;
     header.appendChild(wordSpan);
+    
+    if (isUrban) {
+      const urbanBadge = document.createElement("span");
+      urbanBadge.className = "definition-popup-urban-badge";
+      urbanBadge.textContent = "Urban Dictionary";
+      header.appendChild(urbanBadge);
+    }
     
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";

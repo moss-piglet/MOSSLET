@@ -1477,7 +1477,7 @@ dialog[data-confirm] button[data-confirm-accept]:hover::before {
 .definition-popup-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 16px 20px;
   background: linear-gradient(to right, rgba(20, 184, 166, 0.08), rgba(16, 185, 129, 0.08));
   border-bottom: 1px solid rgba(148, 163, 184, 0.1);
@@ -1499,6 +1499,26 @@ dialog[data-confirm] button[data-confirm-accept]:hover::before {
   color: #f1f5f9;
 }
 
+.definition-popup-urban-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #ea580c;
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.25);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .definition-popup-urban-badge {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.15);
+  border-color: rgba(251, 146, 60, 0.3);
+}
+
 .definition-popup-close {
   display: flex;
   align-items: center;
@@ -1511,6 +1531,7 @@ dialog[data-confirm] button[data-confirm-accept]:hover::before {
   color: #64748b;
   cursor: pointer;
   transition: all 0.15s ease;
+  margin-left: auto;
 }
 
 .definition-popup-close:hover {
