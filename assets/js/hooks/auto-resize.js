@@ -549,7 +549,8 @@ const AutoResize = {
     this.handleSpellContextMenu = (e) => {
       const wordInfo = this.getWordAtPosition(e.clientX, e.clientY);
       if (wordInfo && wordInfo.word.length >= 1) {
-        const isMisspelled = this.isWordMisspelled(wordInfo.word);
+        const textBefore = this.el.value.slice(0, wordInfo.start);
+        const isMisspelled = this.isWordMisspelled(wordInfo.word, textBefore);
         this.showSpellContextMenu(e, wordInfo.word, isMisspelled, wordInfo);
       }
     };
@@ -559,10 +560,13 @@ const AutoResize = {
       if (e.touches.length !== 1) return;
       this.touchStartTime = Date.now();
       this.touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      this.longPressTriggered = false;
       this.longPressTimer = setTimeout(() => {
+        this.longPressTriggered = true;
         const wordInfo = this.getWordAtPosition(this.touchStartPos.x, this.touchStartPos.y);
         if (wordInfo && wordInfo.word.length >= 1) {
-          const isMisspelled = this.isWordMisspelled(wordInfo.word);
+          const textBefore = this.el.value.slice(0, wordInfo.start);
+          const isMisspelled = this.isWordMisspelled(wordInfo.word, textBefore);
           const fakeEvent = {
             preventDefault: () => {},
             clientX: this.touchStartPos.x,
@@ -595,6 +599,14 @@ const AutoResize = {
     this.el.addEventListener("touchend", this.handleTouchEnd, { passive: true });
     this.el.addEventListener("touchcancel", this.handleTouchEnd, { passive: true });
     this.el.addEventListener("touchmove", this.handleTouchMove, { passive: true });
+
+    this.handleNativeContextMenu = (e) => {
+      if (this.longPressTriggered) {
+        e.preventDefault();
+        this.longPressTriggered = false;
+      }
+    };
+    this.el.addEventListener("contextmenu", this.handleNativeContextMenu);
 
     this.handleScroll = () => this.updateOverlayPosition();
     window.addEventListener("scroll", this.handleScroll, { passive: true });
@@ -632,6 +644,9 @@ const AutoResize = {
       this.el.removeEventListener("touchend", this.handleTouchEnd);
       this.el.removeEventListener("touchcancel", this.handleTouchEnd);
       this.el.removeEventListener("touchmove", this.handleTouchMove);
+    }
+    if (this.handleNativeContextMenu) {
+      this.el.removeEventListener("contextmenu", this.handleNativeContextMenu);
     }
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
@@ -754,7 +769,7 @@ const AutoResize = {
     this.spellCheckTimeout = setTimeout(() => this.runSpellCheck(), 300);
   },
 
-  isWordMisspelled(word) {
+  isWordMisspelled(word, textBefore = "") {
     if (!this.dictionary) return false;
     if (!word || word.length < 2) return false;
     
@@ -764,9 +779,42 @@ const AutoResize = {
     
     if (/^\d+$/.test(word)) return false;
     if (/^[A-Z]+$/.test(word) && word.length <= 4) return false;
-    if (/^[A-Z][a-z]+$/.test(word) && this.dictionary.has(lowerWord)) return false;
+    
+    const isCapitalized = /^[A-Z][a-z]*$/.test(word);
+    
+    if (isCapitalized && this.dictionary.has(lowerWord)) {
+      const isAtSentenceStart = this.isAtSentenceStart(textBefore);
+      if (isAtSentenceStart) return false;
+      return false;
+    }
+    
+    if (isCapitalized && !this.dictionary.has(lowerWord)) {
+      const isAtSentenceStart = this.isAtSentenceStart(textBefore);
+      if (isAtSentenceStart) return true;
+      return false;
+    }
     
     return !this.dictionary.has(lowerWord);
+  },
+
+  isAtSentenceStart(textBefore) {
+    if (!textBefore || textBefore.length === 0) return true;
+    
+    const trimmed = textBefore.trimEnd();
+    if (trimmed.length === 0) return true;
+    
+    const lastChar = trimmed[trimmed.length - 1];
+    if (/[.!?]/.test(lastChar)) return true;
+    
+    if (lastChar === '\n') {
+      const beforeNewline = trimmed.slice(0, -1).trimEnd();
+      if (beforeNewline.length === 0) return true;
+      const charBeforeNewline = beforeNewline[beforeNewline.length - 1];
+      if (/[.!?]/.test(charBeforeNewline)) return true;
+      return true;
+    }
+    
+    return false;
   },
 
   runSpellCheck() {
@@ -786,12 +834,13 @@ const AutoResize = {
       const word = match[0].replace(/^'+|'+$/g, "");
       const startIndex = match.index;
       const endIndex = match.index + match[0].length;
+      const textBefore = text.slice(0, startIndex);
       
       if (lastIndex < startIndex) {
         fragment.appendChild(document.createTextNode(text.slice(lastIndex, startIndex)));
       }
       
-      if (word.length > 1 && this.isWordMisspelled(word)) {
+      if (word.length > 1 && this.isWordMisspelled(word, textBefore)) {
         this.misspelledWords.set(startIndex, { word, start: startIndex, end: endIndex });
         const span = document.createElement("span");
         span.className = "spell-error";
