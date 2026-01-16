@@ -82,6 +82,12 @@ defmodule Mosslet.Journal.JournalEntry do
     "patient",
     "neutral",
     "tired",
+    "exhausted",
+    "sleepy",
+    "fatigued",
+    "burnedout",
+    "groggy",
+    "weary",
     "bored",
     "mixed",
     "latenight",
@@ -89,6 +95,8 @@ defmodule Mosslet.Journal.JournalEntry do
     "indifferent",
     "okay",
     "meh",
+    "blah",
+    "numb",
     "surprised",
     "amazed",
     "shocked",
@@ -169,7 +177,6 @@ defmodule Mosslet.Journal.JournalEntry do
   def changeset(journal_entry, attrs, opts \\ []) do
     journal_entry
     |> cast(attrs, [:title, :body, :mood, :is_favorite, :entry_date, :user_id, :book_id])
-    |> validate_required([:body])
     |> validate_length(:title, max: 200)
     |> validate_length(:body, max: 50_000)
     |> validate_mood()

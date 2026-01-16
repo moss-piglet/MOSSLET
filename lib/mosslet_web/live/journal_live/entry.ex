@@ -333,7 +333,7 @@ defmodule MossletWeb.JournalLive.Entry do
         |> assign(:word_count, entry.word_count)
         |> assign(:form, to_form(changeset, as: :journal_entry))
         |> assign(:has_unsaved_changes, false)
-        |> assign(:last_saved_at, nil)
+        |> assign_new(:last_saved_at, fn -> nil end)
     end
   end
 
