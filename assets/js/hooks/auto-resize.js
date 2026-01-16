@@ -23,8 +23,8 @@ async function loadDictionary() {
   if (dictionaryCache) return dictionaryCache;
   
   if (dictionaryLoading) {
-    return new Promise((resolve) => {
-      dictionaryCallbacks.push(resolve);
+    return new Promise((resolve, reject) => {
+      dictionaryCallbacks.push({ resolve, reject });
     });
   }
   
@@ -32,19 +32,22 @@ async function loadDictionary() {
   
   try {
     const response = await fetch("/dictionary/en-words.json");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
     const words = await response.json();
     dictionaryCache = new Set(words);
     dictionaryArrayCache = words;
     dictionaryLoading = false;
     
-    dictionaryCallbacks.forEach(cb => cb(dictionaryCache));
+    dictionaryCallbacks.forEach(cb => cb.resolve(dictionaryCache));
     dictionaryCallbacks = [];
     
     return dictionaryCache;
   } catch (e) {
     console.warn("Failed to load spell check dictionary:", e);
     dictionaryLoading = false;
-    dictionaryCallbacks.forEach(cb => cb(null));
+    dictionaryCallbacks.forEach(cb => cb.resolve(null));
     dictionaryCallbacks = [];
     return null;
   }
@@ -54,8 +57,8 @@ async function loadDefinitions() {
   if (definitionsCache) return definitionsCache;
   
   if (definitionsLoading) {
-    return new Promise((resolve) => {
-      definitionsCallbacks.push(resolve);
+    return new Promise((resolve, reject) => {
+      definitionsCallbacks.push({ resolve, reject });
     });
   }
   
@@ -63,17 +66,20 @@ async function loadDefinitions() {
   
   try {
     const response = await fetch("/dictionary/en-definitions.json");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
     definitionsCache = await response.json();
     definitionsLoading = false;
     
-    definitionsCallbacks.forEach(cb => cb(definitionsCache));
+    definitionsCallbacks.forEach(cb => cb.resolve(definitionsCache));
     definitionsCallbacks = [];
     
     return definitionsCache;
   } catch (e) {
     console.warn("Failed to load definitions dictionary:", e);
     definitionsLoading = false;
-    definitionsCallbacks.forEach(cb => cb(null));
+    definitionsCallbacks.forEach(cb => cb.resolve(null));
     definitionsCallbacks = [];
     return null;
   }
@@ -275,6 +281,10 @@ const AutoResize = {
       window.visualViewport.removeEventListener("resize", this.handleViewportResize);
     }
 
+    if (this._measureClone) {
+      this._measureClone = null;
+    }
+
     this.destroySpellChecker();
 
     activeInstanceCount--;
@@ -295,14 +305,38 @@ const AutoResize = {
     return window.innerHeight;
   },
 
+  getOrCreateMeasureClone() {
+    if (!this._measureClone) {
+      this._measureClone = document.createElement("textarea");
+      this._measureClone.style.position = "absolute";
+      this._measureClone.style.visibility = "hidden";
+      this._measureClone.style.height = "auto";
+      this._measureClone.style.overflow = "hidden";
+      this._measureClone.style.pointerEvents = "none";
+      this._measureClone.setAttribute("aria-hidden", "true");
+      this._measureClone.setAttribute("tabindex", "-1");
+    }
+    return this._measureClone;
+  },
+
   measureContentHeight() {
     const el = this.el;
-    const clone = el.cloneNode(true);
-    clone.style.position = "absolute";
-    clone.style.visibility = "hidden";
-    clone.style.height = "auto";
+    const clone = this.getOrCreateMeasureClone();
+    const style = getComputedStyle(el);
+    
     clone.style.width = el.offsetWidth + "px";
-    clone.style.overflow = "hidden";
+    clone.style.font = style.font;
+    clone.style.fontSize = style.fontSize;
+    clone.style.fontFamily = style.fontFamily;
+    clone.style.lineHeight = style.lineHeight;
+    clone.style.padding = style.padding;
+    clone.style.border = style.border;
+    clone.style.boxSizing = style.boxSizing;
+    clone.style.letterSpacing = style.letterSpacing;
+    clone.style.wordWrap = style.wordWrap;
+    clone.style.whiteSpace = style.whiteSpace;
+    clone.value = el.value;
+    
     document.body.appendChild(clone);
     const height = clone.scrollHeight + this.offset;
     document.body.removeChild(clone);
@@ -961,7 +995,7 @@ const AutoResize = {
 
   escapeHtml(text) {
     escapeDiv.textContent = text;
-    return escapeDiv.innerHTML;
+    return escapeDiv.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   },
 };
 
