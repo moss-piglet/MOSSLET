@@ -66,7 +66,7 @@ defmodule MossletWeb.FocusLayout do
             <div class="flex items-center gap-3">
               <span
                 :if={@has_unsaved_changes && !@saving}
-                class="text-sm font-medium px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 animate-pulse"
+                class="text-[10px] sm:text-sm font-medium px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 animate-pulse whitespace-nowrap"
               >
                 Unsaved changes
               </span>
