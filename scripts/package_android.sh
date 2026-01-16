@@ -13,7 +13,7 @@ echo "Packaging Elixir release for Android..."
 
 if [ ! -d "$RELEASE_DIR" ]; then
     echo "Error: Release not found at $RELEASE_DIR"
-    echo "Run 'MIX_TARGET=native MIX_ENV=prod mix release mobile' first"
+    echo "Run 'MIX_TARGET=host MIX_ENV=prod mix release mobile' first"
     exit 1
 fi
 

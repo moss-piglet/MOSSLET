@@ -2195,7 +2195,7 @@ defmodule Mosslet.Accounts.Adapters.Native do
   end
 
   @impl true
-  def update_journal_privacy(user, enabled) when is_boolean(enabled) do
+  def update_journal_privacy(_user, enabled) when is_boolean(enabled) do
     if Sync.online?() do
       with {:ok, token} <- NativeSession.get_token(),
            {:ok, %{user: user_data}} <-

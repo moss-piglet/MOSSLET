@@ -59,7 +59,7 @@ object Bridge {
         setEnv("RELEASE_NAME", "mobile")
         setEnv("RELEASE_VSN", releaseVersion(context))
         setEnv("HOME", dataDir.absolutePath)
-        setEnv("MOSSLET_DESKTOP", "true")
+        setEnv("MOSSLET_NATIVE", "true")
         setEnv("MOSSLET_MOBILE", "true")
         setEnv("MOSSLET_DATA_DIR", dataDir.absolutePath)
         setEnv("DESKTOP_AUTH_TOKEN", authToken!!)

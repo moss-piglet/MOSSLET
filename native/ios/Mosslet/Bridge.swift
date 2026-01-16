@@ -40,7 +40,7 @@ class Bridge {
         setenv("RELEASE_NAME", "mobile", 1)
         setenv("RELEASE_VSN", releaseVersion(), 1)
         setenv("HOME", homePath, 1)
-        setenv("MOSSLET_DESKTOP", "true", 1)
+        setenv("MOSSLET_NATIVE", "true", 1)
         setenv("MOSSLET_MOBILE", "true", 1)
         setenv("MOSSLET_DATA_DIR", dataPath, 1)
         setenv("PHX_SERVER", "true", 1)

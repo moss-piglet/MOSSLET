@@ -15,8 +15,8 @@ defmodule Mosslet.Platform do
 
   ## Detection Logic
 
-  The platform is determined by the `MOSSLET_DESKTOP` environment variable:
-  - If `MOSSLET_DESKTOP=true`, we're running as a native app and use Desktop.OS.type()
+  The platform is determined by the `MOSSLET_NATIVE` environment variable:
+  - If `MOSSLET_NATIVE=true`, we're running as a native app and use Desktop.OS.type()
   - Otherwise, we're running as a web server
 
   This prevents false positives when the Desktop library is loaded during development
@@ -33,7 +33,7 @@ defmodule Mosslet.Platform do
       iex> Mosslet.Platform.type()
       :web
 
-      # On a native macOS app (with MOSSLET_DESKTOP=true):
+      # On a native macOS app (with MOSSLET_NATIVE=true):
       iex> Mosslet.Platform.type()
       :macos
   """
@@ -162,7 +162,7 @@ defmodule Mosslet.Platform do
   end
 
   defp desktop_mode? do
-    System.get_env("MOSSLET_DESKTOP") == "true"
+    System.get_env("MOSSLET_NATIVE") == "true"
   end
 
   defp desktop_available? do

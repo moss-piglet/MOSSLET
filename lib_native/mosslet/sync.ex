@@ -388,8 +388,7 @@ defmodule Mosslet.Sync do
       {"post", _} ->
         Client.update_post(token, item.resource_id, payload)
 
-      {"reply", _} ->
-        Client.update_reply(token, item.resource_id, payload)
+
 
       {"reply", "mark_read_for_post"} ->
         Client.mark_replies_read_for_post(token, payload["post_id"], payload["user_id"])
@@ -399,6 +398,9 @@ defmodule Mosslet.Sync do
 
       {"reply", "mark_nested_read"} ->
         Client.mark_nested_replies_read_for_parent(token, payload["parent_id"], payload["user_id"])
+
+      {"reply", _} ->
+        Client.update_reply(token, item.resource_id, payload)
 
       {"receipt", "mark_read"} ->
         Client.mark_post_as_read(token, payload["post_id"], payload["user_id"])

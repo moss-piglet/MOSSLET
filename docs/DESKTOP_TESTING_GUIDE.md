@@ -26,17 +26,17 @@ This guide walks you through manually testing the Mosslet desktop app before rel
 
 ```bash
 # Set environment variable and run
-MOSSLET_DESKTOP=true iex -S mix
+MOSSLET_NATIVE=true iex -S mix
 
 # If encountering issues with above command try:
-MOSSLET_DESKTOP=true mix compile --force && MOSSLET_DESKTOP=true iex -S mix
+MOSSLET_NATIVE=true mix compile --force && MOSSLET_NATIVE=true iex -S mix
 ```
 
 Or create a script:
 
 ```bash
 #!/bin/bash
-export MOSSLET_DESKTOP=true
+export MOSSLET_NATIVE=true
 iex -S mix
 ```
 
@@ -144,7 +144,7 @@ To test offline:
 
 ```bash
 # Logs output to console when running with iex -S mix
-MOSSLET_DESKTOP=true iex -S mix
+MOSSLET_NATIVE=true iex -S mix
 
 # In IEx, check sync status
 Mosslet.Sync.get_status()
@@ -193,7 +193,7 @@ Mosslet.Sync.sync_now()
 
 ```bash
 # Create release
-MIX_ENV=prod MOSSLET_DESKTOP=true mix release
+MIX_ENV=prod MOSSLET_NATIVE=true mix release
 
 # Package as .app (requires additional tooling)
 # See elixir-desktop packaging docs
@@ -203,7 +203,7 @@ MIX_ENV=prod MOSSLET_DESKTOP=true mix release
 
 ```bash
 # Create release
-MIX_ENV=prod MOSSLET_DESKTOP=true mix release
+MIX_ENV=prod MOSSLET_NATIVE=true mix release
 
 # Package with NSIS or similar
 ```
@@ -212,7 +212,7 @@ MIX_ENV=prod MOSSLET_DESKTOP=true mix release
 
 ```bash
 # Create release
-MIX_ENV=prod MOSSLET_DESKTOP=true mix release
+MIX_ENV=prod MOSSLET_NATIVE=true mix release
 
 # Package as AppImage
 ```

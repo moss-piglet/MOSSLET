@@ -396,7 +396,7 @@ config :flop, repo: Mosslet.Repo.Local
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
 
-# Import desktop config if MOSSLET_DESKTOP is set (for native app builds)
-if System.get_env("MOSSLET_DESKTOP") do
+# Import desktop config if MOSSLET_NATIVE is set (for native app builds)
+if System.get_env("MOSSLET_NATIVE") do
   import_config "desktop.exs"
 end

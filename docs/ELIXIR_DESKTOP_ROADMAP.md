@@ -506,7 +506,7 @@ LiveView calls
   Return user struct to LiveView
 ```
 
-**Key Insight:** `Platform.native?()` returns `false` on Fly.io (no `MOSSLET_DESKTOP` env var), so the server always uses Repo directly. The API controllers already call context functions, which hit the real Postgres.
+**Key Insight:** `Platform.native?()` returns `false` on Fly.io (no `MOSSLET_NATIVE` env var), so the server always uses Repo directly. The API controllers already call context functions, which hit the real Postgres.
 
 **Implementation Checklist:**
 

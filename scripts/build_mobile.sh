@@ -31,7 +31,7 @@ build_elixir_release() {
     log_info "Building Elixir release for mobile..."
     cd "$PROJECT_ROOT"
     
-    export MIX_TARGET=native
+    export MIX_TARGET=host
     export MIX_ENV=prod
     
     mix deps.get

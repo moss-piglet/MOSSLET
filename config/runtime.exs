@@ -1,6 +1,6 @@
 import Config
 
-if System.get_env("MOSSLET_DESKTOP") == "true" do
+if System.get_env("MOSSLET_NATIVE") == "true" do
   config :phoenix_live_view,
     debug_heex_annotations: false,
     debug_tags_location: false,

@@ -51,26 +51,31 @@ defmodule Mosslet.MixProject do
   defp elixirc_paths(_), do: ["lib"] ++ native_paths()
 
   defp native_paths do
-    if Mix.target() == :native, do: ["lib_native"], else: []
+    if native_build?(), do: ["lib_native"], else: []
   end
 
   defp deps do
-    shared_deps() ++ target_deps(Mix.target())
+    shared_deps() ++ desktop_deps()
   end
 
-  defp target_deps(:native) do
-    [
-      {:desktop, "~> 1.5"},
-      {:ecto_sqlite3, "~> 0.22.0"}
-    ]
-  end
+  defp desktop_deps do
+    cond do
+      native_build?() ->
+        [
+          {:desktop, github: "elixir-desktop/desktop"},
+          {:ecto_sqlite3, "~> 0.22.0"}
+        ]
 
-  defp target_deps(_other) do
-    if Mix.env() == :test do
-      [{:desktop, "~> 1.5"}]
-    else
-      []
+      Mix.env() == :test ->
+        [{:desktop, github: "elixir-desktop/desktop"}]
+
+      true ->
+        []
     end
+  end
+
+  defp native_build? do
+    System.get_env("MOSSLET_NATIVE") == "true"
   end
 
   defp shared_deps do
