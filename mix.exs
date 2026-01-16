@@ -13,6 +13,7 @@ defmodule Mosslet.MixProject do
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
+      default_release: :mosslet,
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
       dialyzer: [
