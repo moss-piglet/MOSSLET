@@ -13831,7 +13831,7 @@ defmodule MossletWeb.DesignSystem do
                   x-text="category.name"
                 >
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                <div class="flex flex-wrap gap-1.5 sm:gap-2">
                   <template x-for="(mood, moodIndex) in category.moods" x-bind:key="moodIndex">
                     <button
                       type="button"
@@ -13946,14 +13946,22 @@ defmodule MossletWeb.DesignSystem do
       "evolving" => "🌀",
       "patient" => "🐢",
       "neutral" => "😐",
-      "tired" => "😴",
       "bored" => "😑",
       "mixed" => "🌊",
-      "latenight" => "🌙",
-      "drained" => "🔋",
       "indifferent" => "🤷",
       "okay" => "👍",
       "meh" => "😶‍🌫️",
+      "blah" => "😶",
+      "numb" => "🫠",
+      "tired" => "😴",
+      "exhausted" => "🥱",
+      "drained" => "🔋",
+      "sleepy" => "😪",
+      "fatigued" => "🫠",
+      "burnedout" => "🪫",
+      "latenight" => "🌙",
+      "groggy" => "🥴",
+      "weary" => "😩",
       "surprised" => "😲",
       "amazed" => "🤯",
       "shocked" => "😱",

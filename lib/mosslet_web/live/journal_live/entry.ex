@@ -64,6 +64,13 @@ defmodule MossletWeb.JournalLive.Entry do
                 >
                   <.phx_icon name="hero-pencil" class="h-4 w-4" /> Edit
                 </.link>
+                <.link
+                  phx-click="delete"
+                  data-confirm="Are you sure you want to delete this entry?"
+                  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                >
+                  <.phx_icon name="hero-trash" class="h-4 w-4" /> Delete
+                </.link>
               </div>
             </div>
 
@@ -72,6 +79,12 @@ defmodule MossletWeb.JournalLive.Entry do
               class="text-2xl font-semibold text-slate-900 dark:text-slate-100"
             >
               {@decrypted_title}
+            </h1>
+            <h1
+              :if={!@decrypted_title}
+              class="sr-only"
+            >
+              Journal Entry
             </h1>
 
             <div class="prose prose-slate dark:prose-invert max-w-none prose-lg prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed">

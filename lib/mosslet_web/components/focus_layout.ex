@@ -41,18 +41,18 @@ defmodule MossletWeb.FocusLayout do
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-14">
             <a
+              :if={!@has_unsaved_changes && !@saving}
               href={@back_path}
-              class={[
-                "inline-flex items-center gap-2 text-sm font-medium transition-colors",
-                if(@saving,
-                  do: "text-slate-400 dark:text-slate-500 cursor-wait",
-                  else:
-                    "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
-                )
-              ]}
+              class="inline-flex items-center gap-2 text-sm font-medium transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
               data-phx-link="redirect"
               data-phx-link-state="push"
-              onclick={"if (#{@has_unsaved_changes && !@saving}) { return confirm('You have unsaved changes. Are you sure you want to leave?'); } if (#{@saving}) { return false; }"}
+            >
+              <MossletWeb.CoreComponents.phx_icon name="hero-arrow-left" class="h-4 w-4" />
+              <span>Back</span>
+            </a>
+            <span
+              :if={@has_unsaved_changes || @saving}
+              class="inline-flex items-center gap-2 text-sm font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed"
             >
               <MossletWeb.CoreComponents.phx_icon name="hero-arrow-left" class="h-4 w-4" />
               <span :if={!@saving}>Back</span>
@@ -61,12 +61,12 @@ defmodule MossletWeb.FocusLayout do
                 </span>
                 Saving...
               </span>
-            </a>
+            </span>
 
             <div class="flex items-center gap-3">
               <span
                 :if={@has_unsaved_changes && !@saving}
-                class="text-xs text-amber-600 dark:text-amber-400"
+                class="text-sm font-medium px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 animate-pulse"
               >
                 Unsaved changes
               </span>
