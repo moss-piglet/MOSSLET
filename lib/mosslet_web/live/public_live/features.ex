@@ -816,6 +816,26 @@ defmodule MossletWeb.PublicLive.Features do
                     Organize your thoughts intuitively. Drag entries between books and rearrange your bookshelf — like organizing a real journal collection.
                   </p>
                 </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+                >
+                  <:title>
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg">
+                        <.phx_icon name="hero-language" class="h-5 w-5 text-white" />
+                      </div>
+                      <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Privacy-First Spellcheck
+                      </span>
+                    </div>
+                  </:title>
+
+                  <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Write confidently with our built-in spellchecker and dictionary. Everything runs locally in your browser — your words never leave your device for spelling analysis.
+                  </p>
+                </.liquid_card>
               </div>
 
               <%!-- Journal Screenshot --%>
@@ -1273,10 +1293,10 @@ defmodule MossletWeb.PublicLive.Features do
                       Every image uploaded to MOSSLET — whether for posts, memories, or profile photos — passes through our safety check to protect our community from harmful content.
                     </p>
                     <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-rose-500" />
                         How it works
-                      </h4>
+                      </p>
                       <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
                         <li class="flex items-start gap-2">
                           <.phx_icon
@@ -1342,10 +1362,10 @@ defmodule MossletWeb.PublicLive.Features do
                       Public posts are checked for community guideline compliance to keep MOSSLET a healthy space. Private and connections-only content is never moderated for text content.
                     </p>
                     <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-indigo-500" />
                         Privacy tiers
-                      </h4>
+                      </p>
                       <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
                         <li class="flex items-start gap-2">
                           <.phx_icon
@@ -1413,10 +1433,10 @@ defmodule MossletWeb.PublicLive.Features do
                       Get thoughtful AI-generated insights about your emotional patterns over time. This feature is completely optional and disabled by default — you're always in control.
                     </p>
                     <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-pink-500" />
                         How it works
-                      </h4>
+                      </p>
                       <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
                         <li class="flex items-start gap-2">
                           <.phx_icon
@@ -1453,7 +1473,7 @@ defmodule MossletWeb.PublicLive.Features do
                         </li>
                       </ul>
                     </div>
-                    <div class="flex items-center gap-2 text-xs text-pink-600 dark:text-pink-400 font-medium bg-pink-50 dark:bg-pink-900/30 px-3 py-2 rounded-lg">
+                    <div class="flex items-center gap-2 text-xs text-pink-700 dark:text-pink-300 font-medium bg-pink-50 dark:bg-pink-900/30 px-3 py-2 rounded-lg">
                       <.phx_icon name="hero-adjustments-horizontal" class="w-4 h-4" />
                       Toggle on or off anytime in your journal settings
                     </div>
@@ -1485,10 +1505,10 @@ defmodule MossletWeb.PublicLive.Features do
                       Stuck on what to write? Get AI-generated prompts to inspire your journaling. Prompts are generated fresh each time you request them.
                     </p>
                     <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-amber-500" />
                         How it works
-                      </h4>
+                      </p>
                       <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
                         <li class="flex items-start gap-2">
                           <.phx_icon
@@ -1545,16 +1565,16 @@ defmodule MossletWeb.PublicLive.Features do
                       <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
                         Upload photos of your handwritten journal pages and let AI transcribe them into digital text. Perfect for preserving old journals or switching between paper and digital.
                       </p>
-                      <div class="flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium bg-teal-50 dark:bg-teal-900/30 px-3 py-2 rounded-lg">
+                      <div class="flex items-center gap-2 text-xs text-teal-700 dark:text-teal-300 font-medium bg-teal-50 dark:bg-teal-900/30 px-3 py-2 rounded-lg">
                         <.phx_icon name="hero-camera" class="w-4 h-4" />
                         Just snap a photo of your handwritten page and upload
                       </div>
                     </div>
                     <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
-                      <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <p class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <.phx_icon name="hero-cog-6-tooth" class="w-4 h-4 text-teal-500" />
                         How it works
-                      </h4>
+                      </p>
                       <ul class="text-sm text-slate-600 dark:text-slate-400 space-y-2">
                         <li class="flex items-start gap-2">
                           <.phx_icon
@@ -1610,7 +1630,7 @@ defmodule MossletWeb.PublicLive.Features do
                         AI requests are routed through
                         <strong class="text-slate-900 dark:text-slate-100">OpenRouter</strong>
                         with
-                        <code class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-xs">
+                        <code class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-xs text-slate-800 dark:text-slate-200">
                           data_collection: "deny"
                         </code>
                         in provider preferences — meaning your content is never logged, stored, or used for training. Your data is then encrypted using
