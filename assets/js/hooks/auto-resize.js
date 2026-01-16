@@ -496,7 +496,7 @@ const AutoResize = {
 
     this.handleSpellContextMenu = (e) => {
       const wordInfo = this.getWordAtPosition(e.clientX, e.clientY);
-      if (wordInfo && wordInfo.word.length > 1) {
+      if (wordInfo && wordInfo.word.length >= 1) {
         const isMisspelled = this.isWordMisspelled(wordInfo.word);
         this.showSpellContextMenu(e, wordInfo.word, isMisspelled, wordInfo);
       }
@@ -509,7 +509,7 @@ const AutoResize = {
       this.touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       this.longPressTimer = setTimeout(() => {
         const wordInfo = this.getWordAtPosition(this.touchStartPos.x, this.touchStartPos.y);
-        if (wordInfo && wordInfo.word.length > 1) {
+        if (wordInfo && wordInfo.word.length >= 1) {
           const isMisspelled = this.isWordMisspelled(wordInfo.word);
           const fakeEvent = {
             preventDefault: () => {},
@@ -784,7 +784,7 @@ const AutoResize = {
     }
     
     const word = text.slice(start, end).replace(/^'+|'+$/g, "");
-    if (word.length > 1) {
+    if (word.length >= 1) {
       return { word, start, end };
     }
     return null;

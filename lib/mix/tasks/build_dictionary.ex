@@ -18,10 +18,10 @@ defmodule Mix.Tasks.BuildDictionary do
   @output_file "priv/static/dictionary/en-definitions.json"
 
   @pos_config %{
-    "noun" => %{index: "index.noun", data: "data.noun", exc: "noun.exc"},
-    "verb" => %{index: "index.verb", data: "data.verb", exc: "verb.exc"},
-    "adj" => %{index: "index.adj", data: "data.adj", exc: "adj.exc"},
-    "adv" => %{index: "index.adv", data: "data.adv", exc: "adv.exc"}
+    "noun" => %{index: "index.noun", data: "data.noun"},
+    "verb" => %{index: "index.verb", data: "data.verb"},
+    "adj" => %{index: "index.adj", data: "data.adj"},
+    "adv" => %{index: "index.adv", data: "data.adv"}
   }
 
   @pos_labels %{
@@ -29,6 +29,436 @@ defmodule Mix.Tasks.BuildDictionary do
     "verb" => "verb",
     "adj" => "adjective",
     "adv" => "adverb"
+  }
+
+  @function_words %{
+    "a" => [
+      %{
+        "pos" => "article",
+        "def" => "used before singular nouns to refer to one unspecified thing or person"
+      }
+    ],
+    "an" => [
+      %{"pos" => "article", "def" => "form of 'a' used before words beginning with a vowel sound"}
+    ],
+    "the" => [
+      %{
+        "pos" => "article",
+        "def" =>
+          "used to refer to a specific person, thing, or group already mentioned or understood"
+      }
+    ],
+    "this" => [
+      %{
+        "pos" => "determiner",
+        "def" => "used to identify a specific person or thing close at hand or being indicated"
+      }
+    ],
+    "that" => [
+      %{
+        "pos" => "determiner",
+        "def" => "used to identify a specific person or thing observed or heard by the speaker"
+      }
+    ],
+    "these" => [
+      %{
+        "pos" => "determiner",
+        "def" => "plural of 'this'; used to identify specific things close at hand"
+      }
+    ],
+    "those" => [
+      %{
+        "pos" => "determiner",
+        "def" => "plural of 'that'; used to identify specific things at a distance"
+      }
+    ],
+    "is" => [%{"pos" => "verb", "def" => "third person singular present of 'be'"}],
+    "am" => [%{"pos" => "verb", "def" => "first person singular present of 'be'"}],
+    "are" => [%{"pos" => "verb", "def" => "second person singular and plural present of 'be'"}],
+    "was" => [%{"pos" => "verb", "def" => "first and third person singular past of 'be'"}],
+    "were" => [%{"pos" => "verb", "def" => "second person singular and plural past of 'be'"}],
+    "been" => [%{"pos" => "verb", "def" => "past participle of 'be'"}],
+    "being" => [%{"pos" => "verb", "def" => "present participle of 'be'"}],
+    "be" => [
+      %{
+        "pos" => "verb",
+        "def" => "exist or live; used to link the subject with information about it"
+      }
+    ],
+    "have" => [%{"pos" => "verb", "def" => "possess, own, or hold; used to form perfect tenses"}],
+    "has" => [%{"pos" => "verb", "def" => "third person singular present of 'have'"}],
+    "had" => [%{"pos" => "verb", "def" => "past tense and past participle of 'have'"}],
+    "having" => [%{"pos" => "verb", "def" => "present participle of 'have'"}],
+    "do" => [
+      %{"pos" => "verb", "def" => "perform an action; used to form questions and negatives"}
+    ],
+    "does" => [%{"pos" => "verb", "def" => "third person singular present of 'do'"}],
+    "did" => [%{"pos" => "verb", "def" => "past tense of 'do'"}],
+    "done" => [%{"pos" => "verb", "def" => "past participle of 'do'"}],
+    "doing" => [%{"pos" => "verb", "def" => "present participle of 'do'"}],
+    "will" => [
+      %{
+        "pos" => "verb",
+        "def" => "expressing the future tense; expressing intention or willingness"
+      }
+    ],
+    "would" => [%{"pos" => "verb", "def" => "past tense of 'will'; expressing conditional mood"}],
+    "shall" => [
+      %{
+        "pos" => "verb",
+        "def" => "expressing the future tense; expressing determination or obligation"
+      }
+    ],
+    "should" => [%{"pos" => "verb", "def" => "used to indicate obligation, duty, or correctness"}],
+    "can" => [%{"pos" => "verb", "def" => "be able to; have permission to"}],
+    "could" => [%{"pos" => "verb", "def" => "past tense of 'can'; used to indicate possibility"}],
+    "may" => [%{"pos" => "verb", "def" => "expressing possibility or permission"}],
+    "might" => [%{"pos" => "verb", "def" => "past tense of 'may'; expressing possibility"}],
+    "must" => [%{"pos" => "verb", "def" => "be obliged to; expressing necessity or certainty"}],
+    "i" => [%{"pos" => "pronoun", "def" => "used by a speaker to refer to himself or herself"}],
+    "me" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used as the object of a verb or preposition to refer to oneself"
+      }
+    ],
+    "my" => [%{"pos" => "determiner", "def" => "belonging to or associated with the speaker"}],
+    "mine" => [
+      %{"pos" => "pronoun", "def" => "used to refer to something belonging to the speaker"}
+    ],
+    "myself" => [
+      %{"pos" => "pronoun", "def" => "used for emphasis or as the reflexive form of 'I' or 'me'"}
+    ],
+    "you" => [
+      %{"pos" => "pronoun", "def" => "used to refer to the person or people being addressed"}
+    ],
+    "your" => [
+      %{
+        "pos" => "determiner",
+        "def" => "belonging to or associated with the person being addressed"
+      }
+    ],
+    "yours" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to something belonging to the person addressed"
+      }
+    ],
+    "yourself" => [
+      %{"pos" => "pronoun", "def" => "used for emphasis or as the reflexive form of 'you'"}
+    ],
+    "yourselves" => [%{"pos" => "pronoun", "def" => "plural reflexive form of 'you'"}],
+    "he" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to a male person or animal previously mentioned"
+      }
+    ],
+    "him" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used as the object of a verb or preposition to refer to a male"
+      }
+    ],
+    "his" => [
+      %{"pos" => "determiner", "def" => "belonging to or associated with a male person or animal"}
+    ],
+    "himself" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used for emphasis or as the reflexive form of 'he' or 'him'"
+      }
+    ],
+    "she" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to a female person or animal previously mentioned"
+      }
+    ],
+    "her" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used as the object of a verb or preposition to refer to a female"
+      }
+    ],
+    "hers" => [%{"pos" => "pronoun", "def" => "used to refer to something belonging to a female"}],
+    "herself" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used for emphasis or as the reflexive form of 'she' or 'her'"
+      }
+    ],
+    "it" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to a thing, animal, or idea previously mentioned"
+      }
+    ],
+    "its" => [
+      %{
+        "pos" => "determiner",
+        "def" => "belonging to or associated with a thing previously mentioned"
+      }
+    ],
+    "itself" => [
+      %{"pos" => "pronoun", "def" => "used for emphasis or as the reflexive form of 'it'"}
+    ],
+    "we" => [%{"pos" => "pronoun", "def" => "used by a speaker to refer to himself and others"}],
+    "us" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used as the object of a verb or preposition to refer to the speaker and others"
+      }
+    ],
+    "our" => [
+      %{"pos" => "determiner", "def" => "belonging to or associated with the speaker and others"}
+    ],
+    "ours" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to something belonging to the speaker and others"
+      }
+    ],
+    "ourselves" => [
+      %{"pos" => "pronoun", "def" => "used for emphasis or as the reflexive form of 'we' or 'us'"}
+    ],
+    "they" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to people or things previously mentioned or easily identified"
+      }
+    ],
+    "them" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used as the object of a verb or preposition to refer to people or things"
+      }
+    ],
+    "their" => [
+      %{
+        "pos" => "determiner",
+        "def" => "belonging to or associated with people or things previously mentioned"
+      }
+    ],
+    "theirs" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used to refer to something belonging to people previously mentioned"
+      }
+    ],
+    "themselves" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used for emphasis or as the reflexive form of 'they' or 'them'"
+      }
+    ],
+    "who" => [%{"pos" => "pronoun", "def" => "what or which person or people"}],
+    "whom" => [
+      %{
+        "pos" => "pronoun",
+        "def" => "used instead of 'who' as the object of a verb or preposition"
+      }
+    ],
+    "whose" => [%{"pos" => "determiner", "def" => "belonging to or associated with which person"}],
+    "what" => [%{"pos" => "pronoun", "def" => "asking for information specifying something"}],
+    "which" => [
+      %{
+        "pos" => "determiner",
+        "def" => "asking for information specifying one or more from a set"
+      }
+    ],
+    "where" => [%{"pos" => "adverb", "def" => "in or to what place or position"}],
+    "when" => [%{"pos" => "adverb", "def" => "at what time; on what occasion"}],
+    "why" => [%{"pos" => "adverb", "def" => "for what reason or purpose"}],
+    "how" => [%{"pos" => "adverb", "def" => "in what way or manner; by what means"}],
+    "to" => [
+      %{
+        "pos" => "preposition",
+        "def" => "expressing motion in the direction of; used with the base form of a verb"
+      }
+    ],
+    "of" => [
+      %{"pos" => "preposition", "def" => "expressing the relationship between a part and a whole"}
+    ],
+    "in" => [%{"pos" => "preposition", "def" => "expressing location inside a place or thing"}],
+    "for" => [%{"pos" => "preposition", "def" => "in favor of; having the purpose of"}],
+    "on" => [
+      %{"pos" => "preposition", "def" => "physically in contact with and supported by a surface"}
+    ],
+    "with" => [%{"pos" => "preposition", "def" => "accompanied by; in the company of"}],
+    "at" => [%{"pos" => "preposition", "def" => "expressing location or time at a point"}],
+    "by" => [
+      %{
+        "pos" => "preposition",
+        "def" => "identifying the agent performing an action; near or beside"
+      }
+    ],
+    "from" => [
+      %{
+        "pos" => "preposition",
+        "def" => "indicating the point in space or time at which something starts"
+      }
+    ],
+    "about" => [%{"pos" => "preposition", "def" => "on the subject of; concerning"}],
+    "into" => [
+      %{"pos" => "preposition", "def" => "expressing movement or direction toward the inside of"}
+    ],
+    "through" => [%{"pos" => "preposition", "def" => "moving in one side and out the other"}],
+    "during" => [%{"pos" => "preposition", "def" => "throughout the course or duration of"}],
+    "before" => [%{"pos" => "preposition", "def" => "during the period of time preceding"}],
+    "after" => [%{"pos" => "preposition", "def" => "in the time following"}],
+    "above" => [%{"pos" => "preposition", "def" => "at a higher level or layer than"}],
+    "below" => [%{"pos" => "preposition", "def" => "at a lower level or layer than"}],
+    "between" => [
+      %{"pos" => "preposition", "def" => "at, into, or across the space separating two things"}
+    ],
+    "under" => [
+      %{"pos" => "preposition", "def" => "extending or directly below; at a lower level than"}
+    ],
+    "over" => [
+      %{"pos" => "preposition", "def" => "extending directly upward from; at a higher level than"}
+    ],
+    "and" => [%{"pos" => "conjunction", "def" => "used to connect words, clauses, or sentences"}],
+    "or" => [%{"pos" => "conjunction", "def" => "used to link alternatives"}],
+    "but" => [
+      %{
+        "pos" => "conjunction",
+        "def" => "used to introduce something contrasting with what has been said"
+      }
+    ],
+    "if" => [%{"pos" => "conjunction", "def" => "introducing a conditional clause"}],
+    "because" => [%{"pos" => "conjunction", "def" => "for the reason that; since"}],
+    "as" => [%{"pos" => "conjunction", "def" => "used in comparisons; while; because"}],
+    "than" => [
+      %{"pos" => "conjunction", "def" => "used in comparisons to introduce the second element"}
+    ],
+    "although" => [%{"pos" => "conjunction", "def" => "in spite of the fact that; even though"}],
+    "while" => [%{"pos" => "conjunction", "def" => "during the time that; at the same time as"}],
+    "since" => [%{"pos" => "conjunction", "def" => "from a time in the past until now; because"}],
+    "until" => [%{"pos" => "conjunction", "def" => "up to the point in time when"}],
+    "unless" => [
+      %{"pos" => "conjunction", "def" => "except if; except under the circumstances that"}
+    ],
+    "so" => [%{"pos" => "conjunction", "def" => "and for this reason; therefore"}],
+    "yet" => [%{"pos" => "conjunction", "def" => "but at the same time; nevertheless"}],
+    "not" => [%{"pos" => "adverb", "def" => "used to form negative phrases"}],
+    "no" => [%{"pos" => "determiner", "def" => "not any; used to express negation"}],
+    "yes" => [%{"pos" => "adverb", "def" => "used to give an affirmative response"}],
+    "very" => [%{"pos" => "adverb", "def" => "in a high degree; extremely"}],
+    "too" => [%{"pos" => "adverb", "def" => "to a higher degree than is desirable; also"}],
+    "also" => [%{"pos" => "adverb", "def" => "in addition; besides"}],
+    "just" => [%{"pos" => "adverb", "def" => "exactly; only; simply"}],
+    "only" => [%{"pos" => "adverb", "def" => "and no one or nothing more besides"}],
+    "even" => [%{"pos" => "adverb", "def" => "used to emphasize something surprising or extreme"}],
+    "more" => [%{"pos" => "determiner", "def" => "a greater or additional amount or degree"}],
+    "most" => [%{"pos" => "determiner", "def" => "greatest in amount or degree"}],
+    "less" => [%{"pos" => "determiner", "def" => "a smaller amount; not as much"}],
+    "least" => [%{"pos" => "determiner", "def" => "smallest in amount or degree"}],
+    "much" => [%{"pos" => "determiner", "def" => "a large amount; to a great extent"}],
+    "many" => [%{"pos" => "determiner", "def" => "a large number of"}],
+    "few" => [%{"pos" => "determiner", "def" => "a small number of"}],
+    "some" => [%{"pos" => "determiner", "def" => "an unspecified amount or number of"}],
+    "any" => [
+      %{"pos" => "determiner", "def" => "one or some of a thing or number, no matter which"}
+    ],
+    "all" => [%{"pos" => "determiner", "def" => "used to refer to the whole quantity or extent"}],
+    "each" => [%{"pos" => "determiner", "def" => "every one of two or more people or things"}],
+    "every" => [
+      %{"pos" => "determiner", "def" => "used to refer to all the individual members of a group"}
+    ],
+    "both" => [
+      %{"pos" => "determiner", "def" => "used to refer to two people or things together"}
+    ],
+    "either" => [%{"pos" => "determiner", "def" => "one or the other of two people or things"}],
+    "neither" => [%{"pos" => "determiner", "def" => "not either; not the one nor the other"}],
+    "other" => [
+      %{"pos" => "determiner", "def" => "used to refer to a person or thing that is different"}
+    ],
+    "another" => [%{"pos" => "determiner", "def" => "one more; an additional"}],
+    "such" => [
+      %{
+        "pos" => "determiner",
+        "def" => "of the type previously mentioned or about to be mentioned"
+      }
+    ],
+    "same" => [%{"pos" => "determiner", "def" => "identical; not different"}],
+    "here" => [%{"pos" => "adverb", "def" => "in, at, or to this place or position"}],
+    "there" => [%{"pos" => "adverb", "def" => "in, at, or to that place or position"}],
+    "now" => [%{"pos" => "adverb", "def" => "at the present time; immediately"}],
+    "then" => [%{"pos" => "adverb", "def" => "at that time; after that; next"}],
+    "always" => [%{"pos" => "adverb", "def" => "at all times; on all occasions"}],
+    "never" => [%{"pos" => "adverb", "def" => "at no time; not ever"}],
+    "often" => [%{"pos" => "adverb", "def" => "frequently; many times"}],
+    "sometimes" => [%{"pos" => "adverb", "def" => "occasionally; at times"}],
+    "usually" => [%{"pos" => "adverb", "def" => "under normal conditions; generally"}],
+    "still" => [
+      %{"pos" => "adverb", "def" => "up to and including the present time; nevertheless"}
+    ],
+    "already" => [%{"pos" => "adverb", "def" => "before or by now or the time in question"}],
+    "again" => [%{"pos" => "adverb", "def" => "another time; once more"}],
+    "ever" => [%{"pos" => "adverb", "def" => "at any time; at all times"}],
+    "well" => [%{"pos" => "adverb", "def" => "in a good or satisfactory way"}],
+    "away" => [%{"pos" => "adverb", "def" => "to or at a distance from a place; absent"}],
+    "back" => [
+      %{
+        "pos" => "adverb",
+        "def" => "in the opposite direction from which one is facing or traveling"
+      }
+    ],
+    "up" => [%{"pos" => "adverb", "def" => "toward a higher place or position"}],
+    "down" => [%{"pos" => "adverb", "def" => "toward or in a lower place or position"}],
+    "out" => [%{"pos" => "adverb", "def" => "moving away from a place; not at home"}],
+    "off" => [%{"pos" => "adverb", "def" => "away from a place or position; disconnected"}],
+    "around" => [%{"pos" => "adverb", "def" => "in or to many places; approximately"}],
+    "together" => [
+      %{"pos" => "adverb", "def" => "with or in proximity to another person or people"}
+    ],
+    "apart" => [%{"pos" => "adverb", "def" => "separated by a distance; not together"}],
+    "else" => [%{"pos" => "adverb", "def" => "in addition; besides; otherwise"}],
+    "instead" => [%{"pos" => "adverb", "def" => "as an alternative or substitute"}],
+    "perhaps" => [%{"pos" => "adverb", "def" => "used to express uncertainty or possibility"}],
+    "maybe" => [%{"pos" => "adverb", "def" => "perhaps; possibly"}],
+    "however" => [
+      %{
+        "pos" => "adverb",
+        "def" => "used to introduce a statement that contrasts with something previously said"
+      }
+    ],
+    "therefore" => [%{"pos" => "adverb", "def" => "for that reason; consequently"}],
+    "thus" => [%{"pos" => "adverb", "def" => "as a result; in this way"}],
+    "hence" => [%{"pos" => "adverb", "def" => "as a consequence; for this reason"}],
+    "anyway" => [%{"pos" => "adverb", "def" => "used to confirm or support a point; regardless"}],
+    "rather" => [%{"pos" => "adverb", "def" => "used to indicate preference; to some extent"}],
+    "quite" => [%{"pos" => "adverb", "def" => "to the utmost degree; completely; fairly"}],
+    "almost" => [%{"pos" => "adverb", "def" => "not quite; very nearly"}],
+    "enough" => [%{"pos" => "adverb", "def" => "to the required degree or extent; sufficiently"}],
+    "especially" => [
+      %{"pos" => "adverb", "def" => "used to single out one thing over all others"}
+    ],
+    "actually" => [
+      %{"pos" => "adverb", "def" => "in fact; really; used to add surprising information"}
+    ],
+    "really" => [%{"pos" => "adverb", "def" => "in actual fact; very; thoroughly"}],
+    "certainly" => [%{"pos" => "adverb", "def" => "used to emphasize something beyond doubt"}],
+    "probably" => [
+      %{"pos" => "adverb", "def" => "almost certainly; as far as one knows or can tell"}
+    ],
+    "possibly" => [%{"pos" => "adverb", "def" => "perhaps; used to indicate doubt or hesitation"}],
+    "simply" => [%{"pos" => "adverb", "def" => "in a straightforward manner; merely"}],
+    "nearly" => [%{"pos" => "adverb", "def" => "very close to; almost"}],
+    "finally" => [%{"pos" => "adverb", "def" => "at last; in the end; lastly"}],
+    "suddenly" => [%{"pos" => "adverb", "def" => "quickly and unexpectedly"}],
+    "recently" => [%{"pos" => "adverb", "def" => "at a recent time; not long ago"}],
+    "once" => [%{"pos" => "adverb", "def" => "on one occasion; formerly"}],
+    "twice" => [%{"pos" => "adverb", "def" => "two times; on two occasions"}],
+    "first" => [%{"pos" => "adverb", "def" => "before anything else; at the beginning"}],
+    "last" => [%{"pos" => "adverb", "def" => "on the most recent occasion; after all others"}],
+    "next" => [%{"pos" => "adverb", "def" => "immediately afterward; on the next occasion"}],
+    "soon" => [%{"pos" => "adverb", "def" => "in or after a short time"}],
+    "later" => [%{"pos" => "adverb", "def" => "at a time in the future; after the expected time"}],
+    "today" => [%{"pos" => "adverb", "def" => "on this present day; at the present period"}],
+    "tomorrow" => [%{"pos" => "adverb", "def" => "on the day after today"}],
+    "yesterday" => [%{"pos" => "adverb", "def" => "on the day before today"}]
   }
 
   @impl Mix.Task
@@ -39,7 +469,7 @@ defmodule Mix.Tasks.BuildDictionary do
     Mix.shell().info("Loaded #{length(target_words)} target words")
 
     Mix.shell().info("\n[1/4] Parsing WordNet data files...")
-    {wordnet_defs, base_to_inflected} = build_wordnet_definitions(target_set)
+    wordnet_defs = build_wordnet_definitions(target_set)
     Mix.shell().info("  WordNet direct matches: #{map_size(wordnet_defs)}")
 
     Mix.shell().info("\n[2/4] Parsing Wordset dictionary files...")
@@ -48,20 +478,16 @@ defmodule Mix.Tasks.BuildDictionary do
 
     Mix.shell().info("\n[3/4] Merging definitions...")
     merged = merge_definitions(wordnet_defs, wordset_defs)
-    Mix.shell().info("  Merged unique words: #{map_size(merged)}")
+    merged = merge_definitions(merged, @function_words)
 
-    Mix.shell().info("\n[4/5] Propagating to inflected forms...")
-    wordset_inflections = build_wordset_inflections(merged, target_set)
+    Mix.shell().info(
+      "  Merged unique words: #{map_size(merged)} (includes #{map_size(@function_words)} function words)"
+    )
 
-    all_inflections =
-      Map.merge(base_to_inflected, wordset_inflections, fn _k, v1, v2 -> Enum.uniq(v1 ++ v2) end)
+    Mix.shell().info("\n[4/4] Writing output file...")
+    write_output(merged)
 
-    all_defs = propagate_inflected_definitions(merged, all_inflections, target_set)
-
-    Mix.shell().info("\n[5/5] Writing output file...")
-    write_output(all_defs)
-
-    matched = map_size(all_defs)
+    matched = map_size(merged)
     total = length(target_words)
     percentage = Float.round(matched / total * 100, 1)
 
@@ -82,26 +508,14 @@ defmodule Mix.Tasks.BuildDictionary do
   end
 
   defp build_wordnet_definitions(target_set) do
-    results =
-      @pos_config
-      |> Task.async_stream(
-        fn {pos, config} -> parse_wordnet_pos(pos, config, target_set) end,
-        timeout: :infinity,
-        ordered: false
-      )
-      |> Enum.map(fn {:ok, result} -> result end)
-
-    direct_defs =
-      results
-      |> Enum.map(& &1.definitions)
-      |> Enum.reduce(%{}, &merge_definitions(&2, &1))
-
-    base_to_inflected =
-      results
-      |> Enum.flat_map(& &1.inflections)
-      |> Enum.group_by(fn {_inflected, base} -> base end, fn {inflected, _base} -> inflected end)
-
-    {direct_defs, base_to_inflected}
+    @pos_config
+    |> Task.async_stream(
+      fn {pos, config} -> parse_wordnet_pos(pos, config, target_set) end,
+      timeout: :infinity,
+      ordered: false
+    )
+    |> Enum.map(fn {:ok, result} -> result end)
+    |> Enum.reduce(%{}, &merge_definitions(&2, &1))
   end
 
   defp build_wordset_definitions(target_set) do
@@ -169,19 +583,13 @@ defmodule Mix.Tasks.BuildDictionary do
     Mix.shell().info("  Parsing WordNet #{pos}...")
 
     synset_map = build_synset_map(config.data)
-    {word_offsets, all_words} = parse_index_file(config.index, target_set)
-    exceptions = parse_exception_file(config.exc, target_set)
+    word_offsets = parse_index_file(config.index, target_set)
 
-    definitions =
-      word_offsets
-      |> Enum.reduce(%{}, fn {word, offsets}, acc ->
-        defs = build_word_defs(offsets, synset_map, pos)
-        if defs == [], do: acc, else: Map.put(acc, word, defs)
-      end)
-
-    inflections = build_inflection_map(exceptions, all_words, target_set, pos)
-
-    %{definitions: definitions, inflections: inflections}
+    word_offsets
+    |> Enum.reduce(%{}, fn {word, offsets}, acc ->
+      defs = build_word_defs(offsets, synset_map, pos)
+      if defs == [], do: acc, else: Map.put(acc, word, defs)
+    end)
   end
 
   defp build_word_defs(offsets, synset_map, pos) do
@@ -190,229 +598,6 @@ defmodule Mix.Tasks.BuildDictionary do
     |> Enum.reject(&is_nil/1)
     |> Enum.take(3)
     |> Enum.map(fn def -> %{"pos" => @pos_labels[pos], "def" => def} end)
-  end
-
-  defp build_inflection_map(exceptions, wordnet_words, target_set, pos) do
-    from_exceptions =
-      exceptions
-      |> Enum.filter(fn {inflected, _base} -> MapSet.member?(target_set, inflected) end)
-
-    from_stemming =
-      target_set
-      |> Enum.flat_map(fn word ->
-        stem_word(word, pos)
-        |> Enum.filter(&MapSet.member?(wordnet_words, &1))
-        |> Enum.map(fn base -> {word, base} end)
-      end)
-
-    from_exceptions ++ from_stemming
-  end
-
-  defp stem_word(word, "verb") do
-    cond do
-      String.ends_with?(word, "ies") ->
-        [String.slice(word, 0..-4//1) <> "y"]
-
-      String.ends_with?(word, "es") ->
-        [String.slice(word, 0..-3//1), String.slice(word, 0..-2//1)]
-
-      String.ends_with?(word, "ed") ->
-        [
-          String.slice(word, 0..-3//1),
-          String.slice(word, 0..-2//1),
-          String.slice(word, 0..-3//1) <> "e"
-        ]
-
-      String.ends_with?(word, "ing") ->
-        [String.slice(word, 0..-4//1), String.slice(word, 0..-4//1) <> "e"]
-
-      String.ends_with?(word, "s") ->
-        [String.slice(word, 0..-2//1)]
-
-      true ->
-        []
-    end
-    |> Enum.reject(&(&1 == "" or &1 == word))
-  end
-
-  defp stem_word(word, "noun") do
-    cond do
-      String.ends_with?(word, "ies") ->
-        [String.slice(word, 0..-4//1) <> "y"]
-
-      String.ends_with?(word, "es") ->
-        [String.slice(word, 0..-3//1), String.slice(word, 0..-2//1)]
-
-      String.ends_with?(word, "s") ->
-        [String.slice(word, 0..-2//1)]
-
-      true ->
-        []
-    end
-    |> Enum.reject(&(&1 == "" or &1 == word))
-  end
-
-  defp stem_word(word, "adj") do
-    cond do
-      String.ends_with?(word, "er") ->
-        [String.slice(word, 0..-3//1), String.slice(word, 0..-3//1) <> "e"]
-
-      String.ends_with?(word, "est") ->
-        [String.slice(word, 0..-4//1), String.slice(word, 0..-4//1) <> "e"]
-
-      String.ends_with?(word, "ier") ->
-        [String.slice(word, 0..-4//1) <> "y"]
-
-      String.ends_with?(word, "iest") ->
-        [String.slice(word, 0..-5//1) <> "y"]
-
-      true ->
-        []
-    end
-    |> Enum.reject(&(&1 == "" or &1 == word))
-  end
-
-  defp stem_word(_word, _pos), do: []
-
-  defp build_wordset_inflections(merged_defs, target_set) do
-    defined_words = Map.keys(merged_defs) |> MapSet.new()
-
-    target_set
-    |> Task.async_stream(
-      fn word ->
-        stems =
-          stem_all(word)
-          |> Enum.filter(&MapSet.member?(defined_words, &1))
-          |> Enum.map(fn base -> {base, word} end)
-
-        stems
-      end,
-      timeout: :infinity,
-      ordered: false
-    )
-    |> Enum.flat_map(fn {:ok, pairs} -> pairs end)
-    |> Enum.group_by(fn {base, _} -> base end, fn {_, inflected} -> inflected end)
-  end
-
-  defp stem_all(word) do
-    stems = []
-
-    stems =
-      stems ++
-        cond do
-          String.ends_with?(word, "ies") ->
-            [String.slice(word, 0..-4//1) <> "y"]
-
-          String.ends_with?(word, "es") ->
-            [String.slice(word, 0..-3//1), String.slice(word, 0..-2//1)]
-
-          String.ends_with?(word, "s") and not String.ends_with?(word, "ss") ->
-            [String.slice(word, 0..-2//1)]
-
-          true ->
-            []
-        end
-
-    stems =
-      stems ++
-        cond do
-          String.ends_with?(word, "ed") ->
-            [
-              String.slice(word, 0..-3//1),
-              String.slice(word, 0..-2//1),
-              String.slice(word, 0..-3//1) <> "e"
-            ]
-
-          String.ends_with?(word, "ing") ->
-            [String.slice(word, 0..-4//1), String.slice(word, 0..-4//1) <> "e"]
-
-          true ->
-            []
-        end
-
-    stems =
-      stems ++
-        cond do
-          String.ends_with?(word, "ier") ->
-            [String.slice(word, 0..-4//1) <> "y"]
-
-          String.ends_with?(word, "iest") ->
-            [String.slice(word, 0..-5//1) <> "y"]
-
-          String.ends_with?(word, "er") ->
-            [String.slice(word, 0..-3//1), String.slice(word, 0..-3//1) <> "e"]
-
-          String.ends_with?(word, "est") ->
-            [String.slice(word, 0..-4//1), String.slice(word, 0..-4//1) <> "e"]
-
-          true ->
-            []
-        end
-
-    stems =
-      stems ++
-        cond do
-          String.ends_with?(word, "ly") ->
-            [String.slice(word, 0..-3//1), String.slice(word, 0..-3//1) <> "le"]
-
-          String.ends_with?(word, "ily") ->
-            [String.slice(word, 0..-4//1) <> "y"]
-
-          true ->
-            []
-        end
-
-    stems =
-      stems ++
-        cond do
-          String.ends_with?(word, "ness") ->
-            [String.slice(word, 0..-5//1)]
-
-          String.ends_with?(word, "iness") ->
-            [String.slice(word, 0..-6//1) <> "y"]
-
-          String.ends_with?(word, "ment") ->
-            [String.slice(word, 0..-5//1), String.slice(word, 0..-5//1) <> "e"]
-
-          String.ends_with?(word, "tion") ->
-            [
-              String.slice(word, 0..-5//1),
-              String.slice(word, 0..-5//1) <> "e",
-              String.slice(word, 0..-4//1) <> "e"
-            ]
-
-          String.ends_with?(word, "able") ->
-            [String.slice(word, 0..-5//1), String.slice(word, 0..-5//1) <> "e"]
-
-          String.ends_with?(word, "ible") ->
-            [String.slice(word, 0..-5//1), String.slice(word, 0..-5//1) <> "e"]
-
-          true ->
-            []
-        end
-
-    stems
-    |> Enum.reject(&(&1 == "" or &1 == word or String.length(&1) < 2))
-    |> Enum.uniq()
-  end
-
-  defp propagate_inflected_definitions(direct_defs, base_to_inflected, target_set) do
-    base_to_inflected
-    |> Enum.reduce(direct_defs, fn {base, inflected_forms}, acc ->
-      case Map.get(direct_defs, base) do
-        nil ->
-          acc
-
-        base_defs ->
-          inflected_forms
-          |> Enum.filter(&MapSet.member?(target_set, &1))
-          |> Enum.reduce(acc, fn inflected, inner_acc ->
-            Map.update(inner_acc, inflected, base_defs, fn existing ->
-              (existing ++ base_defs) |> Enum.uniq_by(& &1["def"]) |> Enum.take(5)
-            end)
-          end)
-      end
-    end)
   end
 
   defp build_synset_map(data_file) do
@@ -437,24 +622,15 @@ defmodule Mix.Tasks.BuildDictionary do
   end
 
   defp parse_index_file(index_file, target_set) do
-    {matches, all_words} =
-      Path.join(@wordnet_dir, index_file)
-      |> File.stream!()
-      |> Stream.reject(&String.starts_with?(&1, "  "))
-      |> Enum.reduce({%{}, MapSet.new()}, fn line, {matches_acc, words_acc} ->
-        case parse_index_line(line, target_set) do
-          {word, offsets, raw_word} ->
-            {Map.put(matches_acc, word, offsets), MapSet.put(words_acc, raw_word)}
-
-          {:skip, raw_word} ->
-            {matches_acc, MapSet.put(words_acc, raw_word)}
-
-          nil ->
-            {matches_acc, words_acc}
-        end
-      end)
-
-    {matches, all_words}
+    Path.join(@wordnet_dir, index_file)
+    |> File.stream!()
+    |> Stream.reject(&String.starts_with?(&1, "  "))
+    |> Enum.reduce(%{}, fn line, acc ->
+      case parse_index_line(line, target_set) do
+        {word, offsets} -> Map.put(acc, word, offsets)
+        nil -> acc
+      end
+    end)
   end
 
   defp parse_index_line(line, target_set) do
@@ -466,9 +642,9 @@ defmodule Mix.Tasks.BuildDictionary do
         offsets = extract_offsets(rest)
 
         cond do
-          MapSet.member?(target_set, normalized) -> {normalized, offsets, word}
-          MapSet.member?(target_set, word) -> {word, offsets, word}
-          true -> {:skip, word}
+          MapSet.member?(target_set, normalized) -> {normalized, offsets}
+          MapSet.member?(target_set, word) -> {word, offsets}
+          true -> nil
         end
 
       _ ->
@@ -481,23 +657,6 @@ defmodule Mix.Tasks.BuildDictionary do
     |> Enum.reverse()
     |> Enum.take_while(&String.match?(&1, ~r/^\d{8}$/))
     |> Enum.reverse()
-  end
-
-  defp parse_exception_file(exc_file, target_set) do
-    path = Path.join(@wordnet_dir, exc_file)
-
-    if File.exists?(path) do
-      path
-      |> File.stream!()
-      |> Stream.map(&String.trim/1)
-      |> Stream.map(&String.split(&1, " "))
-      |> Stream.filter(fn parts -> length(parts) >= 2 end)
-      |> Stream.map(fn [inflected | bases] -> {inflected, hd(bases)} end)
-      |> Stream.filter(fn {inflected, _} -> MapSet.member?(target_set, inflected) end)
-      |> Enum.to_list()
-    else
-      []
-    end
   end
 
   defp merge_definitions(acc, new_defs) do
