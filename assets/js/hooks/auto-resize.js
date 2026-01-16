@@ -5,6 +5,19 @@ let dictionaryCallbacks = [];
 let definitionsCache = null;
 let definitionsLoading = false;
 let definitionsCallbacks = [];
+let activeInstanceCount = 0;
+
+const escapeDiv = document.createElement("div");
+
+function clearGlobalCaches() {
+  dictionaryCache = null;
+  dictionaryArrayCache = null;
+  definitionsCache = null;
+  dictionaryLoading = false;
+  definitionsLoading = false;
+  dictionaryCallbacks = [];
+  definitionsCallbacks = [];
+}
 
 async function loadDictionary() {
   if (dictionaryCache) return dictionaryCache;
@@ -170,6 +183,7 @@ function findSpellingSuggestions(word, maxSuggestions = 3) {
 
 const AutoResize = {
   mounted() {
+    activeInstanceCount++;
     this.el.style.boxSizing = "border-box";
     this.offset = this.el.offsetHeight - this.el.clientHeight;
     this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -262,6 +276,11 @@ const AutoResize = {
     }
 
     this.destroySpellChecker();
+
+    activeInstanceCount--;
+    if (activeInstanceCount === 0) {
+      clearGlobalCaches();
+    }
   },
 
   getFooterHeight() {
@@ -541,11 +560,20 @@ const AutoResize = {
 
   saveSpellIgnoredWords() {
     try {
+      const data = JSON.stringify([...this.spellIgnoredWords]);
+      const MAX_STORAGE_SIZE = 50 * 1024;
+      if (data.length > MAX_STORAGE_SIZE) {
+        console.warn("Spell check ignored words exceeded storage limit, clearing oldest entries");
+        const words = [...this.spellIgnoredWords];
+        this.spellIgnoredWords = new Set(words.slice(-500));
+      }
       sessionStorage.setItem(
         "spellcheck_ignored",
         JSON.stringify([...this.spellIgnoredWords])
       );
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Failed to save spell check ignored words:", e);
+    }
   },
 
   createSpellOverlay() {
@@ -849,6 +877,11 @@ const AutoResize = {
   },
 
   ignoreSpellWord(word) {
+    const MAX_IGNORED_WORDS = 1000;
+    if (this.spellIgnoredWords.size >= MAX_IGNORED_WORDS) {
+      const firstWord = this.spellIgnoredWords.values().next().value;
+      this.spellIgnoredWords.delete(firstWord);
+    }
     this.spellIgnoredWords.add(word.toLowerCase());
     this.saveSpellIgnoredWords();
   },
@@ -927,9 +960,8 @@ const AutoResize = {
   },
 
   escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
+    escapeDiv.textContent = text;
+    return escapeDiv.innerHTML;
   },
 };
 
