@@ -134,7 +134,7 @@ defmodule MossletWeb.PublicLive.Blog.Blog13 do
           >Bumblebee</a>, an Elixir machine learning library. This gives us a fallback that never leaves our infrastructure.
         </p>
         <p>
-          For image safety checks, we first try our local model. It runs on our servers, processes your image, and returns a simple "safe" or "not safe" — no external API call required. If our local model is unavailable (server maintenance, high load, etc.), we fall back to the external API with all the protections described above.
+          For image safety checks, we first try an external API with all the protections described above. If that service is unavailable (outage, rate limiting, etc.), we fall back to our local model. It runs on our servers, processes your image, and returns a simple "safe" or "not safe" — no external API call required.
         </p>
         <p>
           This hybrid approach means we can offer AI features without being completely dependent on external providers, and for many use cases, your data never leaves our servers at all.
