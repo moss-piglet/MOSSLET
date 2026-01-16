@@ -7,8 +7,6 @@ let definitionsLoading = false;
 let definitionsCallbacks = [];
 let activeInstanceCount = 0;
 
-const escapeDiv = document.createElement("div");
-
 function clearGlobalCaches() {
   dictionaryCache = null;
   dictionaryArrayCache = null;
@@ -285,6 +283,10 @@ const AutoResize = {
       this._measureClone = null;
     }
 
+    if (this._cursorMirror) {
+      this._cursorMirror = null;
+    }
+
     this.destroySpellChecker();
 
     activeInstanceCount--;
@@ -385,17 +387,26 @@ const AutoResize = {
     }
   },
 
+  getOrCreateCursorMirror() {
+    if (!this._cursorMirror) {
+      this._cursorMirror = document.createElement("div");
+      this._cursorMirror.style.position = "absolute";
+      this._cursorMirror.style.visibility = "hidden";
+      this._cursorMirror.style.whiteSpace = "pre-wrap";
+      this._cursorMirror.style.wordWrap = "break-word";
+      this._cursorMirror.style.pointerEvents = "none";
+      this._cursorMirror.setAttribute("aria-hidden", "true");
+    }
+    return this._cursorMirror;
+  },
+
   getCursorCoordinates() {
     const el = this.el;
     if (el.selectionStart === undefined) return null;
 
-    const mirror = document.createElement("div");
+    const mirror = this.getOrCreateCursorMirror();
     const style = getComputedStyle(el);
     
-    mirror.style.position = "absolute";
-    mirror.style.visibility = "hidden";
-    mirror.style.whiteSpace = "pre-wrap";
-    mirror.style.wordWrap = "break-word";
     mirror.style.width = style.width;
     mirror.style.font = style.font;
     mirror.style.fontSize = style.fontSize;
@@ -421,6 +432,7 @@ const AutoResize = {
     const cursorY = markerRect.top - mirrorRect.top;
     
     document.body.removeChild(mirror);
+    mirror.textContent = "";
     
     return cursorY;
   },
@@ -585,7 +597,10 @@ const AutoResize = {
     try {
       const stored = sessionStorage.getItem("spellcheck_ignored");
       if (stored) {
-        this.spellIgnoredWords = new Set(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.every(w => typeof w === "string")) {
+          this.spellIgnoredWords = new Set(parsed);
+        }
       }
     } catch (e) {
       this.spellIgnoredWords = new Set();
@@ -704,11 +719,10 @@ const AutoResize = {
     if (!this.dictionary || !this.spellOverlay) return;
     
     const text = this.el.value;
-    const words = text.match(/[a-zA-Z']+/g) || [];
     
     this.misspelledWords.clear();
     
-    let html = "";
+    const fragment = document.createDocumentFragment();
     let lastIndex = 0;
     
     const wordRegex = /[a-zA-Z']+/g;
@@ -719,21 +733,29 @@ const AutoResize = {
       const startIndex = match.index;
       const endIndex = match.index + match[0].length;
       
-      html += this.escapeHtml(text.slice(lastIndex, startIndex));
+      if (lastIndex < startIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, startIndex)));
+      }
       
       if (word.length > 1 && this.isWordMisspelled(word)) {
         this.misspelledWords.set(startIndex, { word, start: startIndex, end: endIndex });
-        html += `<span class="spell-error">${this.escapeHtml(match[0])}</span>`;
+        const span = document.createElement("span");
+        span.className = "spell-error";
+        span.textContent = match[0];
+        fragment.appendChild(span);
       } else {
-        html += this.escapeHtml(match[0]);
+        fragment.appendChild(document.createTextNode(match[0]));
       }
       
       lastIndex = endIndex;
     }
     
-    html += this.escapeHtml(text.slice(lastIndex));
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
     
-    this.spellOverlay.innerHTML = html;
+    this.spellOverlay.textContent = "";
+    this.spellOverlay.appendChild(fragment);
     this.updateOverlayPosition();
   },
 
@@ -766,6 +788,60 @@ const AutoResize = {
     return null;
   },
 
+  buildMenuHeader(word, isMisspelled, isIgnored) {
+    const header = document.createElement("div");
+    header.className = "spell-menu-header";
+    
+    const wordSpan = document.createElement("span");
+    wordSpan.className = "spell-menu-word";
+    wordSpan.textContent = word;
+    header.appendChild(wordSpan);
+    
+    if (isMisspelled && !isIgnored) {
+      const badge = document.createElement("span");
+      badge.className = "spell-menu-badge";
+      badge.textContent = "Not in dictionary";
+      header.appendChild(badge);
+    } else if (isIgnored) {
+      const badge = document.createElement("span");
+      badge.className = "spell-menu-badge spell-menu-badge-ignored";
+      badge.textContent = "Ignored";
+      header.appendChild(badge);
+    }
+    
+    return header;
+  },
+
+  buildMenuButton(iconPath, label, action, extraData = {}) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "spell-menu-item";
+    if (action === "replace") btn.className += " spell-menu-suggestion";
+    btn.dataset.action = action;
+    Object.entries(extraData).forEach(([key, val]) => btn.dataset[key] = val);
+    
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "spell-menu-icon");
+    svg.setAttribute("viewBox", "0 0 20 20");
+    svg.setAttribute("fill", "currentColor");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    if (iconPath.includes("fill-rule")) {
+      path.setAttribute("fill-rule", "evenodd");
+      path.setAttribute("clip-rule", "evenodd");
+      path.setAttribute("d", iconPath.replace(/fill-rule.*?clip-rule.*?d="/, "").replace(/"$/, ""));
+    } else {
+      path.setAttribute("d", iconPath);
+    }
+    svg.appendChild(path);
+    btn.appendChild(svg);
+    
+    const span = document.createElement("span");
+    span.textContent = label;
+    btn.appendChild(span);
+    
+    return btn;
+  },
+
   showSpellContextMenu(e, word, isMisspelled, wordInfo = null) {
     e.preventDefault();
 
@@ -774,65 +850,74 @@ const AutoResize = {
     const suggestions = isMisspelled && !isIgnored ? findSpellingSuggestions(word) : [];
     const definition = getDefinition(word);
 
-    let menuContent = `
-      <div class="spell-menu-header">
-        <span class="spell-menu-word">${this.escapeHtml(word)}</span>
-        ${isMisspelled && !isIgnored ? '<span class="spell-menu-badge">Not in dictionary</span>' : ''}
-        ${isIgnored ? '<span class="spell-menu-badge spell-menu-badge-ignored">Ignored</span>' : ''}
-      </div>
-      <div class="spell-menu-divider"></div>
-    `;
+    const fragment = document.createDocumentFragment();
+    
+    fragment.appendChild(this.buildMenuHeader(word, isMisspelled, isIgnored));
+    
+    const divider1 = document.createElement("div");
+    divider1.className = "spell-menu-divider";
+    fragment.appendChild(divider1);
 
     if (isMisspelled && !isIgnored && suggestions.length > 0) {
-      menuContent += `<div class="spell-menu-suggestions-label">Suggestions</div>`;
-      suggestions.forEach((suggestion, index) => {
-        menuContent += `
-          <button type="button" class="spell-menu-item spell-menu-suggestion" data-action="replace" data-suggestion="${this.escapeHtml(suggestion)}">
-            <svg class="spell-menu-icon" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M7.793 2.232a.75.75 0 01-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 010 10.75H10.75a.75.75 0 010-1.5h2.875a3.875 3.875 0 000-7.75H3.622l4.146 3.957a.75.75 0 01-1.036 1.085l-5.5-5.25a.75.75 0 010-1.085l5.5-5.25a.75.75 0 011.06.025z" clip-rule="evenodd"/>
-            </svg>
-            <span>${this.escapeHtml(suggestion)}</span>
-          </button>
-        `;
+      const label = document.createElement("div");
+      label.className = "spell-menu-suggestions-label";
+      label.textContent = "Suggestions";
+      fragment.appendChild(label);
+      
+      suggestions.forEach(suggestion => {
+        const btn = this.buildMenuButton(
+          "M7.793 2.232a.75.75 0 01-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 010 10.75H10.75a.75.75 0 010-1.5h2.875a3.875 3.875 0 000-7.75H3.622l4.146 3.957a.75.75 0 01-1.036 1.085l-5.5-5.25a.75.75 0 010-1.085l5.5-5.25a.75.75 0 011.06.025z",
+          suggestion,
+          "replace",
+          { suggestion }
+        );
+        fragment.appendChild(btn);
       });
-      menuContent += `<div class="spell-menu-divider"></div>`;
+      
+      const divider2 = document.createElement("div");
+      divider2.className = "spell-menu-divider";
+      fragment.appendChild(divider2);
     }
 
     if (definition) {
-      menuContent += `
-        <button type="button" class="spell-menu-item" data-action="define" data-word="${this.escapeHtml(word)}">
-          <svg class="spell-menu-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10.75 16.82A7.462 7.462 0 0115 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0018 15.06v-11a.75.75 0 00-.546-.721A9.006 9.006 0 0015 3a8.963 8.963 0 00-4.25 1.065V16.82zM9.25 4.065A8.963 8.963 0 005 3c-.85 0-1.673.118-2.454.339A.75.75 0 002 4.06v11a.75.75 0 00.954.721A7.506 7.506 0 015 15.5c1.579 0 3.042.487 4.25 1.32V4.065z"/>
-          </svg>
-          <span>Define</span>
-        </button>
-      `;
+      fragment.appendChild(this.buildMenuButton(
+        "M10.75 16.82A7.462 7.462 0 0115 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0018 15.06v-11a.75.75 0 00-.546-.721A9.006 9.006 0 0015 3a8.963 8.963 0 00-4.25 1.065V16.82zM9.25 4.065A8.963 8.963 0 005 3c-.85 0-1.673.118-2.454.339A.75.75 0 002 4.06v11a.75.75 0 00.954.721A7.506 7.506 0 015 15.5c1.579 0 3.042.487 4.25 1.32V4.065z",
+        "Define",
+        "define",
+        { word }
+      ));
     }
 
     if (isMisspelled || isIgnored) {
-      menuContent += `
-        <button type="button" class="spell-menu-item" data-action="${isIgnored ? "unignore" : "ignore"}">
-          <svg class="spell-menu-icon" viewBox="0 0 20 20" fill="currentColor">
-            ${isIgnored 
-              ? '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>'
-              : '<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>'
-            }
-          </svg>
-          <span>${isIgnored ? "Stop ignoring" : "Ignore for this session"}</span>
-        </button>
-      `;
+      const iconPath = isIgnored 
+        ? "M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+        : "M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z";
+      const label = isIgnored ? "Stop ignoring" : "Ignore for this session";
+      fragment.appendChild(this.buildMenuButton(iconPath, label, isIgnored ? "unignore" : "ignore"));
     } else {
-      menuContent += `
-        <div class="spell-menu-info">
-          <svg class="spell-menu-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
-          </svg>
-          <span>Word is spelled correctly</span>
-        </div>
-      `;
+      const info = document.createElement("div");
+      info.className = "spell-menu-info";
+      
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "spell-menu-icon");
+      svg.setAttribute("viewBox", "0 0 20 20");
+      svg.setAttribute("fill", "currentColor");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("fill-rule", "evenodd");
+      path.setAttribute("clip-rule", "evenodd");
+      path.setAttribute("d", "M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z");
+      svg.appendChild(path);
+      info.appendChild(svg);
+      
+      const span = document.createElement("span");
+      span.textContent = "Word is spelled correctly";
+      info.appendChild(span);
+      
+      fragment.appendChild(info);
     }
 
-    this.spellContextMenu.innerHTML = menuContent;
+    this.spellContextMenu.textContent = "";
+    this.spellContextMenu.appendChild(fragment);
 
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -951,21 +1036,41 @@ const AutoResize = {
     const definition = getDefinition(word);
     if (!definition) return;
 
-    const content = `
-      <div class="definition-popup-header">
-        <span class="definition-popup-word">${this.escapeHtml(word)}</span>
-        <button type="button" class="definition-popup-close" aria-label="Close">
-          <svg viewBox="0 0 20 20" fill="currentColor">
-            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
-          </svg>
-        </button>
-      </div>
-      <div class="definition-popup-content">
-        <p class="definition-popup-text">${this.escapeHtml(definition)}</p>
-      </div>
-    `;
+    const fragment = document.createDocumentFragment();
+    
+    const header = document.createElement("div");
+    header.className = "definition-popup-header";
+    
+    const wordSpan = document.createElement("span");
+    wordSpan.className = "definition-popup-word";
+    wordSpan.textContent = word;
+    header.appendChild(wordSpan);
+    
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "definition-popup-close";
+    closeBtn.setAttribute("aria-label", "Close");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 20 20");
+    svg.setAttribute("fill", "currentColor");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z");
+    svg.appendChild(path);
+    closeBtn.appendChild(svg);
+    header.appendChild(closeBtn);
+    
+    fragment.appendChild(header);
+    
+    const content = document.createElement("div");
+    content.className = "definition-popup-content";
+    const text = document.createElement("p");
+    text.className = "definition-popup-text";
+    text.textContent = definition;
+    content.appendChild(text);
+    fragment.appendChild(content);
 
-    this.definitionPopup.innerHTML = content;
+    this.definitionPopup.textContent = "";
+    this.definitionPopup.appendChild(fragment);
 
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -984,18 +1089,16 @@ const AutoResize = {
     this.definitionPopup.style.top = `${Math.max(16, y)}px`;
     this.definitionPopup.style.visibility = "visible";
 
-    const closeBtn = this.definitionPopup.querySelector(".definition-popup-close");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.definitionPopup.hidden = true;
-      }, { once: true });
-    }
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.definitionPopup.hidden = true;
+    }, { once: true });
   },
 
   escapeHtml(text) {
-    escapeDiv.textContent = text;
-    return escapeDiv.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   },
 };
 
