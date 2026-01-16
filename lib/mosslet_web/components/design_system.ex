@@ -5041,7 +5041,7 @@ defmodule MossletWeb.DesignSystem do
       phx-hook="TouchHoverHook"
       class={
         [
-          "group relative rounded-2xl transition-all duration-300 ease-out",
+          "group relative rounded-2xl transition-all duration-300 ease-out min-h-72 flex flex-col",
           "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
           "border border-slate-200/60 dark:border-slate-700/60",
           "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
@@ -5763,7 +5763,7 @@ defmodule MossletWeb.DesignSystem do
       </div>
 
       <%!-- Post content --%>
-      <div class="relative p-6">
+      <div class="relative p-6 flex-1 flex flex-col">
         <%!-- User header --%>
         <div class="flex items-start gap-4 mb-4">
           <%!-- Enhanced liquid metal avatar - conditionally linked to author profile --%>
@@ -5997,7 +5997,7 @@ defmodule MossletWeb.DesignSystem do
         </button>
 
         <%!-- Post content with markdown support --%>
-        <div class="mb-4">
+        <div class="mb-4 flex-1">
           <%!-- Legacy posts with HTML (sanitized and rendered) --%>
           <p
             :if={contains_html?(@content)}

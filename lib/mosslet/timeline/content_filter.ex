@@ -178,7 +178,7 @@ defmodule Mosslet.Timeline.ContentFilter do
         normalize_muted_users_to_ids(preferences[:muted_users])
       else
         # Preserve existing muted users, but decrypt them first since schema will re-encrypt
-        if prefs.muted_users != [] do
+        if prefs.muted_users not in [nil, []] do
           user = opts[:user]
           key = opts[:key]
 
