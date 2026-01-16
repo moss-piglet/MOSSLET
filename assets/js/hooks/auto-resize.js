@@ -84,8 +84,10 @@ async function loadDefinitions() {
 }
 
 function getDefinition(word) {
-  if (!definitionsCache) return null;
-  return definitionsCache[word.toLowerCase()] || null;
+  if (!definitionsCache || !dictionaryCache) return null;
+  const lowerWord = word.toLowerCase();
+  if (!dictionaryCache.has(lowerWord)) return null;
+  return definitionsCache[lowerWord] || null;
 }
 
 function damerauLevenshtein(a, b) {
@@ -1027,8 +1029,8 @@ const AutoResize = {
   },
 
   showDefinitionPopup(word) {
-    const definition = getDefinition(word);
-    if (!definition) return;
+    const definitions = getDefinition(word);
+    if (!definitions || !Array.isArray(definitions) || definitions.length === 0) return;
 
     const fragment = document.createDocumentFragment();
     
@@ -1057,10 +1059,27 @@ const AutoResize = {
     
     const content = document.createElement("div");
     content.className = "definition-popup-content";
-    const text = document.createElement("p");
-    text.className = "definition-popup-text";
-    text.textContent = definition;
-    content.appendChild(text);
+    content.setAttribute("tabindex", "0");
+    
+    definitions.forEach((entry, index) => {
+      const defItem = document.createElement("div");
+      defItem.className = "definition-popup-item";
+      
+      if (entry.pos) {
+        const posSpan = document.createElement("span");
+        posSpan.className = "definition-popup-pos";
+        posSpan.textContent = entry.pos;
+        defItem.appendChild(posSpan);
+      }
+      
+      const defText = document.createElement("span");
+      defText.className = "definition-popup-def";
+      defText.textContent = entry.def;
+      defItem.appendChild(defText);
+      
+      content.appendChild(defItem);
+    });
+    
     fragment.appendChild(content);
 
     this.definitionPopup.textContent = "";
