@@ -189,7 +189,7 @@ const MentionPicker = {
         .filter(
           (m) =>
             (m.moniker && m.moniker.toLowerCase().includes(query)) ||
-            (m.name && m.name.toLowerCase().includes(query))
+            (m.username && m.username.toLowerCase().includes(query))
         )
         .slice(0, 8);
     }
@@ -328,10 +328,10 @@ const MentionPicker = {
           </div>
           <div class="flex-1 min-w-0">
             ${
-              member.name
+              member.username
                 ? `
               <div class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                ${this.escapeHtml(member.name)}
+                ${this.escapeHtml(member.username)}
               </div>
             `
                 : ""
@@ -396,7 +396,7 @@ const MentionPicker = {
     const beforeMention = value.substring(0, this.mentionStart);
     const afterCursor = value.substring(selectionStart);
 
-    const displayName = member.name || member.moniker;
+    const displayName = member.is_connected ? member.username : member.moniker;
     const displayText = `@${displayName} `;
     this.mentionMap[displayName] = member.user_group_id;
 

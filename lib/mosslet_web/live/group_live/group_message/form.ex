@@ -62,23 +62,13 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
           uconn = get_uconn_for_users(user, current_scope.user)
           is_connected = not is_nil(uconn)
 
-          name =
+          username =
             if is_self || is_connected do
-              if ug.name do
-                decr_item(
-                  ug.name,
-                  current_scope.user,
-                  user_group_key,
-                  current_scope.key,
-                  group
-                )
-              else
-                maybe_decr_username_for_user_group(
-                  ug.user_id,
-                  current_scope.user,
-                  current_scope.key
-                )
-              end
+              maybe_decr_username_for_user_group(
+                ug.user_id,
+                current_scope.user,
+                current_scope.key
+              )
             end
 
           group_avatar_fallback =
@@ -103,9 +93,10 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
           %{
             user_group_id: ug.id,
             moniker: moniker,
-            name: name,
+            username: username,
             role: Atom.to_string(ug.role),
-            avatar_src: avatar_src
+            avatar_src: avatar_src,
+            is_connected: is_connected || is_self
           }
         end)
       else

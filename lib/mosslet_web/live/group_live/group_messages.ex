@@ -78,26 +78,23 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     is_connected = not is_nil(uconn)
 
     sender_name =
-      if is_self || is_connected do
-        if assigns.message.sender.name do
-          initials(
-            decr_item(
-              assigns.message.sender.name,
-              assigns.current_scope.user,
-              assigns.user_group.key,
-              assigns.current_scope.key,
-              assigns.group
-            )
-          )
-        else
+      cond do
+        is_self ->
           maybe_decr_username_for_user_group(
             assigns.message.sender.user_id,
             assigns.current_scope.user,
             assigns.current_scope.key
           )
-        end
-      else
-        nil
+
+        is_connected ->
+          maybe_decr_username_for_user_group(
+            assigns.message.sender.user_id,
+            assigns.current_scope.user,
+            assigns.current_scope.key
+          )
+
+        true ->
+          nil
       end
 
     moniker =
@@ -192,37 +189,45 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         is_connected = not is_nil(uconn)
 
         display_name =
-          if is_self || is_connected do
-            if mentioned_ug.name do
-              decr_item(
-                mentioned_ug.name,
-                assigns.current_scope.user,
-                assigns.user_group.key,
-                assigns.current_scope.key,
-                assigns.group
-              )
-            else
+          cond do
+            is_self ->
               maybe_decr_username_for_user_group(
                 mentioned_ug.user_id,
                 assigns.current_scope.user,
                 assigns.current_scope.key
               )
-            end
-          else
-            decr_item(
-              mentioned_ug.moniker,
-              assigns.current_scope.user,
-              assigns.user_group.key,
-              assigns.current_scope.key,
-              assigns.group
-            )
+
+            is_connected ->
+              maybe_decr_username_for_user_group(
+                mentioned_ug.user_id,
+                assigns.current_scope.user,
+                assigns.current_scope.key
+              )
+
+            true ->
+              decr_item(
+                mentioned_ug.moniker,
+                assigns.current_scope.user,
+                assigns.user_group.key,
+                assigns.current_scope.key,
+                assigns.group
+              )
           end
 
+        role = mentioned_ug.role || :member
+        text_class = mention_text_class(role)
+
         if is_self do
-          "<span class=\"mention-pill mention-pill-self inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/50 dark:to-emerald-900/50 text-teal-700 dark:text-teal-300 text-sm font-medium border border-teal-200/60 dark:border-teal-700/40\">@#{display_name}</span>"
+          "<span class=\"mention-self #{text_class} font-semibold underline decoration-2 underline-offset-2\"><span class=\"opacity-60\">@</span>#{display_name}</span>"
         else
-          "<span class=\"mention-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-sm font-medium border border-slate-200/60 dark:border-slate-600/40\">@#{display_name}</span>"
+          "<span class=\"mention #{text_class} font-medium\"><span class=\"opacity-50\">@</span>#{display_name}</span>"
         end
     end
   end
+
+  defp mention_text_class(:owner), do: "text-pink-600 dark:text-pink-300"
+  defp mention_text_class(:admin), do: "text-orange-600 dark:text-orange-300"
+  defp mention_text_class(:moderator), do: "text-purple-600 dark:text-purple-300"
+  defp mention_text_class(:member), do: "text-emerald-600 dark:text-emerald-300"
+  defp mention_text_class(_), do: "text-slate-600 dark:text-slate-300"
 end
