@@ -6590,17 +6590,27 @@ defmodule MossletWeb.TimelineLive.Index do
       loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
 
       cached_unread_posts = socket.assigns[:cached_unread_posts] || []
-      updated_cached_unread = update_or_add_cached_post(cached_unread_posts, post)
+
+      updated_cached_unread =
+        update_or_add_cached_post(cached_unread_posts, post)
+        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
+
+      posts_with_dates = add_date_grouping_context(updated_cached_unread)
 
       socket
       |> assign(:cached_read_posts, updated_cached_read)
       |> assign(:cached_unread_posts, updated_cached_unread)
       |> assign(:loaded_read_posts_count, max(0, loaded_read_count - 1))
       |> stream_delete(:read_posts, post)
-      |> stream_insert(:posts, post, at: -1)
+      |> stream(:posts, posts_with_dates, reset: true)
+      |> maybe_reset_read_posts_stream(updated_cached_read)
     else
       cached_read_posts = socket.assigns[:cached_read_posts] || []
-      updated_cached_read = update_or_add_cached_post(cached_read_posts, post)
+
+      updated_cached_read =
+        update_or_add_cached_post(cached_read_posts, post)
+        |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
+
       loaded_read_count = socket.assigns[:loaded_read_posts_count] || 0
 
       cached_unread_posts = socket.assigns[:cached_unread_posts] || []
@@ -6611,7 +6621,16 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:cached_unread_posts, updated_cached_unread)
       |> assign(:loaded_read_posts_count, loaded_read_count + 1)
       |> stream_delete(:posts, post)
-      |> maybe_stream_insert_read_post(post, at: -1)
+      |> maybe_reset_read_posts_stream(updated_cached_read)
+    end
+  end
+
+  defp maybe_reset_read_posts_stream(socket, cached_read_posts) do
+    if socket.assigns[:read_posts_expanded] do
+      posts_with_dates = add_date_grouping_context(cached_read_posts)
+      stream(socket, :read_posts, posts_with_dates, reset: true)
+    else
+      socket
     end
   end
 
