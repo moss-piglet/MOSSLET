@@ -4,6 +4,7 @@ defmodule MossletWeb.GroupLive.Index do
   alias Mosslet.Accounts
   alias Mosslet.Groups
   alias Mosslet.Groups.Group
+  alias Mosslet.GroupMessages
 
   @page_default 1
   @per_page_default 10
@@ -69,6 +70,14 @@ defmodule MossletWeb.GroupLive.Index do
     total_public_groups = Groups.public_group_count(current_user, search_term)
     initial_groups = Enum.take(groups, per_page)
 
+    user_group_ids =
+      groups
+      |> Enum.flat_map(& &1.user_groups)
+      |> Enum.filter(&(&1.user_id == current_user.id && &1.confirmed_at))
+      |> Enum.map(& &1.id)
+
+    unread_mention_counts = GroupMessages.get_unread_mention_counts_by_group(user_group_ids)
+
     socket =
       socket
       |> assign(
@@ -98,6 +107,7 @@ defmodule MossletWeb.GroupLive.Index do
       )
       |> assign(:load_more_loading, false)
       |> assign(:load_more_public_loading, false)
+      |> assign(:unread_mention_counts, unread_mention_counts)
       |> stream(:groups, initial_groups, reset: true)
       |> stream(:pending_groups, pending_groups)
 
@@ -752,6 +762,27 @@ defmodule MossletWeb.GroupLive.Index do
 
         {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_info(%{event: "new_message", payload: %{message: message}}, socket) do
+    current_user = socket.assigns.current_user
+    groups = Groups.list_groups(current_user)
+
+    user_group_ids =
+      groups
+      |> Enum.flat_map(& &1.user_groups)
+      |> Enum.filter(&(&1.user_id == current_user.id && &1.confirmed_at))
+      |> Enum.map(& &1.id)
+
+    unread_mention_counts = GroupMessages.get_unread_mention_counts_by_group(user_group_ids)
+
+    group = Groups.get_group!(message.group_id)
+
+    {:noreply,
+     socket
+     |> assign(:unread_mention_counts, unread_mention_counts)
+     |> stream_insert(:groups, group, at: -1)}
   end
 
   @impl true

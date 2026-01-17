@@ -12507,6 +12507,7 @@ defmodule MossletWeb.DesignSystem do
   attr :navigate_url, :string, required: true
   attr :edit_url, :string, default: nil
   attr :class, :any, default: ""
+  attr :unread_mention_count, :integer, default: 0
   slot :members
 
   def liquid_my_group_card(assigns) do
@@ -12533,7 +12534,7 @@ defmodule MossletWeb.DesignSystem do
 
       <div class="relative p-4 sm:p-5">
         <div class="flex gap-4">
-          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30 shadow-sm">
+          <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-visible transition-all duration-200 ease-out transform-gpu will-change-transform bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 group-hover/card:from-teal-100 group-hover/card:via-emerald-50 group-hover/card:to-cyan-100 dark:group-hover/card:from-teal-900/30 dark:group-hover/card:via-emerald-900/25 dark:group-hover/card:to-cyan-900/30 shadow-sm">
             <.phx_icon
               name={if @is_public, do: "hero-globe-alt", else: "hero-circle-stack"}
               class={[
@@ -12542,6 +12543,12 @@ defmodule MossletWeb.DesignSystem do
                 "group-hover/card:text-teal-600 dark:group-hover/card:text-teal-400"
               ]}
             />
+            <span
+              :if={@unread_mention_count > 0}
+              class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 text-[10px] font-bold text-white shadow-lg shadow-teal-500/30 ring-2 ring-white dark:ring-slate-800"
+            >
+              {if @unread_mention_count > 9, do: "9+", else: @unread_mention_count}
+            </span>
           </div>
 
           <div class="flex-1 min-w-0 pt-0.5">
@@ -12853,6 +12860,10 @@ defmodule MossletWeb.DesignSystem do
     default: nil,
     doc: "DateTime or NaiveDateTime for the date separator"
 
+  attr :is_mentioned, :boolean,
+    default: false,
+    doc: "Whether this message mentions the current user"
+
   attr :class, :any, default: ""
   slot :inner_block, required: true
 
@@ -12874,8 +12885,12 @@ defmodule MossletWeb.DesignSystem do
       >
         <div class={[
           "relative rounded-2xl transition-all duration-300 ease-out max-w-[85%] sm:max-w-[75%]",
-          "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50",
-          "dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20",
+          if(@is_mentioned && !@is_own_message,
+            do:
+              "bg-gradient-to-r from-teal-50/80 to-emerald-50/80 dark:from-teal-900/30 dark:to-emerald-900/30 ring-1 ring-teal-200/60 dark:ring-teal-700/40",
+            else:
+              "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50 dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20"
+          ),
           if(@is_grouped, do: "py-1 px-3 sm:px-4", else: "py-2.5 px-3 sm:px-4")
         ]}>
           <div class="flex items-start gap-3">

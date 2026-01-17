@@ -1,6 +1,9 @@
 defmodule MossletWeb.GroupLive.GroupMessages do
   use MossletWeb, :html
   alias MossletWeb.DesignSystem
+  alias Mosslet.Groups
+
+  @mention_token_regex ~r/@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i
 
   def list_messages(assigns) do
     ~H"""
@@ -106,7 +109,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         assigns.group
       )
 
-    content =
+    raw_content =
       decr_item(
         assigns.message.content,
         assigns.current_scope.user,
@@ -115,6 +118,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         assigns.group
       )
 
+    content = render_mentions(raw_content, assigns)
+
     can_delete =
       assigns.user_group.role in [:owner, :admin, :moderator] ||
         assigns.user_group.id == assigns.message.sender_id
@@ -122,6 +127,8 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     is_grouped = Map.get(assigns.message, :is_grouped, false)
     show_date_separator = Map.get(assigns.message, :show_date_separator, false)
     message_datetime = assigns.message.inserted_at
+
+    is_mentioned = content_mentions_user?(raw_content, assigns.user_group.id)
 
     assigns =
       assigns
@@ -134,6 +141,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:is_grouped, is_grouped)
       |> assign(:show_date_separator, show_date_separator)
       |> assign(:message_datetime, message_datetime)
+      |> assign(:is_mentioned, is_mentioned)
 
     ~H"""
     <DesignSystem.liquid_chat_message
@@ -150,9 +158,49 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       is_grouped={@is_grouped}
       show_date_separator={@show_date_separator}
       message_datetime={@message_datetime}
+      is_mentioned={@is_mentioned}
     >
       {Mosslet.MarkdownRenderer.to_html(@content) |> Phoenix.HTML.raw()}
     </DesignSystem.liquid_chat_message>
     """
+  end
+
+  defp content_mentions_user?(content, user_group_id) when is_binary(content) do
+    String.contains?(content, "@[#{user_group_id}]")
+  end
+
+  defp content_mentions_user?(_, _), do: false
+
+  defp render_mentions(content, assigns) when is_binary(content) do
+    Regex.replace(@mention_token_regex, content, fn _full, user_group_id ->
+      render_mention_pill(user_group_id, assigns)
+    end)
+  end
+
+  defp render_mentions(content, _assigns), do: content
+
+  defp render_mention_pill(user_group_id, assigns) do
+    is_self = user_group_id == assigns.user_group.id
+
+    case Groups.get_user_group(user_group_id) do
+      nil ->
+        "@unknown"
+
+      mentioned_ug ->
+        moniker =
+          decr_item(
+            mentioned_ug.moniker,
+            assigns.current_scope.user,
+            assigns.user_group.key,
+            assigns.current_scope.key,
+            assigns.group
+          )
+
+        if is_self do
+          "<span class=\"mention-pill mention-pill-self inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/50 dark:to-emerald-900/50 text-teal-700 dark:text-teal-300 text-sm font-medium border border-teal-200/60 dark:border-teal-700/40\">@#{moniker}</span>"
+        else
+          "<span class=\"mention-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-sm font-medium border border-slate-200/60 dark:border-slate-600/40\">@#{moniker}</span>"
+        end
+    end
   end
 end

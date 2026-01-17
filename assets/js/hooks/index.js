@@ -18,6 +18,7 @@ import { LocalTimeTooltip } from "./local-time-tooltip";
 import LockBodyScroll from "./lock-body-scroll";
 import MaintainFocus from "./maintain-focus";
 import Menu from "./dropdown-menu";
+import MentionPicker from "./mention-picker";
 import ModalPortal from "./modal-portal";
 import ReplyComposer from "./reply-composer";
 import ReplyEmojiPicker from "./reply-emoji-picker";
@@ -66,6 +67,7 @@ export default {
   LockBodyScroll,
   MaintainFocus,
   Menu,
+  MentionPicker,
   ModalPortal,
   MossletFrameworkHooks,
   ReplyComposer,

@@ -96,6 +96,7 @@
                 group_id={group.id}
                 navigate_url={~p"/app/circles/#{group}"}
                 edit_url={~p"/app/circles/#{group}/edit"}
+                unread_mention_count={Map.get(@unread_mention_counts, group.id, 0)}
               >
                 <:members>
                   <%= for user_group <- group.user_groups, user_group.confirmed_at do %>

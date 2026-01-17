@@ -6,6 +6,7 @@ defmodule Mosslet.Groups.GroupMessage do
   alias Mosslet.Encrypted
   alias Mosslet.Encrypted.Utils
   alias Mosslet.Groups.Group
+  alias Mosslet.Groups.GroupMessageMention
   alias Mosslet.Groups.UserGroup
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -14,6 +15,7 @@ defmodule Mosslet.Groups.GroupMessage do
     field :content, Encrypted.Binary, redact: true
     belongs_to :group, Group
     belongs_to :sender, UserGroup
+    has_many :mentions, GroupMessageMention
 
     timestamps()
   end

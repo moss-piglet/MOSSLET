@@ -71,6 +71,11 @@ defmodule MossletWeb.GroupLive.Show do
   defp apply_action(socket, :show, _params) do
     if not is_nil(socket.assigns.current_user_group) &&
          socket.assigns.current_user_group.confirmed_at do
+      GroupMessages.mark_mentions_as_read(
+        socket.assigns.current_user_group.id,
+        socket.assigns.group.id
+      )
+
       socket
       |> assign(page_title: "Viewing Circle")
     else
