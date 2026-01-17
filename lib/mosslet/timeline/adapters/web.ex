@@ -1102,6 +1102,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
     query
     |> Repo.all()
+    |> filter_removed_bookmarks(options[:current_scope])
     |> Enum.map(fn bookmark -> bookmark.post end)
     |> Enum.filter(&(&1 != nil))
   end
@@ -1531,6 +1532,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> paginate(options)
 
     Repo.all(query)
+    |> filter_removed_by_user(options[:current_scope])
   end
 
   @impl true
@@ -1662,9 +1664,13 @@ defmodule Mosslet.Timeline.Adapters.Web do
         |> Repo.update()
         |> case do
           {:ok, updated_post} ->
-            updated_post
-            |> Post.add_removed_by_user_changeset(removed_user.id)
-            |> Repo.update()
+            with {:ok, final_post} <-
+                   updated_post
+                   |> Post.add_removed_by_user_changeset(removed_user.id)
+                   |> Repo.update() do
+              mark_bookmarks_as_removed_for_post(post.id, removed_user.id)
+              {:ok, final_post}
+            end
 
           error ->
             error
@@ -1676,6 +1682,8 @@ defmodule Mosslet.Timeline.Adapters.Web do
         updated_post =
           updated_post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
 
+        Mosslet.Timeline.Performance.TimelineCache.invalidate_timeline(removed_user.id, :all)
+
         {:ok, updated_post}
 
       {:ok, {:error, changeset}} ->
@@ -1684,6 +1692,16 @@ defmodule Mosslet.Timeline.Adapters.Web do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp mark_bookmarks_as_removed_for_post(post_id, user_id) do
+    from(b in Bookmark, where: b.post_id == ^post_id)
+    |> Repo.all()
+    |> Enum.each(fn bookmark ->
+      bookmark
+      |> Bookmark.add_removed_by_user_changeset(user_id)
+      |> Repo.update()
+    end)
   end
 
   @impl true
@@ -2323,7 +2341,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
-  def unread_posts(current_user) do
+  def unread_posts(current_user, options \\ %{}) do
     Post
     |> join(:inner, [p], up in UserPost, on: up.post_id == p.id)
     |> join(:inner, [p, up], upr in UserPostReceipt, on: upr.user_post_id == up.id)
@@ -2337,6 +2355,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     )
     |> preload([:user_posts, :user, :replies])
     |> Repo.all()
+    |> filter_removed_by_user(options[:current_scope])
     |> add_nested_replies_to_posts(%{current_user_id: current_user.id})
   end
 
@@ -2463,6 +2482,41 @@ defmodule Mosslet.Timeline.Adapters.Web do
       if Enum.empty?(encrypted_removed_ids) do
         false
       else
+        post_key = MossletWeb.Helpers.get_post_key(post, current_user)
+
+        decrypted_ids =
+          Enum.map(encrypted_removed_ids, fn encrypted_id ->
+            MossletWeb.Helpers.decr_item(
+              encrypted_id,
+              current_user,
+              post_key,
+              key,
+              post,
+              "removed_by_user_ids"
+            )
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.reject(&(&1 == :failed_verification))
+          |> Enum.reject(&(&1 == "failed_verification"))
+
+        current_user.id in decrypted_ids
+      end
+    end)
+  end
+
+  defp filter_removed_bookmarks(bookmarks, nil) when is_list(bookmarks), do: bookmarks
+
+  defp filter_removed_bookmarks(bookmarks, current_scope) when is_list(bookmarks) do
+    current_user = current_scope.user
+    key = current_scope.key
+
+    Enum.reject(bookmarks, fn bookmark ->
+      encrypted_removed_ids = bookmark.removed_by_user_ids || []
+
+      if Enum.empty?(encrypted_removed_ids) do
+        false
+      else
+        post = bookmark.post
         post_key = MossletWeb.Helpers.get_post_key(post, current_user)
 
         decrypted_ids =

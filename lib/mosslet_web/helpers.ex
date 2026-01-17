@@ -909,10 +909,9 @@ defmodule MossletWeb.Helpers do
     end
   end
 
-  def last_unread_post?(post, current_user) do
-    unread_posts = Timeline.unread_posts(current_user)
+  def last_unread_post?(post, current_user, options \\ %{}) do
+    unread_posts = Timeline.unread_posts(current_user, options)
 
-    # Check if this post is the first (oldest) in the unread posts list
     case Enum.reverse(unread_posts) do
       [oldest_unread_post | _] -> oldest_unread_post.id == post.id
       _ -> false

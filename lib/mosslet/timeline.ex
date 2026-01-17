@@ -415,8 +415,8 @@ defmodule Mosslet.Timeline do
   Returns a list of posts for the current_user that
   have not been read yet.
   """
-  def unread_posts(current_user) do
-    adapter().unread_posts(current_user)
+  def unread_posts(current_user, options \\ %{}) do
+    adapter().unread_posts(current_user, options)
   end
 
   defp with_any_visibility(query, visibility_list) do

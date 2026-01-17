@@ -25,6 +25,14 @@ defmodule Mosslet.Timeline.Bookmark do
     # Searchable hash for notes
     field :notes_hash, Mosslet.Encrypted.HMAC
 
+    # REMOVED BY USER (same pattern as Post)
+    field :removed_by_user_ids, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
+    field :removed_by_user_ids_hash, Encrypted.HMAC, redact: true
+
     # RELATIONSHIPS
     # User who bookmarked
     belongs_to :user, User
@@ -86,6 +94,22 @@ defmodule Mosslet.Timeline.Bookmark do
       end
     else
       changeset
+    end
+  end
+
+  def add_removed_by_user_changeset(bookmark, user_id) do
+    current_list = bookmark.removed_by_user_ids || []
+
+    if user_id in current_list do
+      change(bookmark)
+    else
+      updated_list = [user_id | current_list]
+      hash_value = Enum.join(updated_list, ",") |> String.downcase()
+
+      bookmark
+      |> change()
+      |> put_change(:removed_by_user_ids, updated_list)
+      |> put_change(:removed_by_user_ids_hash, hash_value)
     end
   end
 end

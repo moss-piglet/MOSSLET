@@ -135,7 +135,7 @@ defmodule Mosslet.Timeline.Adapter do
 
   @callback first_reply(post :: Post.t(), options :: map()) :: Reply.t() | nil
   @callback first_public_reply(post :: Post.t(), options :: map()) :: Reply.t() | nil
-  @callback unread_posts(current_user :: User.t()) :: [Post.t()]
+  @callback unread_posts(current_user :: User.t(), options :: map()) :: [Post.t()]
 
   # =============================================================================
   # Post Count Functions

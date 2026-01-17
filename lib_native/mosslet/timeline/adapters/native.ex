@@ -1442,7 +1442,7 @@ defmodule Mosslet.Timeline.Adapters.Native do
   end
 
   @impl true
-  def unread_posts(current_user) do
+  def unread_posts(current_user, _options \\ %{}) do
     token = get_token()
 
     if Sync.online?() && token do
