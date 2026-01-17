@@ -187,19 +187,41 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         "@unknown"
 
       mentioned_ug ->
-        moniker =
-          decr_item(
-            mentioned_ug.moniker,
-            assigns.current_scope.user,
-            assigns.user_group.key,
-            assigns.current_scope.key,
-            assigns.group
-          )
+        mentioned_user = get_user_from_user_group_id(user_group_id)
+        uconn = get_uconn_for_users(mentioned_user, assigns.current_scope.user)
+        is_connected = not is_nil(uconn)
+
+        display_name =
+          if is_self || is_connected do
+            if mentioned_ug.name do
+              decr_item(
+                mentioned_ug.name,
+                assigns.current_scope.user,
+                assigns.user_group.key,
+                assigns.current_scope.key,
+                assigns.group
+              )
+            else
+              maybe_decr_username_for_user_group(
+                mentioned_ug.user_id,
+                assigns.current_scope.user,
+                assigns.current_scope.key
+              )
+            end
+          else
+            decr_item(
+              mentioned_ug.moniker,
+              assigns.current_scope.user,
+              assigns.user_group.key,
+              assigns.current_scope.key,
+              assigns.group
+            )
+          end
 
         if is_self do
-          "<span class=\"mention-pill mention-pill-self inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/50 dark:to-emerald-900/50 text-teal-700 dark:text-teal-300 text-sm font-medium border border-teal-200/60 dark:border-teal-700/40\">@#{moniker}</span>"
+          "<span class=\"mention-pill mention-pill-self inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-teal-100 to-emerald-100 dark:from-teal-900/50 dark:to-emerald-900/50 text-teal-700 dark:text-teal-300 text-sm font-medium border border-teal-200/60 dark:border-teal-700/40\">@#{display_name}</span>"
         else
-          "<span class=\"mention-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-sm font-medium border border-slate-200/60 dark:border-slate-600/40\">@#{moniker}</span>"
+          "<span class=\"mention-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-sm font-medium border border-slate-200/60 dark:border-slate-600/40\">@#{display_name}</span>"
         end
     end
   end

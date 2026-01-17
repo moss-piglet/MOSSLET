@@ -396,8 +396,9 @@ const MentionPicker = {
     const beforeMention = value.substring(0, this.mentionStart);
     const afterCursor = value.substring(selectionStart);
 
-    const displayText = `@${member.moniker} `;
-    this.mentionMap[member.moniker] = member.user_group_id;
+    const displayName = member.name || member.moniker;
+    const displayText = `@${displayName} `;
+    this.mentionMap[displayName] = member.user_group_id;
 
     const newValue = beforeMention + displayText + afterCursor;
     this.textarea.value = newValue;

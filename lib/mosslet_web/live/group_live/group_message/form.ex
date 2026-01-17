@@ -3,7 +3,16 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
   use MossletWeb, :live_component
   import MossletWeb.CoreComponents
   import MossletWeb.DesignSystem, only: [liquid_markdown_guide_trigger: 1]
-  import MossletWeb.Helpers, only: [decr_item: 5]
+
+  import MossletWeb.Helpers,
+    only: [
+      decr_item: 5,
+      get_user_from_user_group_id: 1,
+      get_uconn_for_users: 2,
+      maybe_get_avatar_src: 4,
+      maybe_get_user_avatar: 2,
+      maybe_decr_username_for_user_group: 3
+    ]
 
   alias Mosslet.GroupMessages
   alias Mosslet.Groups
@@ -29,6 +38,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
     group_id = assigns[:group_id]
     current_scope = assigns[:current_scope]
     user_group_key = assigns[:user_group_key]
+    sender_id = assigns[:sender_id]
     _public? = assigns[:public?]
 
     if group_id && current_scope do
@@ -47,32 +57,55 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
               group
             )
 
+          is_self = ug.id == sender_id
+          user = get_user_from_user_group_id(ug.id)
+          uconn = get_uconn_for_users(user, current_scope.user)
+          is_connected = not is_nil(uconn)
+
           name =
-            if ug.name do
-              decr_item(
-                ug.name,
-                current_scope.user,
-                user_group_key,
-                current_scope.key,
-                group
-              )
+            if is_self || is_connected do
+              if ug.name do
+                decr_item(
+                  ug.name,
+                  current_scope.user,
+                  user_group_key,
+                  current_scope.key,
+                  group
+                )
+              else
+                maybe_decr_username_for_user_group(
+                  ug.user_id,
+                  current_scope.user,
+                  current_scope.key
+                )
+              end
             end
 
-          avatar_img =
-            decr_item(
-              ug.avatar_img,
-              current_scope.user,
-              user_group_key,
-              current_scope.key,
-              group
-            )
+          group_avatar_fallback =
+            ~p"/images/groups/#{decr_item(ug.avatar_img, current_scope.user, user_group_key, current_scope.key, group)}"
+
+          avatar_src =
+            if is_self do
+              maybe_get_user_avatar(current_scope.user, current_scope.key) ||
+                group_avatar_fallback
+            else
+              if is_connected do
+                case maybe_get_avatar_src(uconn, current_scope.user, current_scope.key, []) do
+                  "" -> group_avatar_fallback
+                  nil -> group_avatar_fallback
+                  src -> src
+                end
+              else
+                group_avatar_fallback
+              end
+            end
 
           %{
             user_group_id: ug.id,
             moniker: moniker,
             name: name,
             role: Atom.to_string(ug.role),
-            avatar_src: ~p"/images/groups/#{avatar_img}"
+            avatar_src: avatar_src
           }
         end)
       else
