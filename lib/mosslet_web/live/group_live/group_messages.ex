@@ -121,7 +121,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
     is_grouped = Map.get(assigns.message, :is_grouped, false)
     show_date_separator = Map.get(assigns.message, :show_date_separator, false)
-    message_date = Map.get(assigns.message, :message_date)
+    message_datetime = assigns.message.inserted_at
 
     assigns =
       assigns
@@ -133,7 +133,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:is_own_message, assigns.user_group.id == assigns.message.sender_id)
       |> assign(:is_grouped, is_grouped)
       |> assign(:show_date_separator, show_date_separator)
-      |> assign(:message_date, message_date)
+      |> assign(:message_datetime, message_datetime)
 
     ~H"""
     <DesignSystem.liquid_chat_message
@@ -149,7 +149,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       on_delete="delete_message"
       is_grouped={@is_grouped}
       show_date_separator={@show_date_separator}
-      message_date={@message_date}
+      message_datetime={@message_datetime}
     >
       {Mosslet.MarkdownRenderer.to_html(@content) |> Phoenix.HTML.raw()}
     </DesignSystem.liquid_chat_message>

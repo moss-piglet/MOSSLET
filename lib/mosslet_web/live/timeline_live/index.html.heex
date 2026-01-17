@@ -341,8 +341,9 @@
               data-user-id={post.user_id}
             >
               <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                date={post.post_date}
+                :if={Map.get(post, :show_date_separator, false)}
+                id={"timeline-date-sep-#{post.id}"}
+                datetime={post.inserted_at}
                 first={Map.get(post, :first_separator, false)}
               />
               <div id={"timeline-card-container-#{post.id}"} class="timeline-post-item new-post">
@@ -502,8 +503,9 @@
                 data-user-id={post.user_id}
               >
                 <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                  :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                  date={post.post_date}
+                  :if={Map.get(post, :show_date_separator, false)}
+                  id={"timeline-date-sep-read-#{post.id}"}
+                  datetime={post.inserted_at}
                   first={Map.get(post, :first_separator, false)}
                 />
                 <div id={"timeline-card-container-read-#{post.id}"} class="timeline-post-item">

@@ -2594,8 +2594,9 @@ defmodule MossletWeb.UserHomeLive do
                     class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                      date={post.post_date}
+                      :if={Map.get(post, :show_date_separator, false)}
+                      id={"profile-date-sep-#{post.id}"}
+                      datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post
@@ -2738,8 +2739,9 @@ defmodule MossletWeb.UserHomeLive do
                     class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                      date={post.post_date}
+                      :if={Map.get(post, :show_date_separator, false)}
+                      id={"read-date-sep-#{post.id}"}
+                      datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post
@@ -3332,8 +3334,9 @@ defmodule MossletWeb.UserHomeLive do
                     class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                      date={post.post_date}
+                      :if={Map.get(post, :show_date_separator, false)}
+                      id={"public-date-sep-#{post.id}"}
+                      datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post
@@ -3421,8 +3424,9 @@ defmodule MossletWeb.UserHomeLive do
                     class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                      date={post.post_date}
+                      :if={Map.get(post, :show_date_separator, false)}
+                      id={"read-date-sep-#{post.id}"}
+                      datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post
@@ -3926,8 +3930,9 @@ defmodule MossletWeb.UserHomeLive do
                     class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                      date={post.post_date}
+                      :if={Map.get(post, :show_date_separator, false)}
+                      id={"connections-date-sep-#{post.id}"}
+                      datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post
@@ -4070,8 +4075,9 @@ defmodule MossletWeb.UserHomeLive do
                     class="profile-post-container"
                   >
                     <MossletWeb.DesignSystem.liquid_timeline_date_separator
-                      :if={Map.get(post, :show_date_separator, false) && Map.get(post, :post_date)}
-                      date={post.post_date}
+                      :if={Map.get(post, :show_date_separator, false)}
+                      id={"read-date-sep-#{post.id}"}
+                      datetime={post.inserted_at}
                       first={Map.get(post, :first_separator, false)}
                     />
                     <MossletWeb.DesignSystem.liquid_timeline_post

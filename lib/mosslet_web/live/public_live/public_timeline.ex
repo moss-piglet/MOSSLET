@@ -567,7 +567,7 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
       {post.post.id,
        %{
          show: true,
-         date: Map.get(post, :post_date),
+         datetime: post.timestamp,
          first: Map.get(post, :first_separator, false)
        }}
     end)
@@ -576,14 +576,14 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
 
   defp get_separator_show(date_separators, item) do
     case Map.get(date_separators, item.post.id) do
-      %{show: true, date: date} when not is_nil(date) -> true
+      %{show: true, datetime: dt} when not is_nil(dt) -> true
       _ -> false
     end
   end
 
-  defp get_separator_date(date_separators, item) do
+  defp get_separator_datetime(date_separators, item) do
     case Map.get(date_separators, item.post.id) do
-      %{date: date} -> date
+      %{datetime: dt} -> dt
       _ -> nil
     end
   end
@@ -842,7 +842,8 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
                   <div :for={{dom_id, item} <- @streams.posts} id={dom_id}>
                     <.liquid_timeline_date_separator
                       :if={get_separator_show(@date_separators, item)}
-                      date={get_separator_date(@date_separators, item)}
+                      id={"public-date-sep-#{item.post.id}"}
+                      datetime={get_separator_datetime(@date_separators, item)}
                       first={get_separator_first(@date_separators, item)}
                       color="orange"
                     />

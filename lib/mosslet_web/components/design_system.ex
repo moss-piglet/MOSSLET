@@ -12848,14 +12848,22 @@ defmodule MossletWeb.DesignSystem do
   attr :on_delete, :string, default: nil
   attr :is_grouped, :boolean, default: false
   attr :show_date_separator, :boolean, default: false
-  attr :message_date, Date, default: nil
+
+  attr :message_datetime, :any,
+    default: nil,
+    doc: "DateTime or NaiveDateTime for the date separator"
+
   attr :class, :any, default: ""
   slot :inner_block, required: true
 
   def liquid_chat_message(assigns) do
     ~H"""
     <div>
-      <.liquid_chat_date_separator :if={@show_date_separator && @message_date} date={@message_date} />
+      <.liquid_chat_date_separator
+        :if={@show_date_separator && @message_datetime}
+        id={"date-sep-#{@id}"}
+        datetime={@message_datetime}
+      />
       <div
         id={@id}
         class={[
@@ -13076,11 +13084,15 @@ defmodule MossletWeb.DesignSystem do
   @doc """
   Date separator for chat messages.
 
+  Uses client-side local time via LocalDateSeparator hook for accurate
+  "Today", "Yesterday", etc. display in user's timezone.
+
   ## Examples
 
-      <.liquid_chat_date_separator date={~D[2024-01-15]} />
+      <.liquid_chat_date_separator id="sep-123" datetime={~U[2024-01-15 12:00:00Z]} />
   """
-  attr :date, Date, required: true
+  attr :id, :string, required: true
+  attr :datetime, :any, required: true, doc: "DateTime or NaiveDateTime for the separator"
   attr :class, :any, default: ""
 
   def liquid_chat_date_separator(assigns) do
@@ -13096,25 +13108,22 @@ defmodule MossletWeb.DesignSystem do
         "shadow-sm"
       ]}>
         <.phx_icon name="hero-calendar-days" class="w-3.5 h-3.5" />
-        {format_chat_date(@date)}
+        <span
+          id={@id}
+          phx-hook="LocalDateSeparator"
+          data-datetime={format_datetime_for_hook(@datetime)}
+          class="opacity-0 transition-opacity duration-200"
+        >
+        </span>
       </span>
       <div class="flex-1 h-px bg-gradient-to-r from-slate-200/40 via-slate-200/60 to-transparent dark:from-slate-700/40 dark:via-slate-700/60" />
     </div>
     """
   end
 
-  defp format_chat_date(date) do
-    today = Date.utc_today()
-    yesterday = Date.add(today, -1)
-
-    cond do
-      Date.compare(date, today) == :eq -> "Today"
-      Date.compare(date, yesterday) == :eq -> "Yesterday"
-      Date.diff(today, date) < 7 -> Calendar.strftime(date, "%A")
-      date.year == today.year -> Calendar.strftime(date, "%B %d")
-      true -> Calendar.strftime(date, "%B %d, %Y")
-    end
-  end
+  defp format_datetime_for_hook(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp format_datetime_for_hook(%NaiveDateTime{} = dt), do: NaiveDateTime.to_iso8601(dt)
+  defp format_datetime_for_hook(other), do: to_string(other)
 
   @doc """
   Timeline date separator with enhanced visual design.
@@ -13124,10 +13133,11 @@ defmodule MossletWeb.DesignSystem do
 
   ## Examples
 
-      <.liquid_timeline_date_separator date={~D[2024-01-15]} />
-      <.liquid_timeline_date_separator date={~D[2024-01-15]} color="orange" />
+      <.liquid_timeline_date_separator id="sep-123" datetime={~U[2024-01-15 12:00:00Z]} />
+      <.liquid_timeline_date_separator id="sep-456" datetime={~U[2024-01-15 12:00:00Z]} color="orange" />
   """
-  attr :date, Date, required: true
+  attr :id, :string, required: true
+  attr :datetime, :any, required: true, doc: "DateTime or NaiveDateTime for the separator"
   attr :class, :any, default: ""
   attr :first, :boolean, default: false, doc: "Whether this is the first separator (no top line)"
   attr :color, :string, default: "emerald", doc: "Color theme: emerald or orange"
@@ -13174,7 +13184,13 @@ defmodule MossletWeb.DesignSystem do
         </div>
         <div class={["flex items-center gap-1.5 text-xs font-medium", @color_classes.text]}>
           <.phx_icon name="hero-calendar-days-mini" class="w-3.5 h-3.5" />
-          <span>{format_chat_date(@date)}</span>
+          <span
+            id={@id}
+            phx-hook="LocalDateSeparator"
+            data-datetime={format_datetime_for_hook(@datetime)}
+            class="opacity-0 transition-opacity duration-200"
+          >
+          </span>
         </div>
       </div>
     </div>

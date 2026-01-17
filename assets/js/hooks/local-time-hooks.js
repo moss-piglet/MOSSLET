@@ -113,3 +113,32 @@ export const LocalTimeNowMed = {
     this.el.classList.remove("hidden");
   },
 };
+
+export const LocalDateSeparator = {
+  mounted() {
+    this.updated();
+  },
+  updated() {
+    const dtString = this.el.dataset.datetime;
+    const dt = DateTime.fromISO(dtString, { zone: "UTC" }).toLocal();
+    const today = DateTime.local().startOf("day");
+    const yesterday = today.minus({ days: 1 });
+    const dateStart = dt.startOf("day");
+
+    let formatted;
+    if (dateStart.equals(today)) {
+      formatted = "Today";
+    } else if (dateStart.equals(yesterday)) {
+      formatted = "Yesterday";
+    } else if (today.diff(dateStart, "days").days < 7) {
+      formatted = dt.toFormat("EEEE");
+    } else if (dt.year === today.year) {
+      formatted = dt.toFormat("MMMM d");
+    } else {
+      formatted = dt.toFormat("MMMM d, yyyy");
+    }
+
+    this.el.textContent = formatted;
+    this.el.classList.remove("opacity-0");
+  },
+};
