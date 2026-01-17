@@ -1652,6 +1652,41 @@ defmodule Mosslet.Timeline.Adapters.Web do
   end
 
   @impl true
+  def remove_shared_user_and_add_to_removed(%Post{} = post, attrs, opts) do
+    removed_user = opts[:removed_user]
+
+    result =
+      Repo.transaction_on_primary(fn ->
+        post
+        |> Post.change_post_remove_shared_user_changeset(attrs, opts)
+        |> Repo.update()
+        |> case do
+          {:ok, updated_post} ->
+            updated_post
+            |> Post.add_removed_by_user_changeset(removed_user.id)
+            |> Repo.update()
+
+          error ->
+            error
+        end
+      end)
+
+    case result do
+      {:ok, {:ok, updated_post}} ->
+        updated_post =
+          updated_post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
+
+        {:ok, updated_post}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @impl true
   def create_reply(attrs, opts) do
     %Reply{}
     |> Reply.changeset(attrs, opts)
@@ -1827,6 +1862,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       )
       |> paginate(options)
       |> Repo.all()
+      |> filter_removed_by_user(options[:current_scope])
       |> add_nested_replies_to_posts(options)
     end
   end
@@ -1887,6 +1923,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
       |> apply_database_filters(options)
       |> paginate(options)
       |> Repo.all()
+      |> filter_removed_by_user(options[:current_scope])
       |> add_nested_replies_to_posts(options)
     else
       public_post_ids =
@@ -1974,6 +2011,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     )
     |> paginate(options)
     |> Repo.all()
+    |> filter_removed_by_user(options[:current_scope])
     |> add_nested_replies_to_posts(options)
   end
 
@@ -1995,6 +2033,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
     )
     |> paginate(options)
     |> Repo.all()
+    |> filter_removed_by_user(options[:current_scope])
     |> add_nested_replies_to_posts(options)
   end
 
@@ -2359,18 +2398,25 @@ defmodule Mosslet.Timeline.Adapters.Web do
   defp filter_by_content_warnings_count(query, nil), do: query
 
   defp filter_by_content_warnings_count(query, content_warnings) when is_map(content_warnings) do
-    hidden_warnings =
-      content_warnings
-      |> Enum.filter(fn {_key, action} -> action == :hide end)
-      |> Enum.map(fn {key, _action} -> key end)
+    hide_all = Map.get(content_warnings, :hide_all, false)
+    hide_mature = Map.get(content_warnings, :hide_mature, false)
 
-    case hidden_warnings do
-      [] ->
-        query
+    query
+    |> maybe_filter_all_content_warnings(hide_all)
+    |> maybe_filter_mature_content(hide_mature, hide_all)
+  end
 
-      warnings ->
-        where(query, [p], is_nil(p.content_warning) or p.content_warning not in ^warnings)
-    end
+  defp maybe_filter_all_content_warnings(query, false), do: query
+
+  defp maybe_filter_all_content_warnings(query, true) do
+    where(query, [p], p.content_warning? == false and p.mature_content == false)
+  end
+
+  defp maybe_filter_mature_content(query, false, _hide_all), do: query
+  defp maybe_filter_mature_content(query, _hide_mature, true), do: query
+
+  defp maybe_filter_mature_content(query, true, false) do
+    where(query, [p], p.mature_content == false)
   end
 
   defp filter_by_muted_users_count(query, []), do: query
@@ -2403,6 +2449,40 @@ defmodule Mosslet.Timeline.Adapters.Web do
     query
     |> where([p], p.user_id not in subquery(blocked_ids))
     |> where([p], p.user_id not in subquery(blocker_ids))
+  end
+
+  defp filter_removed_by_user(posts, nil) when is_list(posts), do: posts
+
+  defp filter_removed_by_user(posts, current_scope) when is_list(posts) do
+    current_user = current_scope.user
+    key = current_scope.key
+
+    Enum.reject(posts, fn post ->
+      encrypted_removed_ids = post.removed_by_user_ids || []
+
+      if Enum.empty?(encrypted_removed_ids) do
+        false
+      else
+        post_key = MossletWeb.Helpers.get_post_key(post, current_user)
+
+        decrypted_ids =
+          Enum.map(encrypted_removed_ids, fn encrypted_id ->
+            MossletWeb.Helpers.decr_item(
+              encrypted_id,
+              current_user,
+              post_key,
+              key,
+              post,
+              "removed_by_user_ids"
+            )
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.reject(&(&1 == :failed_verification))
+          |> Enum.reject(&(&1 == "failed_verification"))
+
+        current_user.id in decrypted_ids
+      end
+    end)
   end
 
   defp add_nested_replies_to_posts(posts, options) when is_list(posts) do

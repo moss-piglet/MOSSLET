@@ -84,6 +84,13 @@ defmodule Mosslet.Timeline.Post do
     # Quick filter flag
     field :content_warning?, :boolean, default: false
 
+    field :removed_by_user_ids, Encrypted.StringList,
+      default: [],
+      skip_default_validation: true,
+      redact: true
+
+    field :removed_by_user_ids_hash, Encrypted.HMAC, redact: true
+
     field :user_post_map, :map, virtual: true
 
     embeds_many :shared_users, SharedUser, on_replace: :delete do
@@ -345,6 +352,22 @@ defmodule Mosslet.Timeline.Post do
     |> cast_embed(:shared_users,
       with: &shared_user_removal_changeset/2
     )
+  end
+
+  def add_removed_by_user_changeset(post, user_id) do
+    current_list = post.removed_by_user_ids || []
+
+    if user_id in current_list do
+      change(post)
+    else
+      updated_list = [user_id | current_list]
+      hash_value = Enum.join(updated_list, ",") |> String.downcase()
+
+      post
+      |> change()
+      |> put_change(:removed_by_user_ids, updated_list)
+      |> put_change(:removed_by_user_ids_hash, hash_value)
+    end
   end
 
   defp validate_shared_username(changeset) do

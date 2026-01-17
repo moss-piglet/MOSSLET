@@ -105,8 +105,12 @@ defmodule Mosslet.Accounts.User do
         default: :teal
 
       # List of user_connection IDs that belong to this group
-      field :connection_ids, Encrypted.StringList, default: [], skip_default_validation: true
-      field :connection_ids_hash, Encrypted.HMAC
+      field :connection_ids, Encrypted.StringList,
+        default: [],
+        skip_default_validation: true,
+        redact: true
+
+      field :connection_ids_hash, Encrypted.HMAC, redact: true
 
       # Virtual fields for form handling
       field :temp_name, :string, virtual: true

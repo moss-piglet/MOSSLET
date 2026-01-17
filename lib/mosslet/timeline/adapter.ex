@@ -207,6 +207,18 @@ defmodule Mosslet.Timeline.Adapter do
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
   @callback delete_post(post :: Post.t()) ::
               {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+  @callback remove_shared_user_and_add_to_removed(
+              post :: Post.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+  @callback remove_shared_user_and_add_to_removed(
+              post :: Post.t(),
+              attrs :: map(),
+              opts :: keyword()
+            ) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
 
   # =============================================================================
   # Reply CRUD Operations

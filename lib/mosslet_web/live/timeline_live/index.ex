@@ -253,7 +253,8 @@ defmodule MossletWeb.TimelineLive.Index do
       post_sort_order: post_sort_order,
       post_page: post_page,
       post_per_page: post_per_page,
-      current_user_id: current_user.id
+      current_user_id: current_user.id,
+      current_scope: socket.assigns.current_scope
     }
 
     # create the return_url with memory and post pagination options
@@ -4150,9 +4151,10 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, socket}
   end
 
-  def handle_async(:remove_self_from_post, {:ok, {:ok, _post}}, socket) do
+  def handle_async(:remove_self_from_post, {:ok, {:ok, post}}, socket) do
     socket =
       socket
+      |> stream_delete(:posts, post)
       |> assign(:removing_self_from_post_id, nil)
       |> put_flash(:info, "Post removed from your timeline.")
 

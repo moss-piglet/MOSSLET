@@ -2898,14 +2898,8 @@ defmodule Mosslet.Timeline do
   defp remove_post_shared_user_for_self(%Post{} = post, attrs, opts) do
     removed_user = opts[:removed_user]
 
-    case Repo.transaction_on_primary(fn ->
-           Post.change_post_remove_shared_user_changeset(post, attrs, opts)
-           |> Repo.update()
-         end) do
-      {:ok, {:ok, updated_post}} ->
-        updated_post =
-          updated_post |> Repo.preload([:user_posts, :user, :replies, :user_post_receipts])
-
+    case adapter().remove_shared_user_and_add_to_removed(post, attrs, opts) do
+      {:ok, updated_post} ->
         Phoenix.PubSub.broadcast(
           Mosslet.PubSub,
           "conn_posts:#{removed_user.id}",
@@ -2920,7 +2914,7 @@ defmodule Mosslet.Timeline do
 
         {:ok, updated_post}
 
-      {:ok, {:error, changeset}} ->
+      {:error, changeset} ->
         Logger.error(
           "There was an error remove_post_shared_user_for_self/3 in Mosslet.Timeline #{inspect(changeset)}"
         )
