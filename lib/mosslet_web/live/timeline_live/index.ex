@@ -4457,8 +4457,26 @@ defmodule MossletWeb.TimelineLive.Index do
         true
       end
 
+    # Check muted keywords against content_warning_category_hash
+    keywords_pass =
+      case content_filters[:keywords] do
+        keywords when is_list(keywords) and keywords != [] ->
+          category_hash = post.content_warning_category_hash
+
+          if is_nil(category_hash) do
+            true
+          else
+            muted_hashes = Enum.map(keywords, &String.downcase/1)
+            category_hash not in muted_hashes
+          end
+
+        _ ->
+          true
+      end
+
     # Post passes if it passes all filters
-    content_warning_pass and mature_content_pass and blocked_users_pass and muted_users_pass
+    content_warning_pass and mature_content_pass and blocked_users_pass and muted_users_pass and
+      keywords_pass
   end
 
   defp update_post_body(post, body, current_user, key) do
