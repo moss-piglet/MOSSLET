@@ -3371,6 +3371,8 @@ defmodule MossletWeb.DesignSystem do
     <div
       :if={!@collapsed}
       id={@id}
+      phx-window-keydown="collapse_composer_esc"
+      phx-key="Escape"
       phx-remove={
         JS.transition(
           {"ease-out duration-150", "opacity-100 scale-100", "opacity-0 scale-[0.97]"},

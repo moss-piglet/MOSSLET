@@ -2183,6 +2183,21 @@ defmodule MossletWeb.TimelineLive.Index do
     {:noreply, assign(socket, :composer_collapsed, !socket.assigns.composer_collapsed)}
   end
 
+  def handle_event("collapse_composer_esc", _params, socket) do
+    any_modal_open? =
+      socket.assigns.show_markdown_guide ||
+        socket.assigns.show_image_modal ||
+        socket.assigns.show_report_modal ||
+        socket.assigns.show_block_modal ||
+        socket.assigns.show_share_modal
+
+    if any_modal_open? do
+      {:noreply, socket}
+    else
+      {:noreply, assign(socket, :composer_collapsed, true)}
+    end
+  end
+
   def handle_event("update_privacy_visibility", %{"visibility" => visibility}, socket) do
     current_expires_option = socket.assigns.expires_at_option
 
@@ -2885,10 +2900,12 @@ defmodule MossletWeb.TimelineLive.Index do
               content_filter_prefs = socket.assigns.content_filters
               options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
               timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+              unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
               socket =
                 socket
                 |> assign(:timeline_counts, timeline_counts)
+                |> assign(:unread_counts, unread_counts)
                 |> push_event("update_post_bookmark", %{
                   post_id: post_id,
                   is_bookmarked: false
@@ -2915,10 +2932,12 @@ defmodule MossletWeb.TimelineLive.Index do
               content_filter_prefs = socket.assigns.content_filters
               options_with_filters = Map.put(options, :content_filter_prefs, content_filter_prefs)
               timeline_counts = calculate_timeline_counts(current_user, options_with_filters)
+              unread_counts = calculate_unread_counts(current_user, options_with_filters)
 
               socket =
                 socket
                 |> assign(:timeline_counts, timeline_counts)
+                |> assign(:unread_counts, unread_counts)
                 |> push_event("update_post_bookmark", %{
                   post_id: post_id,
                   is_bookmarked: true
