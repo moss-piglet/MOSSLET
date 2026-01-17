@@ -2198,6 +2198,10 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  def handle_event("open_composer_keyboard", _params, socket) do
+    {:noreply, assign(socket, :composer_collapsed, false)}
+  end
+
   def handle_event("update_privacy_visibility", %{"visibility" => visibility}, socket) do
     current_expires_option = socket.assigns.expires_at_option
 
