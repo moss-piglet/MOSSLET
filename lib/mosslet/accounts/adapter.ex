@@ -570,6 +570,15 @@ defmodule Mosslet.Accounts.Adapter do
               {:ok, User.t()} | {:error, Ecto.Changeset.t()}
 
   @doc """
+  Updates when a user last received a mention email notification.
+  """
+  @callback update_user_mention_email_received_at(
+              user :: User.t(),
+              timestamp :: DateTime.t()
+            ) ::
+              {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+
+  @doc """
   Updates when a user last viewed their replies.
   """
   @callback update_user_replies_seen_at(user :: User.t(), timestamp :: DateTime.t()) ::

@@ -61,6 +61,7 @@ defmodule Mosslet.Accounts.User do
     field :email_notifications, :boolean, default: false
     field :last_email_notification_received_at, :utc_datetime
     field :last_reply_notification_received_at, :utc_datetime
+    field :last_mention_email_received_at, :utc_datetime
     field :last_replies_seen_at, :utc_datetime
 
     field :journal_privacy_enabled, :boolean, default: false
@@ -1484,6 +1485,16 @@ defmodule Mosslet.Accounts.User do
     user
     |> cast(attrs, [:last_reply_notification_received_at])
     |> validate_required([:last_reply_notification_received_at])
+  end
+
+  @doc """
+  A user changeset for updating when the user last received a mention email notification.
+  Used for daily email rate limiting (max 1 mention email per day).
+  """
+  def mention_email_received_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, [:last_mention_email_received_at])
+    |> validate_required([:last_mention_email_received_at])
   end
 
   @doc """

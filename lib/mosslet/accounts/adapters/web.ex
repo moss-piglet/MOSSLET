@@ -1106,6 +1106,20 @@ defmodule Mosslet.Accounts.Adapters.Web do
   end
 
   @impl true
+  def update_user_mention_email_received_at(user, timestamp) do
+    case Repo.transaction_on_primary(fn ->
+           user
+           |> User.mention_email_received_changeset(%{
+             last_mention_email_received_at: timestamp
+           })
+           |> Repo.update()
+         end) do
+      {:ok, {:ok, user}} -> {:ok, user}
+      {:ok, {:error, changeset}} -> {:error, changeset}
+    end
+  end
+
+  @impl true
   def update_user_replies_seen_at(user, timestamp) do
     case Repo.transaction_on_primary(fn ->
            user

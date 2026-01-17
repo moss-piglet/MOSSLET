@@ -601,6 +601,14 @@ defmodule Mosslet.Accounts do
     adapter().update_user_reply_notification_received_at(user, timestamp)
   end
 
+  @doc """
+  Updates when a user last received a mention email notification.
+  Used for daily email rate limiting (max 1 mention email per day).
+  """
+  def update_user_mention_email_received_at(user, timestamp \\ DateTime.utc_now()) do
+    adapter().update_user_mention_email_received_at(user, timestamp)
+  end
+
   def update_user_replies_seen_at(user, timestamp \\ DateTime.utc_now()) do
     adapter().update_user_replies_seen_at(user, timestamp)
   end

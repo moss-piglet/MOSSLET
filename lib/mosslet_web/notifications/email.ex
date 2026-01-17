@@ -113,6 +113,17 @@ defmodule Mosslet.Notifications.Email do
     |> premail()
   end
 
+  def circle_activity_notification_with_email(email, circles_url) do
+    new()
+    |> to(email)
+    |> from({"Notifications @ MOSSLET", "notifications@mosslet.com"})
+    |> subject(gettext("Activity in your circles 🌿"))
+    |> render_body("circle_activity_notification.html", %{
+      circles_url: circles_url
+    })
+    |> premail()
+  end
+
   def passwordless_pin(email, pin) do
     base_email()
     |> to(email)

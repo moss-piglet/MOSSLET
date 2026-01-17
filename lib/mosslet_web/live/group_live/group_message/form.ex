@@ -8,6 +8,7 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
   alias Mosslet.GroupMessages
   alias Mosslet.Groups
   alias Mosslet.Groups.GroupMessage
+  alias Mosslet.Notifications.MentionEmailNotificationsGenServer
 
   def update(assigns, socket) do
     members = get_circle_members(assigns)
@@ -189,11 +190,36 @@ defmodule MossletWeb.GroupLive.GroupMessage.Form do
         GroupMessages.create_mentions_for_message(message, mentioned_ids)
         GroupMessages.publish_message_created({:ok, message})
 
+        queue_mention_email_notifications(
+          mentioned_ids,
+          socket.assigns.group_id,
+          socket.assigns.current_scope.user.id
+        )
+
         send(self(), {:message_sent, message})
         {:noreply, assign_form(socket)}
 
       {:error, _changeset} ->
         {:noreply, socket}
     end
+  end
+
+  defp queue_mention_email_notifications([], _group_id, _sender_user_id), do: :ok
+
+  defp queue_mention_email_notifications(mentioned_user_group_ids, group_id, sender_user_id) do
+    mentioned_user_group_ids
+    |> Enum.each(fn user_group_id ->
+      case Groups.get_user_group(user_group_id) do
+        nil ->
+          :skip
+
+        user_group ->
+          MentionEmailNotificationsGenServer.queue_mention_notification(
+            user_group.user_id,
+            group_id,
+            sender_user_id
+          )
+      end
+    end)
   end
 end
