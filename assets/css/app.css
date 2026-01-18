@@ -581,6 +581,84 @@ trix-editor {
   will-change: filter;
 }
 
+.emerald-wave-edge {
+  position: absolute;
+  top: -30px;
+  left: -30px;
+  right: -30px;
+  bottom: -30px;
+  pointer-events: none;
+  z-index: 10;
+  --wave-radius: 0%;
+  --wave-radius-2: 0%;
+  filter: url(#wave-edge-distort);
+}
+
+.emerald-wave-edge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(
+      circle at 5% 5%,
+      transparent calc(var(--wave-radius) - 0.8%),
+      rgba(16, 185, 129, 0.15) calc(var(--wave-radius)),
+      rgba(52, 211, 153, 0.32) calc(var(--wave-radius) + 0.6%),
+      rgba(110, 231, 183, 0.38) calc(var(--wave-radius) + 1.2%),
+      rgba(52, 211, 153, 0.2) calc(var(--wave-radius) + 1.8%),
+      transparent calc(var(--wave-radius) + 2.8%)
+    ),
+    radial-gradient(
+      circle at 5% 5%,
+      transparent calc(var(--wave-radius-2) - 0.6%),
+      rgba(16, 185, 129, 0.08) calc(var(--wave-radius-2)),
+      rgba(52, 211, 153, 0.18) calc(var(--wave-radius-2) + 0.5%),
+      rgba(110, 231, 183, 0.22) calc(var(--wave-radius-2) + 1%),
+      rgba(52, 211, 153, 0.1) calc(var(--wave-radius-2) + 1.5%),
+      transparent calc(var(--wave-radius-2) + 2.2%)
+    );
+}
+
+.emerald-wave-edge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(
+      circle at 5% 5%,
+      transparent calc(var(--wave-radius) + 0.2%),
+      rgba(255, 255, 255, 0.55) calc(var(--wave-radius) + 0.8%),
+      rgba(255, 255, 255, 0.7) calc(var(--wave-radius) + 1.2%),
+      rgba(255, 255, 255, 0.4) calc(var(--wave-radius) + 1.8%),
+      transparent calc(var(--wave-radius) + 2.5%)
+    ),
+    radial-gradient(
+      circle at 5% 5%,
+      transparent calc(var(--wave-radius-2) + 0.2%),
+      rgba(255, 255, 255, 0.3) calc(var(--wave-radius-2) + 0.6%),
+      rgba(255, 255, 255, 0.4) calc(var(--wave-radius-2) + 1%),
+      rgba(255, 255, 255, 0.2) calc(var(--wave-radius-2) + 1.4%),
+      transparent calc(var(--wave-radius-2) + 2%)
+    );
+  mix-blend-mode: overlay;
+}
+
+.emerald-wave-edge.fade-out {
+  animation: wave-fade-out 0.6s ease-out forwards;
+}
+
+@keyframes wave-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes fade-in-scale-keys {
   0% {
     scale: 0.9;
