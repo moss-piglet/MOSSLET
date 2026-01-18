@@ -199,6 +199,22 @@ defmodule Mosslet.GroupMessages do
   end
 
   @doc """
+  Gets list of unread message IDs for a user_group in a specific group.
+  """
+  def get_unread_mention_message_ids(user_group_id, group_id) do
+    from(m in GroupMessageMention,
+      join: gm in GroupMessage,
+      on: gm.id == m.group_message_id,
+      where: m.mentioned_user_group_id == ^user_group_id,
+      where: gm.group_id == ^group_id,
+      where: is_nil(m.read_at),
+      select: gm.id
+    )
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
   Gets total unread mention count across all groups for a user_group.
   Returns a map of %{group_id => count}.
   """
@@ -233,6 +249,23 @@ defmodule Mosslet.GroupMessages do
         )
         |> Repo.update_all(set: [read_at: now])
       end)
+
+    :ok
+  end
+
+  @doc """
+  Marks a single mention as read for a specific message and user_group.
+  Called after the mention highlight animation completes.
+  """
+  def mark_single_mention_as_read(message_id, user_group_id) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    from(m in GroupMessageMention,
+      where: m.group_message_id == ^message_id,
+      where: m.mentioned_user_group_id == ^user_group_id,
+      where: is_nil(m.read_at)
+    )
+    |> Repo.update_all(set: [read_at: now])
 
     :ok
   end

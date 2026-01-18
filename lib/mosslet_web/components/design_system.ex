@@ -12864,6 +12864,10 @@ defmodule MossletWeb.DesignSystem do
     default: false,
     doc: "Whether this message mentions the current user"
 
+  attr :is_new_mention, :boolean,
+    default: false,
+    doc: "Whether this is a newly received mention that should animate"
+
   attr :class, :any, default: ""
   slot :inner_block, required: true
 
@@ -12882,15 +12886,12 @@ defmodule MossletWeb.DesignSystem do
           if(@is_own_message, do: "justify-end", else: "justify-start"),
           @class
         ]}
+        phx-hook={if(@is_new_mention, do: "MentionHighlight")}
+        data-new-mention={@is_new_mention}
       >
         <div class={[
-          "relative rounded-2xl transition-all duration-300 ease-out max-w-[85%] sm:max-w-[75%]",
-          if(@is_mentioned && !@is_own_message,
-            do:
-              "bg-gradient-to-r from-teal-50/80 to-emerald-50/80 dark:from-teal-900/30 dark:to-emerald-900/30 ring-1 ring-teal-200/60 dark:ring-teal-700/40",
-            else:
-              "hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50 dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20"
-          ),
+          "relative rounded-2xl max-w-[85%] sm:max-w-[75%]",
+          "transition-all duration-300 ease-out hover:bg-gradient-to-r hover:from-teal-50/50 hover:via-white/70 hover:to-emerald-50/50 dark:hover:from-teal-900/20 dark:hover:via-slate-800/50 dark:hover:to-emerald-900/20",
           if(@is_grouped, do: "py-1 px-3 sm:px-4", else: "py-2.5 px-3 sm:px-4")
         ]}>
           <div class="flex items-start gap-3">
@@ -13031,15 +13032,19 @@ defmodule MossletWeb.DesignSystem do
                     ]
                   )
                 ]}>
-                  <div class={[
-                    "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
-                    if(@is_own_message,
-                      do:
-                        "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
-                      else:
-                        "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
-                    )
-                  ]}>
+                  <div
+                    class={[
+                      "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
+                      if(@is_own_message,
+                        do:
+                          "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
+                        else:
+                          "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
+                      ),
+                      if(@is_new_mention && !@is_own_message, do: "animate-mention-highlight")
+                    ]}
+                    data-mention-content={if(@is_new_mention && !@is_own_message, do: "true")}
+                  >
                     {render_slot(@inner_block)}
                   </div>
                 </div>

@@ -124,8 +124,10 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     is_grouped = Map.get(assigns.message, :is_grouped, false)
     show_date_separator = Map.get(assigns.message, :show_date_separator, false)
     message_datetime = assigns.message.inserted_at
+    is_new_message = Map.get(assigns.message, :is_new_message, false)
 
     is_mentioned = content_mentions_user?(raw_content, assigns.user_group.id)
+    is_new_mention = is_mentioned && is_new_message
 
     assigns =
       assigns
@@ -139,6 +141,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:show_date_separator, show_date_separator)
       |> assign(:message_datetime, message_datetime)
       |> assign(:is_mentioned, is_mentioned)
+      |> assign(:is_new_mention, is_new_mention)
 
     ~H"""
     <DesignSystem.liquid_chat_message
@@ -156,6 +159,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       show_date_separator={@show_date_separator}
       message_datetime={@message_datetime}
       is_mentioned={@is_mentioned}
+      is_new_mention={@is_new_mention}
     >
       {Mosslet.MarkdownRenderer.to_html(@content) |> Phoenix.HTML.raw()}
     </DesignSystem.liquid_chat_message>

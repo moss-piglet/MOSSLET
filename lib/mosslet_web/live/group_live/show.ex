@@ -110,7 +110,7 @@ defmodule MossletWeb.GroupLive.Show do
     else
       {:noreply,
        socket
-       |> insert_new_message(message)
+       |> insert_new_message(message, is_new: true)
        |> assign(:last_message_info, extract_message_info(message))
        |> assign_last_user_message(message)}
     end
@@ -307,6 +307,16 @@ defmodule MossletWeb.GroupLive.Show do
   @impl true
   def handle_event("close_markdown_guide", _params, socket) do
     {:noreply, assign(socket, :show_markdown_guide, false)}
+  end
+
+  @impl true
+  def handle_event("mark_mention_read", %{"message_id" => message_id}, socket) do
+    GroupMessages.mark_single_mention_as_read(
+      message_id,
+      socket.assigns.current_user_group.id
+    )
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -541,9 +551,11 @@ defmodule MossletWeb.GroupLive.Show do
     end
   end
 
-  def insert_new_message(socket, message) do
+  def insert_new_message(socket, message, opts \\ []) do
+    is_new = Keyword.get(opts, :is_new, false)
+
     socket
-    |> stream_insert(:messages, add_grouping_context(message, socket))
+    |> stream_insert(:messages, add_grouping_context(message, socket, is_new: is_new))
     |> update(:total_messages_count, &(&1 + 1))
   end
 
@@ -629,8 +641,18 @@ defmodule MossletWeb.GroupLive.Show do
   end
 
   def assign_active_group_messages(socket) do
-    messages = GroupMessages.last_ten_messages_for(socket.assigns.group.id)
-    messages_with_context = add_initial_grouping_context(messages)
+    user_group = socket.assigns.current_user_group
+    group = socket.assigns.group
+
+    unread_message_ids =
+      if user_group && user_group.confirmed_at do
+        GroupMessages.get_unread_mention_message_ids(user_group.id, group.id)
+      else
+        MapSet.new()
+      end
+
+    messages = GroupMessages.last_ten_messages_for(group.id)
+    messages_with_context = add_initial_grouping_context(messages, unread_message_ids)
 
     if Enum.empty?(messages) do
       socket
@@ -646,7 +668,7 @@ defmodule MossletWeb.GroupLive.Show do
       |> assign(:messages_list, messages)
       |> assign(
         :total_messages_count,
-        GroupMessages.get_message_count_for_group(socket.assigns.group.id)
+        GroupMessages.get_message_count_for_group(group.id)
       )
       |> assign(:last_message_info, extract_message_info(last_message))
       |> stream(:messages, messages_with_context)
@@ -711,9 +733,10 @@ defmodule MossletWeb.GroupLive.Show do
 
   defp notify_self(msg), do: send(self(), {__MODULE__, msg})
 
-  defp add_grouping_context(message, socket) do
+  defp add_grouping_context(message, socket, opts \\ []) do
     message = GroupMessages.preload_message_sender(message)
     last_info = Map.get(socket.assigns, :last_message_info)
+    is_new = Keyword.get(opts, :is_new, false)
 
     message_date = get_message_date(message.inserted_at)
 
@@ -735,6 +758,7 @@ defmodule MossletWeb.GroupLive.Show do
     |> Map.put(:is_grouped, is_grouped)
     |> Map.put(:show_date_separator, show_date_separator)
     |> Map.put(:message_date, message_date)
+    |> Map.put(:is_new_message, is_new)
   end
 
   defp extract_message_info(message) do
@@ -760,7 +784,7 @@ defmodule MossletWeb.GroupLive.Show do
     diff <= 5
   end
 
-  defp add_initial_grouping_context(messages) do
+  defp add_initial_grouping_context(messages, unread_message_ids) do
     messages
     |> Enum.with_index()
     |> Enum.map(fn {message, index} ->
@@ -782,10 +806,13 @@ defmodule MossletWeb.GroupLive.Show do
           {false, true}
         end
 
+      is_new_message = MapSet.member?(unread_message_ids, message.id)
+
       message
       |> Map.put(:is_grouped, is_grouped)
       |> Map.put(:show_date_separator, show_date_separator)
       |> Map.put(:message_date, message_date)
+      |> Map.put(:is_new_message, is_new_message)
     end)
   end
 end
