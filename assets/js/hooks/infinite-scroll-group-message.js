@@ -6,10 +6,11 @@ export default InfiniteScrollGroupMessage = {
     }
   },
   mounted() {
+    const scrollContainer = document.getElementById("messages-container");
     this.observer = new IntersectionObserver(
       (entries) => this.loadMore(entries),
       {
-        root: null, // window by default
+        root: scrollContainer,
         rootMargin: "400px",
         threshold: 0.1,
       }
