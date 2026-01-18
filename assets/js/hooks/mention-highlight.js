@@ -19,17 +19,28 @@ const MentionHighlight = {
       return;
     }
 
+    const contentRect = this.contentEl.getBoundingClientRect();
+    const contentWidth = contentRect.width;
+    const contentHeight = contentRect.height;
+    const contentDiagonal = Math.sqrt(contentWidth * contentWidth + contentHeight * contentHeight);
+    
+    const baseDuration = 3200;
+    const sizeFactor = Math.max(contentDiagonal / 250, 0.8);
+    const duration = baseDuration * sizeFactor;
+
     if (!this.contentEl.querySelector('.emerald-wave-edge')) {
       const waveEdge = document.createElement('div');
       waveEdge.className = 'emerald-wave-edge';
+      waveEdge.style.setProperty('--content-width', `${contentWidth}px`);
+      waveEdge.style.setProperty('--content-height', `${contentHeight}px`);
       this.contentEl.style.position = 'relative';
       this.contentEl.style.overflow = 'visible';
       this.contentEl.appendChild(waveEdge);
       this.waveEdge = waveEdge;
     }
 
-    const duration = 3500;
     const startTime = performance.now();
+    const maxDistortion = 22;
 
     const animate = (currentTime) => {
       const elapsed = currentTime - startTime;
@@ -43,46 +54,50 @@ const MentionHighlight = {
       const progress = elapsed / duration;
       const time = elapsed / 1000;
       
-      const easeOutSine = t => Math.sin((t * Math.PI) / 2);
-      const waveProgress = easeOutSine(progress);
-      const waveRadius = waveProgress * 85;
-      const waveRadius2 = easeOutSine(Math.max(0, progress - 0.12)) * 85;
+      const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+      const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
+      
+      const waveProgress = easeOutCubic(progress);
+      const waveRadius = waveProgress * 100;
+      const waveRadius2 = easeOutCubic(Math.max(0, progress - 0.08)) * 100;
       
       if (this.waveEdge) {
         this.waveEdge.style.setProperty('--wave-radius', `${waveRadius}%`);
         this.waveEdge.style.setProperty('--wave-radius-2', `${waveRadius2}%`);
-        const fadeStart = 0.55;
-        this.waveEdge.style.opacity = progress < fadeStart ? '1' : `${1 - (progress - fadeStart) / (1 - fadeStart)}`;
+        const fadeStart = 0.6;
+        const fadeProgress = progress < fadeStart ? 0 : (progress - fadeStart) / (1 - fadeStart);
+        this.waveEdge.style.opacity = `${1 - easeInOutSine(fadeProgress)}`;
       }
       
       if (edgeTurbulence) {
-        const baseFreqX = 0.02 + Math.sin(time * 0.3) * 0.005;
-        const baseFreqY = 0.025 + Math.cos(time * 0.25) * 0.006;
+        const baseFreqX = 0.01 + Math.sin(time * 0.1) * 0.002;
+        const baseFreqY = 0.012 + Math.cos(time * 0.08) * 0.002;
         edgeTurbulence.setAttribute('baseFrequency', `${baseFreqX} ${baseFreqY}`);
       }
 
-      const distortionLag = 0.08;
-      const laggedProgress = Math.max(0, progress - distortionLag);
-      
-      const distortionPeak = 0.4;
-      const distortionEnd = 0.9;
+      const waveLeading = waveRadius;
+      const waveMid = (waveRadius + waveRadius2) / 2;
       
       let distortionIntensity;
-      if (laggedProgress < distortionPeak) {
-        const t = laggedProgress / distortionPeak;
-        distortionIntensity = Math.sin(t * Math.PI / 2);
-      } else if (laggedProgress < distortionEnd) {
-        const t = (laggedProgress - distortionPeak) / (distortionEnd - distortionPeak);
-        distortionIntensity = Math.cos(t * Math.PI / 2);
+      
+      if (progress < 0.15) {
+        distortionIntensity = easeInOutSine(progress / 0.15) * 0.8;
+      } else if (progress < 0.5) {
+        const settle = 0.8 + Math.sin((progress - 0.15) * 8) * 0.15 * (1 - (progress - 0.15) / 0.35);
+        distortionIntensity = settle;
+      } else if (progress < 0.75) {
+        const gentleFade = 0.8 - easeInOutSine((progress - 0.5) / 0.25) * 0.4;
+        const ripple = Math.sin((progress - 0.5) * 12) * 0.08 * (1 - (progress - 0.5) / 0.25);
+        distortionIntensity = gentleFade + ripple;
       } else {
-        distortionIntensity = 0;
+        distortionIntensity = 0.4 * (1 - easeInOutSine((progress - 0.75) / 0.25));
       }
       
-      const freqX = 0.003 + Math.sin(time * 0.6) * 0.001;
-      const freqY = 0.004 + Math.cos(time * 0.5) * 0.0012;
-      turbulence.setAttribute('baseFrequency', `${freqX} ${freqY}`);
+      const freqBase = 0.004;
+      const freqDrift = Math.sin(time * 0.2) * 0.001;
+      turbulence.setAttribute('baseFrequency', `${freqBase + freqDrift} ${freqBase + freqDrift * 0.8}`);
       
-      const scale = 12 * distortionIntensity;
+      const scale = maxDistortion * distortionIntensity;
       displacement.setAttribute('scale', Math.max(0, scale).toString());
 
       this.animationFrame = requestAnimationFrame(animate);

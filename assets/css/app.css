@@ -583,14 +583,16 @@ trix-editor {
 
 .emerald-wave-edge {
   position: absolute;
-  top: -30px;
-  left: -30px;
-  right: -30px;
-  bottom: -30px;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
   pointer-events: none;
   z-index: 10;
   --wave-radius: 0%;
   --wave-radius-2: 0%;
+  --content-width: 200px;
+  --content-height: 50px;
   filter: url(#wave-edge-distort);
 }
 
@@ -603,22 +605,23 @@ trix-editor {
   bottom: 0;
   background: 
     radial-gradient(
-      circle at 5% 5%,
-      transparent calc(var(--wave-radius) - 0.8%),
-      rgba(16, 185, 129, 0.15) calc(var(--wave-radius)),
-      rgba(52, 211, 153, 0.32) calc(var(--wave-radius) + 0.6%),
-      rgba(110, 231, 183, 0.38) calc(var(--wave-radius) + 1.2%),
-      rgba(52, 211, 153, 0.2) calc(var(--wave-radius) + 1.8%),
-      transparent calc(var(--wave-radius) + 2.8%)
+      ellipse at 0% 0%,
+      transparent calc(var(--wave-radius) - 1.5%),
+      rgba(16, 185, 129, 0.2) calc(var(--wave-radius) - 0.5%),
+      rgba(52, 211, 153, 0.4) calc(var(--wave-radius) + 0.5%),
+      rgba(110, 231, 183, 0.5) calc(var(--wave-radius) + 1.5%),
+      rgba(52, 211, 153, 0.35) calc(var(--wave-radius) + 2.5%),
+      rgba(16, 185, 129, 0.15) calc(var(--wave-radius) + 3.5%),
+      transparent calc(var(--wave-radius) + 5%)
     ),
     radial-gradient(
-      circle at 5% 5%,
-      transparent calc(var(--wave-radius-2) - 0.6%),
-      rgba(16, 185, 129, 0.08) calc(var(--wave-radius-2)),
-      rgba(52, 211, 153, 0.18) calc(var(--wave-radius-2) + 0.5%),
-      rgba(110, 231, 183, 0.22) calc(var(--wave-radius-2) + 1%),
-      rgba(52, 211, 153, 0.1) calc(var(--wave-radius-2) + 1.5%),
-      transparent calc(var(--wave-radius-2) + 2.2%)
+      ellipse at 0% 0%,
+      transparent calc(var(--wave-radius-2) - 1%),
+      rgba(16, 185, 129, 0.12) calc(var(--wave-radius-2)),
+      rgba(52, 211, 153, 0.25) calc(var(--wave-radius-2) + 0.8%),
+      rgba(110, 231, 183, 0.3) calc(var(--wave-radius-2) + 1.6%),
+      rgba(52, 211, 153, 0.18) calc(var(--wave-radius-2) + 2.4%),
+      transparent calc(var(--wave-radius-2) + 4%)
     );
 }
 
@@ -631,20 +634,21 @@ trix-editor {
   bottom: 0;
   background: 
     radial-gradient(
-      circle at 5% 5%,
-      transparent calc(var(--wave-radius) + 0.2%),
-      rgba(255, 255, 255, 0.55) calc(var(--wave-radius) + 0.8%),
-      rgba(255, 255, 255, 0.7) calc(var(--wave-radius) + 1.2%),
-      rgba(255, 255, 255, 0.4) calc(var(--wave-radius) + 1.8%),
-      transparent calc(var(--wave-radius) + 2.5%)
+      ellipse at 0% 0%,
+      transparent calc(var(--wave-radius) - 0.5%),
+      rgba(255, 255, 255, 0.5) calc(var(--wave-radius) + 0.5%),
+      rgba(255, 255, 255, 0.75) calc(var(--wave-radius) + 1.5%),
+      rgba(255, 255, 255, 0.5) calc(var(--wave-radius) + 2.5%),
+      rgba(255, 255, 255, 0.2) calc(var(--wave-radius) + 3.5%),
+      transparent calc(var(--wave-radius) + 5%)
     ),
     radial-gradient(
-      circle at 5% 5%,
-      transparent calc(var(--wave-radius-2) + 0.2%),
-      rgba(255, 255, 255, 0.3) calc(var(--wave-radius-2) + 0.6%),
-      rgba(255, 255, 255, 0.4) calc(var(--wave-radius-2) + 1%),
-      rgba(255, 255, 255, 0.2) calc(var(--wave-radius-2) + 1.4%),
-      transparent calc(var(--wave-radius-2) + 2%)
+      ellipse at 0% 0%,
+      transparent calc(var(--wave-radius-2)),
+      rgba(255, 255, 255, 0.35) calc(var(--wave-radius-2) + 0.8%),
+      rgba(255, 255, 255, 0.5) calc(var(--wave-radius-2) + 1.5%),
+      rgba(255, 255, 255, 0.3) calc(var(--wave-radius-2) + 2.2%),
+      transparent calc(var(--wave-radius-2) + 3.5%)
     );
   mix-blend-mode: overlay;
 }

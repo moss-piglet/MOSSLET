@@ -13010,41 +13010,41 @@ defmodule MossletWeb.DesignSystem do
                     <.phx_icon name="hero-trash" class="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div class={[
-                  "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
-                  "text-sm leading-relaxed",
-                  "shadow-sm",
-                  "transition-all duration-200",
-                  if(@is_own_message,
-                    do: [
-                      "bg-gradient-to-r from-teal-500 to-emerald-500 dark:from-teal-600 dark:to-emerald-600",
-                      "text-white",
-                      "border border-teal-400/40 dark:border-teal-500/50",
-                      "shadow-lg shadow-teal-500/25 dark:shadow-teal-500/15",
-                      "group-hover/msg:shadow-xl group-hover/msg:shadow-teal-500/30 dark:group-hover/msg:shadow-teal-400/20",
-                      "group-hover/msg:scale-[1.01]"
-                    ],
-                    else: [
-                      "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
-                      "border border-slate-200/60 dark:border-slate-700/50",
-                      "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
-                      "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5"
-                    ]
-                  )
-                ]}>
-                  <div
-                    class={[
-                      "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
-                      if(@is_own_message,
-                        do:
-                          "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
-                        else:
-                          "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
-                      ),
-                      if(@is_new_mention && !@is_own_message, do: "animate-mention-highlight")
-                    ]}
-                    data-mention-content={if(@is_new_mention && !@is_own_message, do: "true")}
-                  >
+                <div
+                  class={[
+                    "relative rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3",
+                    "text-sm leading-relaxed",
+                    "shadow-sm",
+                    "transition-all duration-200",
+                    if(@is_own_message,
+                      do: [
+                        "bg-gradient-to-r from-teal-500 to-emerald-500 dark:from-teal-600 dark:to-emerald-600",
+                        "text-white",
+                        "border border-teal-400/40 dark:border-teal-500/50",
+                        "shadow-lg shadow-teal-500/25 dark:shadow-teal-500/15",
+                        "group-hover/msg:shadow-xl group-hover/msg:shadow-teal-500/30 dark:group-hover/msg:shadow-teal-400/20",
+                        "group-hover/msg:scale-[1.01]"
+                      ],
+                      else: [
+                        "bg-white/95 dark:bg-slate-800/80 backdrop-blur-sm",
+                        "border border-slate-200/60 dark:border-slate-700/50",
+                        "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
+                        "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5"
+                      ]
+                    ),
+                    if(@is_new_mention && !@is_own_message, do: "animate-mention-highlight")
+                  ]}
+                  data-mention-content={if(@is_new_mention && !@is_own_message, do: "true")}
+                >
+                  <div class={[
+                    "prose prose-sm max-w-none prose-p:my-0.5 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-1.5 break-words",
+                    if(@is_own_message,
+                      do:
+                        "text-white prose-headings:text-white prose-strong:text-white prose-code:text-teal-100 prose-code:bg-white/10 prose-a:text-teal-100 prose-a:no-underline hover:prose-a:underline",
+                      else:
+                        "prose-slate dark:prose-invert prose-code:text-teal-600 dark:prose-code:text-teal-400 prose-a:text-teal-600 dark:prose-a:text-teal-400 prose-a:no-underline hover:prose-a:underline"
+                    )
+                  ]}>
                     {render_slot(@inner_block)}
                   </div>
                 </div>
