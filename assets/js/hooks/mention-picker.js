@@ -1,4 +1,18 @@
 const MentionPicker = {
+  safeUrl(src) {
+    if (!src) return "";
+    if (src.startsWith("data:image/")) return src;
+    try {
+      const url = new URL(src, window.location.origin);
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        return url.href;
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  },
+
   mounted() {
     this.textarea = this.el;
     this.dropdown = null;
@@ -42,10 +56,15 @@ const MentionPicker = {
     this.textarea.removeEventListener("keydown", this.handleKeyDown);
     this.textarea.removeEventListener("trigger-mention", this.handleTriggerMention);
     document.removeEventListener("click", this.handleClickOutside);
+    window.removeEventListener("scroll", this.handleScroll, true);
     if (this.form) {
       this.form.removeEventListener("submit", this.handleFormSubmit);
     }
-    this.hideDropdown();
+    if (this.dropdown && this.dropdown.parentNode) {
+      this.dropdown.parentNode.removeChild(this.dropdown);
+      this.dropdown = null;
+    }
+    this.isOpen = false;
   },
 
   handleFormSubmit(e) {
@@ -310,7 +329,7 @@ const MentionPicker = {
         >
           <div class="relative flex-shrink-0">
             <img 
-              src="${member.avatar_src}" 
+              src="${this.safeUrl(member.avatar_src)}" 
               alt="" 
               class="w-9 h-9 rounded-full object-cover ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-800 ${this.getRoleRingColor(member.role)}"
             />

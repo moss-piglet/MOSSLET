@@ -206,6 +206,7 @@ const MentionHighlight = {
   destroyed() {
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
     }
     const displacement = document.getElementById('water-displacement');
     if (displacement) {
@@ -213,6 +214,11 @@ const MentionHighlight = {
     }
     if (this.waveEdge && this.waveEdge.parentNode) {
       this.waveEdge.parentNode.removeChild(this.waveEdge);
+      this.waveEdge = null;
+    }
+    if (this.contentEl) {
+      this.contentEl.classList.remove('animate-mention-highlight');
+      this.contentEl.style.borderRadius = '';
     }
   }
 };
