@@ -73,10 +73,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.15.0"
+                  version="0.16.0"
                   date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Privacy-First Writing & Circle @Mentions 🔒</:title>
+                  <:description>
+                    Write with confidence using our privacy-first spell checker and dictionary — no data ever leaves your device. Plus, @mention circle members to bring them into the conversation with calm email notifications.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-check-badge" color="emerald">
+                      Privacy-first spell checker — catch typos without sending your text anywhere, everything stays local
+                    </.changelog_item>
+                    <.changelog_item icon="hero-book-open" color="teal">
+                      Local dictionary — comprehensive word suggestions that never leave your browser
+                    </.changelog_item>
+                    <.changelog_item icon="hero-at-symbol" color="blue">
+                      Circle @mentions — tag members in circle chats to get their attention
+                    </.changelog_item>
+                    <.changelog_item icon="hero-envelope" color="purple">
+                      Calm mention notifications — mentioned members get gentle email alerts (max 1 per day for circles)
+                    </.changelog_item>
+                    <.changelog_item icon="hero-shield-check" color="amber">
+                      Zero data collection — spell check runs entirely in your browser, we never see what you type
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.15.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Markdown Everywhere & Circle Improvements ✨</:title>
                   <:description>
