@@ -2911,7 +2911,7 @@ defmodule MossletWeb.DesignSystem do
       assign(assigns, :color_classes, get_tab_color_classes(assigns.tab_color))
 
     ~H"""
-    <div class={["relative py-6", @class]}>
+    <div class={["relative py-6 max-w-2xl mx-auto", @class]}>
       <div class="absolute inset-0 flex items-center" aria-hidden="true">
         <div class={[
           "w-full h-px bg-gradient-to-r from-transparent to-transparent",
@@ -3382,15 +3382,10 @@ defmodule MossletWeb.DesignSystem do
       class={[
         "relative rounded-2xl overflow-hidden transition-all duration-300 ease-out",
         "bg-white dark:bg-slate-800 backdrop-blur-xl",
-        "border-2 border-emerald-200/80 dark:border-emerald-700/60",
-        "shadow-xl shadow-emerald-500/10 dark:shadow-emerald-900/30",
-        "ring-1 ring-emerald-500/10 dark:ring-emerald-400/10",
-        "hover:shadow-2xl hover:shadow-emerald-500/15 dark:hover:shadow-emerald-900/40",
-        "hover:border-emerald-300/80 dark:hover:border-emerald-600/60",
-        "focus-within:border-emerald-400 dark:focus-within:border-emerald-500",
-        "focus-within:shadow-2xl focus-within:shadow-emerald-500/20",
-        "focus-within:ring-2 focus-within:ring-emerald-500/30",
-        "animate-in fade-in slide-in-from-top-2 duration-300",
+        "border border-emerald-200/60 dark:border-emerald-700/40",
+        "shadow-lg shadow-slate-900/10 dark:shadow-slate-900/30",
+        "focus-within:border-emerald-300 dark:focus-within:border-emerald-600",
+        "focus-within:shadow-xl focus-within:shadow-emerald-500/10",
         @class
       ]}
     >
@@ -5040,28 +5035,23 @@ defmodule MossletWeb.DesignSystem do
     ~H"""
     <article
       id={"timeline-card-#{@post.id}"}
-      phx-hook="TouchHoverHook"
-      class={
-        [
-          "group relative rounded-2xl transition-all duration-300 ease-out min-h-72 flex flex-col",
-          "bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm",
-          "border border-slate-200/60 dark:border-slate-700/60",
-          "shadow-lg shadow-slate-900/5 dark:shadow-slate-900/20",
-          "hover:shadow-xl hover:shadow-slate-900/10 dark:hover:shadow-slate-900/30",
-          "hover:border-slate-300/60 dark:hover:border-slate-600/60",
-          "transform-gpu will-change-transform",
-          # Remove enhanced styling for reposts - just use the label
-          # No special ring or border for reposts to avoid confusion with unread posts
-          "",
-          # Enhanced glow effect for unread posts - teal/cyan glow to distinguish from reposts
-          if(@unread?,
-            do:
-              "ring-2 ring-teal-400/40 dark:ring-cyan-500/50 shadow-lg shadow-teal-500/25 dark:shadow-cyan-400/30 border-teal-200/60 dark:border-cyan-700/60",
-            else: ""
-          ),
-          @class
-        ]
-      }
+      phx-hook="PostExpandHook"
+      class={[
+        "group relative rounded-3xl transition-all duration-300 ease-out flex flex-col",
+        "w-full max-w-2xl mx-auto",
+        "bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm",
+        "border border-slate-200/40 dark:border-slate-700/40",
+        "shadow-sm shadow-slate-900/5 dark:shadow-slate-900/15",
+        "hover:shadow-md hover:shadow-slate-900/8 dark:hover:shadow-slate-900/25",
+        "hover:border-slate-200/60 dark:hover:border-slate-600/50",
+        "transform-gpu will-change-transform",
+        if(@unread?,
+          do:
+            "ring-1 ring-teal-400/30 dark:ring-cyan-500/40 shadow-md shadow-teal-500/15 dark:shadow-cyan-400/20 border-teal-200/50 dark:border-cyan-700/50",
+          else: ""
+        ),
+        @class
+      ]}
     >
       <%!-- Enhanced liquid background on hover with subtle styling --%>
       <div class={[
@@ -6000,29 +5990,59 @@ defmodule MossletWeb.DesignSystem do
 
         <%!-- Post content with markdown support --%>
         <div class="mb-4 flex-1">
-          <%!-- Legacy posts with HTML (sanitized and rendered) --%>
-          <p
-            :if={contains_html?(@content)}
-            class="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap text-base"
-          >
-            {html_block(@content)}
-          </p>
+          <%!-- Collapsible text content wrapper --%>
+          <div class="relative">
+            <div
+              data-post-content
+              class="max-h-40 overflow-hidden transition-[max-height] duration-300 ease-out"
+            >
+              <%!-- Legacy posts with HTML (sanitized and rendered) --%>
+              <p
+                :if={contains_html?(@content)}
+                class="text-slate-900 dark:text-slate-100 leading-loose whitespace-pre-wrap text-base"
+              >
+                {html_block(@content)}
+              </p>
 
-          <%!-- Modern posts with markdown rendering --%>
-          <div
-            :if={!contains_html?(@content)}
-            class="prose prose-slate dark:prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
-          >
-            {format_decrypted_content(@content)}
+              <%!-- Modern posts with markdown rendering --%>
+              <div
+                :if={!contains_html?(@content)}
+                class="prose prose-slate dark:prose-invert prose-base prose-p:leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-pre:my-3 prose-code:text-emerald-600 dark:prose-code:text-emerald-400 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline [&_pre_code]:text-inherit [&_pre_*]:text-inherit"
+              >
+                {format_decrypted_content(@content)}
+              </div>
+            </div>
+
+            <%!-- Gradient fade overlay --%>
+            <div
+              data-post-gradient
+              class="hidden absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/95 via-white/80 to-transparent dark:from-slate-800/95 dark:via-slate-800/80 pointer-events-none"
+            >
+            </div>
           </div>
 
+          <%!-- Show more/less toggle button --%>
+          <button
+            type="button"
+            data-post-toggle
+            class="mt-2 items-center gap-1 text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors duration-200"
+            style="display: none;"
+          >
+            <span data-expand-text class="flex items-center gap-1">
+              <.phx_icon name="hero-chevron-down-mini" class="h-4 w-4" /> Show more
+            </span>
+            <span data-collapse-text class="hidden flex items-center gap-1">
+              <.phx_icon name="hero-chevron-up-mini" class="h-4 w-4" /> Show less
+            </span>
+          </button>
+
           <%!-- Images with enhanced encrypted display system --%>
-          <div :if={@post && photos?(@post.image_urls)} class="mb-4">
+          <div :if={@post && photos?(@post.image_urls)} class="mt-4">
             <.liquid_post_photo_gallery post={@post} current_scope={@current_scope} class="" />
           </div>
 
           <%!-- URL Preview Card (if available) --%>
-          <div :if={@decrypted_url_preview} class="mb-4">
+          <div :if={@decrypted_url_preview} class="mt-4">
             <a
               href={@decrypted_url_preview["url"]}
               target="_blank"
@@ -13192,7 +13212,7 @@ defmodule MossletWeb.DesignSystem do
     assigns = assign(assigns, :color_classes, color_classes)
 
     ~H"""
-    <div class={["flex items-center py-1", @class]}>
+    <div class={["max-w-2xl mx-auto flex items-center py-1", @class]}>
       <div class="flex items-center gap-2.5 pl-1">
         <div class="flex flex-col items-center">
           <div class={[
@@ -13246,7 +13266,7 @@ defmodule MossletWeb.DesignSystem do
     assigns = assign(assigns, :color_classes, get_tab_color_classes(assigns.tab_color))
 
     ~H"""
-    <div class={["relative py-6", @class]}>
+    <div class={["relative py-6 max-w-2xl mx-auto", @class]}>
       <div class="absolute inset-0 flex items-center" aria-hidden="true">
         <div class={[
           "w-full h-px bg-gradient-to-r from-transparent to-transparent",

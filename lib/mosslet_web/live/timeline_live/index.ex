@@ -157,7 +157,7 @@ defmodule MossletWeb.TimelineLive.Index do
       # Enhanced privacy controls state
       |> assign(:privacy_controls_expanded, false)
       # Composer collapsed state for scrolling convenience
-      |> assign(:composer_collapsed, false)
+      |> assign(:composer_collapsed, true)
       # Store selected groups/users to preserve when privacy controls are collapsed
       |> assign(:selected_visibility_groups, [])
       |> assign(:selected_visibility_users, [])

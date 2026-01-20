@@ -47,6 +47,7 @@ import SubmitOnEnter from "./submit-on-enter";
 import SyncStatusHook from "./sync-status-hook";
 import PushNotificationHook from "./push-notification-hook";
 import BackgroundSyncHook from "./background-sync-hook";
+import PostExpandHook from "./post-expand-hook";
 
 export default {
   AutoResize,
@@ -98,4 +99,5 @@ export default {
   SyncStatusHook,
   PushNotificationHook,
   BackgroundSyncHook,
+  PostExpandHook,
 };
