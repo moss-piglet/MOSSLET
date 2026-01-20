@@ -17,8 +17,21 @@ defmodule Mosslet.AI.Images do
   @doc """
   Classifies an image as either "normal" or "nsfw" using Bumblebee.
   Used as a fallback when LLM moderation is unavailable.
+
+  The model is lazy-loaded on first use to conserve memory.
   """
   def check_for_safety_bumblebee(image_binary) do
+    case Mosslet.AI.ServingManager.ensure_loaded(NsfwImageDetection) do
+      {:ok, _} ->
+        run_bumblebee_classification(image_binary)
+
+      {:error, reason} ->
+        Logger.warning("Bumblebee fallback unavailable: #{inspect(reason)}, approving image")
+        {:ok, image_binary}
+    end
+  end
+
+  defp run_bumblebee_classification(image_binary) do
     with {:ok, image} <- Image.from_binary(image_binary),
          {:ok, resized} <- Image.thumbnail(image, "224x224"),
          {:ok, flattened} <- Image.flatten(resized),

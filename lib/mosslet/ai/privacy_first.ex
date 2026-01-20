@@ -49,8 +49,21 @@ defmodule Mosslet.AI.PrivacyFirst do
   @doc """
   Moderates text for toxic content using local toxic-bert model.
   Returns whether content should be blocked.
+
+  The model is lazy-loaded on first use to conserve memory.
   """
   def moderate_text(text) do
+    case Mosslet.AI.ServingManager.ensure_loaded(TextModeration) do
+      {:ok, _} ->
+        run_text_moderation(text)
+
+      {:error, reason} ->
+        Logger.warning("TextModeration unavailable: #{inspect(reason)}")
+        {:ok, %{is_toxic: false, score: 0, source: :server, error: "Moderation unavailable"}}
+    end
+  end
+
+  defp run_text_moderation(text) do
     case Nx.Serving.batched_run(TextModeration, text) do
       %{predictions: predictions} ->
         toxic_score = find_toxic_score(predictions)
@@ -76,9 +89,20 @@ defmodule Mosslet.AI.PrivacyFirst do
 
   @doc """
   Checks if an image is NSFW using the Falconsai model.
-  Uses existing NsfwImageDetection serving.
+  Uses existing NsfwImageDetection serving (lazy-loaded).
   """
   def check_image_nsfw(image_binary) when is_binary(image_binary) do
+    case Mosslet.AI.ServingManager.ensure_loaded(NsfwImageDetection) do
+      {:ok, _} ->
+        run_nsfw_check(image_binary)
+
+      {:error, reason} ->
+        Logger.warning("NsfwImageDetection unavailable: #{inspect(reason)}")
+        {:error, "NSFW detection unavailable"}
+    end
+  end
+
+  defp run_nsfw_check(image_binary) do
     with {:ok, image} <- Image.from_binary(image_binary),
          {:ok, resized} <- Image.thumbnail(image, "224x224"),
          {:ok, flattened} <- Image.flatten(resized),
