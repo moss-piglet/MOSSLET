@@ -3189,7 +3189,7 @@ defmodule MossletWeb.DesignSystem do
           "group inline-flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 ease-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2",
           @color_classes.button
         ]}
-        phx-click="scroll_to_top"
+        phx-click={JS.dispatch("phx:scroll-to-top", to: "body")}
         title="Scroll to top of page"
       >
         <%!-- Gentle pulse indicator --%>

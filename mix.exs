@@ -112,6 +112,7 @@ defmodule Mosslet.MixProject do
       {:exvcr, "~> 0.15", only: :test},
       {:ex_marcel, "~> 0.1.0"},
       {:faker, "~> 0.18", only: [:test, :dev]},
+      {:flame, "~> 0.5.3"},
       {:floki, ">= 0.30.0"},
       {:flop, "~> 0.20"},
       {:fly_postgres, "~> 0.3.2"},

@@ -15,40 +15,22 @@ defmodule Mosslet.AI.Images do
   alias ReqLLM.Message.ContentPart
 
   @doc """
-  Classifies an image as either "normal" or "nsfw" using Bumblebee.
+  Classifies an image as either "normal" or "nsfw" using Bumblebee via FLAME.
   Used as a fallback when LLM moderation is unavailable.
 
-  The model is lazy-loaded on first use to conserve memory.
+  Runs on ephemeral Fly machines to avoid OOM on main 2GB instances.
   """
   def check_for_safety_bumblebee(image_binary) do
-    case Mosslet.AI.ServingManager.ensure_loaded(NsfwImageDetection) do
-      {:ok, _} ->
-        run_bumblebee_classification(image_binary)
+    case Mosslet.AI.FlameBumblebee.check_nsfw(image_binary) do
+      {:ok, _} = result ->
+        result
+
+      {:nsfw, _} = result ->
+        result
 
       {:error, reason} ->
-        Logger.warning("Bumblebee fallback unavailable: #{inspect(reason)}, approving image")
+        Logger.warning("FLAME Bumblebee fallback failed: #{inspect(reason)}, approving image")
         {:ok, image_binary}
-    end
-  end
-
-  defp run_bumblebee_classification(image_binary) do
-    with {:ok, image} <- Image.from_binary(image_binary),
-         {:ok, resized} <- Image.thumbnail(image, "224x224"),
-         {:ok, flattened} <- Image.flatten(resized),
-         {:ok, srgb} <- Image.to_colorspace(flattened, :srgb),
-         {:ok, tensor} <-
-           Image.to_nx(srgb,
-             shape: :hwc,
-             backend: Application.fetch_env!(:nx, :default_backend)
-           ),
-         %{predictions: [%{label: label}]} <- Nx.Serving.batched_run(NsfwImageDetection, tensor) do
-      case label do
-        "normal" -> {:ok, image_binary}
-        "nsfw" -> {:nsfw, "Image flagged by safety check."}
-        _ -> {:error, "There was an error trying to classify this image."}
-      end
-    else
-      _ -> {:error, "There was an error trying to classify this image."}
     end
   end
 
@@ -73,7 +55,6 @@ defmodule Mosslet.AI.Images do
           case check_for_safety_bumblebee(binary) do
             {:ok, _binary} -> {:ok, image}
             {:nsfw, message} -> {:nsfw, message}
-            {:error, reason} -> {:error, reason}
           end
         else
           {:error, reason} -> {:error, "Failed to convert image: #{inspect(reason)}"}

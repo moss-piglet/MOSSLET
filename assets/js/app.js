@@ -228,16 +228,16 @@ window.addEventListener("phx:animate-new-replies", (event) => {
 });
 
 // Add event listener for scroll to top
-window.addEventListener("phx:scroll-to-top", (event) => {
-  // Use a custom smooth scroll with easing for better animation
-  const startPosition = window.pageYOffset;
+document.addEventListener("phx:scroll-to-top", (event) => {
+  const mainEl = document.querySelector("main");
+  const scrollTarget = mainEl && mainEl.scrollHeight > mainEl.clientHeight ? mainEl : null;
+  const startPosition = scrollTarget ? scrollTarget.scrollTop : window.pageYOffset;
   const targetPosition = 0;
   const distance = targetPosition - startPosition;
-  const duration = Math.min(1200, Math.max(800, Math.abs(distance) * 2)); // Dynamic duration based on distance
+  const duration = Math.min(1200, Math.max(800, Math.abs(distance) * 2));
   let start = null;
 
   function ease(t, b, c, d) {
-    // easeOutQuart easing function for smooth deceleration
     t /= d;
     t--;
     return -c * (t * t * t * t - 1) + b;
@@ -247,7 +247,11 @@ window.addEventListener("phx:scroll-to-top", (event) => {
     if (start === null) start = currentTime;
     const timeElapsed = currentTime - start;
     const run = ease(timeElapsed, startPosition, distance, duration);
-    window.scrollTo(0, run);
+    if (scrollTarget) {
+      scrollTarget.scrollTop = run;
+    } else {
+      window.scrollTo(0, run);
+    }
     if (timeElapsed < duration) requestAnimationFrame(animation);
   }
 

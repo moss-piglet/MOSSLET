@@ -21,6 +21,15 @@ if System.get_env("PHX_SERVER") do
 end
 
 if config_env() == :prod do
+  config :flame, :backend, FLAME.FlyBackend
+
+  config :flame, FLAME.FlyBackend,
+    token: System.get_env("FLY_API_TOKEN"),
+    cpu_kind: "shared",
+    cpus: 2,
+    memory_mb: 4096,
+    boot_timeout: 60_000
+
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 
   # Configure plug_attack
@@ -35,10 +44,17 @@ if config_env() == :prod do
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
+  pool_size =
+    if FLAME.Parent.get() do
+      1
+    else
+      String.to_integer(System.get_env("POOL_SIZE") || "10")
+    end
+
   config :mosslet, Mosslet.Repo.Local,
     # ssl: true,
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    pool_size: pool_size,
     socket_options: maybe_ipv6,
     connect_timeout: 30_000,
     timeout: 30_000,

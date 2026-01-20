@@ -6,18 +6,20 @@ defmodule Mosslet.Application do
 
   @impl true
   def start(_type, _args) do
+    flame_parent = FLAME.Parent.get()
+
     if Mosslet.Platform.native?() and Code.ensure_loaded?(Desktop) do
       apply(Desktop, :identify_default_locale, [MossletWeb.Gettext])
       Mosslet.Platform.Config.ensure_data_directory!()
     end
 
-    unless Mosslet.Platform.native?() do
+    unless Mosslet.Platform.native?() or flame_parent do
       Logger.add_backend(Sentry.LoggerBackend)
       Oban.Telemetry.attach_default_logger()
       Mosslet.ObanReporter.attach()
     end
 
-    children = build_children()
+    children = build_children(flame_parent)
 
     opts = [strategy: :one_for_one, name: Mosslet.Supervisor]
     Supervisor.start_link(children, opts)
@@ -29,11 +31,11 @@ defmodule Mosslet.Application do
     :ok
   end
 
-  defp build_children do
-    if Mosslet.Platform.native?() do
-      native_children()
-    else
-      web_children()
+  defp build_children(flame_parent) do
+    cond do
+      Mosslet.Platform.native?() -> native_children()
+      flame_parent -> flame_children()
+      true -> web_children()
     end
   end
 
@@ -60,6 +62,15 @@ defmodule Mosslet.Application do
     else
       base
     end
+  end
+
+  defp flame_children do
+    [
+      {Fly.RPC, []},
+      Mosslet.Repo.Local,
+      {Finch, name: Mosslet.Finch},
+      ExMarcel.TableWrapper
+    ]
   end
 
   defp web_children do
@@ -97,7 +108,14 @@ defmodule Mosslet.Application do
       Mosslet.Security.BotDetector,
       Mosslet.FileUploads.TempStorage,
       MossletWeb.Endpoint,
-      Mosslet.AI.ServingManager
+      Mosslet.AI.ServingManager,
+      {FLAME.Pool,
+       name: Mosslet.FlameBumblebeePool,
+       min: 0,
+       max: 2,
+       max_concurrency: 1,
+       idle_shutdown_after: 30_000,
+       log: :info}
     ]
   end
 
