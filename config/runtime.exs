@@ -1,42 +1,5 @@
 import Config
 
-if System.get_env("MOSSLET_NATIVE") == "true" do
-  config :phoenix_live_view,
-    debug_heex_annotations: false,
-    debug_tags_location: false,
-    debug_attributes: false
-
-  Mosslet.Platform.Config.ensure_data_directory!()
-
-  config :mosslet, Mosslet.Repo.SQLite,
-    database: Mosslet.Platform.Config.sqlite_database_path(),
-    pool_size: 5,
-    journal_mode: :wal,
-    cache_size: -64_000,
-    temp_store: :memory,
-    synchronous: :normal
-
-  native_port =
-    case System.get_env("PORT") do
-      nil -> 0
-      "0" -> 0
-      port -> String.to_integer(port)
-    end
-
-  config :mosslet, MossletWeb.Endpoint,
-    adapter: Bandit.PhoenixAdapter,
-    http: [ip: {0, 0, 0, 0}, port: native_port],
-    server: true,
-    secret_key_base:
-      System.get_env("SECRET_KEY_BASE") || Mosslet.Platform.Config.generate_secret(),
-    render_errors: [
-      formats: [html: MossletWeb.ErrorHTML, json: MossletWeb.ErrorJSON],
-      layout: false
-    ],
-    pubsub_server: Mosslet.PubSub,
-    live_view: [signing_salt: Mosslet.Platform.Config.generate_salt()]
-end
-
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -57,7 +20,7 @@ if System.get_env("PHX_SERVER") do
   config :mosslet, MossletWeb.Endpoint, server: true
 end
 
-if config_env() == :prod and System.get_env("MOSSLET_NATIVE") != "true" do
+if config_env() == :prod do
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 
   # Configure plug_attack
@@ -272,4 +235,41 @@ if config_env() == :prod and System.get_env("MOSSLET_NATIVE") != "true" do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Hackney
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+end
+
+if System.get_env("MOSSLET_NATIVE") == "true" do
+  config :phoenix_live_view,
+    debug_heex_annotations: false,
+    debug_tags_location: false,
+    debug_attributes: false
+
+  Mosslet.Platform.Config.ensure_data_directory!()
+
+  config :mosslet, Mosslet.Repo.SQLite,
+    database: Mosslet.Platform.Config.sqlite_database_path(),
+    pool_size: 5,
+    journal_mode: :wal,
+    cache_size: -64_000,
+    temp_store: :memory,
+    synchronous: :normal
+
+  native_port =
+    case System.get_env("PORT") do
+      nil -> 0
+      "0" -> 0
+      port -> String.to_integer(port)
+    end
+
+  config :mosslet, MossletWeb.Endpoint,
+    adapter: Bandit.PhoenixAdapter,
+    http: [ip: {0, 0, 0, 0}, port: native_port],
+    server: true,
+    secret_key_base:
+      System.get_env("SECRET_KEY_BASE") || Mosslet.Platform.Config.generate_secret(),
+    render_errors: [
+      formats: [html: MossletWeb.ErrorHTML, json: MossletWeb.ErrorJSON],
+      layout: false
+    ],
+    pubsub_server: Mosslet.PubSub,
+    live_view: [signing_salt: Mosslet.Platform.Config.generate_salt()]
 end
