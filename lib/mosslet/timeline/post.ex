@@ -5,6 +5,7 @@ defmodule Mosslet.Timeline.Post do
 
   alias Mosslet.Accounts
   alias Mosslet.Accounts.User
+  alias Mosslet.Bluesky
   alias Mosslet.Encrypted
   alias Mosslet.Encrypted.Utils
   alias Mosslet.Groups
@@ -130,6 +131,12 @@ defmodule Mosslet.Timeline.Post do
     has_many :user_post_receipts, through: [:user_posts, :user_post_receipt]
     has_many :replies, Reply, preload_order: [desc: :inserted_at]
 
+    belongs_to :bluesky_account, Bluesky.Account
+
+    field :source, Ecto.Enum, values: [:mosslet, :bluesky], default: :mosslet
+    field :external_uri, Encrypted.Binary, redact: true
+    field :external_cid, Encrypted.Binary, redact: true
+
     timestamps()
   end
 
@@ -170,7 +177,12 @@ defmodule Mosslet.Timeline.Post do
       :expires_at,
       # Virtual field for UI
       :expires_at_option,
-      :local_only
+      :local_only,
+      # Bluesky integration fields
+      :source,
+      :external_uri,
+      :external_cid,
+      :bluesky_account_id
     ])
     |> validate_required([:body, :username, :user_id])
     |> validate_length(:body, max: 10_000)
@@ -188,6 +200,30 @@ defmodule Mosslet.Timeline.Post do
       sort_param: :shared_users_order,
       drop_param: :shared_users_delete
     )
+  end
+
+  @doc """
+  Changeset for importing posts from Bluesky.
+  These posts are stored encrypted on Mosslet but reference their Bluesky origin.
+  """
+  def bluesky_import_changeset(post, attrs, opts \\ []) do
+    post
+    |> cast(attrs, [
+      :avatar_url,
+      :body,
+      :username,
+      :user_id,
+      :visibility,
+      :image_urls,
+      :source,
+      :external_uri,
+      :external_cid,
+      :bluesky_account_id
+    ])
+    |> validate_required([:body, :username, :user_id, :external_uri, :bluesky_account_id])
+    |> put_change(:source, :bluesky)
+    |> add_username_hash()
+    |> encrypt_attrs(opts)
   end
 
   @doc false
