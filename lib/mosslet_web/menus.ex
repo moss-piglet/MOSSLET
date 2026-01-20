@@ -91,6 +91,24 @@ defmodule MossletWeb.Menus do
     user_menu_items(%{current_user: current_user})
   end
 
+  def build_menu_with_sections(menu_items, current_user \\ nil) do
+    menu_items
+    |> Enum.map(fn
+      %{type: :section} = section ->
+        section
+
+      menu_item when is_atom(menu_item) ->
+        get_link(menu_item, current_user)
+
+      menu_item when is_map(menu_item) ->
+        Map.merge(
+          get_link(menu_item.name, current_user),
+          menu_item
+        )
+    end)
+    |> Enum.filter(& &1)
+  end
+
   def build_menu(menu_items, current_user \\ nil) do
     menu_items
     |> Enum.map(fn menu_item ->
@@ -162,6 +180,7 @@ defmodule MossletWeb.Menus do
       path: ~p"/app/users/edit-details",
       icon: "hero-cog",
       children: [
+        %{type: :category, label: gettext("Profile")},
         %{
           name: :edit_details,
           label: gettext("Profile Details"),
@@ -197,6 +216,7 @@ defmodule MossletWeb.Menus do
           path: ~p"/app/users/edit-status",
           icon: "hero-signal"
         },
+        %{type: :category, label: gettext("Security")},
         %{
           name: :edit_password,
           label: gettext("Password"),
@@ -232,6 +252,15 @@ defmodule MossletWeb.Menus do
           path: ~p"/app/users/blocked-users",
           icon: "hero-user-minus"
         },
+        %{type: :category, label: gettext("Integrations")},
+        %{
+          name: :bluesky_settings,
+          label: gettext("Bluesky"),
+          description: gettext("Connect and sync with Bluesky"),
+          path: ~p"/app/users/bluesky",
+          icon: "hero-cloud"
+        },
+        %{type: :category, label: gettext("Account")},
         %{
           name: :manage_data,
           label: gettext("Data"),
@@ -253,6 +282,7 @@ defmodule MossletWeb.Menus do
           path: ~p"/app/referrals",
           icon: "hero-banknotes"
         },
+        %{type: :category, label: gettext("Danger Zone")},
         %{
           name: :delete_account,
           label: gettext("Delete Account"),
@@ -378,6 +408,15 @@ defmodule MossletWeb.Menus do
       label: gettext("Manage data"),
       path: ~p"/app/users/manage-data",
       icon: "hero-circle-stack"
+    }
+  end
+
+  def get_link(:bluesky_settings = name, _current_user) do
+    %{
+      name: name,
+      label: gettext("Bluesky"),
+      path: ~p"/app/users/bluesky",
+      icon: "hero-cloud"
     }
   end
 

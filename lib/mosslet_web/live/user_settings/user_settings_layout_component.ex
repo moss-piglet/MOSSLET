@@ -208,11 +208,16 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
                 Settings Menu
               </h2>
               <nav class="space-y-1">
-                <.settings_menu_item
-                  :for={menu_item <- @menu_items}
-                  current={@current_page}
-                  {menu_item}
-                />
+                <%= for menu_item <- @menu_items do %>
+                  <%= if menu_item[:type] == :section do %>
+                    <.settings_section_header label={menu_item.label} />
+                  <% else %>
+                    <.settings_menu_item
+                      current={@current_page}
+                      {menu_item}
+                    />
+                  <% end %>
+                <% end %>
               </nav>
             </div>
           </div>
@@ -359,6 +364,16 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
     """
   end
 
+  defp settings_section_header(assigns) do
+    ~H"""
+    <div class="pt-4 pb-2 first:pt-0">
+      <h3 class="px-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        {@label}
+      </h3>
+    </div>
+    """
+  end
+
   # Main menu items for the sidebar
   defp sidebar_main_menu_items(current_user) do
     MossletWeb.Menus.build_menu(
@@ -385,25 +400,29 @@ defmodule MossletWeb.UserSettingsLayoutComponent do
     )
   end
 
-  # Settings-specific menu items
+  # Settings-specific menu items with sections
   defp settings_menu_items(current_user) do
-    MossletWeb.Menus.build_menu(
-      [
-        :edit_details,
-        :edit_profile,
-        :edit_email,
-        :edit_visibility,
-        :edit_password,
-        :edit_forgot_password,
-        :edit_notifications,
-        :edit_totp,
-        :blocked_users,
-        :manage_data,
-        :billing,
-        :delete_account
-      ],
-      current_user
-    )
+    [
+      %{type: :section, label: "Profile & Identity"},
+      MossletWeb.Menus.get_link(:edit_details, current_user),
+      MossletWeb.Menus.get_link(:edit_profile, current_user),
+      MossletWeb.Menus.get_link(:edit_visibility, current_user),
+      %{type: :section, label: "Security"},
+      MossletWeb.Menus.get_link(:edit_email, current_user),
+      MossletWeb.Menus.get_link(:edit_password, current_user),
+      MossletWeb.Menus.get_link(:edit_forgot_password, current_user),
+      MossletWeb.Menus.get_link(:edit_totp, current_user),
+      %{type: :section, label: "Preferences"},
+      MossletWeb.Menus.get_link(:edit_notifications, current_user),
+      MossletWeb.Menus.get_link(:blocked_users, current_user),
+      %{type: :section, label: "Integrations"},
+      MossletWeb.Menus.get_link(:bluesky_settings, current_user),
+      %{type: :section, label: "Account"},
+      MossletWeb.Menus.get_link(:manage_data, current_user),
+      MossletWeb.Menus.get_link(:billing, current_user),
+      MossletWeb.Menus.get_link(:delete_account, current_user)
+    ]
+    |> Enum.filter(& &1)
   end
 
   defp settings_menu_items_group(current_user, group, user_group) do

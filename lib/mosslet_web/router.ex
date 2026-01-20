@@ -414,6 +414,7 @@ defmodule MossletWeb.Router do
       live "/users/edit-status", EditStatusLive
       live "/users/manage-data", ManageDataLive
       live "/users/blocked-users", BlockedUsersLive
+      live "/users/bluesky", BlueskySettingsLive
       live "/users/change-password", EditPasswordLive
       live "/users/change-forgot-password", EditForgotPasswordLive
       live "/users/edit-notifications", EditNotificationsLive

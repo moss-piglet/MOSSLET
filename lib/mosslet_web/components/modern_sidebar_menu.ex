@@ -29,10 +29,35 @@ defmodule MossletWeb.ModernSidebarMenu do
       </div>
 
       <div class="space-y-0.5">
-        <div :for={item <- @menu_items} x-bind:class="sidebarCollapsed ? 'lg:px-0' : 'lg:px-4'">
-          <.modern_menu_item item={item} current_page={@current_page} />
-        </div>
+        <%= for item <- @menu_items do %>
+          <%= if item[:type] == :section do %>
+            <.menu_section_header label={item.label} />
+          <% else %>
+            <div x-bind:class="sidebarCollapsed ? 'lg:px-0' : 'lg:px-4'">
+              <.modern_menu_item item={item} current_page={@current_page} />
+            </div>
+          <% end %>
+        <% end %>
       </div>
+    </div>
+    """
+  end
+
+  defp menu_section_header(assigns) do
+    ~H"""
+    <div
+      class="pt-4 pb-2 first:pt-0 px-4"
+      x-show="!sidebarCollapsed"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0"
+      x-transition:enter-end="opacity-100"
+      x-transition:leave="transition ease-in duration-100"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+    >
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        {@label}
+      </h3>
     </div>
     """
   end
@@ -142,58 +167,68 @@ defmodule MossletWeb.ModernSidebarMenu do
         x-transition:leave-end="opacity-0 -translate-y-2"
         class="mt-2 ml-2 lg:ml-4 space-y-1.5 border-l-2 border-emerald-200/40 dark:border-emerald-700/30 pl-3 lg:pl-4 relative z-40"
       >
-        <.link
-          :for={child <- @item[:children]}
-          {if child[:method], do: %{method: child[:method], href: child[:path]}, else: %{navigate: child[:path]}}
-          class={[
-            "group relative flex items-start gap-x-3 text-sm",
-            "rounded-lg px-2 py-3 lg:px-3 lg:py-3",
-            "transition-all duration-200 ease-out will-change-transform",
-            "overflow-hidden backdrop-blur-sm transform-gpu",
-            "hover:translate-x-1 active:translate-x-0",
-            submenu_item_classes(@current_page, child[:name])
-          ]}
-        >
-          <%!-- Subtle liquid background for submenu --%>
-          <div class={[
-            "absolute inset-0 opacity-0 transition-all duration-300 ease-out",
-            "bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40",
-            "dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10",
-            "group-hover:opacity-100 transform-gpu",
-            "rounded-lg"
-          ]}>
-          </div>
+        <%= for child <- @item[:children] do %>
+          <%= cond do %>
+            <% child[:type] == :divider -> %>
+              <div class="my-3 mx-2 border-t border-slate-200/60 dark:border-slate-700/40"></div>
+            <% child[:type] == :category -> %>
+              <div class="pt-4 pb-1 first:pt-0">
+                <h4 class="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                  {child[:label]}
+                </h4>
+              </div>
+            <% true -> %>
+              <.link
+                {if child[:method], do: %{method: child[:method], href: child[:path]}, else: %{navigate: child[:path]}}
+                class={[
+                  "group relative flex items-start gap-x-3 text-sm",
+                  "rounded-lg px-2 py-2.5 lg:px-3 lg:py-2.5",
+                  "transition-all duration-200 ease-out will-change-transform",
+                  "overflow-hidden backdrop-blur-sm transform-gpu",
+                  "hover:translate-x-1 active:translate-x-0",
+                  submenu_item_classes(@current_page, child[:name])
+                ]}
+              >
+                <div class={[
+                  "absolute inset-0 opacity-0 transition-all duration-300 ease-out",
+                  "bg-gradient-to-r from-teal-50/40 via-emerald-50/60 to-cyan-50/40",
+                  "dark:from-teal-900/10 dark:via-emerald-900/15 dark:to-cyan-900/10",
+                  "group-hover:opacity-100 transform-gpu",
+                  "rounded-lg"
+                ]}>
+                </div>
 
-          <.modern_menu_icon
-            :if={child[:icon]}
-            icon={child[:icon]}
-            active={@current_page == child[:name]}
-            size="sm"
-            class="mt-0.5"
-          />
+                <.modern_menu_icon
+                  :if={child[:icon]}
+                  icon={child[:icon]}
+                  active={@current_page == child[:name]}
+                  size="sm"
+                  class="mt-0.5"
+                />
 
-          <div class="relative flex-1 min-w-0">
-            <div class={[
-              "font-medium transition-colors duration-200",
-              "group-hover:text-emerald-700 dark:group-hover:text-emerald-300",
-              "leading-tight"
-            ]}>
-              {child[:label]}
-            </div>
-            <div
-              :if={child[:description]}
-              class={[
-                "text-xs mt-1 transition-colors duration-200",
-                "text-slate-500 dark:text-slate-400",
-                "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
-                "leading-relaxed",
-                "block"
-              ]}
-            >
-              {child[:description]}
-            </div>
-          </div>
-        </.link>
+                <div class="relative flex-1 min-w-0">
+                  <div class={[
+                    "font-medium transition-colors duration-200",
+                    "group-hover:text-emerald-700 dark:group-hover:text-emerald-300",
+                    "leading-tight"
+                  ]}>
+                    {child[:label]}
+                  </div>
+                  <div
+                    :if={child[:description]}
+                    class={[
+                      "text-xs mt-0.5 transition-colors duration-200",
+                      "text-slate-500 dark:text-slate-400",
+                      "group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+                      "leading-snug"
+                    ]}
+                  >
+                    {child[:description]}
+                  </div>
+                </div>
+              </.link>
+          <% end %>
+        <% end %>
       </div>
     </div>
 
