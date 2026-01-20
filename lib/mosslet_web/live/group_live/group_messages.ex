@@ -115,11 +115,12 @@ defmodule MossletWeb.GroupLive.GroupMessages do
         assigns.group
       )
 
-    content = render_mentions(raw_content, assigns)
+    is_own_message = assigns.user_group.id == assigns.message.sender_id
+    markdown_html = Mosslet.MarkdownRenderer.to_html(raw_content)
+    content = render_mentions(markdown_html, assigns, is_own_message)
 
     can_delete =
-      assigns.user_group.role in [:owner, :admin, :moderator] ||
-        assigns.user_group.id == assigns.message.sender_id
+      assigns.user_group.role in [:owner, :admin, :moderator] || is_own_message
 
     is_grouped = Map.get(assigns.message, :is_grouped, false)
     show_date_separator = Map.get(assigns.message, :show_date_separator, false)
@@ -136,7 +137,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       |> assign(:moniker, moniker)
       |> assign(:content, content)
       |> assign(:can_delete, can_delete)
-      |> assign(:is_own_message, assigns.user_group.id == assigns.message.sender_id)
+      |> assign(:is_own_message, is_own_message)
       |> assign(:is_grouped, is_grouped)
       |> assign(:show_date_separator, show_date_separator)
       |> assign(:message_datetime, message_datetime)
@@ -161,7 +162,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
       is_mentioned={@is_mentioned}
       is_new_mention={@is_new_mention}
     >
-      {Mosslet.MarkdownRenderer.to_html(@content) |> Phoenix.HTML.raw()}
+      {@content |> Phoenix.HTML.raw()}
     </DesignSystem.liquid_chat_message>
     """
   end
@@ -172,15 +173,15 @@ defmodule MossletWeb.GroupLive.GroupMessages do
 
   defp content_mentions_user?(_, _), do: false
 
-  defp render_mentions(content, assigns) when is_binary(content) do
+  defp render_mentions(content, assigns, is_own_message) when is_binary(content) do
     Regex.replace(@mention_token_regex, content, fn _full, user_group_id ->
-      render_mention_pill(user_group_id, assigns)
+      render_mention_pill(user_group_id, assigns, is_own_message)
     end)
   end
 
-  defp render_mentions(content, _assigns), do: content
+  defp render_mentions(content, _assigns, _is_own_message), do: content
 
-  defp render_mention_pill(user_group_id, assigns) do
+  defp render_mention_pill(user_group_id, assigns, is_own_message) do
     is_self = user_group_id == assigns.user_group.id
 
     case Groups.get_user_group(user_group_id) do
@@ -219,7 +220,7 @@ defmodule MossletWeb.GroupLive.GroupMessages do
           end
 
         role = mentioned_ug.role || :member
-        text_class = mention_text_class(role)
+        text_class = mention_text_class(role, is_own_message)
 
         if is_self do
           "<span class=\"mention-self #{text_class} font-semibold underline decoration-2 underline-offset-2\"><span class=\"opacity-60\">@</span>#{display_name}</span>"
@@ -229,9 +230,14 @@ defmodule MossletWeb.GroupLive.GroupMessages do
     end
   end
 
-  defp mention_text_class(:owner), do: "text-pink-600 dark:text-pink-300"
-  defp mention_text_class(:admin), do: "text-orange-600 dark:text-orange-300"
-  defp mention_text_class(:moderator), do: "text-purple-600 dark:text-purple-300"
-  defp mention_text_class(:member), do: "text-emerald-600 dark:text-emerald-300"
-  defp mention_text_class(_), do: "text-slate-600 dark:text-slate-300"
+  defp mention_text_class(:owner, true), do: "text-pink-200"
+  defp mention_text_class(:admin, true), do: "text-orange-200"
+  defp mention_text_class(:moderator, true), do: "text-purple-200"
+  defp mention_text_class(:member, true), do: "text-yellow-200"
+  defp mention_text_class(_, true), do: "text-slate-200"
+  defp mention_text_class(:owner, _), do: "text-pink-600 dark:text-pink-300"
+  defp mention_text_class(:admin, _), do: "text-orange-600 dark:text-orange-300"
+  defp mention_text_class(:moderator, _), do: "text-purple-600 dark:text-purple-300"
+  defp mention_text_class(:member, _), do: "text-emerald-600 dark:text-emerald-300"
+  defp mention_text_class(_, _), do: "text-slate-600 dark:text-slate-300"
 end

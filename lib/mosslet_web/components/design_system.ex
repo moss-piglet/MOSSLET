@@ -12927,8 +12927,7 @@ defmodule MossletWeb.DesignSystem do
                   :if={@sender_name && !@is_own_message}
                   class={[
                     "font-semibold text-sm truncate max-w-[120px] sm:max-w-[180px]",
-                    "text-slate-900 dark:text-slate-100",
-                    "group-hover/msg:text-teal-700 dark:group-hover/msg:text-teal-300",
+                    liquid_chat_sender_name_color(@role),
                     "transition-colors duration-200"
                   ]}
                 >
@@ -13100,6 +13099,12 @@ defmodule MossletWeb.DesignSystem do
   defp liquid_chat_role_badge(_) do
     "bg-gradient-to-r from-teal-100 to-emerald-50 text-teal-700 dark:from-teal-900/50 dark:to-emerald-900/30 dark:text-teal-300"
   end
+
+  defp liquid_chat_sender_name_color(:owner), do: "text-pink-600 dark:text-pink-300"
+  defp liquid_chat_sender_name_color(:admin), do: "text-orange-600 dark:text-orange-300"
+  defp liquid_chat_sender_name_color(:moderator), do: "text-purple-600 dark:text-purple-300"
+  defp liquid_chat_sender_name_color(:member), do: "text-emerald-600 dark:text-emerald-300"
+  defp liquid_chat_sender_name_color(_), do: "text-slate-700 dark:text-slate-300"
 
   @doc """
   Date separator for chat messages.
