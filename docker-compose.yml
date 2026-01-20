@@ -1,0 +1,103 @@
+# Docker Compose for Mosslet Development
+#
+# This runs both the web (Postgres) and native (SQLite) versions side-by-side
+# for testing cross-platform features.
+#
+# Usage:
+#   docker compose up              # Start all services
+#   docker compose up web          # Start only web version
+#   docker compose up native       # Start only native version
+#   docker compose down            # Stop all services
+#   docker compose down -v         # Stop and remove volumes
+#
+# Environment:
+#   cp .env.docker.example .env    # Optional: configure external services
+#
+# NOTE: This is for DEVELOPMENT ONLY. Production deploys to Fly.io using
+# the existing Dockerfile and fly.toml - those remain unchanged.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: Mosslet_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      MIX_ENV: dev
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: Mosslet_dev
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-dev_secret_key_base_that_is_at_least_64_bytes_long_for_security}
+      SERVER_PUBLIC_KEY: ${SERVER_PUBLIC_KEY:-}
+      SERVER_PRIVATE_KEY: ${SERVER_PRIVATE_KEY:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_HOST: ${AWS_HOST:-}
+      PHX_HOST: localhost
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - web_deps:/app/deps
+      - web_build:/app/_build
+      - web_assets_node_modules:/app/assets/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    command: >
+      sh -c "mix deps.get && mix ecto.create && mix ecto.migrate && mix phx.server"
+
+  native:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      MIX_ENV: dev
+      MOSSLET_NATIVE: "true"
+      PORT: "4001"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-dev_secret_key_base_that_is_at_least_64_bytes_long_for_security}
+      SERVER_PUBLIC_KEY: ${SERVER_PUBLIC_KEY:-}
+      SERVER_PRIVATE_KEY: ${SERVER_PRIVATE_KEY:-}
+      MOSSLET_DATA_DIR: /app/data/native
+    ports:
+      - "4001:4001"
+    volumes:
+      - .:/app
+      - native_deps:/app/deps
+      - native_build:/app/_build
+      - native_assets_node_modules:/app/assets/node_modules
+      - native_data:/app/data/native
+    stdin_open: true
+    tty: true
+    command: >
+      sh -c "mix deps.get && mix ecto.create && mix ecto.migrate && mix phx.server"
+
+volumes:
+  postgres_data:
+  web_deps:
+  web_build:
+  web_assets_node_modules:
+  native_deps:
+  native_build:
+  native_assets_node_modules:
+  native_data:

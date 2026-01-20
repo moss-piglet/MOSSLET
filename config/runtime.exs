@@ -16,11 +16,19 @@ if System.get_env("MOSSLET_NATIVE") == "true" do
     temp_store: :memory,
     synchronous: :normal
 
+  native_port =
+    case System.get_env("PORT") do
+      nil -> 0
+      "0" -> 0
+      port -> String.to_integer(port)
+    end
+
   config :mosslet, MossletWeb.Endpoint,
     adapter: Bandit.PhoenixAdapter,
-    http: [port: 0],
+    http: [ip: {0, 0, 0, 0}, port: native_port],
     server: true,
-    secret_key_base: Mosslet.Platform.Config.generate_secret(),
+    secret_key_base:
+      System.get_env("SECRET_KEY_BASE") || Mosslet.Platform.Config.generate_secret(),
     render_errors: [
       formats: [html: MossletWeb.ErrorHTML, json: MossletWeb.ErrorJSON],
       layout: false
@@ -49,7 +57,7 @@ if System.get_env("PHX_SERVER") do
   config :mosslet, MossletWeb.Endpoint, server: true
 end
 
-if config_env() == :prod do
+if config_env() == :prod and System.get_env("MOSSLET_NATIVE") != "true" do
   config :mosslet, dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 
   # Configure plug_attack
@@ -166,7 +174,7 @@ if config_env() == :prod do
     offline: System.get_env("BUMBLEBEE_OFFLINE", "false") == "true"
 
   # Use the persistent volume for upload temp files (same volume as bumblebee cache)
-  config :mosslet, :upload_temp_dir, "/data/uploads_temp"
+  config :mosslet, :upload_temp_dir, "/data/bumblebee/uploads_temp"
 
   # Configure Stripe
   config :stripity_stripe,

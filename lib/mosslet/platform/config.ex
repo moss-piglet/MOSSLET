@@ -38,6 +38,8 @@ defmodule Mosslet.Platform.Config do
   @doc """
   Returns the platform-specific data directory for persistent storage.
 
+  Can be overridden with MOSSLET_DATA_DIR environment variable (useful for Docker).
+
   - macOS: ~/Library/Application Support/Mosslet
   - Windows: %APPDATA%/Mosslet
   - Linux: ~/.local/share/mosslet
@@ -46,6 +48,13 @@ defmodule Mosslet.Platform.Config do
   """
   @spec data_directory() :: String.t()
   def data_directory do
+    case System.get_env("MOSSLET_DATA_DIR") do
+      nil -> platform_data_directory()
+      dir -> dir
+    end
+  end
+
+  defp platform_data_directory do
     case Platform.type() do
       :macos ->
         Path.join([System.user_home!(), "Library", "Application Support", "Mosslet"])

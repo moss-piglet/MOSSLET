@@ -13030,8 +13030,7 @@ defmodule MossletWeb.DesignSystem do
                         "group-hover/msg:border-teal-200/60 dark:group-hover/msg:border-teal-700/50",
                         "group-hover/msg:shadow-md group-hover/msg:shadow-teal-500/5 dark:group-hover/msg:shadow-teal-400/5"
                       ]
-                    ),
-                    if(@is_new_mention && !@is_own_message, do: "animate-mention-highlight")
+                    )
                   ]}
                   data-mention-content={if(@is_new_mention && !@is_own_message, do: "true")}
                 >

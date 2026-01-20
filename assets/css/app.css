@@ -575,140 +575,55 @@ trix-editor {
   }
 }
 
-/* ===== WATER REFRACTION MENTION ANIMATION ===== */
-.animate-mention-highlight {
-  filter: url(#water-ripple-filter);
-  will-change: filter, border-radius;
+/* ===== MENTION HIGHLIGHT ANIMATION ===== */
+.mention-highlight-active {
+  position: relative;
+  box-shadow: 
+    0 0 0 2px rgba(20, 184, 166, 0.4),
+    0 0 12px rgba(20, 184, 166, 0.15),
+    0 4px 16px rgba(20, 184, 166, 0.1);
+  transition: box-shadow 0.3s ease-out;
 }
 
-.emerald-wave-edge {
+.dark .mention-highlight-active {
+  box-shadow: 
+    0 0 0 2px rgba(45, 212, 191, 0.5),
+    0 0 16px rgba(45, 212, 191, 0.2),
+    0 4px 20px rgba(45, 212, 191, 0.15);
+}
+
+.mention-glow {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 10;
-  --leading-edge: 0%;
-  --trailing-edge: 0%;
-  --wave-y: 0px;
-  --wave-y2: 0px;
-  --ripple-1: 0%;
-  --ripple-2: 0%;
-  --residue-opacity: 0;
-  overflow: visible;
+  inset: -3px;
   border-radius: inherit;
-}
-
-.emerald-wave-edge::before {
-  content: '';
-  position: absolute;
-  top: calc(-2px + var(--wave-y));
-  bottom: calc(-2px - var(--wave-y) * 0.5 + var(--wave-y2));
-  left: var(--trailing-edge);
-  right: calc(100% - var(--leading-edge));
-  min-width: 0;
-  filter: url(#wave-edge-distort);
-  background: 
-    radial-gradient(
-      ellipse 80% 120% at 20% 50%,
-      rgba(110, 231, 183, 0.28) 0%,
-      rgba(52, 211, 153, 0.18) 50%,
-      transparent 80%
-    ),
-    radial-gradient(
-      ellipse 70% 100% at 75% 60%,
-      rgba(52, 211, 153, 0.22) 0%,
-      rgba(110, 231, 183, 0.12) 60%,
-      transparent 90%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.18) 0%,
-      transparent 30%,
-      transparent 70%,
-      rgba(255, 255, 255, 0.1) 100%
-    );
-  border-radius: 30% 70% 60% 40% / 40% 50% 50% 60%;
-}
-
-.emerald-wave-edge::after {
-  content: '';
-  position: absolute;
-  top: calc(2px + var(--wave-y) * 0.7);
-  bottom: calc(2px - var(--wave-y) * 0.3);
-  left: calc(var(--trailing-edge) + 5%);
-  right: calc(100% - var(--leading-edge) + 5%);
-  min-width: 0;
-  filter: url(#wave-edge-distort);
-  background: 
-    radial-gradient(
-      ellipse 50% 70% at 35% 40%,
-      rgba(255, 255, 255, 0.45) 0%,
-      rgba(255, 255, 255, 0.15) 50%,
-      transparent 80%
-    );
-  mix-blend-mode: overlay;
-  border-radius: 40% 60% 55% 45% / 45% 55% 45% 55%;
-}
-
-.emerald-wave-residue {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
   pointer-events: none;
-  border-radius: inherit;
-  background: 
-    radial-gradient(
-      ellipse 100% 80% at 50% 100%,
-      rgba(52, 211, 153, 0.06) 0%,
-      rgba(110, 231, 183, 0.03) 50%,
-      transparent 80%
-    );
-  opacity: var(--residue-opacity);
+  z-index: -1;
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(16, 185, 129, 0.08));
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
 }
 
-.emerald-wave-ripple {
+.dark .mention-glow {
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.15), rgba(52, 211, 153, 0.1));
+}
+
+.mention-indicator {
   position: absolute;
-  top: 10%;
-  bottom: 10%;
-  width: 6px;
-  pointer-events: none;
-  filter: url(#wave-edge-distort);
-  background: 
-    radial-gradient(
-      ellipse 100% 80% at 50% 50%,
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(110, 231, 183, 0.1) 60%,
-      transparent 100%
-    );
+  top: -4px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  background: linear-gradient(135deg, #14b8a6, #10b981);
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.4);
+  opacity: 0;
+  transform-origin: center;
+  transition: transform 0.15s ease-out;
 }
 
-.emerald-wave-ripple-1 {
-  left: var(--ripple-1);
-  opacity: 0.6;
-  top: 5%;
-  bottom: 15%;
-}
-
-.emerald-wave-ripple-2 {
-  left: var(--ripple-2);
-  opacity: 0.4;
-  top: 20%;
-  bottom: 5%;
-}
-
-.emerald-wave-edge.fade-out {
-  animation: wave-fade-out 0.3s ease-out forwards;
-}
-
-@keyframes wave-fade-out {
-  to {
-    opacity: 0;
-  }
+.dark .mention-indicator {
+  background: linear-gradient(135deg, #2dd4bf, #34d399);
+  box-shadow: 0 2px 10px rgba(45, 212, 191, 0.5);
 }
 
 @keyframes fade-in-scale-keys {

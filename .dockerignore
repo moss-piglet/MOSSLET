@@ -32,6 +32,12 @@
 /tmp/
 .elixir_ls
 
+# Docker dev files (not needed for production Fly.io builds)
+docker-compose.yml
+Dockerfile.dev
+.env
+.env.docker.example
+
 # Mix artifacts
 /_build/
 /deps/

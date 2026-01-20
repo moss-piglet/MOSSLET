@@ -1,0 +1,40 @@
+# Development Dockerfile for Mosslet
+#
+# This is used ONLY for local development via docker-compose.
+# Production deployments use the main Dockerfile with Fly.io.
+#
+# Features:
+# - Full development dependencies (libsodium, libvips, nodejs)
+# - Hot code reloading support
+# - Both web (Postgres) and native (SQLite) modes supported
+#
+ARG ELIXIR_VERSION=1.19.5
+ARG OTP_VERSION=28.3
+ARG DEBIAN_VERSION=bookworm-20260112-slim
+
+ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
+
+FROM ${BUILDER_IMAGE}
+
+RUN apt-get update -y && apt-get install -y \
+  build-essential \
+  git \
+  libsodium-dev \
+  libvips-dev \
+  libsqlite3-dev \
+  nodejs \
+  npm \
+  inotify-tools \
+  curl \
+  && apt-get clean && rm -f /var/lib/apt/lists/*_*
+
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
+WORKDIR /app
+
+ENV MIX_ENV=dev
+
+EXPOSE 4000 4001
+
+CMD ["mix", "phx.server"]
