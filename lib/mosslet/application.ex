@@ -101,6 +101,7 @@ defmodule Mosslet.Application do
       {Mosslet.Notifications.PushNotificationsGenServer, []},
       {Mosslet.Timeline.Performance.TimelineGenServer, []},
       {Task.Supervisor, name: Mosslet.StorjTask},
+      {Task.Supervisor, name: Mosslet.BlueskyImportTaskSupervisor},
       {PlugAttack.Storage.Ets, name: MossletWeb.PlugAttack.Storage, clean_period: 3_600_000},
       {Oban, oban_config()},
       {Mosslet.Extensions.PasswordGenerator.WordRepository, %{}},

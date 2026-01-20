@@ -2571,4 +2571,96 @@ defmodule Mosslet.Timeline.Adapters.Web do
 
   defp unwrap_transaction!({:ok, result}), do: result
   defp unwrap_transaction!({:error, reason}), do: raise("Transaction failed: #{inspect(reason)}")
+
+  # =============================================================================
+  # Bluesky Sync Operations
+  # =============================================================================
+
+  @impl true
+  def post_exists_by_external_uri?(uri, bluesky_account_id) do
+    from(p in Post,
+      where: p.bluesky_account_id == ^bluesky_account_id,
+      where: p.external_uri == ^uri
+    )
+    |> Repo.exists?()
+  end
+
+  @impl true
+  def create_bluesky_import_post(attrs, opts) do
+    user = opts[:user]
+    post_key = opts[:trix_key] || Mosslet.Encrypted.Utils.generate_key()
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(:insert_post, fn _changes ->
+      Post.bluesky_import_changeset(%Post{}, attrs, Keyword.put(opts, :trix_key, post_key))
+    end)
+    |> Ecto.Multi.insert(:insert_user_post, fn %{insert_post: post} ->
+      UserPost.changeset(
+        %UserPost{},
+        %{
+          key: post_key,
+          user_id: user.id,
+          post_id: post.id
+        },
+        user: user,
+        visibility: :private
+      )
+    end)
+    |> Repo.transaction_on_primary()
+    |> case do
+      {:ok, %{insert_post: post}} -> {:ok, post}
+      {:error, _step, changeset, _changes} -> {:error, changeset}
+    end
+  end
+
+  @impl true
+  def get_unexported_public_posts(user_id, limit \\ 10) do
+    from(p in Post,
+      where: p.user_id == ^user_id,
+      where: p.visibility == :public,
+      where: p.source == :mosslet,
+      where: is_nil(p.external_uri),
+      order_by: [asc: p.inserted_at],
+      limit: ^limit,
+      preload: [:user_posts]
+    )
+    |> Repo.all()
+  end
+
+  @impl true
+  def get_post_for_export(post_id) do
+    from(p in Post,
+      where: p.id == ^post_id,
+      where: p.visibility == :public,
+      where: p.source == :mosslet,
+      preload: [:user_posts]
+    )
+    |> Repo.one()
+  end
+
+  @impl true
+  def mark_post_as_synced_to_bluesky(post, uri, cid) do
+    Repo.transaction_on_primary(fn ->
+      post
+      |> Ecto.Changeset.change(%{external_uri: uri, external_cid: cid})
+      |> Repo.update!()
+    end)
+    |> case do
+      {:ok, post} -> {:ok, post}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @impl true
+  def clear_bluesky_sync_info(post) do
+    Repo.transaction_on_primary(fn ->
+      post
+      |> Ecto.Changeset.change(%{external_uri: nil, external_cid: nil})
+      |> Repo.update!()
+    end)
+    |> case do
+      {:ok, post} -> {:ok, post}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 end

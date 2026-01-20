@@ -246,6 +246,7 @@ defmodule MossletWeb.PostLive.Components do
           Group
         </.link>
       </span>
+      <.bluesky_badge post={@post} current_user={@current_user} />
     </div>
 
     <div
@@ -492,6 +493,7 @@ defmodule MossletWeb.PostLive.Components do
         >
           Delete
         </.link>
+        <.bluesky_actions post={@post} current_user={@current_user} />
       </div>
       <%!-- first reply --%>
       <div :if={!Enum.empty?(@post.replies)} id={"first-reply-#{@post.id}"} class="pt-4">
@@ -1433,5 +1435,80 @@ defmodule MossletWeb.PostLive.Components do
         {page_number, current_page?}
       end
     end
+  end
+
+  attr :post, Mosslet.Timeline.Post, required: true
+  attr :current_user, :map, required: true
+
+  def bluesky_badge(assigns) do
+    ~H"""
+    <span
+      :if={@post.source == :bluesky}
+      id={"bluesky-badge-#{@post.id}"}
+      class="inline-flex items-center gap-1 rounded-md bg-sky-50 dark:bg-sky-950 px-2 py-1 text-xs font-light text-sky-700 dark:text-sky-300 ring-1 ring-inset ring-sky-400/30 dark:ring-sky-400/20"
+      data-tippy-content="Imported from Bluesky"
+      phx-hook="TippyHook"
+    >
+      <span class="text-sm">🦋</span>
+    </span>
+    <span
+      :if={@post.source == :mosslet && @post.external_uri && my_post?(@post, @current_user)}
+      id={"bluesky-synced-badge-#{@post.id}"}
+      class="inline-flex items-center gap-1 rounded-md bg-sky-50 dark:bg-sky-950 px-2 py-1 text-xs font-light text-sky-700 dark:text-sky-300 ring-1 ring-inset ring-sky-400/30 dark:ring-sky-400/20"
+      data-tippy-content="Synced to Bluesky"
+      phx-hook="TippyHook"
+    >
+      <span class="text-sm">🦋</span>
+      <.phx_icon name="hero-arrow-up-circle-mini" class="h-3 w-3" />
+    </span>
+    """
+  end
+
+  attr :post, Mosslet.Timeline.Post, required: true
+  attr :current_user, :map, required: true
+
+  def bluesky_actions(assigns) do
+    ~H"""
+    <button
+      :if={can_sync_to_bluesky?(@post, @current_user)}
+      type="button"
+      id={"sync-to-bluesky-#{@post.id}"}
+      phx-click={JS.push("sync_post_to_bluesky", value: %{id: @post.id})}
+      class="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300"
+      data-tippy-content="Sync this post to Bluesky"
+      phx-hook="TippyHook"
+    >
+      <span class="text-sm">🦋</span>
+      <.phx_icon name="hero-arrow-up-circle-mini" class="h-3 w-3" />
+    </button>
+    <button
+      :if={can_unlink_from_bluesky?(@post, @current_user)}
+      type="button"
+      id={"unlink-from-bluesky-#{@post.id}"}
+      phx-click={JS.push("unlink_post_from_bluesky", value: %{id: @post.id})}
+      data-confirm="This will delete the post from Bluesky but keep it on Mosslet. Continue?"
+      class="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-rose-600 dark:hover:text-rose-400"
+      data-tippy-content="Remove from Bluesky (keep on Mosslet)"
+      phx-hook="TippyHook"
+    >
+      <span class="text-sm">🦋</span>
+      <.phx_icon name="hero-x-circle-mini" class="h-3 w-3" />
+    </button>
+    """
+  end
+
+  defp can_sync_to_bluesky?(post, current_user) do
+    current_user &&
+      post.user_id == current_user.id &&
+      post.source == :mosslet &&
+      post.visibility == :public &&
+      is_nil(post.external_uri)
+  end
+
+  defp can_unlink_from_bluesky?(post, current_user) do
+    current_user &&
+      post.user_id == current_user.id &&
+      post.source == :mosslet &&
+      post.external_uri != nil
   end
 end

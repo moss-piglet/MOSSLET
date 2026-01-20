@@ -3330,6 +3330,57 @@ defmodule MossletWeb.TimelineLive.Index do
     end
   end
 
+  def handle_event("sync_post_to_bluesky", %{"id" => id}, socket) do
+    post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_user
+
+    if post.user_id == current_user.id && post.visibility == :public && is_nil(post.external_uri) do
+      case Mosslet.Bluesky.get_account_for_user(current_user.id) do
+        nil ->
+          {:noreply, put_flash(socket, :warning, "Please connect your Bluesky account first.")}
+
+        account ->
+          case Mosslet.Bluesky.Workers.ExportSyncWorker.enqueue_single_post_export(id, account.id) do
+            {:ok, _job} ->
+              {:noreply, put_flash(socket, :success, "Post queued for sync to Bluesky.")}
+
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Failed to queue post for sync.")}
+          end
+      end
+    else
+      {:noreply, put_flash(socket, :error, "This post cannot be synced to Bluesky.")}
+    end
+  end
+
+  def handle_event("unlink_post_from_bluesky", %{"id" => id}, socket) do
+    post = Timeline.get_post!(id)
+    current_user = socket.assigns.current_user
+
+    if post.user_id == current_user.id && post.external_uri do
+      case Mosslet.Bluesky.get_account_for_user(current_user.id) do
+        nil ->
+          {:noreply, put_flash(socket, :warning, "Please connect your Bluesky account first.")}
+
+        account ->
+          case Mosslet.Bluesky.Workers.DeleteSyncWorker.enqueue_delete(id, account.id) do
+            {:ok, _job} ->
+              {:noreply,
+               put_flash(
+                 socket,
+                 :success,
+                 "Post will be removed from Bluesky but kept on Mosslet."
+               )}
+
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Failed to unlink post from Bluesky.")}
+          end
+      end
+    else
+      {:noreply, put_flash(socket, :error, "This post cannot be unlinked from Bluesky.")}
+    end
+  end
+
   def handle_event("reply", %{"id" => id, "url" => return_url}, socket) do
     post = Timeline.get_post!(id)
     current_user = socket.assigns.current_user

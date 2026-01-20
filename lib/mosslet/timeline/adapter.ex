@@ -357,4 +357,24 @@ defmodule Mosslet.Timeline.Adapter do
   @callback repo_get!(schema :: module(), id :: term()) :: struct()
   @callback repo_get_by(schema :: module(), clauses :: keyword() | map()) :: struct() | nil
   @callback repo_get_by!(schema :: module(), clauses :: keyword() | map()) :: struct()
+
+  # =============================================================================
+  # Bluesky Sync Operations
+  # =============================================================================
+
+  @callback post_exists_by_external_uri?(uri :: String.t(), bluesky_account_id :: String.t()) ::
+              boolean()
+  @callback create_bluesky_import_post(attrs :: map(), opts :: keyword()) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+  @callback get_unexported_public_posts(user_id :: String.t(), limit :: non_neg_integer()) ::
+              [Post.t()]
+  @callback get_post_for_export(post_id :: String.t()) :: Post.t() | nil
+  @callback mark_post_as_synced_to_bluesky(
+              post :: Post.t(),
+              uri :: String.t(),
+              cid :: String.t()
+            ) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
+  @callback clear_bluesky_sync_info(post :: Post.t()) ::
+              {:ok, Post.t()} | {:error, Ecto.Changeset.t()}
 end

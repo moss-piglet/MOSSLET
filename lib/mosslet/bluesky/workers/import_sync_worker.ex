@@ -1,0 +1,155 @@
+defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
+  @moduledoc """
+  Oban worker for importing posts from Bluesky to Mosslet.
+
+  This worker fetches new posts from a user's Bluesky feed and stores
+  them encrypted on Mosslet, providing a private backup of their
+  public social media content.
+
+  Posts are imported with:
+  - Full encryption at rest
+  - Source tracking (source: :bluesky)
+  - Original AT URI and CID preserved
+  - Visibility set to :private by default
+  """
+  use Oban.Worker, queue: :bluesky_sync, max_attempts: 3
+
+  alias Mosslet.Bluesky
+  alias Mosslet.Bluesky.Client
+  alias Mosslet.Timeline
+  alias Mosslet.Encrypted
+
+  require Logger
+
+  @impl Oban.Worker
+  def perform(%Oban.Job{args: %{"account_id" => account_id} = args}) do
+    account = Bluesky.get_account!(account_id) |> Mosslet.Repo.Local.preload(:user)
+    limit = Map.get(args, "limit", 50)
+    full_sync = Map.get(args, "full_sync", false)
+
+    if account.sync_enabled && account.sync_posts_from_bsky do
+      Logger.info("[BlueskyImport] Starting import for @#{account.handle}")
+      do_import(account, limit, full_sync)
+    else
+      Logger.info("[BlueskyImport] Sync disabled for @#{account.handle}, skipping")
+      :ok
+    end
+  end
+
+  defp do_import(account, limit, full_sync) do
+    cursor = if full_sync, do: nil, else: account.last_cursor
+
+    case Client.get_author_feed(account.access_jwt, account.did,
+           limit: limit,
+           cursor: cursor,
+           pds_url: account.pds_url || "https://bsky.social"
+         ) do
+      {:ok, %{feed: feed, cursor: new_cursor}} ->
+        imported_count = import_posts(account, feed)
+        Bluesky.update_sync_cursor(account, new_cursor)
+
+        Logger.info("[BlueskyImport] Imported #{imported_count} posts for @#{account.handle}")
+        :ok
+
+      {:ok, %{feed: feed}} ->
+        imported_count = import_posts(account, feed)
+        Logger.info("[BlueskyImport] Imported #{imported_count} posts for @#{account.handle}")
+        :ok
+
+      {:error, {401, _}} ->
+        Logger.warning("[BlueskyImport] Auth expired for @#{account.handle}, attempting refresh")
+        handle_token_refresh(account, limit, full_sync)
+
+      {:error, reason} ->
+        Logger.error("[BlueskyImport] Failed for @#{account.handle}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp import_posts(account, feed) do
+    user = account.user
+
+    feed
+    |> Enum.filter(&is_own_post?(&1, account.did))
+    |> Enum.reject(&already_imported?(&1, account.id))
+    |> Enum.map(&import_single_post(&1, account, user))
+    |> Enum.count(&match?({:ok, _}, &1))
+  end
+
+  defp is_own_post?(%{post: %{author: %{did: author_did}}}, account_did) do
+    author_did == account_did
+  end
+
+  defp is_own_post?(_, _), do: false
+
+  defp already_imported?(%{post: %{uri: uri}}, account_id) do
+    Timeline.post_exists_by_external_uri?(uri, account_id)
+  end
+
+  defp import_single_post(%{post: post_data}, account, user) do
+    post_key = Encrypted.Utils.generate_key()
+
+    attrs = %{
+      "body" => post_data.record.text,
+      "username" => account.handle,
+      "user_id" => user.id,
+      "visibility" => "private",
+      "source" => "bluesky",
+      "external_uri" => post_data.uri,
+      "external_cid" => post_data.cid,
+      "bluesky_account_id" => account.id
+    }
+
+    opts = [
+      user: user,
+      key: get_user_key(user),
+      trix_key: post_key,
+      bluesky_import: true
+    ]
+
+    Timeline.create_bluesky_import_post(attrs, opts)
+  end
+
+  defp handle_token_refresh(account, limit, full_sync) do
+    case Client.refresh_session(account.refresh_jwt,
+           pds_url: account.pds_url || "https://bsky.social"
+         ) do
+      {:ok, session} ->
+        {:ok, updated_account} =
+          Bluesky.refresh_tokens(account, %{
+            access_jwt: session.access_jwt,
+            refresh_jwt: session.refresh_jwt
+          })
+
+        do_import(updated_account, limit, full_sync)
+
+      {:error, reason} ->
+        Logger.error(
+          "[BlueskyImport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+        )
+
+        {:error, :token_refresh_failed}
+    end
+  end
+
+  defp get_user_key(_user) do
+    nil
+  end
+
+  def enqueue_import(account_id, opts \\ []) do
+    %{
+      "account_id" => account_id,
+      "limit" => Keyword.get(opts, :limit, 50),
+      "full_sync" => Keyword.get(opts, :full_sync, false)
+    }
+    |> __MODULE__.new()
+    |> Oban.insert()
+  end
+
+  def enqueue_all_imports do
+    Bluesky.list_accounts_for_import()
+    |> Enum.each(fn account ->
+      enqueue_import(account.id)
+    end)
+  end
+end

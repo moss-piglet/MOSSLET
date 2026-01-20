@@ -4,6 +4,22 @@
 <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
   <.phx_flash_group flash={@flash} />
 </div>
+<%!-- Bluesky import progress indicator (sticky) --%>
+<%= if assigns[:current_scope] && @current_scope.user do %>
+  {live_render(@socket, MossletWeb.BlueskyImportProgressLive,
+    id: "bluesky-import-progress-live",
+    session: %{"user_id" => @current_scope.user.id},
+    sticky: true
+  )}
+<% end %>
+<%!-- Bluesky export progress indicator (sticky) --%>
+<%= if assigns[:current_scope] && @current_scope.user do %>
+  {live_render(@socket, MossletWeb.BlueskyExportProgressLive,
+    id: "bluesky-export-progress-live",
+    session: %{"user_id" => @current_scope.user.id},
+    sticky: true
+  )}
+<% end %>
 <div
   id="mosslet-app"
   class="relative bg-gradient-to-br from-slate-50/95 via-slate-50/90 to-slate-100/95 dark:from-slate-800/95 dark:via-slate-800/90 dark:to-slate-900/95 min-h-screen"

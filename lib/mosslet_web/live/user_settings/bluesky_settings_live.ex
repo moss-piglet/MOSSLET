@@ -4,8 +4,11 @@ defmodule MossletWeb.BlueskySettingsLive do
   """
   use MossletWeb, :live_view
 
+  alias Mosslet.Accounts.User
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.Client
+  alias Mosslet.Bluesky.ExportTask
+  alias Mosslet.Bluesky.ImportTask
   alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
   alias MossletWeb.DesignSystem
 
@@ -41,7 +44,10 @@ defmodule MossletWeb.BlueskySettingsLive do
        show_app_password_help: false,
        invite_code_required: nil,
        handle_status: nil,
-       checking_handle: false
+       checking_handle: false,
+       show_export_modal: false,
+       export_password_form: to_form(%{"password" => ""}, as: :export_password),
+       export_error: nil
      )}
   end
 
@@ -104,7 +110,123 @@ defmodule MossletWeb.BlueskySettingsLive do
           <.about_bluesky_card />
         </div>
       </DesignSystem.liquid_container>
+
+      <.export_all_modal
+        :if={@show_export_modal}
+        export_password_form={@export_password_form}
+        export_error={@export_error}
+      />
     </.layout>
+    """
+  end
+
+  defp export_all_modal(assigns) do
+    ~H"""
+    <div
+      id="export-all-modal"
+      class="fixed inset-0 z-50 overflow-y-auto"
+      aria-labelledby="export-modal-title"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+        <div
+          class="fixed inset-0 bg-slate-900/50 dark:bg-slate-900/75 transition-opacity"
+          phx-click="close_export_modal"
+        >
+        </div>
+
+        <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-slate-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+          <div class="px-4 pb-4 pt-5 sm:p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 sm:mx-0 sm:h-10 sm:w-10">
+                <.phx_icon
+                  name="hero-shield-exclamation"
+                  class="h-6 w-6 text-amber-600 dark:text-amber-400"
+                />
+              </div>
+              <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left flex-1">
+                <h3
+                  class="text-base font-semibold leading-6 text-slate-900 dark:text-slate-100"
+                  id="export-modal-title"
+                >
+                  Export All Posts to Bluesky
+                </h3>
+                <div class="mt-2">
+                  <p class="text-sm text-slate-500 dark:text-slate-400">
+                    This will export all your Mosslet posts to your connected Bluesky account.
+                    Please confirm your password to continue.
+                  </p>
+                  <div class="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                    <div class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-information-circle"
+                        class="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+                      />
+                      <div class="text-xs text-amber-700 dark:text-amber-300">
+                        <strong>Privacy Note:</strong> Posts will be published publicly on Bluesky.
+                        Private and connections-only posts will need to be decrypted during this session.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%= if @export_error do %>
+                  <div class="mt-3 p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg border border-rose-200 dark:border-rose-700">
+                    <p class="text-sm text-rose-600 dark:text-rose-400">
+                      <.phx_icon name="hero-exclamation-circle" class="h-4 w-4 inline" />
+                      {@export_error}
+                    </p>
+                  </div>
+                <% end %>
+
+                <.form
+                  id="export-password-form"
+                  for={@export_password_form}
+                  phx-submit="confirm_export_all"
+                  class="mt-4"
+                >
+                  <div>
+                    <label
+                      for="export_password_password"
+                      class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+                    >
+                      Mosslet Password
+                    </label>
+                    <.phx_input
+                      field={@export_password_form[:password]}
+                      type="password"
+                      placeholder="Enter your password"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      autocomplete="current-password"
+                    />
+                  </div>
+
+                  <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                    <DesignSystem.liquid_button
+                      type="submit"
+                      variant="primary"
+                      color="blue"
+                      icon="hero-arrow-up-tray"
+                    >
+                      Export All Posts
+                    </DesignSystem.liquid_button>
+                    <DesignSystem.liquid_button
+                      type="button"
+                      variant="secondary"
+                      color="slate"
+                      phx-click="close_export_modal"
+                    >
+                      Cancel
+                    </DesignSystem.liquid_button>
+                  </div>
+                </.form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     """
   end
 
@@ -235,6 +357,47 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </span>
               </label>
 
+              <div class={[
+                "ml-7 mt-2",
+                if(!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_from_bsky].value,
+                  do: "opacity-50"
+                )
+              ]}>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Import visibility
+                </label>
+                <select
+                  name="sync[import_visibility]"
+                  disabled={
+                    !@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_from_bsky].value
+                  }
+                  class="w-48 text-sm px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent disabled:opacity-50"
+                >
+                  <option value="private" selected={@sync_form[:import_visibility].value == :private}>
+                    🔒 Private (only you)
+                  </option>
+                  <option
+                    value="connections"
+                    selected={@sync_form[:import_visibility].value == :connections}
+                  >
+                    👥 Connections
+                  </option>
+                  <option value="public" selected={@sync_form[:import_visibility].value == :public}>
+                    🌐 Public
+                  </option>
+                </select>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <%= case @sync_form[:import_visibility].value do %>
+                    <% :private -> %>
+                      Posts are encrypted for your eyes only
+                    <% :connections -> %>
+                      Visible to your Mosslet connections
+                    <% :public -> %>
+                      Publicly visible on Mosslet
+                  <% end %>
+                </p>
+              </div>
+
               <label class="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -255,6 +418,44 @@ defmodule MossletWeb.BlueskySettingsLive do
               </label>
             </div>
           </.form>
+        </div>
+
+        <div class="border-t border-sky-200 dark:border-sky-700 pt-6">
+          <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
+            Manual Sync
+          </h4>
+          <div class="flex flex-wrap gap-3">
+            <DesignSystem.liquid_button
+              variant="secondary"
+              color="blue"
+              icon="hero-arrow-down-tray"
+              phx-click="trigger_import"
+              disabled={!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_from_bsky].value}
+            >
+              Import from Bluesky
+            </DesignSystem.liquid_button>
+            <DesignSystem.liquid_button
+              variant="secondary"
+              color="blue"
+              icon="hero-arrow-up-tray"
+              phx-click="trigger_export"
+              disabled={!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_to_bsky].value}
+            >
+              Export Public Posts
+            </DesignSystem.liquid_button>
+            <DesignSystem.liquid_button
+              variant="secondary"
+              color="emerald"
+              icon="hero-cloud-arrow-up"
+              phx-click="show_export_all_modal"
+              disabled={!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_to_bsky].value}
+            >
+              Export All Posts
+            </DesignSystem.liquid_button>
+          </div>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Sync runs automatically in the background. Use these buttons to trigger an immediate sync.
+          </p>
         </div>
 
         <div class="border-t border-sky-200 dark:border-sky-700 pt-6">
@@ -364,7 +565,7 @@ defmodule MossletWeb.BlueskySettingsLive do
             <.phx_input
               field={@connect_form[:handle]}
               type="text"
-              placeholder="yourname.bsky.social"
+              placeholder="your-name.bsky.social"
               class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
               disabled={@connecting}
             />
@@ -461,7 +662,7 @@ defmodule MossletWeb.BlueskySettingsLive do
                 <.phx_input
                   field={@create_form[:handle]}
                   type="text"
-                  placeholder="yourname"
+                  placeholder="your-name"
                   phx-debounce="500"
                   class={[
                     "w-full px-3 py-2 rounded-l-lg border border-r-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:border-transparent",
@@ -509,7 +710,7 @@ defmodule MossletWeb.BlueskySettingsLive do
                 </p>
               <% true -> %>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  This will be your Bluesky identity (e.g., yourname.bsky.social)
+                  This will be your Bluesky identity (e.g., your-name.bsky.social)
                 </p>
             <% end %>
           </div>
@@ -792,6 +993,91 @@ defmodule MossletWeb.BlueskySettingsLive do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to disconnect account.")}
+    end
+  end
+
+  def handle_event("trigger_import", _params, socket) do
+    account = socket.assigns.bluesky_account
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+
+    case account.import_visibility do
+      :public ->
+        case Bluesky.Workers.ImportSyncWorker.enqueue_import(account.id) do
+          {:ok, _job} ->
+            {:noreply,
+             socket
+             |> put_flash(:success, "Import from Bluesky started. Check your timeline shortly.")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to start import. Please try again.")}
+        end
+
+      _private_or_connections ->
+        case ImportTask.start(account, user, key) do
+          {:ok, _pid} ->
+            {:noreply,
+             socket
+             |> assign(import_progress: %{status: :started, imported: 0, total: 0})
+             |> put_flash(
+               :info,
+               "Import started. You can navigate away - progress will continue."
+             )}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to start import. Please try again.")}
+        end
+    end
+  end
+
+  def handle_event("trigger_export", _params, socket) do
+    account = socket.assigns.bluesky_account
+
+    case Bluesky.Workers.ExportSyncWorker.enqueue_export(account.id) do
+      {:ok, _job} ->
+        {:noreply,
+         socket
+         |> put_flash(:success, "Export to Bluesky started. Your public posts will sync shortly.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to start export. Please try again.")}
+    end
+  end
+
+  def handle_event("show_export_all_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(show_export_modal: true)
+     |> assign(export_error: nil)
+     |> assign(export_password_form: to_form(%{"password" => ""}, as: :export_password))}
+  end
+
+  def handle_event("close_export_modal", _params, socket) do
+    {:noreply, assign(socket, show_export_modal: false, export_error: nil)}
+  end
+
+  def handle_event(
+        "confirm_export_all",
+        %{"export_password" => %{"password" => password}},
+        socket
+      ) do
+    user = socket.assigns.current_scope.user
+    account = socket.assigns.bluesky_account
+    key = socket.assigns.current_scope.key
+
+    if User.valid_password?(user, password) do
+      case ExportTask.start(account, user, key) do
+        {:ok, _pid} ->
+          {:noreply,
+           socket
+           |> assign(show_export_modal: false, export_error: nil)
+           |> put_flash(:info, "Export started. You can navigate away - progress will continue.")}
+
+        {:error, _} ->
+          {:noreply, assign(socket, export_error: "Failed to start export. Please try again.")}
+      end
+    else
+      {:noreply, assign(socket, export_error: "Invalid password. Please try again.")}
     end
   end
 

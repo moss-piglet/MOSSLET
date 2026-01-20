@@ -1189,6 +1189,94 @@ defmodule Mosslet.Timeline.Adapters.Native do
   end
 
   # =============================================================================
+  # Bluesky Sync Operations
+  # =============================================================================
+
+  @impl true
+  def post_exists_by_external_uri?(_uri, _bluesky_account_id) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.post_exists_by_external_uri?(token, _uri, _bluesky_account_id) do
+        {:ok, %{exists: exists}} -> exists
+        {:error, _reason} -> false
+      end
+    else
+      false
+    end
+  end
+
+  @impl true
+  def create_bluesky_import_post(attrs, opts) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.create_bluesky_import_post(token, attrs, opts) do
+        {:ok, %{post: post_data}} -> {:ok, deserialize_post(post_data)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - cannot create bluesky import post"}
+    end
+  end
+
+  @impl true
+  def get_unexported_public_posts(user_id, limit \\ 10) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.get_unexported_public_posts(token, user_id, limit) do
+        {:ok, %{posts: posts_data}} -> Enum.map(posts_data || [], &deserialize_post/1)
+        {:error, _reason} -> []
+      end
+    else
+      []
+    end
+  end
+
+  @impl true
+  def get_post_for_export(post_id) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.get_post_for_export(token, post_id) do
+        {:ok, %{post: post_data}} -> deserialize_post(post_data)
+        {:error, _reason} -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  @impl true
+  def mark_post_as_synced_to_bluesky(post, uri, cid) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.mark_post_as_synced_to_bluesky(token, post.id, uri, cid) do
+        {:ok, %{post: post_data}} -> {:ok, deserialize_post(post_data)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - cannot mark post as synced to Bluesky"}
+    end
+  end
+
+  @impl true
+  def clear_bluesky_sync_info(post) do
+    token = get_token()
+
+    if Sync.online?() && token do
+      case Client.clear_bluesky_sync_info(token, post.id) do
+        {:ok, %{post: post_data}} -> {:ok, deserialize_post(post_data)}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, "Offline - cannot clear Bluesky sync info"}
+    end
+  end
+
+  # =============================================================================
   # Timeline Listing Functions (called by context after caching logic)
   # =============================================================================
 

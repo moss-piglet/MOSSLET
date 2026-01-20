@@ -29,6 +29,10 @@ defmodule Mosslet.Bluesky.Account do
     field :sync_posts_from_bsky, :boolean, default: false
     field :auto_delete_from_bsky, :boolean, default: false
 
+    field :import_visibility, Ecto.Enum,
+      values: [:public, :private, :connections],
+      default: :private
+
     field :last_synced_at, :utc_datetime
     field :last_cursor, Encrypted.Binary, redact: true
 
@@ -84,7 +88,8 @@ defmodule Mosslet.Bluesky.Account do
       :sync_enabled,
       :sync_posts_to_bsky,
       :sync_posts_from_bsky,
-      :auto_delete_from_bsky
+      :auto_delete_from_bsky,
+      :import_visibility
     ])
   end
 

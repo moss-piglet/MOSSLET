@@ -4363,4 +4363,84 @@ defmodule Mosslet.Timeline do
   defp cleanup_preview_image(post_id) do
     Mosslet.Timeline.Jobs.PreviewImageCleanupJob.schedule_cleanup(post_id)
   end
+
+  # =============================================================================
+  # Bluesky Sync Functions
+  # =============================================================================
+
+  @doc """
+  Checks if a post with the given external URI already exists for a Bluesky account.
+  Used to prevent duplicate imports.
+  """
+  def post_exists_by_external_uri?(uri, bluesky_account_id) do
+    adapter().post_exists_by_external_uri?(uri, bluesky_account_id)
+  end
+
+  @doc """
+  Creates a post imported from Bluesky.
+  Uses the bluesky_import_changeset to properly set source and external references.
+  """
+  def create_bluesky_import_post(attrs, opts) do
+    adapter().create_bluesky_import_post(attrs, opts)
+  end
+
+  @doc """
+  Gets public posts from a user that haven't been synced to Bluesky yet.
+  """
+  def get_unexported_public_posts(user_id, limit \\ 10) do
+    adapter().get_unexported_public_posts(user_id, limit)
+  end
+
+  @doc """
+  Gets a post for export to Bluesky.
+  Returns nil if the post is not exportable (not public, not from mosslet, etc).
+  """
+  def get_post_for_export(post_id) do
+    adapter().get_post_for_export(post_id)
+  end
+
+  @doc """
+  Marks a post as synced to Bluesky by storing the AT URI and CID.
+  """
+  def mark_post_as_synced_to_bluesky(post, uri, cid) do
+    adapter().mark_post_as_synced_to_bluesky(post, uri, cid)
+  end
+
+  @doc """
+  Clears Bluesky sync info from a post (after deletion from Bluesky).
+  Keeps the post on Mosslet but removes the Bluesky reference.
+  """
+  def clear_bluesky_sync_info(post) do
+    adapter().clear_bluesky_sync_info(post)
+  end
+
+  @doc """
+  Decrypts a post body for export to Bluesky.
+  """
+  def decrypt_post_body(post, user, key) do
+    case get_user_post_key_for_export(post, user, key) do
+      {:ok, post_key} ->
+        decrypted = Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})
+        {:ok, decrypted}
+
+      _ ->
+        {:error, :decryption_failed}
+    end
+  end
+
+  defp get_user_post_key_for_export(post, user, key) do
+    user_post = Enum.find(post.user_posts, &(&1.user_id == user.id))
+
+    if user_post do
+      case post.visibility do
+        :public ->
+          {:ok, Mosslet.Encrypted.Users.Utils.decrypt_public_item_key(user_post.key)}
+
+        _ ->
+          Mosslet.Encrypted.Users.Utils.decrypt_user_attrs_key(user_post.key, user, key)
+      end
+    else
+      {:error, :no_user_post}
+    end
+  end
 end
