@@ -81,6 +81,12 @@ defmodule MossletWeb.Router do
     get "/assetlinks.json", WellKnownController, :assetlinks
   end
 
+  scope "/oauth", MossletWeb do
+    pipe_through :api
+
+    get "/client-metadata.json", BlueskyOAuthController, :client_metadata
+  end
+
   scope "/", MossletWeb do
     pipe_through [:browser]
 
@@ -390,6 +396,30 @@ defmodule MossletWeb.Router do
 
     # Timeline image downloads
     get "/timeline/images/download/:token", TimelineImageDownloadController, :download_image
+  end
+
+  scope "/app", MossletWeb do
+    pipe_through [
+      :browser,
+      :authenticated,
+      :require_confirmed_user,
+      :require_session_key,
+      :maybe_require_connection,
+      :subscribed_entity
+    ]
+
+    get "/oauth/bluesky/authorize", BlueskyOAuthController, :authorize
+    get "/oauth/bluesky/callback", BlueskyOAuthController, :callback
+  end
+
+  scope "/app", MossletWeb do
+    pipe_through [
+      :browser,
+      :authenticated,
+      :require_confirmed_user,
+      :require_session_key,
+      :maybe_require_connection
+    ]
 
     live_session :require_authenticated_user,
       on_mount: [

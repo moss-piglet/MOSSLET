@@ -133,6 +133,7 @@ defmodule Mosslet.MixProject do
       {:image, "~> 0.59.0"},
       {:inflex, "~> 2.1.0"},
       {:jason, "~> 1.4"},
+      {:joken, "~> 2.6"},
       {:langchain, "~> 0.3.3"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:live_select, "~> 1.4"},
