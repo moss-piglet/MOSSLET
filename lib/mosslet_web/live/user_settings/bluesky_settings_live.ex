@@ -6,22 +6,42 @@ defmodule MossletWeb.BlueskySettingsLive do
 
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.Client
+  alias Mosslet.Encrypted.Users.Utils, as: EncryptedUtils
   alias MossletWeb.DesignSystem
 
   @impl true
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
     bluesky_account = Bluesky.get_account_for_user(user.id)
+    decrypted_email = EncryptedUtils.decrypt_user_data(user.email, user, key)
 
     {:ok,
      assign(socket,
        page_title: "Settings",
        bluesky_account: bluesky_account,
        connect_form: to_form(%{"handle" => "", "app_password" => ""}, as: :connect),
+       create_form:
+         to_form(
+           %{
+             "handle" => "",
+             "email" => decrypted_email,
+             "password" => "",
+             "password_confirmation" => "",
+             "invite_code" => ""
+           },
+           as: :create
+         ),
        sync_form: build_sync_form(bluesky_account),
+       mode: :connect,
        connecting: false,
+       creating: false,
        connection_error: nil,
-       show_app_password_help: false
+       creation_error: nil,
+       show_app_password_help: false,
+       invite_code_required: nil,
+       handle_status: nil,
+       checking_handle: false
      )}
   end
 
@@ -60,18 +80,66 @@ defmodule MossletWeb.BlueskySettingsLive do
               sync_form={@sync_form}
             />
           <% else %>
-            <.connect_account_card
-              connect_form={@connect_form}
-              connecting={@connecting}
-              connection_error={@connection_error}
-              show_app_password_help={@show_app_password_help}
-            />
+            <.mode_toggle_card mode={@mode} />
+
+            <%= if @mode == :connect do %>
+              <.connect_account_card
+                connect_form={@connect_form}
+                connecting={@connecting}
+                connection_error={@connection_error}
+                show_app_password_help={@show_app_password_help}
+              />
+            <% else %>
+              <.create_account_card
+                create_form={@create_form}
+                creating={@creating}
+                creation_error={@creation_error}
+                invite_code_required={@invite_code_required}
+                handle_status={@handle_status}
+                checking_handle={@checking_handle}
+              />
+            <% end %>
           <% end %>
 
           <.about_bluesky_card />
         </div>
       </DesignSystem.liquid_container>
     </.layout>
+    """
+  end
+
+  defp mode_toggle_card(assigns) do
+    ~H"""
+    <div class="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+      <button
+        type="button"
+        phx-click="set_mode"
+        phx-value-mode="connect"
+        class={[
+          "flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all",
+          if(@mode == :connect,
+            do: "bg-white dark:bg-slate-700 text-sky-700 dark:text-sky-400 shadow-sm",
+            else: "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+          )
+        ]}
+      >
+        <.phx_icon name="hero-link" class="h-4 w-4 inline mr-1.5" /> Connect Existing
+      </button>
+      <button
+        type="button"
+        phx-click="set_mode"
+        phx-value-mode="create"
+        class={[
+          "flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all",
+          if(@mode == :create,
+            do: "bg-white dark:bg-slate-700 text-sky-700 dark:text-sky-400 shadow-sm",
+            else: "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+          )
+        ]}
+      >
+        <.phx_icon name="hero-plus-circle" class="h-4 w-4 inline mr-1.5" /> Create New
+      </button>
+    </div>
     """
   end
 
@@ -334,6 +402,216 @@ defmodule MossletWeb.BlueskySettingsLive do
     """
   end
 
+  defp create_account_card(assigns) do
+    ~H"""
+    <DesignSystem.liquid_card class="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/10">
+      <:title>
+        <div class="flex items-center gap-3">
+          <div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-100 dark:from-emerald-900/30 dark:via-teal-900/25 dark:to-emerald-900/30">
+            <.phx_icon
+              name="hero-plus-circle"
+              class="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+            />
+          </div>
+          <span class="text-emerald-800 dark:text-emerald-200">Create Bluesky Account</span>
+        </div>
+      </:title>
+
+      <div class="space-y-6">
+        <p class="text-slate-600 dark:text-slate-400">
+          Create a new Bluesky account directly from Mosslet. Your account will be created on the
+          official Bluesky network and automatically connected.
+        </p>
+
+        <%= if @creation_error do %>
+          <div class="bg-rose-100 dark:bg-rose-900/30 rounded-lg p-4 border border-rose-200 dark:border-rose-700">
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-exclamation-triangle"
+                class="h-5 w-5 mt-0.5 text-rose-600 dark:text-rose-400 flex-shrink-0"
+              />
+              <div>
+                <span class="font-medium text-sm text-rose-800 dark:text-rose-200">
+                  Account Creation Failed
+                </span>
+                <p class="text-sm text-rose-700 dark:text-rose-300 mt-1">
+                  {@creation_error}
+                </p>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <.form
+          id="create-bluesky-form"
+          for={@create_form}
+          phx-submit="create_account"
+          phx-change="validate_create"
+          class="space-y-4"
+        >
+          <div>
+            <label
+              for="create_handle"
+              class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+            >
+              Choose Your Handle
+            </label>
+            <div class="flex">
+              <div class="relative flex-1">
+                <.phx_input
+                  field={@create_form[:handle]}
+                  type="text"
+                  placeholder="yourname"
+                  phx-debounce="500"
+                  class={[
+                    "w-full px-3 py-2 rounded-l-lg border border-r-0 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:border-transparent",
+                    cond do
+                      @handle_status == :available -> "border-emerald-500 focus:ring-emerald-500"
+                      @handle_status == :taken -> "border-rose-500 focus:ring-rose-500"
+                      true -> "border-slate-300 dark:border-slate-600 focus:ring-emerald-500"
+                    end
+                  ]}
+                  disabled={@creating}
+                />
+                <%= if @checking_handle do %>
+                  <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                    <.phx_icon name="hero-arrow-path" class="h-4 w-4 text-slate-400 animate-spin" />
+                  </div>
+                <% end %>
+                <%= if !@checking_handle && @handle_status == :available do %>
+                  <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                    <.phx_icon name="hero-check-circle" class="h-4 w-4 text-emerald-500" />
+                  </div>
+                <% end %>
+                <%= if !@checking_handle && @handle_status == :taken do %>
+                  <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                    <.phx_icon name="hero-x-circle" class="h-4 w-4 text-rose-500" />
+                  </div>
+                <% end %>
+              </div>
+              <span class="inline-flex items-center px-3 rounded-r-lg border border-l-0 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm">
+                .bsky.social
+              </span>
+            </div>
+            <%= cond do %>
+              <% @handle_status == :available -> %>
+                <p class="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  <.phx_icon name="hero-check" class="h-3 w-3 inline" /> This handle is available!
+                </p>
+              <% @handle_status == :taken -> %>
+                <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                  <.phx_icon name="hero-x-mark" class="h-3 w-3 inline" /> This handle is already taken
+                </p>
+              <% @handle_status == :invalid -> %>
+                <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                  <.phx_icon name="hero-exclamation-triangle" class="h-3 w-3 inline" />
+                  Handle must be 3+ characters, letters and numbers only
+                </p>
+              <% true -> %>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  This will be your Bluesky identity (e.g., yourname.bsky.social)
+                </p>
+            <% end %>
+          </div>
+
+          <div>
+            <label
+              for="create_email"
+              class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+            >
+              Email Address
+            </label>
+            <.phx_input
+              field={@create_form[:email]}
+              type="email"
+              placeholder="you@example.com"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              disabled={@creating}
+            />
+          </div>
+
+          <div>
+            <label
+              for="create_password"
+              class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+            >
+              Password
+            </label>
+            <.phx_input
+              field={@create_form[:password]}
+              type="password"
+              placeholder="At least 8 characters"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              disabled={@creating}
+            />
+          </div>
+
+          <div>
+            <label
+              for="create_password_confirmation"
+              class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+            >
+              Confirm Password
+            </label>
+            <.phx_input
+              field={@create_form[:password_confirmation]}
+              type="password"
+              placeholder="Confirm your password"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              disabled={@creating}
+            />
+          </div>
+
+          <%= if @invite_code_required do %>
+            <div>
+              <label
+                for="create_invite_code"
+                class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+              >
+                Invite Code
+              </label>
+              <.phx_input
+                field={@create_form[:invite_code]}
+                type="text"
+                placeholder="bsky-social-xxxxx-xxxxx"
+                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                disabled={@creating}
+              />
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Bluesky currently requires an invite code. You can get one from an existing user.
+              </p>
+            </div>
+          <% end %>
+
+          <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-700">
+            <div class="flex items-start gap-3">
+              <.phx_icon
+                name="hero-shield-check"
+                class="h-5 w-5 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0"
+              />
+              <div class="text-sm text-amber-700 dark:text-amber-300">
+                <strong>Privacy Note:</strong>
+                This creates a real Bluesky account. Your posts synced to Bluesky will be public. Posts kept only on Mosslet remain encrypted and private.
+              </div>
+            </div>
+          </div>
+
+          <DesignSystem.liquid_button
+            type="submit"
+            variant="primary"
+            color="emerald"
+            icon={if @creating, do: "hero-arrow-path", else: "hero-plus-circle"}
+            disabled={@creating}
+            class={if @creating, do: "animate-pulse"}
+          >
+            {if @creating, do: "Creating Account...", else: "Create Bluesky Account"}
+          </DesignSystem.liquid_button>
+        </.form>
+      </div>
+    </DesignSystem.liquid_card>
+    """
+  end
+
   defp about_bluesky_card(assigns) do
     ~H"""
     <DesignSystem.liquid_card class="bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-900/20 dark:to-gray-900/10">
@@ -389,6 +667,82 @@ defmodule MossletWeb.BlueskySettingsLive do
     {:noreply, assign(socket, show_app_password_help: !socket.assigns.show_app_password_help)}
   end
 
+  def handle_event("set_mode", %{"mode" => mode}, socket) do
+    mode = String.to_existing_atom(mode)
+
+    socket =
+      if mode == :create && socket.assigns.invite_code_required == nil do
+        send(self(), :check_invite_requirement)
+        socket
+      else
+        socket
+      end
+
+    {:noreply, assign(socket, mode: mode, connection_error: nil, creation_error: nil)}
+  end
+
+  def handle_event("validate_create", %{"create" => params}, socket) do
+    handle_raw = String.trim(params["handle"] || "")
+    previous_handle = socket.assigns.create_form[:handle].value || ""
+
+    socket = assign(socket, create_form: to_form(params, as: :create))
+
+    socket =
+      if handle_raw != previous_handle && handle_raw != "" do
+        if valid_handle_format?(handle_raw) do
+          send(self(), {:check_handle_availability, handle_raw})
+          assign(socket, checking_handle: true, handle_status: nil)
+        else
+          assign(socket, checking_handle: false, handle_status: :invalid)
+        end
+      else
+        if handle_raw == "" do
+          assign(socket, checking_handle: false, handle_status: nil)
+        else
+          socket
+        end
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("create_account", %{"create" => params}, socket) do
+    handle_raw = String.trim(params["handle"] || "")
+    email = String.trim(params["email"] || "")
+    password = params["password"] || ""
+    password_confirmation = params["password_confirmation"] || ""
+    invite_code = String.trim(params["invite_code"] || "")
+
+    handle =
+      if String.contains?(handle_raw, ".") do
+        handle_raw
+      else
+        "#{handle_raw}.bsky.social"
+      end
+
+    cond do
+      handle_raw == "" ->
+        {:noreply, assign(socket, creation_error: "Please choose a handle.")}
+
+      email == "" ->
+        {:noreply, assign(socket, creation_error: "Please enter your email address.")}
+
+      String.length(password) < 8 ->
+        {:noreply, assign(socket, creation_error: "Password must be at least 8 characters.")}
+
+      password != password_confirmation ->
+        {:noreply, assign(socket, creation_error: "Passwords do not match.")}
+
+      socket.assigns.invite_code_required && invite_code == "" ->
+        {:noreply, assign(socket, creation_error: "An invite code is required.")}
+
+      true ->
+        socket = assign(socket, creating: true, creation_error: nil)
+        send(self(), {:do_create_account, handle, email, password, invite_code})
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("connect_account", %{"connect" => params}, socket) do
     handle = String.trim(params["handle"] || "")
     app_password = String.trim(params["app_password"] || "")
@@ -442,6 +796,114 @@ defmodule MossletWeb.BlueskySettingsLive do
   end
 
   @impl true
+  def handle_info(:check_invite_requirement, socket) do
+    case Client.describe_server() do
+      {:ok, %{inviteCodeRequired: true}} ->
+        {:noreply, assign(socket, invite_code_required: true)}
+
+      {:ok, _} ->
+        {:noreply, assign(socket, invite_code_required: false)}
+
+      {:error, _} ->
+        {:noreply, assign(socket, invite_code_required: false)}
+    end
+  end
+
+  def handle_info({:check_handle_availability, handle_raw}, socket) do
+    current_handle = socket.assigns.create_form[:handle].value || ""
+
+    if handle_raw != current_handle do
+      {:noreply, socket}
+    else
+      full_handle =
+        if String.contains?(handle_raw, ".") do
+          handle_raw
+        else
+          "#{handle_raw}.bsky.social"
+        end
+
+      status =
+        case Client.resolve_handle(full_handle) do
+          {:ok, %{did: _did}} -> :taken
+          {:error, {400, _}} -> :available
+          {:error, _} -> :available
+        end
+
+      if socket.assigns.create_form[:handle].value == handle_raw do
+        {:noreply, assign(socket, checking_handle: false, handle_status: status)}
+      else
+        {:noreply, socket}
+      end
+    end
+  end
+
+  def handle_info({:do_create_account, handle, email, password, invite_code}, socket) do
+    user = socket.assigns.current_scope.user
+
+    opts = if invite_code != "", do: [invite_code: invite_code], else: []
+
+    case Client.create_account(handle, email, password, opts) do
+      {:ok, session} ->
+        attrs = %{
+          did: session.did,
+          handle: session.handle,
+          access_jwt: session.accessJwt,
+          refresh_jwt: session.refreshJwt,
+          pds_url: "https://bsky.social"
+        }
+
+        case Bluesky.create_account(user, attrs) do
+          {:ok, account} ->
+            {:noreply,
+             socket
+             |> assign(bluesky_account: account)
+             |> assign(sync_form: build_sync_form(account))
+             |> assign(creating: false)
+             |> assign(creation_error: nil)
+             |> put_flash(:success, "Bluesky account created and connected successfully!")}
+
+          {:error, _changeset} ->
+            {:noreply,
+             socket
+             |> assign(creating: false)
+             |> assign(
+               creation_error:
+                 "Account created but failed to save. Please try connecting with your new credentials."
+             )}
+        end
+
+      {:error, {400, %{message: message}}} when is_binary(message) ->
+        {:noreply,
+         socket
+         |> assign(creating: false)
+         |> assign(creation_error: message)}
+
+      {:error, {_, %{message: "Handle already taken"}}} ->
+        {:noreply,
+         socket
+         |> assign(creating: false)
+         |> assign(creation_error: "This handle is already taken. Please choose a different one.")}
+
+      {:error, {_, %{error: "InvalidInviteCode"}}} ->
+        {:noreply,
+         socket
+         |> assign(creating: false)
+         |> assign(creation_error: "Invalid invite code. Please check and try again.")}
+
+      {:error, {_status, %{message: message}}} when is_binary(message) ->
+        {:noreply,
+         socket
+         |> assign(creating: false)
+         |> assign(creation_error: message)}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(creating: false)
+         |> assign(creation_error: "Account creation failed. Please try again later.")}
+    end
+  end
+
   def handle_info({:do_connect, handle, app_password}, socket) do
     user = socket.assigns.current_scope.user
 
@@ -520,5 +982,10 @@ defmodule MossletWeb.BlueskySettingsLive do
       diff < 604_800 -> "#{div(diff, 86400)} days ago"
       true -> Calendar.strftime(datetime, "%B %d, %Y")
     end
+  end
+
+  defp valid_handle_format?(handle) do
+    String.length(handle) >= 3 &&
+      Regex.match?(~r/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/, handle)
   end
 end

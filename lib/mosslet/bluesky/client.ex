@@ -42,6 +42,68 @@ defmodule Mosslet.Bluesky.Client do
         }
 
   @doc """
+  Creates a new Bluesky account on a PDS.
+
+  This allows users to create a Bluesky account directly from Mosslet,
+  which is a privacy-first onboarding experience.
+
+  ## Options
+
+    * `:pds_url` - PDS to create account on (default: bsky.social)
+    * `:invite_code` - Invite code if required by the PDS
+
+  ## Examples
+
+      {:ok, account} = create_account("alice.bsky.social", "alice@example.com", "securepassword123")
+      {:ok, account} = create_account("alice.bsky.social", "alice@example.com", "password", invite_code: "bsky-social-abc123")
+  """
+  @spec create_account(String.t(), String.t(), String.t(), keyword()) ::
+          {:ok, session()} | {:error, term()}
+  def create_account(handle, email, password, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    body =
+      %{
+        handle: handle,
+        email: email,
+        password: password
+      }
+      |> maybe_put(:inviteCode, opts[:invite_code])
+
+    request(:post, pds_url, "/xrpc/com.atproto.server.createAccount", body)
+  end
+
+  @doc """
+  Checks if a handle is available for registration.
+
+  ## Examples
+
+      {:ok, %{available: true}} = check_handle_availability("alice.bsky.social")
+  """
+  @spec check_handle_availability(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def check_handle_availability(handle, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    request(:get, pds_url, "/xrpc/com.atproto.server.checkAccountStatus", %{handle: handle})
+  end
+
+  @doc """
+  Describes the server capabilities and requirements.
+
+  Useful for checking if invite codes are required, etc.
+
+  ## Examples
+
+      {:ok, %{inviteCodeRequired: true, ...}} = describe_server()
+  """
+  @spec describe_server(keyword()) :: {:ok, map()} | {:error, term()}
+  def describe_server(opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    request(:get, pds_url, "/xrpc/com.atproto.server.describeServer", %{})
+  end
+
+  @doc """
   Creates a new authenticated session with Bluesky.
 
   Uses app passwords (not main account password) for security.
