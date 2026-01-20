@@ -2589,6 +2589,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
   def create_bluesky_import_post(attrs, opts) do
     user = opts[:user]
     post_key = opts[:trix_key] || Mosslet.Encrypted.Utils.generate_key()
+    visibility = attrs["visibility"] || "private"
 
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:insert_post, fn _changes ->
@@ -2603,7 +2604,7 @@ defmodule Mosslet.Timeline.Adapters.Web do
           post_id: post.id
         },
         user: user,
-        visibility: :private
+        visibility: visibility
       )
     end)
     |> Repo.transaction_on_primary()

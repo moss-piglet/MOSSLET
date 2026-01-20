@@ -91,9 +91,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
   end
 
   defp decrypt_post_body(post, user) do
-    key = get_user_key(user)
-
-    case Timeline.decrypt_post_body(post, user, key) do
+    case Timeline.decrypt_post_body(post, user, :server_key) do
       {:ok, body} -> body
       _ -> post.body
     end
@@ -115,10 +113,6 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
       {:error, _} ->
         {:error, :token_refresh_failed}
     end
-  end
-
-  defp get_user_key(_user) do
-    nil
   end
 
   def enqueue_export(account_id, opts \\ []) do

@@ -1,16 +1,16 @@
 defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   @moduledoc """
-  Oban worker for importing posts from Bluesky to Mosslet.
+  Oban worker for importing posts from Bluesky to Mosslet with PUBLIC visibility.
 
-  This worker fetches new posts from a user's Bluesky feed and stores
-  them encrypted on Mosslet, providing a private backup of their
-  public social media content.
+  This worker is ONLY used when `import_visibility` is `:public`. For private
+  or connections visibility, the `Mosslet.Bluesky.ImportTask` is used instead,
+  which runs during the user's active session and has access to their session key.
 
   Posts are imported with:
-  - Full encryption at rest
+  - Full encryption at rest (using server keys for public visibility)
   - Source tracking (source: :bluesky)
   - Original AT URI and CID preserved
-  - Visibility set to :private by default
+  - Visibility set to :public (server-key encrypted)
   """
   use Oban.Worker, queue: :bluesky_sync, max_attempts: 3
 
@@ -93,7 +93,7 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
       "body" => post_data.record.text,
       "username" => account.handle,
       "user_id" => user.id,
-      "visibility" => "private",
+      "visibility" => "public",
       "source" => "bluesky",
       "external_uri" => post_data.uri,
       "external_cid" => post_data.cid,
@@ -102,7 +102,7 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
 
     opts = [
       user: user,
-      key: get_user_key(user),
+      key: :server_key,
       trix_key: post_key,
       bluesky_import: true
     ]
@@ -130,10 +130,6 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
 
         {:error, :token_refresh_failed}
     end
-  end
-
-  defp get_user_key(_user) do
-    nil
   end
 
   def enqueue_import(account_id, opts \\ []) do
