@@ -253,7 +253,12 @@ defmodule Mosslet.Bluesky.OAuth do
     "#{auth_endpoint}?#{query}"
   end
 
-  defp create_dpop_proof(private_jwk, public_jwk, http_method, http_uri, nonce \\ nil) do
+  @doc """
+  Creates a DPoP proof for authenticated API requests.
+
+  The proof must be created fresh for each request with the correct HTTP method and URL.
+  """
+  def create_dpop_proof(private_jwk, public_jwk, http_method, http_uri, nonce \\ nil) do
     jti = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
     iat = System.system_time(:second)
 

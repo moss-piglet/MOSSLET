@@ -664,9 +664,15 @@ defmodule Mosslet.Bluesky.Client do
     content_type = opts[:content_type] || "application/json"
     headers = [{"content-type", content_type}]
 
-    case opts[:auth] do
-      nil -> headers
-      token -> [{"authorization", "Bearer #{token}"} | headers]
+    case {opts[:auth], opts[:dpop_proof]} do
+      {nil, _} ->
+        headers
+
+      {token, nil} ->
+        [{"authorization", "Bearer #{token}"} | headers]
+
+      {token, dpop_proof} ->
+        [{"authorization", "DPoP #{token}"}, {"dpop", dpop_proof} | headers]
     end
   end
 

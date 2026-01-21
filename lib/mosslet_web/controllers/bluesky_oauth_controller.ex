@@ -134,8 +134,18 @@ defmodule MossletWeb.BlueskyOAuthController do
     end
   end
 
-  defp fetch_profile(access_token, did, _oauth_state) do
-    case Mosslet.Bluesky.Client.get_profile(access_token, did) do
+  defp fetch_profile(access_token, did, oauth_state) do
+    url = "https://bsky.social/xrpc/app.bsky.actor.getProfile"
+
+    {:ok, dpop_proof} =
+      OAuth.create_dpop_proof(
+        oauth_state.dpop_private_key_jwk,
+        oauth_state.dpop_public_key_jwk,
+        "GET",
+        url
+      )
+
+    case Mosslet.Bluesky.Client.get_profile(access_token, did, dpop_proof: dpop_proof) do
       {:ok, %{handle: handle}} ->
         {:ok, handle}
 
