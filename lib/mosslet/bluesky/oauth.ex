@@ -78,15 +78,8 @@ defmodule Mosslet.Bluesky.OAuth do
   Refreshes the access token using the refresh token.
   """
   def refresh_tokens(refresh_token, dpop_private_jwk, dpop_public_jwk) do
-    with {:ok, metadata} <- fetch_authorization_server_metadata(),
-         {:ok, dpop_proof} <-
-           create_dpop_proof(
-             dpop_private_jwk,
-             dpop_public_jwk,
-             "POST",
-             metadata["token_endpoint"]
-           ) do
-      request_token_refresh(metadata, refresh_token, dpop_proof)
+    with {:ok, metadata} <- fetch_authorization_server_metadata() do
+      request_token_refresh(metadata, refresh_token, dpop_private_jwk, dpop_public_jwk, nil)
     end
   end
 
@@ -319,7 +312,20 @@ defmodule Mosslet.Bluesky.OAuth do
   end
 
   defp request_tokens(metadata, code, state, redirect_uri, dpop_proof) do
+    request_tokens(metadata, code, state, redirect_uri, dpop_proof, nil)
+  end
+
+  defp request_tokens(metadata, code, state, redirect_uri, _dpop_proof, nonce) do
     token_endpoint = metadata["token_endpoint"]
+
+    {:ok, dpop_proof} =
+      create_dpop_proof(
+        state.dpop_private_key_jwk,
+        state.dpop_public_key_jwk,
+        "POST",
+        token_endpoint,
+        nonce
+      )
 
     body = %{
       "grant_type" => "authorization_code",
@@ -347,6 +353,18 @@ defmodule Mosslet.Bluesky.OAuth do
            sub: body["sub"]
          }}
 
+      {:ok, %{status: 400, headers: headers, body: %{"error" => "use_dpop_nonce"}}}
+      when is_nil(nonce) ->
+        case get_dpop_nonce(headers) do
+          {:ok, new_nonce} ->
+            request_tokens(metadata, code, state, redirect_uri, nil, new_nonce)
+
+          :error ->
+            {:error,
+             {:token_request_failed, 400,
+              %{"error" => "use_dpop_nonce", "error_description" => "No nonce in response"}}}
+        end
+
       {:ok, %{status: status, body: body}} ->
         Logger.error("Token request failed: #{status} - #{inspect(body)}")
         {:error, {:token_request_failed, status, body}}
@@ -357,8 +375,17 @@ defmodule Mosslet.Bluesky.OAuth do
     end
   end
 
-  defp request_token_refresh(metadata, refresh_token, dpop_proof) do
+  defp request_token_refresh(metadata, refresh_token, dpop_private_jwk, dpop_public_jwk, nonce) do
     token_endpoint = metadata["token_endpoint"]
+
+    {:ok, dpop_proof} =
+      create_dpop_proof(
+        dpop_private_jwk,
+        dpop_public_jwk,
+        "POST",
+        token_endpoint,
+        nonce
+      )
 
     body = %{
       "grant_type" => "refresh_token",
@@ -381,6 +408,24 @@ defmodule Mosslet.Bluesky.OAuth do
            token_type: body["token_type"],
            expires_in: body["expires_in"]
          }}
+
+      {:ok, %{status: 400, headers: headers, body: %{"error" => "use_dpop_nonce"}}}
+      when is_nil(nonce) ->
+        case get_dpop_nonce(headers) do
+          {:ok, new_nonce} ->
+            request_token_refresh(
+              metadata,
+              refresh_token,
+              dpop_private_jwk,
+              dpop_public_jwk,
+              new_nonce
+            )
+
+          :error ->
+            {:error,
+             {:token_refresh_failed, 400,
+              %{"error" => "use_dpop_nonce", "error_description" => "No nonce in response"}}}
+        end
 
       {:ok, %{status: status, body: body}} ->
         Logger.error("Token refresh failed: #{status} - #{inspect(body)}")
