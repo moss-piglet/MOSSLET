@@ -505,7 +505,8 @@ defmodule MossletWeb.BlueskySettingsLive do
       sync_enabled: params["sync_enabled"] == "true",
       sync_posts_to_bsky: params["sync_posts_to_bsky"] == "true",
       sync_posts_from_bsky: params["sync_posts_from_bsky"] == "true",
-      auto_delete_from_bsky: params["auto_delete_from_bsky"] == "true"
+      auto_delete_from_bsky: params["auto_delete_from_bsky"] == "true",
+      import_visibility: parse_visibility(params["import_visibility"])
     }
 
     case Bluesky.update_sync_settings(account, attrs) do
@@ -629,11 +630,17 @@ defmodule MossletWeb.BlueskySettingsLive do
         "sync_enabled" => account.sync_enabled,
         "sync_posts_to_bsky" => account.sync_posts_to_bsky,
         "sync_posts_from_bsky" => account.sync_posts_from_bsky,
-        "auto_delete_from_bsky" => account.auto_delete_from_bsky
+        "auto_delete_from_bsky" => account.auto_delete_from_bsky,
+        "import_visibility" => account.import_visibility
       },
       as: :sync
     )
   end
+
+  defp parse_visibility("public"), do: :public
+  defp parse_visibility("private"), do: :private
+  defp parse_visibility("connections"), do: :connections
+  defp parse_visibility(_), do: :private
 
   defp format_last_sync(nil), do: "never"
 

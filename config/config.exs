@@ -156,7 +156,8 @@ config :mosslet, Oban,
     email_notifications: 5,
     security: 3,
     key_rotation: 5,
-    backups: 1
+    backups: 1,
+    bluesky_sync: 3
   ],
   peer: Oban.Peers.Global
 
