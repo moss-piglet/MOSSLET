@@ -151,6 +151,32 @@ defmodule Mosslet.Bluesky.Client do
   end
 
   @doc """
+  Permanently deletes the user's Bluesky account.
+
+  This is an irreversible operation that removes all data associated with
+  the account from the PDS.
+
+  ## Options
+
+    * `:pds_url` - PDS where the account is hosted (default: bsky.social)
+
+  ## Examples
+
+      :ok = delete_bluesky_account(access_jwt, did)
+  """
+  @spec delete_bluesky_account(String.t(), String.t(), keyword()) :: :ok | {:error, term()}
+  def delete_bluesky_account(access_jwt, did, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    body = %{did: did}
+
+    case request(:post, pds_url, "/xrpc/com.atproto.server.deleteAccount", body, auth: access_jwt) do
+      {:ok, _} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
+  @doc """
   Gets the current session info.
   """
   @spec get_session(String.t(), keyword()) :: {:ok, map()} | {:error, term()}

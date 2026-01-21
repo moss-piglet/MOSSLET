@@ -7,6 +7,7 @@ defmodule MossletWeb.DeleteAccountLive do
   import Mosslet.FileUploads.Storj
 
   alias Mosslet.Accounts
+  alias Mosslet.Bluesky
   alias Mosslet.Encrypted
   alias Mosslet.Billing.Referrals
   alias Mosslet.Billing.Subscriptions
@@ -412,6 +413,49 @@ defmodule MossletWeb.DeleteAccountLive do
                 </p>
               </div>
 
+              <div :if={@bluesky_account} class="space-y-4">
+                <div class="bg-gradient-to-br from-sky-50/50 to-blue-50/30 dark:from-sky-900/20 dark:to-blue-900/10 rounded-xl p-4 border border-sky-200/60 dark:border-sky-700/60">
+                  <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 pt-0.5">
+                      <input
+                        type="checkbox"
+                        id="delete-bluesky-account"
+                        name="user[delete_bluesky_account]"
+                        value="true"
+                        checked={@delete_bluesky_account}
+                        class="h-4 w-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500 dark:border-sky-600 dark:bg-slate-800"
+                      />
+                    </div>
+                    <div class="space-y-1">
+                      <label
+                        for="delete-bluesky-account"
+                        class="block text-sm font-medium text-sky-800 dark:text-sky-200 cursor-pointer"
+                      >
+                        Also delete my Bluesky account
+                      </label>
+                      <p class="text-xs text-sky-600 dark:text-sky-400 leading-relaxed">
+                        Your Bluesky account (@{@bluesky_account.handle}) is connected. Check this to permanently delete it along with your MOSSLET account. This cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  :if={@bluesky_deletion_error}
+                  class="bg-gradient-to-r from-rose-100/80 to-pink-100/80 dark:from-rose-900/30 dark:to-pink-900/30 rounded-xl p-4 border border-rose-200/60 dark:border-rose-700/60"
+                >
+                  <div class="flex items-start gap-3">
+                    <.phx_icon
+                      name="hero-exclamation-triangle"
+                      class="h-5 w-5 mt-0.5 text-rose-600 dark:text-rose-400 flex-shrink-0"
+                    />
+                    <p class="text-sm text-rose-700 dark:text-rose-300">
+                      {@bluesky_deletion_error}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <%!-- Action Buttons --%>
               <div class="flex flex-col sm:flex-row sm:justify-between gap-4 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
                 <DesignSystem.liquid_button
@@ -518,6 +562,7 @@ defmodule MossletWeb.DeleteAccountLive do
       Referrals.get_referrer_deletion_info(current_user.id, current_user, session_key)
 
     referred_info = Referrals.get_referred_user_deletion_info(current_user.id)
+    bluesky_account = Bluesky.get_account_for_user(current_user.id)
 
     {:ok,
      assign(socket,
@@ -527,6 +572,9 @@ defmodule MossletWeb.DeleteAccountLive do
        billing_provider: billing_provider(),
        referrer_info: referrer_info,
        referred_info: referred_info,
+       bluesky_account: bluesky_account,
+       delete_bluesky_account: false,
+       bluesky_deletion_error: nil,
        form: to_form(Accounts.change_user_delete_account(current_user))
      )}
   end
@@ -546,10 +594,14 @@ defmodule MossletWeb.DeleteAccountLive do
       |> Map.put(:action, :validate)
       |> to_form()
 
+    delete_bluesky = user_params["delete_bluesky_account"] == "true"
+
     {:noreply,
      assign(socket,
        form: form,
-       current_password: user_params["current_password"]
+       current_password: user_params["current_password"],
+       delete_bluesky_account: delete_bluesky,
+       bluesky_deletion_error: nil
      )}
   end
 
@@ -560,7 +612,39 @@ defmodule MossletWeb.DeleteAccountLive do
       ) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
+    bluesky_account = socket.assigns.bluesky_account
+    delete_bluesky = user_params["delete_bluesky_account"] == "true"
 
+    if delete_bluesky && bluesky_account do
+      case delete_bluesky_account_first(bluesky_account) do
+        :ok ->
+          proceed_with_account_deletion(socket, user, key, user_params)
+
+        {:error, reason} ->
+          Logger.error("Failed to delete Bluesky account: #{inspect(reason)}")
+
+          {:noreply,
+           assign(socket,
+             bluesky_deletion_error:
+               "There was an issue trying to delete your Bluesky account. Please uncheck the option and delete your Bluesky account separately from Bluesky's settings."
+           )}
+      end
+    else
+      proceed_with_account_deletion(socket, user, key, user_params)
+    end
+  end
+
+  defp delete_bluesky_account_first(bluesky_account) do
+    pds_url = bluesky_account.pds_url || "https://bsky.social"
+
+    Bluesky.Client.delete_bluesky_account(
+      bluesky_account.access_jwt,
+      bluesky_account.did,
+      pds_url: pds_url
+    )
+  end
+
+  defp proceed_with_account_deletion(socket, user, key, user_params) do
     # if a stripe account hasn't been created yet
     stripe_customer_id =
       if user.customer && user.customer.provider_customer_id do
