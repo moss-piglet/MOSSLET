@@ -148,31 +148,42 @@ defmodule MossletWeb.JournalLive.Index do
               </div>
             </div>
             <div :if={!@loading_insights} class="flex items-center gap-2">
-              <button
-                type="button"
-                phx-click="refresh_insights"
-                disabled={!@can_refresh}
-                id="refresh-insights-btn"
+              <span
+                id="refresh-insights-wrapper"
                 phx-hook="TippyHook"
-                aria-label={
-                  if @can_refresh,
-                    do: "Get fresh insights",
-                    else: "Available in #{@hours_until_refresh}h"
-                }
                 data-tippy-content={
                   if @can_refresh,
                     do: "Get fresh insights",
                     else: "Available in #{@hours_until_refresh}h"
                 }
-                class={[
-                  "p-1.5 rounded-lg transition-all",
-                  @can_refresh &&
-                    "text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50",
-                  !@can_refresh && "text-violet-300 dark:text-violet-600 cursor-not-allowed"
-                ]}
+                class="inline-flex"
               >
-                <.phx_icon name="hero-sparkles" class="h-4 w-4" />
-              </button>
+                <button
+                  type="button"
+                  phx-click="refresh_insights"
+                  disabled={!@can_refresh}
+                  id="refresh-insights-btn"
+                  aria-label={
+                    if @can_refresh,
+                      do: "Get fresh insights",
+                      else: "Available in #{@hours_until_refresh}h"
+                  }
+                  class={[
+                    "p-1.5 rounded-lg transition-all",
+                    @can_refresh &&
+                      "text-violet-400 hover:text-violet-600 hover:bg-violet-100 dark:hover:text-violet-300 dark:hover:bg-violet-800/50",
+                    !@can_refresh && "text-violet-400 dark:text-violet-600 cursor-not-allowed"
+                  ]}
+                >
+                  <.phx_icon
+                    name="hero-sparkles"
+                    class={[
+                      "h-4 w-4",
+                      !@can_refresh && "animate-pulse"
+                    ]}
+                  />
+                </button>
+              </span>
               <button
                 type="button"
                 phx-click="toggle_mood_insights"
