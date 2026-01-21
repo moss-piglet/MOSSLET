@@ -112,7 +112,7 @@ defmodule MossletWeb.JournalLive.Entry do
         type="focus"
         current_scope={@current_scope}
         current_page={:journal}
-        back_path={~p"/app/journal"}
+        back_path={@back_path}
         has_unsaved_changes={@has_unsaved_changes}
         saving={@saving}
         privacy_active={@privacy_active}
@@ -285,6 +285,7 @@ defmodule MossletWeb.JournalLive.Entry do
      |> assign(:entry_matches_scope, true)
      |> assign(:entry_book_title, nil)
      |> assign(:show_markdown_guide, false)
+     |> assign(:return_view, nil)
      |> JournalHelpers.assign_privacy_state(user)}
   end
 
@@ -295,12 +296,31 @@ defmodule MossletWeb.JournalLive.Entry do
 
   defp apply_action(socket, :new, params) do
     book_id = params["book_id"]
+    return_view = params["view"]
+    return_page = params["page"]
     changeset = Journal.change_journal_entry(%JournalEntry{})
+
+    back_path =
+      cond do
+        book_id && return_view && return_page ->
+          ~p"/app/journal/books/#{book_id}?view=#{return_view}&page=#{return_page}"
+
+        book_id && return_view ->
+          ~p"/app/journal/books/#{book_id}?view=#{return_view}"
+
+        book_id ->
+          ~p"/app/journal/books/#{book_id}"
+
+        true ->
+          ~p"/app/journal"
+      end
 
     socket
     |> assign(:page_title, "New Entry")
     |> assign(:entry, nil)
     |> assign(:book_id, book_id)
+    |> assign(:return_view, return_view)
+    |> assign(:back_path, back_path)
     |> assign(:form, to_form(changeset, as: :journal_entry))
     |> assign(:has_unsaved_changes, false)
     |> assign(:last_saved_at, nil)
@@ -720,10 +740,20 @@ defmodule MossletWeb.JournalLive.Entry do
           |> assign(:pending_params, nil)
 
         if opts[:navigate] do
+          return_view = socket.assigns.return_view
+
+          destination =
+            if return_view == "reading" && book_id do
+              total_entries = Journal.count_book_entries(book_id)
+              ~p"/app/journal/books/#{book_id}?view=reading&page=#{total_entries}"
+            else
+              ~p"/app/journal/#{entry.id}"
+            end
+
           {:noreply,
            socket
            |> put_flash(:info, "Entry saved")
-           |> push_navigate(to: ~p"/app/journal/#{entry.id}")}
+           |> push_navigate(to: destination)}
         else
           {:noreply,
            socket

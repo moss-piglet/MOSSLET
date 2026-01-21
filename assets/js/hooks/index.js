@@ -1,5 +1,6 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import AutoResize from "./auto-resize";
+import BookReaderSwipe from "./book-reader-swipe";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
@@ -51,6 +52,7 @@ import PostExpandHook from "./post-expand-hook";
 
 export default {
   AutoResize,
+  BookReaderSwipe,
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,

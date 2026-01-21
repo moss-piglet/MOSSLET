@@ -122,14 +122,20 @@ defmodule Mosslet.Journal.Adapters.Web do
     limit = Keyword.get(opts, :limit, 20)
     offset = Keyword.get(opts, :offset, 0)
     book_id = Keyword.get(opts, :book_id)
+    order = Keyword.get(opts, :order, :desc)
 
     query =
       from(j in JournalEntry,
         where: j.user_id == ^user.id,
-        order_by: [desc: j.entry_date, desc: j.inserted_at],
         limit: ^limit,
         offset: ^offset
       )
+
+    query =
+      case order do
+        :asc -> from(j in query, order_by: [asc: j.entry_date, asc: j.inserted_at])
+        _ -> from(j in query, order_by: [desc: j.entry_date, desc: j.inserted_at])
+      end
 
     query =
       if book_id do

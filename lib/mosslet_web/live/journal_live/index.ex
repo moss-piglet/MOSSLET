@@ -2189,7 +2189,7 @@ defmodule MossletWeb.JournalLive.Index do
                  {:ok, blob} <-
                    Image.write(resized_image, :memory,
                      suffix: ".webp",
-                     minimize_file_size: true
+                     quality: 85
                    ),
                  _ <- send(lv_pid, {:cover_upload_stage, {:encrypting, 75}}),
                  {:ok, e_blob} <- prepare_encrypted_cover_blob(blob, user, key),
@@ -2350,7 +2350,7 @@ defmodule MossletWeb.JournalLive.Index do
   defp resize_cover_image(image) do
     width = Image.width(image)
     height = Image.height(image)
-    max_dimension = 800
+    max_dimension = 1200
 
     if width > max_dimension or height > max_dimension do
       Image.thumbnail(image, "#{max_dimension}x#{max_dimension}")

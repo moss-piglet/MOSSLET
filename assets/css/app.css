@@ -1071,6 +1071,12 @@ trix-editor {
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* Hide cursor after inactivity (for immersive reading) */
+.cursor-hidden,
+.cursor-hidden * {
+  cursor: none !important;
+}
+
 /* Phoenix LiveView Data-Confirm Dialog - Liquid Metal Styling */
 dialog[data-confirm] {
   border: none;

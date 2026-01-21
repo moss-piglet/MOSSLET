@@ -4,6 +4,8 @@ defmodule MossletWeb.JournalLive.Book do
   """
   use MossletWeb, :live_view
 
+  import MossletWeb.LocalTime, only: [local_time: 1]
+
   alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.JournalBook
@@ -12,6 +14,49 @@ defmodule MossletWeb.JournalLive.Book do
 
   @impl true
   def render(assigns) do
+    ~H"""
+    <%= if @view_mode == "reading" and @entries != [] do %>
+      <.immersive_reading_layout
+        current_scope={@current_scope}
+        book={@book}
+        decrypted_title={@decrypted_title}
+        decrypted_cover_image_url={@decrypted_cover_image_url}
+        entries={@entries}
+        page_spread={@page_spread}
+        current_page={@current_page}
+        flash={@flash}
+        privacy_active={@privacy_active}
+        privacy_countdown={@privacy_countdown}
+        privacy_needs_password={@privacy_needs_password}
+        privacy_form={@privacy_form}
+      />
+    <% else %>
+      <.book_sidebar_view
+        current_scope={@current_scope}
+        book={@book}
+        decrypted_title={@decrypted_title}
+        decrypted_description={@decrypted_description}
+        decrypted_cover_image_url={@decrypted_cover_image_url}
+        entries={@entries}
+        view_mode={@view_mode}
+        page_spread={@page_spread}
+        has_more={@has_more}
+        show_edit_modal={@show_edit_modal}
+        book_form={@book_form}
+        uploads={@uploads}
+        cover_upload_stage={@cover_upload_stage}
+        current_cover_src={@current_cover_src}
+        cover_loading={@cover_loading}
+        privacy_active={@privacy_active}
+        privacy_countdown={@privacy_countdown}
+        privacy_needs_password={@privacy_needs_password}
+        privacy_form={@privacy_form}
+      />
+    <% end %>
+    """
+  end
+
+  defp book_sidebar_view(assigns) do
     ~H"""
     <.layout
       type="sidebar"
@@ -222,9 +267,22 @@ defmodule MossletWeb.JournalLive.Book do
                 <time class="text-xs text-slate-500 dark:text-slate-400">
                   {format_date(entry.entry_date)}
                 </time>
-                <span :if={entry.mood} class="text-lg" title={entry.mood}>
-                  {DesignSystem.mood_emoji(entry.mood)}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span :if={entry.mood} class="text-lg" title={entry.mood}>
+                    {DesignSystem.mood_emoji(entry.mood)}
+                  </span>
+                  <button
+                    type="button"
+                    phx-click="delete_entry"
+                    phx-value-id={entry.id}
+                    data-confirm="Are you sure you want to delete this entry?"
+                    class="p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+                    title="Delete entry"
+                    onclick="event.stopPropagation()"
+                  >
+                    <.phx_icon name="hero-trash" class="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -381,6 +439,701 @@ defmodule MossletWeb.JournalLive.Book do
     """
   end
 
+  attr :current_scope, :map, required: true
+  attr :book, :map, required: true
+  attr :decrypted_title, :string, required: true
+  attr :decrypted_cover_image_url, :string, default: nil
+  attr :entries, :list, required: true
+  attr :page_spread, :integer, required: true
+  attr :current_page, :integer, required: true
+  attr :flash, :map, required: true
+  attr :privacy_active, :boolean, required: true
+  attr :privacy_countdown, :integer, required: true
+  attr :privacy_needs_password, :boolean, required: true
+  attr :privacy_form, :map, required: true
+
+  defp immersive_reading_layout(assigns) do
+    total_entries = length(assigns.entries)
+    current_page = assigns.current_page
+    page_spread = assigns.page_spread
+
+    show_mobile_front_cover = current_page == 0
+    show_desktop_front_cover = page_spread == 0
+
+    show_mobile_copyright = current_page == total_entries + 1
+    show_mobile_back_cover = current_page == total_entries + 2
+
+    mobile_entry_idx =
+      cond do
+        show_mobile_front_cover -> nil
+        show_mobile_copyright -> nil
+        show_mobile_back_cover -> nil
+        true -> current_page - 1
+      end
+
+    mobile_entry = if mobile_entry_idx, do: Enum.at(assigns.entries, mobile_entry_idx), else: nil
+    mobile_page_num = if show_mobile_front_cover, do: 0, else: current_page
+
+    last_entry_spread = div(total_entries - 1, 2) + 1
+    even_entries? = rem(total_entries, 2) == 0
+    copyright_spread = last_entry_spread + 1
+    back_cover_spread = if even_entries?, do: copyright_spread + 1, else: last_entry_spread + 1
+
+    left_entry_idx = if show_desktop_front_cover, do: nil, else: (page_spread - 1) * 2
+    right_entry_idx = if show_desktop_front_cover, do: nil, else: (page_spread - 1) * 2 + 1
+    left_entry = if left_entry_idx, do: Enum.at(assigns.entries, left_entry_idx), else: nil
+    right_entry = if right_entry_idx, do: Enum.at(assigns.entries, right_entry_idx), else: nil
+
+    show_desktop_copyright_spread = even_entries? && page_spread == copyright_spread
+
+    show_desktop_copyright_right =
+      (left_entry != nil && right_entry == nil && page_spread == last_entry_spread) ||
+        show_desktop_copyright_spread
+
+    show_desktop_back_cover = page_spread == back_cover_spread
+
+    total_pages = total_entries + 3
+    max_spread = back_cover_spread
+
+    assigns =
+      assigns
+      |> assign(:total_entries, total_entries)
+      |> assign(:total_pages, total_pages)
+      |> assign(:max_spread, max_spread)
+      |> assign(:show_mobile_front_cover, show_mobile_front_cover)
+      |> assign(:show_desktop_front_cover, show_desktop_front_cover)
+      |> assign(:show_mobile_copyright, show_mobile_copyright)
+      |> assign(:show_mobile_back_cover, show_mobile_back_cover)
+      |> assign(:show_desktop_copyright_spread, show_desktop_copyright_spread)
+      |> assign(:show_desktop_copyright_right, show_desktop_copyright_right)
+      |> assign(:show_desktop_back_cover, show_desktop_back_cover)
+      |> assign(:left_entry, left_entry)
+      |> assign(:right_entry, right_entry)
+      |> assign(
+        :left_page_num,
+        if(show_desktop_front_cover, do: 0, else: (page_spread - 1) * 2 + 1)
+      )
+      |> assign(
+        :right_page_num,
+        if(show_desktop_front_cover, do: 0, else: (page_spread - 1) * 2 + 2)
+      )
+      |> assign(:mobile_entry, mobile_entry)
+      |> assign(:mobile_page_num, mobile_page_num)
+
+    ~H"""
+    <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
+      <.phx_flash_group flash={@flash} />
+    </div>
+    <div
+      id="immersive-reader"
+      class="min-h-screen bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
+      x-data="{ headerVisible: true, footerVisible: true, cursorVisible: true, scrollY: 0, lastScrollY: 0, userInteracted: false, hintVisible: true, hideTimer: null, cursorTimer: null, touchStartX: 0, touchEndX: 0, isMobile: window.innerWidth < 768, startHideTimer() { clearTimeout(this.hideTimer); this.hideTimer = setTimeout(() => { this.headerVisible = false; this.footerVisible = false; }, 2000); }, startCursorTimer() { clearTimeout(this.cursorTimer); this.cursorTimer = setTimeout(() => { this.cursorVisible = false; }, 3000); } }"
+      x-init="
+        hideTimer = setTimeout(() => { if (!userInteracted) { headerVisible = false; footerVisible = false; } }, 2500);
+        cursorTimer = setTimeout(() => { cursorVisible = false; }, 3000);
+        setTimeout(() => { hintVisible = false; }, 4000);
+        window.addEventListener('resize', () => { isMobile = window.innerWidth < 768; });
+        $watch('scrollY', value => {
+          const diff = value - lastScrollY;
+          if (Math.abs(diff) > 10) {
+            headerVisible = diff < 0 || value < 50;
+            footerVisible = diff < 0 || value < 50;
+            lastScrollY = value;
+          }
+        });
+      "
+      x-bind:class="!cursorVisible && 'cursor-hidden'"
+      @mousemove="cursorVisible = true; startCursorTimer()"
+      @scroll.window="scrollY = window.scrollY"
+      @touchstart="touchStartX = $event.changedTouches[0].screenX"
+      @touchend="
+        touchEndX = $event.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 80) {
+          if (diff > 0) {
+            $dispatch('swipe-left');
+          } else {
+            $dispatch('swipe-right');
+          }
+        }
+      "
+      phx-hook="BookReaderSwipe"
+    >
+      <header
+        class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
+        x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'"
+        @mouseenter="headerVisible = true; footerVisible = true; userInteracted = true; clearTimeout(hideTimer)"
+        @mouseleave="startHideTimer()"
+      >
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-14">
+            <button
+              type="button"
+              phx-click="set_view_mode"
+              phx-value-mode="list"
+              aria-label="Exit Reading"
+              class="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+            >
+              <.phx_icon name="hero-list-bullet" class="h-4 w-4" />
+              <span class="hidden sm:inline">Exit Reading</span>
+            </button>
+
+            <div class="flex items-center gap-2">
+              <div
+                :if={@decrypted_cover_image_url}
+                class="hidden sm:block"
+              >
+                <img
+                  src={@decrypted_cover_image_url}
+                  class="h-8 w-auto rounded shadow-sm"
+                  alt=""
+                />
+              </div>
+              <div
+                :if={!@decrypted_cover_image_url}
+                class={[
+                  "hidden sm:flex h-8 w-6 rounded items-center justify-center",
+                  JournalHelpers.book_cover_gradient(@book.cover_color)
+                ]}
+              >
+                <.phx_icon name="hero-book-open" class="h-3.5 w-3.5 text-white/80" />
+              </div>
+              <h1 class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]">
+                {@decrypted_title}
+              </h1>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <DesignSystem.privacy_button
+                active={@privacy_active}
+                countdown={@privacy_countdown}
+                on_click="activate_privacy"
+              />
+              <MossletWeb.Layouts.theme_toggle />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div
+        class="fixed top-0 left-0 right-0 h-8 z-50"
+        x-show="!headerVisible"
+        @mouseenter="headerVisible = true; footerVisible = true; userInteracted = true"
+        @touchstart="headerVisible = true; footerVisible = true; userInteracted = true"
+      >
+      </div>
+
+      <main class="min-h-screen flex flex-col">
+        <div class="flex-1 flex md:flex-row min-h-screen md:justify-center">
+          <.immersive_front_cover
+            :if={@show_mobile_front_cover}
+            book={@book}
+            decrypted_title={@decrypted_title}
+            decrypted_cover_image_url={@decrypted_cover_image_url}
+            class="w-full md:hidden"
+          />
+          <.immersive_page
+            :if={@mobile_entry}
+            entry={@mobile_entry}
+            page_num={@mobile_page_num}
+            total={@total_entries}
+            side={if rem(@mobile_page_num, 2) == 1, do: "left", else: "right"}
+            book_id={@book.id}
+            page_spread={@page_spread}
+            class="w-full md:hidden"
+          />
+          <.immersive_copyright_page
+            :if={@show_mobile_copyright}
+            book={@book}
+            decrypted_title={@decrypted_title}
+            current_scope={@current_scope}
+            class="w-full md:hidden"
+          />
+          <.immersive_back_cover
+            :if={@show_mobile_back_cover}
+            book={@book}
+            decrypted_title={@decrypted_title}
+            decrypted_cover_image_url={@decrypted_cover_image_url}
+            current_scope={@current_scope}
+            class="w-full md:hidden"
+          />
+          <.immersive_front_cover
+            :if={@show_desktop_front_cover}
+            book={@book}
+            decrypted_title={@decrypted_title}
+            decrypted_cover_image_url={@decrypted_cover_image_url}
+            class="hidden md:flex w-full"
+          />
+          <.immersive_page
+            :if={!@show_desktop_front_cover && @left_entry}
+            entry={@left_entry}
+            page_num={@left_page_num}
+            total={@total_entries}
+            side="left"
+            book_id={@book.id}
+            page_spread={@page_spread}
+            class="hidden md:flex md:w-1/2"
+          />
+          <div
+            :if={!@show_desktop_front_cover}
+            class="hidden md:block w-px bg-gradient-to-b from-transparent via-slate-300 dark:via-slate-600 to-transparent absolute left-1/2 top-0 bottom-0 z-10"
+          />
+          <.immersive_page
+            :if={!@show_desktop_front_cover && @right_entry}
+            entry={@right_entry}
+            page_num={@right_page_num}
+            total={@total_entries}
+            side="right"
+            book_id={@book.id}
+            page_spread={@page_spread}
+            class="hidden md:flex md:w-1/2"
+          />
+          <.immersive_blank_page
+            :if={@show_desktop_copyright_spread}
+            side="left"
+            class="hidden md:flex md:w-1/2"
+          />
+          <.immersive_copyright_page
+            :if={@show_desktop_copyright_right}
+            book={@book}
+            decrypted_title={@decrypted_title}
+            current_scope={@current_scope}
+            class="hidden md:flex md:w-1/2"
+          />
+          <.immersive_back_cover
+            :if={@show_desktop_back_cover}
+            book={@book}
+            decrypted_title={@decrypted_title}
+            decrypted_cover_image_url={@decrypted_cover_image_url}
+            current_scope={@current_scope}
+            class="hidden md:flex w-full"
+          />
+        </div>
+      </main>
+
+      <footer
+        class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
+        x-bind:class="footerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'"
+        @mouseenter="footerVisible = true; headerVisible = true; userInteracted = true; clearTimeout(hideTimer)"
+        @mouseleave="startHideTimer()"
+      >
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="w-28">
+              <button
+                :if={@current_page > 0}
+                type="button"
+                phx-click="flip_page"
+                phx-value-direction="prev"
+                x-bind:phx-value-is_mobile="isMobile"
+                aria-label="Previous page"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              >
+                <.phx_icon name="hero-chevron-left" class="h-4 w-4" />
+                <span class="hidden sm:inline">
+                  {if @current_page == 1 or @page_spread == 1, do: "Close", else: "Previous"}
+                </span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <span
+                :if={@show_desktop_front_cover}
+                class="hidden md:inline text-xs text-slate-500 dark:text-slate-400"
+              >
+                Cover
+              </span>
+              <span
+                :if={!@show_desktop_front_cover && !@show_desktop_back_cover && @right_entry}
+                class="hidden md:inline text-xs text-slate-500 dark:text-slate-400"
+              >
+                {@left_page_num}-{@right_page_num} of {@total_entries}
+              </span>
+              <span
+                :if={@show_desktop_copyright_right}
+                class="hidden md:inline text-xs text-slate-500 dark:text-slate-400"
+              >
+                {@left_page_num} of {@total_entries} · The End
+              </span>
+              <span
+                :if={@show_desktop_back_cover}
+                class="hidden md:inline text-xs text-slate-500 dark:text-slate-400"
+              >
+                Back Cover
+              </span>
+              <span
+                :if={@show_mobile_front_cover}
+                class="md:hidden text-xs text-slate-500 dark:text-slate-400"
+              >
+                Cover
+              </span>
+              <span :if={@mobile_entry} class="md:hidden text-xs text-slate-500 dark:text-slate-400">
+                {@mobile_page_num} of {@total_entries}
+              </span>
+              <span
+                :if={@show_mobile_copyright}
+                class="md:hidden text-xs text-slate-500 dark:text-slate-400"
+              >
+                The End
+              </span>
+              <span
+                :if={@show_mobile_back_cover}
+                class="md:hidden text-xs text-slate-500 dark:text-slate-400"
+              >
+                Back Cover
+              </span>
+              <.link
+                navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@current_page}"}
+                aria-label="Add Entry"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all"
+              >
+                <.phx_icon name="hero-plus" class="h-3.5 w-3.5" />
+                <span class="hidden sm:inline">Add Entry</span>
+              </.link>
+            </div>
+
+            <div class="w-28 flex justify-end">
+              <button
+                :if={@current_page < @total_pages - 1}
+                type="button"
+                phx-click="flip_page"
+                phx-value-direction="next"
+                x-bind:phx-value-is_mobile="isMobile"
+                aria-label="Next page"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              >
+                <span class="hidden sm:inline">
+                  {if @show_mobile_copyright or @current_page == @total_entries,
+                    do: "Close",
+                    else: "Next"}
+                </span>
+                <.phx_icon name="hero-chevron-right" class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      <div
+        class="fixed bottom-0 left-0 right-0 h-4 z-50"
+        x-show="!footerVisible"
+        @mouseenter="headerVisible = true; footerVisible = true; userInteracted = true"
+        @touchstart="headerVisible = true; footerVisible = true; userInteracted = true"
+      >
+      </div>
+
+      <div
+        role="status"
+        aria-live="polite"
+        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+      >
+        <div
+          class="text-xs text-slate-400 dark:text-slate-500 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm px-3 py-1.5 rounded-full transition-opacity duration-500"
+          x-bind:class="hintVisible && !userInteracted ? 'opacity-100' : 'opacity-0'"
+        >
+          Use ← → keys or swipe to turn pages
+        </div>
+      </div>
+    </div>
+
+    <DesignSystem.privacy_screen
+      active={@privacy_active}
+      countdown={@privacy_countdown}
+      needs_password={@privacy_needs_password}
+      on_activate="activate_privacy"
+      on_reveal="reveal_content"
+      on_password_submit="verify_privacy_password"
+      privacy_form={@privacy_form}
+    />
+    """
+  end
+
+  attr :entry, :map, required: true
+  attr :page_num, :integer, required: true
+  attr :total, :integer, required: true
+  attr :side, :string, required: true
+  attr :book_id, :string, required: true
+  attr :page_spread, :integer, required: true
+  attr :class, :string, default: nil
+
+  defp immersive_page(assigns) do
+    is_odd = rem(assigns.page_num, 2) == 1
+
+    assigns = assign(assigns, :is_odd, is_odd)
+
+    ~H"""
+    <div
+      class={[
+        "h-screen max-h-[900px] bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-6 sm:p-10 md:p-12 cursor-pointer transition-all duration-200 hover:bg-white dark:hover:bg-slate-800 flex flex-col overflow-hidden relative",
+        @class
+      ]}
+      x-bind:class="cursorVisible && 'group'"
+      phx-click={
+        JS.navigate(
+          ~p"/app/journal/#{@entry.id}?scope=book&book_id=#{@book_id}&view=reading&page=#{@page_spread}"
+        )
+      }
+    >
+      <button
+        type="button"
+        phx-click="delete_entry"
+        phx-value-id={@entry.id}
+        data-confirm="Are you sure you want to rip this page from your journal? This will delete the page."
+        class="absolute top-20 right-6 sm:right-10 md:right-12 p-2 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 z-10"
+        title="Delete entry"
+        onclick="event.stopPropagation()"
+      >
+        <.phx_icon name="hero-trash" class="h-5 w-5" />
+      </button>
+      <div class="flex flex-col h-full pt-16 pb-4">
+        <div class="flex items-start justify-between mb-4 flex-shrink-0">
+          <div class="flex-1 min-w-0 pr-10">
+            <h2 class="text-xl sm:text-2xl md:text-3xl font-semibold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              {@entry.decrypted_title || "Untitled"}
+            </h2>
+            <time class="text-sm text-slate-500 dark:text-slate-400 mt-1 block">
+              {format_date(@entry.entry_date)}
+            </time>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span :if={@entry.is_favorite} class="text-amber-500 text-xl" title="Favorite">★</span>
+            <span :if={@entry.mood} class="text-2xl" title={@entry.mood}>
+              {DesignSystem.mood_emoji(@entry.mood)}
+            </span>
+          </div>
+        </div>
+
+        <div class="relative flex-1 min-h-0 overflow-hidden">
+          <div class="text-base sm:text-lg md:text-xl text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap h-full overflow-hidden">
+            {@entry.decrypted_body}
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white/90 dark:from-slate-800/90 to-transparent pointer-events-none" />
+        </div>
+
+        <div class="flex items-center justify-between pt-2 flex-shrink-0">
+          <span class={[
+            "text-sm font-serif italic text-slate-400 dark:text-slate-500",
+            if(@is_odd, do: "order-first", else: "order-last")
+          ]}>
+            {@page_num}
+          </span>
+          <span class="text-sm text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            Click to read full entry →
+          </span>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :book, :map, required: true
+  attr :decrypted_title, :string, required: true
+  attr :decrypted_cover_image_url, :string, default: nil
+  attr :class, :string, default: nil
+
+  defp immersive_front_cover(assigns) do
+    ~H"""
+    <div
+      class={[
+        "h-screen max-h-[900px] flex items-center justify-center relative overflow-hidden cursor-pointer",
+        @class
+      ]}
+      phx-click="flip_page"
+      phx-value-direction="next"
+      phx-value-is_mobile="true"
+    >
+      <div class="absolute inset-0 bg-gradient-to-br from-amber-50/50 via-stone-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
+      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
+
+      <div class="relative z-10 flex flex-col items-center px-6 pointer-events-none">
+        <div class="relative group perspective-1000">
+          <div class="absolute -inset-4 bg-gradient-to-br from-black/20 to-black/40 rounded-lg blur-xl opacity-50 group-hover:opacity-60 transition-opacity" />
+          <div class="absolute -inset-1 bg-gradient-to-br from-amber-200/30 dark:from-amber-500/10 to-transparent rounded-lg" />
+
+          <div
+            :if={@decrypted_cover_image_url}
+            class="relative rounded-lg overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10 transform transition-transform duration-300 group-hover:scale-[1.02]"
+          >
+            <div class="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/30 via-black/10 to-transparent z-10" />
+            <img
+              src={@decrypted_cover_image_url}
+              class="w-auto h-[55vh] min-h-[320px] max-h-[500px] object-cover"
+              alt={@decrypted_title}
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
+              <h1 class="text-xl sm:text-2xl font-serif font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] line-clamp-2">
+                {@decrypted_title}
+              </h1>
+              <p class="text-sm text-white/80 font-light italic mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                A Journal
+              </p>
+            </div>
+          </div>
+
+          <div
+            :if={!@decrypted_cover_image_url}
+            class={[
+              "relative w-56 sm:w-64 h-[360px] sm:h-[420px] rounded-lg shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10 flex flex-col items-center justify-center transform transition-transform duration-300 group-hover:scale-[1.02] overflow-hidden",
+              JournalHelpers.book_cover_gradient(@book.cover_color)
+            ]}
+          >
+            <div class="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/30 via-black/10 to-transparent" />
+            <div class="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/20" />
+
+            <div class="relative z-10 flex flex-col items-center px-6 text-center">
+              <div class="w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20 mb-6">
+                <.phx_icon name="hero-book-open" class="h-10 w-10 text-white/80" />
+              </div>
+              <h1 class="text-xl sm:text-2xl font-serif font-bold text-white drop-shadow-lg mb-3 line-clamp-3">
+                {@decrypted_title}
+              </h1>
+              <div class="w-12 h-0.5 bg-white/40 rounded-full mb-3" />
+              <p class="text-sm text-white/70 font-light italic">A Journal</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="mt-8 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2 animate-pulse">
+          <.phx_icon name="hero-chevron-right" class="h-4 w-4" />
+          <span>Swipe or tap to open</span>
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  attr :side, :string, required: true
+  attr :class, :string, default: nil
+
+  defp immersive_blank_page(assigns) do
+    ~H"""
+    <div class={[
+      "h-screen max-h-[900px] flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800",
+      @class
+    ]}>
+      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
+    </div>
+    """
+  end
+
+  attr :book, :map, required: true
+  attr :decrypted_title, :string, required: true
+  attr :decrypted_cover_image_url, :string, default: nil
+  attr :current_scope, :map, required: true
+  attr :class, :string, default: nil
+
+  defp immersive_copyright_page(assigns) do
+    decrypted_username =
+      decr(
+        assigns.current_scope.user.username,
+        assigns.current_scope.user,
+        assigns.current_scope.key
+      )
+
+    assigns = assign(assigns, :decrypted_username, decrypted_username)
+
+    ~H"""
+    <div class={[
+      "h-screen max-h-[900px] flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800",
+      @class
+    ]}>
+      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
+      <div class="relative z-10 text-center px-6 flex flex-col items-center">
+        <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
+          The End
+        </p>
+        <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mb-8" />
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  attr :book, :map, required: true
+  attr :decrypted_title, :string, required: true
+  attr :decrypted_cover_image_url, :string, default: nil
+  attr :current_scope, :map, required: true
+  attr :class, :string, default: nil
+
+  defp immersive_back_cover(assigns) do
+    decrypted_username =
+      decr(
+        assigns.current_scope.user.username,
+        assigns.current_scope.user,
+        assigns.current_scope.key
+      )
+
+    assigns = assign(assigns, :decrypted_username, decrypted_username)
+
+    ~H"""
+    <div
+      class={[
+        "h-screen max-h-[900px] flex items-center justify-center relative overflow-hidden cursor-pointer",
+        @class
+      ]}
+      phx-click="flip_page"
+      phx-value-direction="prev"
+      phx-value-is_mobile="true"
+    >
+      <div class="absolute inset-0 bg-gradient-to-br from-amber-50/50 via-stone-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
+      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
+
+      <div class="relative z-10 flex flex-col items-center px-6 pointer-events-none">
+        <div class="relative group perspective-1000">
+          <div class="absolute -inset-4 bg-gradient-to-br from-black/20 to-black/40 rounded-lg blur-xl opacity-50" />
+          <div class="absolute -inset-1 bg-gradient-to-br from-amber-200/30 dark:from-amber-500/10 to-transparent rounded-lg" />
+
+          <div
+            :if={@decrypted_cover_image_url}
+            class="relative rounded-lg overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10"
+          >
+            <div class="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/30 via-black/10 to-transparent z-10" />
+            <img
+              src={@decrypted_cover_image_url}
+              class="w-auto h-[55vh] min-h-[320px] max-h-[500px] object-cover"
+              alt={@decrypted_title}
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
+              <p class="text-sm text-white/70 font-light italic drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                A journal by {@decrypted_username}
+              </p>
+            </div>
+          </div>
+
+          <div
+            :if={!@decrypted_cover_image_url}
+            class={[
+              "relative w-56 sm:w-64 h-[360px] sm:h-[420px] rounded-lg shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-black/10 dark:ring-white/10 flex flex-col items-center justify-center overflow-hidden",
+              JournalHelpers.book_cover_gradient(@book.cover_color)
+            ]}
+          >
+            <div class="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-black/30 via-black/10 to-transparent" />
+            <div class="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/20" />
+
+            <div class="relative z-10 flex flex-col items-center px-6 text-center">
+              <div class="w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20 mb-6">
+                <.phx_icon name="hero-book-open" class="h-10 w-10 text-white/80" />
+              </div>
+              <p class="text-sm text-white/70 font-light italic">
+                A journal by {@decrypted_username}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p class="mt-8 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2 animate-pulse">
+          <.phx_icon name="hero-chevron-left" class="h-4 w-4" />
+          <span>Tap to open</span>
+        </p>
+      </div>
+    </div>
+    """
+  end
+
   @impl true
   def mount(%{"book_id" => book_id}, _session, socket) do
     user = socket.assigns.current_scope.user
@@ -407,7 +1160,7 @@ defmodule MossletWeb.JournalLive.Book do
 
         {:ok,
          socket
-         |> assign(:page_title, decrypted.title)
+         |> assign(:page_title, "Journal")
          |> assign(:book, book)
          |> assign(:decrypted_title, decrypted.title)
          |> assign(:decrypted_description, decrypted.description)
@@ -436,16 +1189,57 @@ defmodule MossletWeb.JournalLive.Book do
     view_mode = params["view"] || "list"
     view_mode = if view_mode in ["list", "pages", "reading"], do: view_mode, else: "list"
 
-    page_spread =
+    current_page =
       case Integer.parse(params["page"] || "") do
         {n, _} when n >= 0 -> n
         _ -> 0
       end
 
+    page_spread = if current_page == 0, do: 0, else: div(current_page + 1, 2)
+
+    prev_view_mode = socket.assigns[:view_mode]
+
+    socket =
+      cond do
+        prev_view_mode == nil and view_mode in ["reading", "pages"] ->
+          reload_entries_for_view_mode(socket, view_mode)
+
+        prev_view_mode != view_mode and view_mode in ["reading", "pages"] ->
+          reload_entries_for_view_mode(socket, view_mode)
+
+        prev_view_mode in ["reading", "pages"] and view_mode == "list" ->
+          reload_entries_for_view_mode(socket, view_mode)
+
+        true ->
+          socket
+      end
+
     {:noreply,
      socket
      |> assign(:view_mode, view_mode)
+     |> assign(:current_page, current_page)
      |> assign(:page_spread, page_spread)}
+  end
+
+  defp reload_entries_for_view_mode(socket, view_mode) do
+    user = socket.assigns.current_scope.user
+    key = socket.assigns.current_scope.key
+    book_id = socket.assigns.book.id
+
+    {order, limit} =
+      case view_mode do
+        "reading" -> {:asc, 500}
+        "pages" -> {:asc, 500}
+        _ -> {:desc, 20}
+      end
+
+    entries = Journal.list_journal_entries(user, book_id: book_id, limit: limit, order: order)
+    decrypted_entries = decrypt_entries(entries, user, key)
+
+    socket
+    |> assign(:entries, decrypted_entries)
+    |> assign(:offset, if(view_mode == "list", do: 20, else: length(entries)))
+    |> assign(:has_more, view_mode == "list" and length(entries) == 20)
   end
 
   @impl true
@@ -456,21 +1250,215 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   @impl true
-  def handle_event("flip_page", %{"direction" => direction}, socket) do
+  def handle_event("flip_page", %{"direction" => direction} = params, socket) do
     entries = socket.assigns.entries
-    current = socket.assigns.page_spread
-    max_spread = max(0, div(length(entries) - 1, 2))
+    total_entries = length(entries)
+    total_pages = total_entries + 3
+    current_page = socket.assigns.current_page
+    is_mobile = params["is_mobile"] == "true" or params["is_mobile"] == true
 
-    new_spread =
-      case direction do
-        "next" -> min(current + 1, max_spread)
-        "prev" -> max(current - 1, 0)
+    new_page =
+      if is_mobile do
+        case direction do
+          "next" -> min(current_page + 1, total_pages - 1)
+          "prev" -> max(current_page - 1, 0)
+        end
+      else
+        current_spread = socket.assigns.page_spread
+        last_entry_spread = div(total_entries - 1, 2) + 1
+        even_entries? = rem(total_entries, 2) == 0
+        copyright_spread = last_entry_spread + 1
+
+        back_cover_spread =
+          if even_entries?, do: copyright_spread + 1, else: last_entry_spread + 1
+
+        max_spread = back_cover_spread
+
+        new_spread =
+          case direction do
+            "next" -> min(current_spread + 1, max_spread)
+            "prev" -> max(current_spread - 1, 0)
+          end
+
+        if new_spread == 0, do: 0, else: (new_spread - 1) * 2 + 1
       end
 
     book_id = socket.assigns.book.id
 
     {:noreply,
-     push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=reading&page=#{new_spread}")}
+     push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=reading&page=#{new_page}")}
+  end
+
+  @impl true
+  def handle_event("keyboard_nav", %{"key" => key} = params, socket)
+      when key in ["ArrowLeft", "ArrowRight"] do
+    if socket.assigns.view_mode == "reading" do
+      direction = if key == "ArrowRight", do: "next", else: "prev"
+      entries = socket.assigns.entries
+      total_entries = length(entries)
+      total_pages = total_entries + 3
+      current_page = socket.assigns.current_page
+
+      width = params["width"] || 1024
+      is_mobile = width < 768
+
+      new_page =
+        if is_mobile do
+          case direction do
+            "next" -> min(current_page + 1, total_pages - 1)
+            "prev" -> max(current_page - 1, 0)
+          end
+        else
+          current_spread = socket.assigns.page_spread
+          last_entry_spread = div(total_entries - 1, 2) + 1
+          even_entries? = rem(total_entries, 2) == 0
+          copyright_spread = last_entry_spread + 1
+
+          back_cover_spread =
+            if even_entries?, do: copyright_spread + 1, else: last_entry_spread + 1
+
+          max_spread = back_cover_spread
+
+          new_spread =
+            case direction do
+              "next" -> min(current_spread + 1, max_spread)
+              "prev" -> max(current_spread - 1, 0)
+            end
+
+          if new_spread == 0, do: 0, else: (new_spread - 1) * 2 + 1
+        end
+
+      if new_page != current_page do
+        book_id = socket.assigns.book.id
+
+        {:noreply,
+         push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=reading&page=#{new_page}")}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("keyboard_nav", _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("swipe_navigate", %{"direction" => direction} = params, socket)
+      when direction in ["next", "prev"] do
+    if socket.assigns.view_mode == "reading" do
+      is_mobile = params["is_mobile"] == true
+      entries = socket.assigns.entries
+      total_entries = length(entries)
+      total_pages = total_entries + 3
+      current_page = socket.assigns.current_page
+
+      new_page =
+        if is_mobile do
+          case direction do
+            "next" -> min(current_page + 1, total_pages - 1)
+            "prev" -> max(current_page - 1, 0)
+          end
+        else
+          current_spread = socket.assigns.page_spread
+          last_entry_spread = div(total_entries - 1, 2) + 1
+          even_entries? = rem(total_entries, 2) == 0
+          copyright_spread = last_entry_spread + 1
+
+          back_cover_spread =
+            if even_entries?, do: copyright_spread + 1, else: last_entry_spread + 1
+
+          max_spread = back_cover_spread
+
+          new_spread =
+            case direction do
+              "next" -> min(current_spread + 1, max_spread)
+              "prev" -> max(current_spread - 1, 0)
+            end
+
+          if new_spread == 0, do: 0, else: (new_spread - 1) * 2 + 1
+        end
+
+      if new_page != current_page do
+        book_id = socket.assigns.book.id
+
+        {:noreply,
+         push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=reading&page=#{new_page}")}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event(
+        "viewport_changed",
+        %{"from_mobile" => from_mobile, "to_mobile" => to_mobile},
+        socket
+      ) do
+    if socket.assigns.view_mode == "reading" do
+      entries = socket.assigns.entries
+      total_entries = length(entries)
+      current_page = socket.assigns.current_page
+
+      last_entry_spread = div(total_entries - 1, 2) + 1
+      even_entries? = rem(total_entries, 2) == 0
+      copyright_spread = last_entry_spread + 1
+      back_cover_spread = if even_entries?, do: copyright_spread + 1, else: last_entry_spread + 1
+
+      mobile_copyright_page = total_entries + 1
+      mobile_back_cover_page = total_entries + 2
+
+      new_page =
+        cond do
+          from_mobile && !to_mobile ->
+            cond do
+              current_page == mobile_back_cover_page ->
+                (back_cover_spread - 1) * 2 + 1
+
+              current_page == mobile_copyright_page ->
+                if even_entries? do
+                  (copyright_spread - 1) * 2 + 1
+                else
+                  (last_entry_spread - 1) * 2 + 1
+                end
+
+              true ->
+                current_page
+            end
+
+          !from_mobile && to_mobile ->
+            current_spread = socket.assigns.page_spread
+
+            cond do
+              current_spread == back_cover_spread ->
+                mobile_back_cover_page
+
+              even_entries? && current_spread == copyright_spread ->
+                mobile_copyright_page
+
+              true ->
+                current_page
+            end
+
+          true ->
+            current_page
+        end
+
+      if new_page != current_page do
+        book_id = socket.assigns.book.id
+
+        {:noreply,
+         push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=reading&page=#{new_page}")}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -666,6 +1654,33 @@ defmodule MossletWeb.JournalLive.Book do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not delete book")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_entry", %{"id" => entry_id}, socket) do
+    user = socket.assigns.current_scope.user
+    book = socket.assigns.book
+
+    entry = Enum.find(socket.assigns.entries, &(&1.id == entry_id))
+
+    if entry do
+      case Journal.delete_journal_entry(entry, user) do
+        {:ok, _} ->
+          updated_entries = Enum.reject(socket.assigns.entries, &(&1.id == entry_id))
+          updated_book = %{book | entry_count: max(0, book.entry_count - 1)}
+
+          {:noreply,
+           socket
+           |> assign(:entries, updated_entries)
+           |> assign(:book, updated_book)
+           |> put_flash(:info, "Entry deleted")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not delete entry")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Entry not found")}
     end
   end
 
@@ -880,7 +1895,7 @@ defmodule MossletWeb.JournalLive.Book do
                  {:ok, blob} <-
                    Image.write(resized_image, :memory,
                      suffix: ".webp",
-                     minimize_file_size: true
+                     quality: 85
                    ),
                  _ <- send(lv_pid, {:cover_upload_stage, {:encrypting, 75}}),
                  {:ok, e_blob} <- prepare_encrypted_cover_blob(blob, user, key),
@@ -1041,7 +2056,7 @@ defmodule MossletWeb.JournalLive.Book do
   defp resize_cover_image(image) do
     width = Image.width(image)
     height = Image.height(image)
-    max_dimension = 800
+    max_dimension = 1200
 
     if width > max_dimension or height > max_dimension do
       Image.thumbnail(image, "#{max_dimension}x#{max_dimension}")
@@ -1075,17 +2090,28 @@ defmodule MossletWeb.JournalLive.Book do
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
         :for={{entry, idx} <- Enum.with_index(@entries)}
-        class="group bg-white dark:bg-slate-800/95 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg cursor-pointer transition-all duration-200"
+        class="group bg-white dark:bg-slate-800/95 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg cursor-pointer transition-all duration-200 relative"
         phx-click={
           JS.navigate(~p"/app/journal/#{entry.id}?scope=book&book_id=#{@book_id}&view=#{@view_mode}")
         }
       >
+        <button
+          type="button"
+          phx-click="delete_entry"
+          phx-value-id={entry.id}
+          data-confirm="Are you sure you want to delete this entry?"
+          class="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 z-10"
+          title="Delete entry"
+          onclick="event.stopPropagation()"
+        >
+          <.phx_icon name="hero-trash" class="h-4 w-4" />
+        </button>
         <div class="flex flex-col h-full min-h-[320px]">
           <div class="flex items-start justify-between mb-3">
-            <div class="flex-1 min-w-0">
-              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+            <div class="flex-1 min-w-0 pr-6">
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 {entry.decrypted_title || "Untitled"}
-              </h3>
+              </h2>
               <time class="text-xs text-slate-500 dark:text-slate-400">
                 {format_date(entry.entry_date)}
               </time>
@@ -1106,7 +2132,7 @@ defmodule MossletWeb.JournalLive.Book do
           </div>
 
           <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-            <span class="text-xs text-slate-400 dark:text-slate-500">Page {idx + 1}</span>
+            <span class="text-xs text-slate-600 dark:text-slate-400">Page {idx + 1}</span>
             <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
               Read →
             </span>
@@ -1273,8 +2299,8 @@ defmodule MossletWeb.JournalLive.Book do
   defp truncate_page_body(nil), do: ""
 
   defp truncate_page_body(body) do
-    if String.length(body) > 500 do
-      String.slice(body, 0, 500)
+    if String.length(body) > 1200 do
+      String.slice(body, 0, 1200)
     else
       body
     end
