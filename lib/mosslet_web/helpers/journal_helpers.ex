@@ -1,13 +1,26 @@
 defmodule MossletWeb.Helpers.JournalHelpers do
   @moduledoc """
-  Privacy helper functions shared across journal LiveViews (Index, Entry, Book).
-  Uses a shared GenServer to manage countdown state across LiveViews.
+  Shared helper functions across journal LiveViews (Index, Entry, Book).
+  Includes privacy management, date helpers, and UI helpers.
   """
 
   import Phoenix.Component, only: [assign: 3, to_form: 2]
   import Phoenix.LiveView, only: [get_connect_params: 1]
 
   alias Mosslet.Journal.PrivacyTimer
+
+  def book_cover_gradient("emerald"), do: "bg-gradient-to-br from-emerald-500 to-teal-600"
+  def book_cover_gradient("teal"), do: "bg-gradient-to-br from-teal-500 to-cyan-600"
+  def book_cover_gradient("cyan"), do: "bg-gradient-to-br from-cyan-500 to-blue-600"
+  def book_cover_gradient("blue"), do: "bg-gradient-to-br from-blue-500 to-indigo-600"
+  def book_cover_gradient("violet"), do: "bg-gradient-to-br from-violet-500 to-purple-600"
+  def book_cover_gradient("purple"), do: "bg-gradient-to-br from-purple-500 to-pink-600"
+  def book_cover_gradient("pink"), do: "bg-gradient-to-br from-pink-500 to-rose-600"
+  def book_cover_gradient("rose"), do: "bg-gradient-to-br from-rose-500 to-red-600"
+  def book_cover_gradient("amber"), do: "bg-gradient-to-br from-amber-500 to-orange-600"
+  def book_cover_gradient("orange"), do: "bg-gradient-to-br from-orange-500 to-red-600"
+  def book_cover_gradient("yellow"), do: "bg-gradient-to-br from-yellow-400 to-amber-500"
+  def book_cover_gradient(_), do: "bg-gradient-to-br from-slate-500 to-slate-600"
 
   def get_local_now(socket) do
     case get_connect_params(socket) do

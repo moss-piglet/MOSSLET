@@ -371,7 +371,22 @@ defmodule MossletWeb.JournalLive.Entry do
 
               if book do
                 decrypted_book = Journal.decrypt_book(book, user, key)
-                {scope_book_id, decrypted_book.title, ~p"/app/journal/books/#{scope_book_id}"}
+                view = params["view"]
+                page = params["page"]
+
+                path =
+                  cond do
+                    view && page ->
+                      ~p"/app/journal/books/#{scope_book_id}?view=#{view}&page=#{page}"
+
+                    view ->
+                      ~p"/app/journal/books/#{scope_book_id}?view=#{view}"
+
+                    true ->
+                      ~p"/app/journal/books/#{scope_book_id}"
+                  end
+
+                {scope_book_id, decrypted_book.title, path}
               else
                 {entry.book_id, nil, ~p"/app/journal"}
               end

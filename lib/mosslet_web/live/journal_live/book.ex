@@ -80,7 +80,7 @@ defmodule MossletWeb.JournalLive.Book do
               <div class="flex items-center gap-4">
                 <div class={[
                   "h-14 w-14 sm:h-16 sm:w-16 rounded-xl flex items-center justify-center flex-shrink-0",
-                  book_cover_gradient(@book.cover_color)
+                  JournalHelpers.book_cover_gradient(@book.cover_color)
                 ]}>
                   <.phx_icon name="hero-book-open" class="h-7 w-7 sm:h-8 sm:w-8 text-white/80" />
                 </div>
@@ -125,6 +125,56 @@ defmodule MossletWeb.JournalLive.Book do
           <% end %>
         </div>
 
+        <div :if={@entries != []} class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+            <button
+              type="button"
+              phx-click="set_view_mode"
+              phx-value-mode="list"
+              class={[
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200",
+                if(@view_mode == "list",
+                  do: "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm",
+                  else:
+                    "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-list-bullet" class="h-4 w-4" /> List
+            </button>
+            <button
+              type="button"
+              phx-click="set_view_mode"
+              phx-value-mode="pages"
+              class={[
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200",
+                if(@view_mode == "pages",
+                  do: "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm",
+                  else:
+                    "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-squares-2x2" class="h-4 w-4" /> Pages
+            </button>
+            <button
+              type="button"
+              phx-click="set_view_mode"
+              phx-value-mode="reading"
+              class={[
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200",
+                if(@view_mode == "reading",
+                  do: "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm",
+                  else:
+                    "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                )
+              ]}
+            >
+              <.phx_icon name="hero-book-open" class="h-4 w-4" /> Reading
+            </button>
+          </div>
+        </div>
+
         <div :if={@entries == []} class="text-center py-16">
           <.phx_icon
             name="hero-document-text"
@@ -144,11 +194,15 @@ defmodule MossletWeb.JournalLive.Book do
           </.link>
         </div>
 
-        <div :if={@entries != []} class="space-y-3">
+        <div :if={@entries != [] && @view_mode == "list"} class="space-y-3">
           <div
             :for={entry <- @entries}
             class="group bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors cursor-pointer"
-            phx-click={JS.navigate(~p"/app/journal/#{entry.id}")}
+            phx-click={
+              JS.navigate(
+                ~p"/app/journal/#{entry.id}?scope=book&book_id=#{@book.id}&view=#{@view_mode}"
+              )
+            }
           >
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
@@ -169,14 +223,27 @@ defmodule MossletWeb.JournalLive.Book do
                   {format_date(entry.entry_date)}
                 </time>
                 <span :if={entry.mood} class="text-lg" title={entry.mood}>
-                  {mood_emoji(entry.mood)}
+                  {DesignSystem.mood_emoji(entry.mood)}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <div :if={@has_more} class="mt-6 text-center">
+        <div :if={@entries != [] && @view_mode == "pages"} class="py-4">
+          <.pages_grid_view entries={@entries} book_id={@book.id} view_mode={@view_mode} />
+        </div>
+
+        <div :if={@entries != [] && @view_mode == "reading"} class="py-4">
+          <.book_reading_view
+            entries={@entries}
+            page_spread={@page_spread}
+            book_id={@book.id}
+            view_mode={@view_mode}
+          />
+        </div>
+
+        <div :if={@has_more && @view_mode == "list"} class="mt-6 text-center">
           <button
             phx-click="load_more"
             class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
@@ -225,7 +292,7 @@ defmodule MossletWeb.JournalLive.Book do
                   :for={color <- JournalBook.cover_colors()}
                   class={[
                     "relative w-10 h-10 rounded-lg cursor-pointer transition-all",
-                    book_cover_gradient(color),
+                    JournalHelpers.book_cover_gradient(color),
                     if(@book_form[:cover_color].value == color,
                       do: "ring-2 ring-offset-2 ring-slate-900 dark:ring-white",
                       else: "hover:scale-110"
@@ -365,8 +432,45 @@ defmodule MossletWeb.JournalLive.Book do
   end
 
   @impl true
-  def handle_params(_params, _url, socket) do
-    {:noreply, socket}
+  def handle_params(params, _url, socket) do
+    view_mode = params["view"] || "list"
+    view_mode = if view_mode in ["list", "pages", "reading"], do: view_mode, else: "list"
+
+    page_spread =
+      case Integer.parse(params["page"] || "") do
+        {n, _} when n >= 0 -> n
+        _ -> 0
+      end
+
+    {:noreply,
+     socket
+     |> assign(:view_mode, view_mode)
+     |> assign(:page_spread, page_spread)}
+  end
+
+  @impl true
+  def handle_event("set_view_mode", %{"mode" => mode}, socket)
+      when mode in ["list", "pages", "reading"] do
+    book_id = socket.assigns.book.id
+    {:noreply, push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=#{mode}")}
+  end
+
+  @impl true
+  def handle_event("flip_page", %{"direction" => direction}, socket) do
+    entries = socket.assigns.entries
+    current = socket.assigns.page_spread
+    max_spread = max(0, div(length(entries) - 1, 2))
+
+    new_spread =
+      case direction do
+        "next" -> min(current + 1, max_spread)
+        "prev" -> max(current - 1, 0)
+      end
+
+    book_id = socket.assigns.book.id
+
+    {:noreply,
+     push_patch(socket, to: ~p"/app/journal/books/#{book_id}?view=reading&page=#{new_spread}")}
   end
 
   @impl true
@@ -732,19 +836,6 @@ defmodule MossletWeb.JournalLive.Book do
     end
   end
 
-  defp book_cover_gradient("emerald"), do: "bg-gradient-to-br from-emerald-500 to-teal-600"
-  defp book_cover_gradient("teal"), do: "bg-gradient-to-br from-teal-500 to-cyan-600"
-  defp book_cover_gradient("cyan"), do: "bg-gradient-to-br from-cyan-500 to-blue-600"
-  defp book_cover_gradient("blue"), do: "bg-gradient-to-br from-blue-500 to-indigo-600"
-  defp book_cover_gradient("violet"), do: "bg-gradient-to-br from-violet-500 to-purple-600"
-  defp book_cover_gradient("purple"), do: "bg-gradient-to-br from-purple-500 to-pink-600"
-  defp book_cover_gradient("pink"), do: "bg-gradient-to-br from-pink-500 to-rose-600"
-  defp book_cover_gradient("rose"), do: "bg-gradient-to-br from-rose-500 to-red-600"
-  defp book_cover_gradient("amber"), do: "bg-gradient-to-br from-amber-500 to-orange-600"
-  defp book_cover_gradient("orange"), do: "bg-gradient-to-br from-orange-500 to-red-600"
-  defp book_cover_gradient("yellow"), do: "bg-gradient-to-br from-yellow-400 to-amber-500"
-  defp book_cover_gradient(_), do: "bg-gradient-to-br from-slate-500 to-slate-600"
-
   defp is_cover_processing?(nil), do: false
   defp is_cover_processing?({:ready, _}), do: false
   defp is_cover_processing?({:error, _}), do: false
@@ -971,5 +1062,221 @@ defmodule MossletWeb.JournalLive.Book do
     storage_key = Ecto.UUID.generate()
     file_path = "uploads/journal/covers/#{user_id}/#{storage_key}.webp"
     {:ok, file_path}
+  end
+
+  attr :entries, :list, required: true
+  attr :book_id, :string, required: true
+  attr :view_mode, :string, required: true
+
+  defp pages_grid_view(assigns) do
+    assigns = assign(assigns, :total_entries, length(assigns.entries))
+
+    ~H"""
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div
+        :for={{entry, idx} <- Enum.with_index(@entries)}
+        class="group bg-white dark:bg-slate-800/95 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg cursor-pointer transition-all duration-200"
+        phx-click={
+          JS.navigate(~p"/app/journal/#{entry.id}?scope=book&book_id=#{@book_id}&view=#{@view_mode}")
+        }
+      >
+        <div class="flex flex-col h-full min-h-[320px]">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex-1 min-w-0">
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                {entry.decrypted_title || "Untitled"}
+              </h3>
+              <time class="text-xs text-slate-500 dark:text-slate-400">
+                {format_date(entry.entry_date)}
+              </time>
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+              <span :if={entry.is_favorite} class="text-amber-500 text-sm" title="Favorite">★</span>
+              <span :if={entry.mood} class="text-base" title={entry.mood}>
+                {DesignSystem.mood_emoji(entry.mood)}
+              </span>
+            </div>
+          </div>
+
+          <div class="relative flex-1 overflow-hidden">
+            <div class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-[12]">
+              {entry.decrypted_body || ""}
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-slate-800/95 to-transparent pointer-events-none" />
+          </div>
+
+          <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <span class="text-xs text-slate-400 dark:text-slate-500">Page {idx + 1}</span>
+            <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+              Read →
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :entries, :list, required: true
+  attr :page_spread, :integer, required: true
+  attr :book_id, :string, required: true
+  attr :view_mode, :string, required: true
+
+  defp book_reading_view(assigns) do
+    left_idx = assigns.page_spread * 2
+    right_idx = left_idx + 1
+    entries = assigns.entries
+    total_entries = length(entries)
+    max_spread = max(0, div(total_entries - 1, 2))
+
+    assigns =
+      assigns
+      |> assign(:left_entry, Enum.at(entries, left_idx))
+      |> assign(:right_entry, Enum.at(entries, right_idx))
+      |> assign(:max_spread, max_spread)
+      |> assign(:total_entries, total_entries)
+      |> assign(:left_page_num, left_idx + 1)
+      |> assign(:right_page_num, right_idx + 1)
+
+    ~H"""
+    <div class="relative">
+      <div class="flex flex-col md:flex-row gap-4 md:gap-0">
+        <.book_page
+          entry={@left_entry}
+          page_num={@left_page_num}
+          total={@total_entries}
+          side="left"
+          book_id={@book_id}
+          view_mode={@view_mode}
+          page_spread={@page_spread}
+        />
+        <div class="hidden md:block w-px bg-gradient-to-b from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
+        <.book_page
+          :if={@right_entry}
+          entry={@right_entry}
+          page_num={@right_page_num}
+          total={@total_entries}
+          side="right"
+          book_id={@book_id}
+          view_mode={@view_mode}
+          page_spread={@page_spread}
+        />
+        <div
+          :if={!@right_entry}
+          class="hidden md:flex flex-1 min-h-[400px] bg-slate-50/50 dark:bg-slate-800/30 rounded-r-xl items-center justify-center"
+        >
+          <p class="text-sm text-slate-400 dark:text-slate-500 italic">End of book</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-6 px-2">
+        <button
+          type="button"
+          phx-click="flip_page"
+          phx-value-direction="prev"
+          disabled={@page_spread == 0}
+          class={[
+            "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+            if(@page_spread == 0,
+              do: "text-slate-300 dark:text-slate-600 cursor-not-allowed",
+              else:
+                "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+            )
+          ]}
+        >
+          <.phx_icon name="hero-chevron-left" class="h-5 w-5" /> Previous
+        </button>
+        <span class="text-sm text-slate-500 dark:text-slate-400">
+          Pages {@left_page_num}-{min(@right_page_num, @total_entries)} of {@total_entries}
+        </span>
+        <button
+          type="button"
+          phx-click="flip_page"
+          phx-value-direction="next"
+          disabled={@page_spread >= @max_spread}
+          class={[
+            "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+            if(@page_spread >= @max_spread,
+              do: "text-slate-300 dark:text-slate-600 cursor-not-allowed",
+              else:
+                "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+            )
+          ]}
+        >
+          Next <.phx_icon name="hero-chevron-right" class="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  attr :entry, :map, required: true
+  attr :page_num, :integer, required: true
+  attr :total, :integer, required: true
+  attr :side, :string, required: true
+  attr :book_id, :string, required: true
+  attr :view_mode, :string, required: true
+  attr :page_spread, :integer, required: true
+
+  defp book_page(assigns) do
+    ~H"""
+    <div
+      class={[
+        "flex-1 min-h-[400px] bg-white dark:bg-slate-800/95 p-6 cursor-pointer group transition-all duration-200 hover:shadow-lg",
+        if(@side == "left",
+          do: "rounded-l-xl md:rounded-r-none rounded-xl md:rounded-xl",
+          else: "rounded-r-xl md:rounded-l-none rounded-xl md:rounded-xl"
+        )
+      ]}
+      phx-click={
+        JS.navigate(
+          ~p"/app/journal/#{@entry.id}?scope=book&book_id=#{@book_id}&view=#{@view_mode}&page=#{@page_spread}"
+        )
+      }
+    >
+      <div class="flex flex-col h-full">
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex-1 min-w-0">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              {@entry.decrypted_title || "Untitled"}
+            </h3>
+            <time class="text-xs text-slate-500 dark:text-slate-400">
+              {format_date(@entry.entry_date)}
+            </time>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span :if={@entry.is_favorite} class="text-amber-500" title="Favorite">★</span>
+            <span :if={@entry.mood} class="text-lg" title={@entry.mood}>
+              {DesignSystem.mood_emoji(@entry.mood)}
+            </span>
+          </div>
+        </div>
+
+        <div class="relative flex-1 overflow-hidden">
+          <div class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+            {truncate_page_body(@entry.decrypted_body)}
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-slate-800/95 to-transparent pointer-events-none" />
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+          <span class="text-xs text-slate-400 dark:text-slate-500">Page {@page_num}</span>
+          <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            Click to read →
+          </span>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp truncate_page_body(nil), do: ""
+
+  defp truncate_page_body(body) do
+    if String.length(body) > 500 do
+      String.slice(body, 0, 500)
+    else
+      body
+    end
   end
 end
