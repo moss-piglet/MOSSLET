@@ -29,10 +29,11 @@ defmodule MossletWeb.ReaderLayout do
     ~H"""
     <div
       class="min-h-screen bg-gradient-to-br from-slate-50 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
-      x-data="{ headerVisible: false, footerVisible: false, scrollY: 0, lastScrollY: 0, userInteracted: false, hideTimer: null }"
+      x-data="{ headerVisible: false, footerVisible: false, cursorVisible: true, scrollY: 0, lastScrollY: 0, userInteracted: false, hideTimer: null, cursorTimer: null, startHideTimer() { clearTimeout(this.hideTimer); this.hideTimer = setTimeout(() => { this.headerVisible = false; this.footerVisible = false; }, 2000); }, startCursorTimer() { clearTimeout(this.cursorTimer); this.cursorTimer = setTimeout(() => { this.cursorVisible = false; }, 3000); } }"
       x-init="
         setTimeout(() => { headerVisible = true; footerVisible = true; }, 100);
         hideTimer = setTimeout(() => { if (!userInteracted) { headerVisible = false; footerVisible = false; } }, 1500);
+        cursorTimer = setTimeout(() => { cursorVisible = false; }, 3000);
         $watch('scrollY', value => {
           const diff = value - lastScrollY;
           if (Math.abs(diff) > 10) {
@@ -42,13 +43,16 @@ defmodule MossletWeb.ReaderLayout do
           }
         });
       "
+      x-bind:class="!cursorVisible && 'cursor-hidden'"
+      @mousemove="cursorVisible = true; startCursorTimer()"
       @scroll.window="scrollY = window.scrollY"
       id="reader-layout"
     >
       <header
         class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'"
-        @mouseenter="headerVisible = true; userInteracted = true"
+        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true; clearTimeout(hideTimer)"
+        @mouseleave="startHideTimer()"
       >
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-14">
@@ -94,8 +98,8 @@ defmodule MossletWeb.ReaderLayout do
       <div
         class="fixed top-0 left-0 right-0 h-8 z-50"
         x-show="!headerVisible"
-        @mouseenter="headerVisible = true; footerVisible = true; userInteracted = true"
-        @touchstart="headerVisible = true; footerVisible = true; userInteracted = true"
+        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
+        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
       >
       </div>
 
@@ -111,7 +115,8 @@ defmodule MossletWeb.ReaderLayout do
         }
         class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="footerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'"
-        @mouseenter="footerVisible = true; userInteracted = true"
+        @mouseenter="footerVisible = true; headerVisible = true; cursorVisible = true; userInteracted = true; clearTimeout(hideTimer)"
+        @mouseleave="startHideTimer()"
       >
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16">
@@ -211,8 +216,8 @@ defmodule MossletWeb.ReaderLayout do
         }
         class="fixed bottom-0 left-0 right-0 h-4 z-50"
         x-show="!footerVisible"
-        @mouseenter="headerVisible = true; footerVisible = true; userInteracted = true"
-        @touchstart="headerVisible = true; footerVisible = true; userInteracted = true"
+        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
+        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
       >
       </div>
     </div>

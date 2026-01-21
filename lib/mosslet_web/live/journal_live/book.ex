@@ -20,6 +20,7 @@ defmodule MossletWeb.JournalLive.Book do
         current_scope={@current_scope}
         book={@book}
         decrypted_title={@decrypted_title}
+        decrypted_description={@decrypted_description}
         decrypted_cover_image_url={@decrypted_cover_image_url}
         entries={@entries}
         page_spread={@page_spread}
@@ -442,6 +443,7 @@ defmodule MossletWeb.JournalLive.Book do
   attr :current_scope, :map, required: true
   attr :book, :map, required: true
   attr :decrypted_title, :string, required: true
+  attr :decrypted_description, :string, default: nil
   attr :decrypted_cover_image_url, :string, default: nil
   attr :entries, :list, required: true
   attr :page_spread, :integer, required: true
@@ -654,6 +656,7 @@ defmodule MossletWeb.JournalLive.Book do
             book={@book}
             decrypted_title={@decrypted_title}
             decrypted_cover_image_url={@decrypted_cover_image_url}
+            decrypted_description={@decrypted_description}
             current_scope={@current_scope}
             class="w-full md:hidden"
           />
@@ -662,6 +665,7 @@ defmodule MossletWeb.JournalLive.Book do
             book={@book}
             decrypted_title={@decrypted_title}
             decrypted_cover_image_url={@decrypted_cover_image_url}
+            decrypted_description={@decrypted_description}
             class="hidden md:flex w-full"
           />
           <.immersive_page
@@ -929,6 +933,7 @@ defmodule MossletWeb.JournalLive.Book do
   attr :book, :map, required: true
   attr :decrypted_title, :string, required: true
   attr :decrypted_cover_image_url, :string, default: nil
+  attr :decrypted_description, :string, default: nil
   attr :class, :string, default: nil
 
   defp immersive_front_cover(assigns) do
@@ -966,7 +971,7 @@ defmodule MossletWeb.JournalLive.Book do
                 {@decrypted_title}
               </h1>
               <p class="text-sm text-white/80 font-light italic mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                A Journal
+                {if @decrypted_description, do: @decrypted_description, else: "A journal"}
               </p>
             </div>
           </div>
@@ -989,7 +994,9 @@ defmodule MossletWeb.JournalLive.Book do
                 {@decrypted_title}
               </h1>
               <div class="w-12 h-0.5 bg-white/40 rounded-full mb-3" />
-              <p class="text-sm text-white/70 font-light italic">A Journal</p>
+              <p class="text-sm text-white/70 font-light italic">
+                {if @decrypted_description, do: @decrypted_description, else: "A journal"}
+              </p>
             </div>
           </div>
         </div>
@@ -1056,6 +1063,7 @@ defmodule MossletWeb.JournalLive.Book do
   attr :decrypted_title, :string, required: true
   attr :decrypted_cover_image_url, :string, default: nil
   attr :current_scope, :map, required: true
+  attr :decrypted_description, :string, default: nil
   attr :class, :string, default: nil
 
   defp immersive_back_cover(assigns) do
@@ -1569,7 +1577,7 @@ defmodule MossletWeb.JournalLive.Book do
          |> assign(:current_cover_src, nil)
          |> assign(:pending_cover_path, nil)
          |> assign(:cover_upload_stage, nil)
-         |> assign(:page_title, decrypted.title)
+         |> assign(:page_title, "Journal")
          |> put_flash(:info, "Book updated")
          |> push_event("restore-body-scroll", %{})}
 

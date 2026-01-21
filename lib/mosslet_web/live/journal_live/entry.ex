@@ -36,7 +36,7 @@ defmodule MossletWeb.JournalLive.Entry do
         privacy_active={@privacy_active}
         privacy_countdown={@privacy_countdown}
       >
-        <div class="max-w-2xl mx-auto">
+        <div class="max-w-2xl mx-auto" x-bind:class="cursorVisible && 'group'">
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
@@ -57,7 +57,7 @@ defmodule MossletWeb.JournalLive.Entry do
                   {if @entry.is_favorite, do: "★", else: "☆"}
                 </button>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <.link
                   navigate={~p"/app/journal/#{@entry.id}/edit"}
                   class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
@@ -141,6 +141,13 @@ defmodule MossletWeb.JournalLive.Entry do
               class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
               Delete
+            </.link>
+            <.link
+              :if={@live_action == :edit && @entry}
+              navigate={~p"/app/journal/#{@entry.id}"}
+              class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+            >
+              Cancel
             </.link>
             <button
               type="submit"
