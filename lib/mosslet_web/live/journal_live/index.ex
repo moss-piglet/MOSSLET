@@ -1902,7 +1902,11 @@ defmodule MossletWeb.JournalLive.Index do
   def handle_info(:generate_new_insight, socket) do
     user = socket.assigns.current_scope.user
     key = socket.assigns.current_scope.key
-    recent_entries = Journal.list_journal_entries(user, limit: 14)
+
+    recent_entries =
+      user
+      |> Journal.list_journal_entries(limit: 14)
+      |> Enum.map(&Journal.decrypt_entry(&1, user, key))
 
     insight_text =
       case JournalAI.generate_mood_insights(recent_entries) do
