@@ -5,7 +5,7 @@
   <.phx_flash_group flash={@flash} />
 </div>
 <%!-- Bluesky import progress indicator (sticky) --%>
-<%= if assigns[:current_scope] && @current_scope.user do %>
+<%= if assigns[:socket] && assigns[:current_scope] && @current_scope.user do %>
   {live_render(@socket, MossletWeb.BlueskyImportProgressLive,
     id: "bluesky-import-progress-live",
     session: %{"user_id" => @current_scope.user.id},
@@ -13,7 +13,7 @@
   )}
 <% end %>
 <%!-- Bluesky export progress indicator (sticky) --%>
-<%= if assigns[:current_scope] && @current_scope.user do %>
+<%= if assigns[:socket] && assigns[:current_scope] && @current_scope.user do %>
   {live_render(@socket, MossletWeb.BlueskyExportProgressLive,
     id: "bluesky-export-progress-live",
     session: %{"user_id" => @current_scope.user.id},
