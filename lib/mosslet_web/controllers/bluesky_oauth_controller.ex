@@ -142,7 +142,8 @@ defmodule MossletWeb.BlueskyOAuthController do
         oauth_state.dpop_private_key_jwk,
         oauth_state.dpop_public_key_jwk,
         "GET",
-        url
+        url,
+        access_token: access_token
       )
 
     case Mosslet.Bluesky.Client.get_profile(access_token, did, dpop_proof: dpop_proof) do

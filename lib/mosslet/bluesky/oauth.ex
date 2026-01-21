@@ -182,7 +182,7 @@ defmodule Mosslet.Bluesky.OAuth do
         dpop_keys.public_jwk,
         "POST",
         par_endpoint,
-        nonce
+        nonce: nonce
       )
 
     body = %{
@@ -257,8 +257,12 @@ defmodule Mosslet.Bluesky.OAuth do
   Creates a DPoP proof for authenticated API requests.
 
   The proof must be created fresh for each request with the correct HTTP method and URL.
+  For resource server requests, pass the access_token to include the `ath` claim.
   """
-  def create_dpop_proof(private_jwk, public_jwk, http_method, http_uri, nonce \\ nil) do
+  def create_dpop_proof(private_jwk, public_jwk, http_method, http_uri, opts \\ []) do
+    nonce = opts[:nonce]
+    access_token = opts[:access_token]
+
     jti = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
     iat = System.system_time(:second)
 
@@ -276,6 +280,14 @@ defmodule Mosslet.Bluesky.OAuth do
     }
 
     payload = if nonce, do: Map.put(payload, "nonce", nonce), else: payload
+
+    payload =
+      if access_token do
+        ath = :crypto.hash(:sha256, access_token) |> Base.url_encode64(padding: false)
+        Map.put(payload, "ath", ath)
+      else
+        payload
+      end
 
     sign_jwt(header, payload, private_jwk)
   end
@@ -329,7 +341,7 @@ defmodule Mosslet.Bluesky.OAuth do
         state.dpop_public_key_jwk,
         "POST",
         token_endpoint,
-        nonce
+        nonce: nonce
       )
 
     body = %{
@@ -389,7 +401,7 @@ defmodule Mosslet.Bluesky.OAuth do
         dpop_public_jwk,
         "POST",
         token_endpoint,
-        nonce
+        nonce: nonce
       )
 
     body = %{
