@@ -199,6 +199,9 @@ defmodule Mosslet.Journal do
   perspective - if you journal at 2 AM Sunday, it feels like part of your
   Saturday routine.
 
+  Additionally, the streak is preserved if you journaled yesterday but haven't
+  journaled today yet - your streak only breaks when you miss a full day.
+
   The `local_now` parameter should be the user's current local DateTime.
   """
   def streak_days(user, local_now \\ nil) do
@@ -206,7 +209,21 @@ defmodule Mosslet.Journal do
     timestamps = adapter().streak_entry_timestamps(user)
     journaling_dates = timestamps_to_journaling_dates(timestamps)
     current_journaling_day = to_journaling_day(local_now)
-    calculate_streak(journaling_dates, current_journaling_day, 0)
+    yesterday = Date.add(current_journaling_day, -1)
+
+    cond do
+      journaling_dates == [] ->
+        0
+
+      hd(journaling_dates) == current_journaling_day ->
+        calculate_streak(journaling_dates, current_journaling_day, 0)
+
+      hd(journaling_dates) == yesterday ->
+        calculate_streak(journaling_dates, yesterday, 0)
+
+      true ->
+        0
+    end
   end
 
   defp timestamps_to_journaling_dates(timestamps) do

@@ -3,6 +3,7 @@ defmodule MossletWeb.BlueskyOAuthController do
   Handles Bluesky OAuth callbacks and client metadata requests.
   """
   use MossletWeb, :controller
+  require Logger
 
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.OAuth
@@ -63,6 +64,9 @@ defmodule MossletWeb.BlueskyOAuthController do
   end
 
   def callback(conn, %{"error" => error, "error_description" => description}) do
+    Logger.info("Error BSky Oauth with description: #{description}", error)
+    Logger.warning(inspect(error))
+
     conn
     |> delete_session(:bluesky_oauth_state)
     |> put_flash(:error, "Bluesky authorization failed: #{description || error}")
@@ -70,6 +74,9 @@ defmodule MossletWeb.BlueskyOAuthController do
   end
 
   def callback(conn, %{"error" => error}) do
+    Logger.info("Error BSky Oauth", error)
+    Logger.warning(inspect(error))
+
     conn
     |> delete_session(:bluesky_oauth_state)
     |> put_flash(:error, "Bluesky authorization failed: #{error}")
