@@ -8,7 +8,8 @@ defmodule MossletWeb.API.BillingControllerTest do
 
   setup %{conn: conn} do
     user = user_fixture()
-    {:ok, token, _claims} = Mosslet.API.Token.generate_access_token(user)
+    session_key = "test_session_key"
+    {:ok, token} = Mosslet.API.Token.generate(user, session_key)
 
     conn =
       conn

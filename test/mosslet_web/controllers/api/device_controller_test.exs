@@ -2,10 +2,12 @@ defmodule MossletWeb.API.DeviceControllerTest do
   use MossletWeb.ConnCase, async: true
 
   alias Mosslet.Notifications.Push
+  alias Mosslet.AccountsFixtures
 
   setup %{conn: conn} do
-    user = insert(:user)
-    {:ok, token} = Mosslet.API.Token.generate(user)
+    user = AccountsFixtures.user_fixture()
+    session_key = "test_session_key"
+    {:ok, token} = Mosslet.API.Token.generate(user, session_key)
     conn = put_req_header(conn, "authorization", "Bearer #{token}")
     {:ok, conn: conn, user: user}
   end

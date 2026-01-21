@@ -3,10 +3,11 @@ defmodule Mosslet.Notifications.PushTest do
 
   alias Mosslet.Notifications.Push
   alias Mosslet.Notifications.DeviceToken
+  alias Mosslet.AccountsFixtures
 
   describe "register_device_token/2" do
     test "creates a new device token" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
 
       attrs = %{
         token: "apns_test_token_123",
@@ -24,7 +25,7 @@ defmodule Mosslet.Notifications.PushTest do
     end
 
     test "updates existing token for same user" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
       token = "apns_existing_token"
 
       {:ok, original} =
@@ -46,8 +47,8 @@ defmodule Mosslet.Notifications.PushTest do
     end
 
     test "reassigns token to new user if different user registers same token" do
-      user1 = insert(:user)
-      user2 = insert(:user)
+      user1 = AccountsFixtures.user_fixture()
+      user2 = AccountsFixtures.user_fixture()
       token = "shared_device_token"
 
       {:ok, original} =
@@ -63,7 +64,7 @@ defmodule Mosslet.Notifications.PushTest do
 
   describe "unregister_device_token/1" do
     test "deactivates an existing token" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
       token = "token_to_deactivate"
 
       {:ok, _} = Push.register_device_token(user.id, %{token: token, platform: :ios})
@@ -79,7 +80,7 @@ defmodule Mosslet.Notifications.PushTest do
 
   describe "list_user_device_tokens/1" do
     test "returns only active tokens for user" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
 
       {:ok, t1} = Push.register_device_token(user.id, %{token: "token1", platform: :ios})
       {:ok, _t2} = Push.register_device_token(user.id, %{token: "token2", platform: :android})
@@ -91,14 +92,14 @@ defmodule Mosslet.Notifications.PushTest do
     end
 
     test "returns empty list for user with no tokens" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
       assert Push.list_user_device_tokens(user.id) == []
     end
   end
 
   describe "send_notification/3" do
     test "returns empty list when user has no device tokens" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
       results = Push.send_notification(user.id, :new_post, %{post_id: "123"})
       assert results == []
     end
@@ -106,7 +107,7 @@ defmodule Mosslet.Notifications.PushTest do
 
   describe "delete_all_user_tokens/1" do
     test "removes all tokens for a user" do
-      user = insert(:user)
+      user = AccountsFixtures.user_fixture()
 
       Push.register_device_token(user.id, %{token: "token1", platform: :ios})
       Push.register_device_token(user.id, %{token: "token2", platform: :android})

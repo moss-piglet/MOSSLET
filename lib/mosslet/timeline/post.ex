@@ -218,7 +218,8 @@ defmodule Mosslet.Timeline.Post do
       :source,
       :external_uri,
       :external_cid,
-      :bluesky_account_id
+      :bluesky_account_id,
+      :ai_generated
     ])
     |> validate_required([:body, :username, :user_id, :external_uri, :bluesky_account_id])
     |> put_change(:source, :bluesky)

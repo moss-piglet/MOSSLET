@@ -258,10 +258,11 @@ defmodule MossletWeb.UserAuthTest do
 
   describe "redirect_if_user_is_authenticated/2" do
     test "redirects if user is authenticated and not onboarded", %{conn: conn, user: user} do
+      scope = Mosslet.Accounts.Scope.for_user(user, key: "test_key")
+
       conn =
         conn
-        |> assign(:current_user, user)
-        |> assign(:key, "test_key")
+        |> assign(:current_scope, scope)
         |> UserAuth.redirect_if_user_is_authenticated([])
 
       assert conn.halted
@@ -270,11 +271,11 @@ defmodule MossletWeb.UserAuthTest do
 
     test "redirects if user is authenticated and onboarded", %{conn: conn, user: user} do
       {:ok, user} = Accounts.update_user_onboarding(user, %{is_onboarded?: true})
+      scope = Mosslet.Accounts.Scope.for_user(user, key: "test_key")
 
       conn =
         conn
-        |> assign(:current_user, user)
-        |> assign(:key, "test_key")
+        |> assign(:current_scope, scope)
         |> UserAuth.redirect_if_user_is_authenticated([])
 
       assert conn.halted
@@ -326,7 +327,14 @@ defmodule MossletWeb.UserAuthTest do
     end
 
     test "does not redirect if user is authenticated", %{conn: conn, user: user} do
-      conn = conn |> assign(:current_user, user) |> UserAuth.require_authenticated_user([])
+      scope = Mosslet.Accounts.Scope.for_user(user, key: "test_key")
+
+      conn =
+        conn
+        |> fetch_flash()
+        |> assign(:current_scope, scope)
+        |> UserAuth.require_authenticated_user([])
+
       refute conn.halted
       refute conn.status
     end

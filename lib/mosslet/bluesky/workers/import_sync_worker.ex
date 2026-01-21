@@ -6,6 +6,14 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   or connections visibility, the `Mosslet.Bluesky.ImportTask` is used instead,
   which runs during the user's active session and has access to their session key.
 
+  ## Content Moderation
+
+  All imported content goes through the same safety pipelines as regular posts:
+  - Images: AI detection, private/public moderation, WebP conversion
+  - Text: Public moderation (since all posts via this worker are public)
+
+  Posts that fail moderation are skipped, not the entire job.
+
   Posts are imported with:
   - Full encryption at rest (using server keys for public visibility)
   - Source tracking (source: :bluesky)
@@ -16,6 +24,7 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
 
   alias Mosslet.Bluesky
   alias Mosslet.Bluesky.Client
+  alias Mosslet.Bluesky.ImportProcessor
   alias Mosslet.Timeline
   alias Mosslet.Encrypted
 
@@ -45,15 +54,22 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
            pds_url: account.pds_url || "https://bsky.social"
          ) do
       {:ok, %{feed: feed, cursor: new_cursor}} ->
-        imported_count = import_posts(account, feed)
+        stats = import_posts(account, feed)
         Bluesky.update_sync_cursor(account, new_cursor)
 
-        Logger.info("[BlueskyImport] Imported #{imported_count} posts for @#{account.handle}")
+        Logger.info(
+          "[BlueskyImport] Imported #{stats.imported} posts, skipped #{stats.skipped} for @#{account.handle}"
+        )
+
         :ok
 
       {:ok, %{feed: feed}} ->
-        imported_count = import_posts(account, feed)
-        Logger.info("[BlueskyImport] Imported #{imported_count} posts for @#{account.handle}")
+        stats = import_posts(account, feed)
+
+        Logger.info(
+          "[BlueskyImport] Imported #{stats.imported} posts, skipped #{stats.skipped} for @#{account.handle}"
+        )
+
         :ok
 
       {:error, {401, _}} ->
@@ -69,11 +85,16 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   defp import_posts(account, feed) do
     user = account.user
 
-    feed
-    |> Enum.filter(&is_own_post?(&1, account.did))
-    |> Enum.reject(&already_imported?(&1, account.id))
-    |> Enum.map(&import_single_post(&1, account, user))
-    |> Enum.count(&match?({:ok, _}, &1))
+    results =
+      feed
+      |> Enum.filter(&is_own_post?(&1, account.did))
+      |> Enum.reject(&already_imported?(&1, account.id))
+      |> Enum.map(&import_single_post(&1, account, user))
+
+    %{
+      imported: Enum.count(results, &match?({:ok, _}, &1)),
+      skipped: Enum.count(results, &match?({:skipped, _}, &1))
+    }
   end
 
   defp is_own_post?(%{post: %{author: %{did: author_did}}}, account_did) do
@@ -89,25 +110,51 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   defp import_single_post(%{post: post_data}, account, user) do
     post_key = Encrypted.Utils.generate_key()
 
-    attrs = %{
-      "body" => post_data.record.text,
-      "username" => account.handle,
-      "user_id" => user.id,
-      "visibility" => "public",
-      "source" => "bluesky",
-      "external_uri" => post_data.uri,
-      "external_cid" => post_data.cid,
-      "bluesky_account_id" => account.id
-    }
+    case ImportProcessor.process_post(post_data, visibility: :public, post_key: post_key) do
+      {:ok, processed} ->
+        attrs = %{
+          "body" => processed.text,
+          "username" => account.handle,
+          "user_id" => user.id,
+          "visibility" => "public",
+          "source" => "bluesky",
+          "external_uri" => post_data.uri,
+          "external_cid" => post_data.cid,
+          "bluesky_account_id" => account.id,
+          "image_urls" => processed.image_urls,
+          "ai_generated" => processed.ai_generated
+        }
 
-    opts = [
-      user: user,
-      key: :server_key,
-      trix_key: post_key,
-      bluesky_import: true
-    ]
+        opts = [
+          user: user,
+          key: :server_key,
+          trix_key: post_key,
+          bluesky_import: true
+        ]
 
-    Timeline.create_bluesky_import_post(attrs, opts)
+        Timeline.create_bluesky_import_post(attrs, opts)
+
+      {:error, {:text_moderation_failed, reason}} ->
+        Logger.info(
+          "[BlueskyImport] Skipped post (text moderation): #{post_data.uri} - #{reason}"
+        )
+
+        {:skipped, :text_moderation}
+
+      {:error, {:image_moderation_failed, reason}} ->
+        Logger.info(
+          "[BlueskyImport] Skipped post (image moderation): #{post_data.uri} - #{reason}"
+        )
+
+        {:skipped, :image_moderation}
+
+      {:error, reason} ->
+        Logger.warning(
+          "[BlueskyImport] Failed to process post #{post_data.uri}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
   end
 
   defp handle_token_refresh(account, limit, full_sync) do
