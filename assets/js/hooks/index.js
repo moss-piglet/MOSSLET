@@ -6,6 +6,7 @@ import BookScrollReader from "./book-scroll-reader";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
+import CSSBookBackCoverClick from "./css-book-back-cover-click";
 import CSSBookCoverClick from "./css-book-cover-click";
 import DeepLinkHook from "./deep-link-hook";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
@@ -61,6 +62,7 @@ export default {
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,
+  CSSBookBackCoverClick,
   CSSBookCoverClick,
   DeepLinkHook,
   GroupMessageEmojiPicker,

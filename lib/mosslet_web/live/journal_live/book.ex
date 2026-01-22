@@ -654,7 +654,19 @@ defmodule MossletWeb.JournalLive.Book do
 
             <div class="flex items-center gap-4">
               <span id="book-page-indicator" class="text-xs text-slate-500 dark:text-slate-400">
-                {if @scroll_total > 0, do: "#{@scroll_page + 1} of #{@scroll_total}", else: "Cover"}
+                {cond do
+                  @scroll_page == 0 ->
+                    "Front Cover"
+
+                  @scroll_page <= @total_content_pages ->
+                    "Page #{@scroll_page} of #{@total_content_pages}"
+
+                  @scroll_page == @total_content_pages + 1 ->
+                    "The End"
+
+                  true ->
+                    "Back Cover"
+                end}
               </span>
               <.link
                 navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading"}
@@ -851,6 +863,7 @@ defmodule MossletWeb.JournalLive.Book do
 
   attr :current_scope, :map, required: true
   attr :book, :map, required: true
+  attr :current_page, :integer, required: true
   attr :decrypted_title, :string, required: true
   attr :decrypted_description, :string, default: nil
   attr :decrypted_cover_image_url, :string, default: nil
@@ -873,6 +886,8 @@ defmodule MossletWeb.JournalLive.Book do
 
     chars_per_page = 1500
     page_segments = entries_to_page_segments(assigns.entries, chars_per_page)
+    total_content_pages = length(page_segments)
+    is_odd_pages = rem(total_content_pages, 2) == 1
 
     spread_pairs =
       page_segments
@@ -883,7 +898,9 @@ defmodule MossletWeb.JournalLive.Book do
       assigns
       |> assign(:decrypted_username, decrypted_username)
       |> assign(:spread_pairs, spread_pairs)
-      |> assign(:total_content_pages, length(page_segments))
+      |> assign(:total_content_pages, total_content_pages)
+      |> assign(:is_odd_pages, is_odd_pages)
+      |> assign(:page_segments, page_segments)
 
     ~H"""
     <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
@@ -957,8 +974,9 @@ defmodule MossletWeb.JournalLive.Book do
         class="book-reader-container"
         phx-hook="BookScrollReader"
         data-initial-page={@current_page}
+        data-total-content-pages={@total_content_pages}
       >
-        <div class="book-spread-full">
+        <div class="book-page-mobile md:book-spread-full">
           <.immersive_front_cover
             book={@book}
             decrypted_title={@decrypted_title}
@@ -967,66 +985,98 @@ defmodule MossletWeb.JournalLive.Book do
           />
         </div>
 
-        <div :for={{pair, spread_idx} <- @spread_pairs} class="book-spread">
-          <%= case pair do %>
-            <% [left, right] when right != :empty -> %>
-              <.immersive_content_page
-                segment={left}
-                page_num={spread_idx * 2 + 1}
-                side="left"
-                book_id={@book.id}
-                scroll_page={@scroll_page}
-              />
-              <div class="book-spine hidden md:block" />
-              <.immersive_content_page
-                segment={right}
-                page_num={spread_idx * 2 + 2}
-                side="right"
-                book_id={@book.id}
-                scroll_page={@scroll_page}
-                class="hidden md:flex"
-              />
-            <% [left, :empty] -> %>
-              <.immersive_content_page
-                segment={left}
-                page_num={spread_idx * 2 + 1}
-                side="left"
-                book_id={@book.id}
-                scroll_page={@scroll_page}
-              />
-              <div class="book-spine hidden md:block" />
-              <div class="book-page bg-white/95 dark:bg-slate-800/95 hidden md:flex" />
-            <% [single] -> %>
-              <.immersive_content_page
-                segment={single}
-                page_num={spread_idx * 2 + 1}
-                side="left"
-                book_id={@book.id}
-                scroll_page={@scroll_page}
-              />
-              <div class="book-spine hidden md:block" />
-              <div class="book-page bg-white/95 dark:bg-slate-800/95 hidden md:flex" />
-            <% _ -> %>
+        <%= for {segment, idx} <- Enum.with_index(@page_segments) do %>
+          <% is_odd_idx = rem(idx, 2) == 0 %>
+          <% is_last = idx == @total_content_pages - 1 %>
+          <% next_segment = if is_last, do: nil, else: Enum.at(@page_segments, idx + 1) %>
+          <%= cond do %>
+            <% is_odd_idx && !is_last && next_segment -> %>
+              <div class="book-page-mobile">
+                <.immersive_content_page
+                  segment={segment}
+                  page_num={idx + 1}
+                  side="left"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+              </div>
+              <div class="book-spread">
+                <.immersive_content_page
+                  segment={segment}
+                  page_num={idx + 1}
+                  side="left"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+                <div class="book-spine" />
+                <.immersive_content_page
+                  segment={next_segment}
+                  page_num={idx + 2}
+                  side="right"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+              </div>
+            <% is_odd_idx && is_last && @is_odd_pages -> %>
+              <div class="book-page-mobile">
+                <.immersive_content_page
+                  segment={segment}
+                  page_num={idx + 1}
+                  side="left"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+              </div>
+              <div class="book-spread">
+                <.immersive_content_page
+                  segment={segment}
+                  page_num={idx + 1}
+                  side="left"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+                <div class="book-spine" />
+                <.the_end_page decrypted_username={@decrypted_username} />
+              </div>
+            <% !is_odd_idx -> %>
+              <div class="book-page-mobile">
+                <.immersive_content_page
+                  segment={segment}
+                  page_num={idx + 1}
+                  side="right"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+              </div>
+            <% true -> %>
+              <div class="book-page-mobile">
+                <.immersive_content_page
+                  segment={segment}
+                  page_num={idx + 1}
+                  side="left"
+                  book_id={@book.id}
+                  scroll_page={@scroll_page}
+                />
+              </div>
           <% end %>
-        </div>
+        <% end %>
 
-        <div class="book-spread">
-          <div class="book-page bg-white/95 dark:bg-slate-800/95 flex items-center justify-center">
-            <div class="text-center px-6">
-              <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
-                The End
-              </p>
-              <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-8" />
-              <p class="text-sm text-slate-500 dark:text-slate-400">
-                © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
-              </p>
-            </div>
+        <%= if !@is_odd_pages do %>
+          <div class="book-page-mobile">
+            <.the_end_page decrypted_username={@decrypted_username} />
           </div>
-          <div class="book-spine hidden md:block" />
-          <div class="book-page bg-white/95 dark:bg-slate-800/95 hidden md:flex" />
-        </div>
+          <div class="book-spread">
+            <div class="book-page bg-white/95 dark:bg-slate-800/95" />
+            <div class="book-spine" />
+            <.the_end_page decrypted_username={@decrypted_username} />
+          </div>
+        <% else %>
+          <div class="book-page-mobile">
+            <.the_end_page decrypted_username={@decrypted_username} />
+          </div>
+        <% end %>
 
-        <div class="book-spread-full">
+        <div class="book-page-mobile md:book-spread-full">
           <.immersive_back_cover
             book={@book}
             decrypted_title={@decrypted_title}
@@ -1058,7 +1108,19 @@ defmodule MossletWeb.JournalLive.Book do
 
             <div class="flex items-center gap-4">
               <span id="book-page-indicator" class="text-xs text-slate-500 dark:text-slate-400">
-                {if @scroll_total > 0, do: "#{@scroll_page + 1} of #{@scroll_total}", else: "Cover"}
+                {cond do
+                  @scroll_page == 0 ->
+                    "Front Cover"
+
+                  @scroll_page <= @total_content_pages ->
+                    "Page #{@scroll_page} of #{@total_content_pages}"
+
+                  @scroll_page == @total_content_pages + 1 ->
+                    "The End"
+
+                  true ->
+                    "Back Cover"
+                end}
               </span>
               <.link
                 navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading"}
@@ -1180,6 +1242,24 @@ defmodule MossletWeb.JournalLive.Book do
             </span>
           </div>
         </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :decrypted_username, :string, required: true
+
+  defp the_end_page(assigns) do
+    ~H"""
+    <div class="book-page bg-white/95 dark:bg-slate-800/95 flex items-center justify-center">
+      <div class="text-center px-6">
+        <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
+          The End
+        </p>
+        <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-8" />
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
+        </p>
       </div>
     </div>
     """
@@ -1421,6 +1501,8 @@ defmodule MossletWeb.JournalLive.Book do
 
     ~H"""
     <div
+      id="immersive-book-back-cover"
+      phx-hook="CSSBookBackCoverClick"
       class={[
         "book-page h-screen max-h-[1000px] flex items-center justify-center relative overflow-hidden cursor-pointer",
         @class
@@ -1654,10 +1736,16 @@ defmodule MossletWeb.JournalLive.Book do
         %{"current_page" => page, "total_pages" => total},
         socket
       ) do
+    book = socket.assigns.book
+
     {:noreply,
      socket
      |> assign(:scroll_page, page)
-     |> assign(:scroll_total, total)}
+     |> assign(:scroll_total, total)
+     |> push_patch(
+       to: ~p"/app/journal/books/#{book.id}?view=reading&page=#{page}",
+       replace: true
+     )}
   end
 
   @impl true

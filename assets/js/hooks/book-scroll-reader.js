@@ -4,15 +4,15 @@ const BookScrollReader = {
     this.updatePageInfo = this.updatePageInfo.bind(this);
     this.handleScroll = this.handleScroll.bind(this);
     this.handleKeyboard = this.handleKeyboard.bind(this);
+    this.handleResize = this.handleResize.bind(this);
     this.scrollTimeout = null;
+    this.lastWidth = window.innerWidth;
     this.isMobile = window.innerWidth < 768;
+    this.totalContentPages = parseInt(this.el.dataset.totalContentPages, 10) || 0;
     
     this.container.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('keydown', this.handleKeyboard);
-    window.addEventListener('resize', () => {
-      this.isMobile = window.innerWidth < 768;
-      this.updatePageInfo();
-    });
+    window.addEventListener('resize', this.handleResize);
     
     const prevBtn = document.getElementById('book-prev-btn');
     const nextBtn = document.getElementById('book-next-btn');
@@ -33,9 +33,7 @@ const BookScrollReader = {
     
     requestAnimationFrame(() => {
       const initialPage = parseInt(this.el.dataset.initialPage, 10) || 0;
-      if (initialPage > 0) {
-        this.scrollToPage(initialPage, false);
-      }
+      this.scrollToContentPage(initialPage, false);
       this.updatePageInfo();
     });
   },
@@ -43,6 +41,7 @@ const BookScrollReader = {
   destroyed() {
     this.container.removeEventListener('scroll', this.handleScroll);
     window.removeEventListener('keydown', this.handleKeyboard);
+    window.removeEventListener('resize', this.handleResize);
   },
 
   handleScroll() {
@@ -50,6 +49,20 @@ const BookScrollReader = {
     this.scrollTimeout = setTimeout(() => {
       this.updatePageInfo();
     }, 50);
+  },
+
+  handleResize() {
+    const wasMobile = this.isMobile;
+    this.isMobile = window.innerWidth < 768;
+    
+    if (wasMobile !== this.isMobile) {
+      const currentContentPage = this.getCurrentContentPage();
+      
+      requestAnimationFrame(() => {
+        this.scrollToContentPage(currentContentPage, false);
+        this.updatePageInfo();
+      });
+    }
   },
 
   handleKeyboard(e) {
@@ -66,48 +79,183 @@ const BookScrollReader = {
     return window.innerWidth;
   },
 
-  getCurrentPage() {
+  getCurrentScrollIndex() {
     const scrollLeft = this.container.scrollLeft;
     const pageWidth = this.getPageWidth();
     return Math.round(scrollLeft / pageWidth);
   },
 
-  getTotalPages() {
-    const scrollWidth = this.container.scrollWidth;
-    const pageWidth = this.getPageWidth();
-    return Math.ceil(scrollWidth / pageWidth);
-  },
-
-  nextPage() {
-    const currentPage = this.getCurrentPage();
-    const totalPages = this.getTotalPages();
-    if (currentPage < totalPages - 1) {
-      this.scrollToPage(currentPage + 1);
+  getTotalScrollUnits() {
+    const total = this.totalContentPages;
+    const isOdd = total % 2 === 1;
+    
+    if (this.isMobile) {
+      return total + 3;
+    } else {
+      return 1 + Math.ceil(total / 2) + (isOdd ? 1 : 2);
     }
   },
 
-  prevPage() {
-    const currentPage = this.getCurrentPage();
-    if (currentPage > 0) {
-      this.scrollToPage(currentPage - 1);
+  getCurrentContentPage() {
+    const scrollIndex = this.getCurrentScrollIndex();
+    const total = this.totalContentPages;
+    const isOdd = total % 2 === 1;
+    
+    if (this.isMobile) {
+      if (scrollIndex === 0) return 0;
+      if (scrollIndex <= total) return scrollIndex;
+      if (scrollIndex === total + 1) return total + 1;
+      return total + 2;
+    } else {
+      if (scrollIndex === 0) return 0;
+      
+      const lastContentSpreadIdx = Math.ceil(total / 2);
+      
+      if (isOdd) {
+        if (scrollIndex <= lastContentSpreadIdx) {
+          return (scrollIndex - 1) * 2 + 1;
+        }
+        if (scrollIndex === lastContentSpreadIdx + 1) return total + 2;
+      } else {
+        if (scrollIndex <= lastContentSpreadIdx) {
+          return (scrollIndex - 1) * 2 + 1;
+        }
+        if (scrollIndex === lastContentSpreadIdx + 1) return total + 1;
+        if (scrollIndex === lastContentSpreadIdx + 2) return total + 2;
+      }
+      
+      return total + 2;
     }
   },
 
-  scrollToPage(page, smooth = true) {
+  scrollToContentPage(contentPage, smooth = true) {
+    const total = this.totalContentPages;
+    const isOdd = total % 2 === 1;
     const pageWidth = this.getPageWidth();
+    let scrollIndex;
+    
+    if (this.isMobile) {
+      if (contentPage === 0) {
+        scrollIndex = 0;
+      } else if (contentPage <= total) {
+        scrollIndex = contentPage;
+      } else if (contentPage === total + 1) {
+        scrollIndex = total + 1;
+      } else {
+        scrollIndex = total + 2;
+      }
+    } else {
+      if (contentPage === 0) {
+        scrollIndex = 0;
+      } else if (contentPage <= total) {
+        scrollIndex = Math.ceil(contentPage / 2);
+      } else if (contentPage === total + 1) {
+        if (isOdd) {
+          scrollIndex = Math.ceil(total / 2);
+        } else {
+          scrollIndex = Math.ceil(total / 2) + 1;
+        }
+      } else {
+        if (isOdd) {
+          scrollIndex = Math.ceil(total / 2) + 1;
+        } else {
+          scrollIndex = Math.ceil(total / 2) + 2;
+        }
+      }
+    }
+    
     this.container.scrollTo({
-      left: page * pageWidth,
+      left: scrollIndex * pageWidth,
       behavior: smooth ? 'smooth' : 'instant'
     });
   },
 
+  nextPage() {
+    const currentPage = this.getCurrentContentPage();
+    const total = this.totalContentPages;
+    const maxPage = total + 2;
+    
+    let nextPage;
+    if (this.isMobile) {
+      nextPage = Math.min(currentPage + 1, maxPage);
+    } else {
+      if (currentPage === 0) {
+        nextPage = 1;
+      } else if (currentPage <= total) {
+        nextPage = Math.min(currentPage + 2, total + 1);
+        if (nextPage > total && nextPage < total + 1) nextPage = total + 1;
+      } else {
+        nextPage = Math.min(currentPage + 1, maxPage);
+      }
+    }
+    
+    if (nextPage !== currentPage) {
+      this.scrollToContentPage(nextPage);
+    }
+  },
+
+  prevPage() {
+    const currentPage = this.getCurrentContentPage();
+    const total = this.totalContentPages;
+    const isOdd = total % 2 === 1;
+    
+    let prevPage;
+    if (this.isMobile) {
+      prevPage = Math.max(currentPage - 1, 0);
+    } else {
+      if (currentPage === 0) {
+        prevPage = 0;
+      } else if (currentPage <= 2) {
+        prevPage = 0;
+      } else if (currentPage <= total) {
+        prevPage = currentPage - 2;
+        if (prevPage < 1) prevPage = 0;
+      } else if (currentPage === total + 1) {
+        if (isOdd) {
+          prevPage = total;
+        } else {
+          prevPage = total - 1;
+        }
+      } else {
+        prevPage = total + 1;
+      }
+    }
+    
+    if (prevPage !== currentPage) {
+      this.scrollToContentPage(prevPage);
+    }
+  },
+
   updatePageInfo() {
-    const currentPage = this.getCurrentPage();
-    const totalPages = this.getTotalPages();
+    const currentPage = this.getCurrentContentPage();
+    const total = this.totalContentPages;
+    
+    const indicator = document.getElementById('book-page-indicator');
+    if (indicator) {
+      if (currentPage === 0) {
+        indicator.textContent = 'Front Cover';
+      } else if (currentPage <= total) {
+        if (this.isMobile) {
+          indicator.textContent = `Page ${currentPage} of ${total}`;
+        } else {
+          const leftPage = Math.floor((currentPage - 1) / 2) * 2 + 1;
+          const rightPage = Math.min(leftPage + 1, total);
+          if (leftPage === rightPage || rightPage > total) {
+            indicator.textContent = `Page ${leftPage} of ${total}`;
+          } else {
+            indicator.textContent = `Pages ${leftPage}-${rightPage} of ${total}`;
+          }
+        }
+      } else if (currentPage === total + 1) {
+        indicator.textContent = 'The End';
+      } else {
+        indicator.textContent = 'Back Cover';
+      }
+    }
     
     this.pushEvent('page_scroll_update', {
       current_page: currentPage,
-      total_pages: totalPages,
+      total_pages: total + 2,
       is_mobile: this.isMobile
     });
   }
