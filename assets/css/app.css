@@ -1233,6 +1233,179 @@ trix-editor {
   overflow-y: hidden;
 }
 
+/* ===== CSS COLUMNS BOOK READER ===== */
+.book-entry-flow {
+  display: flex;
+  flex-wrap: nowrap;
+  height: 100%;
+  width: max-content;
+}
+
+.book-entry-container {
+  min-height: 100%;
+  width: 100vw;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .book-entry-container {
+    width: 50vw;
+  }
+}
+
+.book-entry-columns {
+  height: 100%;
+  column-width: calc(100vw - 2rem);
+  column-fill: auto;
+  column-gap: 0;
+  overflow: visible;
+}
+
+@media (min-width: 640px) {
+  .book-entry-columns {
+    column-width: calc(100vw - 4rem);
+  }
+}
+
+@media (min-width: 768px) {
+  .book-entry-columns {
+    column-width: calc(50vw - 8rem);
+    column-gap: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .book-entry-columns {
+    column-width: calc(50vw - 10rem);
+  }
+}
+
+.book-entry-columns > * {
+  break-inside: avoid;
+}
+
+.book-entry-text {
+  break-inside: auto;
+  orphans: 3;
+  widows: 3;
+}
+
+.book-column-page {
+  width: 100vw;
+  min-width: 100vw;
+  height: 100%;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .book-column-page {
+    width: 50vw;
+    min-width: 50vw;
+  }
+}
+
+.book-column-page-full {
+  width: 100vw;
+  min-width: 100vw;
+  height: 100%;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-column-page-full-inner {
+  flex: 1;
+  padding: 1rem;
+  padding-top: 4.5rem;
+  padding-bottom: 5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .book-column-page-full-inner {
+    padding: 1.5rem 2rem;
+    padding-top: 4.5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .book-column-page-full-inner {
+    padding: 2rem 4rem;
+    padding-top: 4.5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .book-column-page-full-inner {
+    padding: 2.5rem 5rem;
+    padding-top: 4.5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+.book-column-page-inner {
+  flex: 1;
+  padding: 1rem;
+  padding-top: 4.5rem;
+  padding-bottom: 5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .book-column-page-inner {
+    padding: 1.5rem 2rem;
+    padding-top: 4.5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .book-column-page-inner {
+    padding: 2rem 4rem;
+    padding-top: 4.5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .book-column-page-inner {
+    padding: 2.5rem 5rem;
+    padding-top: 4.5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+.book-entry-flow-wrapper {
+  display: contents;
+}
+
+.book-entry-columns-container {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.book-entry-columns-container[data-mounted="true"] {
+  display: none;
+}
+
 .book-page-fade {
   position: absolute;
   bottom: 0;

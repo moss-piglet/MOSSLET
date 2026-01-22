@@ -34,6 +34,9 @@ defmodule MossletWeb.JournalLive.Book do
         privacy_countdown={@privacy_countdown}
         privacy_needs_password={@privacy_needs_password}
         privacy_form={@privacy_form}
+        is_mobile={@is_mobile}
+        mobile_chars_per_page={@mobile_chars_per_page}
+        desktop_chars_per_page={@desktop_chars_per_page}
       />
     <% else %>
       <.book_sidebar_view
@@ -461,6 +464,9 @@ defmodule MossletWeb.JournalLive.Book do
   attr :privacy_countdown, :integer, required: true
   attr :privacy_needs_password, :boolean, required: true
   attr :privacy_form, :map, required: true
+  attr :is_mobile, :boolean, required: true
+  attr :mobile_chars_per_page, :integer, required: true
+  attr :desktop_chars_per_page, :integer, required: true
 
   defp css_reading_layout(assigns) do
     decrypted_username =
@@ -470,7 +476,11 @@ defmodule MossletWeb.JournalLive.Book do
         assigns.current_scope.key
       )
 
-    chars_per_page = 1500
+    chars_per_page =
+      if assigns.is_mobile,
+        do: assigns.mobile_chars_per_page,
+        else: assigns.desktop_chars_per_page
+
     page_segments = entries_to_page_segments(assigns.entries, chars_per_page)
 
     spread_pairs =
@@ -839,16 +849,8 @@ defmodule MossletWeb.JournalLive.Book do
               {@entry.decrypted_title || "Untitled"} (continued)
             </span>
           </div>
-          <div
-            class="flex-1 min-h-0 overflow-hidden"
-            data-page-content
-            data-entry-id={@entry.id}
-            data-page-index={@page_num}
-          >
-            <div
-              class="h-full columns-[100cqw] gap-x-16 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap"
-              data-column-content
-            >
+          <div class="flex-1 min-h-0 overflow-hidden">
+            <div class="h-full text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
               {@body_segment}
             </div>
           </div>
@@ -880,6 +882,9 @@ defmodule MossletWeb.JournalLive.Book do
   attr :privacy_countdown, :integer, required: true
   attr :privacy_needs_password, :boolean, required: true
   attr :privacy_form, :map, required: true
+  attr :is_mobile, :boolean, required: true
+  attr :mobile_chars_per_page, :integer, required: true
+  attr :desktop_chars_per_page, :integer, required: true
 
   defp immersive_reading_layout(assigns) do
     decrypted_username =
@@ -889,23 +894,9 @@ defmodule MossletWeb.JournalLive.Book do
         assigns.current_scope.key
       )
 
-    chars_per_page = 1500
-    page_segments = entries_to_page_segments(assigns.entries, chars_per_page)
-    total_content_pages = length(page_segments)
-    is_odd_pages = rem(total_content_pages, 2) == 1
-
-    spread_pairs =
-      page_segments
-      |> Enum.chunk_every(2, 2, [:empty])
-      |> Enum.with_index()
-
     assigns =
       assigns
       |> assign(:decrypted_username, decrypted_username)
-      |> assign(:spread_pairs, spread_pairs)
-      |> assign(:total_content_pages, total_content_pages)
-      |> assign(:is_odd_pages, is_odd_pages)
-      |> assign(:page_segments, page_segments)
 
     ~H"""
     <div
@@ -978,9 +969,10 @@ defmodule MossletWeb.JournalLive.Book do
         class="book-reader-container"
         phx-hook="BookScrollReader"
         data-initial-page={@current_page}
-        data-total-content-pages={@total_content_pages}
+        data-entry-count={length(@entries)}
+        data-book-id={@book.id}
       >
-        <div class="book-page-mobile md:book-spread-full">
+        <div class="book-column-page-full" data-page-type="cover">
           <.immersive_front_cover
             book={@book}
             decrypted_title={@decrypted_title}
@@ -989,98 +981,26 @@ defmodule MossletWeb.JournalLive.Book do
           />
         </div>
 
-        <%= for {segment, idx} <- Enum.with_index(@page_segments) do %>
-          <% is_odd_idx = rem(idx, 2) == 0 %>
-          <% is_last = idx == @total_content_pages - 1 %>
-          <% next_segment = if is_last, do: nil, else: Enum.at(@page_segments, idx + 1) %>
-          <%= cond do %>
-            <% is_odd_idx && !is_last && next_segment -> %>
-              <div class="book-page-mobile">
-                <.immersive_content_page
-                  segment={segment}
-                  page_num={idx + 1}
-                  side="left"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-              </div>
-              <div class="book-spread">
-                <.immersive_content_page
-                  segment={segment}
-                  page_num={idx + 1}
-                  side="left"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-                <div class="book-spine" />
-                <.immersive_content_page
-                  segment={next_segment}
-                  page_num={idx + 2}
-                  side="right"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-              </div>
-            <% is_odd_idx && is_last && @is_odd_pages -> %>
-              <div class="book-page-mobile">
-                <.immersive_content_page
-                  segment={segment}
-                  page_num={idx + 1}
-                  side="left"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-              </div>
-              <div class="book-spread">
-                <.immersive_content_page
-                  segment={segment}
-                  page_num={idx + 1}
-                  side="left"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-                <div class="book-spine" />
-                <.the_end_page decrypted_username={@decrypted_username} />
-              </div>
-            <% !is_odd_idx -> %>
-              <div class="book-page-mobile">
-                <.immersive_content_page
-                  segment={segment}
-                  page_num={idx + 1}
-                  side="right"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-              </div>
-            <% true -> %>
-              <div class="book-page-mobile">
-                <.immersive_content_page
-                  segment={segment}
-                  page_num={idx + 1}
-                  side="left"
-                  book_id={@book.id}
-                  scroll_page={@scroll_page}
-                />
-              </div>
-          <% end %>
-        <% end %>
+        <div
+          :for={{entry, entry_idx} <- Enum.with_index(@entries)}
+          id={"entry-flow-#{entry.id}"}
+          class="book-entry-flow-wrapper"
+          data-entry-id={entry.id}
+          data-entry-index={entry_idx}
+          phx-update="ignore"
+        >
+          <.entry_column_flow
+            entry={entry}
+            entry_idx={entry_idx}
+            book_id={@book.id}
+          />
+        </div>
 
-        <%= if !@is_odd_pages do %>
-          <div class="book-page-mobile">
-            <.the_end_page decrypted_username={@decrypted_username} />
-          </div>
-          <div class="book-spread">
-            <div class="book-page bg-white/95 dark:bg-slate-800/95" />
-            <div class="book-spine" />
-            <.the_end_page decrypted_username={@decrypted_username} />
-          </div>
-        <% else %>
-          <div class="book-page-mobile">
-            <.the_end_page decrypted_username={@decrypted_username} />
-          </div>
-        <% end %>
+        <div class="book-column-page-full" data-page-type="end">
+          <.the_end_page decrypted_username={@decrypted_username} />
+        </div>
 
-        <div class="book-page-mobile md:book-spread-full">
+        <div class="book-column-page-full" data-page-type="back-cover">
           <.immersive_back_cover
             book={@book}
             decrypted_title={@decrypted_title}
@@ -1112,19 +1032,7 @@ defmodule MossletWeb.JournalLive.Book do
 
             <div class="flex items-center gap-4">
               <span id="book-page-indicator" class="text-xs text-slate-500 dark:text-slate-400">
-                {cond do
-                  @scroll_page == 0 ->
-                    "Front Cover"
-
-                  @scroll_page <= @total_content_pages ->
-                    "Page #{@scroll_page} of #{@total_content_pages}"
-
-                  @scroll_page == @total_content_pages + 1 ->
-                    "The End"
-
-                  true ->
-                    "Back Cover"
-                end}
+                Loading...
               </span>
               <.link
                 navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading"}
@@ -1172,96 +1080,49 @@ defmodule MossletWeb.JournalLive.Book do
     """
   end
 
-  attr :segment, :map, required: true
-  attr :page_num, :integer, required: true
-  attr :side, :string, required: true
+  attr :entry, :map, required: true
+  attr :entry_idx, :integer, required: true
   attr :book_id, :string, required: true
-  attr :scroll_page, :integer, required: true
-  attr :class, :string, default: nil
 
-  defp immersive_content_page(assigns) do
-    entry = assigns.segment.entry
-    is_first = assigns.segment.is_first
-    body_segment = assigns.segment.body_segment
-
-    assigns =
-      assigns
-      |> assign(:entry, entry)
-      |> assign(:is_first, is_first)
-      |> assign(:body_segment, body_segment)
-
+  defp entry_column_flow(assigns) do
     ~H"""
-    <div class={["book-page bg-white/95 dark:bg-slate-800/95", @class]}>
-      <div class="book-page-inner">
-        <div
-          class="cursor-pointer h-full flex flex-col"
-          x-bind:class="cursorVisible && 'group'"
-          phx-click={
-            JS.navigate(
-              ~p"/app/journal/#{@entry.id}?scope=book&book_id=#{@book_id}&view=reading&page=#{@scroll_page}"
-            )
-          }
-        >
-          <div :if={@is_first} class="flex items-start justify-between mb-4 flex-shrink-0">
-            <div class="flex-1 min-w-0 pr-4">
-              <h2 class="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                {@entry.decrypted_title || "Untitled"}
-              </h2>
-              <div class="flex items-center gap-2 mt-1">
-                <time class="text-sm text-slate-500 dark:text-slate-400">
-                  {format_date(@entry.entry_date)}
-                </time>
-                <span
-                  :if={@entry.mood}
-                  class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1"
-                >
-                  <span class="text-sm">{DesignSystem.mood_emoji(@entry.mood)}</span>
-                  <span class="lowercase">{DesignSystem.mood_label(@entry.mood)}</span>
-                </span>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-              <span :if={@entry.is_favorite} class="text-amber-500 text-xl" title="Favorite">★</span>
-              <button
-                type="button"
-                phx-click="delete_entry"
-                phx-value-id={@entry.id}
-                data-confirm="Are you sure you want to rip this page from your journal? This will delete the entry."
-                class="p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
-                title="Rip page"
-                onclick="event.stopPropagation()"
+    <div
+      id={"entry-columns-#{@entry.id}"}
+      class="book-entry-columns-container"
+      data-entry-id={@entry.id}
+      phx-hook="EntryColumnFlow"
+    >
+      <div class="book-entry-header" data-header="true">
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex-1 min-w-0 pr-4">
+            <h2 class="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {@entry.decrypted_title || "Untitled"}
+            </h2>
+            <div class="flex items-center gap-2 mt-1">
+              <time class="text-sm text-slate-500 dark:text-slate-400">
+                {format_date(@entry.entry_date)}
+              </time>
+              <span
+                :if={@entry.mood}
+                class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1"
               >
-                <.phx_icon name="hero-trash" class="h-4 w-4" />
-              </button>
+                <span class="text-sm">{DesignSystem.mood_emoji(@entry.mood)}</span>
+                <span class="lowercase">{DesignSystem.mood_label(@entry.mood)}</span>
+              </span>
             </div>
           </div>
-          <div :if={!@is_first} class="flex items-center gap-2 mb-3 flex-shrink-0">
-            <span class="text-sm text-slate-400 dark:text-slate-500 italic">
-              {@entry.decrypted_title || "Untitled"} (continued)
-            </span>
-          </div>
-          <div
-            class="flex-1 min-h-0 overflow-hidden"
-            data-page-content
-            data-entry-id={@entry.id}
-            data-page-index={@page_num}
-          >
-            <div
-              class="h-full columns-[100cqw] gap-x-16 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap"
-              data-column-content
-            >
-              {@body_segment}
-            </div>
-          </div>
-          <div class="flex items-center justify-between pt-2 flex-shrink-0">
-            <span class="text-xs font-serif italic text-slate-400 dark:text-slate-500">
-              {@page_num}
-            </span>
-            <span class="text-xs text-emerald-500 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
-              Click to read →
-            </span>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span :if={@entry.is_favorite} class="text-amber-500 text-xl" title="Favorite">★</span>
           </div>
         </div>
+      </div>
+      <div
+        class="book-entry-body prose prose-slate dark:prose-invert max-w-none text-base sm:text-lg leading-relaxed"
+        data-body="true"
+        data-entry-id={@entry.id}
+        data-book-id={@book_id}
+      >
+        {format_decrypted_content(@entry.decrypted_body)}
       </div>
     </div>
     """
@@ -1626,6 +1487,7 @@ defmodule MossletWeb.JournalLive.Book do
          |> assign(:cover_upload_stage, nil)
          |> assign(:current_cover_src, cover_src)
          |> assign(:cover_loading, false)
+         |> assign(:is_mobile, false)
          |> assign(:mobile_chars_per_page, @default_mobile_chars_per_page)
          |> assign(:desktop_chars_per_page, @default_desktop_chars_per_page)
          |> assign(:scroll_page, 0)
@@ -2921,20 +2783,109 @@ defmodule MossletWeb.JournalLive.Book do
     end
   end
 
-  defp entries_to_page_segments(entries, _chars_per_page) do
+  defp entries_to_page_segments(entries, chars_per_page) do
     entries
-    |> Enum.with_index(1)
-    |> Enum.map(fn {entry, page_num} ->
-      %{
-        entry: entry,
-        body_segment: entry.decrypted_body || "",
-        is_first: true,
-        is_last: true,
-        segment_index: 0,
-        segment_start: 0,
-        total_segments: 1,
-        page_num: page_num
-      }
+    |> Enum.flat_map(fn entry ->
+      body = entry.decrypted_body || ""
+      split_entry_into_segments(entry, body, chars_per_page)
     end)
+    |> Enum.with_index(1)
+    |> Enum.map(fn {segment, page_num} ->
+      Map.put(segment, :page_num, page_num)
+    end)
+  end
+
+  defp split_entry_into_segments(entry, body, chars_per_page) do
+    body_length = String.length(body)
+
+    if body_length <= chars_per_page do
+      [
+        %{
+          entry: entry,
+          body_segment: body,
+          is_first: true,
+          is_last: true,
+          segment_index: 0,
+          segment_start: 0,
+          total_segments: 1
+        }
+      ]
+    else
+      segments = split_text_at_boundaries(body, chars_per_page)
+      total_segments = length(segments)
+
+      segments
+      |> Enum.with_index()
+      |> Enum.map(fn {{text, start_pos}, idx} ->
+        %{
+          entry: entry,
+          body_segment: text,
+          is_first: idx == 0,
+          is_last: idx == total_segments - 1,
+          segment_index: idx,
+          segment_start: start_pos,
+          total_segments: total_segments
+        }
+      end)
+    end
+  end
+
+  defp split_text_at_boundaries(text, chars_per_page) do
+    do_split_text(text, chars_per_page, 0, [])
+  end
+
+  defp do_split_text("", _chars_per_page, _pos, acc), do: Enum.reverse(acc)
+
+  defp do_split_text(text, chars_per_page, pos, acc) do
+    text_length = String.length(text)
+
+    if text_length <= chars_per_page do
+      Enum.reverse([{text, pos} | acc])
+    else
+      chunk = String.slice(text, 0, chars_per_page)
+      split_point = find_good_split_point(chunk)
+
+      {segment, rest} =
+        if split_point > 0 do
+          {String.slice(text, 0, split_point), String.slice(text, split_point, text_length)}
+        else
+          {chunk, String.slice(text, chars_per_page, text_length)}
+        end
+
+      segment = String.trim_trailing(segment)
+      rest = String.trim_leading(rest)
+
+      do_split_text(rest, chars_per_page, pos + String.length(segment), [{segment, pos} | acc])
+    end
+  end
+
+  defp find_good_split_point(text) do
+    text_length = String.length(text)
+    search_start = max(0, text_length - 200)
+    search_text = String.slice(text, search_start, text_length)
+
+    cond do
+      para_break = find_last_pattern(search_text, ~r/\n\n/) ->
+        search_start + para_break + 2
+
+      newline = find_last_pattern(search_text, ~r/\n/) ->
+        search_start + newline + 1
+
+      sentence_end = find_last_pattern(search_text, ~r/[.!?]\s/) ->
+        search_start + sentence_end + 2
+
+      space = find_last_pattern(search_text, ~r/\s/) ->
+        search_start + space + 1
+
+      true ->
+        0
+    end
+  end
+
+  defp find_last_pattern(text, pattern) do
+    case Regex.scan(pattern, text, return: :index) do
+      [] -> nil
+      matches -> matches |> List.last() |> hd() |> elem(0)
+    end
   end
 end

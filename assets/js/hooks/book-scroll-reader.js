@@ -1,17 +1,19 @@
 const BookScrollReader = {
   mounted() {
     this.container = this.el;
+    this.container.__bookScrollReader = this;
     this.updatePageInfo = this.updatePageInfo.bind(this);
     this.handleScroll = this.handleScroll.bind(this);
     this.handleKeyboard = this.handleKeyboard.bind(this);
     this.handleResize = this.handleResize.bind(this);
-    this.detectOverflow = this.detectOverflow.bind(this);
+    this.recalculatePages = this.recalculatePages.bind(this);
     this.scrollTimeout = null;
-    this.overflowTimeout = null;
+    this.recalcTimeout = null;
     this.lastWidth = window.innerWidth;
     this.isMobile = window.innerWidth < 768;
-    this.totalContentPages = parseInt(this.el.dataset.totalContentPages, 10) || 0;
-    this.overflowPages = {};
+    this.totalContentPages = 0;
+    this.pageElements = [];
+    this.pageOffsets = [];
     
     this.container.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('keydown', this.handleKeyboard);
@@ -35,17 +37,16 @@ const BookScrollReader = {
     }
     
     requestAnimationFrame(() => {
+      this.recalculatePages();
       const initialPage = parseInt(this.el.dataset.initialPage, 10) || 0;
-      this.scrollToContentPage(initialPage, false);
+      this.scrollToPage(initialPage, false);
       this.updatePageInfo();
-      this.detectOverflow();
     });
   },
 
   updated() {
     requestAnimationFrame(() => {
-      this.totalContentPages = parseInt(this.el.dataset.totalContentPages, 10) || 0;
-      this.detectOverflow();
+      this.recalculatePages();
     });
   },
 
@@ -53,48 +54,38 @@ const BookScrollReader = {
     this.container.removeEventListener('scroll', this.handleScroll);
     window.removeEventListener('keydown', this.handleKeyboard);
     window.removeEventListener('resize', this.handleResize);
-    if (this.overflowTimeout) clearTimeout(this.overflowTimeout);
+    if (this.recalcTimeout) clearTimeout(this.recalcTimeout);
   },
 
-  detectOverflow() {
-    if (this.overflowTimeout) clearTimeout(this.overflowTimeout);
+  recalculatePages() {
+    if (this.recalcTimeout) clearTimeout(this.recalcTimeout);
     
-    this.overflowTimeout = setTimeout(() => {
-      const contentContainers = this.container.querySelectorAll('[data-page-content]');
-      const overflowData = {};
+    this.recalcTimeout = setTimeout(() => {
+      const allPages = this.container.querySelectorAll('.book-column-page, .book-column-page-full');
+      this.pageElements = Array.from(allPages);
       
-      contentContainers.forEach((container) => {
-        const entryId = container.dataset.entryId;
-        const pageIndex = parseInt(container.dataset.pageIndex, 10) || 0;
-        if (!entryId) return;
-        
-        const columnContent = container.querySelector('[data-column-content]');
-        if (!columnContent) return;
-        
-        const containerWidth = container.clientWidth;
-        const scrollWidth = columnContent.scrollWidth;
-        
-        if (scrollWidth > containerWidth + 10) {
-          const columnsNeeded = Math.ceil(scrollWidth / containerWidth);
-          const key = `${entryId}-${pageIndex}`;
-          overflowData[key] = {
-            entry_id: entryId,
-            page_index: pageIndex,
-            columns_needed: columnsNeeded,
-            scroll_width: scrollWidth,
-            container_width: containerWidth
-          };
+      this.pageOffsets = [];
+      let currentOffset = 0;
+      this.pageElements.forEach((page) => {
+        this.pageOffsets.push(currentOffset);
+        currentOffset += page.offsetWidth;
+      });
+      
+      let contentPageNum = 0;
+      this.pageElements.forEach((page, idx) => {
+        const pageType = page.dataset.pageType;
+        if (pageType === 'content') {
+          contentPageNum++;
+          const pageNumEl = page.querySelector('[data-page-num]');
+          if (pageNumEl) {
+            pageNumEl.textContent = contentPageNum;
+          }
         }
       });
       
-      const hasOverflow = Object.keys(overflowData).length > 0;
-      const overflowChanged = JSON.stringify(overflowData) !== JSON.stringify(this.overflowPages);
-      
-      if (hasOverflow && overflowChanged) {
-        this.overflowPages = overflowData;
-        this.pushEvent('content_overflow_detected', { overflow_data: overflowData });
-      }
-    }, 100);
+      this.totalContentPages = contentPageNum;
+      this.updatePageInfo();
+    }, 50);
   },
 
   handleScroll() {
@@ -108,17 +99,18 @@ const BookScrollReader = {
     const wasMobile = this.isMobile;
     this.isMobile = window.innerWidth < 768;
     
-    if (wasMobile !== this.isMobile) {
-      const currentContentPage = this.getCurrentContentPage();
+    if (wasMobile !== this.isMobile || Math.abs(window.innerWidth - this.lastWidth) > 50) {
+      this.lastWidth = window.innerWidth;
+      const currentPage = this.getCurrentContentPage();
       
       requestAnimationFrame(() => {
-        this.scrollToContentPage(currentContentPage, false);
-        this.updatePageInfo();
+        this.recalculatePages();
+        setTimeout(() => {
+          this.scrollToPage(currentPage, false);
+          this.updatePageInfo();
+        }, 100);
       });
     }
-    
-    this.overflowPages = {};
-    this.detectOverflow();
   },
 
   handleKeyboard(e) {
@@ -131,164 +123,107 @@ const BookScrollReader = {
     }
   },
 
-  getPageWidth() {
-    return window.innerWidth;
-  },
-
   getCurrentScrollIndex() {
     const scrollLeft = this.container.scrollLeft;
-    const pageWidth = this.getPageWidth();
-    return Math.round(scrollLeft / pageWidth);
-  },
-
-  getTotalScrollUnits() {
-    const total = this.totalContentPages;
-    const isOdd = total % 2 === 1;
+    const threshold = 50;
     
-    if (this.isMobile) {
-      return total + 3;
-    } else {
-      const contentSpreads = Math.ceil(total / 2);
-      if (isOdd) {
-        return 1 + contentSpreads + 1;
-      } else {
-        return 1 + contentSpreads + 1 + 1;
+    for (let i = this.pageOffsets.length - 1; i >= 0; i--) {
+      if (scrollLeft >= this.pageOffsets[i] - threshold) {
+        return i;
       }
     }
+    return 0;
   },
 
   getCurrentContentPage() {
     const scrollIndex = this.getCurrentScrollIndex();
-    const total = this.totalContentPages;
-    const isOdd = total % 2 === 1;
     
-    if (this.isMobile) {
-      if (scrollIndex === 0) return 0;
-      if (scrollIndex <= total) return scrollIndex;
-      if (scrollIndex === total + 1) return total + 1;
-      return total + 2;
-    } else {
-      if (scrollIndex === 0) return 0;
-      
-      const lastContentSpreadIdx = Math.ceil(total / 2);
-      
-      if (isOdd) {
-        if (scrollIndex <= lastContentSpreadIdx) {
-          return (scrollIndex - 1) * 2 + 1;
-        }
-        if (scrollIndex === lastContentSpreadIdx + 1) return total + 2;
-      } else {
-        if (scrollIndex <= lastContentSpreadIdx) {
-          return (scrollIndex - 1) * 2 + 1;
-        }
-        if (scrollIndex === lastContentSpreadIdx + 1) return total + 1;
-        if (scrollIndex === lastContentSpreadIdx + 2) return total + 2;
+    if (scrollIndex === 0) return 0;
+    
+    let contentPagesSeen = 0;
+    for (let i = 0; i < scrollIndex && i < this.pageElements.length; i++) {
+      const page = this.pageElements[i];
+      if (page && page.dataset.pageType === 'content') {
+        contentPagesSeen++;
       }
-      
-      return total + 2;
     }
+    
+    const currentPage = this.pageElements[scrollIndex];
+    if (currentPage) {
+      if (currentPage.dataset.pageType === 'content') {
+        return contentPagesSeen + 1;
+      } else if (currentPage.dataset.pageType === 'end') {
+        return this.totalContentPages + 1;
+      } else if (currentPage.dataset.pageType === 'back-cover') {
+        return this.totalContentPages + 2;
+      }
+    }
+    
+    return contentPagesSeen;
   },
 
-  scrollToContentPage(contentPage, smooth = true) {
-    const total = this.totalContentPages;
-    const isOdd = total % 2 === 1;
-    const pageWidth = this.getPageWidth();
-    let scrollIndex;
+  scrollToPage(contentPage, smooth = true) {
+    let targetScrollIndex = 0;
     
-    if (this.isMobile) {
-      if (contentPage === 0) {
-        scrollIndex = 0;
-      } else if (contentPage <= total) {
-        scrollIndex = contentPage;
-      } else if (contentPage === total + 1) {
-        scrollIndex = total + 1;
-      } else {
-        scrollIndex = total + 2;
+    if (contentPage === 0) {
+      targetScrollIndex = 0;
+    } else if (contentPage <= this.totalContentPages) {
+      let contentPagesSeen = 0;
+      for (let i = 0; i < this.pageElements.length; i++) {
+        const page = this.pageElements[i];
+        if (page && page.dataset.pageType === 'content') {
+          contentPagesSeen++;
+          if (contentPagesSeen === contentPage) {
+            targetScrollIndex = i;
+            break;
+          }
+        }
+      }
+    } else if (contentPage === this.totalContentPages + 1) {
+      for (let i = 0; i < this.pageElements.length; i++) {
+        if (this.pageElements[i]?.dataset.pageType === 'end') {
+          targetScrollIndex = i;
+          break;
+        }
       }
     } else {
-      if (contentPage === 0) {
-        scrollIndex = 0;
-      } else if (contentPage <= total) {
-        scrollIndex = Math.ceil(contentPage / 2);
-      } else if (contentPage === total + 1) {
-        if (isOdd) {
-          scrollIndex = Math.ceil(total / 2);
-        } else {
-          scrollIndex = Math.ceil(total / 2) + 1;
-        }
-      } else {
-        if (isOdd) {
-          scrollIndex = Math.ceil(total / 2) + 1;
-        } else {
-          scrollIndex = Math.ceil(total / 2) + 2;
+      for (let i = 0; i < this.pageElements.length; i++) {
+        if (this.pageElements[i]?.dataset.pageType === 'back-cover') {
+          targetScrollIndex = i;
+          break;
         }
       }
     }
     
+    const scrollPos = this.pageOffsets[targetScrollIndex] || 0;
     this.container.scrollTo({
-      left: scrollIndex * pageWidth,
+      left: scrollPos,
       behavior: smooth ? 'smooth' : 'instant'
     });
   },
 
   nextPage() {
-    const currentPage = this.getCurrentContentPage();
-    const total = this.totalContentPages;
-    const isOdd = total % 2 === 1;
-    const maxPage = total + 2;
+    const currentIndex = this.getCurrentScrollIndex();
+    const maxIndex = this.pageElements.length - 1;
     
-    let nextPage;
-    if (this.isMobile) {
-      nextPage = Math.min(currentPage + 1, maxPage);
-    } else {
-      if (currentPage === 0) {
-        nextPage = 1;
-      } else if (currentPage <= total) {
-        if (isOdd && currentPage === total) {
-          nextPage = total + 2;
-        } else {
-          nextPage = Math.min(currentPage + 2, total + 1);
-          if (nextPage > total && !isOdd) nextPage = total + 1;
-        }
-      } else {
-        nextPage = Math.min(currentPage + 1, maxPage);
-      }
-    }
-    
-    if (nextPage !== currentPage) {
-      this.scrollToContentPage(nextPage);
+    if (currentIndex < maxIndex) {
+      const scrollPos = this.pageOffsets[currentIndex + 1] || 0;
+      this.container.scrollTo({
+        left: scrollPos,
+        behavior: 'smooth'
+      });
     }
   },
 
   prevPage() {
-    const currentPage = this.getCurrentContentPage();
-    const total = this.totalContentPages;
-    const isOdd = total % 2 === 1;
+    const currentIndex = this.getCurrentScrollIndex();
     
-    let prevPage;
-    if (this.isMobile) {
-      prevPage = Math.max(currentPage - 1, 0);
-    } else {
-      if (currentPage === 0) {
-        prevPage = 0;
-      } else if (currentPage <= 2) {
-        prevPage = 0;
-      } else if (currentPage <= total) {
-        prevPage = currentPage - 2;
-        if (prevPage < 1) prevPage = 0;
-      } else if (currentPage === total + 1) {
-        if (isOdd) {
-          prevPage = total;
-        } else {
-          prevPage = total - 1;
-        }
-      } else {
-        prevPage = total + 1;
-      }
-    }
-    
-    if (prevPage !== currentPage) {
-      this.scrollToContentPage(prevPage);
+    if (currentIndex > 0) {
+      const scrollPos = this.pageOffsets[currentIndex - 1] || 0;
+      this.container.scrollTo({
+        left: scrollPos,
+        behavior: 'smooth'
+      });
     }
   },
 
@@ -301,17 +236,7 @@ const BookScrollReader = {
       if (currentPage === 0) {
         indicator.textContent = 'Front Cover';
       } else if (currentPage <= total) {
-        if (this.isMobile) {
-          indicator.textContent = `Page ${currentPage} of ${total}`;
-        } else {
-          const leftPage = Math.floor((currentPage - 1) / 2) * 2 + 1;
-          const rightPage = Math.min(leftPage + 1, total);
-          if (leftPage === rightPage || rightPage > total) {
-            indicator.textContent = `Page ${leftPage} of ${total}`;
-          } else {
-            indicator.textContent = `Pages ${leftPage}-${rightPage} of ${total}`;
-          }
-        }
+        indicator.textContent = `Page ${currentPage} of ${total}`;
       } else if (currentPage === total + 1) {
         indicator.textContent = 'The End';
       } else {
