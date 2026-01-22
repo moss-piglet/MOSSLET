@@ -693,17 +693,11 @@ defmodule MossletWeb.Helpers do
   Formats and renders markdown content after decryption.
   Uses MDEx for markdown rendering with syntax highlighting and built-in sanitization.
   """
-  def format_decrypted_content(content) when is_binary(content) do
-    content
-    |> Mosslet.MarkdownRenderer.to_html()
-    |> Phoenix.HTML.raw()
-  end
-
   def format_decrypted_content(:failed_verification), do: "[Could not decrypt content]"
   def format_decrypted_content(nil), do: ""
   def format_decrypted_content(""), do: ""
 
-  def format_decrypted_content_orange(content) when is_binary(content) do
+  def format_decrypted_content(content) when is_binary(content) do
     content
     |> Mosslet.MarkdownRenderer.to_html()
     |> Phoenix.HTML.raw()
@@ -712,6 +706,12 @@ defmodule MossletWeb.Helpers do
   def format_decrypted_content_orange(:failed_verification), do: "[Could not decrypt content]"
   def format_decrypted_content_orange(nil), do: ""
   def format_decrypted_content_orange(""), do: ""
+
+  def format_decrypted_content_orange(content) when is_binary(content) do
+    content
+    |> Mosslet.MarkdownRenderer.to_html()
+    |> Phoenix.HTML.raw()
+  end
 
   def initials(name) do
     case HumanName.initials(name) do

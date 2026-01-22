@@ -92,7 +92,7 @@ defmodule MossletWeb.JournalLive.Entry do
             </h1>
 
             <div class="prose prose-slate dark:prose-invert max-w-none prose-lg prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed">
-              {render_markdown(@decrypted_body)}
+              {format_decrypted_content(@decrypted_body)}
             </div>
 
             <div class="pt-4 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
@@ -830,12 +830,5 @@ defmodule MossletWeb.JournalLive.Entry do
       date == Date.add(today, -1) -> "Yesterday"
       true -> Calendar.strftime(date, "%A, %B %d, %Y")
     end
-  end
-
-  defp render_markdown(nil), do: ""
-  defp render_markdown(""), do: ""
-
-  defp render_markdown(content) when is_binary(content) do
-    Mosslet.MarkdownRenderer.to_html(content) |> Phoenix.HTML.raw()
   end
 end
