@@ -72,6 +72,7 @@ const BookScrollReader = {
       });
       
       let contentPageNum = 0;
+      let contentPageIndex = 0;
       this.pageElements.forEach((page, idx) => {
         const pageType = page.dataset.pageType;
         if (pageType === 'content') {
@@ -80,6 +81,12 @@ const BookScrollReader = {
           if (pageNumEl) {
             pageNumEl.textContent = contentPageNum;
           }
+          if (contentPageIndex % 2 === 0) {
+            page.dataset.spreadStart = 'true';
+          } else {
+            delete page.dataset.spreadStart;
+          }
+          contentPageIndex++;
         }
       });
       
@@ -206,25 +213,77 @@ const BookScrollReader = {
     const currentIndex = this.getCurrentScrollIndex();
     const maxIndex = this.pageElements.length - 1;
     
-    if (currentIndex < maxIndex) {
+    if (currentIndex >= maxIndex) return;
+    
+    if (this.isMobile) {
       const scrollPos = this.pageOffsets[currentIndex + 1] || 0;
       this.container.scrollTo({
         left: scrollPos,
         behavior: 'smooth'
       });
+    } else {
+      let nextSpreadIndex = this.findNextSpreadStart(currentIndex);
+      if (nextSpreadIndex !== null && nextSpreadIndex <= maxIndex) {
+        const scrollPos = this.pageOffsets[nextSpreadIndex] || 0;
+        this.container.scrollTo({
+          left: scrollPos,
+          behavior: 'smooth'
+        });
+      }
     }
   },
 
   prevPage() {
     const currentIndex = this.getCurrentScrollIndex();
     
-    if (currentIndex > 0) {
+    if (currentIndex <= 0) return;
+    
+    if (this.isMobile) {
       const scrollPos = this.pageOffsets[currentIndex - 1] || 0;
       this.container.scrollTo({
         left: scrollPos,
         behavior: 'smooth'
       });
+    } else {
+      let prevSpreadIndex = this.findPrevSpreadStart(currentIndex);
+      if (prevSpreadIndex !== null && prevSpreadIndex >= 0) {
+        const scrollPos = this.pageOffsets[prevSpreadIndex] || 0;
+        this.container.scrollTo({
+          left: scrollPos,
+          behavior: 'smooth'
+        });
+      }
     }
+  },
+
+  findNextSpreadStart(currentIndex) {
+    for (let i = currentIndex + 1; i < this.pageElements.length; i++) {
+      const page = this.pageElements[i];
+      if (page.classList.contains('book-column-page-full')) {
+        return i;
+      }
+      if (page.dataset.spreadStart === 'true') {
+        return i;
+      }
+    }
+    const endIndex = this.pageElements.findIndex(p => p.dataset.pageType === 'end');
+    if (endIndex > currentIndex) return endIndex;
+    const backIndex = this.pageElements.findIndex(p => p.dataset.pageType === 'back-cover');
+    if (backIndex > currentIndex) return backIndex;
+    return null;
+  },
+
+  findPrevSpreadStart(currentIndex) {
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const page = this.pageElements[i];
+      if (page.classList.contains('book-column-page-full')) {
+        return i;
+      }
+      if (page.dataset.spreadStart === 'true') {
+        return i;
+      }
+    }
+    return 0;
   },
 
   updatePageInfo() {

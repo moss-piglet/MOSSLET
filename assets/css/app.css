@@ -1307,6 +1307,12 @@ trix-editor {
   .book-column-page {
     width: 50vw;
     min-width: 50vw;
+    scroll-snap-align: none;
+  }
+  
+  .book-column-page[data-spread-start="true"] {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
   }
 }
 
