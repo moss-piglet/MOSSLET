@@ -10,6 +10,7 @@ import CSSBookBackCoverClick from "./css-book-back-cover-click";
 import CSSBookCoverClick from "./css-book-cover-click";
 import DeepLinkHook from "./deep-link-hook";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
+import HideCursorOnIdle from "./hide-cursor-on-idle";
 import KeywordFilterInput from "./keyword-filter-input";
 import ClearFlashHook from "./clear-flash-hook";
 import Flash from "./flash";
@@ -66,6 +67,7 @@ export default {
   CSSBookCoverClick,
   DeepLinkHook,
   GroupMessageEmojiPicker,
+  HideCursorOnIdle,
   KeywordFilterInput,
   ClearFlashHook,
   Flash,

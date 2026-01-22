@@ -92,7 +92,12 @@ const BookScrollReader = {
     if (this.isMobile) {
       return total + 3;
     } else {
-      return 1 + Math.ceil(total / 2) + (isOdd ? 1 : 2);
+      const contentSpreads = Math.ceil(total / 2);
+      if (isOdd) {
+        return 1 + contentSpreads + 1;
+      } else {
+        return 1 + contentSpreads + 1 + 1;
+      }
     }
   },
 
@@ -173,6 +178,7 @@ const BookScrollReader = {
   nextPage() {
     const currentPage = this.getCurrentContentPage();
     const total = this.totalContentPages;
+    const isOdd = total % 2 === 1;
     const maxPage = total + 2;
     
     let nextPage;
@@ -182,8 +188,12 @@ const BookScrollReader = {
       if (currentPage === 0) {
         nextPage = 1;
       } else if (currentPage <= total) {
-        nextPage = Math.min(currentPage + 2, total + 1);
-        if (nextPage > total && nextPage < total + 1) nextPage = total + 1;
+        if (isOdd && currentPage === total) {
+          nextPage = total + 2;
+        } else {
+          nextPage = Math.min(currentPage + 2, total + 1);
+          if (nextPage > total && !isOdd) nextPage = total + 1;
+        }
       } else {
         nextPage = Math.min(currentPage + 1, maxPage);
       }
