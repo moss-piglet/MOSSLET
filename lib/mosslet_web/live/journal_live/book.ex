@@ -2899,140 +2899,20 @@ defmodule MossletWeb.JournalLive.Book do
     end
   end
 
-  defp entries_to_page_segments(entries, chars_per_page) do
+  defp entries_to_page_segments(entries, _chars_per_page) do
     entries
-    |> Enum.flat_map(&entry_to_segments(&1, chars_per_page))
     |> Enum.with_index(1)
-    |> Enum.map(fn {segment, page_num} -> Map.put(segment, :page_num, page_num) end)
-  end
-
-  defp entry_to_segments(entry, chars_per_page) do
-    body = entry.decrypted_body || ""
-    body_length = String.length(body)
-
-    if body_length <= chars_per_page do
-      [
-        %{
-          entry: entry,
-          body_segment: body,
-          is_first: true,
-          is_last: true,
-          segment_index: 0,
-          segment_start: 0,
-          total_segments: 1
-        }
-      ]
-    else
-      chunks = split_text_into_chunks(body, chars_per_page)
-      total = length(chunks)
-
-      {segments, _} =
-        chunks
-        |> Enum.with_index()
-        |> Enum.map_reduce(0, fn {chunk, idx}, start_pos ->
-          segment = %{
-            entry: entry,
-            body_segment: chunk,
-            is_first: idx == 0,
-            is_last: idx == total - 1,
-            segment_index: idx,
-            segment_start: start_pos,
-            total_segments: total
-          }
-
-          {segment, start_pos + String.length(chunk)}
-        end)
-
-      segments
-    end
-  end
-
-  defp split_text_into_chunks(text, chunk_size) do
-    text
-    |> String.split("\n", trim: false)
-    |> Enum.map(&{&1, false})
-    |> split_lines_into_chunks(chunk_size, [], "")
-    |> trim_last_chunk()
-  end
-
-  defp trim_last_chunk([]), do: []
-
-  defp trim_last_chunk(chunks) do
-    {last, rest} = List.pop_at(chunks, -1)
-    rest ++ [String.trim_trailing(last)]
-  end
-
-  defp split_lines_into_chunks([], _chunk_size, chunks, current) do
-    if current == "" do
-      Enum.reverse(chunks)
-    else
-      Enum.reverse([current | chunks])
-    end
-  end
-
-  defp split_lines_into_chunks([{line, is_continuation} | rest], chunk_size, chunks, current) do
-    line_with_newline =
-      cond do
-        is_continuation -> line
-        rest == [] -> line
-        true -> line <> "\n"
-      end
-
-    new_current = current <> line_with_newline
-
-    if String.length(new_current) <= chunk_size do
-      split_lines_into_chunks(rest, chunk_size, chunks, new_current)
-    else
-      remaining_space = chunk_size - String.length(current)
-
-      if current == "" do
-        {chunk, remainder} = split_long_line(line_with_newline, chunk_size)
-        split_lines_into_chunks([{remainder, true} | rest], chunk_size, [chunk | chunks], "")
-      else
-        {partial, remainder} = split_long_line(line_with_newline, remaining_space)
-
-        if partial != "" do
-          filled_chunk = current <> partial
-
-          split_lines_into_chunks(
-            [{remainder, true} | rest],
-            chunk_size,
-            [filled_chunk | chunks],
-            ""
-          )
-        else
-          split_lines_into_chunks(
-            [{line, is_continuation} | rest],
-            chunk_size,
-            [current | chunks],
-            ""
-          )
-        end
-      end
-    end
-  end
-
-  defp split_long_line(line, chunk_size) do
-    words = String.split(line, ~r/(?<=\s)/, trim: false)
-    split_words_into_chunk(words, chunk_size, "")
-  end
-
-  defp split_words_into_chunk([], _chunk_size, current) do
-    {current, ""}
-  end
-
-  defp split_words_into_chunk([word | rest], chunk_size, current) do
-    new_current = current <> word
-
-    if String.length(new_current) <= chunk_size do
-      split_words_into_chunk(rest, chunk_size, new_current)
-    else
-      if current == "" do
-        {String.slice(word, 0, chunk_size),
-         String.slice(word, chunk_size..-1//1) <> Enum.join(rest)}
-      else
-        {current, word <> Enum.join(rest)}
-      end
-    end
+    |> Enum.map(fn {entry, page_num} ->
+      %{
+        entry: entry,
+        body_segment: entry.decrypted_body || "",
+        is_first: true,
+        is_last: true,
+        segment_index: 0,
+        segment_start: 0,
+        total_segments: 1,
+        page_num: page_num
+      }
+    end)
   end
 end
