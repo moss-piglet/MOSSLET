@@ -1132,7 +1132,13 @@ defmodule MossletWeb.JournalLive.Book do
 
   defp the_end_page(assigns) do
     ~H"""
-    <div class="book-page bg-white/95 dark:bg-slate-800/95 flex items-center justify-center">
+    <div
+      class="book-end-blank-page hidden md:flex bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 items-center justify-center"
+      data-end-blank="true"
+    >
+      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
+    </div>
+    <div class="book-end-content-page bg-white/95 dark:bg-slate-800/95 flex items-center justify-center">
       <div class="text-center px-6">
         <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
           The End
@@ -1142,19 +1148,6 @@ defmodule MossletWeb.JournalLive.Book do
           © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
         </p>
       </div>
-    </div>
-    """
-  end
-
-  defp blank_left_page(assigns) do
-    assigns = assign_new(assigns, :class, fn -> nil end)
-
-    ~H"""
-    <div class={[
-      "book-page bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center",
-      @class
-    ]}>
-      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
     </div>
     """
   end
