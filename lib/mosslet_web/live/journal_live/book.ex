@@ -839,8 +839,16 @@ defmodule MossletWeb.JournalLive.Book do
               {@entry.decrypted_title || "Untitled"} (continued)
             </span>
           </div>
-          <div class="book-page-content flex-1 relative overflow-hidden">
-            <div class="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+          <div
+            class="flex-1 min-h-0 overflow-hidden"
+            data-page-content
+            data-entry-id={@entry.id}
+            data-page-index={@page_num}
+          >
+            <div
+              class="h-full columns-[100cqw] gap-x-16 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap"
+              data-column-content
+            >
               {@body_segment}
             </div>
           </div>
@@ -1232,8 +1240,16 @@ defmodule MossletWeb.JournalLive.Book do
               {@entry.decrypted_title || "Untitled"} (continued)
             </span>
           </div>
-          <div class="book-page-content flex-1 relative overflow-hidden">
-            <div class="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+          <div
+            class="flex-1 min-h-0 overflow-hidden"
+            data-page-content
+            data-entry-id={@entry.id}
+            data-page-index={@page_num}
+          >
+            <div
+              class="h-full columns-[100cqw] gap-x-16 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap"
+              data-column-content
+            >
               {@body_segment}
             </div>
           </div>
@@ -1731,6 +1747,12 @@ defmodule MossletWeb.JournalLive.Book do
 
   @impl true
   def handle_event("page_overflow_detected", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("content_overflow_detected", %{"overflow_data" => overflow_data}, socket) do
+    IO.inspect(overflow_data, label: "Content overflow detected")
     {:noreply, socket}
   end
 

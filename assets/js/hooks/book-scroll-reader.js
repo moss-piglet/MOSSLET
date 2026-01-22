@@ -5,10 +5,13 @@ const BookScrollReader = {
     this.handleScroll = this.handleScroll.bind(this);
     this.handleKeyboard = this.handleKeyboard.bind(this);
     this.handleResize = this.handleResize.bind(this);
+    this.detectOverflow = this.detectOverflow.bind(this);
     this.scrollTimeout = null;
+    this.overflowTimeout = null;
     this.lastWidth = window.innerWidth;
     this.isMobile = window.innerWidth < 768;
     this.totalContentPages = parseInt(this.el.dataset.totalContentPages, 10) || 0;
+    this.overflowPages = {};
     
     this.container.addEventListener('scroll', this.handleScroll, { passive: true });
     window.addEventListener('keydown', this.handleKeyboard);
@@ -35,6 +38,14 @@ const BookScrollReader = {
       const initialPage = parseInt(this.el.dataset.initialPage, 10) || 0;
       this.scrollToContentPage(initialPage, false);
       this.updatePageInfo();
+      this.detectOverflow();
+    });
+  },
+
+  updated() {
+    requestAnimationFrame(() => {
+      this.totalContentPages = parseInt(this.el.dataset.totalContentPages, 10) || 0;
+      this.detectOverflow();
     });
   },
 
@@ -42,6 +53,48 @@ const BookScrollReader = {
     this.container.removeEventListener('scroll', this.handleScroll);
     window.removeEventListener('keydown', this.handleKeyboard);
     window.removeEventListener('resize', this.handleResize);
+    if (this.overflowTimeout) clearTimeout(this.overflowTimeout);
+  },
+
+  detectOverflow() {
+    if (this.overflowTimeout) clearTimeout(this.overflowTimeout);
+    
+    this.overflowTimeout = setTimeout(() => {
+      const contentContainers = this.container.querySelectorAll('[data-page-content]');
+      const overflowData = {};
+      
+      contentContainers.forEach((container) => {
+        const entryId = container.dataset.entryId;
+        const pageIndex = parseInt(container.dataset.pageIndex, 10) || 0;
+        if (!entryId) return;
+        
+        const columnContent = container.querySelector('[data-column-content]');
+        if (!columnContent) return;
+        
+        const containerWidth = container.clientWidth;
+        const scrollWidth = columnContent.scrollWidth;
+        
+        if (scrollWidth > containerWidth + 10) {
+          const columnsNeeded = Math.ceil(scrollWidth / containerWidth);
+          const key = `${entryId}-${pageIndex}`;
+          overflowData[key] = {
+            entry_id: entryId,
+            page_index: pageIndex,
+            columns_needed: columnsNeeded,
+            scroll_width: scrollWidth,
+            container_width: containerWidth
+          };
+        }
+      });
+      
+      const hasOverflow = Object.keys(overflowData).length > 0;
+      const overflowChanged = JSON.stringify(overflowData) !== JSON.stringify(this.overflowPages);
+      
+      if (hasOverflow && overflowChanged) {
+        this.overflowPages = overflowData;
+        this.pushEvent('content_overflow_detected', { overflow_data: overflowData });
+      }
+    }, 100);
   },
 
   handleScroll() {
@@ -63,6 +116,9 @@ const BookScrollReader = {
         this.updatePageInfo();
       });
     }
+    
+    this.overflowPages = {};
+    this.detectOverflow();
   },
 
   handleKeyboard(e) {
