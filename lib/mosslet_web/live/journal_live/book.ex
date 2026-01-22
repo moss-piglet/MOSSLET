@@ -996,7 +996,7 @@ defmodule MossletWeb.JournalLive.Book do
           />
         </div>
 
-        <div class="book-column-page-full" data-page-type="end">
+        <div class="book-end-page" data-page-type="end">
           <.the_end_page decrypted_username={@decrypted_username} />
         </div>
 
@@ -1142,6 +1142,19 @@ defmodule MossletWeb.JournalLive.Book do
           © <.local_time for={DateTime.utc_now()} format="yyyy" /> {@decrypted_username}
         </p>
       </div>
+    </div>
+    """
+  end
+
+  defp blank_left_page(assigns) do
+    assigns = assign_new(assigns, :class, fn -> nil end)
+
+    ~H"""
+    <div class={[
+      "book-page bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center",
+      @class
+    ]}>
+      <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
     </div>
     """
   end
