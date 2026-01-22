@@ -1077,6 +1077,175 @@ trix-editor {
   cursor: none !important;
 }
 
+/* ===== BOOK READER CSS-BASED PAGINATION ===== */
+.book-reader-container {
+  width: 100%;
+  height: 100dvh;
+  height: 100vh;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.book-reader-container::-webkit-scrollbar {
+  display: none;
+}
+
+.book-reader-container {
+  scrollbar-width: none;
+}
+
+.book-spread {
+  min-height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  flex-shrink: 0;
+  display: flex;
+  position: relative;
+}
+
+.book-spread-full {
+  min-height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  flex-shrink: 0;
+  display: flex;
+  position: relative;
+  width: 100vw;
+  min-width: 100vw;
+}
+
+.book-spread-full > .book-page {
+  width: 100%;
+  min-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .book-spread {
+    width: 100vw;
+    min-width: 100vw;
+  }
+}
+
+@media (min-width: 768px) {
+  .book-spread {
+    width: 100vw;
+    min-width: 100vw;
+  }
+}
+
+.book-page {
+  width: 100%;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 767px) {
+  .book-page {
+    width: 100vw;
+    min-width: 100vw;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  
+  .book-page.hidden {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+  }
+  
+  .book-spread {
+    width: auto;
+    min-width: auto;
+    scroll-snap-align: none;
+  }
+  
+  .book-spine {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .book-page {
+    width: 50%;
+  }
+}
+
+.book-page-inner {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .book-page-inner {
+    padding: 1.5rem 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .book-page-inner {
+    padding: 2rem 4rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .book-page-inner {
+    padding: 2.5rem 5rem;
+  }
+}
+
+.book-page-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.book-page-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4rem;
+  background: linear-gradient(to bottom, transparent, white);
+  pointer-events: none;
+}
+
+[data-theme="dark"] .book-page-fade {
+  background: linear-gradient(to bottom, transparent, rgb(30 41 59 / 0.95));
+}
+
+.book-spine {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent 5%, rgb(148 163 184 / 0.4) 20%, rgb(148 163 184 / 0.4) 80%, transparent 95%);
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+[data-theme="dark"] .book-spine {
+  background: linear-gradient(to bottom, transparent 5%, rgb(71 85 105 / 0.5) 20%, rgb(71 85 105 / 0.5) 80%, transparent 95%);
+}
+
+@media (max-width: 767px) {
+  .book-spine {
+    display: none;
+  }
+}
+
 /* Phoenix LiveView Data-Confirm Dialog - Liquid Metal Styling */
 dialog[data-confirm] {
   border: none;

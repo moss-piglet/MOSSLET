@@ -1232,41 +1232,45 @@ The desktop-specific infrastructure is already in place:
 **iOS Project Structure (`native/ios/`):**
 
 ```
+
 native/ios/
-├── Mosslet.xcodeproj/         # Xcode project
+├── Mosslet.xcodeproj/ # Xcode project
 └── Mosslet/
-    ├── AppDelegate.swift       # App lifecycle, Erlang startup
-    ├── MainViewController.swift # WKWebView container
-    ├── LoadingViewController.swift # Launch screen
-    ├── JsonBridge.swift        # JS ↔ Swift via webkit.messageHandlers
-    ├── Bridge.swift            # Erlang runtime bridge
-    ├── Keychain.swift          # iOS Keychain wrapper
-    ├── Assets.xcassets/        # App icons, colors
-    ├── Base.lproj/LaunchScreen.storyboard
-    ├── Info.plist
-    └── Mosslet.entitlements
+├── AppDelegate.swift # App lifecycle, Erlang startup
+├── MainViewController.swift # WKWebView container
+├── LoadingViewController.swift # Launch screen
+├── JsonBridge.swift # JS ↔ Swift via webkit.messageHandlers
+├── Bridge.swift # Erlang runtime bridge
+├── Keychain.swift # iOS Keychain wrapper
+├── Assets.xcassets/ # App icons, colors
+├── Base.lproj/LaunchScreen.storyboard
+├── Info.plist
+└── Mosslet.entitlements
+
 ```
 
 **Android Project Structure (`native/android/`):**
 
 ```
+
 native/android/
 ├── app/
-│   ├── src/main/
-│   │   ├── java/com/mosslet/app/
-│   │   │   ├── MossletApplication.kt  # Application class
-│   │   │   ├── MainActivity.kt        # WebView activity
-│   │   │   ├── Bridge.kt              # Erlang runtime bridge
-│   │   │   ├── JsonBridge.kt          # JS ↔ Kotlin via @JavascriptInterface
-│   │   │   └── SecureStorage.kt       # Android Keystore wrapper
-│   │   ├── res/                        # Layouts, themes, colors
-│   │   └── AndroidManifest.xml
-│   ├── build.gradle
-│   └── proguard-rules.pro
+│ ├── src/main/
+│ │ ├── java/com/mosslet/app/
+│ │ │ ├── MossletApplication.kt # Application class
+│ │ │ ├── MainActivity.kt # WebView activity
+│ │ │ ├── Bridge.kt # Erlang runtime bridge
+│ │ │ ├── JsonBridge.kt # JS ↔ Kotlin via @JavascriptInterface
+│ │ │ └── SecureStorage.kt # Android Keystore wrapper
+│ │ ├── res/ # Layouts, themes, colors
+│ │ └── AndroidManifest.xml
+│ ├── build.gradle
+│ └── proguard-rules.pro
 ├── build.gradle
 ├── settings.gradle
 └── gradle.properties
-```
+
+````
 
 **Unified JavaScript Bridge (`assets/js/mobile_native.js`):**
 
@@ -1277,21 +1281,21 @@ MobileNative.getPlatform()   // 'ios' | 'android' | 'web'
 MobileNative.openURL(url)    // Open external URL
 MobileNative.share(text)     // Native share sheet
 MobileNative.haptic(style)   // Haptic feedback
-```
+````
 
 **Features Implemented:**
 
-| Feature | iOS | Android |
-|---------|-----|---------|
-| WebView container | WKWebView | WebView |
-| JS bridge | `webkit.messageHandlers` | `@JavascriptInterface` |
-| Secure storage | Keychain | Android Keystore |
-| Safe area insets | CSS variables | CSS variables |
-| App lifecycle events | ✅ | ✅ |
-| External link handling | ✅ | ✅ |
-| Share sheet | ✅ | ✅ |
-| Haptic feedback | ✅ | ✅ |
-| WebView debugging | Safari DevTools | Chrome DevTools |
+| Feature                | iOS                      | Android                |
+| ---------------------- | ------------------------ | ---------------------- |
+| WebView container      | WKWebView                | WebView                |
+| JS bridge              | `webkit.messageHandlers` | `@JavascriptInterface` |
+| Secure storage         | Keychain                 | Android Keystore       |
+| Safe area insets       | CSS variables            | CSS variables          |
+| App lifecycle events   | ✅                       | ✅                     |
+| External link handling | ✅                       | ✅                     |
+| Share sheet            | ✅                       | ✅                     |
+| Haptic feedback        | ✅                       | ✅                     |
+| WebView debugging      | Safari DevTools          | Chrome DevTools        |
 
 **Next Steps:**
 
@@ -1324,6 +1328,7 @@ MobileNative.haptic(style)   // Haptic feedback
 **API Endpoints:**
 
 Authenticated (requires Bearer token):
+
 - `POST /api/billing/apple/validate` - Validate Apple IAP purchase (StoreKit 2 transactionId)
 - `POST /api/billing/google/validate` - Validate Google Play purchase (productId + purchaseToken)
 - `GET /api/billing/subscription` - Get current subscription status
@@ -1331,6 +1336,7 @@ Authenticated (requires Bearer token):
 - `POST /api/billing/restore` - Restore purchases after reinstall/new device
 
 Webhooks (server-to-server, no auth):
+
 - `POST /api/webhooks/apple` - Apple App Store Server Notifications V2
 - `POST /api/webhooks/google-play` - Google Play Real-time Developer Notifications (RTDN)
 
@@ -1459,11 +1465,13 @@ config :mosslet, :mobile_product_mapping, %{
 The elixir-desktop project requires cross-compiled Erlang/OTP for each target platform.
 
 **Prerequisites:**
+
 - Xcode (for iOS)
 - Android NDK (for Android)
 - Docker (optional, for reproducible builds)
 
 **iOS Build Steps:**
+
 - [ ] Set up iOS build environment (Xcode Command Line Tools)
 - [ ] Clone `elixir-desktop/otp_build` repository
 - [ ] Build OTP for iOS Simulator (arm64 + x86_64)
@@ -1471,12 +1479,14 @@ The elixir-desktop project requires cross-compiled Erlang/OTP for each target pl
 - [ ] Create universal xcframework
 
 **Android Build Steps:**
+
 - [ ] Set up Android NDK (r25+)
 - [ ] Build OTP for Android arm64-v8a
 - [ ] Build OTP for Android armeabi-v7a (optional, older devices)
 - [ ] Build OTP for Android x86_64 (emulator)
 
 **Build Automation:** ✅ COMPLETE
+
 - [x] `scripts/build_mobile.sh` - Main build orchestration script
 - [x] `scripts/package_ios.sh` - Package release for iOS bundle
 - [x] `scripts/package_android.sh` - Package release for Android assets
@@ -1484,6 +1494,7 @@ The elixir-desktop project requires cross-compiled Erlang/OTP for each target pl
 - [x] `.github/workflows/mobile-build.yml` - CI/CD for automated builds
 
 **Resources:**
+
 - [otp_build repository](https://github.com/nickvander/otp_build) - Scripts for cross-compiling OTP
 - [elixir-desktop iOS example](https://github.com/nickvander/ios-elixir-example)
 - [elixir-desktop Android example](https://github.com/nickvander/android-elixir-example)
@@ -1498,12 +1509,14 @@ The elixir-desktop project requires cross-compiled Erlang/OTP for each target pl
 #### 9.3 Integrate Releases with Native Projects ✅ COMPLETE
 
 **iOS:**
+
 - [x] Updated `Bridge.swift` to start Erlang VM with proper environment
 - [x] Configure app to extract and run BEAM files
 - [x] Bundle compiled BEAM files and assets via `package_ios.sh`
 - [ ] Test on iOS Simulator (requires OTP build)
 
 **Android:**
+
 - [x] Updated `Bridge.kt` to start Erlang VM with proper environment
 - [x] Configure app to extract release from assets
 - [x] Bundle compiled BEAM files and assets via `package_android.sh`
@@ -1731,31 +1744,34 @@ esac
 
 ##### 9.4.5 Desktop-Specific Features
 
-| Feature | macOS | Windows | Linux |
-|---------|-------|---------|-------|
-| WebView | WKWebView | WebView2 | WebKitGTK |
-| Secure Storage | Keychain | DPAPI | libsecret |
-| Notifications | UNUserNotificationCenter | ToastNotification | libnotify |
-| System Tray | NSStatusItem | NotifyIcon | AppIndicator |
-| Auto-Update | Sparkle | WinSparkle / built-in | AppImage updates |
-| Global Shortcuts | NSEvent | RegisterHotKey | X11/Wayland specific |
-| File Associations | Info.plist UTIs | Registry | .desktop mimetypes |
+| Feature           | macOS                    | Windows               | Linux                |
+| ----------------- | ------------------------ | --------------------- | -------------------- |
+| WebView           | WKWebView                | WebView2              | WebKitGTK            |
+| Secure Storage    | Keychain                 | DPAPI                 | libsecret            |
+| Notifications     | UNUserNotificationCenter | ToastNotification     | libnotify            |
+| System Tray       | NSStatusItem             | NotifyIcon            | AppIndicator         |
+| Auto-Update       | Sparkle                  | WinSparkle / built-in | AppImage updates     |
+| Global Shortcuts  | NSEvent                  | RegisterHotKey        | X11/Wayland specific |
+| File Associations | Info.plist UTIs          | Registry              | .desktop mimetypes   |
 
 ##### 9.4.6 Desktop OTP Build
 
 Unlike mobile, desktop OTP can use prebuilt binaries or compile from source:
 
 **macOS:**
+
 - Use Homebrew: `brew install erlang` (development)
 - Bundle prebuilt OTP for distribution
 - Universal binary (arm64 + x86_64) for Apple Silicon + Intel
 
 **Windows:**
+
 - Use official Erlang installer (development)
 - Bundle prebuilt OTP for distribution
 - x64 architecture only (modern Windows)
 
 **Linux:**
+
 - Use system package manager (development)
 - Bundle in AppImage/Flatpak for distribution
 - x86_64 architecture (primary), aarch64 (Raspberry Pi, etc.)
@@ -1882,7 +1898,7 @@ defmodule Mix.Tasks.Build.Native do
       opts[:all] -> [:ios, :android, :macos, :windows, :linux]
       opts[:mobile] -> [:ios, :android]
       opts[:desktop] -> [:macos, :windows, :linux]
-      opts[:platform] -> Keyword.get_values(opts, :platform) |> Enum.map(&String.to_atom/1)
+      opts[:platform] -> Keyword.get_values(opts, :platform) |> Enum.map(&String.to_existing_atom/1)
       true -> detect_host_platforms()
     end
   end
@@ -1928,14 +1944,14 @@ name: Build Native Apps
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       platforms:
-        description: 'Platforms to build (comma-separated: ios,android,macos,windows,linux)'
-        default: 'all'
+        description: "Platforms to build (comma-separated: ios,android,macos,windows,linux)"
+        default: "all"
       release:
-        description: 'Build release version'
+        description: "Build release version"
         type: boolean
         default: true
 
@@ -1953,8 +1969,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.0'
-          elixir-version: '1.17'
+          otp-version: "27.0"
+          elixir-version: "1.17"
       - name: Build ${{ matrix.platform }}
         run: mix build.native --platform ${{ matrix.platform }} --release
 
@@ -1973,8 +1989,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.0'
-          elixir-version: '1.17'
+          otp-version: "27.0"
+          elixir-version: "1.17"
       - name: Build ${{ matrix.platform }}
         run: mix build.native --platform ${{ matrix.platform }} --release
       - name: Upload artifacts
@@ -2120,7 +2136,7 @@ HTTPS/WSS
 │ Server stores: Double-encrypted data │
 └─────────────────────────────────────────────────────────────────────────┘
 
-````
+```
 
 ### Cloak/Cloak Ecto (At-Rest Encryption)
 
@@ -2156,7 +2172,7 @@ defmodule Mosslet.Repo do
   # Writes go to primary region, reads from replicas
   # transaction_on_primary/1 ensures writes hit primary
 end
-````
+```
 
 **Native Platform:**
 

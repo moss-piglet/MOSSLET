@@ -40,10 +40,14 @@ defmodule MossletWeb.JournalLive.Entry do
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <time class="text-sm text-slate-500 dark:text-slate-400">
-                  {format_date(@entry.entry_date)}
-                </time>
-                <span :if={@entry.mood} class="text-2xl">{mood_emoji(@entry.mood)}</span>
+                <div class="flex items-center gap-2">
+                  <time class="text-sm text-slate-500 dark:text-slate-400">
+                    {format_date(@entry.entry_date)}
+                  </time>
+                  <span :if={@decrypted_mood} class="text-sm text-slate-500 dark:text-slate-400">
+                    {mood_emoji(@decrypted_mood)} {@decrypted_mood}
+                  </span>
+                </div>
                 <button
                   phx-click="toggle_favorite"
                   class={[
@@ -497,6 +501,7 @@ defmodule MossletWeb.JournalLive.Entry do
         |> assign(:entry, entry)
         |> assign(:decrypted_title, decrypted.title)
         |> assign(:decrypted_body, decrypted.body)
+        |> assign(:decrypted_mood, decrypted.mood)
         |> assign(:prev_path, prev_path)
         |> assign(:next_path, next_path)
         |> assign(:back_path, back_path)

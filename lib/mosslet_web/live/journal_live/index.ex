@@ -356,12 +356,17 @@ defmodule MossletWeb.JournalLive.Index do
                     />
                   </button>
                   <div class="flex flex-col items-end gap-1">
-                    <time class="text-xs text-slate-500 dark:text-slate-400">
-                      {format_date(entry.entry_date)}
-                    </time>
-                    <span :if={entry.mood} class="text-lg" title={entry.mood}>
-                      {mood_emoji(entry.mood)}
-                    </span>
+                    <div class="flex items-center gap-2">
+                      <time class="text-xs text-slate-500 dark:text-slate-400">
+                        {format_date(entry.entry_date)}
+                      </time>
+                      <span
+                        :if={entry.decrypted_mood}
+                        class="text-xs text-slate-500 dark:text-slate-400"
+                      >
+                        {mood_emoji(entry.decrypted_mood)} {entry.decrypted_mood}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -485,16 +490,17 @@ defmodule MossletWeb.JournalLive.Index do
                     <.phx_icon name="hero-folder-plus" class="h-4 w-4" />
                   </button>
                   <div class="flex flex-col items-end gap-1">
-                    <time class="text-xs text-slate-500 dark:text-slate-400">
-                      {format_date(entry.entry_date)}
-                    </time>
-                    <span
-                      :if={entry.mood}
-                      class="text-lg"
-                      title={entry.mood}
-                    >
-                      {mood_emoji(entry.mood)}
-                    </span>
+                    <div class="flex items-center gap-2">
+                      <time class="text-xs text-slate-500 dark:text-slate-400">
+                        {format_date(entry.entry_date)}
+                      </time>
+                      <span
+                        :if={entry.decrypted_mood}
+                        class="text-xs text-slate-500 dark:text-slate-400"
+                      >
+                        {mood_emoji(entry.decrypted_mood)} {entry.decrypted_mood}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2051,6 +2057,7 @@ defmodule MossletWeb.JournalLive.Index do
       entry
       |> Map.put(:decrypted_title, decrypted.title)
       |> Map.put(:decrypted_body, decrypted.body)
+      |> Map.put(:decrypted_mood, decrypted.mood)
     end)
   end
 

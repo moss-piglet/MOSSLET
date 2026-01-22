@@ -4,18 +4,8 @@ const BookReaderSwipe = {
     this.touchEndX = 0;
     this.minSwipeDistance = 80;
     this.mdBreakpoint = 768;
-    this.wasMobile = window.innerWidth < this.mdBreakpoint;
 
     this.isMobile = () => window.innerWidth < this.mdBreakpoint;
-
-    this.handleTouchStart = (e) => {
-      this.touchStartX = e.changedTouches[0].screenX;
-    };
-
-    this.handleTouchEnd = (e) => {
-      this.touchEndX = e.changedTouches[0].screenX;
-      this.handleSwipe();
-    };
 
     this.handleSwipe = () => {
       const diff = this.touchStartX - this.touchEndX;
@@ -31,34 +21,23 @@ const BookReaderSwipe = {
       }
     };
 
-    this.handleResize = () => {
-      const isMobileNow = this.isMobile();
-      if (this.wasMobile !== isMobileNow) {
-        this.pushEvent("viewport_changed", { 
-          from_mobile: this.wasMobile, 
-          to_mobile: isMobileNow 
-        });
-        this.wasMobile = isMobileNow;
-      }
+    this.handleSwipeLeft = () => {
+      this.pushEvent("swipe_navigate", { direction: "next", is_mobile: this.isMobile() });
     };
 
-    this.el.addEventListener("swipe-left", () => {
-      this.pushEvent("swipe_navigate", { direction: "next", is_mobile: this.isMobile() });
-    });
-
-    this.el.addEventListener("swipe-right", () => {
+    this.handleSwipeRight = () => {
       this.pushEvent("swipe_navigate", { direction: "prev", is_mobile: this.isMobile() });
-    });
+    };
 
+    this.el.addEventListener("swipe-left", this.handleSwipeLeft);
+    this.el.addEventListener("swipe-right", this.handleSwipeRight);
     window.addEventListener("keydown", this.handleKeydown);
-    window.addEventListener("resize", this.handleResize);
   },
 
   destroyed() {
-    this.el.removeEventListener("swipe-left", () => {});
-    this.el.removeEventListener("swipe-right", () => {});
+    this.el.removeEventListener("swipe-left", this.handleSwipeLeft);
+    this.el.removeEventListener("swipe-right", this.handleSwipeRight);
     window.removeEventListener("keydown", this.handleKeydown);
-    window.removeEventListener("resize", this.handleResize);
   },
 };
 

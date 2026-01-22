@@ -1,9 +1,12 @@
 import MossletFrameworkHooks from "../../_mosslet_framework/js/hooks";
 import AutoResize from "./auto-resize";
+import BookPageFitHook from "./book-page-fit-hook";
 import BookReaderSwipe from "./book-reader-swipe";
+import BookScrollReader from "./book-scroll-reader";
 import CharacterCounter from "./character-counter";
 import ClipboardHook from "./clipboard-hook";
 import ComposerEmojiPicker from "./composer-emoji-picker";
+import CSSBookCoverClick from "./css-book-cover-click";
 import DeepLinkHook from "./deep-link-hook";
 import GroupMessageEmojiPicker from "./group-message-emoji-picker";
 import KeywordFilterInput from "./keyword-filter-input";
@@ -52,10 +55,13 @@ import PostExpandHook from "./post-expand-hook";
 
 export default {
   AutoResize,
+  BookPageFitHook,
   BookReaderSwipe,
+  BookScrollReader,
   CharacterCounter,
   ClipboardHook,
   ComposerEmojiPicker,
+  CSSBookCoverClick,
   DeepLinkHook,
   GroupMessageEmojiPicker,
   KeywordFilterInput,
