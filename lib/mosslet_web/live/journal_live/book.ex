@@ -485,9 +485,6 @@ defmodule MossletWeb.JournalLive.Book do
       |> assign(:total_content_pages, length(page_segments))
 
     ~H"""
-    <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
-      <.phx_flash_group flash={@flash} />
-    </div>
     <div
       id="css-book-reader"
       class="fixed inset-0 bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
@@ -903,9 +900,6 @@ defmodule MossletWeb.JournalLive.Book do
       |> assign(:page_segments, page_segments)
 
     ~H"""
-    <div id="flash-notifications" class="fixed bottom-4 right-4 z-[100]">
-      <.phx_flash_group flash={@flash} />
-    </div>
     <div
       id="immersive-reader"
       class="fixed inset-0 flex flex-col bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
