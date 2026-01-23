@@ -41,6 +41,17 @@ defmodule MossletWeb.BlueskySettingsLive do
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-8">
+        <div class="mb-6 flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+          <.phx_icon
+            name="hero-wrench-screwdriver"
+            class="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0"
+          />
+          <p class="text-sm text-amber-800 dark:text-amber-200">
+            <span class="font-semibold">Under Construction</span>
+            — Bluesky integration is actively being developed. Some features may be incomplete or change.
+          </p>
+        </div>
+
         <div class="mb-8">
           <div class="mb-6">
             <h1 class="text-2xl font-bold tracking-tight sm:text-3xl bg-gradient-to-r from-sky-500 to-blue-600 bg-clip-text text-transparent">

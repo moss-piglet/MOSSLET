@@ -131,10 +131,10 @@ defmodule MossletWeb.JournalLive.Book do
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div class="flex items-center gap-4">
                 <div class={[
-                  "h-14 w-14 sm:h-16 sm:w-16 rounded-xl flex items-center justify-center flex-shrink-0",
+                  "h-20 w-20 sm:h-20 sm:w-20 rounded-xl flex items-center justify-center flex-shrink-0",
                   JournalHelpers.book_cover_gradient(@book.cover_color)
                 ]}>
-                  <.phx_icon name="hero-book-open" class="h-7 w-7 sm:h-8 sm:w-8 text-white/80" />
+                  <.phx_icon name="hero-book-open" class="h-8 w-8 sm:h-10 sm:w-10 text-white/80" />
                 </div>
                 <div class="min-w-0">
                   <h1 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
