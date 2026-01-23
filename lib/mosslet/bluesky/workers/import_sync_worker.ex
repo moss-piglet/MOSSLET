@@ -31,6 +31,12 @@ defmodule Mosslet.Bluesky.Workers.ImportSyncWorker do
   require Logger
 
   @impl Oban.Worker
+  def perform(%Oban.Job{args: %{"action" => "sync_all"}}) do
+    Logger.info("[BlueskyImport] Running scheduled sync for all accounts")
+    enqueue_all_imports()
+    :ok
+  end
+
   def perform(%Oban.Job{args: %{"account_id" => account_id} = args}) do
     account = Bluesky.get_account!(account_id) |> Mosslet.Repo.preload(:user)
     limit = Map.get(args, "limit", 50)

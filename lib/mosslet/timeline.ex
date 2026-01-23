@@ -4440,8 +4440,7 @@ defmodule Mosslet.Timeline do
   def decrypt_post_body(post, user, key) do
     case get_user_post_key_for_export(post, user, key) do
       {:ok, post_key} ->
-        decrypted = Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})
-        {:ok, decrypted}
+        Mosslet.Encrypted.Utils.decrypt(%{key: post_key, payload: post.body})
 
       _ ->
         {:error, :decryption_failed}

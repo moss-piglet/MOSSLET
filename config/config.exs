@@ -142,7 +142,12 @@ config :mosslet, Oban,
        # Check for commissions that became available (hold period expired) daily at 6 AM UTC
        {"0 6 * * *", Mosslet.Billing.Workers.CommissionAvailabilityWorker},
        # Database backup daily at 3 AM UTC
-       {"0 3 * * *", Mosslet.Workers.DatabaseBackupWorker, args: %{"type" => "scheduled"}}
+       {"0 3 * * *", Mosslet.Workers.DatabaseBackupWorker, args: %{"type" => "scheduled"}},
+       # Bluesky sync: Export public posts to Bluesky every 15 minutes
+       {"*/15 * * * *", Mosslet.Bluesky.Workers.ExportSyncWorker,
+        args: %{"action" => "sync_all"}},
+       # Bluesky sync: Import posts from Bluesky every 15 minutes
+       {"*/15 * * * *", Mosslet.Bluesky.Workers.ImportSyncWorker, args: %{"action" => "sync_all"}}
      ]}
   ],
   queues: [
