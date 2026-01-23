@@ -21,6 +21,7 @@ const BookScrollReader = {
     this.lastPushedPage = null;
     this.pendingNavigation = null;
     this.isAnimatingScroll = false;
+    this.isSettling = false;
     
     this.container.classList.add('no-scroll-snap');
     
@@ -111,8 +112,13 @@ const BookScrollReader = {
   },
 
   updated() {
+    this.isSettling = true;
     requestAnimationFrame(() => {
-      this.recalculatePages();
+      this.recalculatePages(() => {
+        setTimeout(() => {
+          this.isSettling = false;
+        }, 200);
+      });
     });
   },
 
@@ -418,8 +424,8 @@ const BookScrollReader = {
       if (page.dataset.spreadStart === 'true') {
         return i;
       }
-      if (page.dataset.pageType === 'content-blank' && page.dataset.visible === 'true') {
-        return i;
+      if (page.dataset.pageType === 'content-blank') {
+        continue;
       }
     }
     const backIndex = this.pageElements.findIndex(p => p.dataset.pageType === 'back-cover');
@@ -485,7 +491,7 @@ const BookScrollReader = {
   },
 
   updatePageInfo() {
-    if (this.isNavigatingAway) return;
+    if (this.isNavigatingAway || this.isSettling) return;
     
     const currentPage = this.getCurrentContentPage();
     const total = this.totalContentPages;
