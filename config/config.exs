@@ -20,7 +20,7 @@ config :mosslet,
   logo_url_for_emails:
     "https://res.cloudinary.com/metamorphic/image/upload/v1717007234/Mosslet_Stacked_OnLight_pjn9w8.png",
   seo_description:
-    "A social alternative that's simple and privacy-first. Ditch intrusive and stressful Big Tech social platforms for MOSSLET — a better alternative to Facebook, Twitter, and Instagram that's simple and privacy-first. Experience peace of mind.",
+    "A social alternative that's simple and privacy-first. Connect with friends and family, or simply yourself through our encrypted journal. Bluesky interop, no ads, no algorithms — just your people and your thoughts.",
   github_url: "https://github.com/moss-piglet/mosslet",
   discord_url: "https://discord.gg/hjeUW39ytd",
   server_public_key: System.get_env("SERVER_PUBLIC_KEY"),
