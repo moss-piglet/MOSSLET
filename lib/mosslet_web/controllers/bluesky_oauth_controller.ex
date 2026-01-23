@@ -106,33 +106,33 @@ defmodule MossletWeb.BlueskyOAuthController do
     user = conn.assigns.current_scope.user
     did = tokens.sub
 
-    case fetch_profile(tokens.access_token, did, oauth_state) do
-      {:ok, handle} ->
-        attrs = %{
-          did: did,
-          handle: handle,
-          access_jwt: tokens.access_token,
-          refresh_jwt: tokens.refresh_token,
-          signing_key: Jason.encode!(oauth_state.dpop_private_key_jwk),
-          pds_url: "https://bsky.social"
-        }
+    with {:ok, pds_url} <- Mosslet.Bluesky.Client.resolve_pds_url(did),
+         {:ok, handle} <- fetch_profile(tokens.access_token, did, oauth_state, pds_url) do
+      attrs = %{
+        did: did,
+        handle: handle,
+        access_jwt: tokens.access_token,
+        refresh_jwt: tokens.refresh_token,
+        signing_key: Jason.encode!(oauth_state.dpop_private_key_jwk),
+        pds_url: pds_url
+      }
 
-        case Bluesky.create_account(user, attrs) do
-          {:ok, _account} ->
-            conn
-            |> delete_session(:bluesky_oauth_state)
-            |> put_flash(:success, "Successfully connected to Bluesky!")
-            |> redirect(to: ~p"/app/users/bluesky")
+      case Bluesky.create_account(user, attrs) do
+        {:ok, _account} ->
+          conn
+          |> delete_session(:bluesky_oauth_state)
+          |> put_flash(:success, "Successfully connected to Bluesky!")
+          |> redirect(to: ~p"/app/users/bluesky")
 
-          {:error, changeset} ->
-            error_msg = format_changeset_errors(changeset)
+        {:error, changeset} ->
+          error_msg = format_changeset_errors(changeset)
 
-            conn
-            |> delete_session(:bluesky_oauth_state)
-            |> put_flash(:error, "Failed to save Bluesky account: #{error_msg}")
-            |> redirect(to: ~p"/app/users/bluesky")
-        end
-
+          conn
+          |> delete_session(:bluesky_oauth_state)
+          |> put_flash(:error, "Failed to save Bluesky account: #{error_msg}")
+          |> redirect(to: ~p"/app/users/bluesky")
+      end
+    else
       {:error, reason} ->
         conn
         |> delete_session(:bluesky_oauth_state)
@@ -141,8 +141,8 @@ defmodule MossletWeb.BlueskyOAuthController do
     end
   end
 
-  defp fetch_profile(access_token, did, oauth_state) do
-    url = "https://bsky.social/xrpc/com.atproto.repo.describeRepo"
+  defp fetch_profile(access_token, did, oauth_state, pds_url) do
+    url = "#{pds_url}/xrpc/com.atproto.repo.describeRepo"
 
     {:ok, dpop_proof} =
       OAuth.create_dpop_proof(
@@ -153,7 +153,10 @@ defmodule MossletWeb.BlueskyOAuthController do
         access_token: access_token
       )
 
-    case Mosslet.Bluesky.Client.describe_repo(access_token, did, dpop_proof: dpop_proof) do
+    case Mosslet.Bluesky.Client.describe_repo(access_token, did,
+           dpop_proof: dpop_proof,
+           pds_url: pds_url
+         ) do
       {:ok, %{handle: handle}} ->
         {:ok, handle}
 

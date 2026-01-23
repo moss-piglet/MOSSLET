@@ -329,6 +329,70 @@ defmodule Mosslet.Bluesky.Client do
   end
 
   @doc """
+  Resolves a DID to get the user's PDS URL from their DID document.
+
+  For did:plc DIDs, queries the PLC directory.
+  For did:web DIDs, fetches from the domain's .well-known path.
+
+  ## Examples
+
+      {:ok, "https://morel.us-east.host.bsky.network"} = resolve_pds_url("did:plc:abc123")
+  """
+  @spec resolve_pds_url(String.t()) :: {:ok, String.t()} | {:error, term()}
+  def resolve_pds_url("did:plc:" <> _ = did) do
+    url = "https://plc.directory/#{did}"
+
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} when is_map(body) ->
+        extract_pds_from_did_doc(body)
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.error("Failed to resolve DID document: #{status} - #{inspect(body)}")
+        {:error, :did_resolution_failed}
+
+      {:error, reason} ->
+        Logger.error("Failed to resolve DID document: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def resolve_pds_url("did:web:" <> domain) do
+    url = "https://#{domain}/.well-known/did.json"
+
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} when is_map(body) ->
+        extract_pds_from_did_doc(body)
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.error("Failed to resolve DID document: #{status} - #{inspect(body)}")
+        {:error, :did_resolution_failed}
+
+      {:error, reason} ->
+        Logger.error("Failed to resolve DID document: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def resolve_pds_url(did) do
+    Logger.error("Unsupported DID method: #{did}")
+    {:error, :unsupported_did_method}
+  end
+
+  defp extract_pds_from_did_doc(%{"service" => services}) when is_list(services) do
+    case Enum.find(services, &(&1["type"] == "AtprotoPersonalDataServer")) do
+      %{"serviceEndpoint" => endpoint} when is_binary(endpoint) ->
+        {:ok, endpoint}
+
+      _ ->
+        {:error, :pds_not_found_in_did_doc}
+    end
+  end
+
+  defp extract_pds_from_did_doc(_) do
+    {:error, :invalid_did_document}
+  end
+
+  @doc """
   Gets a user's profile.
 
   **DEPRECATED**: This endpoint requires `app.bsky` OAuth scope which is not available
