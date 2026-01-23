@@ -507,6 +507,7 @@ const BookScrollReader = {
       } else {
         indicator.textContent = 'Back Cover';
       }
+      indicator.classList.remove('opacity-0');
     }
     
     if (this.lastPushedPage === currentPage) return;

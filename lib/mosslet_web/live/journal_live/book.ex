@@ -1038,8 +1038,11 @@ defmodule MossletWeb.JournalLive.Book do
             </div>
 
             <div class="flex items-center gap-4">
-              <span id="book-page-indicator" class="text-xs text-slate-500 dark:text-slate-400">
-                Loading...
+              <span
+                id="book-page-indicator"
+                phx-update="ignore"
+                class="text-xs text-slate-500 dark:text-slate-400 opacity-0"
+              >
               </span>
               <.link
                 navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@scroll_page}"}
