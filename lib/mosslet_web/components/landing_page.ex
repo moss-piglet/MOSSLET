@@ -572,6 +572,118 @@ defmodule MossletWeb.Components.LandingPage do
           </div>
         </MossletWeb.DesignSystem.liquid_container>
 
+        <%!-- Bluesky Interoperability Teaser Section --%>
+        <MossletWeb.DesignSystem.liquid_container
+          max_width="full"
+          class="relative mt-16 sm:mt-24 py-16 sm:py-20"
+        >
+          <div class="absolute inset-0 bg-gradient-to-b from-sky-50/30 via-blue-50/20 to-transparent dark:from-sky-950/20 dark:via-blue-950/10 dark:to-transparent">
+          </div>
+          <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
+            <div class="flex items-center justify-center gap-3 mb-4">
+              <div class="h-px w-12 bg-gradient-to-r from-transparent to-sky-400 dark:to-sky-600">
+              </div>
+              <span class="text-sm font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                Open Social
+              </span>
+              <div class="h-px w-12 bg-gradient-to-l from-transparent to-sky-400 dark:to-sky-600">
+              </div>
+            </div>
+            <div class="text-center mb-12">
+              <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-sky-500 to-blue-500 bg-clip-text text-transparent">
+                Your vault, their reach
+              </h2>
+              <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                Import your Bluesky posts into encrypted storage, export Mosslet posts to Bluesky, and keep your data safe even if you delete your Bluesky account. Real data portability without lock-in.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-arrow-down-tray"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Import & Encrypt
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Bring your Bluesky posts home. Private posts are encrypted with your keys — we literally can't read them.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-arrow-up-tray"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      Sync & Publish
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Use Bluesky for reach and discovery while Mosslet stays your private, encrypted home base for content and relationships.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+
+              <MossletWeb.DesignSystem.liquid_card
+                padding="lg"
+                class="group hover:scale-105 transition-all duration-300 ease-out h-full"
+              >
+                <:title>
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg">
+                      <.phx_icon
+                        name="hero-arrows-right-left"
+                        class="h-5 w-5 text-white"
+                      />
+                    </div>
+                    <span class="text-base font-bold text-slate-900 dark:text-slate-100">
+                      No Lock-In
+                    </span>
+                  </div>
+                </:title>
+
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Leave Bluesky or Mosslet whenever you want — your data travels with you. True portability means freedom to choose.
+                </p>
+              </MossletWeb.DesignSystem.liquid_card>
+            </div>
+
+            <div class="mt-12 text-center">
+              <MossletWeb.DesignSystem.liquid_button
+                navigate="/features#bluesky-interop"
+                variant="secondary"
+                color="sky"
+                icon="hero-arrow-right"
+                size="lg"
+                shimmer="page"
+              >
+                Learn about Bluesky sync
+              </MossletWeb.DesignSystem.liquid_button>
+            </div>
+          </div>
+        </MossletWeb.DesignSystem.liquid_container>
+
         <.liquid_testimonials />
       </DesignSystem.liquid_container>
     </section>

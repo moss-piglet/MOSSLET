@@ -2049,6 +2049,193 @@ defmodule MossletWeb.PublicLive.Features do
             </div>
           </.liquid_container>
 
+          <%!-- Bluesky Interoperability Section --%>
+          <.liquid_container max_width="full" class="mt-24 sm:mt-32" id="bluesky-interop">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="h-px w-12 bg-gradient-to-r from-transparent to-sky-400 dark:to-sky-600">
+                </div>
+                <span class="text-sm font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                  Open Social
+                </span>
+                <div class="h-px w-12 bg-gradient-to-l from-transparent to-sky-400 dark:to-sky-600">
+                </div>
+              </div>
+              <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl bg-gradient-to-r from-sky-500 to-blue-500 bg-clip-text text-transparent">
+                  Bluesky Interoperability
+                </h2>
+                <p class="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+                  Mosslet becomes your private "source of truth" for social posts. Import from Bluesky, export to Bluesky, and maintain true data ownership with asymmetric encryption that means we can't read your private content.
+                </p>
+              </div>
+
+              <%!-- Main value prop cards --%>
+              <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 max-w-5xl mx-auto mb-16">
+                <.liquid_card
+                  padding="lg"
+                  class="bg-gradient-to-br from-sky-50/40 via-blue-50/30 to-indigo-50/40 dark:from-sky-900/15 dark:via-blue-900/10 dark:to-indigo-900/15 border-sky-200/60 dark:border-sky-700/30"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 shadow-lg shadow-sky-500/30">
+                        <.phx_icon name="hero-arrow-down-tray" class="h-6 w-6 text-white" />
+                      </div>
+                      <span class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                        Import from Bluesky
+                      </span>
+                    </div>
+                  </:title>
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                    Bring your Bluesky posts into Mosslet with a single click. Choose your visibility level — public, connections-only, or completely private.
+                  </p>
+                  <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-sky-500 shrink-0 mt-0.5"
+                      />
+                      <span>Full content import including images</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-sky-500 shrink-0 mt-0.5"
+                      />
+                      <span>All content moderated through same safety pipelines</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-sky-500 shrink-0 mt-0.5"
+                      />
+                      <span>Background sync for public posts, manual for private</span>
+                    </li>
+                  </ul>
+                </.liquid_card>
+
+                <.liquid_card
+                  padding="lg"
+                  class="bg-gradient-to-br from-blue-50/40 via-indigo-50/30 to-violet-50/40 dark:from-blue-900/15 dark:via-indigo-900/10 dark:to-violet-900/15 border-blue-200/60 dark:border-blue-700/30"
+                >
+                  <:title>
+                    <div class="flex items-center gap-4 mb-4">
+                      <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/30">
+                        <.phx_icon name="hero-arrow-up-tray" class="h-6 w-6 text-white" />
+                      </div>
+                      <span class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                        Export to Bluesky
+                      </span>
+                    </div>
+                  </:title>
+                  <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                    Publish your Mosslet posts to Bluesky for broader reach. Use the open social web for discovery while keeping Mosslet as your private home base.
+                  </p>
+                  <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-blue-500 shrink-0 mt-0.5"
+                      />
+                      <span>Automatic sync for public posts via background workers</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-blue-500 shrink-0 mt-0.5"
+                      />
+                      <span>Session-based export for private posts (your keys required)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <.phx_icon
+                        name="hero-check-circle"
+                        class="h-5 w-5 text-blue-500 shrink-0 mt-0.5"
+                      />
+                      <span>Full OAuth with secure token management</span>
+                    </li>
+                  </ul>
+                </.liquid_card>
+              </div>
+
+              <%!-- Technical privacy explanation --%>
+              <.liquid_card
+                padding="lg"
+                class="max-w-4xl mx-auto bg-gradient-to-br from-indigo-50/40 via-violet-50/30 to-purple-50/40 dark:from-indigo-900/15 dark:via-violet-900/10 dark:to-purple-900/15 border-indigo-200/60 dark:border-indigo-700/30"
+              >
+                <:title>
+                  <div class="flex items-center gap-4 mb-4">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/30">
+                      <.phx_icon name="hero-lock-closed" class="h-6 w-6 text-white" />
+                    </div>
+                    <span class="text-xl font-bold text-slate-900 dark:text-slate-100">
+                      Why Asymmetric Encryption Matters
+                    </span>
+                  </div>
+                </:title>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <h4 class="font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                      For Private & Connections Posts
+                    </h4>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
+                      Your posts are encrypted with your personal key pair. Only you (and people you explicitly share with) can decrypt them — not Mosslet, not Bluesky, not anyone.
+                    </p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      This is why private imports and exports require your active session: <span class="font-medium text-indigo-600 dark:text-indigo-400">we literally don't have the keys</span>.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                      The Result: No Lock-In, Anywhere
+                    </h4>
+                    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                      <li class="flex items-start gap-2">
+                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+                        <span>Use Bluesky for reach and discovery</span>
+                      </li>
+                      <li class="flex items-start gap-2">
+                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+                        <span>Use Mosslet for ownership, control, and privacy</span>
+                      </li>
+                      <li class="flex items-start gap-2">
+                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+                        <span>Leave either platform and keep your content</span>
+                      </li>
+                      <li class="flex items-start gap-2">
+                        <.phx_icon name="hero-check" class="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+                        <span>Your data is yours — take it wherever you go</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </.liquid_card>
+
+              <%!-- Visual representation of the flow --%>
+              <div class="mt-16 text-center">
+                <div class="inline-flex flex-wrap items-center justify-center gap-4 text-sm font-medium">
+                  <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">
+                    <img
+                      src={~p"/images/landing_page/bluesky_logo.png"}
+                      alt="Bluesky"
+                      class="h-5 w-5"
+                    />
+                    <span>Bluesky</span>
+                  </div>
+                  <.phx_icon name="hero-arrows-right-left" class="h-5 w-5 text-slate-400" />
+                  <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                    <.phx_icon name="hero-lock-closed" class="h-5 w-5" />
+                    <span>Mosslet (Encrypted)</span>
+                  </div>
+                  <span class="text-slate-500 dark:text-slate-400">=</span>
+                  <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                    <.phx_icon name="hero-shield-check" class="h-5 w-5" />
+                    <span>You Own Your Data</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </.liquid_container>
+
           <%!-- Referral Program Section --%>
           <.liquid_container max_width="xl" class="mt-24">
             <div class="mx-auto max-w-4xl">
