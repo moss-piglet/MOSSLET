@@ -46,11 +46,12 @@ const EntryColumnFlow = {
     const body = container.querySelector('[data-body="true"]');
     if (!body) return;
 
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
     const isMobile = window.innerWidth < 768;
     const pageWidth = isMobile ? window.innerWidth : window.innerWidth / 2;
-    const paddingX = isMobile ? 32 : (window.innerWidth >= 1024 ? 160 : 128);
-    const paddingTop = 72;
-    const paddingBottom = 80;
+    const paddingX = isMobile ? (2 * rem) : (window.innerWidth >= 1024 ? (10 * rem) : (8 * rem));
+    const paddingTop = 4.5 * rem;
+    const paddingBottom = 5 * rem;
     const contentWidth = pageWidth - paddingX;
     const contentHeight = window.innerHeight - paddingTop - paddingBottom;
 
@@ -77,8 +78,8 @@ const EntryColumnFlow = {
     document.body.removeChild(measureDiv);
 
     const headerHeight = header ? header.offsetHeight : 0;
-    const firstPageBodyHeight = contentHeight - headerHeight - 16;
-    const subsequentPageBodyHeight = contentHeight - 40;
+    const firstPageBodyHeight = contentHeight - headerHeight - (8 * rem);
+    const subsequentPageBodyHeight = contentHeight - (7 * rem);
 
     let pages = [];
     const bookId = body.dataset.bookId;
@@ -206,73 +207,39 @@ const EntryColumnFlow = {
     tempDiv.innerHTML = html;
     const nodes = Array.from(tempDiv.childNodes);
     
-    let splitIndex = nodes.length;
+    let usedNodes = [];
+    let splitNodeResult = null;
+    let splitIndex = -1;
     
     for (let i = 0; i < nodes.length; i++) {
       measureDiv.innerHTML = '';
-      const testNodes = nodes.slice(0, i + 1);
-      testNodes.forEach(n => measureDiv.appendChild(n.cloneNode(true)));
-      const currentHeight = measureDiv.scrollHeight;
+      usedNodes.forEach(n => measureDiv.appendChild(n.cloneNode(true)));
+      measureDiv.appendChild(nodes[i].cloneNode(true));
       
-      if (currentHeight > height) {
+      if (measureDiv.scrollHeight > height) {
+        measureDiv.innerHTML = '';
+        usedNodes.forEach(n => measureDiv.appendChild(n.cloneNode(true)));
+        const baseHeight = measureDiv.scrollHeight;
+        const remainingHeight = height - baseHeight;
+        
+        if (remainingHeight > 20) {
+          splitNodeResult = this.splitNodeAtWordBoundary(nodes[i], measureDiv, width, remainingHeight);
+        }
         splitIndex = i;
         break;
       }
-    }
-    
-    if (splitIndex === 0 && nodes.length > 0) {
-      const firstNode = nodes[0];
-      if (firstNode.nodeType === Node.TEXT_NODE) {
-        const text = firstNode.textContent;
-        const words = text.split(/(\s+)/);
-        let usedText = '';
-        
-        for (let i = 0; i < words.length; i++) {
-          measureDiv.textContent = usedText + words[i];
-          if (measureDiv.scrollHeight > height) {
-            break;
-          }
-          usedText += words[i];
-        }
-        
-        document.body.removeChild(measureDiv);
-        
-        if (usedText.trim().length > 0) {
-          const leftover = text.slice(usedText.length);
-          const leftoverNodes = nodes.slice(1);
-          let leftoverHtml = leftover;
-          leftoverNodes.forEach(n => {
-            if (n.nodeType === Node.ELEMENT_NODE) {
-              leftoverHtml += n.outerHTML;
-            } else if (n.nodeType === Node.TEXT_NODE) {
-              leftoverHtml += n.textContent;
-            }
-          });
-          
-          return { usedHtml: usedText, leftoverHtml };
-        }
-      } else if (firstNode.nodeType === Node.ELEMENT_NODE) {
-        document.body.removeChild(measureDiv);
-        const leftoverNodes = nodes.slice(1);
-        let leftoverHtml = '';
-        leftoverNodes.forEach(n => {
-          if (n.nodeType === Node.ELEMENT_NODE) {
-            leftoverHtml += n.outerHTML;
-          } else if (n.nodeType === Node.TEXT_NODE) {
-            leftoverHtml += n.textContent;
-          }
-        });
-        return { usedHtml: firstNode.outerHTML, leftoverHtml };
-      }
+      
+      usedNodes.push(nodes[i]);
     }
     
     document.body.removeChild(measureDiv);
     
-    const usedPart = nodes.slice(0, splitIndex);
-    const leftoverPart = nodes.slice(splitIndex);
+    if (splitIndex === -1) {
+      return { usedHtml: html, leftoverHtml: '' };
+    }
     
     let usedHtml = '';
-    usedPart.forEach(n => {
+    usedNodes.forEach(n => {
       if (n.nodeType === Node.ELEMENT_NODE) {
         usedHtml += n.outerHTML;
       } else if (n.nodeType === Node.TEXT_NODE) {
@@ -280,8 +247,23 @@ const EntryColumnFlow = {
       }
     });
     
+    if (splitNodeResult && splitNodeResult.usedHtml.trim().length > 0) {
+      usedHtml += splitNodeResult.usedHtml;
+    }
+    
     let leftoverHtml = '';
-    leftoverPart.forEach(n => {
+    if (splitNodeResult && splitNodeResult.leftoverHtml.trim().length > 0) {
+      leftoverHtml = splitNodeResult.leftoverHtml;
+    } else if (splitIndex >= 0) {
+      const overflowNode = nodes[splitIndex];
+      if (overflowNode.nodeType === Node.ELEMENT_NODE) {
+        leftoverHtml = overflowNode.outerHTML;
+      } else if (overflowNode.nodeType === Node.TEXT_NODE) {
+        leftoverHtml = overflowNode.textContent;
+      }
+    }
+    
+    nodes.slice(splitIndex + 1).forEach(n => {
       if (n.nodeType === Node.ELEMENT_NODE) {
         leftoverHtml += n.outerHTML;
       } else if (n.nodeType === Node.TEXT_NODE) {
@@ -290,6 +272,112 @@ const EntryColumnFlow = {
     });
     
     return { usedHtml, leftoverHtml };
+  },
+
+  splitNodeAtWordBoundary(node, measureDiv, width, height) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      const words = text.split(/(\s+)/);
+      let usedText = '';
+      
+      for (let i = 0; i < words.length; i++) {
+        const testText = usedText + words[i];
+        measureDiv.innerHTML = '';
+        measureDiv.textContent = testText;
+        if (measureDiv.scrollHeight > height) {
+          break;
+        }
+        usedText = testText;
+      }
+      
+      if (usedText.trim().length > 0) {
+        const leftover = text.slice(usedText.length);
+        return { usedHtml: usedText, leftoverHtml: leftover };
+      }
+      return null;
+    }
+    
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const children = Array.from(node.childNodes);
+      
+      if (children.length === 0) {
+        return null;
+      }
+      
+      let usedChildren = [];
+      let splitChildResult = null;
+      let splitChildIndex = -1;
+      
+      for (let i = 0; i < children.length; i++) {
+        measureDiv.innerHTML = '';
+        const testWrapper = node.cloneNode(false);
+        usedChildren.forEach(c => testWrapper.appendChild(c.cloneNode(true)));
+        testWrapper.appendChild(children[i].cloneNode(true));
+        measureDiv.appendChild(testWrapper);
+        
+        if (measureDiv.scrollHeight > height) {
+          measureDiv.innerHTML = '';
+          const baseWrapper = node.cloneNode(false);
+          usedChildren.forEach(c => baseWrapper.appendChild(c.cloneNode(true)));
+          measureDiv.appendChild(baseWrapper);
+          const baseHeight = measureDiv.scrollHeight;
+          const remainingHeight = height - baseHeight;
+          
+          if (remainingHeight > 10) {
+            splitChildResult = this.splitNodeAtWordBoundary(children[i], measureDiv, width, remainingHeight);
+          }
+          splitChildIndex = i;
+          break;
+        }
+        
+        usedChildren.push(children[i]);
+      }
+      
+      if (splitChildIndex >= 0) {
+        if (splitChildResult && splitChildResult.usedHtml.trim().length > 0) {
+          const usedWrapper = node.cloneNode(false);
+          usedChildren.forEach(c => usedWrapper.appendChild(c.cloneNode(true)));
+          const usedFragment = document.createElement('div');
+          usedFragment.innerHTML = splitChildResult.usedHtml;
+          Array.from(usedFragment.childNodes).forEach(c => usedWrapper.appendChild(c));
+          
+          const leftoverWrapper = node.cloneNode(false);
+          const leftoverFragment = document.createElement('div');
+          leftoverFragment.innerHTML = splitChildResult.leftoverHtml;
+          Array.from(leftoverFragment.childNodes).forEach(c => leftoverWrapper.appendChild(c));
+          children.slice(splitChildIndex + 1).forEach(c => leftoverWrapper.appendChild(c.cloneNode(true)));
+          
+          return {
+            usedHtml: usedWrapper.outerHTML,
+            leftoverHtml: leftoverWrapper.innerHTML.trim() ? leftoverWrapper.outerHTML : ''
+          };
+        }
+        
+        if (usedChildren.length > 0) {
+          const usedWrapper = node.cloneNode(false);
+          usedChildren.forEach(c => usedWrapper.appendChild(c.cloneNode(true)));
+          
+          const leftoverWrapper = node.cloneNode(false);
+          children.slice(splitChildIndex).forEach(c => leftoverWrapper.appendChild(c.cloneNode(true)));
+          
+          return {
+            usedHtml: usedWrapper.outerHTML,
+            leftoverHtml: leftoverWrapper.outerHTML
+          };
+        }
+        
+        return {
+          usedHtml: '',
+          leftoverHtml: node.outerHTML
+        };
+      }
+      
+      if (usedChildren.length === children.length) {
+        return { usedHtml: node.outerHTML, leftoverHtml: '' };
+      }
+    }
+    
+    return null;
   }
 };
 
