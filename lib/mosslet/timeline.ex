@@ -4367,20 +4367,34 @@ defmodule Mosslet.Timeline do
   end
 
   defp maybe_delete_from_bluesky(%Post{} = post) do
-    if post.bluesky_account_id && post.external_uri do
-      case Mosslet.Bluesky.get_account_for_user(post.user_id) do
-        %{id: account_id, auto_delete_from_bsky: true}
-        when account_id == post.bluesky_account_id ->
-          Mosslet.Bluesky.Workers.DeleteSyncWorker.enqueue_delete_by_uri(
-            post.external_uri,
-            account_id
-          )
+    cond do
+      post.bluesky_account_id && post.external_uri ->
+        case Mosslet.Bluesky.get_account_for_user(post.user_id) do
+          %{id: account_id, auto_delete_from_bsky: true}
+          when account_id == post.bluesky_account_id ->
+            Mosslet.Bluesky.Workers.DeleteSyncWorker.enqueue_delete_by_uri(
+              post.external_uri,
+              account_id
+            )
 
-        _ ->
-          :ok
-      end
-    else
-      :ok
+          _ ->
+            :ok
+        end
+
+      post.external_uri && post.source == :mosslet ->
+        case Mosslet.Bluesky.get_account_for_user(post.user_id) do
+          %{id: account_id, auto_delete_from_bsky: true} ->
+            Mosslet.Bluesky.Workers.DeleteSyncWorker.enqueue_delete_by_uri(
+              post.external_uri,
+              account_id
+            )
+
+          _ ->
+            :ok
+        end
+
+      true ->
+        :ok
     end
   end
 
