@@ -560,7 +560,7 @@ defmodule MossletWeb.JournalLive.Book do
 
       <div
         id="book-scroll-container"
-        class="book-reader-container"
+        class="book-reader-container opacity-0"
         phx-hook="BookScrollReader"
         data-initial-page={@current_page}
       >
@@ -676,7 +676,7 @@ defmodule MossletWeb.JournalLive.Book do
                 end}
               </span>
               <.link
-                navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading"}
+                navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@scroll_page}"}
                 aria-label="Add Entry"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all"
               >
@@ -1035,7 +1035,7 @@ defmodule MossletWeb.JournalLive.Book do
                 Loading...
               </span>
               <.link
-                navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading"}
+                navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@scroll_page}"}
                 aria-label="Add Entry"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-500 rounded-lg shadow-sm hover:from-teal-600 hover:to-emerald-600 transition-all"
               >
@@ -1549,6 +1549,7 @@ defmodule MossletWeb.JournalLive.Book do
      |> assign(:view_mode, view_mode)
      |> assign(:reader_mode, reader_mode)
      |> assign(:current_page, current_page)
+     |> assign(:scroll_page, current_page)
      |> assign(:page_spread, page_spread)}
   end
 
@@ -1630,16 +1631,10 @@ defmodule MossletWeb.JournalLive.Book do
         %{"current_page" => page, "total_pages" => total},
         socket
       ) do
-    book = socket.assigns.book
-
     {:noreply,
      socket
      |> assign(:scroll_page, page)
-     |> assign(:scroll_total, total)
-     |> push_patch(
-       to: ~p"/app/journal/books/#{book.id}?view=reading&page=#{page}",
-       replace: true
-     )}
+     |> assign(:scroll_total, total)}
   end
 
   @impl true

@@ -1077,6 +1077,19 @@ trix-editor {
   cursor: none !important;
 }
 
+
+
+.book-reader-container.no-scroll-snap {
+  scroll-snap-type: none !important;
+}
+
+.book-reader-container.no-scroll-snap .book-column-page,
+.book-reader-container.no-scroll-snap .book-column-page-full,
+.book-reader-container.no-scroll-snap .book-end-page {
+  scroll-snap-align: none !important;
+  scroll-snap-stop: normal !important;
+}
+
 /* ===== BOOK READER CSS-BASED PAGINATION ===== */
 .book-reader-container {
   width: 100%;
