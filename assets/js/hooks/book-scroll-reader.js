@@ -83,10 +83,22 @@ const BookScrollReader = {
 
     requestAnimationFrame(() => {
       this.recalculatePages(() => {
+        const targetEntryId = this.el.dataset.targetEntryId;
         const initialPage = parseInt(this.el.dataset.initialPage, 10) || 0;
-        this.lastPushedPage = initialPage;
-
-        if (initialPage === 0) {
+        
+        if (targetEntryId) {
+          this.scrollToPage(0, false);
+          requestAnimationFrame(() => {
+            this.container.classList.remove("opacity-0");
+            setTimeout(() => {
+              this.scrollToEntry(targetEntryId, true, () => {
+                this.container.classList.remove("no-scroll-snap");
+                this.updatePageInfo();
+              });
+            }, 400);
+          });
+        } else if (initialPage === 0) {
+          this.lastPushedPage = initialPage;
           this.scrollToPage(0, false);
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -96,6 +108,7 @@ const BookScrollReader = {
             });
           });
         } else {
+          this.lastPushedPage = initialPage;
           this.scrollToPage(0, false);
 
           requestAnimationFrame(() => {
@@ -327,6 +340,63 @@ const BookScrollReader = {
       });
     } else {
       this.container.scrollLeft = scrollPos;
+    }
+  },
+
+  scrollToEntry(entryId, smooth = true, callback = null) {
+    let targetScrollIndex = null;
+
+    for (let i = 0; i < this.pageElements.length; i++) {
+      const page = this.pageElements[i];
+      if (
+        page &&
+        page.dataset.pageType === "content" &&
+        page.dataset.entryId === entryId
+      ) {
+        targetScrollIndex = i;
+        break;
+      }
+    }
+
+    if (targetScrollIndex === null) {
+      if (callback) callback();
+      return;
+    }
+
+    if (!this.isMobile) {
+      let contentPageNum = 0;
+      for (let i = 0; i <= targetScrollIndex && i < this.pageElements.length; i++) {
+        const page = this.pageElements[i];
+        if (page && page.dataset.pageType === "content") {
+          contentPageNum++;
+        }
+      }
+
+      const isEvenPage = contentPageNum % 2 === 0;
+      if (isEvenPage && targetScrollIndex > 0) {
+        const prevPage = this.pageElements[targetScrollIndex - 1];
+        if (prevPage && prevPage.dataset.pageType === "content") {
+          targetScrollIndex = targetScrollIndex - 1;
+        }
+      }
+    }
+
+    const scrollPos = this.pageOffsets[targetScrollIndex] || 0;
+    const distance = Math.abs(scrollPos - this.container.scrollLeft);
+    const containerWidth = this.container.clientWidth;
+    const baseDuration = 400;
+    const maxDuration = 1200;
+    const minDuration = 300;
+    const duration = Math.min(
+      maxDuration,
+      Math.max(minDuration, baseDuration + (distance / containerWidth) * 200)
+    );
+
+    if (smooth) {
+      this.smoothScrollTo(scrollPos, duration, callback);
+    } else {
+      this.container.scrollLeft = scrollPos;
+      if (callback) callback();
     }
   },
 

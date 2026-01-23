@@ -37,6 +37,7 @@ defmodule MossletWeb.JournalLive.Book do
         is_mobile={@is_mobile}
         mobile_chars_per_page={@mobile_chars_per_page}
         desktop_chars_per_page={@desktop_chars_per_page}
+        target_entry_id={@target_entry_id}
       />
     <% else %>
       <.book_sidebar_view
@@ -878,6 +879,7 @@ defmodule MossletWeb.JournalLive.Book do
   attr :is_mobile, :boolean, required: true
   attr :mobile_chars_per_page, :integer, required: true
   attr :desktop_chars_per_page, :integer, required: true
+  attr :target_entry_id, :string, default: nil
 
   defp immersive_reading_layout(assigns) do
     decrypted_username =
@@ -962,6 +964,7 @@ defmodule MossletWeb.JournalLive.Book do
         class="book-reader-container"
         phx-hook="BookScrollReader"
         data-initial-page={@current_page}
+        data-target-entry-id={@target_entry_id}
         data-entry-count={length(@entries)}
         data-book-id={@book.id}
       >
@@ -1524,6 +1527,8 @@ defmodule MossletWeb.JournalLive.Book do
     reader_mode = params["reader"] || "legacy"
     reader_mode = if reader_mode in ["css", "legacy"], do: reader_mode, else: "legacy"
 
+    target_entry_id = params["entry"]
+
     current_page =
       case Integer.parse(params["page"] || "") do
         {n, _} when n >= 0 -> n
@@ -1555,7 +1560,8 @@ defmodule MossletWeb.JournalLive.Book do
      |> assign(:reader_mode, reader_mode)
      |> assign(:current_page, current_page)
      |> assign(:scroll_page, current_page)
-     |> assign(:page_spread, page_spread)}
+     |> assign(:page_spread, page_spread)
+     |> assign(:target_entry_id, target_entry_id)}
   end
 
   defp reload_entries_for_view_mode(socket, view_mode) do
@@ -2582,13 +2588,27 @@ defmodule MossletWeb.JournalLive.Book do
             </div>
             <div class="flex items-center gap-1.5 flex-shrink-0">
               <span :if={entry.is_favorite} class="text-amber-500 text-sm" title="Favorite">★</span>
+              <.link
+                id={"open-reading-#{entry.id}"}
+                navigate={~p"/app/journal/books/#{@book_id}?view=reading&entry=#{entry.id}"}
+                phx-hook="TippyHook"
+                data-tippy-content="Open in reading view"
+                aria-label="Open in reading view"
+                class="p-1.5 text-slate-400 hover:text-emerald-500 dark:text-slate-500 dark:hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                onclick="event.stopPropagation()"
+              >
+                <.phx_icon name="hero-book-open" class="h-4 w-4" />
+              </.link>
               <button
                 type="button"
+                id={"delete-entry-#{entry.id}"}
                 phx-click="delete_entry"
                 phx-value-id={entry.id}
+                phx-hook="TippyHook"
+                data-tippy-content="Delete entry"
                 data-confirm="Are you sure you want to delete this entry?"
                 class="p-1.5 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
-                title="Delete entry"
+                aria-label="Delete entry"
                 onclick="event.stopPropagation()"
               >
                 <.phx_icon name="hero-trash" class="h-4 w-4" />
