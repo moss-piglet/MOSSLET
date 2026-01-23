@@ -60,13 +60,32 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     user = account.user
     posts = Timeline.get_unexported_public_posts(user.id, limit)
 
-    exported_count =
-      posts
-      |> Enum.map(&export_single_post(&1, account))
-      |> Enum.count(&match?(:ok, &1))
+    if posts == [] do
+      Logger.info("[BlueskyExport] No posts to export for @#{account.handle}")
+      :ok
+    else
+      case ensure_fresh_tokens(account) do
+        {:ok, fresh_account} ->
+          exported_count =
+            posts
+            |> Enum.reduce(0, fn post, count ->
+              case export_single_post_no_refresh(post, fresh_account) do
+                :ok -> count + 1
+                _ -> count
+              end
+            end)
 
-    Logger.info("[BlueskyExport] Exported #{exported_count} posts for @#{account.handle}")
-    :ok
+          Logger.info("[BlueskyExport] Exported #{exported_count} posts for @#{account.handle}")
+          :ok
+
+        {:error, reason} ->
+          Logger.error(
+            "[BlueskyExport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+          )
+
+          {:error, :token_refresh_failed}
+      end
+    end
   end
 
   defp export_single_post(post, account) do
@@ -134,6 +153,56 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     case Timeline.decrypt_post_body(post, user, :server_key) do
       {:ok, body} -> body
       _ -> post.body
+    end
+  end
+
+  defp export_single_post_no_refresh(post, account) do
+    decrypted_body = decrypt_post_body(post, account.user)
+    {_text, facets} = Client.parse_facets(decrypted_body)
+    signing_key = parse_signing_key(account.signing_key)
+
+    opts =
+      [
+        facets: facets,
+        pds_url: account.pds_url || "https://bsky.social"
+      ]
+      |> maybe_add_dpop_proof(account, signing_key)
+
+    case Client.create_post(account.access_jwt, account.did, decrypted_body, opts) do
+      {:ok, %{uri: uri, cid: cid}} ->
+        Timeline.mark_post_as_synced_to_bluesky(post, uri, cid)
+        Logger.debug("[BlueskyExport] Exported post #{post.id} -> #{uri}")
+        :ok
+
+      {:error, reason} ->
+        Logger.error("[BlueskyExport] Failed to export post #{post.id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp ensure_fresh_tokens(account) do
+    signing_key = parse_signing_key(account.signing_key)
+
+    result =
+      if signing_key do
+        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      else
+        Client.refresh_session(account.refresh_jwt,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      end
+
+    case result do
+      {:ok, tokens} ->
+        Bluesky.refresh_tokens(account, %{
+          access_jwt: tokens.access_token || tokens.access_jwt,
+          refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
+        })
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
