@@ -77,7 +77,9 @@ defmodule Mosslet.Bluesky.ImportProcessor do
   end
 
   defp extract_images(post_data) do
-    case get_in(post_data, [:embed]) do
+    embed = get_in(post_data, [:record, :embed]) || get_in(post_data, [:embed])
+
+    case embed do
       %{images: images} when is_list(images) ->
         Enum.map(images, fn img ->
           %{
