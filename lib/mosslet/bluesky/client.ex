@@ -463,7 +463,12 @@ defmodule Mosslet.Bluesky.Client do
       record: record
     }
 
-    request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, auth: access_jwt)
+    request_opts =
+      [auth: access_jwt]
+      |> maybe_merge_opt(:dpop_proof, opts[:dpop_proof])
+      |> maybe_merge_opt(:signing_key, opts[:signing_key])
+
+    request(:post, pds_url, "/xrpc/com.atproto.repo.createRecord", body, request_opts)
   end
 
   @doc """
@@ -888,6 +893,9 @@ defmodule Mosslet.Bluesky.Client do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp maybe_merge_opt(opts, _key, nil), do: opts
+  defp maybe_merge_opt(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp atomize_keys(map) when is_map(map) do
     Map.new(map, fn

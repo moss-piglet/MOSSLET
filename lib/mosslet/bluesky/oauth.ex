@@ -360,6 +360,10 @@ defmodule Mosslet.Bluesky.OAuth do
            ]
          ) do
       {:ok, %{status: 200, body: body}} ->
+        Logger.info(
+          "[BlueskyOAuth] Token response - requested scope: #{@scope}, granted scope: #{body["scope"]}, sub: #{body["sub"]}"
+        )
+
         {:ok,
          %{
            access_token: body["access_token"],
@@ -418,6 +422,8 @@ defmodule Mosslet.Bluesky.OAuth do
            ]
          ) do
       {:ok, %{status: 200, body: body}} ->
+        Logger.info("[BlueskyOAuth] Token refresh response - scope: #{body["scope"]}")
+
         {:ok,
          %{
            access_token: body["access_token"],

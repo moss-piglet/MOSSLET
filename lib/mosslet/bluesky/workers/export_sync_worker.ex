@@ -94,6 +94,10 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     {_text, facets} = Client.parse_facets(decrypted_body)
     signing_key = parse_signing_key(account.signing_key)
 
+    Logger.info(
+      "[BlueskyExport] Attempting export for @#{account.handle}, did: #{account.did}, has_signing_key: #{signing_key != nil}"
+    )
+
     opts =
       [
         facets: facets,
