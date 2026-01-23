@@ -342,9 +342,12 @@ defmodule Mosslet.Bluesky.Client do
   def resolve_pds_url("did:plc:" <> _ = did) do
     url = "https://plc.directory/#{did}"
 
-    case Req.get(url) do
-      {:ok, %{status: 200, body: body}} when is_map(body) ->
-        extract_pds_from_did_doc(body)
+    case Req.get(url, decode_body: false) do
+      {:ok, %{status: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, doc} -> extract_pds_from_did_doc(doc)
+          {:error, _} -> {:error, :invalid_did_document}
+        end
 
       {:ok, %{status: status, body: body}} ->
         Logger.error("Failed to resolve DID document: #{status} - #{inspect(body)}")
@@ -359,9 +362,12 @@ defmodule Mosslet.Bluesky.Client do
   def resolve_pds_url("did:web:" <> domain) do
     url = "https://#{domain}/.well-known/did.json"
 
-    case Req.get(url) do
-      {:ok, %{status: 200, body: body}} when is_map(body) ->
-        extract_pds_from_did_doc(body)
+    case Req.get(url, decode_body: false) do
+      {:ok, %{status: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, doc} -> extract_pds_from_did_doc(doc)
+          {:error, _} -> {:error, :invalid_did_document}
+        end
 
       {:ok, %{status: status, body: body}} ->
         Logger.error("Failed to resolve DID document: #{status} - #{inspect(body)}")
