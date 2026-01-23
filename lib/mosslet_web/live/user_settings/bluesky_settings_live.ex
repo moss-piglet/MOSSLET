@@ -276,126 +276,168 @@ defmodule MossletWeb.BlueskySettingsLive do
         </div>
 
         <div class="border-t border-sky-200 dark:border-sky-700 pt-6">
-          <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
-            Sync Settings
-          </h4>
-
           <.form
             id="sync-settings-form"
             for={@sync_form}
             phx-change="update_sync_settings"
             class="space-y-4"
           >
-            <div class="space-y-3">
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="sync[sync_enabled]"
-                  checked={@sync_form[:sync_enabled].value}
-                  class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                />
-                <span class="text-sm text-slate-700 dark:text-slate-300">
-                  Enable sync (master switch)
-                </span>
+            <div class={[
+              "relative rounded-xl p-4 transition-all duration-200",
+              if(@sync_form[:sync_enabled].value,
+                do:
+                  "bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/30 dark:to-blue-900/20 ring-1 ring-sky-200 dark:ring-sky-700",
+                else: "bg-slate-50 dark:bg-slate-800/50 ring-1 ring-slate-200 dark:ring-slate-700"
+              )
+            ]}>
+              <label class="flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-3">
+                  <div class={[
+                    "flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-200",
+                    if(@sync_form[:sync_enabled].value,
+                      do: "bg-gradient-to-br from-sky-500 to-blue-600",
+                      else: "bg-slate-300 dark:bg-slate-600"
+                    )
+                  ]}>
+                    <.phx_icon
+                      name={
+                        if(@sync_form[:sync_enabled].value, do: "hero-arrow-path", else: "hero-pause")
+                      }
+                      class="h-5 w-5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <span class="block text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Bluesky Sync
+                    </span>
+                    <span class={[
+                      "text-xs",
+                      if(@sync_form[:sync_enabled].value,
+                        do: "text-sky-600 dark:text-sky-400",
+                        else: "text-slate-500 dark:text-slate-400"
+                      )
+                    ]}>
+                      {if @sync_form[:sync_enabled].value,
+                        do: "Active — syncing enabled",
+                        else: "Paused — sync disabled"}
+                    </span>
+                  </div>
+                </div>
+                <div class="relative">
+                  <input
+                    type="checkbox"
+                    name="sync[sync_enabled]"
+                    checked={@sync_form[:sync_enabled].value}
+                    class="sr-only peer"
+                  />
+                  <div class={[
+                    "w-12 h-7 rounded-full transition-colors duration-200 peer-focus:ring-2 peer-focus:ring-sky-500 peer-focus:ring-offset-2 dark:peer-focus:ring-offset-slate-800",
+                    if(@sync_form[:sync_enabled].value,
+                      do: "bg-gradient-to-r from-sky-500 to-blue-600",
+                      else: "bg-slate-300 dark:bg-slate-600"
+                    )
+                  ]}>
+                  </div>
+                  <div class={[
+                    "absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200",
+                    if(@sync_form[:sync_enabled].value, do: "translate-x-5", else: "translate-x-0")
+                  ]}>
+                  </div>
+                </div>
               </label>
+            </div>
 
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="sync[sync_posts_to_bsky]"
-                  checked={@sync_form[:sync_posts_to_bsky].value}
-                  disabled={!@sync_form[:sync_enabled].value}
-                  class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
-                />
-                <span class={[
-                  "text-sm",
-                  if(@sync_form[:sync_enabled].value,
-                    do: "text-slate-700 dark:text-slate-300",
-                    else: "text-slate-400 dark:text-slate-500"
-                  )
-                ]}>
-                  Sync Mosslet posts to Bluesky
-                </span>
-              </label>
-
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="sync[sync_posts_from_bsky]"
-                  checked={@sync_form[:sync_posts_from_bsky].value}
-                  disabled={!@sync_form[:sync_enabled].value}
-                  class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
-                />
-                <span class={[
-                  "text-sm",
-                  if(@sync_form[:sync_enabled].value,
-                    do: "text-slate-700 dark:text-slate-300",
-                    else: "text-slate-400 dark:text-slate-500"
-                  )
-                ]}>
-                  Import posts from Bluesky
-                </span>
-              </label>
-
-              <div class={[
-                "ml-7 mt-2",
-                if(!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_from_bsky].value,
-                  do: "opacity-50"
+            <div
+              id="sync-options"
+              class={[
+                "overflow-hidden transition-all duration-300 ease-in-out",
+                if(@sync_form[:sync_enabled].value,
+                  do: "max-h-[500px] opacity-100",
+                  else: "max-h-0 opacity-0"
                 )
-              ]}>
-                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                  Import visibility
-                </label>
-                <select
-                  name="sync[import_visibility]"
-                  disabled={
-                    !@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_from_bsky].value
-                  }
-                  class="w-48 text-sm px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent disabled:opacity-50"
-                >
-                  <option value="private" selected={@sync_form[:import_visibility].value == :private}>
-                    🔒 Private (only you)
-                  </option>
-                  <option
-                    value="connections"
-                    selected={@sync_form[:import_visibility].value == :connections}
-                  >
-                    👥 Connections
-                  </option>
-                  <option value="public" selected={@sync_form[:import_visibility].value == :public}>
-                    🌐 Public
-                  </option>
-                </select>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  <%= case @sync_form[:import_visibility].value do %>
-                    <% :private -> %>
-                      Posts are encrypted for your eyes only
-                    <% :connections -> %>
-                      Visible to your Mosslet connections
-                    <% :public -> %>
-                      Publicly visible on Mosslet
-                  <% end %>
+              ]}
+            >
+              <div class="pt-2 space-y-3 pl-1">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">
+                  Sync Options
                 </p>
-              </div>
 
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="sync[auto_delete_from_bsky]"
-                  checked={@sync_form[:auto_delete_from_bsky].value}
-                  disabled={!@sync_form[:sync_enabled].value}
-                  class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
-                />
-                <span class={[
-                  "text-sm",
-                  if(@sync_form[:sync_enabled].value,
-                    do: "text-slate-700 dark:text-slate-300",
-                    else: "text-slate-400 dark:text-slate-500"
-                  )
+                <label class="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    name="sync[sync_posts_to_bsky]"
+                    checked={@sync_form[:sync_posts_to_bsky].value}
+                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                  />
+                  <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                    Sync Mosslet posts to Bluesky
+                  </span>
+                </label>
+
+                <label class="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    name="sync[sync_posts_from_bsky]"
+                    checked={@sync_form[:sync_posts_from_bsky].value}
+                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                  />
+                  <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                    Import posts from Bluesky
+                  </span>
+                </label>
+
+                <div class={[
+                  "ml-7 mt-2 transition-opacity duration-200",
+                  if(!@sync_form[:sync_posts_from_bsky].value, do: "opacity-50 pointer-events-none")
                 ]}>
-                  Auto-delete from Bluesky when deleted on Mosslet
-                </span>
-              </label>
+                  <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    Import visibility
+                  </label>
+                  <select
+                    name="sync[import_visibility]"
+                    disabled={!@sync_form[:sync_posts_from_bsky].value}
+                    class="w-48 text-sm px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent disabled:opacity-50"
+                  >
+                    <option
+                      value="private"
+                      selected={@sync_form[:import_visibility].value == :private}
+                    >
+                      🔒 Private (only you)
+                    </option>
+                    <option
+                      value="connections"
+                      selected={@sync_form[:import_visibility].value == :connections}
+                    >
+                      👥 Connections
+                    </option>
+                    <option value="public" selected={@sync_form[:import_visibility].value == :public}>
+                      🌐 Public
+                    </option>
+                  </select>
+                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <%= case @sync_form[:import_visibility].value do %>
+                      <% :private -> %>
+                        Posts are encrypted for your eyes only
+                      <% :connections -> %>
+                        Visible to your Mosslet connections
+                      <% :public -> %>
+                        Publicly visible on Mosslet
+                    <% end %>
+                  </p>
+                </div>
+
+                <label class="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    name="sync[auto_delete_from_bsky]"
+                    checked={@sync_form[:auto_delete_from_bsky].value}
+                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                  />
+                  <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                    Auto-delete from Bluesky when deleted on Mosslet
+                  </span>
+                </label>
+              </div>
             </div>
           </.form>
         </div>
