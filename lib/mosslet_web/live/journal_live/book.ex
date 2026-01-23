@@ -651,29 +651,21 @@ defmodule MossletWeb.JournalLive.Book do
               <button
                 type="button"
                 id="book-prev-btn"
+                phx-update="ignore"
                 aria-label="Previous page"
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                class="opacity-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
               >
                 <.phx_icon name="hero-chevron-left" class="h-4 w-4" />
-                <span class="hidden sm:inline">Previous</span>
+                <span id="book-prev-label" class="hidden sm:inline"></span>
               </button>
             </div>
 
             <div class="flex items-center gap-4">
-              <span id="book-page-indicator" class="text-xs text-slate-500 dark:text-slate-400">
-                {cond do
-                  @scroll_page == 0 ->
-                    "Front Cover"
-
-                  @scroll_page <= @total_content_pages ->
-                    "Page #{@scroll_page} of #{@total_content_pages}"
-
-                  @scroll_page == @total_content_pages + 1 ->
-                    "The End"
-
-                  true ->
-                    "Back Cover"
-                end}
+              <span
+                id="book-page-indicator"
+                phx-update="ignore"
+                class="text-xs text-slate-500 dark:text-slate-400 opacity-0"
+              >
               </span>
               <.link
                 navigate={~p"/app/journal/new?book_id=#{@book.id}&view=reading&page=#{@scroll_page}"}
@@ -689,10 +681,11 @@ defmodule MossletWeb.JournalLive.Book do
               <button
                 type="button"
                 id="book-next-btn"
+                phx-update="ignore"
                 aria-label="Next page"
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                class="opacity-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
               >
-                <span class="hidden sm:inline">Next</span>
+                <span id="book-next-label" class="hidden sm:inline"></span>
                 <.phx_icon name="hero-chevron-right" class="h-4 w-4" />
               </button>
             </div>
@@ -1029,11 +1022,12 @@ defmodule MossletWeb.JournalLive.Book do
               <button
                 type="button"
                 id="book-prev-btn"
+                phx-update="ignore"
                 aria-label="Previous page"
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                class="opacity-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
               >
                 <.phx_icon name="hero-chevron-left" class="h-4 w-4" />
-                <span class="hidden sm:inline">Previous</span>
+                <span id="book-prev-label" class="hidden sm:inline"></span>
               </button>
             </div>
 
@@ -1058,10 +1052,11 @@ defmodule MossletWeb.JournalLive.Book do
               <button
                 type="button"
                 id="book-next-btn"
+                phx-update="ignore"
                 aria-label="Next page"
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                class="opacity-0 inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
               >
-                <span class="hidden sm:inline">Next</span>
+                <span id="book-next-label" class="hidden sm:inline"></span>
                 <.phx_icon name="hero-chevron-right" class="h-4 w-4" />
               </button>
             </div>
