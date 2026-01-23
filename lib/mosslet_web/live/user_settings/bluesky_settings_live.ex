@@ -362,28 +362,47 @@ defmodule MossletWeb.BlueskySettingsLive do
                   Sync Options
                 </p>
 
-                <label class="flex items-center gap-3 cursor-pointer group">
+                <label class="flex items-start gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     name="sync[sync_posts_to_bsky]"
                     checked={@sync_form[:sync_posts_to_bsky].value}
-                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                    class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
                   />
-                  <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                    Sync Mosslet posts to Bluesky
-                  </span>
+                  <div>
+                    <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors font-medium">
+                      Sync Mosslet posts to Bluesky
+                    </span>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <%= if @sync_form[:sync_posts_to_bsky].value do %>
+                        Your <strong>public</strong>
+                        Mosslet posts will automatically be shared to Bluesky. Private posts and posts visible only to connections are never synced.
+                      <% else %>
+                        When enabled, your public Mosslet posts will be shared to Bluesky automatically.
+                      <% end %>
+                    </p>
+                  </div>
                 </label>
 
-                <label class="flex items-center gap-3 cursor-pointer group">
+                <label class="flex items-start gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     name="sync[sync_posts_from_bsky]"
                     checked={@sync_form[:sync_posts_from_bsky].value}
-                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                    class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
                   />
-                  <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                    Import posts from Bluesky
-                  </span>
+                  <div>
+                    <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors font-medium">
+                      Import posts from Bluesky
+                    </span>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <%= if @sync_form[:sync_posts_from_bsky].value do %>
+                        Your Bluesky posts will be imported to Mosslet periodically. Use the visibility setting below to control who can see them.
+                      <% else %>
+                        When enabled, your Bluesky posts will be imported and stored encrypted on Mosslet.
+                      <% end %>
+                    </p>
+                  </div>
                 </label>
 
                 <div class={[
@@ -426,17 +445,54 @@ defmodule MossletWeb.BlueskySettingsLive do
                   </p>
                 </div>
 
-                <label class="flex items-center gap-3 cursor-pointer group">
+                <label class="flex items-start gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     name="sync[auto_delete_from_bsky]"
                     checked={@sync_form[:auto_delete_from_bsky].value}
-                    class="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
+                    class="h-4 w-4 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-sky-600 focus:ring-sky-500 transition-colors"
                   />
-                  <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                    Auto-delete from Bluesky when deleted on Mosslet
-                  </span>
+                  <div>
+                    <span class="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors font-medium">
+                      Auto-delete from Bluesky when deleted on Mosslet
+                    </span>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <%= if @sync_form[:auto_delete_from_bsky].value do %>
+                        When you delete a synced post on Mosslet, it will also be removed from Bluesky.
+                      <% else %>
+                        When enabled, deleting a synced post on Mosslet will also delete it from Bluesky.
+                      <% end %>
+                    </p>
+                  </div>
                 </label>
+
+                <div class="mt-4 p-3 rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800">
+                  <div class="flex items-start gap-2">
+                    <.phx_icon
+                      name="hero-information-circle"
+                      class="h-4 w-4 text-sky-600 dark:text-sky-400 mt-0.5 shrink-0"
+                    />
+                    <div class="text-xs text-sky-700 dark:text-sky-300">
+                      <p class="font-medium mb-1">Current sync behavior:</p>
+                      <ul class="space-y-0.5 text-sky-600 dark:text-sky-400">
+                        <%= if @sync_form[:sync_posts_to_bsky].value do %>
+                          <li>• Public posts you create on Mosslet will appear on Bluesky</li>
+                        <% end %>
+                        <%= if @sync_form[:sync_posts_from_bsky].value do %>
+                          <li>
+                            • Bluesky posts are imported as {@sync_form[:import_visibility].value} posts on Mosslet
+                          </li>
+                        <% end %>
+                        <%= if @sync_form[:auto_delete_from_bsky].value do %>
+                          <li>• Deleting synced posts on Mosslet removes them from Bluesky</li>
+                        <% end %>
+                        <%= if !@sync_form[:sync_posts_to_bsky].value && !@sync_form[:sync_posts_from_bsky].value do %>
+                          <li>• No automatic syncing is active. Use manual sync buttons below.</li>
+                        <% end %>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </.form>
@@ -551,15 +607,16 @@ defmodule MossletWeb.BlueskySettingsLive do
   end
 
   @impl true
-  def handle_event("update_sync_settings", %{"sync" => params}, socket) do
+  def handle_event("update_sync_settings", params, socket) do
     account = socket.assigns.bluesky_account
+    sync_params = params["sync"] || %{}
 
     attrs = %{
-      sync_enabled: params["sync_enabled"] == "on",
-      sync_posts_to_bsky: params["sync_posts_to_bsky"] == "on",
-      sync_posts_from_bsky: params["sync_posts_from_bsky"] == "on",
-      auto_delete_from_bsky: params["auto_delete_from_bsky"] == "on",
-      import_visibility: parse_visibility(params["import_visibility"])
+      sync_enabled: sync_params["sync_enabled"] == "on",
+      sync_posts_to_bsky: sync_params["sync_posts_to_bsky"] == "on",
+      sync_posts_from_bsky: sync_params["sync_posts_from_bsky"] == "on",
+      auto_delete_from_bsky: sync_params["auto_delete_from_bsky"] == "on",
+      import_visibility: parse_visibility(sync_params["import_visibility"])
     }
 
     case Bluesky.update_sync_settings(account, attrs) do
@@ -567,7 +624,8 @@ defmodule MossletWeb.BlueskySettingsLive do
         {:noreply,
          socket
          |> assign(bluesky_account: updated_account)
-         |> assign(sync_form: build_sync_form(updated_account))}
+         |> assign(sync_form: build_sync_form(updated_account))
+         |> put_flash(:info, "Sync settings updated.")}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to update sync settings.")}
