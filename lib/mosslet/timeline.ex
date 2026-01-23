@@ -2737,6 +2737,7 @@ defmodule Mosslet.Timeline do
           end)
 
           cleanup_preview_image(post.id)
+          maybe_delete_from_bluesky(post)
 
           {:ok, conn, post}
           |> broadcast(:post_deleted)
@@ -2784,6 +2785,7 @@ defmodule Mosslet.Timeline do
             end)
 
             cleanup_preview_image(post.id)
+            maybe_delete_from_bluesky(post)
 
             {:ok, conn, post}
             |> broadcast(:post_deleted)
@@ -4362,6 +4364,24 @@ defmodule Mosslet.Timeline do
 
   defp cleanup_preview_image(post_id) do
     Mosslet.Timeline.Jobs.PreviewImageCleanupJob.schedule_cleanup(post_id)
+  end
+
+  defp maybe_delete_from_bluesky(%Post{} = post) do
+    if post.bluesky_account_id && post.external_uri do
+      case Mosslet.Bluesky.get_account_for_user(post.user_id) do
+        %{id: account_id, auto_delete_from_bsky: true}
+        when account_id == post.bluesky_account_id ->
+          Mosslet.Bluesky.Workers.DeleteSyncWorker.enqueue_delete_by_uri(
+            post.external_uri,
+            account_id
+          )
+
+        _ ->
+          :ok
+      end
+    else
+      :ok
+    end
   end
 
   # =============================================================================
