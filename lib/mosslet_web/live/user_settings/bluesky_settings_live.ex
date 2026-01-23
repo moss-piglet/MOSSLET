@@ -513,10 +513,10 @@ defmodule MossletWeb.BlueskySettingsLive do
     account = socket.assigns.bluesky_account
 
     attrs = %{
-      sync_enabled: params["sync_enabled"] == "true",
-      sync_posts_to_bsky: params["sync_posts_to_bsky"] == "true",
-      sync_posts_from_bsky: params["sync_posts_from_bsky"] == "true",
-      auto_delete_from_bsky: params["auto_delete_from_bsky"] == "true",
+      sync_enabled: params["sync_enabled"] == "on",
+      sync_posts_to_bsky: params["sync_posts_to_bsky"] == "on",
+      sync_posts_from_bsky: params["sync_posts_from_bsky"] == "on",
+      auto_delete_from_bsky: params["auto_delete_from_bsky"] == "on",
       import_visibility: parse_visibility(params["import_visibility"])
     }
 
