@@ -132,15 +132,10 @@ const BookScrollReader = {
     if (this.recalcTimeout) clearTimeout(this.recalcTimeout);
     
     this.recalcTimeout = setTimeout(() => {
-      const allPages = this.container.querySelectorAll('.book-column-page, .book-column-page-full, .book-end-page');
-      this.pageElements = Array.from(allPages);
+      const contentBlankPage = this.container.querySelector('.book-content-blank-page');
       
-      this.pageOffsets = [];
-      let currentOffset = 0;
-      this.pageElements.forEach((page) => {
-        this.pageOffsets.push(currentOffset);
-        currentOffset += page.offsetWidth;
-      });
+      const allPages = this.container.querySelectorAll('.book-column-page, .book-column-page-full, .book-end-page, .book-content-blank-page');
+      this.pageElements = Array.from(allPages);
       
       let contentPageNum = 0;
       let contentPageIndex = 0;
@@ -163,11 +158,17 @@ const BookScrollReader = {
       
       this.totalContentPages = contentPageNum;
       
-      const endPage = this.container.querySelector('.book-end-page');
-      if (endPage) {
-        const needsBlank = contentPageNum % 2 === 0;
-        endPage.dataset.needsBlank = needsBlank.toString();
+      if (contentBlankPage) {
+        const needsContentBlank = contentPageNum % 2 === 1;
+        contentBlankPage.dataset.visible = needsContentBlank.toString();
       }
+      
+      this.pageOffsets = [];
+      let currentOffset = 0;
+      this.pageElements.forEach((page) => {
+        this.pageOffsets.push(currentOffset);
+        currentOffset += page.offsetWidth;
+      });
       
       if (callback) {
         callback();
@@ -411,17 +412,16 @@ const BookScrollReader = {
   findNextSpreadStart(currentIndex) {
     for (let i = currentIndex + 1; i < this.pageElements.length; i++) {
       const page = this.pageElements[i];
-      if (page.classList.contains('book-column-page-full')) {
+      if (page.classList.contains('book-column-page-full') || page.classList.contains('book-end-page')) {
         return i;
       }
       if (page.dataset.spreadStart === 'true') {
         return i;
       }
+      if (page.dataset.pageType === 'content-blank' && page.dataset.visible === 'true') {
+        return i;
+      }
     }
-    const endPage = this.container.querySelector('.book-end-page');
-    const endNeedsBlank = endPage?.dataset.needsBlank === 'true';
-    const endIndex = this.pageElements.findIndex(p => p.dataset.pageType === 'end');
-    if (endNeedsBlank && endIndex > currentIndex) return endIndex;
     const backIndex = this.pageElements.findIndex(p => p.dataset.pageType === 'back-cover');
     if (backIndex > currentIndex) return backIndex;
     return null;
@@ -430,14 +430,10 @@ const BookScrollReader = {
   findPrevSpreadStart(currentIndex) {
     for (let i = currentIndex - 1; i >= 0; i--) {
       const page = this.pageElements[i];
-      if (page.classList.contains('book-column-page-full')) {
+      if (page.classList.contains('book-column-page-full') || page.classList.contains('book-end-page')) {
         return i;
       }
-      if (page.dataset.pageType === 'end') {
-        const endPage = this.container.querySelector('.book-end-page');
-        if (endPage?.dataset.needsBlank === 'true') {
-          return i;
-        }
+      if (page.dataset.pageType === 'content-blank') {
         continue;
       }
       if (page.dataset.spreadStart === 'true') {
