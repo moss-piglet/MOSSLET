@@ -198,7 +198,7 @@ const BookScrollReader = {
             delete page.dataset.spreadStart;
             delete page.dataset.isFirstPage;
           }
-        } else if (pageType === "first-page-blank") {
+        } else if (pageType === "title") {
           page.dataset.spreadStart = "true";
         }
       });
@@ -273,6 +273,9 @@ const BookScrollReader = {
 
     for (let i = this.pageOffsets.length - 1; i >= 0; i--) {
       if (scrollLeft >= this.pageOffsets[i] - threshold) {
+        if (this.isMobile && this.pageElements[i]?.offsetWidth === 0) {
+          continue;
+        }
         return i;
       }
     }
@@ -284,7 +287,7 @@ const BookScrollReader = {
 
     if (scrollIndex === 0) {
       const firstPage = this.pageElements[0];
-      if (firstPage && firstPage.dataset.pageType === "first-page-blank") {
+      if (firstPage && firstPage.dataset.pageType === "title") {
         return 1;
       }
       return 0;
@@ -302,7 +305,7 @@ const BookScrollReader = {
     if (currentPage) {
       if (currentPage.dataset.pageType === "content") {
         return contentPagesSeen + 1;
-      } else if (currentPage.dataset.pageType === "first-page-blank") {
+      } else if (currentPage.dataset.pageType === "title") {
         return 1;
       } else if (currentPage.dataset.pageType === "end") {
         return this.totalContentPages + 1;
@@ -321,7 +324,7 @@ const BookScrollReader = {
       targetScrollIndex = 0;
     } else if (contentPage === 1) {
       for (let i = 0; i < this.pageElements.length; i++) {
-        if (this.pageElements[i]?.dataset.pageType === "first-page-blank") {
+        if (this.pageElements[i]?.dataset.pageType === "title") {
           targetScrollIndex = i;
           break;
         }
@@ -433,7 +436,11 @@ const BookScrollReader = {
     if (currentIndex >= maxIndex) return;
 
     if (this.isMobile) {
-      const scrollPos = this.pageOffsets[currentIndex + 1] || 0;
+      let targetIndex = currentIndex + 1;
+      while (targetIndex < maxIndex && this.pageElements[targetIndex]?.offsetWidth === 0) {
+        targetIndex++;
+      }
+      const scrollPos = this.pageOffsets[targetIndex] || 0;
       this.container.scrollTo({
         left: scrollPos,
         behavior: "smooth",
@@ -522,7 +529,11 @@ const BookScrollReader = {
     if (currentIndex <= 0) return;
 
     if (this.isMobile) {
-      const scrollPos = this.pageOffsets[currentIndex - 1] || 0;
+      let targetIndex = currentIndex - 1;
+      while (targetIndex > 0 && this.pageElements[targetIndex]?.offsetWidth === 0) {
+        targetIndex--;
+      }
+      const scrollPos = this.pageOffsets[targetIndex] || 0;
       this.container.scrollTo({
         left: scrollPos,
         behavior: "smooth",
@@ -641,10 +652,16 @@ const BookScrollReader = {
     const total = this.totalContentPages;
     const backCover = total + 2;
 
+    const scrollIndex = this.getCurrentScrollIndex();
+    const currentElement = this.pageElements[scrollIndex];
+    const isOnTitlePage = currentElement?.dataset.pageType === "title";
+
     const indicator = document.getElementById("book-page-indicator");
     if (indicator) {
       if (currentPage === 0) {
         indicator.textContent = "Front Cover";
+      } else if (isOnTitlePage && this.isMobile) {
+        indicator.textContent = "Title Page";
       } else if (currentPage <= total) {
         indicator.textContent = `Page ${currentPage} of ${total}`;
       } else if (currentPage === total + 1) {
@@ -663,8 +680,10 @@ const BookScrollReader = {
       } else {
         prevBtn.classList.remove("opacity-0", "invisible");
         if (prevLabel) {
-          if (currentPage === 1) {
+          if (isOnTitlePage && this.isMobile) {
             prevLabel.textContent = "Cover";
+          } else if (currentPage === 1) {
+            prevLabel.textContent = this.isMobile ? "Title" : "Cover";
           } else if (currentPage <= total) {
             prevLabel.textContent = `Page ${currentPage - 1}`;
           } else if (currentPage === total + 1) {
@@ -685,6 +704,8 @@ const BookScrollReader = {
         nextBtn.classList.remove("opacity-0", "invisible");
         if (nextLabel) {
           if (currentPage === 0) {
+            nextLabel.textContent = this.isMobile ? "Title" : "Page 1";
+          } else if (isOnTitlePage && this.isMobile) {
             nextLabel.textContent = "Page 1";
           } else if (currentPage < total) {
             let nextPage;

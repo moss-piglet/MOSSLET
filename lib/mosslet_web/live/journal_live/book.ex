@@ -720,16 +720,17 @@ defmodule MossletWeb.JournalLive.Book do
         </div>
 
         <div
-          class="book-first-page-blank bg-white/95 dark:bg-slate-800/95 hidden md:flex items-center justify-center relative"
-          data-page-type="first-page-blank"
+          class="book-first-page-blank bg-white/95 dark:bg-slate-800/95 items-center justify-center relative"
+          data-page-type="title"
         >
           <div class="text-center px-8 max-w-md">
             <p class="text-sm text-slate-500 dark:text-slate-400 font-light italic leading-relaxed">
               {if @decrypted_description, do: @decrypted_description, else: "A journal"}
             </p>
             <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">
-              ©
-              <.local_time for={@book.inserted_at} format="yyyy" /> {@decrypted_username}. All rights reserved.
+              Published <.local_time for={@book.inserted_at} format="yyyy" />
+              by {@decrypted_username}.
+              © <.local_time for={DateTime.utc_now()} format="yyyy" /> All rights reserved.
             </p>
           </div>
         </div>
