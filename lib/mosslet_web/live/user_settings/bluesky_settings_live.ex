@@ -22,7 +22,8 @@ defmodule MossletWeb.BlueskySettingsLive do
        sync_form: build_sync_form(bluesky_account),
        show_export_modal: false,
        export_password_form: to_form(%{"password" => ""}, as: :export_password),
-       export_error: nil
+       export_error: nil,
+       dev_preview_mode: nil
      )}
   end
 
@@ -41,7 +42,7 @@ defmodule MossletWeb.BlueskySettingsLive do
       type="sidebar"
     >
       <DesignSystem.liquid_container max_width="lg" class="py-8">
-        <div class="mb-6 flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+        <div class="mb-6 flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 max-w-3xl">
           <.phx_icon
             name="hero-wrench-screwdriver"
             class="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0"
@@ -65,11 +66,17 @@ defmodule MossletWeb.BlueskySettingsLive do
           </div>
         </div>
 
+        <.dev_preview_toggle
+          :if={Mosslet.config(:env) == :dev}
+          bluesky_account={@bluesky_account}
+          dev_preview_mode={@dev_preview_mode}
+        />
+
         <div class="space-y-6 max-w-3xl">
-          <%= if @bluesky_account do %>
+          <%= if show_connected_card?(@bluesky_account, @dev_preview_mode) do %>
             <.connected_account_card
-              account={@bluesky_account}
-              sync_form={@sync_form}
+              account={preview_account(@bluesky_account, @dev_preview_mode)}
+              sync_form={preview_sync_form(@sync_form, @dev_preview_mode)}
             />
           <% else %>
             <.connect_with_oauth_card />
@@ -193,6 +200,69 @@ defmodule MossletWeb.BlueskySettingsLive do
             </div>
           </div>
         </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp dev_preview_toggle(assigns) do
+    ~H"""
+    <div class="mb-6 flex items-center gap-3 rounded-lg border border-purple-200 dark:border-purple-800/50 bg-purple-50 dark:bg-purple-900/20 px-4 py-3 max-w-3xl">
+      <.phx_icon
+        name="hero-beaker"
+        class="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0"
+      />
+      <div class="flex-1">
+        <p class="text-sm text-purple-800 dark:text-purple-200">
+          <span class="font-semibold">Dev Preview</span> — Toggle UI state for testing/a11y review
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          phx-click="set_dev_preview"
+          phx-value-mode=""
+          class={[
+            "px-2 py-1 text-xs font-medium rounded transition-colors",
+            if(@dev_preview_mode == nil,
+              do: "bg-purple-600 text-white",
+              else:
+                "bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-300 dark:hover:bg-purple-700"
+            )
+          ]}
+        >
+          Actual
+        </button>
+        <button
+          type="button"
+          phx-click="set_dev_preview"
+          phx-value-mode="connected"
+          class={[
+            "px-2 py-1 text-xs font-medium rounded transition-colors",
+            if(@dev_preview_mode == :connected,
+              do: "bg-purple-600 text-white",
+              else:
+                "bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-300 dark:hover:bg-purple-700"
+            )
+          ]}
+        >
+          Connected
+        </button>
+        <button
+          type="button"
+          phx-click="set_dev_preview"
+          phx-value-mode="disconnected"
+          class={[
+            "px-2 py-1 text-xs font-medium rounded transition-colors",
+            if(@dev_preview_mode == :disconnected,
+              do: "bg-purple-600 text-white",
+              else:
+                "bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-300 dark:hover:bg-purple-700"
+            )
+          ]}
+        >
+          Disconnected
+        </button>
       </div>
     </div>
     """
@@ -415,10 +485,14 @@ defmodule MossletWeb.BlueskySettingsLive do
                   "ml-7 mt-2 transition-opacity duration-200",
                   if(!@sync_form[:sync_posts_from_bsky].value, do: "opacity-50 pointer-events-none")
                 ]}>
-                  <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  <label
+                    for="sync_import_visibility"
+                    class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+                  >
                     Import visibility
                   </label>
                   <select
+                    id="sync_import_visibility"
                     name="sync[import_visibility]"
                     disabled={!@sync_form[:sync_posts_from_bsky].value}
                     class="w-48 text-sm px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:border-transparent disabled:opacity-50"
@@ -482,7 +556,7 @@ defmodule MossletWeb.BlueskySettingsLive do
                     />
                     <div class="text-xs text-sky-700 dark:text-sky-300">
                       <p class="font-medium mb-1">Current sync behavior:</p>
-                      <ul class="space-y-0.5 text-sky-600 dark:text-sky-400">
+                      <ul class="space-y-0.5 text-sky-700 dark:text-sky-300">
                         <%= if @sync_form[:sync_posts_to_bsky].value do %>
                           <li>• Public posts you create on Mosslet will appear on Bluesky</li>
                         <% end %>
@@ -507,9 +581,9 @@ defmodule MossletWeb.BlueskySettingsLive do
         </div>
 
         <div class="border-t border-sky-200 dark:border-sky-700 pt-6">
-          <h4 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
+          <h3 class="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">
             Manual Sync
-          </h4>
+          </h3>
           <div class="flex flex-wrap gap-3">
             <DesignSystem.liquid_button
               variant="secondary"
@@ -612,6 +686,25 @@ defmodule MossletWeb.BlueskySettingsLive do
       </div>
     </DesignSystem.liquid_card>
     """
+  end
+
+  @impl true
+  def handle_event("set_dev_preview", %{"mode" => mode}, socket) do
+    dev_preview_mode =
+      case mode do
+        "connected" -> :connected
+        "disconnected" -> :disconnected
+        _ -> nil
+      end
+
+    sync_form =
+      if dev_preview_mode == :connected and socket.assigns.sync_form == nil do
+        build_dummy_sync_form()
+      else
+        socket.assigns.sync_form
+      end
+
+    {:noreply, assign(socket, dev_preview_mode: dev_preview_mode, sync_form: sync_form)}
   end
 
   @impl true
@@ -773,5 +866,47 @@ defmodule MossletWeb.BlueskySettingsLive do
       diff < 604_800 -> "#{div(diff, 86400)} days ago"
       true -> Calendar.strftime(datetime, "%B %d, %Y")
     end
+  end
+
+  defp show_connected_card?(bluesky_account, dev_preview_mode) do
+    case dev_preview_mode do
+      :connected -> true
+      :disconnected -> false
+      nil -> bluesky_account != nil
+    end
+  end
+
+  defp preview_account(bluesky_account, dev_preview_mode) do
+    case dev_preview_mode do
+      :connected when is_nil(bluesky_account) -> build_dummy_account()
+      _ -> bluesky_account
+    end
+  end
+
+  defp preview_sync_form(sync_form, dev_preview_mode) do
+    case dev_preview_mode do
+      :connected when is_nil(sync_form) -> build_dummy_sync_form()
+      _ -> sync_form
+    end
+  end
+
+  defp build_dummy_account do
+    %{
+      handle: "preview.bsky.social",
+      last_synced_at: DateTime.utc_now() |> DateTime.add(-3600, :second)
+    }
+  end
+
+  defp build_dummy_sync_form do
+    to_form(
+      %{
+        "sync_enabled" => true,
+        "sync_posts_to_bsky" => true,
+        "sync_posts_from_bsky" => true,
+        "auto_delete_from_bsky" => false,
+        "import_visibility" => :private
+      },
+      as: :sync
+    )
   end
 end

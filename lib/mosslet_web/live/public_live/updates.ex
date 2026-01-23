@@ -73,10 +73,39 @@ defmodule MossletWeb.PublicLive.Updates do
 
               <div class="space-y-12">
                 <.changelog_entry
-                  version="0.16.0"
+                  version="0.17.0"
                   date="January 2026"
                   tag="Latest"
                   tag_color="emerald"
+                >
+                  <:title>Journal Pages & Bluesky Interop 🦋</:title>
+                  <:description>
+                    Big updates this release — beautiful new journal pages with an immersive reading layout for your books, and seamless Bluesky integration to import and export your posts.
+                  </:description>
+                  <:items>
+                    <.changelog_item icon="hero-book-open" color="emerald">
+                      Journal pages — easily, browse all entries in a book with the new list and pages view and hop directly from pages into our immersive reading layout
+                    </.changelog_item>
+                    <.changelog_item icon="hero-document-text" color="teal">
+                      Immersive reading layout — a beautiful, distraction-free view for reading through your journal books
+                    </.changelog_item>
+                    <.changelog_item icon="hero-cloud-arrow-down" color="blue">
+                      Bluesky import — bring your posts home to encrypted storage, safe even if you leave Bluesky
+                    </.changelog_item>
+                    <.changelog_item icon="hero-cloud-arrow-up" color="cyan">
+                      Bluesky export — use Bluesky for reach while MOSSLET stays your private, encrypted home base
+                    </.changelog_item>
+                    <.changelog_item icon="hero-arrow-path" color="purple">
+                      True data portability — your data travels with you, no lock-in on either platform
+                    </.changelog_item>
+                  </:items>
+                </.changelog_entry>
+
+                <.changelog_entry
+                  version="0.16.0"
+                  date="January 2026"
+                  tag="Feature"
+                  tag_color="blue"
                 >
                   <:title>Privacy-First Writing & Circle @Mentions 🔒</:title>
                   <:description>
