@@ -94,11 +94,14 @@ defmodule Mosslet.Bluesky.ImportTask do
   end
 
   defp fetch_and_import(account, user, session_key, cursor, limit, stats) do
+    signing_key = parse_signing_key(account.signing_key)
+
     opts =
       [
         limit: limit,
         pds_url: account.pds_url || "https://bsky.social",
-        dpop_proof: build_dpop_proof(account, "GET", "list_records")
+        dpop_proof: build_dpop_proof(account, "GET", "list_records"),
+        signing_key: signing_key
       ]
       |> maybe_add_cursor(cursor)
 
@@ -252,20 +255,40 @@ defmodule Mosslet.Bluesky.ImportTask do
   end
 
   defp handle_token_refresh(account, user, session_key, cursor, limit, stats) do
-    case Client.refresh_session(account.refresh_jwt,
-           pds_url: account.pds_url || "https://bsky.social"
-         ) do
-      {:ok, session} ->
+    signing_key = parse_signing_key(account.signing_key)
+
+    result =
+      if signing_key do
+        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      else
+        Client.refresh_session(account.refresh_jwt,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      end
+
+    case result do
+      {:ok, tokens} ->
         {:ok, updated_account} =
           Bluesky.refresh_tokens(account, %{
-            access_jwt: session.access_jwt,
-            refresh_jwt: session.refresh_jwt
+            access_jwt: tokens.access_token || tokens.access_jwt,
+            refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
           })
 
         fetch_and_import(updated_account, user, session_key, cursor, limit, stats)
 
       {:error, _reason} ->
         {:error, :token_refresh_failed}
+    end
+  end
+
+  defp parse_signing_key(nil), do: nil
+
+  defp parse_signing_key(signing_key_json) do
+    case Jason.decode(signing_key_json) do
+      {:ok, key} -> key
+      _ -> nil
     end
   end
 

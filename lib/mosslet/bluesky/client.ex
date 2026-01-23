@@ -129,6 +129,9 @@ defmodule Mosslet.Bluesky.Client do
 
   Should be called before the access token expires (typically 2 hours).
   Returns new access and refresh tokens.
+
+  Note: For OAuth-authenticated sessions, use `refresh_oauth_session/4` instead,
+  as OAuth tokens require DPoP proofs.
   """
   @spec refresh_session(String.t(), keyword()) :: {:ok, session()} | {:error, term()}
   def refresh_session(refresh_jwt, opts \\ []) do
@@ -136,6 +139,114 @@ defmodule Mosslet.Bluesky.Client do
 
     request(:post, pds_url, "/xrpc/com.atproto.server.refreshSession", %{}, auth: refresh_jwt)
   end
+
+  @doc """
+  Refreshes an OAuth-authenticated session using the refresh token with DPoP.
+
+  This is the correct method for OAuth tokens which require DPoP proofs.
+  Pass the signing key (private JWK) that was used during OAuth authorization.
+
+  ## Examples
+
+      {:ok, tokens} = refresh_oauth_session(refresh_token, signing_key_jwk)
+  """
+  @spec refresh_oauth_session(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def refresh_oauth_session(refresh_token, signing_key_jwk, opts \\ []) do
+    alias Mosslet.Bluesky.OAuth
+
+    with {:ok, metadata} <- fetch_oauth_metadata(),
+         public_jwk <- derive_public_jwk(signing_key_jwk),
+         {:ok, tokens} <-
+           do_oauth_refresh(metadata, refresh_token, signing_key_jwk, public_jwk, opts) do
+      {:ok, tokens}
+    end
+  end
+
+  defp fetch_oauth_metadata do
+    url = "https://bsky.social/.well-known/oauth-authorization-server"
+
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} when is_map(body) ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.error("Failed to fetch OAuth metadata: #{status} - #{inspect(body)}")
+        {:error, :metadata_fetch_failed}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp derive_public_jwk(%{"kty" => "EC", "crv" => crv, "x" => x, "y" => y} = jwk) do
+    %{"kty" => "EC", "crv" => crv, "x" => x, "y" => y, "kid" => jwk["kid"]}
+  end
+
+  defp do_oauth_refresh(metadata, refresh_token, private_jwk, public_jwk, opts, nonce \\ nil) do
+    alias Mosslet.Bluesky.OAuth
+
+    token_endpoint = metadata["token_endpoint"]
+
+    {:ok, dpop_proof} =
+      OAuth.create_dpop_proof(private_jwk, public_jwk, "POST", token_endpoint, nonce: nonce)
+
+    body = %{
+      "grant_type" => "refresh_token",
+      "refresh_token" => refresh_token,
+      "client_id" => OAuth.client_id()
+    }
+
+    case Req.post(token_endpoint,
+           form: body,
+           headers: [
+             {"DPoP", dpop_proof},
+             {"Content-Type", "application/x-www-form-urlencoded"}
+           ]
+         ) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok,
+         %{
+           access_token: body["access_token"],
+           refresh_token: body["refresh_token"],
+           token_type: body["token_type"],
+           expires_in: body["expires_in"]
+         }}
+
+      {:ok, %{status: 400, headers: headers, body: %{"error" => "use_dpop_nonce"}}}
+      when is_nil(nonce) ->
+        case get_dpop_nonce_from_headers(headers) do
+          {:ok, new_nonce} ->
+            do_oauth_refresh(metadata, refresh_token, private_jwk, public_jwk, opts, new_nonce)
+
+          :error ->
+            {:error, {:token_refresh_failed, "No nonce in use_dpop_nonce response"}}
+        end
+
+      {:ok, %{status: status, body: body}} ->
+        Logger.error("OAuth token refresh failed: #{status} - #{inspect(body)}")
+        {:error, {:token_refresh_failed, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp get_dpop_nonce_from_headers(headers) when is_map(headers) do
+    case Map.get(headers, "dpop-nonce") do
+      [nonce | _] -> {:ok, nonce}
+      nonce when is_binary(nonce) -> {:ok, nonce}
+      _ -> :error
+    end
+  end
+
+  defp get_dpop_nonce_from_headers(headers) when is_list(headers) do
+    case List.keyfind(headers, "dpop-nonce", 0) do
+      {_, nonce} -> {:ok, nonce}
+      nil -> :error
+    end
+  end
+
+  defp get_dpop_nonce_from_headers(_), do: :error
 
   @doc """
   Deletes the current session (logout).
@@ -659,6 +770,10 @@ defmodule Mosslet.Bluesky.Client do
   end
 
   defp request(method, pds_url, path, body_or_params, opts \\ []) do
+    do_request(method, pds_url, path, body_or_params, opts, _retried_nonce = false)
+  end
+
+  defp do_request(method, pds_url, path, body_or_params, opts, retried_nonce) do
     url = pds_url <> path
     headers = build_headers(opts)
     timeout = opts[:timeout] || @default_timeout
@@ -685,6 +800,11 @@ defmodule Mosslet.Bluesky.Client do
       {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
         {:ok, atomize_keys(body)}
 
+      {:ok,
+       %Req.Response{status: 400, headers: resp_headers, body: %{"error" => "use_dpop_nonce"}}}
+      when not retried_nonce ->
+        handle_dpop_nonce_retry(method, pds_url, path, body_or_params, opts, resp_headers)
+
       {:ok, %Req.Response{status: status, body: body}} ->
         error = atomize_keys(body)
 
@@ -699,6 +819,56 @@ defmodule Mosslet.Bluesky.Client do
         {:error, reason}
     end
   end
+
+  defp handle_dpop_nonce_retry(method, pds_url, path, body_or_params, opts, resp_headers) do
+    signing_key = opts[:signing_key]
+    access_token = opts[:auth]
+
+    case {signing_key, extract_dpop_nonce(resp_headers)} do
+      {nil, _} ->
+        Logger.warning("DPoP nonce required but no signing_key provided for retry")
+        {:error, {400, %{error: :use_dpop_nonce, message: "No signing key for nonce retry"}}}
+
+      {_, nil} ->
+        Logger.warning("DPoP nonce required but no nonce in response headers")
+        {:error, {400, %{error: :use_dpop_nonce, message: "No nonce in response"}}}
+
+      {signing_key, nonce} ->
+        Logger.debug("Retrying request with DPoP nonce")
+        url = pds_url <> path
+        public_key = derive_public_jwk(signing_key)
+
+        {:ok, new_dpop_proof} =
+          Mosslet.Bluesky.OAuth.create_dpop_proof(
+            signing_key,
+            public_key,
+            String.upcase(to_string(method)),
+            url,
+            nonce: nonce,
+            access_token: access_token
+          )
+
+        opts = Keyword.put(opts, :dpop_proof, new_dpop_proof)
+        do_request(method, pds_url, path, body_or_params, opts, true)
+    end
+  end
+
+  defp extract_dpop_nonce(headers) when is_map(headers) do
+    case Map.get(headers, "dpop-nonce") do
+      [nonce | _] -> nonce
+      nonce when is_binary(nonce) -> nonce
+      _ -> nil
+    end
+  end
+
+  defp extract_dpop_nonce(headers) when is_list(headers) do
+    case List.keyfind(headers, "dpop-nonce", 0) do
+      {_, nonce} -> nonce
+      nil -> nil
+    end
+  end
+
+  defp extract_dpop_nonce(_), do: nil
 
   defp build_headers(opts) do
     content_type = opts[:content_type] || "application/json"
