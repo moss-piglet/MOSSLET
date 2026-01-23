@@ -567,7 +567,7 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
       {post.post.id,
        %{
          show: true,
-         datetime: post.timestamp,
+         datetime: post.inserted_at,
          first: Map.get(post, :first_separator, false)
        }}
     end)
@@ -862,6 +862,8 @@ defmodule MossletWeb.PublicLive.PublicTimeline do
                       images={item.images}
                       decrypted_url_preview={item.url_preview}
                       url_preview_fetched_at={item.post.url_preview_fetched_at}
+                      external_uri={item.post.external_uri}
+                      source={item.post.source}
                       stats={%{replies: item.reply_count, likes: item.post.favs_count || 0}}
                     />
                   </div>

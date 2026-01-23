@@ -90,13 +90,13 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
 
   defp export_single_post(post, account) do
     decrypted_body = decrypt_post_body(post, account.user)
-
-    {_text, facets} = Client.parse_facets(decrypted_body)
     signing_key = parse_signing_key(account.signing_key)
 
     Logger.info(
       "[BlueskyExport] Attempting export for @#{account.handle}, did: #{account.did}, has_signing_key: #{signing_key != nil}"
     )
+
+    {export_text, facets} = prepare_post_for_export(decrypted_body, post.id)
 
     opts =
       [
@@ -105,7 +105,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
       ]
       |> maybe_add_dpop_proof(account, signing_key)
 
-    case Client.create_post(account.access_jwt, account.did, decrypted_body, opts) do
+    case Client.create_post(account.access_jwt, account.did, export_text, opts) do
       {:ok, %{uri: uri, cid: cid}} ->
         Timeline.mark_post_as_synced_to_bluesky(post, uri, cid)
         Logger.debug("[BlueskyExport] Exported post #{post.id} -> #{uri}")
@@ -160,10 +160,45 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
+  @bluesky_max_graphemes 300
+
+  defp prepare_post_for_export(text, post_id) do
+    grapheme_count = String.graphemes(text) |> length()
+
+    if grapheme_count <= @bluesky_max_graphemes do
+      Client.parse_facets(text)
+    else
+      truncate_with_link(text, post_id)
+    end
+  end
+
+  defp truncate_with_link(text, post_id) do
+    host = Application.get_env(:mosslet, :canonical_host) || "mosslet.com"
+    scheme = if String.contains?(host, "localhost"), do: "http", else: "https"
+    post_url = "#{scheme}://#{host}/app/posts/#{post_id}"
+
+    suffix = "\n\n📖 #{post_url}"
+    suffix_graphemes = String.graphemes(suffix) |> length()
+    available = @bluesky_max_graphemes - suffix_graphemes - 1
+
+    truncated =
+      text
+      |> String.graphemes()
+      |> Enum.take(available)
+      |> Enum.join()
+      |> String.trim_trailing()
+
+    final_text = truncated <> "…" <> suffix
+
+    {_text, facets} = Client.parse_facets(final_text)
+    {final_text, facets}
+  end
+
   defp export_single_post_no_refresh(post, account) do
     decrypted_body = decrypt_post_body(post, account.user)
-    {_text, facets} = Client.parse_facets(decrypted_body)
     signing_key = parse_signing_key(account.signing_key)
+
+    {export_text, facets} = prepare_post_for_export(decrypted_body, post.id)
 
     opts =
       [
@@ -172,7 +207,7 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
       ]
       |> maybe_add_dpop_proof(account, signing_key)
 
-    case Client.create_post(account.access_jwt, account.did, decrypted_body, opts) do
+    case Client.create_post(account.access_jwt, account.did, export_text, opts) do
       {:ok, %{uri: uri, cid: cid}} ->
         Timeline.mark_post_as_synced_to_bluesky(post, uri, cid)
         Logger.debug("[BlueskyExport] Exported post #{post.id} -> #{uri}")

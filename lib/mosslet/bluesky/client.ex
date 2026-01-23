@@ -807,14 +807,16 @@ defmodule Mosslet.Bluesky.Client do
   end
 
   defp extract_link_facets(text) do
-    regex = ~r/https?:\/\/[^\s<>\[\]()]+/
+    regex = ~r/https?:\/\/[^\s<>\[\]]+/
 
     Regex.scan(regex, text, return: :index)
     |> Enum.map(fn [{start, length} | _] ->
-      uri = String.slice(text, start, length)
+      raw_uri = String.slice(text, start, length)
+      uri = clean_uri(raw_uri)
+      actual_length = byte_size(uri)
 
       %{
-        "index" => %{"byteStart" => start, "byteEnd" => start + length},
+        "index" => %{"byteStart" => start, "byteEnd" => start + actual_length},
         "features" => [
           %{
             "$type" => "app.bsky.richtext.facet#link",
@@ -823,6 +825,43 @@ defmodule Mosslet.Bluesky.Client do
         ]
       }
     end)
+    |> Enum.filter(fn facet ->
+      uri = get_in(facet, ["features", Access.at(0), "uri"])
+      valid_uri?(uri)
+    end)
+  end
+
+  defp clean_uri(uri) do
+    uri
+    |> String.trim_trailing(".")
+    |> String.trim_trailing(",")
+    |> String.trim_trailing(";")
+    |> String.trim_trailing(":")
+    |> String.trim_trailing("!")
+    |> String.trim_trailing("?")
+    |> String.trim_trailing(")")
+    |> balance_parens()
+  end
+
+  defp balance_parens(uri) do
+    open_count = uri |> String.graphemes() |> Enum.count(&(&1 == "("))
+    close_count = uri |> String.graphemes() |> Enum.count(&(&1 == ")"))
+
+    if close_count > open_count do
+      String.trim_trailing(uri, ")")
+    else
+      uri
+    end
+  end
+
+  defp valid_uri?(uri) do
+    case URI.parse(uri) do
+      %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and is_binary(host) ->
+        String.contains?(host, ".")
+
+      _ ->
+        false
+    end
   end
 
   defp extract_hashtag_facets(text) do
