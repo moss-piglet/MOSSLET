@@ -637,15 +637,16 @@ defmodule MossletWeb.JournalLive.Book do
     <div
       id="immersive-reader"
       class="fixed inset-0 flex flex-col bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"
-      x-data="{ headerVisible: true, footerVisible: true, cursorVisible: true, userInteracted: false, hideTimer: null, cursorTimer: null, startHideTimer() { clearTimeout(this.hideTimer); this.hideTimer = setTimeout(() => { this.headerVisible = false; this.footerVisible = false; }, 2500); }, startCursorTimer() { clearTimeout(this.cursorTimer); this.cursorTimer = setTimeout(() => { this.cursorVisible = false; }, 2500); } }"
+      x-data="{ headerVisible: true, footerVisible: true, cursorVisible: true, mouseActive: false, userInteracted: false, hideTimer: null, cursorTimer: null, mouseTimer: null, lastMouseX: -1, lastMouseY: -1, startHideTimer() { clearTimeout(this.hideTimer); this.hideTimer = setTimeout(() => { this.headerVisible = false; this.footerVisible = false; }, 2500); }, startCursorTimer() { clearTimeout(this.cursorTimer); this.cursorTimer = setTimeout(() => { this.cursorVisible = false; }, 2500); }, startMouseTimer() { clearTimeout(this.mouseTimer); this.mouseTimer = setTimeout(() => { this.mouseActive = false; }, 2500); }, handleMouseMove(e) { if (e.clientX !== this.lastMouseX || e.clientY !== this.lastMouseY) { this.lastMouseX = e.clientX; this.lastMouseY = e.clientY; this.cursorVisible = true; this.mouseActive = true; this.startCursorTimer(); this.startMouseTimer(); } } }"
       x-init="hideTimer = setTimeout(() => { if (!userInteracted) { headerVisible = false; footerVisible = false; } }, 3000); cursorTimer = setTimeout(() => { cursorVisible = false; }, 2500);"
-      x-bind:class="!cursorVisible && 'cursor-hidden'"
-      @mousemove="cursorVisible = true; startCursorTimer()"
+      x-bind:class="{ 'cursor-hidden': !cursorVisible, 'mouse-active': mouseActive }"
+      @mousemove="handleMouseMove($event)"
+      @touchstart="mouseActive = true; startMouseTimer()"
     >
       <header
         class="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'"
-        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true; clearTimeout(hideTimer)"
+        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; mouseActive = true; userInteracted = true; clearTimeout(hideTimer); startMouseTimer()"
         @mouseleave="startHideTimer()"
       >
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -694,8 +695,8 @@ defmodule MossletWeb.JournalLive.Book do
       <div
         class="fixed top-0 left-0 right-0 h-8 z-50"
         x-show="!headerVisible"
-        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
-        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
+        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; mouseActive = true; userInteracted = true; startMouseTimer()"
+        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; mouseActive = true; userInteracted = true; startMouseTimer()"
       >
       </div>
 
@@ -771,7 +772,7 @@ defmodule MossletWeb.JournalLive.Book do
       <footer
         class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
         x-bind:class="footerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'"
-        @mouseenter="footerVisible = true; headerVisible = true; cursorVisible = true; userInteracted = true; clearTimeout(hideTimer)"
+        @mouseenter="footerVisible = true; headerVisible = true; cursorVisible = true; mouseActive = true; userInteracted = true; clearTimeout(hideTimer); startMouseTimer()"
         @mouseleave="startHideTimer()"
       >
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -825,8 +826,8 @@ defmodule MossletWeb.JournalLive.Book do
       <div
         class="fixed bottom-0 left-0 right-0 h-4 z-50"
         x-show="!footerVisible"
-        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
-        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; userInteracted = true"
+        @mouseenter="headerVisible = true; footerVisible = true; cursorVisible = true; mouseActive = true; userInteracted = true; startMouseTimer()"
+        @touchstart="headerVisible = true; footerVisible = true; cursorVisible = true; mouseActive = true; userInteracted = true; startMouseTimer()"
       >
       </div>
     </div>

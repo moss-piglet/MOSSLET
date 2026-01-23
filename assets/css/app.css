@@ -1077,19 +1077,9 @@ trix-editor {
   cursor: none !important;
 }
 
-/* Disable hover effects when cursor is hidden */
-.cursor-hidden *:hover {
-  background-color: inherit !important;
-  box-shadow: none !important;
-}
-
-.cursor-hidden .group-hover\:opacity-100 {
-  opacity: 0 !important;
-}
-
-.cursor-hidden .group-hover\:text-emerald-600,
-.cursor-hidden .dark\:group-hover\:text-emerald-400 {
-  color: inherit !important;
+/* Hide click hints when mouse is not actively being used */
+#immersive-reader:not(.mouse-active) .click-hint {
+  display: none !important;
 }
 
 
