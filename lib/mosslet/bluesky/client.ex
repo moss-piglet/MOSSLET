@@ -876,8 +876,8 @@ defmodule Mosslet.Bluesky.Client do
         {:ok, atomize_keys(body)}
 
       {:ok,
-       %Req.Response{status: 400, headers: resp_headers, body: %{"error" => "use_dpop_nonce"}}}
-      when not retried_nonce ->
+       %Req.Response{status: status, headers: resp_headers, body: %{"error" => "use_dpop_nonce"}}}
+      when status in [400, 401] and not retried_nonce ->
         handle_dpop_nonce_retry(method, pds_url, path, body_or_params, opts, resp_headers)
 
       {:ok, %Req.Response{status: status, body: body}} ->
