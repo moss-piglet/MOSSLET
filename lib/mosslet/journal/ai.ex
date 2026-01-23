@@ -213,12 +213,14 @@ defmodule Mosslet.Journal.AI do
       case ReqLLM.generate_text(
              Config.text_model(),
              "Analyze these mood patterns",
-             Config.text_opts(system_prompt: system_prompt)
+             Config.text_opts(system_prompt: system_prompt, max_tokens: 500)
            ) do
         {:ok, response} ->
           {:ok, ReqLLM.Response.text(response)}
 
         {:error, reason} ->
+          require Logger
+          Logger.error("Mood insights generation failed: #{inspect(reason)}")
           {:error, reason}
       end
     end
