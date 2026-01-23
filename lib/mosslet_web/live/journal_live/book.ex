@@ -4,8 +4,6 @@ defmodule MossletWeb.JournalLive.Book do
   """
   use MossletWeb, :live_view
 
-  import MossletWeb.LocalTime, only: [local_time: 1]
-
   alias Mosslet.Accounts
   alias Mosslet.Journal
   alias Mosslet.Journal.JournalBook
@@ -701,75 +699,74 @@ defmodule MossletWeb.JournalLive.Book do
       >
       </div>
 
-      <div
-        id="book-scroll-container"
-        class="book-reader-container"
-        phx-hook="BookScrollReader"
-        data-initial-page={@current_page}
-        data-target-entry-id={@target_entry_id}
-        data-entry-count={length(@entries)}
-        data-book-id={@book.id}
-      >
-        <div class="book-column-page-full" data-page-type="cover">
-          <.immersive_front_cover
-            book={@book}
-            decrypted_title={@decrypted_title}
-            decrypted_description={@decrypted_description}
-            decrypted_cover_image_url={@decrypted_cover_image_url}
-          />
-        </div>
-
+      <main role="main" aria-label="Book reader">
         <div
-          class="book-first-page-blank bg-white/95 dark:bg-slate-800/95 items-center justify-center relative"
-          data-page-type="title"
+          id="book-scroll-container"
+          class="book-reader-container"
+          tabindex="0"
+          phx-hook="BookScrollReader"
+          data-initial-page={@current_page}
+          data-target-entry-id={@target_entry_id}
+          data-entry-count={length(@entries)}
+          data-book-id={@book.id}
         >
-          <div class="text-center px-8 max-w-md">
-            <p class="text-sm text-slate-500 dark:text-slate-400 font-light italic leading-relaxed">
-              {if @decrypted_description, do: @decrypted_description, else: "A journal"}
-            </p>
-            <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">
-              Published <.local_time for={@book.inserted_at} format="yyyy" />
-              by {@decrypted_username}.
-              © <.local_time for={DateTime.utc_now()} format="yyyy" /> All rights reserved.
-            </p>
+          <div class="book-column-page-full" data-page-type="cover">
+            <.immersive_front_cover
+              book={@book}
+              decrypted_title={@decrypted_title}
+              decrypted_description={@decrypted_description}
+              decrypted_cover_image_url={@decrypted_cover_image_url}
+            />
+          </div>
+
+          <div
+            class="book-first-page-blank bg-white/95 dark:bg-slate-800/95 items-center justify-center relative"
+            data-page-type="title"
+          >
+            <.title_page
+              decrypted_title={@decrypted_title}
+              decrypted_description={@decrypted_description}
+              decrypted_username={@decrypted_username}
+              entries={@entries}
+            />
+          </div>
+
+          <div
+            :for={{entry, entry_idx} <- Enum.with_index(@entries)}
+            id={"entry-flow-#{entry.id}"}
+            class="book-entry-flow-wrapper"
+            data-entry-id={entry.id}
+            data-entry-index={entry_idx}
+            phx-update="ignore"
+          >
+            <.entry_column_flow
+              entry={entry}
+              entry_idx={entry_idx}
+              book_id={@book.id}
+            />
+          </div>
+
+          <div
+            class="book-content-blank-page bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 items-center justify-center relative"
+            data-page-type="content-blank"
+          >
+            <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
+          </div>
+
+          <div class="book-end-page" data-page-type="end">
+            <.the_end_page decrypted_username={@decrypted_username} />
+          </div>
+
+          <div class="book-column-page-full" data-page-type="back-cover">
+            <.immersive_back_cover
+              book={@book}
+              decrypted_title={@decrypted_title}
+              decrypted_cover_image_url={@decrypted_cover_image_url}
+              current_scope={@current_scope}
+            />
           </div>
         </div>
-
-        <div
-          :for={{entry, entry_idx} <- Enum.with_index(@entries)}
-          id={"entry-flow-#{entry.id}"}
-          class="book-entry-flow-wrapper"
-          data-entry-id={entry.id}
-          data-entry-index={entry_idx}
-          phx-update="ignore"
-        >
-          <.entry_column_flow
-            entry={entry}
-            entry_idx={entry_idx}
-            book_id={@book.id}
-          />
-        </div>
-
-        <div
-          class="book-content-blank-page bg-gradient-to-br from-amber-50/30 via-stone-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 items-center justify-center relative"
-          data-page-type="content-blank"
-        >
-          <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
-        </div>
-
-        <div class="book-end-page" data-page-type="end">
-          <.the_end_page decrypted_username={@decrypted_username} />
-        </div>
-
-        <div class="book-column-page-full" data-page-type="back-cover">
-          <.immersive_back_cover
-            book={@book}
-            decrypted_title={@decrypted_title}
-            decrypted_cover_image_url={@decrypted_cover_image_url}
-            current_scope={@current_scope}
-          />
-        </div>
-      </div>
+      </main>
 
       <footer
         class="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-700/50 transition-all duration-300"
@@ -894,6 +891,80 @@ defmodule MossletWeb.JournalLive.Book do
     """
   end
 
+  attr :decrypted_title, :string, required: true
+  attr :decrypted_description, :string, default: nil
+  attr :decrypted_username, :string, required: true
+  attr :entries, :list, required: true
+
+  defp title_page(assigns) do
+    entry_count = length(assigns.entries)
+
+    {earliest_date, latest_date} =
+      assigns.entries
+      |> Enum.map(& &1.entry_date)
+      |> Enum.reject(&is_nil/1)
+      |> case do
+        [] -> {nil, nil}
+        dates -> {Enum.min(dates, Date), Enum.max(dates, Date)}
+      end
+
+    assigns =
+      assigns
+      |> assign(:entry_count, entry_count)
+      |> assign(:earliest_date, earliest_date)
+      |> assign(:latest_date, latest_date)
+
+    ~H"""
+    <div class="text-center px-8 max-w-md h-full flex flex-col items-center justify-between py-16">
+      <div class="flex-1 flex flex-col items-center justify-center gap-8">
+        <div class="text-slate-400 dark:text-slate-500 text-lg tracking-widest">✦</div>
+
+        <h1 class="text-2xl sm:text-3xl font-serif text-slate-800 dark:text-slate-200 tracking-wide">
+          {@decrypted_title}
+        </h1>
+
+        <div class="w-12 h-px bg-slate-300 dark:bg-slate-600" />
+
+        <p
+          :if={@decrypted_description}
+          class="text-sm text-slate-500 dark:text-slate-400 font-light italic leading-relaxed max-w-xs"
+        >
+          {@decrypted_description}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center gap-1">
+        <p class="text-xs text-slate-400 dark:text-slate-500 tracking-wide">
+          <span :if={@earliest_date && @latest_date}>
+            {format_date_range(@earliest_date, @latest_date)}
+          </span>
+          <span :if={@earliest_date && @latest_date} class="mx-1.5">·</span>
+          <span>{entry_count_text(@entry_count)}</span>
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  defp format_date_range(earliest, latest) do
+    cond do
+      earliest == latest ->
+        Calendar.strftime(earliest, "%B %d, %Y")
+
+      earliest.year == latest.year && earliest.month == latest.month ->
+        "#{Calendar.strftime(earliest, "%B %d")} – #{Calendar.strftime(latest, "%d, %Y")}"
+
+      earliest.year == latest.year ->
+        "#{Calendar.strftime(earliest, "%B %d")} – #{Calendar.strftime(latest, "%B %d, %Y")}"
+
+      true ->
+        "#{Calendar.strftime(earliest, "%B %Y")} – #{Calendar.strftime(latest, "%B %Y")}"
+    end
+  end
+
+  defp entry_count_text(1), do: "1 entry"
+  defp entry_count_text(count), do: "#{count} entries"
+
   attr :decrypted_username, :string, required: true
 
   defp the_end_page(assigns) do
@@ -905,11 +976,12 @@ defmodule MossletWeb.JournalLive.Book do
       <div class="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-100 via-transparent to-transparent" />
     </div>
     <div class="book-end-content-page bg-white/95 dark:bg-slate-800/95 flex items-center justify-center">
-      <div class="text-center px-6">
-        <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300 mb-8">
+      <div class="text-center px-6 flex flex-col items-center gap-6">
+        <p class="text-3xl sm:text-4xl font-serif italic text-slate-700 dark:text-slate-300">
           The End
         </p>
-        <div class="w-16 h-0.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-8" />
+        <div class="w-12 h-px bg-slate-300 dark:bg-slate-600" />
+        <div class="text-slate-400 dark:text-slate-500 text-lg tracking-widest">✦</div>
       </div>
     </div>
     """
