@@ -187,6 +187,23 @@ defmodule Mosslet.Bluesky.Client do
   end
 
   @doc """
+  Describes a repository and returns its handle and other metadata.
+
+  This uses the `com.atproto.repo.describeRepo` endpoint which works with the
+  `atproto` OAuth scope (unlike `app.bsky.actor.getProfile` which requires app-level scope).
+
+  ## Examples
+
+      {:ok, %{handle: "alice.bsky.social", did: "did:plc:..."}} = describe_repo(jwt, "did:plc:...")
+  """
+  @spec describe_repo(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def describe_repo(access_jwt, repo, opts \\ []) do
+    pds_url = opts[:pds_url] || @default_pds
+
+    request(:get, pds_url, "/xrpc/com.atproto.repo.describeRepo", %{repo: repo}, auth: access_jwt)
+  end
+
+  @doc """
   Resolves a handle to a DID.
 
   ## Examples
