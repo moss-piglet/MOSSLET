@@ -73,26 +73,60 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     decrypted_body = decrypt_post_body(post, account.user)
 
     {_text, facets} = Client.parse_facets(decrypted_body)
+    signing_key = parse_signing_key(account.signing_key)
 
-    case Client.create_post(
-           account.access_jwt,
-           account.did,
-           decrypted_body,
-           facets: facets,
-           pds_url: account.pds_url || "https://bsky.social"
-         ) do
+    opts =
+      [
+        facets: facets,
+        pds_url: account.pds_url || "https://bsky.social"
+      ]
+      |> maybe_add_dpop_proof(account, signing_key)
+
+    case Client.create_post(account.access_jwt, account.did, decrypted_body, opts) do
       {:ok, %{uri: uri, cid: cid}} ->
         Timeline.mark_post_as_synced_to_bluesky(post, uri, cid)
         Logger.debug("[BlueskyExport] Exported post #{post.id} -> #{uri}")
         :ok
 
+      {:error, {status, %{error: "ExpiredToken"}}} when status in [400, 401] ->
+        Logger.warning("[BlueskyExport] Auth expired, will retry")
+        handle_token_refresh_and_retry(post, account, signing_key)
+
       {:error, {401, _}} ->
         Logger.warning("[BlueskyExport] Auth expired, will retry")
-        handle_token_refresh_and_retry(post, account)
+        handle_token_refresh_and_retry(post, account, signing_key)
 
       {:error, reason} ->
         Logger.error("[BlueskyExport] Failed to export post #{post.id}: #{inspect(reason)}")
         {:error, reason}
+    end
+  end
+
+  defp maybe_add_dpop_proof(opts, _account, nil), do: opts
+
+  defp maybe_add_dpop_proof(opts, account, signing_key) do
+    public_key = derive_public_key(signing_key)
+    pds_url = account.pds_url || "https://bsky.social"
+    url = "#{pds_url}/xrpc/com.atproto.repo.createRecord"
+
+    case Mosslet.Bluesky.OAuth.create_dpop_proof(signing_key, public_key, "POST", url,
+           access_token: account.access_jwt
+         ) do
+      {:ok, proof} -> Keyword.merge(opts, dpop_proof: proof, signing_key: signing_key)
+      _ -> opts
+    end
+  end
+
+  defp derive_public_key(%{"kty" => "EC", "crv" => crv, "x" => x, "y" => y}) do
+    %{"kty" => "EC", "crv" => crv, "x" => x, "y" => y}
+  end
+
+  defp parse_signing_key(nil), do: nil
+
+  defp parse_signing_key(signing_key_json) do
+    case Jason.decode(signing_key_json) do
+      {:ok, key} -> key
+      _ -> nil
     end
   end
 
@@ -103,20 +137,33 @@ defmodule Mosslet.Bluesky.Workers.ExportSyncWorker do
     end
   end
 
-  defp handle_token_refresh_and_retry(post, account) do
-    case Client.refresh_session(account.refresh_jwt,
-           pds_url: account.pds_url || "https://bsky.social"
-         ) do
-      {:ok, session} ->
+  defp handle_token_refresh_and_retry(post, account, signing_key) do
+    result =
+      if signing_key do
+        Client.refresh_oauth_session(account.refresh_jwt, signing_key,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      else
+        Client.refresh_session(account.refresh_jwt,
+          pds_url: account.pds_url || "https://bsky.social"
+        )
+      end
+
+    case result do
+      {:ok, tokens} ->
         {:ok, updated_account} =
           Bluesky.refresh_tokens(account, %{
-            access_jwt: session.access_jwt,
-            refresh_jwt: session.refresh_jwt
+            access_jwt: tokens.access_token || tokens.access_jwt,
+            refresh_jwt: tokens.refresh_token || tokens.refresh_jwt
           })
 
         export_single_post(post, updated_account)
 
-      {:error, _} ->
+      {:error, reason} ->
+        Logger.error(
+          "[BlueskyExport] Token refresh failed for @#{account.handle}: #{inspect(reason)}"
+        )
+
         {:error, :token_refresh_failed}
     end
   end
