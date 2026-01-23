@@ -3363,6 +3363,7 @@ defmodule MossletWeb.DesignSystem do
   attr :url_preview, :map, default: nil
   attr :url_preview_loading, :boolean, default: false
   attr :collapsed, :boolean, default: false
+  attr :bluesky_sync_enabled, :boolean, default: false
 
   def liquid_timeline_composer_enhanced(assigns) do
     assigns = assign_scope_fields(assigns)
@@ -3676,6 +3677,26 @@ defmodule MossletWeb.DesignSystem do
                 name={if @privacy_controls_expanded, do: "hero-chevron-up", else: "hero-chevron-down"}
                 class="h-3 w-3 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-hover:scale-110"
               />
+            </div>
+
+            <%!-- Bluesky sync indicator (shows when public + sync enabled) --%>
+            <div
+              :if={@selector == "public" && @bluesky_sync_enabled}
+              class={[
+                "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs",
+                "w-full sm:w-auto justify-center",
+                "bg-sky-50/80 dark:bg-sky-900/30 backdrop-blur-sm",
+                "border border-sky-200/60 dark:border-sky-700/50",
+                "text-sky-600 dark:text-sky-400"
+              ]}
+              phx-hook="TippyHook"
+              data-tippy-content="This post will sync to your connected Bluesky account"
+              id="bluesky-sync-indicator"
+            >
+              <svg class="h-3.5 w-3.5" viewBox="0 0 568 501" fill="currentColor">
+                <path d="M123.121 33.6637C188.241 82.5526 258.281 181.681 284 234.873C309.719 181.681 379.759 82.5526 444.879 33.6637C491.866 -1.61183 568 -28.9064 568 57.9464C568 75.2916 558.055 203.659 552.222 224.501C531.947 296.954 458.067 315.434 392.347 304.249C507.222 323.8 536.444 388.56 473.333 453.32C353.473 576.312 301.061 422.461 287.631 383.36C286.267 378.309 284.737 377.78 284 377.78C283.263 377.78 281.733 378.309 280.369 383.36C266.939 422.461 214.527 576.312 94.6667 453.32C31.5556 388.56 60.7778 323.8 175.653 304.249C109.933 315.434 36.0533 296.954 15.7778 224.501C9.94445 203.659 0 75.2916 0 57.9464C0 -28.9064 76.1345 -1.61183 123.121 33.6637Z" />
+              </svg>
+              <span class="font-medium">Syncs to Bluesky</span>
             </div>
 
             <%!-- Post button with mobile-friendly full width --%>
@@ -5891,6 +5912,30 @@ defmodule MossletWeb.DesignSystem do
               <span class="truncate">{@user_handle}</span>
               <span class="text-slate-400 dark:text-slate-500">•</span>
               <time class="flex-shrink-0">{@timestamp}</time>
+              <%!-- Bluesky sync indicator --%>
+              <span
+                :if={@post.external_uri && @post.source == :mosslet}
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border border-sky-200/50 dark:border-sky-700/40"
+                phx-hook="TippyHook"
+                data-tippy-content="Synced to Bluesky"
+                id={"bluesky-badge-#{@post.id}"}
+              >
+                <svg class="h-2.5 w-2.5" viewBox="0 0 568 501" fill="currentColor">
+                  <path d="M123.121 33.6637C188.241 82.5526 258.281 181.681 284 234.873C309.719 181.681 379.759 82.5526 444.879 33.6637C491.866 -1.61183 568 -28.9064 568 57.9464C568 75.2916 558.055 203.659 552.222 224.501C531.947 296.954 458.067 315.434 392.347 304.249C507.222 323.8 536.444 388.56 473.333 453.32C353.473 576.312 301.061 422.461 287.631 383.36C286.267 378.309 284.737 377.78 284 377.78C283.263 377.78 281.733 378.309 280.369 383.36C266.939 422.461 214.527 576.312 94.6667 453.32C31.5556 388.56 60.7778 323.8 175.653 304.249C109.933 315.434 36.0533 296.954 15.7778 224.501C9.94445 203.659 0 75.2916 0 57.9464C0 -28.9064 76.1345 -1.61183 123.121 33.6637Z" />
+                </svg>
+              </span>
+              <%!-- Imported from Bluesky indicator --%>
+              <span
+                :if={@post.source == :bluesky}
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-600/40"
+                phx-hook="TippyHook"
+                data-tippy-content="Imported from Bluesky"
+                id={"bluesky-import-badge-#{@post.id}"}
+              >
+                <svg class="h-2.5 w-2.5" viewBox="0 0 568 501" fill="currentColor">
+                  <path d="M123.121 33.6637C188.241 82.5526 258.281 181.681 284 234.873C309.719 181.681 379.759 82.5526 444.879 33.6637C491.866 -1.61183 568 -28.9064 568 57.9464C568 75.2916 558.055 203.659 552.222 224.501C531.947 296.954 458.067 315.434 392.347 304.249C507.222 323.8 536.444 388.56 473.333 453.32C353.473 576.312 301.061 422.461 287.631 383.36C286.267 378.309 284.737 377.78 284 377.78C283.263 377.78 281.733 378.309 280.369 383.36C266.939 422.461 214.527 576.312 94.6667 453.32C31.5556 388.56 60.7778 323.8 175.653 304.249C109.933 315.434 36.0533 296.954 15.7778 224.501C9.94445 203.659 0 75.2916 0 57.9464C0 -28.9064 76.1345 -1.61183 123.121 33.6637Z" />
+                </svg>
+              </span>
             </div>
           </div>
 

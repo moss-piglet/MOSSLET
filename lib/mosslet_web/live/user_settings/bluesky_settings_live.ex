@@ -516,7 +516,7 @@ defmodule MossletWeb.BlueskySettingsLive do
               color="blue"
               icon="hero-arrow-down-tray"
               phx-click="trigger_import"
-              disabled={!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_from_bsky].value}
+              disabled={!@sync_form[:sync_enabled].value}
             >
               Import from Bluesky
             </DesignSystem.liquid_button>
@@ -525,7 +525,7 @@ defmodule MossletWeb.BlueskySettingsLive do
               color="blue"
               icon="hero-arrow-up-tray"
               phx-click="trigger_export"
-              disabled={!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_to_bsky].value}
+              disabled={!@sync_form[:sync_enabled].value}
             >
               Export Public Posts
             </DesignSystem.liquid_button>
@@ -534,13 +534,13 @@ defmodule MossletWeb.BlueskySettingsLive do
               color="emerald"
               icon="hero-cloud-arrow-up"
               phx-click="show_export_all_modal"
-              disabled={!@sync_form[:sync_enabled].value || !@sync_form[:sync_posts_to_bsky].value}
+              disabled={!@sync_form[:sync_enabled].value}
             >
               Export All Posts
             </DesignSystem.liquid_button>
           </div>
           <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Sync runs automatically in the background. Use these buttons to trigger an immediate sync.
+            Use these buttons to trigger an immediate sync, even if automatic sync options are disabled.
           </p>
         </div>
 

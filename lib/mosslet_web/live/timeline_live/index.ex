@@ -192,6 +192,7 @@ defmodule MossletWeb.TimelineLive.Index do
       |> assign(:upload_stages, %{})
       |> assign(:completed_uploads, [])
       |> assign(:composer_trix_key, nil)
+      |> assign(:bluesky_sync_enabled, bluesky_sync_enabled?(current_user))
       |> stream(:posts, [])
       |> stream(:read_posts, [])
       |> assign(:timeline_data, AsyncResult.loading())
@@ -4324,6 +4325,7 @@ defmodule MossletWeb.TimelineLive.Index do
       {:ok, post} ->
         Accounts.track_user_activity(current_user, :post)
         process_email_notifications_for_offline_users(post, current_user, key)
+        maybe_enqueue_bluesky_export(post, current_user)
 
         clean_changeset =
           Timeline.change_post(
@@ -6854,4 +6856,25 @@ defmodule MossletWeb.TimelineLive.Index do
 
   defp get_async_banner_src(%AsyncResult{ok?: true, result: result}), do: result
   defp get_async_banner_src(_), do: nil
+
+  defp maybe_enqueue_bluesky_export(post, user) do
+    if post.visibility == :public && post.source == :mosslet do
+      case Mosslet.Bluesky.get_account_for_user(user.id) do
+        %{sync_enabled: true, sync_posts_to_bsky: true} = account ->
+          Mosslet.Bluesky.Workers.ExportSyncWorker.enqueue_single_post_export(post.id, account.id)
+
+        _ ->
+          :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  defp bluesky_sync_enabled?(user) do
+    case Mosslet.Bluesky.get_account_for_user(user.id) do
+      %{sync_enabled: true, sync_posts_to_bsky: true} -> true
+      _ -> false
+    end
+  end
 end
